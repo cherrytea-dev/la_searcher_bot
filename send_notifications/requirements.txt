@@ -1,0 +1,2 @@
+google-cloud-secret-manager==2.4.0
+python-telegram-bot==13.4.1
