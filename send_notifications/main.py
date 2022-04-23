@@ -25,10 +25,8 @@ def process_pubsub_message(event):
 
 def main_func(event, context): # noqa
 
-    pubsub_message = base64.b64decode(event['data']).decode('utf-8')
-    logging.info('script Send_Notifications received from pubsub: {}'.format(pubsub_message))  # noqa
-
     message_from_pubsub = process_pubsub_message(event)
+    logging.info(message_from_pubsub)
 
     logging.info('hello world')
 
