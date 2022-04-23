@@ -8,6 +8,7 @@ from telegram import Bot
 from google.cloud import secretmanager
 
 
+
 def process_pubsub_message(event):
     """main entry function"""
 
