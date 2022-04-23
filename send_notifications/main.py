@@ -23,7 +23,7 @@ def process_pubsub_message(event):
     return message_in_ascii
 
 
-def main(event, context): # noqa
+def main_func(event, context): # noqa
 
     pubsub_message = base64.b64decode(event['data']).decode('utf-8')
     logging.info('script Send_Notifications received from pubsub: {}'.format(pubsub_message))  # noqa
