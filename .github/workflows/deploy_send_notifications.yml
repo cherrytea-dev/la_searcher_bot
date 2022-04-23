@@ -25,7 +25,7 @@ jobs:
         id: deploy
         uses: google-github-actions/deploy-cloud-functions@v0.6.0
         with:
-            path: send_notifications # name of directory
+            source_dir: send_notifications # name of directory
             name: send_notifications
             runtime: python37
             entry_point: main_func
