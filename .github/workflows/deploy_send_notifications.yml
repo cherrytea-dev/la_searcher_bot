@@ -1,0 +1,36 @@
+name: Deploy-GCF-Send-Notifications
+
+on:
+  push:
+    branches : main
+    paths:
+      - 'send_notifications/main.py'
+      - 'send_notifications/requirements.txt'
+      - '.github/workflows/deploy_send_notifications'
+
+jobs:
+  deploy_function:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Authentificate in GCP
+        id: auth
+        uses: google-github-actions/auth@v0.4.0
+        with:
+          credentials_json: ${{ secrets.gcp_credentials }}
+
+      - name: Deploy the CF
+        id: deploy
+        uses: google-github-actions/deploy-cloud-functions@v0.6.0
+        with:
+            name: send_notifications
+            runtime: python37
+            entry_point: main
+            region: europe-west3
+            timeout: 60
+            # max_instances: 1
+            memory_mb: 8192
+            event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
+            event_trigger_resource: projects/lizaalert-bot-01/topics/topic_to_send_notifications
