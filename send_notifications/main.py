@@ -229,7 +229,7 @@ def check_for_notifs_to_send(conn, userid):
                         LIMIT 1;
                         """)
 
-    msg_w_o_notif = conn.execute(sql_text, a=userid).fetchone
+    msg_w_o_notif = conn.execute(sql_text, a=userid).fetchone()
 
     return msg_w_o_notif
 
