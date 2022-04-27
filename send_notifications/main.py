@@ -267,6 +267,8 @@ def main_func(event, context): # noqa
                     # check if there are any non-notified users
                     msg_w_o_notif = check_for_notifs_to_send(conn, user)
 
+                    logging.info(str(msg_w_o_notif))
+
                     if msg_w_o_notif:
 
                         user_id = msg_w_o_notif[1]
