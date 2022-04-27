@@ -273,7 +273,14 @@ def main_func(event, context): # noqa
 
                         user_id = msg_w_o_notif[1]
                         message_id = msg_w_o_notif[0]
-                        message_content = msg_w_o_notif[5][:3500]  # limitation to avoid telegram "message too long"
+                        message_content = msg_w_o_notif[5]
+
+                        # limitation to avoid telegram "message too long"
+                        if len(message_content) > 3000:
+                            p1 = message_content[:1500]
+                            p2 = message_content[-1000:]
+                            message_content = p1 + p2
+
                         message_type = msg_w_o_notif[6]
                         message_params = ast.literal_eval(msg_w_o_notif[7])
                         message_group_id = msg_w_o_notif[8]
