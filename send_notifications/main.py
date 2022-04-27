@@ -280,13 +280,13 @@ def main_func(event, context): # noqa
                         change_log_id = msg_w_o_notif[9]
                         mailing_id = msg_w_o_notif[10]
 
-                        if message_params['parse_mode']:
+                        if 'parse_mode' in message_params:
                             parse_mode = message_params['parse_mode']
-                        if message_params['disable_web_page_preview']:
+                        if 'disable_web_page_preview' in message_params:
                             disable_web_page_preview = message_params['disable_web_page_preview']
-                        if message_params['latitude']:
+                        if 'latitude' in message_params:
                             latitude = message_params['latitude']
-                        if message_params['longitude']:
+                        if 'longitude' in message_params:
                             longitude = message_params['longitude']
 
                         try:
