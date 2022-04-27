@@ -283,7 +283,11 @@ def main_func(event, context): # noqa
                         if 'parse_mode' in message_params:
                             parse_mode = message_params['parse_mode']
                         if 'disable_web_page_preview' in message_params:
-                            disable_web_page_preview = message_params['disable_web_page_preview']
+                            disable_web_page_preview_text = message_params['disable_web_page_preview']
+                            if disable_web_page_preview_text == 'no_preview':
+                                disable_web_page_preview = True
+                            else:
+                                disable_web_page_preview = False
                         if 'latitude' in message_params:
                             latitude = message_params['latitude']
                         if 'longitude' in message_params:
