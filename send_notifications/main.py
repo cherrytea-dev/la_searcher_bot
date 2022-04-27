@@ -1,15 +1,25 @@
+import ast
+import time
 import datetime
 import os
 import base64
 import logging
+import json
+import sqlalchemy
 
 from telegram import Bot
 
 from google.cloud import secretmanager
+from google.cloud import pubsub_v1
+
+
+project_id = os.environ["GCP_PROJECT"]
+client = secretmanager.SecretManagerServiceClient()
+publisher = pubsub_v1.PublisherClient()
 
 
 def process_pubsub_message(event):
-    """main entry function"""
+    """get message from pub/sub notification"""
 
     # receiving message text from pub/sub
     try:
@@ -26,11 +36,342 @@ def process_pubsub_message(event):
     return message_in_ascii
 
 
+def get_secrets(secret_request):
+    """get secret stored in GCP"""
+
+    name = f"projects/{project_id}/secrets/{secret_request}/versions/latest"
+    response = client.access_secret_version(name=name)
+
+    return response.payload.data.decode("UTF-8")
+
+
+def sql_connect():
+    db_user = get_secrets("cloud-postgres-username")
+    db_pass = get_secrets("cloud-postgres-password")
+    db_name = get_secrets("cloud-postgres-db-name")
+    db_conn = get_secrets("cloud-postgres-connection-name")
+    db_socket_dir = "/cloudsql"
+    db_config = {
+        "pool_size": 20,
+        "max_overflow": 0,
+        "pool_timeout": 0,  # seconds
+        "pool_recycle": 0,  # seconds
+    }
+    try:
+        pool = sqlalchemy.create_engine(
+            sqlalchemy.engine.url.URL(
+                drivername="postgresql+pg8000",
+                username=db_user,
+                password=db_pass,
+                database=db_name,
+                query={
+                    "unix_sock": "{}/{}/.s.PGSQL.5432".format(
+                        db_socket_dir,
+                        db_conn)
+                }
+            ),
+            **db_config
+        )
+        pool.dialect.description_encoding = None
+        logging.info('sql connection set')
+
+    except Exception as e:
+        logging.error('sql connection was not set: ' + repr(e))
+        logging.exception(e)
+        pool = None
+
+    return pool
+
+
+def publish_to_pubsub(topic_name, message):
+    """publish a new message to pub/sub"""
+
+    global project_id
+
+    topic_path = publisher.topic_path(project_id, topic_name)
+    message_json = json.dumps({'data': {'message': message}, })
+    message_bytes = message_json.encode('utf-8')
+
+    try:
+        publish_future = publisher.publish(topic_path, data=message_bytes)
+        publish_future.result()  # Verify the publish succeeded
+        logging.info('Sent pub/sub message: ' + str(message))
+
+    except Exception as e:
+        logging.error('Not able to send pub/sub message: ' + repr(e))
+        logging.exception(e)
+
+    return None
+
+
+def notify_admin(message):
+    """send the pub/sub message to Debug to Admin"""
+
+    publish_to_pubsub('topic_notify_admin', message)
+
+    return None
+
+
+# TODO: temp for DEBUG
+def get_list_of_admins_and_testers(conn):
+    """get the list of users with admin & testers roles from PSQL"""
+
+    list_of_admins = []
+    list_of_testers = []
+
+    try:
+        user_roles = conn.execute(
+            """SELECT user_id, role FROM user_roles;"""
+        ).fetchall()
+
+        for line in user_roles:
+            if line[1] == 'admin':
+                list_of_admins.append(line[0])
+            elif line[1] == 'tester':
+                list_of_testers.append(line[0])
+
+        logging.info('Got the Lists of Admins & Testers')
+
+    except Exception as e:
+        logging.error('Not able to get the lists of Admins & Testers: ' + repr(e))
+        logging.exception(e)
+
+    return list_of_admins, list_of_testers
+
+
+def write_message_sending_status(conn_, message_id_, result, mailing_id_, change_log_id_, user_id_, message_type_):
+    """write to SQL table notif_by_user_status the status of individual message sent"""
+
+    try:
+        # record into SQL table notif_by_user_status
+        sql_text = sqlalchemy.text("""
+                    INSERT INTO notif_by_user_status (
+                        message_id, 
+                        event, 
+                        event_timestamp,
+                        mailing_id,
+                        change_log_id,
+                        user_id,
+                        message_type) 
+                    VALUES (:a, :b, :c, :d, :e, :f, :g);
+                    """)
+
+        if result in {'created', 'completed'}:
+            conn_.execute(sql_text,
+                          a=message_id_,
+                          b=result,
+                          c=datetime.datetime.now(),
+                          d=mailing_id_,
+                          e=change_log_id_,
+                          f=user_id_,
+                          g=message_type_
+                          )
+        else:
+            # TODO: debug notify
+            notify_admin('Send_notifications: message {}, sending status is {} for conn'.format(message_id_, result))
+            with sql_connect().connect() as conn2:
+
+                conn2.execute(sql_text,
+                              a=message_id_,
+                              b=result,
+                              c=datetime.datetime.now(),
+                              d=mailing_id_,
+                              e=change_log_id_,
+                              f=user_id_,
+                              g=message_type_
+                              )
+            # TODO: debug notify
+            notify_admin('Send_notifications: message {}, sending status is {} for conn2'.format(message_id_, result))
+
+    except:  # noqa
+        notify_admin('ERR mink write to SQL notif_by_user_status, message_id {}, status {}'.format(message_id_, result))
+
+    return None
+
+
+def check_for_notifs_to_send(conn, userid):
+    """return a line with notification which was not sent"""
+
+    sql_text = sqlalchemy.text("""
+                        SELECT 
+                            s2.*, 
+                            nbu.message_content, 
+                            nbu.message_type, 
+                            nbu.message_params, 
+                            nbu.message_group_id,
+                            nbu.change_log_id,
+                            nbu.mailing_id 
+                        FROM
+                            (SELECT DISTINCT 
+                                s1.message_id, 
+                                s1.user_id,
+                                min(s1.event_timestamp) 
+                                    FILTER (WHERE s1.event='created') 
+                                    OVER (PARTITION BY message_id) AS created, 
+                                max(s1.event_timestamp) 
+                                    FILTER (WHERE s1.event='completed') 
+                                    OVER (PARTITION BY message_id) AS completed,
+                                max(s1.event_timestamp) 
+                                    FILTER (WHERE s1.event='cancelled') 
+                                    OVER (PARTITION BY message_id) AS cancelled 
+                            FROM notif_by_user_status 
+                            AS s1) 
+                        AS s2
+                        LEFT JOIN
+                        notif_by_user AS nbu
+                        ON s2.message_id=nbu.message_id
+                        WHERE 
+                            s2.created > NOW() - INTERVAL '12 hour' AND 
+                            s2.completed IS NULL AND
+                            s2.cancelled IS NULL AND
+                            s2.user_id = :a
+                        ORDER BY 1
+                        LIMIT 1;
+                        """)
+
+    msg_w_o_notif = conn.execute(sql_text, a=userid).fetchone
+
+    return msg_w_o_notif
+
+
+
 def main_func(event, context): # noqa
+    """main function"""
+
+    # timer is needed to finish the script if it's already close to timeout
+    script_start_time = datetime.datetime.now()
 
     message_from_pubsub = process_pubsub_message(event)
     logging.info(message_from_pubsub)
 
-    logging.info('hello world')
+    bot_token = get_secrets("bot_api_token__prod")
+    bot = Bot(token=bot_token)
+
+    with sql_connect().connect() as conn:
+
+        # TODO: only for DEBUG. for prod it's not needed
+        list_of_admins, list_of_testers = get_list_of_admins_and_testers(conn)
+
+        # TODO: DEBUG
+        logging.info('list of admins:')
+        logging.info(list_of_admins)
+
+        if list_of_admins:
+            for user in list_of_admins:
+
+                trigger_to_continue_iterations = True
+
+                while trigger_to_continue_iterations:
+
+                    # TODO: to remove admin
+                    # check if there are any non-notified users
+                    msg_w_o_notif = check_for_notifs_to_send(conn, user)
+
+                    if msg_w_o_notif:
+
+                        user_id = msg_w_o_notif[1]
+                        message_id = msg_w_o_notif[0]
+                        message_content = msg_w_o_notif[5][:3500]  # limitation to avoid telegram "message too long"
+                        message_type = msg_w_o_notif[6]
+                        message_params = ast.literal_eval(msg_w_o_notif[7])
+                        message_group_id = msg_w_o_notif[8]
+                        change_log_id = msg_w_o_notif[9]
+                        mailing_id = msg_w_o_notif[10]
+
+                        if message_params['parse_mode']:
+                            parse_mode = message_params['parse_mode']
+                        if message_params['disable_web_page_preview']:
+                            disable_web_page_preview = message_params['disable_web_page_preview']
+                        if message_params['latitude']:
+                            latitude = message_params['latitude']
+                        if message_params['longitude']:
+                            longitude = message_params['longitude']
+
+                        try:
+
+                            if message_type == 'text':
+
+                                bot.sendMessage(chat_id=user_id,
+                                                text=message_content,
+                                                parse_mode=parse_mode,
+                                                disable_web_page_preview=disable_web_page_preview)
+
+                            elif message_type == 'coords':
+
+                                bot.sendLocation(chat_id=user_id,
+                                                 latitude=latitude,
+                                                 longitude=longitude)
+
+                            result = 'completed'
+
+                        except Exception as e:
+
+                            result = 'failed'
+                            logging.exception(repr(e))
+
+                        try:
+                            sql_text = sqlalchemy.text("""
+                                            INSERT INTO notif_by_user_status (
+                                                message_id, 
+                                                event, 
+                                                event_timestamp,
+                                                mailing_id,
+                                                change_log_id,
+                                                user_id,
+                                                message_type) 
+                                            VALUES (:a, :b, :c, :d, :e, :f, :g);
+                                            """)
+
+                            conn.execute(sql_text,
+                                          a=message_id,
+                                          b=result,
+                                          c=datetime.datetime.now(),
+                                          d=mailing_id,
+                                          e=change_log_id,
+                                          f=user_id,
+                                          g=message_type
+                                          )
+
+                        except Exception as e:
+
+                            notify_admin('ERROR IN SENDING NOTIFICATIONS')
+                            logging.error(repr(e))
+
+                        # check if something remained to send
+                        msg_w_o_notif = check_for_notifs_to_send(conn, user)
+
+                        if not msg_w_o_notif:
+
+                            # wait for 10 seconds – maybe any new notification will pop up
+                            time.sleep(10)
+
+                            msg_w_o_notif = check_for_notifs_to_send(conn, user)
+
+                            if msg_w_o_notif:
+                                no_new_notifications = False
+                            else:
+                                no_new_notifications = True
+
+                        else:
+                            no_new_notifications = False
+
+                        # check if not too much time passed (not more than 500 seconds)
+                        now = datetime.datetime.now()
+                        if (now - script_start_time).total_seconds() > 500:
+                            timeout = True
+                        else:
+                            timeout = False
+
+                        # final decision if while loop should be continued
+                        if not no_new_notifications and not timeout:
+                            trigger_to_continue_iterations = True
+                        else:
+                            trigger_to_continue_iterations = False
+
+                        if not no_new_notifications and timeout:
+
+                            publish_to_pubsub('topic_to_send_notifications', 'next iteration')
+
+    logging.info('script finished')
 
     return None
