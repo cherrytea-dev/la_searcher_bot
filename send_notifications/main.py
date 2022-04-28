@@ -283,111 +283,111 @@ def main_func(event, context): # noqa
                                 p2 = message_content[-1000:]
                                 message_content = p1 + p2
 
-                            message_type = msg_w_o_notif[6]
-                            message_params = ast.literal_eval(msg_w_o_notif[7])
-                            message_group_id = msg_w_o_notif[8]
-                            change_log_id = msg_w_o_notif[9]
-                            mailing_id = msg_w_o_notif[10]
+                        message_type = msg_w_o_notif[6]
+                        message_params = ast.literal_eval(msg_w_o_notif[7])
+                        message_group_id = msg_w_o_notif[8]
+                        change_log_id = msg_w_o_notif[9]
+                        mailing_id = msg_w_o_notif[10]
 
-                            if 'parse_mode' in message_params:
-                                parse_mode = message_params['parse_mode']
-                            if 'disable_web_page_preview' in message_params:
-                                disable_web_page_preview_text = message_params['disable_web_page_preview']
-                                logging.info(disable_web_page_preview_text)
-                                if disable_web_page_preview_text == 'no_preview':
-                                    disable_web_page_preview = True
-                                else:
-                                    disable_web_page_preview = False
-                                logging.info(disable_web_page_preview)
-                            if 'latitude' in message_params:
-                                latitude = message_params['latitude']
-                            if 'longitude' in message_params:
-                                longitude = message_params['longitude']
+                        if 'parse_mode' in message_params:
+                            parse_mode = message_params['parse_mode']
+                        if 'disable_web_page_preview' in message_params:
+                            disable_web_page_preview_text = message_params['disable_web_page_preview']
+                            logging.info(disable_web_page_preview_text)
+                            if disable_web_page_preview_text == 'no_preview':
+                                disable_web_page_preview = True
+                            else:
+                                disable_web_page_preview = False
+                            logging.info(disable_web_page_preview)
+                        if 'latitude' in message_params:
+                            latitude = message_params['latitude']
+                        if 'longitude' in message_params:
+                            longitude = message_params['longitude']
 
-                            try:
+                        try:
 
-                                if message_type == 'text':
+                            if message_type == 'text':
 
-                                    bot.sendMessage(chat_id=user_id,
-                                                    text=message_content,
-                                                    parse_mode=parse_mode,
-                                                    disable_web_page_preview=disable_web_page_preview)
+                                bot.sendMessage(chat_id=user_id,
+                                                text=message_content,
+                                                parse_mode=parse_mode,
+                                                disable_web_page_preview=disable_web_page_preview)
 
-                                elif message_type == 'coords':
+                            elif message_type == 'coords':
 
-                                    bot.sendLocation(chat_id=user_id,
-                                                     latitude=latitude,
-                                                     longitude=longitude)
+                                bot.sendLocation(chat_id=user_id,
+                                                 latitude=latitude,
+                                                 longitude=longitude)
 
-                                result = 'completed'
+                            result = 'completed'
 
-                            except Exception as e:
+                        except Exception as e:
 
-                                result = 'failed'
-                                logging.exception(repr(e))
+                            result = 'failed'
+                            logging.exception(repr(e))
 
-                            try:
-                                sql_text = sqlalchemy.text("""
-                                                INSERT INTO notif_by_user_status (
-                                                    message_id, 
-                                                    event, 
-                                                    event_timestamp,
-                                                    mailing_id,
-                                                    change_log_id,
-                                                    user_id,
-                                                    message_type) 
-                                                VALUES (:a, :b, :c, :d, :e, :f, :g);
-                                                """)
+                        try:
+                            sql_text = sqlalchemy.text("""
+                                            INSERT INTO notif_by_user_status (
+                                                message_id, 
+                                                event, 
+                                                event_timestamp,
+                                                mailing_id,
+                                                change_log_id,
+                                                user_id,
+                                                message_type) 
+                                            VALUES (:a, :b, :c, :d, :e, :f, :g);
+                                            """)
 
-                                conn.execute(sql_text,
-                                              a=message_id,
-                                              b=result,
-                                              c=datetime.datetime.now(),
-                                              d=mailing_id,
-                                              e=change_log_id,
-                                              f=user_id,
-                                              g=message_type
-                                              )
+                            conn.execute(sql_text,
+                                          a=message_id,
+                                          b=result,
+                                          c=datetime.datetime.now(),
+                                          d=mailing_id,
+                                          e=change_log_id,
+                                          f=user_id,
+                                          g=message_type
+                                          )
 
-                            except Exception as e:
+                        except Exception as e:
 
-                                notify_admin('ERROR IN SENDING NOTIFICATIONS')
-                                logging.error(repr(e))
+                            notify_admin('ERROR IN SENDING NOTIFICATIONS')
+                            logging.error(repr(e))
 
-                            # check if something remained to send
+                        # check if something remained to send
+                        msg_w_o_notif = check_for_notifs_to_send(conn, user)
+
+                        if not msg_w_o_notif:
+
+                            # wait for 10 seconds – maybe any new notification will pop up
+                            time.sleep(10)
+
                             msg_w_o_notif = check_for_notifs_to_send(conn, user)
 
-                            if not msg_w_o_notif:
-
-                                # wait for 10 seconds – maybe any new notification will pop up
-                                time.sleep(10)
-
-                                msg_w_o_notif = check_for_notifs_to_send(conn, user)
-
-                                if msg_w_o_notif:
-                                    no_new_notifications = False
-                                else:
-                                    no_new_notifications = True
-
-                            else:
+                            if msg_w_o_notif:
                                 no_new_notifications = False
-
-                            # check if not too much time passed (not more than 500 seconds)
-                            now = datetime.datetime.now()
-                            if (now - script_start_time).total_seconds() > 500:
-                                timeout = True
                             else:
-                                timeout = False
+                                no_new_notifications = True
 
-                            # final decision if while loop should be continued
-                            if not no_new_notifications and not timeout:
-                                trigger_to_continue_iterations = True
-                            else:
-                                trigger_to_continue_iterations = False
+                        else:
+                            no_new_notifications = False
 
-                            if not no_new_notifications and timeout:
+                        # check if not too much time passed (not more than 500 seconds)
+                        now = datetime.datetime.now()
+                        if (now - script_start_time).total_seconds() > 500:
+                            timeout = True
+                        else:
+                            timeout = False
 
-                                publish_to_pubsub('topic_to_send_notifications', 'next iteration')
+                        # final decision if while loop should be continued
+                        if not no_new_notifications and not timeout:
+                            trigger_to_continue_iterations = True
+                        else:
+                            trigger_to_continue_iterations = False
+
+                        if not no_new_notifications and timeout:
+
+                            publish_to_pubsub('topic_to_send_notifications', 'next iteration')
 
     logging.info('script finished')
 
