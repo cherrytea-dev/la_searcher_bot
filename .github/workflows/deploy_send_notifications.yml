@@ -31,7 +31,7 @@ jobs:
             entry_point: main_func
             region: europe-west3
             timeout: 60
-            # max_instances: 1
+            max_instances: 1
             memory_mb: 8192
             event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
             event_trigger_resource: projects/lizaalert-bot-01/topics/topic_to_send_notifications
