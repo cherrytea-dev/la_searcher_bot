@@ -275,117 +275,119 @@ def main_func(event, context): # noqa
                         message_id = msg_w_o_notif[0]
                         message_content = msg_w_o_notif[5]
 
-                        # limitation to avoid telegram "message too long"
-                        if len(message_content) > 3000:
-                            p1 = message_content[:1500]
-                            p2 = message_content[-1000:]
-                            message_content = p1 + p2
+                        if message_content:
 
-                        message_type = msg_w_o_notif[6]
-                        message_params = ast.literal_eval(msg_w_o_notif[7])
-                        message_group_id = msg_w_o_notif[8]
-                        change_log_id = msg_w_o_notif[9]
-                        mailing_id = msg_w_o_notif[10]
+                            # limitation to avoid telegram "message too long"
+                            if len(message_content) > 3000:
+                                p1 = message_content[:1500]
+                                p2 = message_content[-1000:]
+                                message_content = p1 + p2
 
-                        if 'parse_mode' in message_params:
-                            parse_mode = message_params['parse_mode']
-                        if 'disable_web_page_preview' in message_params:
-                            disable_web_page_preview_text = message_params['disable_web_page_preview']
-                            logging.info(disable_web_page_preview_text)
-                            if disable_web_page_preview_text == 'no_preview':
-                                disable_web_page_preview = True
-                            else:
-                                disable_web_page_preview = False
-                            logging.info(disable_web_page_preview)
-                        if 'latitude' in message_params:
-                            latitude = message_params['latitude']
-                        if 'longitude' in message_params:
-                            longitude = message_params['longitude']
+                            message_type = msg_w_o_notif[6]
+                            message_params = ast.literal_eval(msg_w_o_notif[7])
+                            message_group_id = msg_w_o_notif[8]
+                            change_log_id = msg_w_o_notif[9]
+                            mailing_id = msg_w_o_notif[10]
 
-                        try:
+                            if 'parse_mode' in message_params:
+                                parse_mode = message_params['parse_mode']
+                            if 'disable_web_page_preview' in message_params:
+                                disable_web_page_preview_text = message_params['disable_web_page_preview']
+                                logging.info(disable_web_page_preview_text)
+                                if disable_web_page_preview_text == 'no_preview':
+                                    disable_web_page_preview = True
+                                else:
+                                    disable_web_page_preview = False
+                                logging.info(disable_web_page_preview)
+                            if 'latitude' in message_params:
+                                latitude = message_params['latitude']
+                            if 'longitude' in message_params:
+                                longitude = message_params['longitude']
 
-                            if message_type == 'text':
+                            try:
 
-                                bot.sendMessage(chat_id=user_id,
-                                                text=message_content,
-                                                parse_mode=parse_mode)  # ,
-                                                # disable_web_page_preview=disable_web_page_preview)
+                                if message_type == 'text':
 
-                            elif message_type == 'coords':
+                                    bot.sendMessage(chat_id=user_id,
+                                                    text=message_content,
+                                                    parse_mode=parse_mode,
+                                                    disable_web_page_preview=disable_web_page_preview)
 
-                                bot.sendLocation(chat_id=user_id,
-                                                 latitude=latitude,
-                                                 longitude=longitude)
+                                elif message_type == 'coords':
 
-                            result = 'completed'
+                                    bot.sendLocation(chat_id=user_id,
+                                                     latitude=latitude,
+                                                     longitude=longitude)
 
-                        except Exception as e:
+                                result = 'completed'
 
-                            result = 'failed'
-                            logging.exception(repr(e))
+                            except Exception as e:
 
-                        try:
-                            sql_text = sqlalchemy.text("""
-                                            INSERT INTO notif_by_user_status (
-                                                message_id, 
-                                                event, 
-                                                event_timestamp,
-                                                mailing_id,
-                                                change_log_id,
-                                                user_id,
-                                                message_type) 
-                                            VALUES (:a, :b, :c, :d, :e, :f, :g);
-                                            """)
+                                result = 'failed'
+                                logging.exception(repr(e))
 
-                            conn.execute(sql_text,
-                                          a=message_id,
-                                          b=result,
-                                          c=datetime.datetime.now(),
-                                          d=mailing_id,
-                                          e=change_log_id,
-                                          f=user_id,
-                                          g=message_type
-                                          )
+                            try:
+                                sql_text = sqlalchemy.text("""
+                                                INSERT INTO notif_by_user_status (
+                                                    message_id, 
+                                                    event, 
+                                                    event_timestamp,
+                                                    mailing_id,
+                                                    change_log_id,
+                                                    user_id,
+                                                    message_type) 
+                                                VALUES (:a, :b, :c, :d, :e, :f, :g);
+                                                """)
 
-                        except Exception as e:
+                                conn.execute(sql_text,
+                                              a=message_id,
+                                              b=result,
+                                              c=datetime.datetime.now(),
+                                              d=mailing_id,
+                                              e=change_log_id,
+                                              f=user_id,
+                                              g=message_type
+                                              )
 
-                            notify_admin('ERROR IN SENDING NOTIFICATIONS')
-                            logging.error(repr(e))
+                            except Exception as e:
 
-                        # check if something remained to send
-                        msg_w_o_notif = check_for_notifs_to_send(conn, user)
+                                notify_admin('ERROR IN SENDING NOTIFICATIONS')
+                                logging.error(repr(e))
 
-                        if not msg_w_o_notif:
-
-                            # wait for 10 seconds – maybe any new notification will pop up
-                            time.sleep(10)
-
+                            # check if something remained to send
                             msg_w_o_notif = check_for_notifs_to_send(conn, user)
 
-                            if msg_w_o_notif:
-                                no_new_notifications = False
+                            if not msg_w_o_notif:
+
+                                # wait for 10 seconds – maybe any new notification will pop up
+                                time.sleep(10)
+
+                                msg_w_o_notif = check_for_notifs_to_send(conn, user)
+
+                                if msg_w_o_notif:
+                                    no_new_notifications = False
+                                else:
+                                    no_new_notifications = True
+
                             else:
-                                no_new_notifications = True
+                                no_new_notifications = False
 
-                        else:
-                            no_new_notifications = False
+                            # check if not too much time passed (not more than 500 seconds)
+                            now = datetime.datetime.now()
+                            if (now - script_start_time).total_seconds() > 500:
+                                timeout = True
+                            else:
+                                timeout = False
 
-                        # check if not too much time passed (not more than 500 seconds)
-                        now = datetime.datetime.now()
-                        if (now - script_start_time).total_seconds() > 500:
-                            timeout = True
-                        else:
-                            timeout = False
+                            # final decision if while loop should be continued
+                            if not no_new_notifications and not timeout:
+                                trigger_to_continue_iterations = True
+                            else:
+                                trigger_to_continue_iterations = False
 
-                        # final decision if while loop should be continued
-                        if not no_new_notifications and not timeout:
-                            trigger_to_continue_iterations = True
-                        else:
-                            trigger_to_continue_iterations = False
+                            if not no_new_notifications and timeout:
 
-                        if not no_new_notifications and timeout:
-
-                            publish_to_pubsub('topic_to_send_notifications', 'next iteration')
+                                publish_to_pubsub('topic_to_send_notifications', 'next iteration')
 
     logging.info('script finished')
 
