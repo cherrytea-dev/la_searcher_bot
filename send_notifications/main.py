@@ -12,7 +12,6 @@ from telegram import Bot
 from google.cloud import secretmanager
 from google.cloud import pubsub_v1
 
-
 project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
 publisher = pubsub_v1.PublisherClient()
@@ -30,7 +29,7 @@ def process_pubsub_message(event):
             message_in_ascii = data_in_ascii['message']
         else:
             message_in_ascii = 'ERROR: I cannot read message from pub/sub'
-    except: # noqa
+    except:  # noqa
         message_in_ascii = 'ERROR: I cannot read message from pub/sub'
 
     return message_in_ascii
@@ -234,8 +233,7 @@ def check_for_notifs_to_send(conn, userid):
     return msg_w_o_notif
 
 
-
-def main_func(event, context): # noqa
+def main_func(event, context):  # noqa
     """main function"""
 
     # timer is needed to finish the script if it's already close to timeout
@@ -340,14 +338,14 @@ def main_func(event, context): # noqa
                                             """)
 
                             conn.execute(sql_text,
-                                          a=message_id,
-                                          b=result,
-                                          c=datetime.datetime.now(),
-                                          d=mailing_id,
-                                          e=change_log_id,
-                                          f=user_id,
-                                          g=message_type
-                                          )
+                                         a=message_id,
+                                         b=result,
+                                         c=datetime.datetime.now(),
+                                         d=mailing_id,
+                                         e=change_log_id,
+                                         f=user_id,
+                                         g=message_type
+                                         )
 
                         except Exception as e:
 
@@ -372,22 +370,24 @@ def main_func(event, context): # noqa
                         else:
                             no_new_notifications = False
 
-                        # check if not too much time passed (not more than 500 seconds)
-                        now = datetime.datetime.now()
-                        if (now - script_start_time).total_seconds() > 30:
-                            timeout = True
-                        else:
-                            timeout = False
+                    else:
+                        no_new_notifications = True
 
-                        # final decision if while loop should be continued
-                        if not no_new_notifications and not timeout:
-                            trigger_to_continue_iterations = True
-                        else:
-                            trigger_to_continue_iterations = False
+                    # check if not too much time passed (not more than 500 seconds)
+                    now = datetime.datetime.now()
+                    if (now - script_start_time).total_seconds() > 30:
+                        timeout = True
+                    else:
+                        timeout = False
 
-                        if not no_new_notifications and timeout:
+                    # final decision if while loop should be continued
+                    if not no_new_notifications and not timeout:
+                        trigger_to_continue_iterations = True
+                    else:
+                        trigger_to_continue_iterations = False
 
-                            publish_to_pubsub('topic_to_send_notifications', 'next iteration')
+                    if not no_new_notifications and timeout:
+                        publish_to_pubsub('topic_to_send_notifications', 'next iteration')
 
     logging.info('script finished')
 
