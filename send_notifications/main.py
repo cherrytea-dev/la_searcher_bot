@@ -374,7 +374,7 @@ def main_func(event, context): # noqa
 
                         # check if not too much time passed (not more than 500 seconds)
                         now = datetime.datetime.now()
-                        if (now - script_start_time).total_seconds() > 500:
+                        if (now - script_start_time).total_seconds() > 30:
                             timeout = True
                         else:
                             timeout = False
