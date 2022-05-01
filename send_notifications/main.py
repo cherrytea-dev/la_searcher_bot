@@ -193,13 +193,18 @@ def check_for_notifs_to_send(conn, userid):
 
     sql_text = sqlalchemy.text("""
                         SELECT 
-                            s2.*, 
+                            s2.message_id,
+                            s2.user_id,
+                            s2.created,
+                            s2.completed,
+                            s2.cancelled, 
                             nbu.message_content, 
                             nbu.message_type, 
                             nbu.message_params, 
                             nbu.message_group_id,
                             nbu.change_log_id,
-                            nbu.mailing_id 
+                            nbu.mailing_id,
+                            s2.doubling 
                         FROM
                             (SELECT DISTINCT 
                                 s1.message_id, 
@@ -212,7 +217,16 @@ def check_for_notifs_to_send(conn, userid):
                                     OVER (PARTITION BY message_id) AS completed,
                                 max(s1.event_timestamp) 
                                     FILTER (WHERE s1.event='cancelled') 
-                                    OVER (PARTITION BY message_id) AS cancelled 
+                                    OVER (PARTITION BY message_id) AS cancelled, 
+                                (CASE 
+                                    WHEN DENSE_RANK() OVER (
+                                        PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id) + 
+                                        DENSE_RANK() OVER (
+                                        PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id DESC) 
+                                        -1 = 1 
+                                    THEN 'no_doubling' 
+                                    ELSE 'doubling' 
+                                END) AS doubling 
                             FROM notif_by_user_status 
                             AS s1) 
                         AS s2
@@ -286,43 +300,53 @@ def main_func(event, context):  # noqa
                         message_group_id = msg_w_o_notif[8]
                         change_log_id = msg_w_o_notif[9]
                         mailing_id = msg_w_o_notif[10]
+                        doubling_trigger = msg_w_o_notif[11]
 
-                        if 'parse_mode' in message_params:
-                            parse_mode = message_params['parse_mode']
-                        if 'disable_web_page_preview' in message_params:
-                            disable_web_page_preview_text = message_params['disable_web_page_preview']
-                            logging.info(disable_web_page_preview_text)
-                            if disable_web_page_preview_text == 'no_preview':
-                                disable_web_page_preview = True
-                            else:
-                                disable_web_page_preview = False
-                            logging.info(disable_web_page_preview)
-                        if 'latitude' in message_params:
-                            latitude = message_params['latitude']
-                        if 'longitude' in message_params:
-                            longitude = message_params['longitude']
+                        if doubling_trigger == 'no_doubling':
 
-                        try:
+                            if 'parse_mode' in message_params:
+                                parse_mode = message_params['parse_mode']
+                            if 'disable_web_page_preview' in message_params:
+                                disable_web_page_preview_text = message_params['disable_web_page_preview']
+                                if disable_web_page_preview_text == 'no_preview':
+                                    disable_web_page_preview = True
+                                else:
+                                    disable_web_page_preview = False
 
-                            if message_type == 'text':
+                            if 'latitude' in message_params:
+                                latitude = message_params['latitude']
+                            if 'longitude' in message_params:
+                                longitude = message_params['longitude']
 
-                                bot.sendMessage(chat_id=user_id,
-                                                text=message_content,
-                                                parse_mode=parse_mode,
-                                                disable_web_page_preview=disable_web_page_preview)
+                            try:
 
-                            elif message_type == 'coords':
+                                if message_type == 'text':
 
-                                bot.sendLocation(chat_id=user_id,
-                                                 latitude=latitude,
-                                                 longitude=longitude)
+                                    test = bot.sendMessage(chat_id=user_id,
+                                                           text=message_content,
+                                                           parse_mode=parse_mode,
+                                                           disable_web_page_preview=disable_web_page_preview)
 
-                            result = 'completed'
+                                    # TODO: DEDUG - testing
+                                    logging.info(test)
 
-                        except Exception as e:
 
-                            result = 'failed'
-                            logging.exception(repr(e))
+                                elif message_type == 'coords':
+
+                                    bot.sendLocation(chat_id=user_id,
+                                                     latitude=latitude,
+                                                     longitude=longitude)
+
+                                result = 'completed'
+
+                            except Exception as e:  # when sending to telegram fails
+
+                                result = 'failed'
+                                logging.exception(repr(e))
+
+                        else:  # it is when doubling_trigger == 'doubling'
+
+                            result = 'cancelled'
 
                         try:
                             sql_text = sqlalchemy.text("""
