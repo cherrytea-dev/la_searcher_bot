@@ -6,7 +6,6 @@ import re
 import base64
 import time
 from datetime import datetime, timedelta
-import logging
 
 import requests
 import sqlalchemy
@@ -77,7 +76,7 @@ def read_snapshot_from_cloud_storage(bucket_to_read, folder_num):
         blob = set_cloud_storage(bucket_to_read, folder_num)
         contents_as_bytes = blob.download_as_string()
         contents = str(contents_as_bytes, 'utf-8')
-    except:
+    except: # noqa
         contents = None
 
     return contents
@@ -91,7 +90,7 @@ def read_yaml_from_cloud_storage(bucket_to_read, folder_num):
         contents_as_bytes = blob.download_as_string()
         # contents = str(contents_as_bytes, 'utf-8')
         contents = contents_as_bytes
-    except:
+    except: # noqa
         contents = None
 
     return contents
@@ -249,12 +248,12 @@ def parse_coordinates(search_num):
         # delete garbage in the beginning of string
         try:
             first_num = re.search(r"\d", address_string).start()
-        except Exception as e3:
+        except: # noqa
             first_num = 0
             print('not error')
         try:
             first_letter = re.search(r'[а-яА-Я]', address_string).start()
-        except Exception as e4:
+        except: # noqa
             first_letter = 0
             print('not error')
 
@@ -458,7 +457,7 @@ def parse_coordinates(search_num):
     title = None
 
     try:
-        r = requests_session.get(url_to_topic)
+        r = requests_session.get(url_to_topic) # noqa
         soup = BeautifulSoup(r.content, features="html.parser")
 
         # parse title
@@ -1006,7 +1005,7 @@ def profile_get_type_of_activity(text_of_activity):
     # if text_of_activity.lower().find('репост') > -1:
     #    activity_type.append('8 - info')
 
-    # delete duplicates if any thru coversion to set and back to list + sort
+    # delete duplicates if any through conversion to set and back to list + sort
     # activity_type = list(set(activity_type))
     activity_type.sort()
 
@@ -1061,9 +1060,7 @@ def profile_get_managers(text_of_managers):
 
                         # Block of phone number substitution with clickable link
                         nums = re.findall(
-                            r'(?:\+7|7|8)'
-                            r'[\s]?[\s\-\(]?[\s]?[\d]{3}[\s\-\)]?'
-                            r'[\s]?[\d]{3}[\s\-]?[\d]{2}[\s\-]?[\d]{2}',
+                            r'(?:\+7|7|8)[\s]?[\s\-(]?[\s]?[\d]{3}[\s\-)]?[\s]?[\d]{3}[\s\-]?[\d]{2}[\s\-]?[\d]{2}',
                             manager_line)
                         for num in nums:
                             manager_line = manager_line.replace(num,
@@ -1110,7 +1107,7 @@ def parse_search_profile(search_num):
     url_to_topic = url_beginning + str(search_num)
 
     try:
-        r = requests_session.get(url_to_topic)
+        r = requests_session.get(url_to_topic) # noqa
         soup = BeautifulSoup(r.content, features="html.parser")
 
     except Exception as e:
@@ -1705,7 +1702,7 @@ def parse_and_upd_function(event, context): # noqa
     if list_of_folders_with_updates:
         # Download the actual Notification Config
         # This file is done for Canary Deployment of the new version of Notification script
-        # Config defines the shares of users to be covered by Prod & Temp Staging Notificaton scripts
+        # Config defines the shares of users to be covered by Prod & Temp Staging Notification scripts
         notifications_config_text = read_yaml_from_cloud_storage('bucket_for_ad_hoc', 'config_notification_script.yml')
         notifications_config = yaml.safe_load(notifications_config_text)
         publish_to_pubsub('topic_for_notification', str(notifications_config))
@@ -1719,4 +1716,3 @@ def parse_and_upd_function(event, context): # noqa
     requests_session.close()
 
     return None
-
