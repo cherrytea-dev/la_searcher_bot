@@ -1,22 +1,26 @@
-import ast
 import os
+import ast
 import yaml
-from google.cloud import secretmanager
-from google.cloud import storage
-import time
-from datetime import datetime, timedelta
-import sqlalchemy
-import requests
-from bs4 import BeautifulSoup, SoupStrainer
-from google.cloud import pubsub_v1
 import json
 import re
 import base64
+import time
+from datetime import datetime, timedelta
+import logging
+
+import requests
+import sqlalchemy
+from bs4 import BeautifulSoup, SoupStrainer # noqa
+
+from google.cloud import secretmanager
+from google.cloud import storage
+from google.cloud import pubsub_v1
 
 project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
 publisher = pubsub_v1.PublisherClient()
 
+# TODO: to delete and replace errors by noqa
 # Made as a placeholder to avoid PyCharm errors. db to be re-defined in a function sql_connect()
 db = sqlalchemy.create_engine(
     sqlalchemy.engine.url.URL(
@@ -390,15 +394,12 @@ def parse_coordinates(search_num):
             if saved_loc_list[1] == 'ok':
                 latitude = saved_loc_list[2]
                 longitude = saved_loc_list[3]
-                # notify_admin('INFO: we managed to use saved Geocoding for: ' + str(saved_loc_list[0]) + ', '
-                #              + saved_loc_list[1])
+
             elif saved_loc_list[1] == 'failed':
                 status_in_psql = 'failed'
-                # notify_admin('INFO: we found in psql failed coords - no action. ' + str(saved_loc_list))
 
         # no psql record for this address found
         else:
-            # notify_admin('INFO: no psql records for address: ' + address_string)
             if not latitude and not longitude and status_in_psql != 'failed':
                 try:
                     # second – check that next request won't be in less a minute from previous
@@ -417,10 +418,7 @@ def parse_coordinates(search_num):
                             print('time_delta is: ', time_delta_bw_now_and_next_request.total_seconds())
                             time.sleep(time_delta_bw_now_and_next_request.total_seconds())
                             print('now-2 is: ' + str(datetime.now()))
-                            # notify_admin('INFO: geocoding requests are too frequent - slowing down' + str(address_string))
-                        # else:
-                        # notify_admin('INFO: geocoding requests are with appropriate speed - no adjustments:'
-                        #              + str(address_string))
+
                     try:
                         search_location = geolocator.geocode(address_string, timeout=10000)
                         print('geo_location: ' + str(search_location))
@@ -441,12 +439,10 @@ def parse_coordinates(search_num):
                     print('error in script get_coordinates_from_address for address_string: '
                           + address_string + '. Repr: ' + repr(e6))
                     notify_admin('ERROR: get_coords_from_address failed. It includes geolocator frequency check')
-            # else:
-            #     notify_admin('INFO: either there are coords already or fail in psql: '
-            #                  + str(latitude) + ', ' + str(longitude) + ', ' + str(status_in_psql))
 
         return latitude, longitude
 
+    # TODO: needed debug?
     # DEBUG - function execution time counter
     func_start = datetime.now()
     # DEBUG - function execution time counter
@@ -575,7 +571,6 @@ def parse_coordinates(search_num):
         except Exception as e:
             print('Mike, here is an exception 2', repr(e))
             pass
-    # print('check')
 
     # THIRD CASE = DELETED COORDINATES
     if lat == 0:
@@ -597,7 +592,8 @@ def parse_coordinates(search_num):
                     if len(g) > 1:
                         for j in range(len(g) - 1):
                             try:
-                                # Majority of coords in RU: lat in [40-80], long in [20-180], expected minimal format = XX.XXX
+                                # Majority of coords in RU: lat in [40-80], long in [20-180],
+                                # expected minimal format = XX.XXX
                                 if 3 < (g[j] // 10) < 8 and len(str(g[j])) > 5 and 1 < (g[j + 1] // 10) < 19 and len(
                                         str(g[j + 1])) > 5:
                                     lat = g[j]
@@ -620,8 +616,7 @@ def parse_coordinates(search_num):
         except Exception as e5:
             print('DBG.P.42.EXC:', repr(e5))
 
-    # print('coordinates are:', lat, lon, coord_type)
-
+    # TODO: needed debug?
     # DEBUG - function execution time counter
     func_finish = datetime.now()
     func_execution_time_ms = func_finish - func_start
@@ -632,7 +627,9 @@ def parse_coordinates(search_num):
 
 
 def update_coordinates(parsed_summary):
+
     global db
+
     for i in range(len(parsed_summary)):
         if parsed_summary[i][2] == 'Ищем':
             print('Mike, for this search coordinates should be saved', parsed_summary[i][1])
@@ -715,6 +712,8 @@ def process_pubsub_message(event):
 
 
 def sql_connect():
+    """set the connection pool to cloud sql"""
+
     db_user = get_secrets("cloud-postgres-username")
     db_pass = get_secrets("cloud-postgres-password")
     db_name = get_secrets("cloud-postgres-db-name")
@@ -722,10 +721,10 @@ def sql_connect():
     db_socket_dir = "/cloudsql"
 
     db_config = {
-        "pool_size": 1000,
-        "max_overflow": 200,
-        "pool_timeout": 30,  # seconds
-        "pool_recycle": 30,  # seconds
+        "pool_size": 30,
+        "max_overflow": 0,
+        "pool_timeout": 10,  # seconds
+        "pool_recycle": 0,  # seconds
     }
 
     pool = sqlalchemy.create_engine(
@@ -748,30 +747,12 @@ def sql_connect():
 
 
 def get_secrets(secret_request):
+    """get the secret stored in Google Cloud Secrets"""
+
     name = f"projects/{project_id}/secrets/{secret_request}/versions/latest"
     response = client.access_secret_version(name=name)
 
     return response.payload.data.decode("UTF-8")
-
-
-# TODO: to delete in the future - it's only for DEBUGging
-def debug_printing_comparison_of_prev_and_curr_snapshots(prev, curr):
-    """only for DEBUG purposes"""
-    import difflib
-
-    print('-->DBG1, snapshots are different')
-    print('-->DBG1, prev:')
-    print(prev)
-    print('-->DBG1, curr:')
-    print(curr)
-    s = difflib.SequenceMatcher(None, curr, prev)
-    for block in s.get_matching_blocks():
-        print(block)
-
-    dbg = [i for i in range(min(len(curr), len(prev))) if curr[i] != prev[i]]
-    print('-->DBG1: diff symbols: ', str(dbg))
-
-    return None
 
 
 def update_checker(current_hash, folder_num):
@@ -787,9 +768,6 @@ def update_checker(current_hash, folder_num):
 
     # if new snapshot differs from the old one – then let's update the old with the new one
     if current_hash != previous_hash:
-        # TODO: to delete the function if it's not in use in thoer places
-        # DEACTIVATED to avoid spam, but works well
-        # debug_printing_comparison_of_prev_and_curr_snapshots(previous_hash, current_hash)
 
         # update hash in Storage
         write_snapshot_to_cloud_storage('bucket_for_snapshot_storage', current_hash, folder_num)
@@ -865,7 +843,7 @@ def define_age_from_search_title(search_title):
 
 
 def define_status_from_search_title(title):
-    """defines the status from search' title"""
+    """define the status from search' title"""
 
     search_status = title
 
@@ -916,7 +894,7 @@ def define_status_from_search_title(title):
 
 
 def define_start_time_of_search(blocks):
-    """defines search' start time & date"""
+    """define search start time & date"""
 
     start_datetime_as_string = blocks.find('div', 'topic-poster responsive-hide left-box')
     start_datetime = start_datetime_as_string.time['datetime']
@@ -941,8 +919,11 @@ def define_last_post_parameters(blocks):
     return last_post_block
 
 
+# TODO: under construction
 def profile_get_search_events(first_post_text):
     """TBD"""
+
+    return None
 
 
 def profile_get_type_of_activity(text_of_activity):
@@ -1047,10 +1028,6 @@ def profile_get_managers(text_of_managers):
                 zero_line = i + 1
                 break
 
-        """DBG"""
-        # print('DBG.P.101.Managers_block:', list_of_lines[zero_line:])
-        """DBG"""
-
         # If there's a telegram link in a new line - to move it to prev line
         for i in range(len(list_of_lines) - 1):
             if list_of_lines[i + 1][0:21] == 'https://telegram.im/@':
@@ -1084,7 +1061,9 @@ def profile_get_managers(text_of_managers):
 
                         # Block of phone number substitution with clickable link
                         nums = re.findall(
-                            r'(?:\+7|7|8)[\s]?[\s\-\(]?[\s]?[\d]{3}[\s\-\)]?[\s]?[\d]{3}[\s\-]?[\d]{2}[\s\-]?[\d]{2}',
+                            r'(?:\+7|7|8)'
+                            r'[\s]?[\s\-\(]?[\s]?[\d]{3}[\s\-\)]?'
+                            r'[\s]?[\d]{3}[\s\-]?[\d]{2}[\s\-]?[\d]{2}',
                             manager_line)
                         for num in nums:
                             manager_line = manager_line.replace(num,
@@ -1175,8 +1154,7 @@ def parse(folder_num):
     db_timestamp = str(current_datetime.strftime("%d-%b %H:%M"))
     url = 'https://lizaalert.org/forum/viewforum.php?f=' + str(folder_num)
     try:
-        r = requests_session.get(url,
-                                 timeout=10)  # timeout for 10 seconds for every folder - req'd daily at night forum update
+        r = requests_session.get(url, timeout=10)  # for every folder - req'd daily at night forum update # noqa
 
         only_tag = SoupStrainer('div', {'class': 'forumbg'})
         soup = BeautifulSoup(r.content, features='lxml', parse_only=only_tag)
@@ -1255,7 +1233,7 @@ def parse_one_comment(search_num, comment_num):
     there_are_inforg_comments = False
     comment_author_nickname = None
     try:
-        r = requests_session.get(comment_url)
+        r = requests_session.get(comment_url) # noqa
         soup = BeautifulSoup(r.content, features='lxml')
         search_code_blocks = soup.find('div', 'post')
 
@@ -1459,7 +1437,7 @@ def process_delta(folder_num):
 
                     parsed_profile_text = parse_search_profile(search_num)
                     search_activities = profile_get_type_of_activity(parsed_profile_text)
-                    search_events = profile_get_search_events(parsed_profile_text)
+                    # search_events = profile_get_search_events(parsed_profile_text)
                     """DBG"""
                     print('DBG.P.103:Search activities:', search_activities)
                     """DBG"""
@@ -1612,10 +1590,8 @@ def process_one_folder(folder_to_parse):
         try:
             print('update trigger: ' + str(update_trigger))
             print('prev snapshot: ' + str(prev_snapshot_as_string))
-        except:
-            print('we are printing an except')
-        # debug_message += 'DBG.P.2.folder ' + str(folder_to_parse) + ' curr: ' + curr_snapshot_as_string[0:180] + '\n'
-        # debug_message += 'DBG.P.2.folder ' + str(folder_to_parse) + ' prev: ' + prev_snapshot_as_string[0:180] + '\n'
+        except: # noqa
+            print('we are printing an exception')
 
         # only for case when current snapshot differs from previous
         if update_trigger == "yes":
@@ -1628,9 +1604,8 @@ def process_one_folder(folder_to_parse):
             """DEBUG"""
 
             process_delta(folder_to_parse)
-
             update_coordinates(parsed_summary[0])
-            # publish(debug_message)
+
         else:
             debug_message = 'DBG.P.2.folder ' + str(folder_to_parse) + ' NO - UPDATE\n' + debug_message
     print(debug_message)

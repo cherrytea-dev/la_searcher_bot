@@ -1,18 +1,25 @@
-beautifulsoup4==4.9.3
-certifi==2020.12.5
-chardet==4.0.0
+requests==2.25.1
+urllib3==1.26.5  # http client
+idna==2.10  # translation of domain names
+certifi==2020.12.5  # SSL certificates
+
+beautifulsoup4==4.9.3  # BS4
+lxml==4.6.3  # for BS4
+
+chardet==4.0.0  # encoding detector
+cchardet==2.1.7  # encoding detector
+python-dateutil  # extension to datetime module
+geopy==2.2.0  # geocoding / coordinates
+
+pyTelegramBotAPI==3.7.7
+python-telegram-bot==13.4.1
+
+SQLAlchemy==1.4.11
+pg8000==1.19.4  # PSQL driver
+
 google-cloud-secret-manager==2.4.0
 google-cloud-storage==1.40.0
-idna==2.10
-lxml==4.6.3
-pg8000==1.19.4
-pyTelegramBotAPI==3.7.7
-python-dateutil
-requests==2.25.1
-SQLAlchemy==1.4.11
-urllib3==1.26.5
 google-cloud-pubsub==2.6.0
-python-telegram-bot==13.4.1
-cchardet==2.1.7
-chardet==4.0.0
-geopy==2.2.0
+
+# pip install pyyaml --> import yaml
+
