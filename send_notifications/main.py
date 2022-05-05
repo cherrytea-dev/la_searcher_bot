@@ -322,14 +322,10 @@ def main_func(event, context):  # noqa
 
                                 if message_type == 'text':
 
-                                    test = bot.sendMessage(chat_id=user_id,
-                                                           text=message_content,
-                                                           parse_mode=parse_mode,
-                                                           disable_web_page_preview=disable_web_page_preview)
-
-                                    # TODO: DEDUG - testing
-                                    logging.info(test)
-
+                                    bot.sendMessage(chat_id=user_id,
+                                                    text=message_content,
+                                                    parse_mode=parse_mode,
+                                                    disable_web_page_preview=disable_web_page_preview)
 
                                 elif message_type == 'coords':
 
