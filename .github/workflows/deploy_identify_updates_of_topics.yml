@@ -1,0 +1,37 @@
+name: Deploy-GCF-Identify-Updates-Of-Topics
+
+on:
+  push:
+    branches : main
+    paths:
+      - 'identify_updates_of_topics/main.py'
+      - 'identify_updates_of_topics/requirements.txt'
+      - '.github/workflows/deploy_identify_updates_of_topics.yml'
+
+jobs:
+  deploy_function:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Authentificate in GCP
+        id: auth
+        uses: google-github-actions/auth@v0.4.0
+        with:
+          credentials_json: ${{ secrets.gcp_credentials }}
+
+      - name: Deploy the CF
+        id: deploy
+        uses: google-github-actions/deploy-cloud-functions@v0.6.0
+        with:
+            source_dir: identify_updates_of_topics # name of directory
+            name: identify_updates_of_topics
+            runtime: python37
+            entry_point: parse_and_upd_function
+            region: europe-west3
+            timeout: 540
+            max_instances: 1
+            memory_mb: 8192
+            event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
+            event_trigger_resource: projects/lizaalert-bot-01/topics/topic_to_run_parsing_script
