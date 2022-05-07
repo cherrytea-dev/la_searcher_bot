@@ -1,7 +1,7 @@
 name: Deploy-GCF-Compose-Notifications
 
 env:
-  FILE_NAME: 'compose_notifications' # UPD HERE!
+  FILE_NAME: 'compose_notifications' # UPD HERE! 2
 
 on:
   push:
