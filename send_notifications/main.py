@@ -236,7 +236,6 @@ def check_for_notifs_to_send(conn, userid):
                         notif_by_user AS nbu
                         ON s2.message_id=nbu.message_id
                         WHERE 
-                            s2.created > NOW() - INTERVAL '12 hour' AND 
                             s2.completed IS NULL AND
                             s2.cancelled IS NULL AND
                             s2.user_id = :a
@@ -245,6 +244,10 @@ def check_for_notifs_to_send(conn, userid):
                         """)
 
     msg_w_o_notif = conn.execute(sql_text, a=userid).fetchone()
+
+    # TODO: temp debug
+    logging.info(str(msg_w_o_notif))
+    # TODO: temp debug
 
     return msg_w_o_notif
 
@@ -421,15 +424,6 @@ def main_func(event, context):  # noqa
                 analytics_sm_finish = datetime.datetime.now()
                 analytics_sm_duration = (analytics_sm_finish - analytics_sm_start).total_seconds()
                 analytics_notif_times.append(analytics_sm_duration)
-
-    # send statistics on number of messages and sending speed
-    if analytics_notif_times:
-        len_n = len(analytics_notif_times)
-        average = sum(analytics_notif_times) / len_n
-        message = f'[notif_send] Analytics: num of messages {len_n}, average time {round(average, 1)} seconds, ' \
-                  f'total time {round(sum(analytics_notif_times), 1)} seconds'
-        notify_admin(message)
-        logging.info(message)
 
     logging.info('script finished')
 
