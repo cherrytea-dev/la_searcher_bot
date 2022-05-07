@@ -1215,6 +1215,9 @@ def iterate_over_all_users_and_updates(bot_2, is_prod, using_canary, conn):
     # TODO: DEBUG - FOR EXCLUSION OF ADMIN AS A TEST
     list_of_admins_2, list_of_testers_2 = get_list_of_admins_and_testers(conn)
 
+    # TODO: added testers
+    list_of_admins_2 = list_of_admins_2 + list_of_testers_2
+
     try:
 
         # execute new updates one-by-one
@@ -1476,8 +1479,9 @@ def write_message_sending_status(conn_, message_id_, result, mailing_id_, change
                         mailing_id,
                         change_log_id,
                         user_id,
-                        message_type) 
-                    VALUES (:a, :b, :c, :d, :e, :f, :g);
+                        message_type,
+                        context) 
+                    VALUES (:a, :b, :c, :d, :e, :f, :g, :h);
                     """)
 
         if result in {'created', 'completed'}:
@@ -1488,11 +1492,12 @@ def write_message_sending_status(conn_, message_id_, result, mailing_id_, change
                           d=mailing_id_,
                           e=change_log_id_,
                           f=user_id_,
-                          g=message_type_
+                          g=message_type_,
+                          h='comp_notifs'
                           )
         else:
             # TODO: debug notify
-            notify_admin('Mikn: message {}, sending status is {} for conn'.format(message_id_, result))
+            notify_admin('[comp_notifs]: message {}, sending status is {} for conn'.format(message_id_, result))
             with sql_connect().connect() as conn2:
 
                 conn2.execute(sql_text,
@@ -1502,10 +1507,11 @@ def write_message_sending_status(conn_, message_id_, result, mailing_id_, change
                               d=mailing_id_,
                               e=change_log_id_,
                               f=user_id_,
-                              g=message_type_
+                              g=message_type_,
+                              h='comp_notifs'
                               )
             # TODO: debug notify
-            notify_admin('Mikn: message {}, sending status is {} for conn2'.format(message_id_, result))
+            notify_admin('[comp_notifs]]: message {}, sending status is {} for conn2'.format(message_id_, result))
 
     except:  # noqa
         notify_admin('ERR mink write to SQL notif_by_user_status, message_id {}, status {}'.format(message_id_, result))
