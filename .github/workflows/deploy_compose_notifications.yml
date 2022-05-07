@@ -1,14 +1,14 @@
 name: Deploy-GCF-Compose-Notifications
 env:
-  FILE_NAME: compose_notifications
+  FILE_NAME: compose_notifications # UPD HERE!
 
 on:
   push:
-    # branches : main
+    branches : [main]
     paths:
-      - 'compose_notifications/main.py'
-      - 'compose_notifications/requirements.txt'
-      - '.github/workflows/deploy_compose_notifications.yml'
+      - 'compose_notifications/main.py' # UPD HERE!
+      - 'compose_notifications/requirements.txt' # UPD HERE!
+      - '.github/workflows/deploy_compose_notifications.yml' # UPD HERE!
 
 jobs:
   deploy_function:
