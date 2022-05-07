@@ -1437,7 +1437,8 @@ def iterate_over_all_users_and_updates(bot_2, is_prod, using_canary, conn):
                                                     send_single_message(bot_2, user.user_id,
                                                                         None, None, 'location', s_lat,
                                                                         s_lon, user, new_record,
-                                                                        message_id, conn, mailing_id, chng_id, list_of_admins_2, chng_type)
+                                                                        message_id, conn, mailing_id, chng_id,
+                                                                        list_of_admins_2, chng_type)
 
                                                 number_of_messages_sent += 1
 
@@ -1553,7 +1554,7 @@ def send_single_message(bot_2, user_id, message, no_preview, mes_type, lat, lon,
 
     try:
 
-        admin_debug_trigger = (user_id in list_of_admins_) # and change_type_ == 3)  # and 1 == 0)
+        admin_debug_trigger = (user_id in list_of_admins_)  # and change_type_ == 3)  # and 1 == 0)
         if mes_type == 'message':
 
             # TODO: temp limitation
@@ -1576,7 +1577,8 @@ def send_single_message(bot_2, user_id, message, no_preview, mes_type, lat, lon,
 
         # TODO: temp limitation
         if not admin_debug_trigger:
-            write_message_sending_status(conn, message_id, 'completed', mailing_id_, change_log_id, user_id, message_type)
+            write_message_sending_status(conn, message_id, 'completed', mailing_id_, change_log_id, user_id,
+                                         message_type)
 
     except Exception as e:
 
@@ -1594,7 +1596,8 @@ def send_single_message(bot_2, user_id, message, no_preview, mes_type, lat, lon,
 
             logging.info('Identified user id={} to do {}'.format(user_id, action))
 
-            write_message_sending_status(conn, message_id, 'cancelled', mailing_id_, change_log_id, user_id, message_type)
+            write_message_sending_status(conn, message_id, 'cancelled', mailing_id_, change_log_id, user_id,
+                                         message_type)
 
         # if too many requests to Telegram – notify admin on it
         elif error_description.find('429') != -1:
@@ -1822,7 +1825,7 @@ def pubsub_notification_trigger(event, context):  # noqa
 
     script_start_time = datetime.datetime.now()
 
-    # TODO: to delete everything connected to cofig / canary etc.
+    # TODO: to delete everything connected to config / canary etc.
     # Get config of Canary Deployment, which is needed only for Development phase
     # config = get_config_info(event)
     # using_canary = config['use_canary']
@@ -1873,7 +1876,7 @@ def pubsub_notification_trigger(event, context):  # noqa
                 stage_percent = config['canary_params']['users_on_stage']  # noqa
                 list_of_admins, list_of_testers = get_list_of_admins_and_testers(conn)
                 enrich_users_by_corrected_regions(conn, is_prod, stage_percent)
-                enrich_users_with_admins_and_testers(is_prod, config, list_of_admins, list_of_testers)
+                # enrich_users_with_admins_and_testers(is_prod, config, list_of_admins, list_of_testers)
                 mark_new_records_as_being_processed(conn, is_prod)
                 mark_new_comments_as_being_processed(conn, is_prod)
 
@@ -1900,7 +1903,7 @@ def pubsub_notification_trigger(event, context):  # noqa
             ).fetchall()
             if check:
                 logging.info('we checked – there is still something to notify, so we re-initiated this function')
-                publish_to_pubsub('topic_for_notification', str(config))
+                publish_to_pubsub('topic_for_notification', 're-run from same script')
         except:  # noqa
             pass
 
