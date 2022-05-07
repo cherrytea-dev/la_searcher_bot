@@ -47,6 +47,8 @@ def get_secrets(secret_request):
 
 
 def sql_connect():
+    """connect to google cloud sql"""
+
     db_user = get_secrets("cloud-postgres-username")
     db_pass = get_secrets("cloud-postgres-password")
     db_name = get_secrets("cloud-postgres-db-name")
@@ -192,7 +194,7 @@ def write_message_sending_status(conn_, message_id_, result, mailing_id_, change
     return None
 
 
-def check_for_notifs_to_send(conn, userid):
+def check_for_notifs_to_send(conn):
     """return a line with notification which was not sent"""
 
     sql_text = sqlalchemy.text("""
@@ -239,19 +241,172 @@ def check_for_notifs_to_send(conn, userid):
                         ON s2.message_id=nbu.message_id
                         WHERE 
                             s2.completed IS NULL AND
-                            s2.cancelled IS NULL AND
-                            s2.user_id = :a
+                            s2.cancelled IS NULL
                         ORDER BY 1
                         LIMIT 1;
                         """)
 
-    msg_w_o_notif = conn.execute(sql_text, a=userid).fetchone()
+    msg_w_o_notif = conn.execute(sql_text).fetchone()
 
     # TODO: temp debug
     logging.info(str(msg_w_o_notif))
     # TODO: temp debug
 
     return msg_w_o_notif
+
+
+def send_single_message(bot, user_id, message_content, message_params, message_type):
+    """send one message to telegram"""
+
+    if 'parse_mode' in message_params:
+        parse_mode = message_params['parse_mode']
+    if 'disable_web_page_preview' in message_params:
+        disable_web_page_preview_text = message_params['disable_web_page_preview']
+        if disable_web_page_preview_text == 'no_preview':
+            disable_web_page_preview = True
+        else:
+            disable_web_page_preview = False
+
+    if 'latitude' in message_params:
+        latitude = message_params['latitude']
+    if 'longitude' in message_params:
+        longitude = message_params['longitude']
+
+    try:
+
+        if message_type == 'text':
+
+            bot.sendMessage(chat_id=user_id,
+                            text=message_content,
+                            parse_mode=parse_mode, # noqa
+                            disable_web_page_preview=disable_web_page_preview) # noqa
+
+        elif message_type == 'coords':
+
+            bot.sendLocation(chat_id=user_id,
+                             latitude=latitude, # noqa
+                             longitude=longitude) # noqa
+
+        result = 'completed'
+
+        # TODO: temp for debug
+        logging.info(f'success sending to telegram user={user_id}, message={message_content}')
+        # TODO: temp for debug
+
+    except Exception as e:  # when sending to telegram fails
+
+        result = 'failed'
+
+        logging.info(f'failed sending to telegram user={user_id}, message={message_content}')
+        logging.exception(repr(e))
+
+    return result
+
+
+def iterate_over_notifications(bot, script_start_time):
+    """iterate over all available notifications, finishes if timeout is met or no new notifications"""
+
+    # TODO: to increase 30 seconds to 500 seconds once script will work with mani ids
+    custom_timeout = 30  # seconds, after which iterations should stop to prevent the whole script timeout
+
+    with sql_connect().connect() as conn:
+
+        # TODO: only for DEBUG. for prod it's not needed
+        list_of_admins, list_of_testers = get_list_of_admins_and_testers(conn)
+
+        # TODO: temp DEBUG
+        logging.info('list of testers:')
+        logging.info(list_of_testers)
+
+        trigger_to_continue_iterations = True
+
+        while trigger_to_continue_iterations:
+
+            # analytics on sending speed - start for every user/notification
+            analytics_sm_start = datetime.datetime.now()
+
+            # TODO: to remove admin
+            # check if there are any non-notified users
+            msg_w_o_notif = check_for_notifs_to_send(conn)
+
+            logging.info(str(msg_w_o_notif))
+
+            if msg_w_o_notif:
+
+                user_id = msg_w_o_notif[1]
+                message_id = msg_w_o_notif[0]
+                message_content = msg_w_o_notif[5]
+
+                # TODO: temp condition for Admins and Testers
+                if user_id in (list_of_admins + list_of_testers) and message_content:
+
+                    # limitation to avoid telegram "message too long"
+                    if len(message_content) > 3000:
+                        p1 = message_content[:1500]
+                        p2 = message_content[-1000:]
+                        message_content = p1 + '...' + p2
+
+                message_type = msg_w_o_notif[6]
+                message_params = ast.literal_eval(msg_w_o_notif[7])
+                # message_group_id = msg_w_o_notif[8]
+                change_log_id = msg_w_o_notif[9]
+                mailing_id = msg_w_o_notif[10]
+                doubling_trigger = msg_w_o_notif[11]
+
+                # send the message to telegram if it is not a clone-message
+                if doubling_trigger == 'no_doubling':
+                    result = send_single_message(bot, user_id, message_content, message_params, message_type)
+                else:
+                    result = 'cancelled'
+
+                # save result of sending telegram notification into SQL
+                write_message_sending_status(conn, message_id, result, mailing_id,
+                                             change_log_id, user_id, message_type)
+
+                # analytics on sending speed - finish for every user/notification
+                analytics_sm_finish = datetime.datetime.now()
+                analytics_sm_duration = (analytics_sm_finish - analytics_sm_start).total_seconds()
+                analytics_notif_times.append(analytics_sm_duration)
+
+                # check if something remained to send
+                msg_w_o_notif = check_for_notifs_to_send(conn)
+
+                if not msg_w_o_notif:
+
+                    # wait for 10 seconds – maybe any new notification will pop up
+                    time.sleep(10)
+
+                    msg_w_o_notif = check_for_notifs_to_send(conn)
+
+                    if msg_w_o_notif:
+                        no_new_notifications = False
+                    else:
+                        no_new_notifications = True
+
+                else:
+                    no_new_notifications = False
+
+            else:
+                no_new_notifications = True
+
+            # check if not too much time passed (not more than 500 seconds)
+            now = datetime.datetime.now()
+
+            if (now - script_start_time).total_seconds() > custom_timeout:
+                timeout = True
+            else:
+                timeout = False
+
+            # final decision if while loop should be continued
+            if not no_new_notifications and not timeout:
+                trigger_to_continue_iterations = True
+            else:
+                trigger_to_continue_iterations = False
+
+            if not no_new_notifications and timeout:
+                publish_to_pubsub('topic_to_send_notifications', 'next iteration')
+
+    return None
 
 
 def main_func(event, context):  # noqa
@@ -268,145 +423,7 @@ def main_func(event, context):  # noqa
     bot_token = get_secrets("bot_api_token__prod")
     bot = Bot(token=bot_token)
 
-    with sql_connect().connect() as conn:
-
-        # TODO: only for DEBUG. for prod it's not needed
-        list_of_admins, list_of_testers = get_list_of_admins_and_testers(conn)
-
-        # TODO: DEBUG
-        logging.info('list of testers:')
-        logging.info(list_of_testers)
-
-        # TODO: temp condition – to be removed after scaling
-        if list_of_admins and list_of_testers:
-            for user in (list_of_admins + list_of_testers):
-
-                trigger_to_continue_iterations = True
-
-                while trigger_to_continue_iterations:
-
-                    # analytics on sending speed - start for every user/notification
-                    analytics_sm_start = datetime.datetime.now()
-
-                    # TODO: to remove admin
-                    # check if there are any non-notified users
-                    msg_w_o_notif = check_for_notifs_to_send(conn, user)
-
-                    logging.info(str(msg_w_o_notif))
-
-                    if msg_w_o_notif:
-
-                        user_id = msg_w_o_notif[1]
-                        message_id = msg_w_o_notif[0]
-                        message_content = msg_w_o_notif[5]
-
-                        if message_content:
-
-                            # limitation to avoid telegram "message too long"
-                            if len(message_content) > 3000:
-                                p1 = message_content[:1500]
-                                p2 = message_content[-1000:]
-                                message_content = p1 + p2
-
-                        message_type = msg_w_o_notif[6]
-                        message_params = ast.literal_eval(msg_w_o_notif[7])
-                        message_group_id = msg_w_o_notif[8]
-                        change_log_id = msg_w_o_notif[9]
-                        mailing_id = msg_w_o_notif[10]
-                        doubling_trigger = msg_w_o_notif[11]
-
-                        if doubling_trigger == 'no_doubling':
-
-                            if 'parse_mode' in message_params:
-                                parse_mode = message_params['parse_mode']
-                            if 'disable_web_page_preview' in message_params:
-                                disable_web_page_preview_text = message_params['disable_web_page_preview']
-                                if disable_web_page_preview_text == 'no_preview':
-                                    disable_web_page_preview = True
-                                else:
-                                    disable_web_page_preview = False
-
-                            if 'latitude' in message_params:
-                                latitude = message_params['latitude']
-                            if 'longitude' in message_params:
-                                longitude = message_params['longitude']
-
-                            try:
-
-                                if message_type == 'text':
-
-                                    bot.sendMessage(chat_id=user_id,
-                                                    text=message_content,
-                                                    parse_mode=parse_mode,
-                                                    disable_web_page_preview=disable_web_page_preview)
-
-                                elif message_type == 'coords':
-
-                                    bot.sendLocation(chat_id=user_id,
-                                                     latitude=latitude,
-                                                     longitude=longitude)
-
-                                result = 'completed'
-
-                            except Exception as e:  # when sending to telegram fails
-
-                                result = 'failed'
-                                logging.exception(repr(e))
-
-                        else:  # it is when doubling_trigger == 'doubling'
-
-                            result = 'cancelled'
-
-                        try:
-                            write_message_sending_status(conn, message_id, result, mailing_id,
-                                                         change_log_id, user_id, message_type)
-
-                            # analytics on sending speed - finish for every user/notification
-                            analytics_sm_finish = datetime.datetime.now()
-                            analytics_sm_duration = (analytics_sm_finish - analytics_sm_start).total_seconds()
-                            analytics_notif_times.append(analytics_sm_duration)
-
-                        except Exception as e:
-
-                            notify_admin('ERROR IN SENDING NOTIFICATIONS')
-                            logging.error(repr(e))
-
-                        # check if something remained to send
-                        msg_w_o_notif = check_for_notifs_to_send(conn, user)
-
-                        if not msg_w_o_notif:
-
-                            # wait for 10 seconds – maybe any new notification will pop up
-                            time.sleep(10)
-
-                            msg_w_o_notif = check_for_notifs_to_send(conn, user)
-
-                            if msg_w_o_notif:
-                                no_new_notifications = False
-                            else:
-                                no_new_notifications = True
-
-                        else:
-                            no_new_notifications = False
-
-                    else:
-                        no_new_notifications = True
-
-                    # check if not too much time passed (not more than 500 seconds)
-                    now = datetime.datetime.now()
-                    if (now - script_start_time).total_seconds() > 30:
-                        timeout = True
-                    else:
-                        timeout = False
-
-                    # final decision if while loop should be continued
-                    if not no_new_notifications and not timeout:
-                        trigger_to_continue_iterations = True
-                    else:
-                        trigger_to_continue_iterations = False
-
-                    if not no_new_notifications and timeout:
-                        publish_to_pubsub('topic_to_send_notifications', 'next iteration')
+    iterate_over_notifications(bot, script_start_time)
 
     # send statistics on number of messages and sending speed
     if analytics_notif_times:
