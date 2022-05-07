@@ -210,7 +210,8 @@ def check_for_notifs_to_send(conn):
                             nbu.message_group_id,
                             nbu.change_log_id,
                             nbu.mailing_id,
-                            s2.doubling 
+                            s2.doubling,
+                            s2.failed 
                         FROM
                             (SELECT DISTINCT 
                                 s1.message_id, 
@@ -224,6 +225,9 @@ def check_for_notifs_to_send(conn):
                                 max(s1.event_timestamp) 
                                     FILTER (WHERE s1.event='cancelled') 
                                     OVER (PARTITION BY message_id) AS cancelled, 
+                                max(s1.event_timestamp) 
+                                    FILTER (WHERE s1.event='failed') 
+                                    OVER (PARTITION BY message_id) AS failed, 
                                 (CASE 
                                     WHEN DENSE_RANK() OVER (
                                         PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id) + 
@@ -336,9 +340,10 @@ def iterate_over_notifications(bot, script_start_time):
                 user_id = msg_w_o_notif[1]
                 message_id = msg_w_o_notif[0]
                 message_content = msg_w_o_notif[5]
+                message_failed = msg_w_o_notif[12]
 
-                # TODO: temp condition for Admins and Testers
-                if user_id in (list_of_admins + list_of_testers) and message_content:
+                # TODO: temp condition for Admins and Testers OR the prev message delivery was FAILED
+                if message_content and (user_id in (list_of_admins + list_of_testers) or message_failed):
 
                     # limitation to avoid telegram "message too long"
                     if len(message_content) > 3000:
