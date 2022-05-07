@@ -436,6 +436,8 @@ def main_func(event, context):  # noqa
         notify_admin(message)
         logging.info(message)
 
+        analytics_notif_times = []
+
     logging.info('script finished')
 
     return None
