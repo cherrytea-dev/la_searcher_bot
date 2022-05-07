@@ -6,8 +6,8 @@ on:
   push:
     # branches : main
     paths:
-      - "${{ env.FILE_NAME }}/main.py"
-      - '${{ env.FILE_NAME }}/requirements.txt'
+      - 'compose_notifications/main.py'
+      - 'compose_notifications/requirements.txt'
       - '.github/workflows/deploy_compose_notifications.yml'
 
 jobs:
