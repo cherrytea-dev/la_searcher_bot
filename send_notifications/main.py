@@ -366,8 +366,9 @@ def main_func(event, context):  # noqa
                                                 mailing_id,
                                                 change_log_id,
                                                 user_id,
-                                                message_type) 
-                                            VALUES (:a, :b, :c, :d, :e, :f, :g);
+                                                message_type,
+                                                context) 
+                                            VALUES (:a, :b, :c, :d, :e, :f, :g, :h);
                                             """)
 
                             conn.execute(sql_text,
@@ -377,7 +378,8 @@ def main_func(event, context):  # noqa
                                          d=mailing_id,
                                          e=change_log_id,
                                          f=user_id,
-                                         g=message_type
+                                         g=message_type,
+                                         h='send_notif'
                                          )
 
                         except Exception as e:
