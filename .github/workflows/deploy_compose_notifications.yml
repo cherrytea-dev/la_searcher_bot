@@ -6,8 +6,8 @@ on:
   push:
     # branches : main
     paths:
-      - "${{ env.FILE_NAME }}/main.py"
-      - '${{ env.FILE_NAME }}/requirements.txt'
+      - "${{ FILE_NAME }}/main.py"
+      - '${{ FILE_NAME }}/requirements.txt'
       - '.github/workflows/deploy_compose_notifications.yml'
 
 jobs:
@@ -27,8 +27,8 @@ jobs:
         id: deploy
         uses: google-github-actions/deploy-cloud-functions@v0.6.0
         with:
-            source_dir: ${{ env.FILE_NAME }} # name of directory
-            name: ${{ env.FILE_NAME }} # name of deploying function
+            source_dir: ${{ FILE_NAME }} # name of directory
+            name: ${{ FILE_NAME }} # name of deploying function
             runtime: python37
             entry_point: pubsub_notification_trigger # UPD HERE! main function
             region: europe-west3
