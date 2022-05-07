@@ -1,14 +1,14 @@
-name: Deploy-GCF-Compose-Notifications
+name: Deploy-GCF-Check-Topics-By-Upd-Time
 env:
-  FILE_NAME: compose_notifications # UPD HERE!
+  FILE_NAME: check_topics_by_upd_time # UPD HERE!
 
 on:
   push:
     branches : [main]
     paths:
-      - 'compose_notifications/main.py' # UPD HERE!
-      - 'compose_notifications/requirements.txt' # UPD HERE!
-      - '.github/workflows/deploy_compose_notifications.yml' # UPD HERE!
+      - 'check_topics_by_upd_time/main.py' # UPD HERE!
+      - 'check_topics_by_upd_time/requirements.txt' # UPD HERE!
+      - '.github/workflows/deploy_check_topics_by_upd_time.yml' # UPD HERE!
 
 jobs:
   deploy_function:
@@ -30,10 +30,10 @@ jobs:
             source_dir: ${{ env.FILE_NAME }} # name of directory
             name: ${{ env.FILE_NAME }} # name of deploying function
             runtime: python37
-            entry_point: pubsub_notification_trigger # UPD HERE! main function
+            entry_point: main # UPD HERE! main function
             region: europe-west3
-            timeout: 540 # UPD HERE!
-            max_instances: 1 # UPD HERE!
-            memory_mb: 8192 # UPD HERE!
+            # timeout: 540 # UPD HERE!
+            # max_instances: 1 # UPD HERE!
+            # memory_mb: 8192 # UPD HERE!
             event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
-            event_trigger_resource: projects/lizaalert-bot-01/topics/topic_for_notification # UPD HERE! topic
+            event_trigger_resource: projects/lizaalert-bot-01/topics/topic_for_minute_update # UPD HERE! topic
