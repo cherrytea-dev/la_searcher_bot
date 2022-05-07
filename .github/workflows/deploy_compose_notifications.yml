@@ -7,9 +7,9 @@ on:
   push:
     branches : main
     paths:
-      - '${{ env.FILE_NAME }}/main.py'
-      - '${{ env.FILE_NAME }}/requirements.txt'
-      - '.github/workflows/deploy_${{ env.FILE_NAME }}.yml'
+      - ${{ env.FILE_NAME }}/main.py
+      - ${{ env.FILE_NAME }}/requirements.txt
+      - .github/workflows/deploy_${{ env.FILE_NAME }}.yml
 
 jobs:
   deploy_function:
