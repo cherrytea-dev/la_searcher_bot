@@ -341,9 +341,11 @@ def iterate_over_notifications(bot, script_start_time):
                 message_id = msg_w_o_notif[0]
                 message_content = msg_w_o_notif[5]
                 message_failed = msg_w_o_notif[12]
+                message_type = msg_w_o_notif[6]
 
                 # TODO: temp condition for Admins and Testers OR the prev message delivery was FAILED
-                if message_content and (user_id in (list_of_admins + list_of_testers) or message_failed):
+                if (message_content or message_type == 'coords') and \
+                        (user_id in (list_of_admins + list_of_testers) or message_failed):
 
                     # limitation to avoid telegram "message too long"
                     if len(message_content) > 3000:
@@ -351,7 +353,6 @@ def iterate_over_notifications(bot, script_start_time):
                         p2 = message_content[-1000:]
                         message_content = p1 + '...' + p2
 
-                    message_type = msg_w_o_notif[6]
                     message_params = ast.literal_eval(msg_w_o_notif[7])
                     # message_group_id = msg_w_o_notif[8]
                     change_log_id = msg_w_o_notif[9]
