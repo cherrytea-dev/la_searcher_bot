@@ -427,6 +427,15 @@ def main_func(event, context):  # noqa
                 analytics_sm_duration = (analytics_sm_finish - analytics_sm_start).total_seconds()
                 analytics_notif_times.append(analytics_sm_duration)
 
+    # send statistics on number of messages and sending speed
+    if analytics_notif_times:
+        len_n = len(analytics_notif_times)
+        average = sum(analytics_notif_times) / len_n
+        message = f'[send_notifs] Analytics: num of messages {len_n}, average time {round(average, 1)} seconds, ' \
+                  f'total time {round(sum(analytics_notif_times), 1)} seconds'
+        notify_admin(message)
+        logging.info(message)
+
     logging.info('script finished')
 
     return None
