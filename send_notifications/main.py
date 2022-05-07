@@ -265,11 +265,12 @@ def main_func(event, context):  # noqa
         list_of_admins, list_of_testers = get_list_of_admins_and_testers(conn)
 
         # TODO: DEBUG
-        logging.info('list of admins:')
-        logging.info(list_of_admins)
+        logging.info('list of testers:')
+        logging.info(list_of_testers)
 
-        if list_of_admins:
-            for user in list_of_admins:
+        # TODO: temp condition – to be removed after scaling
+        if list_of_admins and list_of_testers:
+            for user in (list_of_admins + list_of_testers):
 
                 trigger_to_continue_iterations = True
 
