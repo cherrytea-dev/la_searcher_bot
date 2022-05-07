@@ -281,12 +281,12 @@ def main_func(event, context):  # noqa
         if list_of_admins and list_of_testers:
             for user in (list_of_admins + list_of_testers):
 
-                # analytics on sending speed - start for every user/notification
-                analytics_sm_start = datetime.datetime.now()
-
                 trigger_to_continue_iterations = True
 
                 while trigger_to_continue_iterations:
+
+                    # analytics on sending speed - start for every user/notification
+                    analytics_sm_start = datetime.datetime.now()
 
                     # TODO: to remove admin
                     # check if there are any non-notified users
@@ -358,29 +358,13 @@ def main_func(event, context):  # noqa
                             result = 'cancelled'
 
                         try:
-                            sql_text = sqlalchemy.text("""
-                                            INSERT INTO notif_by_user_status (
-                                                message_id, 
-                                                event, 
-                                                event_timestamp,
-                                                mailing_id,
-                                                change_log_id,
-                                                user_id,
-                                                message_type,
-                                                context) 
-                                            VALUES (:a, :b, :c, :d, :e, :f, :g, :h);
-                                            """)
+                            write_message_sending_status(conn, message_id, result, mailing_id,
+                                                         change_log_id, user_id, message_type)
 
-                            conn.execute(sql_text,
-                                         a=message_id,
-                                         b=result,
-                                         c=datetime.datetime.now(),
-                                         d=mailing_id,
-                                         e=change_log_id,
-                                         f=user_id,
-                                         g=message_type,
-                                         h='send_notif'
-                                         )
+                            # analytics on sending speed - finish for every user/notification
+                            analytics_sm_finish = datetime.datetime.now()
+                            analytics_sm_duration = (analytics_sm_finish - analytics_sm_start).total_seconds()
+                            analytics_notif_times.append(analytics_sm_duration)
 
                         except Exception as e:
 
@@ -423,11 +407,6 @@ def main_func(event, context):  # noqa
 
                     if not no_new_notifications and timeout:
                         publish_to_pubsub('topic_to_send_notifications', 'next iteration')
-
-                # analytics on sending speed - finish for every user/notification
-                analytics_sm_finish = datetime.datetime.now()
-                analytics_sm_duration = (analytics_sm_finish - analytics_sm_start).total_seconds()
-                analytics_notif_times.append(analytics_sm_duration)
 
     # send statistics on number of messages and sending speed
     if analytics_notif_times:
