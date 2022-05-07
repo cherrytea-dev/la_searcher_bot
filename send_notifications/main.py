@@ -346,27 +346,27 @@ def iterate_over_notifications(bot, script_start_time):
                         p2 = message_content[-1000:]
                         message_content = p1 + '...' + p2
 
-                message_type = msg_w_o_notif[6]
-                message_params = ast.literal_eval(msg_w_o_notif[7])
-                # message_group_id = msg_w_o_notif[8]
-                change_log_id = msg_w_o_notif[9]
-                mailing_id = msg_w_o_notif[10]
-                doubling_trigger = msg_w_o_notif[11]
+                    message_type = msg_w_o_notif[6]
+                    message_params = ast.literal_eval(msg_w_o_notif[7])
+                    # message_group_id = msg_w_o_notif[8]
+                    change_log_id = msg_w_o_notif[9]
+                    mailing_id = msg_w_o_notif[10]
+                    doubling_trigger = msg_w_o_notif[11]
 
-                # send the message to telegram if it is not a clone-message
-                if doubling_trigger == 'no_doubling':
-                    result = send_single_message(bot, user_id, message_content, message_params, message_type)
-                else:
-                    result = 'cancelled'
+                    # send the message to telegram if it is not a clone-message
+                    if doubling_trigger == 'no_doubling':
+                        result = send_single_message(bot, user_id, message_content, message_params, message_type)
+                    else:
+                        result = 'cancelled'
 
-                # save result of sending telegram notification into SQL
-                write_message_sending_status(conn, message_id, result, mailing_id,
-                                             change_log_id, user_id, message_type)
+                    # save result of sending telegram notification into SQL
+                    write_message_sending_status(conn, message_id, result, mailing_id,
+                                                 change_log_id, user_id, message_type)
 
-                # analytics on sending speed - finish for every user/notification
-                analytics_sm_finish = datetime.datetime.now()
-                analytics_sm_duration = (analytics_sm_finish - analytics_sm_start).total_seconds()
-                analytics_notif_times.append(analytics_sm_duration)
+                    # analytics on sending speed - finish for every user/notification
+                    analytics_sm_finish = datetime.datetime.now()
+                    analytics_sm_duration = (analytics_sm_finish - analytics_sm_start).total_seconds()
+                    analytics_notif_times.append(analytics_sm_duration)
 
                 # check if something remained to send
                 msg_w_o_notif = check_for_notifs_to_send(conn)
