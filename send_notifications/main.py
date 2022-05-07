@@ -16,6 +16,8 @@ project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
 publisher = pubsub_v1.PublisherClient()
 
+analytics_notif_times = []
+
 
 def process_pubsub_message(event):
     """get message from pub/sub notification"""
@@ -250,6 +252,8 @@ def check_for_notifs_to_send(conn, userid):
 def main_func(event, context):  # noqa
     """main function"""
 
+    global analytics_notif_times
+
     # timer is needed to finish the script if it's already close to timeout
     script_start_time = datetime.datetime.now()
 
@@ -271,6 +275,9 @@ def main_func(event, context):  # noqa
         # TODO: temp condition – to be removed after scaling
         if list_of_admins and list_of_testers:
             for user in (list_of_admins + list_of_testers):
+
+                # analytics on sending speed - start for every user/notification
+                analytics_sm_start = datetime.datetime.now()
 
                 trigger_to_continue_iterations = True
 
@@ -409,6 +416,20 @@ def main_func(event, context):  # noqa
 
                     if not no_new_notifications and timeout:
                         publish_to_pubsub('topic_to_send_notifications', 'next iteration')
+
+                # analytics on sending speed - finish for every user/notification
+                analytics_sm_finish = datetime.datetime.now()
+                analytics_sm_duration = (analytics_sm_finish - analytics_sm_start).total_seconds()
+                analytics_notif_times.append(analytics_sm_duration)
+
+    # send statistics on number of messages and sending speed
+    if analytics_notif_times:
+        len_n = len(analytics_notif_times)
+        average = sum(analytics_notif_times) / len_n
+        message = f'[notif_send] Analytics: num of messages {len_n}, average time {round(average, 1)} seconds, ' \
+                  f'total time {round(sum(analytics_notif_times), 1)} seconds'
+        notify_admin(message)
+        logging.info(message)
 
     logging.info('script finished')
 
