@@ -1822,10 +1822,13 @@ def pubsub_notification_trigger(event, context):  # noqa
 
     script_start_time = datetime.datetime.now()
 
+    # TODO: to delete everything connected to cofig / canary etc.
     # Get config of Canary Deployment, which is needed only for Development phase
-    config = get_config_info(event)
-    using_canary = config['use_canary']
-    is_prod = (gcp_function_name == 'prod_notification_script')
+    # config = get_config_info(event)
+    # using_canary = config['use_canary']
+    # is_prod = (gcp_function_name == 'prod_notification_script')
+    using_canary = False
+    is_prod = True
 
     if is_prod or (not is_prod and using_canary):
 
