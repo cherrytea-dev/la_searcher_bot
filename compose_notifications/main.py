@@ -9,7 +9,7 @@ import logging
 import math
 import time
 
-from telegram import Bot  # TODO: probably to move to the next-level lib
+from telegram import Bot  # TODO: probably to move to aiogram? or mtproto?
 
 import sqlalchemy  # TODO: to switch to psycopg2? probably not, due to SQL injection safety
 
@@ -568,16 +568,9 @@ def compose_com_msg_on_new_search(link, name, age, age_wording, activities, mana
             msg_1 += line + '\n'
 
     # 2. Person
-    msg_2 = ''
-    # TODO: here is a draft for IV, disabled till clarification on IV possibilities
-    # iv_link = 'https://t.me/iv?url=' + link + '&rhash=0e2be7cd910cdc'
-    # msg_2 += '<a href="' + link + '">' + name[0] + '</a>'
-    msg_2 += '<a href="' + link + '">'
-    msg_2 += name  # [1:]
-    if name[0].isupper() and age and age != 0:
-        msg_2 += ' '
-        msg_2 += age_wording
-    msg_2 += '</a>'
+    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
+
+    msg_2 = f'<a href="{link}">{name}{age_info}</a>'
 
     # 3. List of managers – user-independent
     msg_3 = ''
@@ -601,30 +594,18 @@ def compose_com_msg_on_new_search(link, name, age, age_wording, activities, mana
 def compose_com_msg_on_status_change(status, link, name, age, age_wording, region):
     """compose the common, user-independent message on search status change"""
 
-    msg_1 = ''
     if status == 'Ищем':
-        msg_1 += 'Поиск возобновлён'
+        status_info = 'Поиск возобновлён'
     elif status == 'Завершен':
-        msg_1 += 'Поиск завершён'
+        status_info = 'Поиск завершён'
     else:
-        msg_1 += status
+        status_info = status
 
-    msg_1 += ' – изменение статуса по '
+    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
 
-    # TODO: here is a draft for IV, disabled till clarification on IV possibilities
-    # iv_link = 'https://t.me/iv?url=' + link + '&rhash=0e2be7cd910cdc'
-    # msg_1 += '<a href="' + link + '">' + name[0] + '</a>'
-    msg_1 += '<a href="' + link + '">'
-    msg_1 += name  # [1:]
-    if name[0].isupper() and age and age != 0:
-        msg_1 += ' '
-        msg_1 += age_wording
-    msg_1 += '</a>'
+    msg_1 = f'{status_info} – изменение статуса по <a href="{link}">{name}{age_info}</a>'
 
-    if region:
-        msg_2 = ' (' + region + ')'
-    else:
-        msg_2 = None
+    msg_2 = f' ({region})' if region else None
 
     return msg_1, msg_2
 
@@ -635,15 +616,9 @@ def compose_com_msg_on_new_comments(link, name, age, age_wording, comments):
     global new_records_list
 
     # compose message Header
-    prefix_msg = 'Новые комментарии по поиску '
-    prefix_msg += '<a href="' + link + '">'
-    prefix_msg += name
+    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
 
-    # only for cases when it is a real person (not plane, search for relatives etc.)
-    if name[0].isupper() and age and age != 0:
-        prefix_msg += ' '
-        prefix_msg += age_wording
-    prefix_msg += '</a>:\n'
+    prefix_msg = f'Новые комментарии по поиску <a href="{link}">{name}{age_info}</a>:\n'
 
     # compose a message Body with all the comments
     msg = ''
