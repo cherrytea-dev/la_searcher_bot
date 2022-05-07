@@ -153,8 +153,9 @@ def write_message_sending_status(conn_, message_id_, result, mailing_id_, change
                         mailing_id,
                         change_log_id,
                         user_id,
-                        message_type) 
-                    VALUES (:a, :b, :c, :d, :e, :f, :g);
+                        message_type,
+                        context) 
+                    VALUES (:a, :b, :c, :d, :e, :f, :g, :h);
                     """)
 
         if result in {'created', 'completed'}:
@@ -165,8 +166,8 @@ def write_message_sending_status(conn_, message_id_, result, mailing_id_, change
                           d=mailing_id_,
                           e=change_log_id_,
                           f=user_id_,
-                          g=message_type_
-                          )
+                          g=message_type_,
+                          h='send_notifs')
         else:
             # TODO: debug notify
             notify_admin('Send_notifications: message {}, sending status is {} for conn'.format(message_id_, result))
@@ -179,7 +180,8 @@ def write_message_sending_status(conn_, message_id_, result, mailing_id_, change
                               d=mailing_id_,
                               e=change_log_id_,
                               f=user_id_,
-                              g=message_type_
+                              g=message_type_,
+                              h='send_notifs'
                               )
             # TODO: debug notify
             notify_admin('Send_notifications: message {}, sending status is {} for conn2'.format(message_id_, result))
