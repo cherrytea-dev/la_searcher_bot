@@ -348,10 +348,11 @@ def iterate_over_notifications(bot, script_start_time):
                         (user_id in (list_of_admins + list_of_testers) or message_failed):
 
                     # limitation to avoid telegram "message too long"
-                    if len(message_content) > 3000:
-                        p1 = message_content[:1500]
-                        p2 = message_content[-1000:]
-                        message_content = p1 + '...' + p2
+                    if message_content:
+                        if len(message_content) > 3000:
+                            p1 = message_content[:1500]
+                            p2 = message_content[-1000:]
+                            message_content = p1 + '...' + p2
 
                     message_params = ast.literal_eval(msg_w_o_notif[7])
                     # message_group_id = msg_w_o_notif[8]
