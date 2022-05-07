@@ -5,11 +5,11 @@ env:
 
 on:
   push:
-    branches : main
+    # branches : main
     paths:
       - "${{ env.FILE_NAME }}/main.py"
       - '${{ env.FILE_NAME }}/requirements.txt'
-      - '.github/workflows/deploy_$FILE_NAME.yml'
+      - '.github/workflows/deploy_compose_notifications.yml'
 
 jobs:
   deploy_function:
