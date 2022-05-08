@@ -170,6 +170,17 @@ def write_message_sending_status(conn_, message_id_, result, mailing_id_, change
                           f=user_id_,
                           g=message_type_,
                           h='send_notifs')
+
+        elif result in {'cancelled_bad_request'}:
+            conn_.execute(sql_text,
+                          a=message_id_,
+                          b='cancelled',
+                          c=datetime.datetime.now(),
+                          d=mailing_id_,
+                          e=change_log_id_,
+                          f=user_id_,
+                          g=message_type_,
+                          h='send_notifs, bad request')
         else:
             # TODO: debug notify
             notify_admin('Send_notifications: message {}, sending status is {} for conn'.format(message_id_, result))
@@ -299,7 +310,10 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
     except Exception as e:  # when sending to telegram fails
 
-        result = 'failed'
+        if repr(e).find('BadRequest()') > -1:
+            result = 'cancelled_bad_request'
+        else:
+            result = 'failed'
 
         logging.info(f'failed sending to telegram user={user_id}, message={message_content}')
         logging.exception(repr(e))
