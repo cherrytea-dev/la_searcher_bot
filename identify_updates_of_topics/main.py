@@ -5,11 +5,12 @@ import json
 import re
 import base64
 import time
+import logging
 from datetime import datetime, timedelta
 
 import requests
 import sqlalchemy
-from bs4 import BeautifulSoup, SoupStrainer # noqa
+from bs4 import BeautifulSoup, SoupStrainer  # noqa
 
 from google.cloud import secretmanager
 from google.cloud import storage
@@ -76,7 +77,7 @@ def read_snapshot_from_cloud_storage(bucket_to_read, folder_num):
         blob = set_cloud_storage(bucket_to_read, folder_num)
         contents_as_bytes = blob.download_as_string()
         contents = str(contents_as_bytes, 'utf-8')
-    except: # noqa
+    except:  # noqa
         contents = None
 
     return contents
@@ -90,7 +91,7 @@ def read_yaml_from_cloud_storage(bucket_to_read, folder_num):
         contents_as_bytes = blob.download_as_string()
         # contents = str(contents_as_bytes, 'utf-8')
         contents = contents_as_bytes
-    except: # noqa
+    except:  # noqa
         contents = None
 
     return contents
@@ -130,7 +131,7 @@ def parse_coordinates(search_num):
             else:
                 address_string = title
 
-        # ABOVE is not optimized - but with this part ages are excluded better (for cases when there are 2 persns)
+        # ABOVE is not optimized - but with this part ages are excluded better (for cases when there are 2 persons)
         trigger_of_age_mentions = True
 
         while trigger_of_age_mentions:
@@ -248,14 +249,14 @@ def parse_coordinates(search_num):
         # delete garbage in the beginning of string
         try:
             first_num = re.search(r"\d", address_string).start()
-        except: # noqa
+        except:  # noqa
             first_num = 0
-            print('not error')
+            logging.info('not error')
         try:
             first_letter = re.search(r'[а-яА-Я]', address_string).start()
-        except: # noqa
+        except:  # noqa
             first_letter = 0
-            print('not error')
+            logging.info('not error')
 
         new_start = max(first_num, first_letter)
 
@@ -330,8 +331,8 @@ def parse_coordinates(search_num):
                 )
                 conn.execute(stmt, a=address_string, b=status, c=latitude, d=longitude)
         except Exception as e7:
-            print('DBG.P.EXC.109: ' + str(e7))
-            notify_admin('ERROR: saving geoloc to psql failed: ' + address_string + ', ' + status)
+            logging.info('DBG.P.EXC.109: ' + str(e7))
+            notify_admin('ERROR: saving geolocation to psql failed: ' + address_string + ', ' + status)
 
         return None
 
@@ -357,7 +358,7 @@ def parse_coordinates(search_num):
                     conn.execute(stmt, a=search_num, b=address_string, c=datetime.now())
 
         except Exception as e7:
-            print('DBG.P.EXC.110: ' + str(e7))
+            logging.info('DBG.P.EXC.110: ' + str(e7))
             notify_admin('ERROR: saving place to psql failed: ' + address_string + ', ' + search_num)
 
         return None
@@ -403,7 +404,7 @@ def parse_coordinates(search_num):
                 try:
                     # second – check that next request won't be in less a minute from previous
                     prev_str_of_geocheck = read_snapshot_from_cloud_storage('bucket_for_ad_hoc', 'geocode')
-                    print('prev_str_of_geocheck: ', prev_str_of_geocheck)
+                    logging.info('prev_str_of_geocheck: ', prev_str_of_geocheck)
 
                     if prev_str_of_geocheck:
                         prev_time_of_geocheck = datetime.strptime(prev_str_of_geocheck, '%Y-%m-%dT%H:%M:%S+00:00')
@@ -413,17 +414,17 @@ def parse_coordinates(search_num):
                         else:
                             time_delta_bw_now_and_next_request = timedelta(seconds=0)
                         if time_delta_bw_now_and_next_request.total_seconds() > 0:
-                            print('now-1 is: ' + str(datetime.now()))
-                            print('time_delta is: ', time_delta_bw_now_and_next_request.total_seconds())
+                            logging.info('now-1 is: ' + str(datetime.now()))
+                            logging.info('time_delta is: ', time_delta_bw_now_and_next_request.total_seconds())
                             time.sleep(time_delta_bw_now_and_next_request.total_seconds())
-                            print('now-2 is: ' + str(datetime.now()))
+                            logging.info('now-2 is: ' + str(datetime.now()))
 
                     try:
                         search_location = geolocator.geocode(address_string, timeout=10000)
-                        print('geo_location: ' + str(search_location))
+                        logging.info('geo_location: ' + str(search_location))
                     except Exception as e5:
                         search_location = None
-                        print('ERROR: geo loc ' + str(e5))
+                        logging.info('ERROR: geo loc ' + str(e5))
                         notify_admin('ERROR: in geo loc :' + str(e5))
 
                     now_str = datetime.now().strftime('%Y-%m-%dT%H:%M:%S+00:00')
@@ -435,8 +436,8 @@ def parse_coordinates(search_num):
                     else:
                         save_geolocation_in_psql(address_string, 'fail', None, None)
                 except Exception as e6:
-                    print('error in script get_coordinates_from_address for address_string: '
-                          + address_string + '. Repr: ' + repr(e6))
+                    logging.info('error in script get_coordinates_from_address for address_string: '
+                                 + address_string + '. Repr: ' + repr(e6))
                     notify_admin('ERROR: get_coords_from_address failed. It includes geolocator frequency check')
 
         return latitude, longitude
@@ -457,7 +458,7 @@ def parse_coordinates(search_num):
     title = None
 
     try:
-        r = requests_session.get(url_to_topic) # noqa
+        r = requests_session.get(url_to_topic)  # noqa
         soup = BeautifulSoup(r.content, features="html.parser")
 
         # parse title
@@ -472,7 +473,7 @@ def parse_coordinates(search_num):
             e.extract()
 
     except Exception as e:
-        print('unable to parse a specific thread with address', url_to_topic, 'error is', e)
+        logging.info('unable to parse a specific thread with address', url_to_topic, 'error is', e)
 
     # FIRST CASE = THERE ARE COORDINATES w/ a WORD Coordinates
     try:
@@ -502,7 +503,7 @@ def parse_coordinates(search_num):
                     i = d + 1
             else:
                 i = len(f)
-        # print(e)
+        # logging.info(e)
 
         # extract exact numbers & match if they look like coordinates
         for i in range(len(e)):
@@ -517,10 +518,10 @@ def parse_coordinates(search_num):
                             lon = g[j + 1]
                             coord_type = '1. coordinates w/ word coord'
                     except Exception as e2:
-                        print('DBG.P.36.EXC. Coords-1:', repr(e2))
+                        logging.info('DBG.P.36.EXC. Coords-1:', repr(e2))
 
     except Exception as e:
-        print('Mike, here is an exception 1', repr(e))
+        logging.info('Mike, here is an exception 1', repr(e))
         pass
 
     # SECOND CASE = THERE ARE COORDINATES w/o a WORD Coordinates
@@ -566,9 +567,9 @@ def parse_coordinates(search_num):
                             lon = g[j + 1]
                             coord_type = '2. coordinates w/o word coord'
                     except Exception as e2:
-                        print('DBG.P.36.EXC. Coords-2:', repr(e2))
+                        logging.info('DBG.P.36.EXC. Coords-2:', repr(e2))
         except Exception as e:
-            print('Mike, here is an exception 2', repr(e))
+            logging.info('Mike, here is an exception 2', repr(e))
             pass
 
     # THIRD CASE = DELETED COORDINATES
@@ -585,7 +586,7 @@ def parse_coordinates(search_num):
             if a:
                 for line in a:
                     b = re.sub(r'\n\s*\n', r' ', line.get_text().strip(), flags=re.M)
-                    # print(b)
+                    # logging.info(b)
                     c = re.sub(r'\n', r' ', b)
                     g = [float(s) for s in re.findall(r'-?\d+\.?\d*', c)]
                     if len(g) > 1:
@@ -599,9 +600,9 @@ def parse_coordinates(search_num):
                                     lon = g[j + 1]
                                     coord_type = '3. deleted coord'
                             except Exception as e2:
-                                print('DBG.P.36.EXC. Coords-1:', repr(e2))
+                                logging.info('DBG.P.36.EXC. Coords-1:', repr(e2))
         except Exception as e:
-            print('Mike, here is an exception 3', repr(e))
+            logging.info('Mike, here is an exception 3', repr(e))
             pass
 
     # FOURTH CASE = COORDINATES FROM ADDRESS
@@ -613,25 +614,24 @@ def parse_coordinates(search_num):
             if lat != 0:
                 coord_type = '4. coordinates by address'
         except Exception as e5:
-            print('DBG.P.42.EXC:', repr(e5))
+            logging.info('DBG.P.42.EXC:', repr(e5))
 
     # TODO: needed debug?
     # DEBUG - function execution time counter
     func_finish = datetime.now()
     func_execution_time_ms = func_finish - func_start
-    print('DBG.P.5.parse_coordinates() exec time:', func_execution_time_ms)
+    logging.info('DBG.P.5.parse_coordinates() exec time:', func_execution_time_ms)
     # DEBUG - function execution time counter
 
     return [lat, lon, coord_type]
 
 
 def update_coordinates(parsed_summary):
-
     global db
 
     for i in range(len(parsed_summary)):
         if parsed_summary[i][2] == 'Ищем':
-            print('Mike, for this search coordinates should be saved', parsed_summary[i][1])
+            logging.info('Mike, for this search coordinates should be saved', parsed_summary[i][1])
             coords = parse_coordinates(parsed_summary[i][1])
 
             if coords[0] != 0 and coords[1] != 0:
@@ -665,13 +665,13 @@ def publish_to_pubsub(topic_name, message):
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publish succeeded
-        print('DBG.P.3: Pub/sub message published')
-        print('publish_future_.result(): ' + str(publish_future.result()))
+        logging.info('DBG.P.3: Pub/sub message published')
+        logging.info('publish_future_.result(): ' + str(publish_future.result()))
 
         return 'Message published.'
 
     except Exception as e:
-        print('DBG.P.3.ERR: pub/sub NOT published', repr(e))
+        logging.info('DBG.P.3.ERR: pub/sub NOT published', repr(e))
 
         return e, 500
 
@@ -690,22 +690,22 @@ def process_pubsub_message(event):
     # receiving message text from pub/sub
     if 'data' in event:
         received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
-        print('received_message_from_pubsub: ' + str(received_message_from_pubsub))
+        logging.info('received_message_from_pubsub: ' + str(received_message_from_pubsub))
     elif 'message' in event:
         received_message_from_pubsub = base64.b64decode(event).decode('utf-8')
     else:
         received_message_from_pubsub = 'I cannot read message from pub/sub'
-        print(received_message_from_pubsub)
+        logging.info(received_message_from_pubsub)
     encoded_to_ascii = eval(received_message_from_pubsub)
-    print('encoded_to_ascii: ' + str(encoded_to_ascii))
+    logging.info('encoded_to_ascii: ' + str(encoded_to_ascii))
     try:
         data_in_ascii = encoded_to_ascii['data']
-        print('data_in_ascii: ' + str(data_in_ascii))
+        logging.info('data_in_ascii: ' + str(data_in_ascii))
         message_in_ascii = data_in_ascii['message']
-        print('message_in_ascii: ' + str(message_in_ascii))
+        logging.info('message_in_ascii: ' + str(message_in_ascii))
     except Exception as es:
         message_in_ascii = None
-        print('exception happened: ' + str(es))
+        logging.info('exception happened: ' + str(es))
 
     return message_in_ascii
 
@@ -767,7 +767,6 @@ def update_checker(current_hash, folder_num):
 
     # if new snapshot differs from the old one – then let's update the old with the new one
     if current_hash != previous_hash:
-
         # update hash in Storage
         write_snapshot_to_cloud_storage('bucket_for_snapshot_storage', current_hash, folder_num)
 
@@ -795,7 +794,7 @@ def define_family_name_from_search_title_new(title, printit=False):
 
     else:
         string_by_word = title
-        print(type(title))
+        logging.info(type(title))
 
     title_wo_status = []
 
@@ -803,14 +802,14 @@ def define_family_name_from_search_title_new(title, printit=False):
         if word.strip().lower() not in dict_status_words and word.strip().lower() not in dict_ignore:
             title_wo_status.append(word)
     if printit:
-        print('title wo status=', title_wo_status)
+        logging.info('title wo status=', title_wo_status)
 
     if title_wo_status[0].isnumeric():
         fam_name = title_wo_status[0] + ' ' + title_wo_status[1]
     else:
         fam_name = title_wo_status[0]
     if printit:
-        print('fam_nam=', fam_name)
+        logging.info('fam_nam=', fam_name)
 
     # TODO: is it still a relevant case?
     # if by mistake the last symbol is "("
@@ -912,7 +911,7 @@ def define_last_post_parameters(blocks):
         # last_post_time = str(last_post_block.find('time').text)
         # last_post_plain_text = last_post_author_block + ', ' + last_post_time
     except Exception as e:
-        print('Mike, here is an exception 6', e)
+        logging.info('Mike, here is an exception 6', e)
         last_post_block = ''
 
     return last_post_block
@@ -1076,27 +1075,35 @@ def profile_get_managers(text_of_managers):
         # replace telegram contacts with nice links
         for i in range(len(managers)):
             for word in managers[i].split(' '):
-                if word.find('https://telegram.im/@') > -1:
-                    nickname = word[20:]
-                    managers[i] = managers[i].replace(word, '<a href="' + word + '">' + nickname + '</a>')
-                if word.find('https://t.me/') > -1:
-                    nickname = '@' + word[14:]
-                    managers[i] = managers[i].replace(word, '<a href="' + word + '">' + nickname + '</a>')
 
-        # TODO: to be clarified why it fails
-        # avoid often mistake with @@
-        # for manager in managers:
-        #     if manager.find('@@'):
-        #        manager = manager.replace('@@', '@')
+                nickname = None
+
+                if word.find('https://telegram.im/') > -1:
+                    nickname = word[20:]
+
+                if word.find('https://t.me/') > -1:
+                    nickname = word[13:]
+
+                if nickname:
+
+                    # tip: sometimes there are two @ in the beginning (by human mistake)
+                    while nickname[0] == '@':
+                        nickname = nickname[1:]
+
+                    # tip: sometimes the last symbol is wrong
+                    while nickname[-1:] in {'.', ',', ' '}:
+                        nickname = nickname[:-1]
+
+                    managers[i] = managers[i].replace(word, f'<a href="https://t.me/{nickname}">@{nickname}</a>')
 
         """DBG"""
-        print('DBG.P.101.Managers_list:')
+        logging.info('DBG.P.101.Managers_list:')
         for manager in managers:
-            print(manager)
+            logging.info(manager)
         """DBG"""
 
     except Exception as e:
-        print('DBG.P.102.EXC:', repr(e))
+        logging.info('DBG.P.102.EXC:', repr(e))
 
     return managers
 
@@ -1111,11 +1118,11 @@ def parse_search_profile(search_num):
     url_to_topic = url_beginning + str(search_num)
 
     try:
-        r = requests_session.get(url_to_topic) # noqa
+        r = requests_session.get(url_to_topic)  # noqa
         soup = BeautifulSoup(r.content, features="html.parser")
 
     except Exception as e:
-        print('DBG.P.50.EXC: unable to parse a specific thread with address:', url_to_topic, ',error:', repr(e))
+        logging.info('DBG.P.50.EXC: unable to parse a specific thread with address:', url_to_topic, ',error:', repr(e))
         soup = None
 
     # open the first post
@@ -1125,12 +1132,12 @@ def parse_search_profile(search_num):
     for deleted in block_of_profile_rough_code.findAll('span', {'style': 'text-decoration:line-through'}):
         deleted.extract()
 
-    # add telegram links to text (to be sure next stem won't cut these links), type 1
+    # add telegram links to text (to be sure next step won't cut these links), type 1
     for a_tag in block_of_profile_rough_code.find_all('a'):
-        if a_tag.get('href')[0:21] == 'https://telegram.im/@':
+        if a_tag.get('href')[0:20] == 'https://telegram.im/':
             a_tag.replace_with(a_tag['href'])
 
-    # add telegram links to text (to be sure next stem won't cut these links), type 2
+    # add telegram links to text (to be sure next step won't cut these links), type 2
     for a_tag in block_of_profile_rough_code.find_all('a'):
         if a_tag.get('href')[0:13] == 'https://t.me/':
             a_tag.replace_with(a_tag['href'])
@@ -1138,7 +1145,7 @@ def parse_search_profile(search_num):
     left_text = block_of_profile_rough_code.text.strip()
 
     """DEBUG"""
-    print('DBG.Profile:', left_text)
+    logging.info('DBG.Profile:', left_text)
     """DEBUG"""
 
     return left_text
@@ -1208,18 +1215,18 @@ def parse(folder_num):
 
     # To catch timeout once a day in the night
     except requests.exceptions.Timeout as e:
-        print('DBG.P.31.Timeout:', repr(e))
+        logging.info('DBG.P.31.Timeout:', repr(e))
         parsed_summary_page = []
     except ConnectionResetError as e:
-        print('there is a connection error:', repr(e), db_timestamp)
+        logging.info('there is a connection error:', repr(e), db_timestamp)
         parsed_summary_page = []
     except Exception as e:
-        print('DBG.P.30.ERR in Parsing summary page:', repr(e), db_timestamp)
+        logging.info('DBG.P.30.ERR in Parsing summary page:', repr(e), db_timestamp)
         parsed_summary_page = []
 
     """DEBUG"""
     # if folder_num not in {276, 41}:
-    print('DBG.P.29.Parsed_summary_page:\n', str(parsed_summary_page))
+    logging.info('DBG.P.29.Parsed_summary_page:\n', str(parsed_summary_page))
     """DEBUG"""
 
     return [parsed_summary_page, parsed_without_date]
@@ -1234,7 +1241,7 @@ def parse_one_comment(search_num, comment_num):
     there_are_inforg_comments = False
     comment_author_nickname = None
     try:
-        r = requests_session.get(comment_url) # noqa
+        r = requests_session.get(comment_url)  # noqa
         soup = BeautifulSoup(r.content, features='lxml')
         search_code_blocks = soup.find('div', 'post')
 
@@ -1243,19 +1250,20 @@ def parse_one_comment(search_num, comment_num):
         try:
             comment_author_nickname = comment_author_block.text
         except Exception as e:
-            print('Mike, here is an exception 7 for search ', str(search_num), ', and comment ', str(comment_num),
-                  ' error: ', repr(e))
+            logging.info('Mike, here is an exception 7 for search ', str(search_num), ', and comment ',
+                         str(comment_num),
+                         ' error: ', repr(e))
             try:
                 comment_author_nickname = search_code_blocks.find('a', 'username-coloured').text
             except Exception as e2:
-                print('Mike, here is an exception 8', repr(e2))
+                logging.info('Mike, here is an exception 8', repr(e2))
                 comment_author_nickname = 'unidentified_username'
 
         if comment_author_nickname[:6].lower() == 'инфорг':
             """DEBUG"""
-            print('DBG.P.58.INFORG:', comment_author_nickname)
-            print('DBG.P.58.INFORG:', comment_author_nickname[:6].lower())
-            print('DBG.P.58.INFORG:', comment_author_nickname[:6].lower() == 'инфорг')
+            logging.info('DBG.P.58.INFORG:', comment_author_nickname)
+            logging.info('DBG.P.58.INFORG:', comment_author_nickname[:6].lower())
+            logging.info('DBG.P.58.INFORG:', comment_author_nickname[:6].lower() == 'инфорг')
             """DEBUG"""
 
             there_are_inforg_comments = True
@@ -1266,13 +1274,14 @@ def parse_one_comment(search_num, comment_num):
             # comment_author_link = comment_author_block['href'][1:]
             comment_author_link = int("".join(filter(str.isdigit, comment_author_block['href'][36:43])))
         except Exception as e:
-            print('Mike, here is an exception 9 for search ', str(search_num), ', and comment ', str(comment_num),
-                  ' error: ', repr(e))
+            logging.info('Mike, here is an exception 9 for search ', str(search_num), ', and comment ',
+                         str(comment_num),
+                         ' error: ', repr(e))
             try:
                 comment_author_link = int(
                     "".join(filter(str.isdigit, search_code_blocks.find('a', 'username-coloured')['href'][36:43])))
             except Exception as e2:
-                print('Mike, here is an exception 10', repr(e2))
+                logging.info('Mike, here is an exception 10', repr(e2))
                 comment_author_link = 'unidentified_link'
 
         # finding the global comment NUMBER
@@ -1284,8 +1293,9 @@ def parse_one_comment(search_num, comment_num):
             external_span = comment_text_0.blockquote.extract()
             comment_text_1 = comment_text_0.text
         except Exception as e:
-            print('Mike, here is an exception 11 for search ', str(search_num), ', and comment ', str(comment_num),
-                  ' error: ', repr(e))
+            logging.info('Mike, here is an exception 11 for search ', str(search_num), ', and comment ',
+                         str(comment_num),
+                         ' error: ', repr(e))
             comment_text_1 = comment_text_0.text
         comment_text = " ".join(comment_text_1.split())
 
@@ -1317,7 +1327,7 @@ def parse_one_comment(search_num, comment_num):
                                      d=comment_author_link, e=search_num, f=comment_num, g='n')
 
             except Exception as e3:
-                print('DBG.P.106.EXC:', repr(e3))
+                logging.info('DBG.P.106.EXC:', repr(e3))
                 stmt = sqlalchemy.text(
                     """INSERT INTO comments (comment_url, comment_text, comment_author_nickname, comment_author_link, 
                     search_forum_num, comment_num) values (:a, :b, :c, :d, :e, :f); """
@@ -1326,7 +1336,7 @@ def parse_one_comment(search_num, comment_num):
                              e=search_num, f=comment_num)
 
     except ConnectionResetError:
-        print('Mike, there is a connection error')
+        logging.info('Mike, there is a connection error')
 
     return there_are_inforg_comments
 
@@ -1378,7 +1388,7 @@ def process_delta(folder_num):
                             if there_are_inforg_comments:
                                 change_log_updates.append([snpsht[1], snpsht[0], 'inforg_replies', snpsht[6], '', 4])
                         except Exception as e:
-                            print('DBG.P.58:', repr(e))
+                            logging.info('DBG.P.58:', repr(e))
         if change_log_updates:
             stmt = sqlalchemy.text(
                 """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters, 
@@ -1440,7 +1450,7 @@ def process_delta(folder_num):
                     search_activities = profile_get_type_of_activity(parsed_profile_text)
                     # search_events = profile_get_search_events(parsed_profile_text)
                     """DBG"""
-                    print('DBG.P.103:Search activities:', search_activities)
+                    logging.info('DBG.P.103:Search activities:', search_activities)
                     """DBG"""
 
                     # mark all old activities as deactivated
@@ -1461,7 +1471,7 @@ def process_delta(folder_num):
                     managers = profile_get_managers(parsed_profile_text)
 
                     """DBG"""
-                    print('DBG.P.104:Managers:', managers)
+                    logging.info('DBG.P.104:Managers:', managers)
                     """DBG"""
 
                     if managers:
@@ -1472,10 +1482,10 @@ def process_delta(folder_num):
                             )
                             conn.execute(sql_text, a=search_num, b='managers', c=str(managers), d=datetime.now())
                         except Exception as e:
-                            print('DBG.P.104:', repr(e))
+                            logging.info('DBG.P.104:', repr(e))
 
             except Exception as e:
-                print('DBG.P.52.EXC:', repr(e))
+                logging.info('DBG.P.52.EXC:', repr(e))
 
         '''4 DEL UPD from Searches'''
         delete_lines_from_summary = []
@@ -1531,7 +1541,7 @@ def process_delta(folder_num):
     # DEBUG - function execution time counter
     func_finish = datetime.now()
     func_execution_time_ms = func_finish - func_start
-    print('DBG.P.5.process_delta() exec time:', func_execution_time_ms)
+    logging.info('DBG.P.5.process_delta() exec time:', func_execution_time_ms)
     # DEBUG - function execution time counter
 
     return None
@@ -1570,8 +1580,8 @@ def process_one_folder(folder_to_parse):
 
     # parse a new version of summary page from the chosen folder
     parsed_summary = parse(folder_to_parse)
-    print('парсим ' + str(folder_to_parse))
-    print(str(parsed_summary[0]))
+    logging.info('парсим ' + str(folder_to_parse))
+    logging.info(str(parsed_summary[0]))
 
     update_trigger = ''
     debug_message = ''
@@ -1579,20 +1589,20 @@ def process_one_folder(folder_to_parse):
     # make comparison, record it in PSQL
     if parsed_summary[0]:
 
-        print('проверка 1')
+        logging.info('проверка 1')
         # transform the current snapshot into the string to be able to compare it: string vs string
         prep_for_curr_snapshot_as_string = [y for x in parsed_summary[1] for y in x]
         curr_snapshot_as_string = ','.join(map(str, prep_for_curr_snapshot_as_string))
 
-        print('проверка 2')
+        logging.info('проверка 2')
         # get the prev snapshot as string from cloud storage & get the trigger if there are updates at all
         update_trigger, prev_snapshot_as_string = update_checker(curr_snapshot_as_string, folder_to_parse)
-        print('проверка 3')
+        logging.info('проверка 3')
         try:
-            print('update trigger: ' + str(update_trigger))
-            print('prev snapshot: ' + str(prev_snapshot_as_string))
-        except: # noqa
-            print('we are printing an exception')
+            logging.info('update trigger: ' + str(update_trigger))
+            logging.info('prev snapshot: ' + str(prev_snapshot_as_string))
+        except:  # noqa
+            logging.info('we are printing an exception')
 
         # only for case when current snapshot differs from previous
         if update_trigger == "yes":
@@ -1601,7 +1611,7 @@ def process_one_folder(folder_to_parse):
             rewrite_snapshot_in_sql(parsed_summary, folder_to_parse)
 
             """DEBUG"""
-            print('starting "process_delta" for folder', folder_to_parse)
+            logging.info('starting "process_delta" for folder', folder_to_parse)
             """DEBUG"""
 
             process_delta(folder_to_parse)
@@ -1609,12 +1619,12 @@ def process_one_folder(folder_to_parse):
 
         else:
             debug_message = 'DBG.P.2.folder ' + str(folder_to_parse) + ' NO - UPDATE\n' + debug_message
-    print(debug_message)
+    logging.info(debug_message)
 
     return update_trigger, debug_message
 
 
-def parse_and_upd_function(event, context): # noqa
+def parse_and_upd_function(event, context):  # noqa
     """main function which starts every minute"""
 
     global db
@@ -1624,8 +1634,8 @@ def parse_and_upd_function(event, context): # noqa
 
     message_from_pubsub = process_pubsub_message(event)
 
-    print('event: ' + str(event))
-    print('message_from_pubsub: ' + str(message_from_pubsub))
+    logging.info('event: ' + str(event))
+    logging.info('message_from_pubsub: ' + str(message_from_pubsub))
 
     if message_from_pubsub:
         list_from_pubsub = ast.literal_eval(message_from_pubsub)
@@ -1636,11 +1646,11 @@ def parse_and_upd_function(event, context): # noqa
     if list_from_pubsub:
         for line in list_from_pubsub:
             folders_list.append(line[0])
-        print('folder_list_2: ', str(folders_list))
+        logging.info('folder_list_2: ', str(folders_list))
 
     """DEBUG"""
     # in order to separate different iterations in logs while Debugging
-    print('----------------------------------------------------')
+    logging.info('----------------------------------------------------')
     """DEBUG"""
 
     if not folders_list:
@@ -1691,7 +1701,7 @@ def parse_and_upd_function(event, context): # noqa
     for folder in folders_list:
 
         """DEBUG"""
-        print('DBG.P.31.Folder:', folder)
+        logging.info('DBG.P.31.Folder:', folder)
         """DEBUG"""
 
         update_trigger, debug_message = process_one_folder(folder)
@@ -1700,7 +1710,7 @@ def parse_and_upd_function(event, context): # noqa
             list_of_folders_with_updates.append(folder)
 
     """DEBUG"""
-    print('Here\'s a list of folders with updates: ' + str(list_of_folders_with_updates))
+    logging.info('Here\'s a list of folders with updates: ' + str(list_of_folders_with_updates))
     """DEBUG"""
 
     if list_of_folders_with_updates:
@@ -1712,7 +1722,7 @@ def parse_and_upd_function(event, context): # noqa
         publish_to_pubsub('topic_for_notification', str(notifications_config))
 
         """DEBUG"""
-        print('Here\'s notif config: ' + str(notifications_config))
+        logging.info('Here\'s notif config: ' + str(notifications_config))
         # notify_admin(notifications_config)
         """DEBUG"""
 
