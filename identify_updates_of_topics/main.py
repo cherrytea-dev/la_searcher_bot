@@ -1059,13 +1059,17 @@ def profile_get_managers(text_of_managers):
                         manager_line = manager_line.replace('  ', ' ')
 
                         # Block of phone number substitution with clickable link
-                        nums = re.findall(
+                        # TODO: turned out "tel:" protocol does not work in telegram,
+                        #  and phone numbers are maid clickable only if the message is
+                        #  short and it's user device who decides if number should be marked up
+                        #  as tel: link or not. So it is not controllable – thus tel: functionality was excluded
+                        """nums = re.findall(
                             r'(?:\+7|7|8)[\s]?[\s\-(]?[\s]?[\d]{3}[\s\-)]?[\s]?[\d]{3}[\s\-]?[\d]{2}[\s\-]?[\d]{2}',
                             manager_line)
                         for num in nums:
                             manager_line = manager_line.replace(num,
                                                                 '<a href="tel:' + str(num) + '">' + str(num) + '</a>')
-
+"""
                         managers.append(manager_line)
                         break
 
