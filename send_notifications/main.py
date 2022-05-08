@@ -312,11 +312,15 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
         if repr(e).find('BadRequest()') > -1:
             result = 'cancelled_bad_request'
+
+            logging.info(f'failed sending to telegram due to Bad Request user={user_id}, message={message_content}')
+            logging.error(repr(e))
+
         else:
             result = 'failed'
 
-        logging.info(f'failed sending to telegram user={user_id}, message={message_content}')
-        logging.exception(repr(e))
+            logging.info(f'failed sending to telegram user={user_id}, message={message_content}')
+            logging.exception(repr(e))
 
     return result
 
