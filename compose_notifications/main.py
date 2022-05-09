@@ -737,7 +737,7 @@ def enrich_new_records_with_message_texts():
                 except Exception as e4:
                     logging.error('DBG.N.108.EXC:' + repr(e4))
                     logging.exception(e4)
-                    notify_admin('ERROR in mikn: try in enrich_new_records_with_mess_txts')
+                    notify_admin('[comp_notif]: ERROR in try in enrich_new_records_with_mess_txts')
                     line.message = compose_com_msg_on_new_search(line.link, line.name, line.age, line.age_wording,
                                                                  line.activities, line.managers)
 
@@ -1250,8 +1250,7 @@ def iterate_over_all_users_and_updates(bot_2, is_prod, using_canary, conn):
 
                 # TODO: DEBUG
                 if this_record_was_processed_already:
-                    # notify_admin('mikn: 2 MAILINGS for 1 CHANGE LOG RECORD! !!!!!!!!!!!!!!!!!!!!!!!!!!')
-                    logging.info('mikn: 2 MAILINGS for 1 CHANGE LOG RECORD! !!!!!!!!!!!!!!!!!!!!!!!!!!')
+                    logging.info('[comp_notif]: 2 MAILINGS for 1 CHANGE LOG RECORD identified')
 
                 # record into SQL table notif_mailings
                 sql_text = sqlalchemy.text("""
@@ -1902,7 +1901,8 @@ def pubsub_notification_trigger(event, context):  # noqa
     if analytics_notif_times:
         len_n = len(analytics_notif_times)
         average = sum(analytics_notif_times) / len_n
-        notify_admin('Mikn Analytics: Search_id {}, Change_id {}, Change_type {}, Mailing_id {}: num of messages {}, '
+        notify_admin('[comp_notif]: Analytics: Search_id {}, Change_id {}, Change_type {}, Mailing_id {}: num of '
+                     'messages {}, '
                      'average time {} seconds, total time {} seconds'.format(srch_id, chng_id, chng_type,
                                                                              mailing_id,
                                                                              len_n,
