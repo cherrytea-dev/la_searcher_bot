@@ -363,7 +363,9 @@ def iterate_over_notifications(bot, script_start_time):
 
                 # TODO: temp condition for Admins and Testers OR the prev message delivery was FAILED
                 if (message_content or message_type == 'coords') and \
-                        (user_id in (list_of_admins + list_of_testers) or message_failed):
+                        (user_id in (list_of_admins + list_of_testers) or
+                         message_failed or
+                         user_id <= 136885267):
 
                     # limitation to avoid telegram "message too long"
                     if message_content:
