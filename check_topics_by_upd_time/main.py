@@ -25,9 +25,7 @@ def check_updates_in_folder_with_folders(start_folder_num):
         url = 'https://lizaalert.org/forum/viewforum.php?f=' + str(start_folder_num)
 
     try:
-        r = requests.Session().get(url, timeout=20)
-        # TODO: to think about timeout - to be sure night forum update will be well managed
-        # timeout for 10 seconds for every folder - req'd daily at night forum update
+        r = requests.Session().get(url, timeout=20)  # timeout is req'd to mitigate daily night forum update
 
         only_tag = SoupStrainer('div', {'class': 'forabg'})
         soup = BeautifulSoup(r.content, features='lxml', parse_only=only_tag)
@@ -45,7 +43,8 @@ def check_updates_in_folder_with_folders(start_folder_num):
             search_code_blocks.append(temp_block)
 
     except Exception as e1:
-        logging.info('DBG.U.1.EXC:' + repr(e1))
+        logging.info(f'Checking topics by update time in folder {start_folder_num} triggered an error')
+        logging.exception(e1)
         search_code_blocks = None
 
     try:
@@ -75,7 +74,8 @@ def check_updates_in_folder_with_folders(start_folder_num):
                         last_folder_update = folder_time
 
     except Exception as e2:
-        logging.info('DBG.U.1.EXC:' + repr(e2))
+        logging.info(f'composing the topics\' page summaries fired an error, mother-folder {start_folder_num}')
+        logging.exception(e2)
 
     return page_summary, last_folder_update
 
@@ -90,7 +90,7 @@ def time_delta(now, time):
 
 
 def get_the_list_folders_to_update(list_of_folders_and_times, now_time, delay_time):
-    """TBD"""
+    """get the list of updated folders that were updated recently"""
 
     list_of_updated_folders = []
 
@@ -105,56 +105,53 @@ def get_the_list_folders_to_update(list_of_folders_and_times, now_time, delay_ti
 
 
 def publish_to_pubsub(message):
-    """TBD"""
+    """publish a pub/sub message"""
 
     global project_id
     global publisher
 
-    # Preparing to turn to the existing pub/sub topic
+    # Prepare to turn to the existing pub/sub topic
     topic_name = 'topic_update_identified'
     topic_path = publisher.topic_path(project_id, topic_name)
-    # Preparing the message
+
+    # Prepare the message
     message_json = json.dumps({'data': {'message': message}, })
     message_bytes = message_json.encode('utf-8')
-    # Publishes a message
+
+    # Publish a message
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publish succeeded
-        # logging.info('DBG.P.3: Pub/sub message published')
-        # return 'Message published.'
-    except Exception as e:
-        logging.info('DBG.UC.3.ERR: pub/sub message NOT published' + repr(e))
-        # return e, 500
 
-    # del project_id
-    # del publisher
+    except Exception as e:
+        logging.info('Pub/sub message was NOT published, fired an error')
+        logging.exception(e)
 
     return None
 
 
 def main(event, context): # noqa
-    """main function"""
+    """main function that starts first"""
 
     global project_id
     global publisher
 
-    delay = 2  # minutes
-    # TODO: so, do we need timezone difference if not used?
-    timezone_difference_in_hours = 0
-    now = datetime.datetime.now() - datetime.timedelta(hours=timezone_difference_in_hours)
+    now = datetime.datetime.now()
     folder_num_to_check = None
 
     list_of_folders_and_times, last_update_time = check_updates_in_folder_with_folders(folder_num_to_check)
 
     time_diff_in_min = time_delta(now, last_update_time)
 
-    logging.info(str(time_diff_in_min) + ' minute(s) ago forum was updated')
+    logging.info(f'{str(time_diff_in_min)} minute(s) ago forum was updated')
 
     # next actions only if the forum update happened within the defined period (2-3 minutes, defined in "delay")
+    delay = 2  # minutes
+
     if time_diff_in_min <= delay:
 
         list_of_updated_folders = get_the_list_folders_to_update(list_of_folders_and_times, now, delay)
-        logging.info('folders with new info WITHOUT snapshot checks: ' + str(list_of_updated_folders))
+        logging.info(f'Folders with new info WITHOUT snapshot checks: {str(list_of_updated_folders)}')
 
         list_for_pubsub = []
         for line in list_of_folders_and_times:
