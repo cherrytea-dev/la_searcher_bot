@@ -1609,7 +1609,7 @@ def process_one_folder(folder_to_parse):
             rewrite_snapshot_in_sql(parsed_summary, folder_to_parse)
 
             """DEBUG"""
-            logging.info('starting "process_delta" for folder' + folder_to_parse)
+            logging.info('starting "process_delta" for folder' + str(folder_to_parse))
             """DEBUG"""
 
             process_delta(folder_to_parse)
