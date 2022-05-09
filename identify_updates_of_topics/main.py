@@ -251,12 +251,10 @@ def parse_coordinates(search_num):
             first_num = re.search(r"\d", address_string).start()
         except:  # noqa
             first_num = 0
-            logging.info('not error')
         try:
             first_letter = re.search(r'[а-яА-Я]', address_string).start()
         except:  # noqa
             first_letter = 0
-            logging.info('not error')
 
         new_start = max(first_num, first_letter)
 
@@ -331,7 +329,8 @@ def parse_coordinates(search_num):
                 )
                 conn.execute(stmt, a=address_string, b=status, c=latitude, d=longitude)
         except Exception as e7:
-            logging.info('DBG.P.EXC.109: ' + str(e7))
+            logging.info('DBG.P.EXC.109: ')
+            logging.exception(e7)
             notify_admin('ERROR: saving geolocation to psql failed: ' + address_string + ', ' + status)
 
         return None
@@ -358,7 +357,8 @@ def parse_coordinates(search_num):
                     conn.execute(stmt, a=search_num, b=address_string, c=datetime.now())
 
         except Exception as e7:
-            logging.info('DBG.P.EXC.110: ' + str(e7))
+            logging.info('DBG.P.EXC.110: ')
+            logging.exception(e7)
             notify_admin('ERROR: saving place to psql failed: ' + address_string + ', ' + search_num)
 
         return None
@@ -404,7 +404,7 @@ def parse_coordinates(search_num):
                 try:
                     # second – check that next request won't be in less a minute from previous
                     prev_str_of_geocheck = read_snapshot_from_cloud_storage('bucket_for_ad_hoc', 'geocode')
-                    logging.info('prev_str_of_geocheck: ' + prev_str_of_geocheck)
+                    logging.info(f'prev_str_of_geocheck: {prev_str_of_geocheck}')
 
                     if prev_str_of_geocheck:
                         prev_time_of_geocheck = datetime.strptime(prev_str_of_geocheck, '%Y-%m-%dT%H:%M:%S+00:00')
@@ -414,18 +414,16 @@ def parse_coordinates(search_num):
                         else:
                             time_delta_bw_now_and_next_request = timedelta(seconds=0)
                         if time_delta_bw_now_and_next_request.total_seconds() > 0:
-                            logging.info('now-1 is: ' + str(datetime.now()))
-                            logging.info('time_delta is: ' + time_delta_bw_now_and_next_request.total_seconds())
                             time.sleep(time_delta_bw_now_and_next_request.total_seconds())
-                            logging.info('now-2 is: ' + str(datetime.now()))
 
                     try:
                         search_location = geolocator.geocode(address_string, timeout=10000)
-                        logging.info('geo_location: ' + str(search_location))
-                    except Exception as e5:
+                        logging.info(f'geo_location: {str(search_location)}')
+                    except Exception as e55:
                         search_location = None
-                        logging.info('ERROR: geo loc ' + str(e5))
-                        notify_admin('ERROR: in geo loc :' + str(e5))
+                        logging.info('ERROR: geo loc ')
+                        logging.exception(e55)
+                        notify_admin(f'ERROR: in geo loc : {str(e55)}')
 
                     now_str = datetime.now().strftime('%Y-%m-%dT%H:%M:%S+00:00')
                     write_snapshot_to_cloud_storage('bucket_for_ad_hoc', now_str, 'geocode')
@@ -437,7 +435,8 @@ def parse_coordinates(search_num):
                         save_geolocation_in_psql(address_string, 'fail', None, None)
                 except Exception as e6:
                     logging.info('error in script get_coordinates_from_address for address_string: '
-                                 + address_string + '. Repr: ' + repr(e6))
+                                 + address_string + '. Repr: ')
+                    logging.exception(e6)
                     notify_admin('ERROR: get_coords_from_address failed. It includes geolocator frequency check')
 
         return latitude, longitude
@@ -503,7 +502,6 @@ def parse_coordinates(search_num):
                     i = d + 1
             else:
                 i = len(f)
-        # logging.info(e)
 
         # extract exact numbers & match if they look like coordinates
         for i in range(len(e)):
@@ -518,10 +516,12 @@ def parse_coordinates(search_num):
                             lon = g[j + 1]
                             coord_type = '1. coordinates w/ word coord'
                     except Exception as e2:
-                        logging.info('DBG.P.36.EXC. Coords-1:', repr(e2))
+                        logging.info('DBG.P.36.EXC. Coords-1:')
+                        logging.exception(e2)
 
     except Exception as e:
-        logging.info('Mike, here is an exception 1' + repr(e))
+        logging.info('Exception happened')
+        logging.exception(e)
         pass
 
     # SECOND CASE = THERE ARE COORDINATES w/o a WORD Coordinates
@@ -567,9 +567,11 @@ def parse_coordinates(search_num):
                             lon = g[j + 1]
                             coord_type = '2. coordinates w/o word coord'
                     except Exception as e2:
-                        logging.info('DBG.P.36.EXC. Coords-2:', repr(e2))
+                        logging.info('DBG.P.36.EXC. Coords-2:')
+                        logging.exception(e2)
         except Exception as e:
-            logging.info('Mike, here is an exception 2' + repr(e))
+            logging.info('Exception 2')
+            logging.exception(e)
             pass
 
     # THIRD CASE = DELETED COORDINATES
@@ -586,7 +588,6 @@ def parse_coordinates(search_num):
             if a:
                 for line in a:
                     b = re.sub(r'\n\s*\n', r' ', line.get_text().strip(), flags=re.M)
-                    # logging.info(b)
                     c = re.sub(r'\n', r' ', b)
                     g = [float(s) for s in re.findall(r'-?\d+\.?\d*', c)]
                     if len(g) > 1:
@@ -600,9 +601,11 @@ def parse_coordinates(search_num):
                                     lon = g[j + 1]
                                     coord_type = '3. deleted coord'
                             except Exception as e2:
-                                logging.info('DBG.P.36.EXC. Coords-1:', repr(e2))
+                                logging.info('DBG.P.36.EXC. Coords-1:')
+                                logging.exception(e2)
         except Exception as e:
-            logging.info('Mike, here is an exception 3' + repr(e))
+            logging.info('Mike, here is an exception 3')
+            logging.exception(e)
             pass
 
     # FOURTH CASE = COORDINATES FROM ADDRESS
@@ -614,7 +617,8 @@ def parse_coordinates(search_num):
             if lat != 0:
                 coord_type = '4. coordinates by address'
         except Exception as e5:
-            logging.info('DBG.P.42.EXC:', repr(e5))
+            logging.info('DBG.P.42.EXC:')
+            logging.exception(e5)
 
     # TODO: needed debug?
     # DEBUG - function execution time counter
@@ -668,13 +672,11 @@ def publish_to_pubsub(topic_name, message):
         logging.info('DBG.P.3: Pub/sub message published')
         logging.info('publish_future_.result(): ' + str(publish_future.result()))
 
-        return 'Message published.'
-
     except Exception as e:
-        logging.info('DBG.P.3.ERR: pub/sub NOT published', repr(e))
+        logging.info('DBG.P.3.ERR: pub/sub NOT published')
+        logging.exception(e)
 
-        return e, 500
-
+    return None
 
 def notify_admin(message):
     """send the pub/sub message to Debug to Admin"""
@@ -705,7 +707,8 @@ def process_pubsub_message(event):
         logging.info('message_in_ascii: ' + str(message_in_ascii))
     except Exception as es:
         message_in_ascii = None
-        logging.info('exception happened: ' + str(es))
+        logging.info('exception happened: ')
+        logging.exception(str(es))
 
     return message_in_ascii
 
@@ -911,7 +914,8 @@ def define_last_post_parameters(blocks):
         # last_post_time = str(last_post_block.find('time').text)
         # last_post_plain_text = last_post_author_block + ', ' + last_post_time
     except Exception as e:
-        logging.info('Mike, here is an exception 6' + str(e))
+        logging.info('Exception happened 6')
+        logging.exception(e)
         last_post_block = ''
 
     return last_post_block
@@ -1103,7 +1107,8 @@ def profile_get_managers(text_of_managers):
         """DBG"""
 
     except Exception as e:
-        logging.info('DBG.P.102.EXC:', repr(e))
+        logging.info('DBG.P.102.EXC:')
+        logging.exception(e)
 
     return managers
 
@@ -1122,7 +1127,8 @@ def parse_search_profile(search_num):
         soup = BeautifulSoup(r.content, features="html.parser")
 
     except Exception as e:
-        logging.info('DBG.P.50.EXC: unable to parse a specific thread with address:', url_to_topic, ',error:', repr(e))
+        logging.info(f'DBG.P.50.EXC: unable to parse a specific thread with address: {url_to_topic} error:')
+        logging.exception(e)
         soup = None
 
     # open the first post
@@ -1215,7 +1221,8 @@ def parse(folder_num):
 
     # To catch timeout once a day in the night
     except requests.exceptions.Timeout as e:
-        logging.info('DBG.P.31.Timeout:', repr(e))
+        logging.info('DBG.P.31.Timeout:')
+        logging.exception(e)
         parsed_summary_page = []
     except ConnectionResetError as e:
         logging.info('there is a connection error:' + repr(e) + db_timestamp)
@@ -1226,7 +1233,7 @@ def parse(folder_num):
 
     """DEBUG"""
     # if folder_num not in {276, 41}:
-    logging.info('DBG.P.29.Parsed_summary_page:\n', str(parsed_summary_page))
+    logging.info('DBG.P.29.Parsed_summary_page:\n' + str(parsed_summary_page))
     """DEBUG"""
 
     return [parsed_summary_page, parsed_without_date]
@@ -1260,19 +1267,12 @@ def parse_one_comment(search_num, comment_num):
                 comment_author_nickname = 'unidentified_username'
 
         if comment_author_nickname[:6].lower() == 'инфорг':
-            """DEBUG"""
-            logging.info('DBG.P.58.INFORG:', comment_author_nickname)
-            logging.info('DBG.P.58.INFORG:', comment_author_nickname[:6].lower())
-            logging.info('DBG.P.58.INFORG:', comment_author_nickname[:6].lower() == 'инфорг')
-            """DEBUG"""
-
             there_are_inforg_comments = True
 
         # finding LINK to user profile
-        # comment_author_link = 'test_link'
         try:
-            # comment_author_link = comment_author_block['href'][1:]
             comment_author_link = int("".join(filter(str.isdigit, comment_author_block['href'][36:43])))
+
         except Exception as e:
             logging.info('Mike, here is an exception 9 for search ' + str(search_num) + ', and comment ' +
                          str(comment_num) +
@@ -1327,7 +1327,7 @@ def parse_one_comment(search_num, comment_num):
                                      d=comment_author_link, e=search_num, f=comment_num, g='n')
 
             except Exception as e3:
-                logging.info('DBG.P.106.EXC:', repr(e3))
+                logging.info('DBG.P.106.EXC:' + repr(e3))
                 stmt = sqlalchemy.text(
                     """INSERT INTO comments (comment_url, comment_text, comment_author_nickname, comment_author_link, 
                     search_forum_num, comment_num) values (:a, :b, :c, :d, :e, :f); """
@@ -1336,7 +1336,7 @@ def parse_one_comment(search_num, comment_num):
                              e=search_num, f=comment_num)
 
     except ConnectionResetError:
-        logging.info('Mike, there is a connection error')
+        logging.info('There is a connection error')
 
     return there_are_inforg_comments
 
@@ -1388,7 +1388,7 @@ def process_delta(folder_num):
                             if there_are_inforg_comments:
                                 change_log_updates.append([snpsht[1], snpsht[0], 'inforg_replies', snpsht[6], '', 4])
                         except Exception as e:
-                            logging.info('DBG.P.58:', repr(e))
+                            logging.info('DBG.P.58:' + repr(e))
         if change_log_updates:
             stmt = sqlalchemy.text(
                 """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters, 
@@ -1450,7 +1450,7 @@ def process_delta(folder_num):
                     search_activities = profile_get_type_of_activity(parsed_profile_text)
                     # search_events = profile_get_search_events(parsed_profile_text)
                     """DBG"""
-                    logging.info('DBG.P.103:Search activities:', search_activities)
+                    logging.info('DBG.P.103:Search activities:' + str(search_activities))
                     """DBG"""
 
                     # mark all old activities as deactivated
@@ -1471,7 +1471,7 @@ def process_delta(folder_num):
                     managers = profile_get_managers(parsed_profile_text)
 
                     """DBG"""
-                    logging.info('DBG.P.104:Managers:', managers)
+                    logging.info('DBG.P.104:Managers:' + str(managers))
                     """DBG"""
 
                     if managers:
@@ -1482,10 +1482,10 @@ def process_delta(folder_num):
                             )
                             conn.execute(sql_text, a=search_num, b='managers', c=str(managers), d=datetime.now())
                         except Exception as e:
-                            logging.info('DBG.P.104:', repr(e))
+                            logging.info('DBG.P.104:' + repr(e))
 
             except Exception as e:
-                logging.info('DBG.P.52.EXC:', repr(e))
+                logging.info('DBG.P.52.EXC:' + repr(e))
 
         '''4 DEL UPD from Searches'''
         delete_lines_from_summary = []
@@ -1541,7 +1541,7 @@ def process_delta(folder_num):
     # DEBUG - function execution time counter
     func_finish = datetime.now()
     func_execution_time_ms = func_finish - func_start
-    logging.info('DBG.P.5.process_delta() exec time:', func_execution_time_ms)
+    logging.info('DBG.P.5.process_delta() exec time:' + str(func_execution_time_ms))
     # DEBUG - function execution time counter
 
     return None
@@ -1580,7 +1580,7 @@ def process_one_folder(folder_to_parse):
 
     # parse a new version of summary page from the chosen folder
     parsed_summary = parse(folder_to_parse)
-    logging.info('парсим ' + str(folder_to_parse))
+    logging.info('parsing of ' + str(folder_to_parse))
     logging.info(str(parsed_summary[0]))
 
     update_trigger = ''
@@ -1589,15 +1589,13 @@ def process_one_folder(folder_to_parse):
     # make comparison, record it in PSQL
     if parsed_summary[0]:
 
-        logging.info('проверка 1')
         # transform the current snapshot into the string to be able to compare it: string vs string
         prep_for_curr_snapshot_as_string = [y for x in parsed_summary[1] for y in x]
         curr_snapshot_as_string = ','.join(map(str, prep_for_curr_snapshot_as_string))
 
-        logging.info('проверка 2')
         # get the prev snapshot as string from cloud storage & get the trigger if there are updates at all
         update_trigger, prev_snapshot_as_string = update_checker(curr_snapshot_as_string, folder_to_parse)
-        logging.info('проверка 3')
+
         try:
             logging.info('update trigger: ' + str(update_trigger))
             logging.info('prev snapshot: ' + str(prev_snapshot_as_string))
@@ -1646,7 +1644,7 @@ def parse_and_upd_function(event, context):  # noqa
     if list_from_pubsub:
         for line in list_from_pubsub:
             folders_list.append(line[0])
-        logging.info('folder_list_2: ', str(folders_list))
+        logging.info(f'folder_list_2:  {str(folders_list)}')
 
     """DEBUG"""
     # in order to separate different iterations in logs while Debugging
@@ -1701,7 +1699,7 @@ def parse_and_upd_function(event, context):  # noqa
     for folder in folders_list:
 
         """DEBUG"""
-        logging.info('DBG.P.31.Folder:', folder)
+        logging.info('DBG.P.31.Folder:' + str(folder))
         """DEBUG"""
 
         update_trigger, debug_message = process_one_folder(folder)
