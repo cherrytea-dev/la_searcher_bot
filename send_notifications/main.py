@@ -181,6 +181,29 @@ def write_message_sending_status(conn_, message_id_, result, mailing_id_, change
                           f=user_id_,
                           g=message_type_,
                           h='send_notifs, bad request')
+
+        elif result == 'failed_flood_control':
+            conn_.execute(sql_text,
+                          a=message_id_,
+                          b='failed',
+                          c=datetime.datetime.now(),
+                          d=mailing_id_,
+                          e=change_log_id_,
+                          f=user_id_,
+                          g=message_type_,
+                          h='send_notifs, flood control')
+
+        elif result == 'cancelled_due_to_doubling':
+            conn_.execute(sql_text,
+                          a=message_id_,
+                          b='cancelled',
+                          c=datetime.datetime.now(),
+                          d=mailing_id_,
+                          e=change_log_id_,
+                          f=user_id_,
+                          g=message_type_,
+                          h='send_notifs, doubling')
+
         else:
             # TODO: debug notify
             notify_admin('Send_notifications: message {}, sending status is {} for conn'.format(message_id_, result))
@@ -200,7 +223,7 @@ def write_message_sending_status(conn_, message_id_, result, mailing_id_, change
             notify_admin('Send_notifications: message {}, sending status is {} for conn2'.format(message_id_, result))
 
     except:  # noqa
-        notify_admin('ERR mink write to SQL notif_by_user_status, message_id {}, status {}'.format(message_id_, result))
+        notify_admin('[send_notif]: ERR write to SQL notif_by_user_status, message_id {}, status {}'.format(message_id_, result))
 
     return None
 
@@ -316,6 +339,12 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
             logging.info(f'failed sending to telegram due to Bad Request user={user_id}, message={message_content}')
             logging.error(repr(e))
 
+        elif repr(e).find('Flood control exceeded') > -1:
+            result = 'failed_flood_control'
+
+            logging.info(f'"flood control": failed sending to telegram user={user_id}, message={message_content}')
+            time.sleep(5)  # TODO: temp placeholder to wait 5 seconds
+
         else:
             result = 'failed'
 
@@ -384,7 +413,7 @@ def iterate_over_notifications(bot, script_start_time):
                     if doubling_trigger == 'no_doubling':
                         result = send_single_message(bot, user_id, message_content, message_params, message_type)
                     else:
-                        result = 'cancelled'
+                        result = 'cancelled_due_to_doubling'
 
                     # save result of sending telegram notification into SQL
                     write_message_sending_status(conn, message_id, result, mailing_id,
