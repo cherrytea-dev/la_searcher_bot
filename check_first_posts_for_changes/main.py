@@ -43,7 +43,7 @@ def sql_connect():
     db_config = {
         "pool_size": 20,
         "max_overflow": 0,
-        "pool_timeout": 0,  # seconds
+        "pool_timeout": 10,  # seconds
         "pool_recycle": 0,  # seconds
     }
 
