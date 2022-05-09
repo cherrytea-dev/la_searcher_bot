@@ -45,7 +45,7 @@ def check_updates_in_folder_with_folders(start_folder_num):
             search_code_blocks.append(temp_block)
 
     except Exception as e1:
-        logging.info('DBG.U.1.EXC:', repr(e1))
+        logging.info('DBG.U.1.EXC:' + repr(e1))
         search_code_blocks = None
 
     try:
@@ -75,7 +75,7 @@ def check_updates_in_folder_with_folders(start_folder_num):
                         last_folder_update = folder_time
 
     except Exception as e2:
-        logging.info('DBG.U.1.EXC:', repr(e2))
+        logging.info('DBG.U.1.EXC:' + repr(e2))
 
     return page_summary, last_folder_update
 
@@ -123,7 +123,7 @@ def publish_to_pubsub(message):
         # logging.info('DBG.P.3: Pub/sub message published')
         # return 'Message published.'
     except Exception as e:
-        logging.info('DBG.UC.3.ERR: pub/sub message NOT published', repr(e))
+        logging.info('DBG.UC.3.ERR: pub/sub message NOT published' + repr(e))
         # return e, 500
 
     # del project_id
