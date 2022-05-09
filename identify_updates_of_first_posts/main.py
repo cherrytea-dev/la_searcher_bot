@@ -107,7 +107,7 @@ def get_the_list_of_coords_out_of_text(initial_text):
     resulting_list = []
 
     if initial_text:
-        # remove blankspaces and newlines in the initial text
+        # remove blank spaces and newlines in the initial text
         initial_text = initial_text.replace('<br>', ' ')
         initial_text = initial_text.replace('\n', ' ')
 
@@ -120,9 +120,9 @@ def get_the_list_of_coords_out_of_text(initial_text):
                 list_of_all_coord_mentions.append([float(nums[0]), float(nums[1]), '2. coordinates w/o word coord'])
 
         # get the list of all mentions with word 'Coordinates'
-        list_of_all_mentionings_of_word_coord = re.findall(r'[Кк]оординат[^ор].{0,150}', initial_text)
-        if list_of_all_mentionings_of_word_coord:
-            for line in list_of_all_mentionings_of_word_coord:
+        list_of_all_mentions_of_word_coord = re.findall(r'[Кк]оординат[^ор].{0,150}', initial_text)
+        if list_of_all_mentions_of_word_coord:
+            for line in list_of_all_mentions_of_word_coord:
                 list_of_coords = re.findall(r'0?[3-8]\d\.[\d]{1,10}.{0,10}(?:0,1)?[2-8]\d\.[\d]{1,10}', line)
                 if list_of_coords:
                     for line_2 in list_of_coords:
@@ -169,7 +169,7 @@ def get_the_list_of_coords_out_of_text(initial_text):
 
 
 def get_resulting_message_on_coordinates_change(prev_coords, curr_coords):
-    """compare two versions of cooridnats for same search and generate the outcoming message"""
+    """compare two versions of coordinates for same search and generate the outgoing message"""
 
     message = ''
 
@@ -229,7 +229,7 @@ def get_the_search_status_out_of_text(initial_text):
     resulting_list = []
 
     if initial_text:
-        # remove blankspaces and newlines in the initial text
+        # remove blank spaces and newlines in the initial text
         initial_text = initial_text.replace('<br>', ' ')
         initial_text = initial_text.replace('\n', ' ')
 
@@ -242,9 +242,9 @@ def get_the_search_status_out_of_text(initial_text):
                 list_of_all_coord_mentions.append([float(nums[0]), float(nums[1]), '2. coordinates w/o word coord'])
 
         # get the list of all mentions with word 'Coordinates'
-        list_of_all_mentionings_of_word_coord = re.findall(r'[Кк]оординат[^ор].{0,150}', initial_text)
-        if list_of_all_mentionings_of_word_coord:
-            for line in list_of_all_mentionings_of_word_coord:
+        list_of_all_mentions_of_word_coord = re.findall(r'[Кк]оординат[^ор].{0,150}', initial_text)
+        if list_of_all_mentions_of_word_coord:
+            for line in list_of_all_mentions_of_word_coord:
                 list_of_coords = re.findall(r'0?[3-8]\d\.[\d]{1,10}.{0,10}(?:0,1)?[2-8]\d\.[\d]{1,10}', line)
                 if list_of_coords:
                     for line_2 in list_of_coords:
@@ -312,7 +312,7 @@ def parse_search_folder(search_num):
 
 
 def get_compressed_first_post(initial_text):
-    """convert the initial html text of first posr into readable string (for reading in SQL)"""
+    """convert the initial html text of first post into readable string (for reading in SQL)"""
 
     compressed_string = ''
 
@@ -415,7 +415,7 @@ def main(event, context): # noqa
 
                 # some searches are not opening in the forum - and it's not Bot error
                 # if not first_page_content_curr:
-                #    logging.error('Mikpf: there is no Curr First Page content in SQL for {}.'.format(search_id))
+                #    logging.error('there is no Curr First Page content in SQL for {}.'.format(search_id))
 
                 # get the Previous First Page Content
                 sql_text = sqlalchemy.text("""
@@ -428,7 +428,7 @@ def main(event, context): # noqa
 
                 # case below - is not an error
                 # if not first_page_content_prev:
-                #    logging.error('Mikpf: there is no Prev First Page content in SQL for {}.'.format(search_id))
+                #    logging.error('there is no Prev First Page content in SQL for {}.'.format(search_id))
 
                 # TODO: just debug
                 logging.info(first_page_content_curr)
@@ -450,7 +450,7 @@ def main(event, context): # noqa
                 # compose a DEBUG message for admin
                 msg = get_resulting_message_on_coordinates_change(coords_prev, coords_curr)
                 if msg:
-                    msg = 'Mikpf: FIRST PAGE / Coords: поиск {}: \n'.format(search_id) + msg
+                    msg = '[ide_post]: FIRST PAGE / Coords: поиск {}: \n'.format(search_id) + msg
                     publish_to_pubsub('topic_notify_admin', msg)
 
                 # TODO DEBUG try
@@ -487,8 +487,9 @@ def main(event, context): # noqa
                         publish_to_pubsub('topic_notify_admin', first_page_content_prev[:3900])
 
                 except Exception as e:
-                    logging.error(repr(e))
-                    publish_to_pubsub('topic_notify_admin', 'ERROR mikpf: notify Field Trip Failed: ' + repr(e)[:3900])
+                    logging.error(e)
+                    publish_to_pubsub('topic_notify_admin', '[ide_posts]: ERROR: notify Field Trip Failed: '
+                                      + repr(e)[:3900])
 
                 # save folder number for the search that has an update
                 folder_num = parse_search_folder(search_id)
@@ -499,7 +500,7 @@ def main(event, context): # noqa
 
             # evoke 'parsing script' to check in the folders with updated searches have any update
             if list_of_folders_with_upd_searches:
-                publish_to_pubsub('topic_notify_admin', 'mikpf: ' + str(list_of_folders_with_upd_searches))
+                publish_to_pubsub('topic_notify_admin', f'[ide_post]: {str(list_of_folders_with_upd_searches)}')
                 publish_to_pubsub('topic_to_run_parsing_script', str(list_of_folders_with_upd_searches))
 
     # Close the open session
