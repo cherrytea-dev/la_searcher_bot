@@ -25,7 +25,6 @@ def process_pubsub_message(event):
     encoded_to_ascii = eval(received_message_from_pubsub)
     data_in_ascii = encoded_to_ascii['data']
     message_in_ascii = data_in_ascii['message']
-    # logging.info('message received from pubsub', message_in_ascii)
 
     return message_in_ascii
 
@@ -44,11 +43,13 @@ def publish_to_pubsub(topic_name, message):
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publish succeeded
-        logging.info('DBG.UF.3: Pub/sub message published')
-        return 'Message published.'
+        logging.info('Pub/sub message was published successfully')
+
     except Exception as e:
-        logging.info('DBG.UF.3.ERR: pub/sub NOT published', repr(e))
-        return e, 500
+        logging.info('Pub/sub message was NOT published, fired an error')
+        logging.exception(e)
+
+    return None
 
 
 def set_cloud_storage(folder_num):
@@ -144,7 +145,8 @@ def decompose_folder_to_subfolders_and_searches(start_folder_num):
         del soup  # trying to free up memory
 
     except Exception as e1:
-        logging.info('DBG.UF.1.EXC:', repr(e1))
+        logging.info(f'Request to forum was unsuccessful for url {url}')
+        logging.exception(e1)
         search_code_blocks_folders = None
         search_code_blocks_searches = None
 
@@ -176,7 +178,8 @@ def decompose_folder_to_subfolders_and_searches(start_folder_num):
                         page_summary_folders.append([folder_num, folder_time_str])
 
     except Exception as e2:
-        logging.info('DBG.UG.2.EXC:', repr(e2))
+        logging.info(f'Folder code blocks identification was not successful, fired an error for {start_folder_num}')
+        logging.exception(e2)
 
     try:
         if search_code_blocks_searches:
@@ -187,9 +190,7 @@ def decompose_folder_to_subfolders_and_searches(start_folder_num):
 
                 for i in range(len(searches)-1):
 
-                    logging.info('тест 4')
                     page_full_extract_searches.append(str(searches[i+1]))
-                    logging.info('searches[i+1]: ' + str(searches[i+1]))
 
                     # only title + time of the last reply
                     search_title_block = searches[i+1].find('a', 'topictitle')
@@ -203,9 +204,10 @@ def decompose_folder_to_subfolders_and_searches(start_folder_num):
                     page_summary_searches.append([search_title, search_time_str])
 
     except Exception as e3:
-        logging.info('DBG.UG.3.EXC:', repr(e3))
+        logging.info(f'Searches code blocks identification was not successful, fired an error for {start_folder_num}')
+        logging.exception(e3)
 
-    logging.info('page_summary_searches: ' + str(page_summary_searches))
+    logging.info(f'Page summary searches: {str(page_summary_searches)}')
 
     return page_summary_folders, page_summary_searches, page_full_extract_searches, folder_name
 
@@ -277,7 +279,8 @@ def main(event, context): # noqa
             list_of_new_folders = compare_old_and_new_folder_hash_and_give_list_of_upd_folders(
                 folder.new_child_folders_str, folder.old_child_folders_str)
 
-            logging.info('list of new folders in ' + str(folder.mother_folder_num) + ': ' + str(list_of_new_folders))
+            logging.info(f'List of new folders in {str(folder.mother_folder_num)}: {str(list_of_new_folders)}')
+
             for line in list_of_new_folders:
                 child_folder = FolderForDecompose()
                 child_folder.mother_folder_num = str(line)
@@ -292,12 +295,13 @@ def main(event, context): # noqa
             list_of_updated_low_level_folders.append([line.mother_folder_num,
                                                       line.mother_folder_name])
 
-    logging.info('the below to be sent to Parsing Script via pub/sub')
+    logging.info('The below list is to be sent to "Identify updates of topics" script via pub/sub')
     for line in list_of_updated_low_level_folders:
         logging.info(line)
 
     if list_of_updated_low_level_folders:
-        publish_to_pubsub('topic_notify_admin', '[id-fy_fold]: ' + str(list_of_updated_low_level_folders))
+        publish_to_pubsub('topic_notify_admin', f'[ide_fold]: list of fold for upd '
+                                                f'{str(list_of_updated_low_level_folders)}')
         publish_to_pubsub('topic_to_run_parsing_script', str(list_of_updated_low_level_folders))
 
     return None
