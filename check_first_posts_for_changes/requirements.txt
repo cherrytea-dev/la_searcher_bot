@@ -1,0 +1,8 @@
+requests==2.25.1
+
+SQLAlchemy==1.4.11
+pg8000==1.19.4
+
+google-cloud-secret-manager==2.4.0
+google-cloud-pubsub==2.6.0
+
