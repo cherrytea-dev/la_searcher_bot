@@ -404,7 +404,7 @@ def parse_coordinates(search_num):
                 try:
                     # second – check that next request won't be in less a minute from previous
                     prev_str_of_geocheck = read_snapshot_from_cloud_storage('bucket_for_ad_hoc', 'geocode')
-                    logging.info('prev_str_of_geocheck: ', prev_str_of_geocheck)
+                    logging.info('prev_str_of_geocheck: ' + prev_str_of_geocheck)
 
                     if prev_str_of_geocheck:
                         prev_time_of_geocheck = datetime.strptime(prev_str_of_geocheck, '%Y-%m-%dT%H:%M:%S+00:00')
@@ -415,7 +415,7 @@ def parse_coordinates(search_num):
                             time_delta_bw_now_and_next_request = timedelta(seconds=0)
                         if time_delta_bw_now_and_next_request.total_seconds() > 0:
                             logging.info('now-1 is: ' + str(datetime.now()))
-                            logging.info('time_delta is: ', time_delta_bw_now_and_next_request.total_seconds())
+                            logging.info('time_delta is: ' + time_delta_bw_now_and_next_request.total_seconds())
                             time.sleep(time_delta_bw_now_and_next_request.total_seconds())
                             logging.info('now-2 is: ' + str(datetime.now()))
 
@@ -473,7 +473,7 @@ def parse_coordinates(search_num):
             e.extract()
 
     except Exception as e:
-        logging.info('unable to parse a specific thread with address', url_to_topic, 'error is', e)
+        logging.info(f'unable to parse a specific thread with address {url_to_topic} error is {repr(e)}')
 
     # FIRST CASE = THERE ARE COORDINATES w/ a WORD Coordinates
     try:
@@ -521,7 +521,7 @@ def parse_coordinates(search_num):
                         logging.info('DBG.P.36.EXC. Coords-1:', repr(e2))
 
     except Exception as e:
-        logging.info('Mike, here is an exception 1', repr(e))
+        logging.info('Mike, here is an exception 1' + repr(e))
         pass
 
     # SECOND CASE = THERE ARE COORDINATES w/o a WORD Coordinates
@@ -569,7 +569,7 @@ def parse_coordinates(search_num):
                     except Exception as e2:
                         logging.info('DBG.P.36.EXC. Coords-2:', repr(e2))
         except Exception as e:
-            logging.info('Mike, here is an exception 2', repr(e))
+            logging.info('Mike, here is an exception 2' + repr(e))
             pass
 
     # THIRD CASE = DELETED COORDINATES
@@ -602,7 +602,7 @@ def parse_coordinates(search_num):
                             except Exception as e2:
                                 logging.info('DBG.P.36.EXC. Coords-1:', repr(e2))
         except Exception as e:
-            logging.info('Mike, here is an exception 3', repr(e))
+            logging.info('Mike, here is an exception 3' + repr(e))
             pass
 
     # FOURTH CASE = COORDINATES FROM ADDRESS
@@ -620,7 +620,7 @@ def parse_coordinates(search_num):
     # DEBUG - function execution time counter
     func_finish = datetime.now()
     func_execution_time_ms = func_finish - func_start
-    logging.info('DBG.P.5.parse_coordinates() exec time:', func_execution_time_ms)
+    logging.info(f'DBG.P.5.parse_coordinates() exec time: {func_execution_time_ms}')
     # DEBUG - function execution time counter
 
     return [lat, lon, coord_type]
@@ -631,7 +631,7 @@ def update_coordinates(parsed_summary):
 
     for i in range(len(parsed_summary)):
         if parsed_summary[i][2] == 'Ищем':
-            logging.info('Mike, for this search coordinates should be saved', parsed_summary[i][1])
+            logging.info(f'Mike, for this search coordinates should be saved {parsed_summary[i][1]}')
             coords = parse_coordinates(parsed_summary[i][1])
 
             if coords[0] != 0 and coords[1] != 0:
@@ -802,14 +802,14 @@ def define_family_name_from_search_title_new(title, printit=False):
         if word.strip().lower() not in dict_status_words and word.strip().lower() not in dict_ignore:
             title_wo_status.append(word)
     if printit:
-        logging.info('title wo status=', title_wo_status)
+        logging.info(f'title wo status= {title_wo_status}')
 
     if title_wo_status[0].isnumeric():
         fam_name = title_wo_status[0] + ' ' + title_wo_status[1]
     else:
         fam_name = title_wo_status[0]
     if printit:
-        logging.info('fam_nam=', fam_name)
+        logging.info(f'fam_nam= {fam_name}')
 
     # TODO: is it still a relevant case?
     # if by mistake the last symbol is "("
@@ -911,7 +911,7 @@ def define_last_post_parameters(blocks):
         # last_post_time = str(last_post_block.find('time').text)
         # last_post_plain_text = last_post_author_block + ', ' + last_post_time
     except Exception as e:
-        logging.info('Mike, here is an exception 6', e)
+        logging.info('Mike, here is an exception 6' + str(e))
         last_post_block = ''
 
     return last_post_block
@@ -1145,7 +1145,7 @@ def parse_search_profile(search_num):
     left_text = block_of_profile_rough_code.text.strip()
 
     """DEBUG"""
-    logging.info('DBG.Profile:', left_text)
+    logging.info('DBG.Profile:' + left_text)
     """DEBUG"""
 
     return left_text
@@ -1218,10 +1218,10 @@ def parse(folder_num):
         logging.info('DBG.P.31.Timeout:', repr(e))
         parsed_summary_page = []
     except ConnectionResetError as e:
-        logging.info('there is a connection error:', repr(e), db_timestamp)
+        logging.info('there is a connection error:' + repr(e) + db_timestamp)
         parsed_summary_page = []
     except Exception as e:
-        logging.info('DBG.P.30.ERR in Parsing summary page:', repr(e), db_timestamp)
+        logging.info('DBG.P.30.ERR in Parsing summary page:' + repr(e) + db_timestamp)
         parsed_summary_page = []
 
     """DEBUG"""
@@ -1250,13 +1250,13 @@ def parse_one_comment(search_num, comment_num):
         try:
             comment_author_nickname = comment_author_block.text
         except Exception as e:
-            logging.info('Mike, here is an exception 7 for search ', str(search_num), ', and comment ',
-                         str(comment_num),
-                         ' error: ', repr(e))
+            logging.info('Mike, here is an exception 7 for search ' + str(search_num) + ', and comment ' +
+                         str(comment_num) +
+                         ' error: ' + repr(e))
             try:
                 comment_author_nickname = search_code_blocks.find('a', 'username-coloured').text
             except Exception as e2:
-                logging.info('Mike, here is an exception 8', repr(e2))
+                logging.info('Mike, here is an exception 8' + repr(e2))
                 comment_author_nickname = 'unidentified_username'
 
         if comment_author_nickname[:6].lower() == 'инфорг':
@@ -1274,14 +1274,14 @@ def parse_one_comment(search_num, comment_num):
             # comment_author_link = comment_author_block['href'][1:]
             comment_author_link = int("".join(filter(str.isdigit, comment_author_block['href'][36:43])))
         except Exception as e:
-            logging.info('Mike, here is an exception 9 for search ', str(search_num), ', and comment ',
-                         str(comment_num),
-                         ' error: ', repr(e))
+            logging.info('Mike, here is an exception 9 for search ' + str(search_num) + ', and comment ' +
+                         str(comment_num) +
+                         ' error: ' + repr(e))
             try:
                 comment_author_link = int(
                     "".join(filter(str.isdigit, search_code_blocks.find('a', 'username-coloured')['href'][36:43])))
             except Exception as e2:
-                logging.info('Mike, here is an exception 10', repr(e2))
+                logging.info('Mike, here is an exception 10' + repr(e2))
                 comment_author_link = 'unidentified_link'
 
         # finding the global comment NUMBER
@@ -1293,9 +1293,9 @@ def parse_one_comment(search_num, comment_num):
             external_span = comment_text_0.blockquote.extract()
             comment_text_1 = comment_text_0.text
         except Exception as e:
-            logging.info('Mike, here is an exception 11 for search ', str(search_num), ', and comment ',
-                         str(comment_num),
-                         ' error: ', repr(e))
+            logging.info('Mike, here is an exception 11 for search ' + str(search_num) + ', and comment ' +
+                         str(comment_num) +
+                         ' error: ' + repr(e))
             comment_text_1 = comment_text_0.text
         comment_text = " ".join(comment_text_1.split())
 
@@ -1611,7 +1611,7 @@ def process_one_folder(folder_to_parse):
             rewrite_snapshot_in_sql(parsed_summary, folder_to_parse)
 
             """DEBUG"""
-            logging.info('starting "process_delta" for folder', folder_to_parse)
+            logging.info('starting "process_delta" for folder' + folder_to_parse)
             """DEBUG"""
 
             process_delta(folder_to_parse)
