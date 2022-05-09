@@ -205,8 +205,9 @@ def write_message_sending_status(conn_, message_id_, result, mailing_id_, change
                           h='send_notifs, doubling')
 
         else:
-            # TODO: debug notify
-            notify_admin('Send_notifications: message {}, sending status is {} for conn'.format(message_id_, result))
+
+            logging.info(f'[send_notif]: message {message_id_}, sending status is {result} for conn')
+
             with sql_connect().connect() as conn2:
 
                 conn2.execute(sql_text,
