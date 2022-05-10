@@ -25,13 +25,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install pylint
           pip install anybadge
-      - name: Analysing the code with pylint
-        run: |
-          pylint ${{ env.FILE_NAME }}/main.py --exit-zero
       - name: Saving the Score
         id: vars
         run: |
-          python3 .pylint/lint.py
+          python3 .pylint/lint.py;
           echo ::set-output name=score::"$(LINT_SCORE) 1"
       - name: Generating the badge
         run: |
