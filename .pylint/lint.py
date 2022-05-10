@@ -15,6 +15,7 @@ score = str(round(run.linter.stats.global_note, 2))
 # save the Env Var
 os.environ['LINT_SCORE'] = score
 
+
 if score == THRESHOLD:
 
     print("Linter failed: Score < threshold value")
