@@ -13,9 +13,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    outputs:
-      output1: ${{ steps.vars.outputs.test }}
-      output2: ${{ steps.vars.outputs.score }}
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python 3.7
@@ -28,16 +25,10 @@ jobs:
           pip install pylint
           pip install anybadge
       - name: Saving the Score
-        id: vars
         run: |
-          python3 .pylint/lint.py;
-          echo $LINT_SCORE;
-          echo "::set-output name=test::hello";
-          echo "::set-output name=score::$LINT_SCORE"
+          python3 .pylint/lint.py
       - name: Generating the badge
         run: |
-          echo ${{ steps.vars.outputs.test }};
-          echo ${{ steps.vars.outputs.score }};
           anybadge -l pylint -v ${{ env.LINT_SCORE }} -f .pylint/${{ env.FILE_NAME }}.svg 2=red 4=orange 8=yellow 10=green
 
   deploy_function:
