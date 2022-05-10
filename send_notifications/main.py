@@ -390,6 +390,8 @@ def iterate_over_notifications(bot, script_start_time):
                 message_content = msg_w_o_notif[5]
                 message_failed = msg_w_o_notif[12]
                 message_type = msg_w_o_notif[6]
+                created_time = msg_w_o_notif[2]
+                how_old_is_notif = (datetime.datetime.now() - created_time).total_seconds()
 
                 print('1')
 
@@ -397,7 +399,8 @@ def iterate_over_notifications(bot, script_start_time):
                 if (message_content or message_type == 'coords') and \
                         (user_id in (list_of_admins + list_of_testers) or
                          message_failed or
-                         user_id <= 136885267 or user_id == 1075643450):
+                         user_id <= 136885267 or user_id == 1075643450
+                         or how_old_is_notif > 900):
 
                     print('2')
 
