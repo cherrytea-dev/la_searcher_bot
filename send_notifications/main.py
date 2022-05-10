@@ -397,7 +397,7 @@ def iterate_over_notifications(bot, script_start_time):
                 if (message_content or message_type == 'coords') and \
                         (user_id in (list_of_admins + list_of_testers) or
                          message_failed or
-                         user_id <= 136885267):
+                         user_id <= 136885267 or user_id == 1075643450):
 
                     print('2')
 
