@@ -35,6 +35,7 @@ jobs:
         with:
           name: my-artifact
           path: .pylint/${{ env.FILE_NAME }}.svg
+          if-no-files-found: error
 
   deploy_function:
     runs-on: ubuntu-latest
