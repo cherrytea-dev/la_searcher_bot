@@ -26,10 +26,12 @@ jobs:
           pip install pylint
       - name: Analysing the code with pylint
         run: |
-          pylint '../../${{ env.FILE_NAME }}/${{ env.FILE_NAME }}.py' \;
+          -name '../../${{ env.FILE_NAME }}/${{ env.FILE_NAME }}.py' -exec pylint {} \;
 
   deploy_function:
     runs-on: ubuntu-latest
+    needs: build
+    if: needs.build.result != 'failure'
 
     steps:
       - uses: actions/checkout@v2
