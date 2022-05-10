@@ -391,11 +391,15 @@ def iterate_over_notifications(bot, script_start_time):
                 message_failed = msg_w_o_notif[12]
                 message_type = msg_w_o_notif[6]
 
+                print('1')
+
                 # TODO: temp condition for Admins and Testers OR the prev message delivery was FAILED
                 if (message_content or message_type == 'coords') and \
                         (user_id in (list_of_admins + list_of_testers) or
                          message_failed or
                          user_id <= 136885267):
+
+                    print('2')
 
                     # limitation to avoid telegram "message too long"
                     if message_content:
@@ -403,6 +407,9 @@ def iterate_over_notifications(bot, script_start_time):
                             p1 = message_content[:1500]
                             p2 = message_content[-1000:]
                             message_content = p1 + '...' + p2
+
+                            print('3')
+                        print('4')
 
                     message_params = ast.literal_eval(msg_w_o_notif[7])
                     # message_group_id = msg_w_o_notif[8]
@@ -412,13 +419,18 @@ def iterate_over_notifications(bot, script_start_time):
 
                     # send the message to telegram if it is not a clone-message
                     if doubling_trigger == 'no_doubling':
+                        print('5')
                         result = send_single_message(bot, user_id, message_content, message_params, message_type)
+                        print('6')
                     else:
                         result = 'cancelled_due_to_doubling'
+                        print('7')
 
+                    print('8')
                     # save result of sending telegram notification into SQL
                     write_message_sending_status(conn, message_id, result, mailing_id,
                                                  change_log_id, user_id, message_type)
+                    print('9')
 
                     # analytics on sending speed - finish for every user/notification
                     analytics_sm_finish = datetime.datetime.now()
