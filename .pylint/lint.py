@@ -10,13 +10,13 @@ FILE_NAME = os.getenv('FILE_NAME')
 
 run = lint.Run([f'{FILE_NAME}/main.py'], do_exit=False)
 
-score = 1  # run.linter.stats["global_note"]
+score = run.linter.stats.global_note
 
-# print(score)
+print(score)
 # save the Env Var
-# os.environ['LINT_SCORE'] = score
-# print(score)
-# print(os.getenv('LINT_SCORE'))
+os.environ['LINT_SCORE'] = score
+print(score)
+print(os.getenv('LINT_SCORE'))
 
 if score == THRESHOLD:
 
