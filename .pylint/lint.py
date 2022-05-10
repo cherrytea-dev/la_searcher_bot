@@ -12,11 +12,8 @@ run = lint.Run([f'{FILE_NAME}/main.py'], do_exit=False)
 
 score = str(round(run.linter.stats.global_note, 2))
 
-print(score)
 # save the Env Var
 os.environ['LINT_SCORE'] = score
-print(score)
-print(os.getenv('LINT_SCORE'))
 
 if score == THRESHOLD:
 
@@ -25,6 +22,5 @@ if score == THRESHOLD:
     # exit with error
     sys.exit(1)
 
-# print('checker')
 # exit without any errors
 sys.exit(0)

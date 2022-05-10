@@ -31,10 +31,11 @@ jobs:
       - name: Saving the Score
         run: |
           python3 .pylint/lint.py
-          echo "STEP_VAR=$LINT_SCORE" >> $GITHUB_ENV
+          echo $LINT_SCORE
+          echo $LINT_SCORE >> $GITHUB_ENV
       - name: Generating the badge
         run: |
-          anybadge -l pylint -v ${{ env.STEP_VAR }} -f .pylint/${{ env.FILE_NAME }}.svg 2=red 4=orange 8=yellow 10=green
+          anybadge -l pylint -v ${{ env.LINT_SCORE }} -f .pylint/${{ env.FILE_NAME }}.svg 2=red 4=orange 8=yellow 10=green
 
   deploy_function:
     runs-on: ubuntu-latest
