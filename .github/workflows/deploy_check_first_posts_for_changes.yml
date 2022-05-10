@@ -28,11 +28,14 @@ jobs:
       - name: Analysing the code with pylint
         run: |
           pylint ${{ env.FILE_NAME }}/main.py --exit-zero
+      - name: Generating the badge
+        run: |
+          anybadge -l pylint -v 2.22 -f .github/badges/pylint_${{ env.FILE_NAME }}.svg 2=red 4=orange 8=yellow 10=green
 
   deploy_function:
     runs-on: ubuntu-latest
     needs: build
-    if: needs.build.result != 'failure'
+    if: needs.build.result == 'ne_success'
 
     steps:
       - uses: actions/checkout@v2
