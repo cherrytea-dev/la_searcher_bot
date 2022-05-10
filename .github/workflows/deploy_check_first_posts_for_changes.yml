@@ -29,7 +29,7 @@ jobs:
           python3 .pylint/lint.py
       - name: Generating the badge
         run: |
-          anybadge -l pylint -v ${{ env.LINT_SCORE }} -f .pylint/${{ env.FILE_NAME }}.svg 2=red 4=orange 8=yellow 10=green
+          anybadge -l pylint -v ${{ env.LINT_SCORE }} -f ${{ env.FILE_NAME }}.svg 2=red 4=orange 8=yellow 10=green
 
   deploy_function:
     runs-on: ubuntu-latest
