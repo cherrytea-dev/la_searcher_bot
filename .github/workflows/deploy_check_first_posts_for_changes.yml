@@ -32,7 +32,7 @@ jobs:
         id: vars
         run: |
           python3 .pylint/lint.py
-          echo ::set-output name=score::"$LINT_SCORE"
+          echo ::set-output name=score::"$(LINT_SCORE) 1"
       - name: Generating the badge
         run: |
           echo ${{ steps.vars.outputs.score }};
