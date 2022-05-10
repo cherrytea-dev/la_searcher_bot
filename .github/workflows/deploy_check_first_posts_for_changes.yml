@@ -11,6 +11,23 @@ on:
       - '.github/workflows/deploy_check_first_posts_for_changes.yml' # UPD HERE!
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pylint
+      - name: Analysing the code with pylint
+        run: |
+          find . -name '~/${{ env.FILE_NAME }}/${{ env.FILE_NAME }}*.py' -exec pylint {} \;
+
   deploy_function:
     runs-on: ubuntu-latest
 
