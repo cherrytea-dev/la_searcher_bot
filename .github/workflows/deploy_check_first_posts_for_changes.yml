@@ -30,6 +30,7 @@ jobs:
           pylint ${{ env.FILE_NAME }}/main.py --exit-zero
       - name: Generating the badge
         run: |
+          mkdir -p .github/badges
           anybadge -l pylint -v 2.22 -f .github/badges/pylint_${{ env.FILE_NAME }}.svg 2=red 4=orange 8=yellow 10=green
 
   deploy_function:
