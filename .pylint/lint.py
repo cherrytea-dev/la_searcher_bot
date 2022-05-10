@@ -10,7 +10,7 @@ FILE_NAME = os.getenv('FILE_NAME')
 
 run = lint.Run([f'{FILE_NAME}/main.py'], do_exit=False)
 
-score = run.linter.stats.global_note
+score = str(round(run.linter.stats.global_note, 2))
 
 print(score)
 # save the Env Var
