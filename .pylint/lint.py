@@ -13,7 +13,13 @@ run = lint.Run([f'{FILE_NAME}/main.py'], do_exit=False)
 score = str(round(run.linter.stats.global_note, 2))
 
 # save the Env Var
-os.environ['LINT_SCORE'] = score
+# os.environ['LINT_SCORE'] = score
+
+env_file = os.getenv('GITHUB_ENV')
+
+with open(env_file, "a") as my_file:
+    my_file.write(f"LINT_SCORE={score}")
+
 
 
 if score == THRESHOLD:
