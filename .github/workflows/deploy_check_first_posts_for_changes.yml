@@ -32,13 +32,10 @@ jobs:
         id: vars
         run: |
           python3 .pylint/lint.py
-          echo "PR_TITLE=$LINT_SCORE" >> $GITHUB_ENV
-          echo $LINT_SCORE >> $GITHUB_ENV
-          echo ::set-output name=pr_body::"This PR was auto-generated on $(date +%d-%m-%Y)"
+          echo ::set-output name=score::$LINT_SCORE
       - name: Generating the badge
         run: |
-          echo ${{ steps.vars.outputs.pr_body }};
-          anybadge -l pylint -v ${{ env.PR_TITLE }} -f .pylint/${{ env.FILE_NAME }}.svg 2=red 4=orange 8=yellow 10=green
+          anybadge -l pylint -v ${{ steps.vars.outputs.score }} -f .pylint/${{ env.FILE_NAME }}.svg 2=red 4=orange 8=yellow 10=green
 
   deploy_function:
     runs-on: ubuntu-latest
