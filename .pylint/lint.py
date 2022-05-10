@@ -8,7 +8,7 @@ THRESHOLD = 9
 FILE_NAME = os.getenv('FILE_NAME')
 # example: check_first_posts_for_changes
 
-run = lint.Run([f'../{FILE_NAME}/main.py'], do_exit=False)
+run = lint.Run([f'{FILE_NAME}/main.py'], do_exit=False)
 
 score = run.linter.stats["global_note"]
 

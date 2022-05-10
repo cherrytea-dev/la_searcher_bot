@@ -7,7 +7,7 @@ on:
     branches : [main]
     paths:
       - 'check_first_posts_for_changes/main.py' # UPD HERE!
-      - 'check_first_posts_for_changes/requirements.txt' # UPD HERE!
+      - 'check_first_posts_for_changes/requirements.txt' # UPD HERE !
       - '.github/workflows/deploy_check_first_posts_for_changes.yml' # UPD HERE!
 
 jobs:
