@@ -12,6 +12,7 @@ run = lint.Run([f'{FILE_NAME}/main.py'], do_exit=False)
 
 score = run.linter.stats["global_note"]
 
+print(score)
 # save the Env Var
 os.environ['LINT_SCORE'] = score
 print(score)
