@@ -27,7 +27,7 @@ jobs:
           pip install anybadge
       - name: Analysing the code with pylint
         run: |
-          sudo ${{ env.FILE_NAME }}/main.py --exit-zero
+          pylint ${{ env.FILE_NAME }}/main.py --exit-zero
 
   deploy_function:
     runs-on: ubuntu-latest
