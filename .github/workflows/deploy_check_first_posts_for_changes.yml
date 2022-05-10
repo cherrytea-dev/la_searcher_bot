@@ -26,7 +26,6 @@ jobs:
           pip install pylint
       - name: Analysing the code with pylint
         run: |
-        # find . -name '${{ env.FILE_NAME }}/${{ env.FILE_NAME }}.py' -exec pylint {} \;
           pylint check_first_posts_for_changes/main.py --exit-zero
 
   deploy_function:
