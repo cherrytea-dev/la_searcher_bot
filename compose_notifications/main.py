@@ -1534,7 +1534,7 @@ def send_single_message(bot_2, user_id, message, no_preview, mes_type, lat, lon,
 
     try:
 
-        admin_debug_trigger = (user_id in list_of_admins_) or user_id <= 136885267
+        admin_debug_trigger = (user_id in list_of_admins_) or user_id <= 367905643
         if mes_type == 'message':
 
             # TODO: temp limitation
