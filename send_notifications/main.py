@@ -98,7 +98,7 @@ def publish_to_pubsub(topic_name, message):
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publish succeeded
-        logging.info('Sent pub/sub message: ' + str(message))
+        logging.info(f'Sent pub/sub message: {str(message)}')
 
     except Exception as e:
         logging.error('Not able to send pub/sub message: ' + repr(e))
@@ -136,7 +136,7 @@ def get_list_of_admins_and_testers(conn):
         logging.info('Got the Lists of Admins & Testers')
 
     except Exception as e:
-        logging.error('Not able to get the lists of Admins & Testers: ' + repr(e))
+        logging.error('Not able to get the lists of Admins & Testers')
         logging.exception(e)
 
     return list_of_admins, list_of_testers
@@ -223,8 +223,9 @@ def write_message_sending_status(conn_, message_id_, result, mailing_id_, change
             # TODO: debug notify
             notify_admin('Send_notifications: message {}, sending status is {} for conn2'.format(message_id_, result))
 
-    except:  # noqa
-        notify_admin('[send_notif]: ERR write to SQL notif_by_user_status, message_id {}, status {}'.format(message_id_, result))
+    except Exception as e:  # noqa
+        notify_admin(f'[send_notif]: ERR write to SQL notif_by_user_status, message_id {message_id_}, status {result}')
+        logging.exception(e)
 
     return None
 
@@ -424,6 +425,12 @@ def iterate_over_notifications(bot, script_start_time):
                     # save result of sending telegram notification into SQL
                     write_message_sending_status(conn, message_id, result, mailing_id,
                                                  change_log_id, user_id, message_type)
+
+                    # TODO: temp
+                    if user_id in list_of_admins:
+                        notify_admin(f'[send_notif]: user {user_id}, length ib bytes: '
+                                     f'{len(message_content.encode("utf-8"))}, message: {message_content}')
+                    # TODO: temp
 
                     # analytics on sending speed - finish for every user/notification
                     analytics_sm_finish = datetime.datetime.now()
