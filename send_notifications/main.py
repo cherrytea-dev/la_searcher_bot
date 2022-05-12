@@ -427,7 +427,7 @@ def iterate_over_notifications(bot, script_start_time):
                                                  change_log_id, user_id, message_type)
 
                     # TODO: temp
-                    if user_id in list_of_admins:
+                    if user_id in list_of_admins and message_content:
                         notify_admin(f'[send_notif]: user {user_id}, length ib bytes: '
                                      f'{len(message_content.encode("utf-8"))}, message: {message_content}')
                     # TODO: temp

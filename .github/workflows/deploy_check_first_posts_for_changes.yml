@@ -30,12 +30,6 @@ jobs:
       - name: Generating the badge
         run: |
           anybadge -l pylint -v ${{ env.LINT_SCORE }} -f .pylint/${{ env.FILE_NAME }}.svg 2=red 4=orange 8=yellow 10=green
-      - name: Saving the Badge
-        uses: actions/upload-artifact@v3
-        with:
-          name: my-artifact
-          path: .pylint/${{ env.FILE_NAME }}.svg
-          if-no-files-found: error
 
   deploy_function:
     runs-on: ubuntu-latest
