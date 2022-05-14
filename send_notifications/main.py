@@ -318,10 +318,17 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
         if message_type == 'text':
 
+            analytics_only_sendmessage_start = datetime.datetime.now()
+
             bot.sendMessage(chat_id=user_id,
                             text=message_content,
                             parse_mode=parse_mode, # noqa
                             disable_web_page_preview=disable_web_page_preview) # noqa
+
+            analytics_only_sendmessage_finish = datetime.datetime.now()
+            analytics_only_sendmessage_duration = round((analytics_only_sendmessage_finish -
+                                             analytics_only_sendmessage_start).total_seconds(), 2)
+            logging.info(f'time: msg send duration: {analytics_only_sendmessage_duration}')
 
         elif message_type == 'coords':
 
