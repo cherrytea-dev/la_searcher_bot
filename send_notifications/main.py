@@ -388,9 +388,9 @@ def iterate_over_notifications(bot, script_start_time):
 
         analytics_get_admins_and_testers_finish = datetime.datetime.now()
 
-        analytics_time_for_check = round((analytics_get_admins_and_testers_finish -
+        analytics_get_admins = round((analytics_get_admins_and_testers_finish -
                                           analytics_get_admins_and_testers_start).total_seconds(), 2)
-        logging.info(f'time: {analytics_time_for_check} – iter start -> check')
+        logging.info(f'time: {analytics_get_admins} – get admins')
 
         # TODO: temp DEBUG
         logging.info('list of testers:')
@@ -498,40 +498,16 @@ def iterate_over_notifications(bot, script_start_time):
                     analytics_sm_duration = (analytics_sm_finish - analytics_sm_start).total_seconds()
                     analytics_notif_times.append(analytics_sm_duration)
 
-                analytics_check_2_start = datetime.datetime.now()
+            else:
+                # wait for 10 seconds – maybe any new notification will pop up
+                time.sleep(10)
 
-                # check if something remained to send
                 msg_w_o_notif = check_for_notifs_to_send(conn)
 
-                analytics_check_2_finish = datetime.datetime.now()
-                analytics_check_2_duration = round((analytics_check_2_finish -
-                                                    analytics_check_2_start).total_seconds(), 2)
-                logging.info(f'time: check 2 duration: {analytics_check_2_duration}')
-
-                if not msg_w_o_notif:
-
-                    # wait for 10 seconds – maybe any new notification will pop up
-                    time.sleep(10)
-
-                    analytics_check_3_start = datetime.datetime.now()
-
-                    msg_w_o_notif = check_for_notifs_to_send(conn)
-
-                    analytics_check_3_finish = datetime.datetime.now()
-                    analytics_check_3_duration = round((analytics_check_3_finish -
-                                                        analytics_check_3_start).total_seconds(), 2)
-                    logging.info(f'time: check 3 duration: {analytics_check_3_duration}')
-
-                    if msg_w_o_notif:
-                        no_new_notifications = False
-                    else:
-                        no_new_notifications = True
-
-                else:
+                if msg_w_o_notif:
                     no_new_notifications = False
-
-            else:
-                no_new_notifications = True
+                else:
+                    no_new_notifications = True
 
             # check if not too much time passed (not more than 500 seconds)
             now = datetime.datetime.now()
