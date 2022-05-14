@@ -97,7 +97,7 @@ def publish_to_pubsub(topic_name, message):
 
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publish succeeded
+        publish_future.result()  # Verify the publishing succeeded
         logging.info(f'Sent pub/sub message: {str(message)}')
 
     except Exception as e:
@@ -358,7 +358,7 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
     analytics_send_finish = datetime.datetime.now()
     analytics_send_duration = round((analytics_send_finish -
                                     analytics_send_start).total_seconds(), 2)
-    logging.debug(f'time: msg send duration: {analytics_send_duration}')
+    logging.info(f'time: msg send duration: {analytics_send_duration}')
 
     return result
 
@@ -385,7 +385,7 @@ def iterate_over_notifications(bot, script_start_time):
             # analytics on sending speed - start for every user/notification
             analytics_sm_start = datetime.datetime.now()
             analytics_iteration_start = datetime.datetime.now()
-            logging.debug('-------------- loop start -------------')
+            logging.info('-------------- loop start -------------')
 
             # TODO: to remove admin
             # check if there are any non-notified users
@@ -395,7 +395,7 @@ def iterate_over_notifications(bot, script_start_time):
             analytics_time_for_check = round((analytics_check_time - analytics_iteration_start).total_seconds(), 2)
 
             logging.info(str(msg_w_o_notif))
-            logging.debug(f'time: iter start -> check: {analytics_time_for_check}')
+            logging.info(f'time: iter start -> check: {analytics_time_for_check}')
 
             if msg_w_o_notif:
 
@@ -430,7 +430,7 @@ def iterate_over_notifications(bot, script_start_time):
                     analytics_pre_sending_msg = datetime.datetime.now()
                     analytics_check_send = round((analytics_pre_sending_msg -
                                                   analytics_check_time).total_seconds(), 2)
-                    logging.debug(f'time: check -> pre-sending msg: {analytics_check_send}')
+                    logging.info(f'time: check -> pre-sending msg: {analytics_check_send}')
 
                     # send the message to telegram if it is not a clone-message
                     if doubling_trigger == 'no_doubling':
@@ -440,7 +440,7 @@ def iterate_over_notifications(bot, script_start_time):
                         analytics_send_finish = datetime.datetime.now()
                         analytics_send_start_finish = round((analytics_send_finish -
                                                              analytics_pre_sending_msg).total_seconds(), 2)
-                        logging.debug(f'time: sending msg: {analytics_send_start_finish}')
+                        logging.info(f'time: sending msg: {analytics_send_start_finish}')
 
                     else:
                         result = 'cancelled_due_to_doubling'
@@ -452,7 +452,7 @@ def iterate_over_notifications(bot, script_start_time):
                     analytics_after_double_saved_in_sql = datetime.datetime.now()
                     analytics_doubling_checked_saved_to_sql = round((analytics_after_double_saved_in_sql -
                                                                      analytics_pre_sending_msg).total_seconds(), 2)
-                    logging.debug(f'time: doubling: check -> save to sql: {analytics_doubling_checked_saved_to_sql}')
+                    logging.info(f'time: doubling: check -> save to sql: {analytics_doubling_checked_saved_to_sql}')
 
                     analytics_before_send_to_admin = datetime.datetime.now()
 
@@ -465,7 +465,7 @@ def iterate_over_notifications(bot, script_start_time):
                     analytics_after_send_to_admin = datetime.datetime.now()
                     analytics_send_bytes_to_admin = round((analytics_after_send_to_admin -
                                                           analytics_before_send_to_admin).total_seconds(), 2)
-                    logging.debug(f'time: send bytes to admin: {analytics_send_bytes_to_admin}')
+                    logging.info(f'time: send bytes to admin: {analytics_send_bytes_to_admin}')
 
                     # analytics on sending speed - finish for every user/notification
                     analytics_sm_finish = datetime.datetime.now()
@@ -480,7 +480,7 @@ def iterate_over_notifications(bot, script_start_time):
                 analytics_check_2_finish = datetime.datetime.now()
                 analytics_check_2_duration = round((analytics_check_2_finish -
                                                     analytics_check_2_start).total_seconds(), 2)
-                logging.debug(f'time: check 2 duration: {analytics_check_2_duration}')
+                logging.info(f'time: check 2 duration: {analytics_check_2_duration}')
 
                 if not msg_w_o_notif:
 
@@ -494,7 +494,7 @@ def iterate_over_notifications(bot, script_start_time):
                     analytics_check_3_finish = datetime.datetime.now()
                     analytics_check_3_duration = round((analytics_check_3_finish -
                                                         analytics_check_3_start).total_seconds(), 2)
-                    logging.debug(f'time: check 3 duration: {analytics_check_3_duration}')
+                    logging.info(f'time: check 3 duration: {analytics_check_3_duration}')
 
                     if msg_w_o_notif:
                         no_new_notifications = False
@@ -527,7 +527,7 @@ def iterate_over_notifications(bot, script_start_time):
             analytics_end_of_iteration = datetime.datetime.now()
             analytics_iteration_duration = round((analytics_end_of_iteration -
                                                  analytics_iteration_start).total_seconds(), 2)
-            logging.debug(f'time: iteration duration: {analytics_iteration_duration}')
+            logging.info(f'time: iteration duration: {analytics_iteration_duration}')
 
     return None
 
