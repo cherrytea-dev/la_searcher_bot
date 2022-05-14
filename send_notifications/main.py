@@ -319,6 +319,9 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
         if message_type == 'text':
 
             analytics_only_sendmessage_start = datetime.datetime.now()
+            analytics_only_sendmessage_st_st = round((analytics_only_sendmessage_start -
+                                                         analytics_send_start).total_seconds(), 2)
+            logging.info(f'time: sendMessage: st-st duration: {analytics_only_sendmessage_st_st}')
 
             bot.sendMessage(chat_id=user_id,
                             text=message_content,
@@ -328,7 +331,7 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
             analytics_only_sendmessage_finish = datetime.datetime.now()
             analytics_only_sendmessage_duration = round((analytics_only_sendmessage_finish -
                                              analytics_only_sendmessage_start).total_seconds(), 2)
-            logging.info(f'time: msg send duration: {analytics_only_sendmessage_duration}')
+            logging.info(f'time: sendMessage duration: {analytics_only_sendmessage_duration}')
 
         elif message_type == 'coords':
 
@@ -378,8 +381,16 @@ def iterate_over_notifications(bot, script_start_time):
 
     with sql_connect().connect() as conn:
 
+        analytics_get_admins_and_testers_start = datetime.datetime.now()
+
         # TODO: only for DEBUG. for prod it's not needed
         list_of_admins, list_of_testers = get_list_of_admins_and_testers(conn)
+
+        analytics_get_admins_and_testers_finish = datetime.datetime.now()
+
+        analytics_time_for_check = round((analytics_get_admins_and_testers_finish -
+                                          analytics_get_admins_and_testers_start).total_seconds(), 2)
+        logging.info(f'time: {analytics_time_for_check} – iter start -> check')
 
         # TODO: temp DEBUG
         logging.info('list of testers:')
@@ -392,7 +403,7 @@ def iterate_over_notifications(bot, script_start_time):
             # analytics on sending speed - start for every user/notification
             analytics_sm_start = datetime.datetime.now()
             analytics_iteration_start = datetime.datetime.now()
-            logging.info('-------------- loop start -------------')
+            logging.info('time: -------------- loop start -------------')
 
             # TODO: to remove admin
             # check if there are any non-notified users
