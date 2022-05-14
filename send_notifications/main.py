@@ -498,6 +498,8 @@ def iterate_over_notifications(bot, script_start_time):
                     analytics_sm_duration = (analytics_sm_finish - analytics_sm_start).total_seconds()
                     analytics_notif_times.append(analytics_sm_duration)
 
+                    no_new_notifications = False
+
             else:
                 # wait for 10 seconds – maybe any new notification will pop up
                 time.sleep(10)
