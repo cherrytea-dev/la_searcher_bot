@@ -368,7 +368,7 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
     analytics_send_finish = datetime.datetime.now()
     analytics_send_duration = round((analytics_send_finish -
                                     analytics_send_start).total_seconds(), 2)
-    logging.info(f'time: msg send duration: {analytics_send_duration}')
+    logging.info(f'time: {analytics_send_duration} – msg send script duration')
 
     return result
 
@@ -448,7 +448,7 @@ def iterate_over_notifications(bot, script_start_time):
                     analytics_pre_sending_msg = datetime.datetime.now()
                     analytics_check_send = round((analytics_pre_sending_msg -
                                                   analytics_check_time).total_seconds(), 2)
-                    logging.info(f'time: check -> pre-sending msg: {analytics_check_send}')
+                    # logging.info(f'time: {analytics_check_send} – check -> pre-sending msg')
 
                     # send the message to telegram if it is not a clone-message
                     if doubling_trigger == 'no_doubling':
@@ -458,32 +458,40 @@ def iterate_over_notifications(bot, script_start_time):
                         analytics_send_finish = datetime.datetime.now()
                         analytics_send_start_finish = round((analytics_send_finish -
                                                              analytics_pre_sending_msg).total_seconds(), 2)
-                        logging.info(f'time: sending msg: {analytics_send_start_finish}')
+                        logging.info(f'time: {analytics_send_start_finish} – outer sending msg')
 
                     else:
                         result = 'cancelled_due_to_doubling'
+
+
+                    analytics_save_sql_strart = datetime.datetime.now()
 
                     # save result of sending telegram notification into SQL
                     write_message_sending_status(conn, message_id, result, mailing_id,
                                                  change_log_id, user_id, message_type)
 
                     analytics_after_double_saved_in_sql = datetime.datetime.now()
+
+                    analytics_save_sql_duration = round((analytics_after_double_saved_in_sql -
+                                                         analytics_save_sql_strart).total_seconds(), 2)
+                    logging.info(f'time: {analytics_save_sql_duration} – saving to sql')
+
                     analytics_doubling_checked_saved_to_sql = round((analytics_after_double_saved_in_sql -
                                                                      analytics_pre_sending_msg).total_seconds(), 2)
-                    logging.info(f'time: doubling: check -> save to sql: {analytics_doubling_checked_saved_to_sql}')
+                    logging.info(f'time: check -> save to sql: {analytics_doubling_checked_saved_to_sql}')
 
                     analytics_before_send_to_admin = datetime.datetime.now()
 
                     # TODO: temp
                     if user_id in list_of_admins and message_content:
                         notify_admin(f'[send_notif]: user {user_id}, length ib bytes: '
-                                     f'{len(message_content.encode("utf-8"))}, message:\n{message_content[100]}')
+                                     f'{len(message_content.encode("utf-8"))}, message:\n{message_content[0:100]}')
                     # TODO: temp
 
                     analytics_after_send_to_admin = datetime.datetime.now()
                     analytics_send_bytes_to_admin = round((analytics_after_send_to_admin -
                                                           analytics_before_send_to_admin).total_seconds(), 2)
-                    logging.info(f'time: send bytes to admin: {analytics_send_bytes_to_admin}')
+                    # logging.info(f'time: send bytes to admin: {analytics_send_bytes_to_admin}')
 
                     # analytics on sending speed - finish for every user/notification
                     analytics_sm_finish = datetime.datetime.now()
