@@ -347,6 +347,8 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
     except Exception as e:  # when sending to telegram fails
 
+        error_description = repr(e)
+
         if repr(e).find('BadRequest()') > -1:
             result = 'cancelled_bad_request'
 
@@ -358,6 +360,19 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
             logging.info(f'"flood control": failed sending to telegram user={user_id}, message={message_content}')
             time.sleep(5)  # TODO: temp placeholder to wait 5 seconds
+
+        # if user blocked the bot OR user is deactivated (deleted telegram account)
+        elif error_description.find('bot was blocked by the user') != -1 \
+                or error_description.find('user is deactivated') != -1:
+            if error_description.find('bot was blocked by the user') != -1:
+                action = 'block_user'
+            else:
+                action = 'delete_user'
+            message_for_pubsub = {'action': action, 'info': {'user': user_id}}
+            publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+
+            logging.info('Identified user id={} to do {}'.format(user_id, action))
+            result = 'cancelled'
 
         else:
             result = 'failed'
