@@ -347,15 +347,15 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
     except Exception as e:  # when sending to telegram fails
 
-        error_description = repr(e)
+        error_description = str(e)
 
-        if repr(e).find('BadRequest()') > -1:
+        if error_description.find('BadRequest()') > -1:
             result = 'cancelled_bad_request'
 
             logging.info(f'failed sending to telegram due to Bad Request user={user_id}, message={message_content}')
-            logging.error(repr(e))
+            logging.error(error_description)
 
-        elif repr(e).find('Flood control exceeded') > -1:
+        elif error_description.find('Flood control exceeded') > -1:
             result = 'failed_flood_control'
 
             logging.info(f'"flood control": failed sending to telegram user={user_id}, message={message_content}')
@@ -378,7 +378,7 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
             result = 'failed'
 
             logging.info(f'failed sending to telegram user={user_id}, message={message_content}')
-            logging.exception(repr(e))
+            logging.exception(error_description)
 
     analytics_send_finish = datetime.datetime.now()
     analytics_send_duration = round((analytics_send_finish -
