@@ -1,6 +1,6 @@
 name: Deploy-GCF-Archive-Notifications
 env:
-  FILE_NAME: communicate # UPD HERE!
+  FILE_NAME: archive_notifications # UPD HERE!
 
 on:
   push:
