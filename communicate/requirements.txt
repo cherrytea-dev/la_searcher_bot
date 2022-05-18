@@ -1,0 +1,13 @@
+psycopg2==2.8.6
+pg8000==1.19.4
+
+markdownify==0.9.4
+pillow==8.3.2
+qrcode==7.3
+Image
+
+python-telegram-bot==13.4.1
+
+google-cloud-pubsub==2.6.0
+google-cloud-secret-manager==2.4.0
+google-cloud-storage==1.40.0
