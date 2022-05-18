@@ -1,1 +1,6 @@
 psycopg2==2.8.6
+pg8000==1.19.4
+
+python-telegram-bot==13.4.1
+
+google-cloud-secret-manager==2.4.0
