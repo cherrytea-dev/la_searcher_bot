@@ -1454,9 +1454,9 @@ def main(request):
         contact = get_param_if_exists(update, 'update.message.contact')
 
         # TODO: DEBUG messages to admin only in rare cases
-        if user_new_status or timer_changed:
-            dbg_text = 'mikc: msg from user, new_status: {}, tmr_chg: {}, usr: {}, msg: {}'.format(user_new_status,
-                                                                                       timer_changed, usr, message_id)
+        if timer_changed:
+            dbg_text = f'[comm]: msg from user, new_status: {user_new_status}, tmr_chg: {timer_changed}, ' \
+                       f'usr: {usr}, msg: {message_id}'
             bot_debug.sendMessage(chat_id=admin_user_id, text=dbg_text, parse_mode='HTML')
 
         # CASE 1 – when user blocked / unblocked the bot
@@ -1491,18 +1491,18 @@ def main(request):
 
         # CASE 4 – when some Channel writes to bot
         elif channel_type and chat_id < 0:
-            bot_debug.sendMessage(chat_id=admin_user_id, text='Mikc: INFO: CHANNEL sends messages to bot!')
+            bot_debug.sendMessage(chat_id=admin_user_id, text='[Comm]: INFO: CHANNEL sends messages to bot!')
 
             try:
                 bot.leaveChat(chat_id)
-                bot_debug.sendMessage(chat_id=admin_user_id, text='Mikc: INFO: we have left the CHANNEL!')
+                bot_debug.sendMessage(chat_id=admin_user_id, text='[Comm]: INFO: we have left the CHANNEL!')
 
             except Exception as e:
-                logging.error('Mikc: Leaving channel was not successful:' + repr(e))
+                logging.error('[Comm]: Leaving channel was not successful:' + repr(e))
 
         # CASE 5 – when user sends Contact
         elif contact:
-            bot_debug.sendMessage(chat_id=admin_user_id, text='Mikc: INFO: user sends CONTACT to bot!')
+            bot_debug.sendMessage(chat_id=admin_user_id, text='[Comm]: INFO: user sends CONTACT to bot!')
             bot.sendMessage(chat_id=chat_id, text='Спасибо, буду знать. Вот только бот не работает с контактами '
                                                   'и отвечает только на определенные текстовые команды.')
 
