@@ -1537,6 +1537,7 @@ def send_single_message(bot_2, user_id, message, no_preview, mes_type, lat, lon,
             # TODO: temp limitation
             if not admin_debug_trigger:
                 bot_2.sendMessage(chat_id=user_id, text=message, parse_mode='HTML', disable_web_page_preview=no_preview)
+                notify_admin(f'alarma! a message is sent by comp_notif! user {user_id}: {message}')
 
             """DEBUG"""
             logging.info('------msg to user - BEGINNING ------')
