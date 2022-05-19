@@ -53,26 +53,21 @@ def sql_connect():
     db_pass = get_secrets("cloud-postgres-password")
     db_name = get_secrets("cloud-postgres-db-name")
     db_conn = get_secrets("cloud-postgres-connection-name")
-    db_socket_dir = "/cloudsql"
     db_config = {
         "pool_size": 20,
         "max_overflow": 0,
         "pool_timeout": 0,  # seconds
         "pool_recycle": 0,  # seconds
     }
+
     try:
         pool = sqlalchemy.create_engine(
             sqlalchemy.engine.url.URL(
-                drivername="postgresql+pg8000",
+                'postgresql+pg8000',
                 username=db_user,
                 password=db_pass,
                 database=db_name,
-                query={
-                    "unix_sock": "{}/{}/.s.PGSQL.5432".format(
-                        db_socket_dir,
-                        db_conn)
-                }
-            ),
+                query={'unix_sock': f'/cloudsql/{db_conn}/.s.PGSQL.5432'}),
             **db_config
         )
         pool.dialect.description_encoding = None
@@ -320,7 +315,7 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
             analytics_only_sendmessage_start = datetime.datetime.now()
             analytics_only_sendmessage_st_st = round((analytics_only_sendmessage_start -
-                                                         analytics_send_start).total_seconds(), 2)
+                                                     analytics_send_start).total_seconds(), 2)
             logging.info(f'time: sendMessage: st-st duration: {analytics_only_sendmessage_st_st}')
 
             bot.sendMessage(chat_id=user_id,
@@ -330,7 +325,7 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
             analytics_only_sendmessage_finish = datetime.datetime.now()
             analytics_only_sendmessage_duration = round((analytics_only_sendmessage_finish -
-                                             analytics_only_sendmessage_start).total_seconds(), 2)
+                                                        analytics_only_sendmessage_start).total_seconds(), 2)
             logging.info(f'time: sendMessage duration: {analytics_only_sendmessage_duration}')
 
         elif message_type == 'coords':
@@ -404,7 +399,7 @@ def iterate_over_notifications(bot, script_start_time):
         analytics_get_admins_and_testers_finish = datetime.datetime.now()
 
         analytics_get_admins = round((analytics_get_admins_and_testers_finish -
-                                          analytics_get_admins_and_testers_start).total_seconds(), 2)
+                                     analytics_get_admins_and_testers_start).total_seconds(), 2)
         logging.info(f'time: {analytics_get_admins} – get admins')
 
         # TODO: temp DEBUG
@@ -444,7 +439,7 @@ def iterate_over_notifications(bot, script_start_time):
                 if (message_content or message_type == 'coords') and \
                         (user_id in (list_of_admins + list_of_testers) or
                          message_failed or
-                         user_id <= 900000000
+                         user_id <= 9000000000
                          or how_old_is_notif > 900):
 
                     # limitation to avoid telegram "message too long"
@@ -498,9 +493,9 @@ def iterate_over_notifications(bot, script_start_time):
                     analytics_before_send_to_admin = datetime.datetime.now()
 
                     # TODO: temp
-                    if user_id in list_of_admins and message_content:
-                        notify_admin(f'[send_notif]: user {user_id}, length ib bytes: '
-                                     f'{len(message_content.encode("utf-8"))}, message:\n{message_content[0:100]}')
+                    # if user_id in list_of_admins and message_content:
+                    #    notify_admin(f'[send_notif]: user {user_id}, length ib bytes: '
+                    #                 f'{len(message_content.encode("utf-8"))}, message:\n{message_content[0:100]}')
                     # TODO: temp
 
                     analytics_after_send_to_admin = datetime.datetime.now()
