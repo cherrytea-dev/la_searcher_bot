@@ -42,30 +42,27 @@ script_start_time = None
 
 
 def sql_connect():
+    """connect to google cloud sql"""
+
     db_user = get_secrets("cloud-postgres-username")
     db_pass = get_secrets("cloud-postgres-password")
     db_name = get_secrets("cloud-postgres-db-name")
     db_conn = get_secrets("cloud-postgres-connection-name")
-    db_socket_dir = "/cloudsql"
     db_config = {
-        "pool_size": 30,
+        "pool_size": 20,
         "max_overflow": 0,
-        "pool_timeout": 10,  # seconds
+        "pool_timeout": 0,  # seconds
         "pool_recycle": 0,  # seconds
     }
+
     try:
         pool = sqlalchemy.create_engine(
             sqlalchemy.engine.url.URL(
-                drivername="postgresql+pg8000",
+                'postgresql+pg8000',
                 username=db_user,
                 password=db_pass,
                 database=db_name,
-                query={
-                    "unix_sock": "{}/{}/.s.PGSQL.5432".format(
-                        db_socket_dir,
-                        db_conn)
-                }
-            ),
+                query={'unix_sock': f'/cloudsql/{db_conn}/.s.PGSQL.5432'}),
             **db_config
         )
         pool.dialect.description_encoding = None
@@ -1534,7 +1531,7 @@ def send_single_message(bot_2, user_id, message, no_preview, mes_type, lat, lon,
 
     try:
 
-        admin_debug_trigger = (user_id in list_of_admins_) or user_id <= 900000000
+        admin_debug_trigger = (user_id in list_of_admins_) or user_id <= 9000000000
         if mes_type == 'message':
 
             # TODO: temp limitation
