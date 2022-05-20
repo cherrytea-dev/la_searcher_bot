@@ -1424,16 +1424,6 @@ def iterate_over_all_users_and_updates(bot_2, is_prod, using_canary, conn):
             else:
                 new_record.processed = 'yes'
 
-        """DEBUG"""
-        prefix = ''
-        if not is_prod:
-            prefix = 'Staging Script:\n'
-        n1 = 'ttl sent = ' + str(number_of_messages_sent)
-        n2 = 'checked  = ' + str(number_of_situations_checked)
-        notify_admin(prefix + n1 + '\n' + n2)
-        """DEBUG"""
-
-        logging.info(prefix + n1 + '\n' + n2)
         logging.info('Iterations over all Users and Updates are done')
 
     except Exception as e1:
@@ -1681,7 +1671,7 @@ def publish_to_pubsub(topic_name, message):
 
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publish succeeded
+        publish_future.result()  # Verify the publishing succeeded
         logging.info('Sent pub/sub message: ' + str(message))
 
     except Exception as e:
@@ -1892,7 +1882,7 @@ def pubsub_notification_trigger(event, context):  # noqa
         del conn
 
     else:
-        # for safety sake if Staging will be set without Canary=true
+        # for safety's sake if Staging will be set without Canary=true
         logging.error('Not able to identify the case: not prod, not stage with canary')
         notify_admin('Not able to identify the case: not prod, not stage with canary')
 
