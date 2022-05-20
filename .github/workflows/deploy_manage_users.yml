@@ -1,0 +1,39 @@
+name: Deploy-GCF-Manage-Users
+env:
+  FILE_NAME: manage_users # UPD HERE!
+
+on:
+  push:
+    branches : [main]
+    paths:
+      - 'manage_users/main.py' # UPD HERE!
+      - 'manage_users/requirements.txt' # UPD HERE!
+      - '.github/workflows/deploy_manage_users.yml' # UPD HERE!
+
+jobs:
+  deploy_function:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Authenticate in GCP
+        id: auth
+        uses: google-github-actions/auth@v0.4.0
+        with:
+          credentials_json: ${{ secrets.gcp_credentials }}
+
+      - name: Deploy the CF
+        id: deploy
+        uses: google-github-actions/deploy-cloud-functions@v0.6.0
+        with:
+            source_dir: ${{ env.FILE_NAME }} # name of directory
+            name: ${{ env.FILE_NAME }} # name of deploying function
+            runtime: python37
+            entry_point: main # UPD HERE! main function
+            region: europe-west3
+            # timeout: 540 # UPD HERE!
+            # max_instances: 1 # UPD HERE!
+            # memory_mb: 8192 # UPD HERE!
+            event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
+            event_trigger_resource: projects/lizaalert-bot-01/topics/topic_for_user_management # UPD HERE! topic
