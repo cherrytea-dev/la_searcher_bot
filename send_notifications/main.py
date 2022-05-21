@@ -290,7 +290,7 @@ def check_for_notifs_to_send(conn):
     return msg_w_o_notif
 
 
-def send_single_message(bot, user_id, message_content, message_params, message_type):
+def send_single_message(bot, user_id, message_content, message_params, message_type, list_of_admins):
     """send one message to telegram"""
 
     analytics_send_start = datetime.datetime.now()
@@ -343,6 +343,9 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
                                 text=message_content,
                                 parse_mode=parse_mode, # noqa
                                 disable_web_page_preview=disable_web_page_preview) # noqa
+
+                if user_id in list_of_admins:
+                    bot.sendMessage(chat_id=user_id, text=message_content, **message_kwargs)
             else:
                 bot.sendMessage(chat_id=user_id,
                                 text=message_content)
@@ -478,7 +481,7 @@ def iterate_over_notifications(bot, script_start_time):
                     try:
                         message_params = ast.literal_eval(msg_w_o_notif[7])
                     except: # noqa
-                        message_params = None
+                        message_params = {}
                     # TODO: temp try, content is NEEDED!
 
                     # message_group_id = msg_w_o_notif[8]
@@ -494,7 +497,7 @@ def iterate_over_notifications(bot, script_start_time):
                     # send the message to telegram if it is not a clone-message
                     if doubling_trigger == 'no_doubling':
 
-                        result = send_single_message(bot, user_id, message_content, message_params, message_type)
+                        result = send_single_message(bot, user_id, message_content, message_params, message_type, list_of_admins)
 
                         analytics_send_finish = datetime.datetime.now()
                         analytics_send_start_finish = round((analytics_send_finish -
