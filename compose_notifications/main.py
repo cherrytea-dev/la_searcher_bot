@@ -1043,10 +1043,7 @@ def record_notification_statistics(conn):
 
     global stat_list_of_recipients
 
-    logging.info('--->WE ARE HERE0: ' + str(stat_list_of_recipients))
     dict_of_user_and_number_of_new_notifs = {i: stat_list_of_recipients.count(i) for i in stat_list_of_recipients}
-
-    logging.info('--->WE ARE HERE1: ' + str(dict_of_user_and_number_of_new_notifs))
 
     try:
         for user_id in dict_of_user_and_number_of_new_notifs:
@@ -1284,10 +1281,8 @@ def iterate_over_all_users_and_updates(using_canary, conn):
                 # then go to user-level
                 for user in users_list:
 
-                    logging.info('test here 1')
                     if user.user_id not in users_who_should_not_be_informed:
 
-                        logging.info('test here 2')
                         u_lat = user.user_latitude
                         u_lon = user.user_longitude
                         user_notif_prefs = user.notification_preferences
@@ -1409,9 +1404,6 @@ def iterate_over_all_users_and_updates(using_canary, conn):
 
                 # mark this line as all-processed
                 new_record.processed = 'yes'
-                # TODO: to delete
-                logging.info('test here 9')
-                # TODO: to delete
 
             # mark all ignored lines as processed
             else:
@@ -1420,12 +1412,8 @@ def iterate_over_all_users_and_updates(using_canary, conn):
         logging.info('Iterations over all Users and Updates are done')
 
     except Exception as e1:
-        logging.error('Not able to Iterate over all Users and Updates: ' + repr(e1))
+        logging.info('Not able to Iterate over all Users and Updates: ')
         logging.exception(e1)
-
-    # TODO: do we need it?
-    logging.info('---> PRE-INFO2: ' + str(stat_list_of_recipients))
-    # TODO: do we need it?
 
     return None
 
@@ -1477,12 +1465,8 @@ def write_message_creation_status(conn_, message_id_, result, mailing_id_, chang
                           h='comp_notifs'
                           )
 
-        # TODO: DEBUG
-        notify_admin('[comp_notif]: message {}, sending status is {}'.format(message_id_, result))
-        # TODO: DEBUG
-
     except:  # noqa
-        notify_admin('ERR mink write to SQL notif_by_user_status, message_id {}, status {}'.format(message_id_, result))
+        notify_admin('ERR write to SQL notif_by_user_status, message_id {}, status {}'.format(message_id_, result))
 
     return None
 
@@ -1627,7 +1611,7 @@ def mark_new_records_as_processed(conn, is_prod):
                 """UPDATE change_log SET notif_sent_staging = 'y' WHERE notification_sent is NULL;"""
             )
 
-        logging.error('Not able to mark Updates as Processed in Change Log: ' + repr(e))
+        logging.info('Not able to mark Updates as Processed in Change Log')
         logging.exception(e)
         logging.info('Due to error, all Updates are marked as processed in Change Log')
         notify_admin('ERROR: Not able to mark Updates as Processed in Change Log!')
