@@ -348,6 +348,7 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
                                                         analytics_only_sendmessage_start).total_seconds(), 2)
             logging.info(f'time: sendMessage duration: {analytics_only_sendmessage_duration}')
 
+
         elif message_type == 'coords':
 
             bot.sendLocation(chat_id=user_id,
