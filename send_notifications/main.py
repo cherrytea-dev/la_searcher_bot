@@ -464,7 +464,13 @@ def iterate_over_notifications(bot, script_start_time):
                             p2 = message_content[-1000:]
                             message_content = p1 + '...' + p2
 
-                    message_params = ast.literal_eval(msg_w_o_notif[7])
+                    # TODO: temp try, content is NEEDED!
+                    try:
+                        message_params = ast.literal_eval(msg_w_o_notif[7])
+                    except: # noqa
+                        message_params = None
+                    # TODO: temp try, content is NEEDED!
+
                     # message_group_id = msg_w_o_notif[8]
                     change_log_id = msg_w_o_notif[9]
                     mailing_id = msg_w_o_notif[10]
