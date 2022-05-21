@@ -1325,10 +1325,6 @@ def iterate_over_all_users_and_updates(conn):
                                                                                        message_params, message_group_id,
                                                                                        chng_id)
 
-                                                # TODO: to delete
-                                                logging.info('test here 8')
-                                                # TODO: to delete
-
                                                 write_message_creation_status(conn, message_id, 'created', mailing_id,
                                                                               chng_id, user.user_id, 'text')
 
