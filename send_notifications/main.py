@@ -334,10 +334,14 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
             print(str(message_kwargs))
             # TODO: testing of kwargs
 
-            bot.sendMessage(chat_id=user_id,
-                            text=message_content,
-                            parse_mode=parse_mode, # noqa
-                            disable_web_page_preview=disable_web_page_preview) # noqa
+            if message_params:
+                bot.sendMessage(chat_id=user_id,
+                                text=message_content,
+                                parse_mode=parse_mode, # noqa
+                                disable_web_page_preview=disable_web_page_preview) # noqa
+            else:
+                bot.sendMessage(chat_id=user_id,
+                                text=message_content)
 
             analytics_only_sendmessage_finish = datetime.datetime.now()
             analytics_only_sendmessage_duration = round((analytics_only_sendmessage_finish -
