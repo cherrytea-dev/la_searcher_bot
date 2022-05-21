@@ -30,7 +30,7 @@ jobs:
             source_dir: ${{ env.FILE_NAME }} # name of directory
             name: ${{ env.FILE_NAME }} # name of deploying function
             runtime: python37
-            entry_point: pubsub_notification_trigger # UPD HERE! main function
+            entry_point: main # UPD HERE! main function
             region: europe-west3
             timeout: 540 # UPD HERE!
             max_instances: 1 # UPD HERE!

@@ -308,22 +308,6 @@ class User:
                     self.user_new_search_notifs])
 
 
-def get_config_info(event):
-    """get the canary deployment config"""
-
-    config = {'use_canary': False}
-    try:
-        message_from_pubsub = process_pubsub_message(event)
-        config = ast.literal_eval(message_from_pubsub)
-
-        logging.info('config received: ' + str(config))
-    except Exception as e:
-        logging.error('config was not received via pub/sub:' + repr(e))
-        logging.exception(e)
-
-    return config
-
-
 def compose_new_records_from_change_log(conn, is_prod):
     """compose the New Records list of the unique New Records in Change Log: one Record = One line in Change Log"""
 
@@ -1019,25 +1003,6 @@ def mark_new_comments_as_being_processed(conn, is_prod):
     return None
 
 
-def log_debug_message(admin_user_id):
-    """only for debug purposes"""
-
-    logging.info('new_records_list after enrichment: ')
-    for line in new_records_list:
-        logging.info('new_rec: ' + str(line))
-
-    logging.info('Admin User after enrichment: ')
-    for line in users_list:
-        if str(line.user_id) == str(admin_user_id):
-            logging.info('Admin: ' + str(line))
-
-    # logging.info('Users List after enrichment: ')
-    # for line in users_list:
-    #    logging.info(str(line))
-
-    return None
-
-
 def record_notification_statistics(conn):
     """records +1 into users' statistics of new searches notification"""
 
@@ -1070,7 +1035,7 @@ def record_notification_statistics(conn):
     return None
 
 
-def iterate_over_all_users_and_updates(using_canary, conn):
+def iterate_over_all_users_and_updates(conn):
     """initiates a full cycle for all messages send to all the users"""
 
     def save_to_sql_notif_by_user(mailing_id_, user_id_, message_, message_without_html_,
@@ -1201,14 +1166,6 @@ def iterate_over_all_users_and_updates(using_canary, conn):
     number_of_messages_sent = 0
     cleaner = re.compile('<.*?>')
 
-    logging.info('---> PRE-INFO1: ' + str(stat_list_of_recipients))
-
-    # TODO: DEBUG - FOR EXCLUSION OF ADMIN AS A TEST
-    list_of_admins_2, list_of_testers_2 = get_list_of_admins_and_testers(conn)
-
-    # TODO: added testers
-    list_of_admins_2 = list_of_admins_2 + list_of_testers_2
-
     try:
 
         # execute new updates one-by-one
@@ -1286,11 +1243,7 @@ def iterate_over_all_users_and_updates(using_canary, conn):
                         u_lat = user.user_latitude
                         u_lon = user.user_longitude
                         user_notif_prefs = user.notification_preferences
-
-                        if using_canary:
-                            user_reg_prefs = user.user_corr_regions
-                        else:
-                            user_reg_prefs = user.user_regions
+                        user_reg_prefs = user.user_regions
 
                         # as user can have multi-reg preferences – check every region
                         for region in user_reg_prefs:
@@ -1606,10 +1559,6 @@ def mark_new_records_as_processed(conn, is_prod):
                 """UPDATE change_log SET notification_sent = 'y' WHERE notification_sent is NULL 
                 OR notification_sent='s';"""
             )
-        else:
-            conn.execute(
-                """UPDATE change_log SET notif_sent_staging = 'y' WHERE notification_sent is NULL;"""
-            )
 
         logging.info('Not able to mark Updates as Processed in Change Log')
         logging.exception(e)
@@ -1656,7 +1605,7 @@ def mark_new_comments_as_processed(conn, is_prod):
     return None
 
 
-def pubsub_notification_trigger(event, context):  # noqa
+def main(event, context):  # noqa
     """key function which is initiated by Pub/Sub"""
 
     global new_records_list
@@ -1668,104 +1617,74 @@ def pubsub_notification_trigger(event, context):  # noqa
     script_start_time = datetime.datetime.now()
 
     # TODO: to delete everything connected to config / canary etc.
-    # Get config of Canary Deployment, which is needed only for Development phase
-    # config = get_config_info(event)
-    # using_canary = config['use_canary']
-    # is_prod = (gcp_function_name == 'prod_notification_script')
-    using_canary = False
     is_prod = True
 
-    if is_prod or (not is_prod and using_canary):
+    # TODO: should be avoided in the future (doesn't return None help?)
+    # the below two lines are required - in other case these arrays are not always empty,
+    # spent 2 hours - don't know why using '=[]' in the body of this Script (lines ~14-15) is not sufficient
+    new_records_list = []
+    users_list = []
 
-        # TODO: should be avoided in the future (doesn't return None help?)
-        # the below two lines are required - in other case these arrays are not always empty,
-        # spent 2 hours - don't know why using '=[]' in the body of this Script (lines ~14-15) is not sufficient
-        new_records_list = []
-        users_list = []
+    # initiate SQL connection
+    db = sql_connect()
+    conn = db.connect()
 
-        # initiate SQL connection
-        db = sql_connect()
-        conn = db.connect()
+    # compose New Records List: the delta from Change log
+    compose_new_records_from_change_log(conn, is_prod)
 
-        # TODO - do we need it still - or to take it from PSQL?
-        admin_user_id = get_secrets("my_telegram_id")
+    # only if there are updates in Change Log
+    if new_records_list:
 
-        # compose New Records List: the delta from Change log
-        compose_new_records_from_change_log(conn, is_prod)
+        # enrich New Records List with all the updates that should be in notifications
+        enrich_new_records_from_searches(conn)
+        enrich_new_records_with_search_activities(conn)
+        enrich_new_records_with_managers(conn)
+        enrich_new_records_with_comments(conn, 'all')
+        enrich_new_records_with_comments(conn, 'inforg')
+        enrich_new_records_with_message_texts()
 
-        # only if there are updates in Change Log
-        if new_records_list:
+        # compose Users List: all the notifications recipients' details
+        compose_users_list_from_users(conn)
+        enrich_users_list_with_notification_preferences(conn)
+        enrich_users_list_with_user_regions(conn)
 
-            # enrich New Records List with all the updates that should be in notifications
-            enrich_new_records_from_searches(conn)
-            enrich_new_records_with_search_activities(conn)
-            enrich_new_records_with_managers(conn)
-            enrich_new_records_with_comments(conn, 'all')
-            enrich_new_records_with_comments(conn, 'inforg')
-            enrich_new_records_with_message_texts()
+        # check the matrix: new update - user and initiate sending notifications
+        iterate_over_all_users_and_updates(conn)
 
-            # compose Users List: all the notifications recipients' details
-            compose_users_list_from_users(conn)
-            enrich_users_list_with_notification_preferences(conn)
-            enrich_users_list_with_user_regions(conn)
+        # mark all the "new" lines in tables Change Log & Comments as "old"
+        mark_new_records_as_processed(conn, is_prod)
+        mark_new_comments_as_processed(conn, is_prod)
 
-            # If file is in testing mode in canary dev't
-            if using_canary:
-                stage_percent = config['canary_params']['users_on_stage']  # noqa
-                list_of_admins, list_of_testers = get_list_of_admins_and_testers(conn)
-                enrich_users_by_corrected_regions(conn, is_prod, stage_percent)
-                # enrich_users_with_admins_and_testers(is_prod, config, list_of_admins, list_of_testers)
-                mark_new_records_as_being_processed(conn, is_prod)
-                mark_new_comments_as_being_processed(conn, is_prod)
+        # final step – update statistics on how many users received notifications on new searches
+        record_notification_statistics(conn)
 
-            log_debug_message(admin_user_id)
+    # check if there are any notifications remained to be sent
+    # TODO: delete try
+    try:
+        check = conn.execute(
+            """
+            SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log 
+            WHERE notification_sent is NULL 
+            OR notification_sent='s' LIMIT 1; """
+        ).fetchall()
+        if check:
+            logging.info('we checked – there is still something to notify, so we re-initiated this function')
+            publish_to_pubsub('topic_for_notification', 're-run from same script')
+    except:  # noqa
+        pass
 
-            # check the matrix: new update - user and initiate sending notifications
-            iterate_over_all_users_and_updates(using_canary, conn)
-
-            # mark all the "new" lines in tables Change Log & Comments as "old"
-            mark_new_records_as_processed(conn, is_prod)
-            mark_new_comments_as_processed(conn, is_prod)
-
-            # final step – update statistics on how many users received notifications on new searches
-            record_notification_statistics(conn)
-
-        # check if there are any notifications remained to be sent
-        # TODO: delete try
-        try:
-            check = conn.execute(
-                """
-                SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log 
-                WHERE notification_sent is NULL 
-                OR notification_sent='s' LIMIT 1; """
-            ).fetchall()
-            if check:
-                logging.info('we checked – there is still something to notify, so we re-initiated this function')
-                publish_to_pubsub('topic_for_notification', 're-run from same script')
-        except:  # noqa
-            pass
-
-        conn.close()
-        del new_records_list
-        del users_list
-        del db
-        del conn
-
-    else:
-        # for safety's sake if Staging will be set without Canary=true
-        logging.error('Not able to identify the case: not prod, not stage with canary')
-        notify_admin('Not able to identify the case: not prod, not stage with canary')
+    conn.close()
+    del new_records_list
+    del users_list
+    del db
+    del conn
 
     if analytics_notif_times:
         len_n = len(analytics_notif_times)
         average = sum(analytics_notif_times) / len_n
-        notify_admin('[comp_notif]: Analytics: Search_id {}, Change_id {}, Change_type {}, Mailing_id {}: num of '
-                     'messages {}, '
-                     'average time {} seconds, total time {} seconds'.format(srch_id, chng_id, chng_type,
-                                                                             mailing_id,
-                                                                             len_n,
-                                                                             round(average, 1),
-                                                                             round(sum(analytics_notif_times), 1)))
+        notify_admin(f'[comp_notif]: Analytics: Search_id {srch_id}, Change_id {chng_id}, Change_type {chng_type}, '
+                     f'Mailing_id {mailing_id}: num of messages {len_n}, average time {round(average, 1)} seconds, '
+                     f'total time {round(sum(analytics_notif_times), 1)} seconds')
         analytics_notif_times = []
 
     publish_to_pubsub('topic_to_send_notifications', 'initiate notifs send out')
