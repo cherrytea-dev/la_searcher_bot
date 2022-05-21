@@ -7,9 +7,6 @@ import datetime
 import json
 import logging
 import math
-import time
-
-from telegram import Bot  # TODO: probably to move to aiogram? or mtproto?
 
 import sqlalchemy  # TODO: to switch to psycopg2? probably not, due to SQL injection safety
 
@@ -115,7 +112,7 @@ def define_family_name(title_string, predefined_fam_name):
     else:
         string_by_word = title_string.split()
         # exception case: when Family Name is third word
-        # it happens when first two wither Найден Жив or Найден Погиб with different word forms
+        # it happens when first two either Найден Жив or Найден Погиб with different word forms
         if string_by_word[0][0:4].lower() == "найд":
             fam_name = string_by_word[2]
 
@@ -123,7 +120,7 @@ def define_family_name(title_string, predefined_fam_name):
         elif string_by_word[1][0:8].lower() == 'приостан':
             fam_name = string_by_word[2]
 
-        # all other cases
+        # all the other cases
         else:
             fam_name = string_by_word[1]
 
@@ -1076,7 +1073,7 @@ def record_notification_statistics(conn):
     return None
 
 
-def iterate_over_all_users_and_updates(bot_2, is_prod, using_canary, conn):
+def iterate_over_all_users_and_updates(using_canary, conn):
     """initiates a full cycle for all messages send to all the users"""
 
     def save_to_sql_notif_by_user(mailing_id_, user_id_, message_, message_without_html_,
@@ -1347,18 +1344,14 @@ def iterate_over_all_users_and_updates(bot_2, is_prod, using_canary, conn):
 
                                         if message:
 
-                                            logging.info('test here 3')
                                             if changed_field in {'new_search'}:
                                                 message_group_id = get_the_new_group_id()
                                             else:
                                                 message_group_id = None
-                                            logging.info('test here 4')
 
                                             message_type = 'text'
-                                            no_preview = True
                                             this_user_was_notified = False
 
-                                            logging.info('test here 5')
                                             if this_record_was_processed_already:
                                                 this_user_was_notified = get_from_sql_if_was_notified_already(
                                                     mailing_id, user.user_id, message_type)
@@ -1369,10 +1362,8 @@ def iterate_over_all_users_and_updates(bot_2, is_prod, using_canary, conn):
                                                 else:
                                                     logging.info('this user is NOT in the list of non-notifiers')
 
-                                            logging.info('test here 6')
                                             if not this_user_was_notified:
 
-                                                logging.info('test here 7')
                                                 # record into SQL table notif_by_user
                                                 # TODO: make text more compact within 50 symbols
                                                 message_without_html = re.sub(cleaner, '', message)
@@ -1386,16 +1377,18 @@ def iterate_over_all_users_and_updates(bot_2, is_prod, using_canary, conn):
                                                                                        message_params, message_group_id,
                                                                                        chng_id)
 
+                                                # TODO: to delete
                                                 logging.info('test here 8')
-                                                send_single_message(bot_2, user.user_id, message,
-                                                                    no_preview, 'message', None,
-                                                                    None, user, new_record, message_id, conn,
-                                                                    mailing_id, chng_id, list_of_admins_2, chng_type)
+                                                # TODO: to delete
 
+                                                write_message_creation_status(conn, message_id, 'created', mailing_id,
+                                                                              chng_id, user.user_id, 'text')
+
+                                                # TODO: do we need it?
                                                 # TODO: testing notif_mailings
-
                                                 if changed_field == 'new_search':
                                                     stat_list_of_recipients.append(user.user_id)
+                                                # TODO: do we need it?
 
                                                 if changed_field == 'new_search' and s_lat and s_lon:
                                                     message_params = {'latitude': s_lat,
@@ -1408,17 +1401,17 @@ def iterate_over_all_users_and_updates(bot_2, is_prod, using_canary, conn):
                                                                                            message_group_id,
                                                                                            chng_id)
 
-                                                    send_single_message(bot_2, user.user_id,
-                                                                        None, None, 'location', s_lat,
-                                                                        s_lon, user, new_record,
-                                                                        message_id, conn, mailing_id, chng_id,
-                                                                        list_of_admins_2, chng_type)
+                                                    write_message_creation_status(conn, message_id, 'created',
+                                                                                  mailing_id,
+                                                                                  chng_id, user.user_id, 'coords')
 
                                                 number_of_messages_sent += 1
 
                 # mark this line as all-processed
                 new_record.processed = 'yes'
+                # TODO: to delete
                 logging.info('test here 9')
+                # TODO: to delete
 
             # mark all ignored lines as processed
             else:
@@ -1430,7 +1423,9 @@ def iterate_over_all_users_and_updates(bot_2, is_prod, using_canary, conn):
         logging.error('Not able to Iterate over all Users and Updates: ' + repr(e1))
         logging.exception(e1)
 
+    # TODO: do we need it?
     logging.info('---> PRE-INFO2: ' + str(stat_list_of_recipients))
+    # TODO: do we need it?
 
     return None
 
@@ -1452,7 +1447,7 @@ def generate_yandex_maps_place_link2(lat, lon, param):
     return msg
 
 
-def write_message_sending_status(conn_, message_id_, result, mailing_id_, change_log_id_, user_id_, message_type_):
+def write_message_creation_status(conn_, message_id_, result, mailing_id_, change_log_id_, user_id_, message_type_):
     """write to SQL table notif_by_user_status the status of individual message sent"""
 
     try:
@@ -1470,7 +1465,7 @@ def write_message_sending_status(conn_, message_id_, result, mailing_id_, change
                     VALUES (:a, :b, :c, :d, :e, :f, :g, :h);
                     """)
 
-        if result in {'created', 'completed'}:
+        if result == 'created':
             conn_.execute(sql_text,
                           a=message_id_,
                           b=result,
@@ -1481,118 +1476,13 @@ def write_message_sending_status(conn_, message_id_, result, mailing_id_, change
                           g=message_type_,
                           h='comp_notifs'
                           )
-        else:
-            # TODO: debug notify
-            notify_admin('[comp_notifs]: message {}, sending status is {} for conn'.format(message_id_, result))
-            with sql_connect().connect() as conn2:
 
-                conn2.execute(sql_text,
-                              a=message_id_,
-                              b=result,
-                              c=datetime.datetime.now(),
-                              d=mailing_id_,
-                              e=change_log_id_,
-                              f=user_id_,
-                              g=message_type_,
-                              h='comp_notifs'
-                              )
-            # TODO: debug notify
-            notify_admin('[comp_notifs]]: message {}, sending status is {} for conn2'.format(message_id_, result))
+        # TODO: DEBUG
+        notify_admin('[comp_notif]: message {}, sending status is {}'.format(message_id_, result))
+        # TODO: DEBUG
 
     except:  # noqa
         notify_admin('ERR mink write to SQL notif_by_user_status, message_id {}, status {}'.format(message_id_, result))
-
-    return None
-
-
-def send_single_message(bot_2, user_id, message, no_preview, mes_type, lat, lon, user, new_record, message_id, conn,
-                        mailing_id_, change_log_id, list_of_admins_, change_type_):
-    """send individual notification message"""
-
-    global analytics_notif_times
-    if mes_type == 'message':
-        message_type = 'text'
-    else:
-        message_type = 'coords'
-
-    analytics_sm_start = datetime.datetime.now()
-
-    write_message_sending_status(conn, message_id, 'created', mailing_id_, change_log_id, user_id, message_type)
-
-    try:
-
-        admin_debug_trigger = (user_id in list_of_admins_) or user_id <= 9000000000
-        if mes_type == 'message':
-
-            # TODO: temp limitation
-            if not admin_debug_trigger:
-                bot_2.sendMessage(chat_id=user_id, text=message, parse_mode='HTML', disable_web_page_preview=no_preview)
-                notify_admin(f'alarma! a message is sent by comp_notif! user {user_id}: {message}')
-
-            """DEBUG"""
-            logging.info('------msg to user - BEGINNING ------')
-            logging.info(user)
-            logging.info(new_record)
-            logging.info(new_record.message)
-            logging.info(user.user_corr_regions)
-            logging.info('------msg to user - END ------')
-            """DEBUG"""
-
-        elif mes_type == 'location':
-            # TODO: temp limitation
-            if not admin_debug_trigger:
-                bot_2.sendLocation(chat_id=user_id, latitude=lat, longitude=lon)
-
-        # TODO: temp limitation
-        if not admin_debug_trigger:
-            write_message_sending_status(conn, message_id, 'completed', mailing_id_, change_log_id, user_id,
-                                         message_type)
-
-    except Exception as e:
-
-        error_description = str(e)
-
-        # if user blocked the bot OR user is deactivated (deleted telegram account)
-        if error_description.find('bot was blocked by the user') != -1 \
-                or error_description.find('user is deactivated') != -1:
-            if error_description.find('bot was blocked by the user') != -1:
-                action = 'block_user'
-            else:
-                action = 'delete_user'
-            message_for_pubsub = {'action': action, 'info': {'user': user_id}}
-            publish_to_pubsub('topic_for_user_management', message_for_pubsub)
-
-            logging.info('Identified user id={} to do {}'.format(user_id, action))
-
-            write_message_sending_status(conn, message_id, 'cancelled', mailing_id_, change_log_id, user_id,
-                                         message_type)
-
-        # if too many requests to Telegram – notify admin on it
-        elif error_description.find('429') != -1:
-            logging.error('Not able to send to Telegram (429): ' + error_description)
-            logging.exception(e)
-
-            write_message_sending_status(conn, message_id, 'failed', mailing_id_, change_log_id, user_id, message_type)
-
-        # if issue with connection to SQL
-        elif error_description.find('Connection reset by peer') != -1:
-            logging.error('Connection reset by peer (104): ' + error_description)
-            logging.exception(e)
-
-            time.sleep(1)
-            write_message_sending_status(conn, message_id, 'failed', mailing_id_, change_log_id, user_id, message_type)
-
-        else:
-            logging.error('Not able to send {} ({}) to user {}: {}'.format(mes_type, str(message),
-                                                                           user_id, error_description))
-            logging.exception(e)
-
-            time.sleep(5)
-            write_message_sending_status(conn, message_id, 'failed', mailing_id_, change_log_id, user_id, message_type)
-
-    analytics_sm_finish = datetime.datetime.now()
-    analytics_sm_duration = (analytics_sm_finish - analytics_sm_start).total_seconds()
-    analytics_notif_times.append(analytics_sm_duration)
 
     return None
 
@@ -1726,7 +1616,7 @@ def mark_new_records_as_processed(conn, is_prod):
 
     except Exception as e:
 
-        # For Safety Sake – Update Change_log SQL table, setting 'y' everywhere
+        # For Safety's Sake – Update Change_log SQL table, setting 'y' everywhere
         if is_prod:
             conn.execute(
                 """UPDATE change_log SET notification_sent = 'y' WHERE notification_sent is NULL 
@@ -1746,7 +1636,7 @@ def mark_new_records_as_processed(conn, is_prod):
 
 
 def mark_new_comments_as_processed(conn, is_prod):
-    """mark in SQL table Comments all the comments that were proceed at this step, basing on search_forum_id"""
+    """mark in SQL table Comments all the comments that were processed at this step, basing on search_forum_id"""
 
     try:
         change_id_list = []
@@ -1813,10 +1703,6 @@ def pubsub_notification_trigger(event, context):  # noqa
         db = sql_connect()
         conn = db.connect()
 
-        # initiate Prod Bot
-        bot_token = get_secrets("bot_api_token__prod")
-        bot_2 = Bot(token=bot_token)
-
         # TODO - do we need it still - or to take it from PSQL?
         admin_user_id = get_secrets("my_telegram_id")
 
@@ -1851,7 +1737,7 @@ def pubsub_notification_trigger(event, context):  # noqa
             log_debug_message(admin_user_id)
 
             # check the matrix: new update - user and initiate sending notifications
-            iterate_over_all_users_and_updates(bot_2, is_prod, using_canary, conn)
+            iterate_over_all_users_and_updates(using_canary, conn)
 
             # mark all the "new" lines in tables Change Log & Comments as "old"
             mark_new_records_as_processed(conn, is_prod)
