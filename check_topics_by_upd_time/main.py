@@ -48,30 +48,31 @@ def check_updates_in_folder_with_folders(start_folder_num):
         search_code_blocks = None
 
     try:
-        for block in search_code_blocks:
+        if search_code_blocks:
+            for block in search_code_blocks:
 
-            folders = block.find_all('li', {'class': 'row'})
-            for folder in folders:
+                folders = block.find_all('li', {'class': 'row'})
+                for folder in folders:
 
-                # found no cases where there can be more than 1 topic name or date, so find i/o find_all is used
-                folder_num_str = folder.find('a', {'class': 'forumtitle'})['href']
+                    # found no cases where there can be more than 1 topic name or date, so find i/o find_all is used
+                    folder_num_str = folder.find('a', {'class': 'forumtitle'})['href']
 
-                start_symb_to_del = folder_num_str.find('&sid=')
-                if start_symb_to_del != -1:
-                    folder_num = int(folder_num_str[18:start_symb_to_del])
-                else:
-                    folder_num = int(folder_num_str[18:])
+                    start_symb_to_del = folder_num_str.find('&sid=')
+                    if start_symb_to_del != -1:
+                        folder_num = int(folder_num_str[18:start_symb_to_del])
+                    else:
+                        folder_num = int(folder_num_str[18:])
 
-                folder_time_str = folder.find('time')['datetime']
-                folder_time = datetime.datetime.strptime(folder_time_str, '%Y-%m-%dT%H:%M:%S+00:00')
+                    folder_time_str = folder.find('time')['datetime']
+                    folder_time = datetime.datetime.strptime(folder_time_str, '%Y-%m-%dT%H:%M:%S+00:00')
 
-                # remove useless folders: Справочники, Снаряжение, Постскриптум and all from Обучение и Тренировки
-                if folder_num not in {84, 113, 112, 270, 86, 87, 88, 165, 365, 89, 172, 91, 90}:
+                    # remove useless folders: Справочники, Снаряжение, Постскриптум and all from Обучение и Тренировки
+                    if folder_num not in {84, 113, 112, 270, 86, 87, 88, 165, 365, 89, 172, 91, 90}:
 
-                    page_summary.append([folder_num, folder_time_str, folder_time])
+                        page_summary.append([folder_num, folder_time_str, folder_time])
 
-                    if last_folder_update < folder_time:
-                        last_folder_update = folder_time
+                        if last_folder_update < folder_time:
+                            last_folder_update = folder_time
 
     except Exception as e2:
         logging.info(f'composing the topics\' page summaries fired an error, mother-folder {start_folder_num}')
@@ -143,7 +144,10 @@ def main(event, context): # noqa
 
     time_diff_in_min = time_delta(now, last_update_time)
 
-    logging.info(f'{str(time_diff_in_min)} minute(s) ago forum was updated')
+    if last_update_time != datetime.datetime(1, 1, 1, 0, 0):
+        logging.info(f'{str(time_diff_in_min)} minute(s) ago forum was updated')
+    else:
+        logging.info('no info on when forum was updated')
 
     # next actions only if the forum update happened within the defined period (2-3 minutes, defined in "delay")
     delay = 2  # minutes
