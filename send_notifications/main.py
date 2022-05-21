@@ -313,7 +313,7 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
             # TODO: to be deleted
             if disable_web_page_preview_text == 'no_preview':
                 disable_web_page_preview = True
-            elif disable_web_page_preview_text == True:
+            elif disable_web_page_preview_text == 'True':
                 disable_web_page_preview = True
             else:
                 disable_web_page_preview = False
@@ -345,16 +345,18 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
                                 disable_web_page_preview=disable_web_page_preview) # noqa
 
                 if user_id in list_of_admins:
-                    bot.sendMessage(chat_id=user_id, text=message_content, **message_kwargs)
+                    empty_dict = {}
+                    bot.sendMessage(chat_id=user_id, text=message_content, **empty_dict)
+
             else:
                 bot.sendMessage(chat_id=user_id,
                                 text=message_content)
+                notify_admin('this case')
 
             analytics_only_sendmessage_finish = datetime.datetime.now()
             analytics_only_sendmessage_duration = round((analytics_only_sendmessage_finish -
                                                         analytics_only_sendmessage_start).total_seconds(), 2)
             logging.info(f'time: sendMessage duration: {analytics_only_sendmessage_duration}')
-
 
         elif message_type == 'coords':
 
