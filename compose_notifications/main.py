@@ -1317,7 +1317,7 @@ def iterate_over_all_users_and_updates(conn):
                                                 message_without_html = re.sub(cleaner, '', message)
 
                                                 message_params = {'parse_mode': 'HTML',
-                                                                  'disable_web_page_preview': 'True'}
+                                                                  'disable_web_page_preview': True}
                                                 message_id = save_to_sql_notif_by_user(mailing_id, user.user_id,
                                                                                        message,
                                                                                        message_without_html,

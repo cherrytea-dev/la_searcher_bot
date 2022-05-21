@@ -297,6 +297,10 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
     message_kwargs = {}
 
+    # TODO: temp debug
+    print(f'initial: {message_params}')
+    # TODO: temp debug
+
     if message_params:
         if 'parse_mode' in message_params:
             parse_mode = message_params['parse_mode']
@@ -331,7 +335,7 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
             logging.info(f'time: sendMessage: st-st duration: {analytics_only_sendmessage_st_st}')
 
             # TODO: testing of kwargs
-            print(str(message_kwargs))
+            print(f'updated: {message_kwargs}')
             # TODO: testing of kwargs
 
             if message_params:
