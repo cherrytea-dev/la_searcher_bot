@@ -297,28 +297,29 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
     message_kwargs = {}
 
-    if 'parse_mode' in message_params:
-        parse_mode = message_params['parse_mode']
-        message_kwargs['parse_mode'] = message_params['parse_mode']
+    if message_params:
+        if 'parse_mode' in message_params:
+            parse_mode = message_params['parse_mode']
+            message_kwargs['parse_mode'] = message_params['parse_mode']
 
-    if 'disable_web_page_preview' in message_params:
-        disable_web_page_preview_text = message_params['disable_web_page_preview']
-        message_kwargs['disable_web_page_preview'] = message_params['disable_web_page_preview']
+        if 'disable_web_page_preview' in message_params:
+            disable_web_page_preview_text = message_params['disable_web_page_preview']
+            message_kwargs['disable_web_page_preview'] = message_params['disable_web_page_preview']
 
-        # TODO: to be deleted
-        if disable_web_page_preview_text == 'no_preview':
-            disable_web_page_preview = True
-        elif disable_web_page_preview_text == True:
-            disable_web_page_preview = True
-        else:
-            disable_web_page_preview = False
-        # TODO: to be deleted
+            # TODO: to be deleted
+            if disable_web_page_preview_text == 'no_preview':
+                disable_web_page_preview = True
+            elif disable_web_page_preview_text == True:
+                disable_web_page_preview = True
+            else:
+                disable_web_page_preview = False
+            # TODO: to be deleted
 
-    if 'latitude' in message_params:
-        latitude = message_params['latitude']
+        if 'latitude' in message_params:
+            latitude = message_params['latitude']
 
-    if 'longitude' in message_params:
-        longitude = message_params['longitude']
+        if 'longitude' in message_params:
+            longitude = message_params['longitude']
 
     try:
 
