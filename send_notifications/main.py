@@ -308,7 +308,7 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
         if 'disable_web_page_preview' in message_params:
             disable_web_page_preview_text = message_params['disable_web_page_preview']
-            message_kwargs['disable_web_page_preview'] = message_params['disable_web_page_preview']
+            message_kwargs['disable_web_page_preview'] = (message_params['disable_web_page_preview'] == 'True')
 
             # TODO: to be deleted
             if disable_web_page_preview_text == 'no_preview':
