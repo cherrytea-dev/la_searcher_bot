@@ -34,12 +34,12 @@ jobs:
   deploy_function:
     runs-on: ubuntu-latest
     needs: build
-    if: needs.build.result == 'ne_success'
+    if: needs.build.result == 'success'
 
     steps:
       - uses: actions/checkout@v2
 
-      - name: Authentificate in GCP
+      - name: Authenticate in GCP
         id: auth
         uses: google-github-actions/auth@v0.4.0
         with:
@@ -54,7 +54,7 @@ jobs:
             runtime: python37
             entry_point: main # UPD HERE! main function
             region: europe-west3
-            # timeout: 540 # UPD HERE!
+            timeout: 540 # UPD HERE!
             # max_instances: 1 # UPD HERE!
             # memory_mb: 8192 # UPD HERE!
             event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
