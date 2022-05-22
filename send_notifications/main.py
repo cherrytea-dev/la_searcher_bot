@@ -295,11 +295,6 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
     analytics_send_start = datetime.datetime.now()
 
-    # TODO: temp debug
-    message_kwargs = {}
-    print(f'initial: {message_params}')
-    # TODO: temp debug
-
     if message_params:
 
         # convert string to bool
@@ -307,53 +302,17 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
             message_params['disable_web_page_preview'] = (message_params['disable_web_page_preview'] == 'True')
 
         # TODO: to be deleted
-        if 'parse_mode' in message_params:
-            parse_mode = message_params['parse_mode']
-            message_kwargs['parse_mode'] = message_params['parse_mode']
-
-        if 'disable_web_page_preview' in message_params:
-            disable_web_page_preview_text = message_params['disable_web_page_preview']
-            message_kwargs['disable_web_page_preview'] = (message_params['disable_web_page_preview'] == 'True')
-
-            if disable_web_page_preview_text == 'no_preview':
-                disable_web_page_preview = True
-            elif disable_web_page_preview_text == 'True':
-                disable_web_page_preview = True
-            else:
-                disable_web_page_preview = False
-        # TODO: to be deleted
-
         if 'latitude' in message_params:
             latitude = message_params['latitude']
-
         if 'longitude' in message_params:
             longitude = message_params['longitude']
+        # TODO: to be deleted
 
     try:
 
         if message_type == 'text':
 
-            analytics_only_sendmessage_start = datetime.datetime.now()
-            analytics_only_sendmessage_st_st = round((analytics_only_sendmessage_start -
-                                                     analytics_send_start).total_seconds(), 2)
-            logging.info(f'time: sendMessage: st-st duration: {analytics_only_sendmessage_st_st}')
-
-            # TODO: testing of kwargs
-            print(f'updated: {message_params}')
-            # TODO: testing of kwargs
-
-            bot.sendMessage(chat_id=user_id,
-                            text=message_content,
-                            **message_params)
-                            # TODO: to be deleted
-                            # parse_mode=parse_mode, # noqa
-                            # disable_web_page_preview=disable_web_page_preview) # noqa
-                            # TODO: to be deleted
-
-            analytics_only_sendmessage_finish = datetime.datetime.now()
-            analytics_only_sendmessage_duration = round((analytics_only_sendmessage_finish -
-                                                        analytics_only_sendmessage_start).total_seconds(), 2)
-            logging.info(f'time: sendMessage duration: {analytics_only_sendmessage_duration}')
+            bot.sendMessage(chat_id=user_id, text=message_content, **message_params)
 
         elif message_type == 'coords':
 
@@ -369,6 +328,11 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
         result = 'completed'
 
         # TODO: temp for debug
+        analytics_only_sendmessage_finish = datetime.datetime.now()
+        analytics_only_sendmessage_duration = round((analytics_only_sendmessage_finish -
+                                                     analytics_send_start).total_seconds(), 2)
+        logging.info(f'time: sendMessage duration: {analytics_only_sendmessage_duration}')
+
         logging.info(f'success sending to telegram user={user_id}, message={message_content}')
         # TODO: temp for debug
 
@@ -418,25 +382,13 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 def iterate_over_notifications(bot, script_start_time):
     """iterate over all available notifications, finishes if timeout is met or no new notifications"""
 
-    # TODO: to increase 30 seconds to 500 seconds once script will work with mani ids
+    # TODO: to think to increase 30 seconds to 500 seconds - if helpful
     custom_timeout = 30  # seconds, after which iterations should stop to prevent the whole script timeout
 
     with sql_connect().connect() as conn:
 
-        analytics_get_admins_and_testers_start = datetime.datetime.now()
-
         # TODO: only for DEBUG. for prod it's not needed
         list_of_admins, list_of_testers = get_list_of_admins_and_testers(conn)
-
-        analytics_get_admins_and_testers_finish = datetime.datetime.now()
-
-        analytics_get_admins = round((analytics_get_admins_and_testers_finish -
-                                     analytics_get_admins_and_testers_start).total_seconds(), 2)
-        logging.info(f'time: {analytics_get_admins} – get admins')
-
-        # TODO: temp DEBUG
-        logging.info('list of testers:')
-        logging.info(list_of_testers)
 
         trigger_to_continue_iterations = True
 
@@ -467,86 +419,57 @@ def iterate_over_notifications(bot, script_start_time):
                 created_time = msg_w_o_notif[2]
                 how_old_is_notif = (datetime.datetime.now() - created_time).total_seconds()
 
-                # TODO: temp condition for Admins and Testers OR the prev message delivery was FAILED
-                if (message_content or message_type == 'coords') and \
-                        (user_id in (list_of_admins + list_of_testers) or
-                         message_failed or
-                         user_id <= 9000000000
-                         or how_old_is_notif > 900):
+                # limitation to avoid telegram "message too long"
+                if message_content:
+                    if len(message_content) > 3000:
+                        p1 = message_content[:1500]
+                        p2 = message_content[-1000:]
+                        message_content = p1 + '...' + p2
 
-                    # limitation to avoid telegram "message too long"
-                    if message_content:
-                        if len(message_content) > 3000:
-                            p1 = message_content[:1500]
-                            p2 = message_content[-1000:]
-                            message_content = p1 + '...' + p2
+                message_params = ast.literal_eval(msg_w_o_notif[7]) if msg_w_o_notif[7] else {}
 
-                    # TODO: temp try, content is NEEDED!
-                    try:
-                        message_params = ast.literal_eval(msg_w_o_notif[7])
-                    except: # noqa
-                        message_params = {}
-                    # TODO: temp try, content is NEEDED!
+                # message_group_id = msg_w_o_notif[8]
+                change_log_id = msg_w_o_notif[9]
+                mailing_id = msg_w_o_notif[10]
+                doubling_trigger = msg_w_o_notif[11]
 
-                    # message_group_id = msg_w_o_notif[8]
-                    change_log_id = msg_w_o_notif[9]
-                    mailing_id = msg_w_o_notif[10]
-                    doubling_trigger = msg_w_o_notif[11]
+                analytics_pre_sending_msg = datetime.datetime.now()
 
-                    analytics_pre_sending_msg = datetime.datetime.now()
-                    analytics_check_send = round((analytics_pre_sending_msg -
-                                                  analytics_check_time).total_seconds(), 2)
-                    # logging.info(f'time: {analytics_check_send} – check -> pre-sending msg')
+                # send the message to telegram if it is not a clone-message
+                if doubling_trigger == 'no_doubling':
 
-                    # send the message to telegram if it is not a clone-message
-                    if doubling_trigger == 'no_doubling':
+                    result = send_single_message(bot, user_id, message_content, message_params, message_type, list_of_admins)
 
-                        result = send_single_message(bot, user_id, message_content, message_params, message_type, list_of_admins)
+                    analytics_send_finish = datetime.datetime.now()
+                    analytics_send_start_finish = round((analytics_send_finish -
+                                                         analytics_pre_sending_msg).total_seconds(), 2)
+                    logging.info(f'time: {analytics_send_start_finish} – outer sending msg')
 
-                        analytics_send_finish = datetime.datetime.now()
-                        analytics_send_start_finish = round((analytics_send_finish -
-                                                             analytics_pre_sending_msg).total_seconds(), 2)
-                        logging.info(f'time: {analytics_send_start_finish} – outer sending msg')
+                else:
+                    result = 'cancelled_due_to_doubling'
 
-                    else:
-                        result = 'cancelled_due_to_doubling'
+                analytics_save_sql_strart = datetime.datetime.now()
 
+                # save result of sending telegram notification into SQL
+                write_message_sending_status(conn, message_id, result, mailing_id,
+                                             change_log_id, user_id, message_type)
 
-                    analytics_save_sql_strart = datetime.datetime.now()
+                analytics_after_double_saved_in_sql = datetime.datetime.now()
 
-                    # save result of sending telegram notification into SQL
-                    write_message_sending_status(conn, message_id, result, mailing_id,
-                                                 change_log_id, user_id, message_type)
+                analytics_save_sql_duration = round((analytics_after_double_saved_in_sql -
+                                                     analytics_save_sql_strart).total_seconds(), 2)
+                logging.info(f'time: {analytics_save_sql_duration} – saving to sql')
 
-                    analytics_after_double_saved_in_sql = datetime.datetime.now()
+                analytics_doubling_checked_saved_to_sql = round((analytics_after_double_saved_in_sql -
+                                                                 analytics_pre_sending_msg).total_seconds(), 2)
+                logging.info(f'time: check -> save to sql: {analytics_doubling_checked_saved_to_sql}')
 
-                    analytics_save_sql_duration = round((analytics_after_double_saved_in_sql -
-                                                         analytics_save_sql_strart).total_seconds(), 2)
-                    logging.info(f'time: {analytics_save_sql_duration} – saving to sql')
+                # analytics on sending speed - finish for every user/notification
+                analytics_sm_finish = datetime.datetime.now()
+                analytics_sm_duration = (analytics_sm_finish - analytics_sm_start).total_seconds()
+                analytics_notif_times.append(analytics_sm_duration)
 
-                    analytics_doubling_checked_saved_to_sql = round((analytics_after_double_saved_in_sql -
-                                                                     analytics_pre_sending_msg).total_seconds(), 2)
-                    logging.info(f'time: check -> save to sql: {analytics_doubling_checked_saved_to_sql}')
-
-                    analytics_before_send_to_admin = datetime.datetime.now()
-
-                    # TODO: temp
-                    # if user_id in list_of_admins and message_content:
-                    #    notify_admin(f'[send_notif]: user {user_id}, length ib bytes: '
-                    #                 f'{len(message_content.encode("utf-8"))}, message:\n{message_content[0:100]}')
-                    # TODO: temp
-
-                    analytics_after_send_to_admin = datetime.datetime.now()
-                    analytics_send_bytes_to_admin = round((analytics_after_send_to_admin -
-                                                          analytics_before_send_to_admin).total_seconds(), 2)
-                    # logging.info(f'time: send bytes to admin: {analytics_send_bytes_to_admin}')
-
-                    # analytics on sending speed - finish for every user/notification
-                    analytics_sm_finish = datetime.datetime.now()
-                    analytics_sm_duration = (analytics_sm_finish - analytics_sm_start).total_seconds()
-                    analytics_notif_times.append(analytics_sm_duration)
-
-                    no_new_notifications = False
+                no_new_notifications = False
 
             else:
                 # wait for 10 seconds – maybe any new notification will pop up
