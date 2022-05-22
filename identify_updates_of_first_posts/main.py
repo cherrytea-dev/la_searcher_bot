@@ -259,8 +259,8 @@ def process_coords_comparison(conn, search_id, first_page_content_curr, first_pa
     # record the change into change_lot
     if coords_change_list:
         stmt = sqlalchemy.text(
-            """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type, notification_sent) 
-            values (:a, :b, :c, :d, :e, :f);"""
+            """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type) 
+            values (:a, :b, :c, :d, :e);"""
         )
 
         conn.execute(stmt,
@@ -268,8 +268,7 @@ def process_coords_comparison(conn, search_id, first_page_content_curr, first_pa
                      b=search_id,
                      c='coords_change',
                      d=str(coords_change_list),
-                     e=6,
-                     f='y'
+                     e=6
                      )
 
     return None
