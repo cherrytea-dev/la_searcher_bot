@@ -1181,6 +1181,10 @@ def parse(folder_num):
             # Current block which contains everything regarding certain search
             data_block = search_code_blocks[i + 1]
 
+            # In rare cases there are aliases from other folders, which have static titles – and we're avoiding them
+            if str(data_block).find('<dl class="row-item topic_moved">') > -1:
+                continue
+
             search_title_block = data_block.find('a', 'topictitle')
             search_long_link = search_title_block['href'][1:]
 
