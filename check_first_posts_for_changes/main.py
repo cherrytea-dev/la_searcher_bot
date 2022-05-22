@@ -657,7 +657,7 @@ def main(event, context): # noqa
     number_of_users_to_update = 2
     # update_user_regional_settings(number_of_users_to_update)
 
-    percent_of_first_posts_to_check = 20
+    percent_of_first_posts_to_check = 10
     update_first_posts(percent_of_first_posts_to_check)
 
     if bad_gateway_counter > 3:
