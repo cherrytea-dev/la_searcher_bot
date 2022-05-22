@@ -295,13 +295,18 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
     analytics_send_start = datetime.datetime.now()
 
-    message_kwargs = {}
-
     # TODO: temp debug
+    message_kwargs = {}
     print(f'initial: {message_params}')
     # TODO: temp debug
 
     if message_params:
+
+        # convert string to bool
+        if 'disable_web_page_preview' in message_params:
+            message_params['disable_web_page_preview'] = (message_params['disable_web_page_preview'] == 'True')
+
+        # TODO: to be deleted
         if 'parse_mode' in message_params:
             parse_mode = message_params['parse_mode']
             message_kwargs['parse_mode'] = message_params['parse_mode']
@@ -310,14 +315,13 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
             disable_web_page_preview_text = message_params['disable_web_page_preview']
             message_kwargs['disable_web_page_preview'] = (message_params['disable_web_page_preview'] == 'True')
 
-            # TODO: to be deleted
             if disable_web_page_preview_text == 'no_preview':
                 disable_web_page_preview = True
             elif disable_web_page_preview_text == 'True':
                 disable_web_page_preview = True
             else:
                 disable_web_page_preview = False
-            # TODO: to be deleted
+        # TODO: to be deleted
 
         if 'latitude' in message_params:
             latitude = message_params['latitude']
@@ -335,23 +339,16 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
             logging.info(f'time: sendMessage: st-st duration: {analytics_only_sendmessage_st_st}')
 
             # TODO: testing of kwargs
-            print(f'updated: {message_kwargs}')
+            print(f'updated: {message_params}')
             # TODO: testing of kwargs
 
-            if message_params:
-                bot.sendMessage(chat_id=user_id,
-                                text=message_content,
-                                parse_mode=parse_mode, # noqa
-                                disable_web_page_preview=disable_web_page_preview) # noqa
-
-                if user_id in list_of_admins:
-                    empty_dict = {}
-                    bot.sendMessage(chat_id=user_id, text=message_content, **empty_dict)
-
-            else:
-                bot.sendMessage(chat_id=user_id,
-                                text=message_content)
-                notify_admin('this case')
+            bot.sendMessage(chat_id=user_id,
+                            text=message_content,
+                            **message_params)
+                            # TODO: to be deleted
+                            # parse_mode=parse_mode, # noqa
+                            # disable_web_page_preview=disable_web_page_preview) # noqa
+                            # TODO: to be deleted
 
             analytics_only_sendmessage_finish = datetime.datetime.now()
             analytics_only_sendmessage_duration = round((analytics_only_sendmessage_finish -
@@ -363,6 +360,11 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
             bot.sendLocation(chat_id=user_id,
                              latitude=latitude, # noqa
                              longitude=longitude) # noqa
+
+            # TODO: to be deleted
+            if user_id in list_of_admins:
+                bot.sendLocation(chat_id=user_id, **message_params)
+            # TODO: to be deleted
 
         result = 'completed'
 
