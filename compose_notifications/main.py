@@ -25,14 +25,12 @@ coordinates_format = "{0:.5f}"
 stat_list_of_recipients = []  # list of users who received notification on new search
 fib_list = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987]
 
-# TODO: temp
-trigg = 0
 
 # for analytics
 analytics_notif_times = []
-srch_id = None
-chng_id = None
-chng_type = None
+search_id_for_analytics = None
+change_id_for_analytics = None
+change_type_for_analytics = None
 mailing_id = None
 script_start_time = None
 
@@ -1009,9 +1007,9 @@ def iterate_over_all_users_and_updates(conn):
     global coordinates_format
     global stat_list_of_recipients
 
-    global srch_id
-    global chng_id
-    global chng_type
+    global search_id_for_analytics
+    global change_id_for_analytics
+    global change_type_for_analytics
     global mailing_id
 
     stat_list_of_recipients = []  # still not clear why w/o it – saves data from prev iterations
@@ -1066,10 +1064,10 @@ def iterate_over_all_users_and_updates(conn):
                                         d=new_record.change_id
                                         ).fetchone()
 
-                srch_id = new_record.forum_search_num
+                search_id_for_analytics = new_record.forum_search_num
                 mailing_id = raw_data[0]
-                chng_type = mailing_type_id
-                chng_id = new_record.change_id
+                change_type_for_analytics = mailing_type_id
+                change_id_for_analytics = new_record.change_id
 
                 logging.info(mailing_id)
 
@@ -1176,10 +1174,10 @@ def iterate_over_all_users_and_updates(conn):
                                                                                        message_without_html,
                                                                                        message_type,
                                                                                        message_params, message_group_id,
-                                                                                       chng_id)
+                                                                                       change_id_for_analytics)
 
                                                 write_message_creation_status(conn, message_id, 'created', mailing_id,
-                                                                              chng_id, user.user_id, 'text')
+                                                                              change_id_for_analytics, user.user_id, 'text')
 
                                                 # TODO: do we need it?
                                                 # TODO: testing notif_mailings
@@ -1196,11 +1194,11 @@ def iterate_over_all_users_and_updates(conn):
                                                                                            None, 'coords',
                                                                                            message_params,
                                                                                            message_group_id,
-                                                                                           chng_id)
+                                                                                           change_id_for_analytics)
 
                                                     write_message_creation_status(conn, message_id, 'created',
                                                                                   mailing_id,
-                                                                                  chng_id, user.user_id, 'coords')
+                                                                                  change_id_for_analytics, user.user_id, 'coords')
 
                                                 number_of_messages_sent += 1
 
@@ -1517,7 +1515,7 @@ def main(event, context):  # noqa
     if analytics_notif_times:
         len_n = len(analytics_notif_times)
         average = sum(analytics_notif_times) / len_n
-        notify_admin(f'[comp_notif]: Analytics: Search_id {srch_id}, Change_id {chng_id}, Change_type {chng_type}, '
+        notify_admin(f'[comp_notif]: Analytics: Search_id {search_id_for_analytics}, Change_id {change_id_for_analytics}, Change_type {change_type_for_analytics}, '
                      f'Mailing_id {mailing_id}: num of messages {len_n}, average time {round(average, 1)} seconds, '
                      f'total time {round(sum(analytics_notif_times), 1)} seconds')
         analytics_notif_times = []

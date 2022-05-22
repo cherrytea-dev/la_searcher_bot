@@ -1,3 +1,4 @@
+import datetime
 import os
 import base64
 import json
@@ -45,7 +46,7 @@ def sql_connect():
 
     pool = sqlalchemy.create_engine(
         sqlalchemy.engine.url.URL(
-            drivername="postgresql+pg8000",
+            "postgresql+pg8000",
             username=db_user,
             password=db_pass,
             database=db_name,
@@ -112,21 +113,21 @@ def get_the_list_of_coords_out_of_text(initial_text):
         initial_text = initial_text.replace('\n', ' ')
 
         # get the list of all mentions of coords at all
-        # majority of coords in RU: lat in [40-80], long in [20-180], expected minimal format = XX.XXX
-        list_of_all_coords = re.findall(r'0?[3-8]\d\.[\d]{1,10}.{0,10}(?:0,1)?[2-8]\d\.[\d]{1,10}', initial_text)
+        # majority of coords in RU: lat in [40-80], long in [20-180], expected minimal format = XX.X
+        list_of_all_coords = re.findall(r'0?[3-8]\d\.\d{1,10}.{0,10}(?:0,1)?[2-8]\d\.\d{1,10}', initial_text)
         if list_of_all_coords:
             for line in list_of_all_coords:
-                nums = re.findall(r'0?[2-8]\d\.[\d]{1,10}', line)
+                nums = re.findall(r'0?[2-8]\d\.\d{1,10}', line)
                 list_of_all_coord_mentions.append([float(nums[0]), float(nums[1]), '2. coordinates w/o word coord'])
 
         # get the list of all mentions with word 'Coordinates'
         list_of_all_mentions_of_word_coord = re.findall(r'[Кк]оординат[^ор].{0,150}', initial_text)
         if list_of_all_mentions_of_word_coord:
             for line in list_of_all_mentions_of_word_coord:
-                list_of_coords = re.findall(r'0?[3-8]\d\.[\d]{1,10}.{0,10}(?:0,1)?[2-8]\d\.[\d]{1,10}', line)
+                list_of_coords = re.findall(r'0?[3-8]\d\.\d{1,10}.{0,10}(?:0,1)?[2-8]\d\.\d{1,10}', line)
                 if list_of_coords:
                     for line_2 in list_of_coords:
-                        nums = re.findall(r'0?[2-8]\d\.[\d]{1,10}', line_2)
+                        nums = re.findall(r'0?[2-8]\d\.\d{1,10}', line_2)
                         for line_3 in list_of_all_coord_mentions:
                             if float(nums[0]) == line_3[0] and float(nums[1]) == line_3[1]:
                                 line_3[2] = '1. coordinates w/ word coord'
@@ -137,10 +138,10 @@ def get_the_list_of_coords_out_of_text(initial_text):
         if deleted_text:
             for line in deleted_text:
                 line = str(line)
-                list_of_coords = re.findall(r'0?[3-8]\d\.[\d]{1,10}.{0,10}(?:0,1)?[2-8]\d\.[\d]{1,10}', line)
+                list_of_coords = re.findall(r'0?[3-8]\d\.\d{1,10}.{0,10}(?:0,1)?[2-8]\d\.\d{1,10}', line)
                 if list_of_coords:
                     for line_2 in list_of_coords:
-                        nums = re.findall(r'0?[2-8]\d\.[\d]{1,10}', line_2)
+                        nums = re.findall(r'0?[2-8]\d\.\d{1,10}', line_2)
                         for line_3 in list_of_all_coord_mentions:
                             if float(nums[0]) == line_3[0] and float(nums[1]) == line_3[1]:
                                 line_3[2] = '3. deleted coord'
@@ -151,10 +152,10 @@ def get_the_list_of_coords_out_of_text(initial_text):
         if boxed_text:
             for line in boxed_text:
                 line = str(line)
-                list_of_coords = re.findall(r'0?[3-8]\d\.[\d]{1,10}.{0,10}(?:0,1)?[2-8]\d\.[\d]{1,10}', line)
+                list_of_coords = re.findall(r'0?[3-8]\d\.\d{1,10}.{0,10}(?:0,1)?[2-8]\d\.\d{1,10}', line)
                 if list_of_coords:
                     for line_2 in list_of_coords:
-                        nums = re.findall(r'0?[2-8]\d\.[\d]{1,10}', line_2)
+                        nums = re.findall(r'0?[2-8]\d\.\d{1,10}', line_2)
                         for line_3 in list_of_all_coord_mentions:
                             if float(nums[0]) == line_3[0] and float(nums[1]) == line_3[1]:
                                 line_3[2] = '4. boxed coord'
@@ -172,6 +173,7 @@ def get_resulting_message_on_coordinates_change(prev_coords, curr_coords):
     """compare two versions of coordinates for same search and generate the outgoing message"""
 
     message = ''
+    filtered_list = []
 
     if prev_coords and curr_coords:
 
@@ -203,7 +205,6 @@ def get_resulting_message_on_coordinates_change(prev_coords, curr_coords):
                             line[3] = int(line_2[2][0])
 
         # filter the list from unchanged records
-        filtered_list = []
         if resulting_list:
             for line in resulting_list:
                 if line[2] != line[3]:
@@ -213,13 +214,65 @@ def get_resulting_message_on_coordinates_change(prev_coords, curr_coords):
         if filtered_list:
             for line in filtered_list:
                 if line[2] in {1, 2} and line[3] in {0, 3, 4}:
-                    message += ' * координаты {}, {} более не актуальны!\n'.format(line[0], line[1])
+                    message += f' * координаты {line[0]}, {line[1]} более не актуальны!\n'
                 elif line[2] == 0 and line[3] in {1, 2}:
-                    message += ' * новые координыты поиска! {}, {}\n'.format(line[0], line[1])
+                    message += ' * новые координаты поиска! {}, {}\n'.format(line[0], line[1])
                 elif line[2] in {3, 4} and line[3] in {1, 2}:
-                    message += ' * координыты {}, {} вновь актуальны!\n'.format(line[0], line[1])
+                    message += ' * координаты {}, {} вновь актуальны!\n'.format(line[0], line[1])
 
-    return message
+    return filtered_list, message
+
+
+def process_coords_comparison(conn, search_id, first_page_content_curr, first_page_content_prev):
+    """compare first post content to identify diff in coords and save this diff to change_log"""
+
+    # get the lists of coordinates & context: curr vs prev
+    coords_curr = get_the_list_of_coords_out_of_text(first_page_content_curr)
+    coords_prev = get_the_list_of_coords_out_of_text(first_page_content_prev)
+
+    # TODO: DEBUG temp
+    logging.info(f'curr coords: {coords_curr}')
+    logging.info(f'prev coords: {coords_prev}')
+    # TODO: DEBUG temp
+
+    # save the curr coords snapshot
+    sql_text = sqlalchemy.text("""
+                    UPDATE search_first_posts SET coords=:a WHERE search_id=:b AND actual = True;
+                    """)
+    conn.execute(sql_text, a=str(coords_curr), b=search_id)
+
+    # TODO: temp debug
+    if coords_prev:
+        publish_to_pubsub('topic_notify_admin', f'[ide_post]: prev coords {search_id}: {str(coords_prev)}')
+        publish_to_pubsub('topic_notify_admin', f'[ide_post]: curr coords {search_id}: {str(coords_curr)}')
+        logging.info(f'[ide_post]: prev coords {search_id}: {str(coords_prev)}')
+        logging.info(f'[ide_post]: curr coords {search_id}: {str(coords_curr)}')
+    # TODO: temp debug
+
+    # get a list of changed coordinates
+    # TODO: + temp DEBUG message for admin
+    coords_change_list, msg = get_resulting_message_on_coordinates_change(coords_prev, coords_curr)
+    if msg:
+        msg = f'[ide_post]: coords change {search_id}: \n' + msg
+        publish_to_pubsub('topic_notify_admin', msg)
+
+    # record the change into change_lot
+    if coords_change_list:
+        stmt = sqlalchemy.text(
+            """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type, notification_sent) 
+            values (:a, :b, :c, :d, :e, :f);"""
+        )
+
+        conn.execute(stmt,
+                     a=datetime.datetime.now(),
+                     b=search_id,
+                     c='coords_change',
+                     d=str(coords_change_list),
+                     e=6,
+                     f='y'
+                     )
+
+    return None
 
 
 def get_the_search_status_out_of_text(initial_text):
@@ -305,7 +358,7 @@ def parse_search_folder(search_num):
     for line in spans:
         try:
             folder = int(line['data-forum-id'])
-        except: # noqa
+        except:  # noqa
             pass
 
     return folder
@@ -381,11 +434,13 @@ def age_writer(age):
     return wording
 
 
-def main(event, context): # noqa
+def main(event, context):  # noqa
     """key function"""
 
+    # receive a list of searches where first post was updated
     message_from_pubsub = process_pubsub_message(event)
     list_of_updated_searches = ast.literal_eval(message_from_pubsub)
+
     db = sql_connect()
 
     list_of_folders_with_upd_searches = []
@@ -413,10 +468,6 @@ def main(event, context): # noqa
                                     """)
                     conn.execute(sql_text, a=content_compact, b=search_id)
 
-                # some searches are not opening in the forum - and it's not Bot error
-                # if not first_page_content_curr:
-                #    logging.error('there is no Curr First Page content in SQL for {}.'.format(search_id))
-
                 # get the Previous First Page Content
                 sql_text = sqlalchemy.text("""
                                SELECT content 
@@ -426,33 +477,15 @@ def main(event, context): # noqa
                                """)
                 first_page_content_prev = conn.execute(sql_text, a=search_id).fetchone()[0]
 
-                # case below - is not an error
-                # if not first_page_content_prev:
-                #    logging.error('there is no Prev First Page content in SQL for {}.'.format(search_id))
+                # TODO: temp debug
+                logging.info(f'first page content prev: {first_page_content_prev}')
+                logging.info(f'first page content curr: {first_page_content_curr}')
+                # TODO: temp debug
 
-                # TODO: just debug
-                logging.info(first_page_content_curr)
-                logging.info(first_page_content_prev)
+                # check the diff between prev and curr coords and save it in change_log
+                process_coords_comparison(conn, search_id, first_page_content_curr, first_page_content_prev)
 
-                coords_curr = get_the_list_of_coords_out_of_text(first_page_content_curr)
-                coords_prev = get_the_list_of_coords_out_of_text(first_page_content_prev)
-
-                # save the coords snapshot
-                sql_text = sqlalchemy.text("""
-                                UPDATE search_first_posts SET coords=:a WHERE search_id=:b AND actual = True;
-                                """)
-                conn.execute(sql_text, a=str(coords_curr), b=search_id)
-
-                # TODO: debug
-                if coords_prev:
-                    publish_to_pubsub('topic_notify_admin', '-----> {}: {}'.format(search_id, str(coords_curr)))
-
-                # compose a DEBUG message for admin
-                msg = get_resulting_message_on_coordinates_change(coords_prev, coords_curr)
-                if msg:
-                    msg = '[ide_post]: FIRST PAGE / Coords: поиск {}: \n'.format(search_id) + msg
-                    publish_to_pubsub('topic_notify_admin', msg)
-
+                # -------------------- block of field trips checks ---------------
                 # TODO DEBUG try
                 try:
                     sql_text = sqlalchemy.text("""
@@ -470,7 +503,7 @@ def main(event, context): # noqa
                         msg_2 += age_writer(age)
                     msg_2 += '</a>'
 
-                    publish_to_pubsub('topic_notify_admin', '>>>>>>>testing: ' + msg_2)
+                    publish_to_pubsub('topic_notify_admin', f'[ide_post]: testing: {msg_2}')
 
                     if first_page_content_curr:
                         field_trip_curr = get_message_on_field_trip(first_page_content_curr)
