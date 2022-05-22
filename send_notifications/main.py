@@ -290,50 +290,33 @@ def check_for_notifs_to_send(conn):
     return msg_w_o_notif
 
 
-def send_single_message(bot, user_id, message_content, message_params, message_type, list_of_admins):
+def send_single_message(bot, user_id, message_content, message_params, message_type):
     """send one message to telegram"""
 
     analytics_send_start = datetime.datetime.now()
 
     if message_params:
-
         # convert string to bool
         if 'disable_web_page_preview' in message_params:
             message_params['disable_web_page_preview'] = (message_params['disable_web_page_preview'] == 'True')
 
-        # TODO: to be deleted
-        if 'latitude' in message_params:
-            latitude = message_params['latitude']
-        if 'longitude' in message_params:
-            longitude = message_params['longitude']
-        # TODO: to be deleted
-
     try:
 
         if message_type == 'text':
-
             bot.sendMessage(chat_id=user_id, text=message_content, **message_params)
 
         elif message_type == 'coords':
-
-            bot.sendLocation(chat_id=user_id,
-                             latitude=latitude, # noqa
-                             longitude=longitude) # noqa
-
-            # TODO: to be deleted
-            if user_id in list_of_admins:
-                bot.sendLocation(chat_id=user_id, **message_params)
-            # TODO: to be deleted
+            bot.sendLocation(chat_id=user_id, **message_params)
 
         result = 'completed'
 
         # TODO: temp for debug
-        analytics_only_sendmessage_finish = datetime.datetime.now()
-        analytics_only_sendmessage_duration = round((analytics_only_sendmessage_finish -
+        analytics_only_send_message_finish = datetime.datetime.now()
+        analytics_only_send_message_duration = round((analytics_only_send_message_finish -
                                                      analytics_send_start).total_seconds(), 2)
-        logging.info(f'time: sendMessage duration: {analytics_only_sendmessage_duration}')
+        logging.info(f'time: sendMessage duration: {analytics_only_send_message_duration}')
 
-        logging.info(f'success sending to telegram user={user_id}, message={message_content}')
+        logging.info(f'success sending a msg to telegram user={user_id}')
         # TODO: temp for debug
 
     except Exception as e:  # when sending to telegram fails
@@ -362,7 +345,7 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
             message_for_pubsub = {'action': action, 'info': {'user': user_id}}
             publish_to_pubsub('topic_for_user_management', message_for_pubsub)
 
-            logging.info('Identified user id={} to do {}'.format(user_id, action))
+            logging.info(f'Identified user id {user_id} to do {action}')
             result = 'cancelled'
 
         else:
@@ -438,7 +421,7 @@ def iterate_over_notifications(bot, script_start_time):
                 # send the message to telegram if it is not a clone-message
                 if doubling_trigger == 'no_doubling':
 
-                    result = send_single_message(bot, user_id, message_content, message_params, message_type, list_of_admins)
+                    result = send_single_message(bot, user_id, message_content, message_params, message_type)
 
                     analytics_send_finish = datetime.datetime.now()
                     analytics_send_start_finish = round((analytics_send_finish -
@@ -477,10 +460,7 @@ def iterate_over_notifications(bot, script_start_time):
 
                 msg_w_o_notif = check_for_notifs_to_send(conn)
 
-                if msg_w_o_notif:
-                    no_new_notifications = False
-                else:
-                    no_new_notifications = True
+                no_new_notifications = False if msg_w_o_notif else True
 
             # check if not too much time passed (not more than 500 seconds)
             now = datetime.datetime.now()
