@@ -325,6 +325,7 @@ def compose_new_records_from_change_log(conn):
         new_line.change_id = one_line_in_change_log[3]
         new_line.change_type = one_line_in_change_log[4]
 
+        # TODO: to avoid "names" and substitute by "ids" for cheange types
         # Convert preference from Change_Log Naming into User_Preferences Naming
         dictionary = {'new_search': 'new_searches', 'status_change': 'status_changes',
                       'replies_num_change': 'comments_changes', 'title_change': 'title_changes',
@@ -364,7 +365,7 @@ def enrich_new_records_from_searches(conn):
     try:
 
         # TODO: in the future there's a need to limit the number of searches in this query (limit by time?)
-        # TODO: MEMO: as of Jan 2022 - there are 5000 lines – not crucially much
+        # TODO: MEMO: as of Jan 2022 - there are 5000 lines – not so crucially much
         searches_extract = conn.execute(
             """SELECT ns.*, rtf.folder_description FROM 
             (SELECT s.search_forum_num, s.status_short, s.forum_search_title,  
@@ -559,6 +560,32 @@ def compose_com_msg_on_new_search(link, name, age, age_wording, activities, mana
     return [msg_2, msg_1, msg_3]  # 1 - general, 2 - activities, 3 - managers
 
 
+def compose_com_msg_on_coords_change(link, name, age, age_wording, region, new_value):
+    """compose the common, user-independent message on coordinates change"""
+
+    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
+    msg = f'Смена координат по <a href="{link}">{name}{age_info}</a>:\n'
+
+    # structure: lat, lon, prev_desc, curr_desc
+    list_of_coords_changes = ast.literal_eval(new_value)
+
+    for line in list_of_coords_changes:
+        if line[2] in {1, 2} and line[3] in {0, 3, 4}:
+            msg += f' * координаты {line[0]}, {line[1]} более не актуальны!\n'
+        elif line[2] == 0 and line[3] in {1, 2}:
+            msg += ' * новые координаты поиска! {}, {}\n'.format(line[0], line[1])
+        elif line[2] in {3, 4} and line[3] in {1, 2}:
+            msg += ' * координаты {}, {} вновь актуальны!\n'.format(line[0], line[1])
+
+    # TODO: temp debug
+    print(str(new_value))
+    print(str(list_of_coords_changes))
+    print(msg)
+    # TODO: temp debug
+
+    return msg
+
+
 def compose_com_msg_on_status_change(status, link, name, age, age_wording, region):
     """compose the common, user-independent message on search status change"""
 
@@ -689,25 +716,18 @@ def enrich_new_records_with_message_texts():
     try:
         for line in new_records_list:
             last_line = line
+            # TODO: to shift from "names" to "ids" in change types
             if line.changed_field == 'new_search':
-                # TODO: temporary TRY if everything under try works - than Try/except is not needed.
-                #  Except keeps the "old" approach
-                try:
-                    start = line.start_time
-                    now = datetime.datetime.now()
-                    days_since_search_start = (now - start).days
-                    # if "old" search - no need to compose & send message
-                    if days_since_search_start < 2:
-                        line.message = compose_com_msg_on_new_search(line.link, line.name, line.age, line.age_wording,
-                                                                     line.activities, line.managers)
-                    else:
-                        line.ignore = 'y'
-                except Exception as e4:
-                    logging.error('DBG.N.108.EXC:' + repr(e4))
-                    logging.exception(e4)
-                    notify_admin('[comp_notif]: ERROR in try in enrich_new_records_with_mess_txts')
+
+                start = line.start_time
+                now = datetime.datetime.now()
+                days_since_search_start = (now - start).days
+                # if "old" search - no need to compose & send message
+                if days_since_search_start < 2:
                     line.message = compose_com_msg_on_new_search(line.link, line.name, line.age, line.age_wording,
                                                                  line.activities, line.managers)
+                else:
+                    line.ignore = 'y'
 
             elif line.changed_field == 'status_change':
                 line.message = compose_com_msg_on_status_change(line.status, line.link, line.name, line.age,
@@ -721,6 +741,10 @@ def enrich_new_records_with_message_texts():
             elif line.changed_field == 'inforg_replies':
                 line.message = compose_com_msg_on_inforg_comments(line.link, line.name, line.age, line.age_wording,
                                                                   line.comments_inforg, line.region)
+
+            elif line.change_type == 6:  # coords_change
+                line.message = compose_com_msg_on_coords_change(line.link, line.name, line.age, line.age_wording,
+                                                                line.region, line.new_value)
 
         logging.info('New Records enriched with common Message Texts')
 
@@ -1028,6 +1052,7 @@ def iterate_over_all_users_and_updates(conn):
                 s_lat = new_record.search_latitude
                 s_lon = new_record.search_longitude
                 changed_field = new_record.changed_field
+                change_type = new_record.change_type
 
                 mailing_type_id = 99  # which is for 'non defined'
                 if changed_field == 'new_search':
@@ -1040,6 +1065,8 @@ def iterate_over_all_users_and_updates(conn):
                     mailing_type_id = 2
                 elif changed_field == 'replies_num_change':
                     mailing_type_id = 3
+                elif change_type == 6:  # coords_change
+                    mailing_type_id = 6
 
                 # check if this change_log record was somehow processed
                 sql_text = sqlalchemy.text("""
@@ -1139,6 +1166,9 @@ def iterate_over_all_users_and_updates(conn):
                                             message = new_record.message[0]
 
                                         elif changed_field == 'title_change':
+                                            message = new_record.message
+
+                                        elif change_type == 6:  # coords_change
                                             message = new_record.message
 
                                         if message:
