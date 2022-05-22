@@ -16,7 +16,6 @@ from google.cloud import pubsub_v1
 
 
 project_id = os.environ["GCP_PROJECT"]
-gcp_function_name = os.environ["FUNCTION_NAME"]
 client = secretmanager.SecretManagerServiceClient()
 publisher = pubsub_v1.PublisherClient()
 db = None
@@ -308,23 +307,16 @@ class User:
                     self.user_new_search_notifs])
 
 
-def compose_new_records_from_change_log(conn, is_prod):
+def compose_new_records_from_change_log(conn):
     """compose the New Records list of the unique New Records in Change Log: one Record = One line in Change Log"""
 
     global new_records_list
 
-    if is_prod:
-        delta_in_cl = conn.execute(
-            """SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log 
-            WHERE notification_sent is NULL 
-            OR notification_sent='s' ORDER BY id LIMIT 1; """
-        ).fetchall()
-    else:
-        delta_in_cl = conn.execute(
-            """SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log 
-            WHERE notification_sent is NULL 
-            AND notif_sent_staging is NULL ORDER BY id DESC; """
-        ).fetchall()
+    delta_in_cl = conn.execute(
+        """SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log 
+        WHERE notification_sent is NULL 
+        OR notification_sent='s' ORDER BY id LIMIT 1; """
+    ).fetchall()
 
     for i in range(len(delta_in_cl)):
         one_line_in_change_log = list(delta_in_cl[i])
@@ -864,145 +856,6 @@ def get_list_of_admins_and_testers(conn):
     return list_of_admins, list_of_testers
 
 
-def enrich_users_by_corrected_regions(conn, is_prod, stage_share):
-    """divide the list of users by prod & stage (by forum folder)"""
-
-    global users_list
-
-    try:
-
-        share = stage_share / 100
-
-        # Extract the latest user base and combine: by forum folder, number of users in total, for stage and for prod,
-        # all excluding Admins & Testers
-        sql_text = sqlalchemy.text("""select s2.forum_folder_num, s2.ttl_users, ROUND(s2.ttl_users*:a) stage_users, 
-            (s2.ttl_users-ROUND(s2.ttl_users*:a)) prod_users from (select urp.forum_folder_num, 
-            count(urp.user_id) ttl_users from (select u.user_id, u.status, ur.role from users u 
-            LEFT JOIN user_roles ur ON u.user_id = ur.user_id WHERE ur.role is NULL 
-            and (u.status = 'unblocked' or u.status is NULL)) s LEFT JOIN user_regional_preferences urp 
-            ON s.user_id=urp.user_id GROUP BY urp.forum_folder_num order by ttl_users desc) s2;""")
-        folder_user_volume_split = conn.execute(sql_text, a=share).fetchall()
-
-        # extract the folder_number to user_id list
-        folder_user_list = conn.execute("""select urp.forum_folder_num, urp.user_id from 
-            (select u.user_id, u.status, ur.role from users u LEFT JOIN user_roles ur ON u.user_id = ur.user_id 
-            WHERE ur.role is NULL and (u.status = 'unblocked' or u.status is NULL)) s 
-            LEFT JOIN user_regional_preferences urp ON s.user_id=urp.user_id 
-            ORDER BY forum_folder_num, user_id;""").fetchall()
-
-        # combine the list of folders
-        folder_list = []
-        for line in folder_user_list:
-            if line[0] in folder_list:
-                pass
-            else:
-                folder_list.append(line[0])
-
-        # compose the final folder & user matrix
-        final_users_split = []
-        for folder in folder_list:
-
-            staging_users_volume = 0
-            for line in folder_user_volume_split:
-                if line[0] == folder:
-                    staging_users_volume = line[2]
-
-            i = 0
-            for line in folder_user_list:
-
-                if folder == line[0]:
-                    if i < staging_users_volume:
-                        final_users_split.append([line[0], line[1], 'stag'])
-                        i += 1
-                    else:
-                        final_users_split.append([line[0], line[1], 'prod'])
-                        i += 1
-                else:
-                    pass
-
-        for user in users_list:
-            user_corr_folders = []
-            for line in final_users_split:
-                if user.user_id == line[1]:
-                    if (is_prod and line[2] == 'prod') or (not is_prod and line[2] == 'stag'):
-                        user_corr_folders.append(line[0])
-            user.user_corr_regions = user_corr_folders
-
-        logging.info('Users enriched with Regions corrected to Canary')
-
-    except Exception as e:
-        logging.error('Not able to enrich Users with Regions corrected to Canary: ' + repr(e))
-        logging.exception(e)
-
-    return None
-
-
-def enrich_users_with_admins_and_testers(is_prod, config, list_of_admins, list_of_testers):
-    """add info if admins and testers"""
-
-    global users_list
-
-    try:
-        for line in list_of_admins:
-            for user in users_list:
-                if str(user.user_id) == str(line):
-                    adm_prod = config['canary_params']['admin_on_prod']
-                    adm_stag = config['canary_params']['admin_on_stage']
-                    if (adm_prod and is_prod) or (adm_stag and not is_prod):
-                        user.user_corr_regions = user.user_regions
-                    else:
-                        user.user_corr_regions = []
-                    pass
-
-        for line in list_of_testers:
-            for user in users_list:
-                if str(user.user_id) == str(line):
-                    adm_prod = config['canary_params']['testers_on_prod']
-                    adm_stag = config['canary_params']['testers_on_stage']
-                    if (adm_prod and is_prod) or (adm_stag and not is_prod):
-                        user.user_corr_regions = user.user_regions
-                    else:
-                        user.user_corr_regions = []
-                    pass
-
-        logging.info('Users enriched with Admins & Testers')
-
-    except Exception as e:
-        logging.error('Not able to enrich Users with Admins & Testers: ' + repr(e))
-        logging.exception(e)
-
-    return None
-
-
-def mark_new_records_as_being_processed(conn, is_prod):
-    """Mark all new records as ones being processed right now"""
-
-    if is_prod:
-        for record in new_records_list:
-            sql_text = sqlalchemy.text("""UPDATE change_log SET notification_sent = 's' WHERE id=:a;""")
-            conn.execute(sql_text, a=record.change_id)
-
-    logging.info('New Records marked as being processed')
-
-    return None
-
-
-def mark_new_comments_as_being_processed(conn, is_prod):
-    """marks all the new comments in SQL as processed, to avoid processing in the next iteration"""
-
-    for record in new_records_list:
-        if record.changed_field == 'replies_num_change' and record.ignore != 'y':
-            if is_prod:
-                sql_text = sqlalchemy.text("UPDATE comments SET notification_sent = 's' WHERE search_forum_num=:a;")
-            else:
-                sql_text = sqlalchemy.text("UPDATE comments SET notif_sent_staging = 's' WHERE search_forum_num=:a;")
-            conn.execute(sql_text, a=record.forum_search_num)
-
-    logging.info('New Comments marked as being processed')
-
-    return None
-
-
 def record_notification_statistics(conn):
     """records +1 into users' statistics of new searches notification"""
 
@@ -1512,7 +1365,7 @@ def notify_admin(message):
     return None
 
 
-def mark_new_records_as_processed(conn, is_prod):
+def mark_new_records_as_processed(conn):
     """mark all the new records in SQL as processed, to avoid processing in the next iteration"""
 
     try:
@@ -1529,18 +1382,13 @@ def mark_new_records_as_processed(conn, is_prod):
                     change_id_list_ignored.append(record.change_id)
 
         for record in change_id_list:
-            if is_prod:
-                sql_text = sqlalchemy.text("""UPDATE change_log SET notification_sent = 'y' WHERE id=:a;""")
 
-            else:
-                sql_text = sqlalchemy.text("""UPDATE change_log SET notif_sent_staging = 'y' WHERE id=:a;""")
+            sql_text = sqlalchemy.text("""UPDATE change_log SET notification_sent = 'y' WHERE id=:a;""")
             conn.execute(sql_text, a=record)
 
         for record in change_id_list_ignored:
-            if is_prod:
-                sql_text = sqlalchemy.text("""UPDATE change_log SET notification_sent = 'n' WHERE id=:a;""")
-            else:
-                sql_text = sqlalchemy.text("""UPDATE change_log SET notif_sent_staging = 'n' WHERE id=:a;""")
+
+            sql_text = sqlalchemy.text("""UPDATE change_log SET notification_sent = 'n' WHERE id=:a;""")
             conn.execute(sql_text, a=record)
 
         logging.info('The list of Updates that are processed and not ignored: ' + str(change_id_list))
@@ -1550,11 +1398,10 @@ def mark_new_records_as_processed(conn, is_prod):
     except Exception as e:
 
         # For Safety's Sake – Update Change_log SQL table, setting 'y' everywhere
-        if is_prod:
-            conn.execute(
-                """UPDATE change_log SET notification_sent = 'y' WHERE notification_sent is NULL 
-                OR notification_sent='s';"""
-            )
+        conn.execute(
+            """UPDATE change_log SET notification_sent = 'y' WHERE notification_sent is NULL 
+            OR notification_sent='s';"""
+        )
 
         logging.info('Not able to mark Updates as Processed in Change Log')
         logging.exception(e)
@@ -1564,7 +1411,7 @@ def mark_new_records_as_processed(conn, is_prod):
     return None
 
 
-def mark_new_comments_as_processed(conn, is_prod):
+def mark_new_comments_as_processed(conn):
     """mark in SQL table Comments all the comments that were processed at this step, basing on search_forum_id"""
 
     try:
@@ -1574,10 +1421,8 @@ def mark_new_comments_as_processed(conn, is_prod):
                 change_id_list.append(record.forum_search_num)
 
         for record in change_id_list:
-            if is_prod:
-                sql_text = sqlalchemy.text("UPDATE comments SET notification_sent = 'y' WHERE search_forum_num=:a;")
-            else:
-                sql_text = sqlalchemy.text("UPDATE comments SET notif_sent_staging = 'y' WHERE search_forum_num=:a;")
+
+            sql_text = sqlalchemy.text("UPDATE comments SET notification_sent = 'y' WHERE search_forum_num=:a;")
             conn.execute(sql_text, a=record)
 
         logging.info('The list of Updates with Comments that are processed and not ignored: ' + str(change_id_list))
@@ -1585,11 +1430,7 @@ def mark_new_comments_as_processed(conn, is_prod):
 
     except Exception as e:
 
-        if is_prod:
-            sql_text = sqlalchemy.text("""UPDATE comments SET notification_sent = 'y' WHERE notification_sent is Null 
-                                        OR notification_sent = 's';""")
-        else:
-            sql_text = sqlalchemy.text("""UPDATE comments SET notif_sent_staging = 'y' WHERE notification_sent is Null 
+        sql_text = sqlalchemy.text("""UPDATE comments SET notification_sent = 'y' WHERE notification_sent is Null 
                                         OR notification_sent = 's';""")
         conn.execute(sql_text)
 
@@ -1612,9 +1453,6 @@ def main(event, context):  # noqa
 
     script_start_time = datetime.datetime.now()
 
-    # TODO: to delete everything connected to config / canary etc.
-    is_prod = True
-
     # TODO: should be avoided in the future (doesn't return None help?)
     # the below two lines are required - in other case these arrays are not always empty,
     # spent 2 hours - don't know why using '=[]' in the body of this Script (lines ~14-15) is not sufficient
@@ -1626,7 +1464,7 @@ def main(event, context):  # noqa
     conn = db.connect()
 
     # compose New Records List: the delta from Change log
-    compose_new_records_from_change_log(conn, is_prod)
+    compose_new_records_from_change_log(conn)
 
     # only if there are updates in Change Log
     if new_records_list:
@@ -1648,8 +1486,8 @@ def main(event, context):  # noqa
         iterate_over_all_users_and_updates(conn)
 
         # mark all the "new" lines in tables Change Log & Comments as "old"
-        mark_new_records_as_processed(conn, is_prod)
-        mark_new_comments_as_processed(conn, is_prod)
+        mark_new_records_as_processed(conn)
+        mark_new_comments_as_processed(conn)
 
         # final step – update statistics on how many users received notifications on new searches
         record_notification_statistics(conn)
@@ -1666,8 +1504,9 @@ def main(event, context):  # noqa
         if check:
             logging.info('we checked – there is still something to notify, so we re-initiated this function')
             publish_to_pubsub('topic_for_notification', 're-run from same script')
-    except:  # noqa
-        pass
+    except Exception as e:  # noqa
+        logging.error('Error!')
+        logging.exception(e)
 
     conn.close()
     del new_records_list
