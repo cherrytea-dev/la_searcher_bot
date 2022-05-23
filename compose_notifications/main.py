@@ -564,18 +564,90 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, region, new_v
     """compose the common, user-independent message on coordinates change"""
 
     age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
-    msg = f'Смена координат по <a href="{link}">{name}{age_info}</a>:\n'
+    # msg = f'Поиск <a href="{link}">{name}{age_info}</a>:\n'
+    msg = ''
 
     # structure: lat, lon, prev_desc, curr_desc
     list_of_coords_changes = ast.literal_eval(new_value)
 
+    verdict = {"drop": False, "add": False, "again": False, 'change': False}
+
     for line in list_of_coords_changes:
+        if line[2] in {1, 2} and line[3] in {0, 3, 4}:
+            verdict['drop'] = True
+        elif line[2] == 0 and line[3] in {1, 2}:
+            verdict['add'] = True
+        elif line[2] in {3, 4} and line[3] in {1, 2}:
+            verdict['again'] = True
+
+    if verdict['drop'] and verdict['add']:
+        verdict['change'] = True
+        verdict['drop'] = False
+        verdict['add'] = False
+
+    # A -> B -> A
+    if verdict['drop'] and verdict['again']:
+        verdict['change'] = True
+        verdict['drop'] = False
+        verdict['again'] = False
+
+    # TODO: temp try (content is needed, try itself is temp)
+    try:
+        if verdict['change']:
+            msg += f'Смена координат по <a href="{link}">{name}{age_info}</a>:\nНовые координаты '
+            for line in list_of_coords_changes:
+                if line[2] == 0 and line[3] in {1, 2}:
+                    link_text = '{link_text}'
+                    clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
+                    msg += f'{clickable_link}\n'
+            # TODO: to think if it makes sense to show it?
+            msg += 'Старые координаты: '
+            for line in list_of_coords_changes:
+                if line[2] in {1, 2} and line[3] in {0, 3, 4}:
+                    msg += f'{line[0]}, {line[1]}\n'
+            # TODO: to think if it makes sense to show it?
+
+        if verdict['again']:
+            # TODO: to think about wording
+            msg += f'Старые координаты вновь актуальны по <a href="{link}">{name}{age_info}</a>:\n'
+            # TODO: to think about wording
+            for line in list_of_coords_changes:
+                if line[2] in {3, 4} and line[3] in {1, 2}:
+                    link_text = '{link_text}'
+                    clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
+                    msg += f'{clickable_link}\n'
+
+        if verdict['add']:
+            msg += f'Объявлены координаты сбора <a href="{link}">{name}{age_info}</a>:\n'
+            for line in list_of_coords_changes:
+                if line[2] == 0 and line[3] in {1, 2}:
+                    link_text = '{link_text}'
+                    clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
+                    msg += f'{clickable_link}\n'
+
+        if verdict['drop']:
+            msg += f'Координаты сбора по <a href="{link}">{name}{age_info}</a> более не актуальны:\n'
+            for line in list_of_coords_changes:
+                if line[2] in {1, 2} and line[3] in {0, 3, 4}:
+                    link_text = '{link_text}'
+                    clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
+                    msg += f'{clickable_link}\n'
+
+    except: # noqa
+        msg = '123'
+
+    # TODO: temp
+    msg.format(link_text='Текст Линка')
+    # TODO: temp
+
+    """for line in list_of_coords_changes:
         if line[2] in {1, 2} and line[3] in {0, 3, 4}:
             msg += f' * координаты {line[0]}, {line[1]} более не актуальны!\n'
         elif line[2] == 0 and line[3] in {1, 2}:
-            msg += ' * новые координаты поиска! {}, {}\n'.format(line[0], line[1])
+            msg += f' * новые координаты поиска! {line[0]}, {line[1]}\n'
         elif line[2] in {3, 4} and line[3] in {1, 2}:
-            msg += ' * координаты {}, {} вновь актуальны!\n'.format(line[0], line[1])
+            msg += f' * координаты {line[0]}, {line[1]} вновь актуальны!\n'
+    """
 
     # TODO: temp debug
     print(str(new_value))
