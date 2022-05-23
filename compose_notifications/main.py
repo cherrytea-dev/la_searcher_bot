@@ -1464,7 +1464,6 @@ def compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat,
     msg = new_record.message
 
     region = f' в регионе {region_to_show}' if region_to_show else ''
-    msg = msg.format(region=region)
 
     link_text = f'{s_lat}, {s_lon}'
 
@@ -1476,7 +1475,7 @@ def compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat,
         except Exception as e:
             logging.exception(e)
 
-    msg = msg.format(link_text=link_text)
+    msg = msg.format(region=region, link_text=link_text)
 
     return msg
 
