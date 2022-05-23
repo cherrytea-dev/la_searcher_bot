@@ -1121,6 +1121,10 @@ def iterate_over_all_users_and_updates(conn):
             # skip ignored lines which don't require a notification
             if new_record.ignore != 'y':
 
+                # TODO: temp debug
+                adm = get_list_of_admins_and_testers(conn)
+                # TODO: temp debug
+
                 s_lat = new_record.search_latitude
                 s_lon = new_record.search_longitude
                 changed_field = new_record.changed_field
@@ -1249,7 +1253,7 @@ def iterate_over_all_users_and_updates(conn):
 
                                         if message:
 
-                                            if changed_field in {'new_search'} or change_type in {6}:
+                                            if changed_field in {'new_search'} or ( change_type in {6} and user.user_id in adm):
                                                 message_group_id = get_the_new_group_id()
                                             else:
                                                 message_group_id = None
@@ -1308,7 +1312,7 @@ def iterate_over_all_users_and_updates(conn):
                                                                                   change_id_for_analytics, user.user_id,
                                                                                   'coords')
 
-                                                if change_type == 6 and s_lat and s_lon:  # coords_change
+                                                if change_type == 6 and s_lat and s_lon and user.user_id in adm:  # coords_change
                                                     message_params = {'latitude': s_lat,
                                                                       'longitude': s_lon}
 
