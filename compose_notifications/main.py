@@ -325,7 +325,7 @@ def compose_new_records_from_change_log(conn):
         new_line.change_id = one_line_in_change_log[3]
         new_line.change_type = one_line_in_change_log[4]
 
-        # TODO: to avoid "names" and substitute by "ids" for cheange types
+        # TODO: to avoid "names" and substitute by "ids" for change types
         # Convert preference from Change_Log Naming into User_Preferences Naming
         dictionary = {'new_search': 'new_searches', 'status_change': 'status_changes',
                       'replies_num_change': 'comments_changes', 'title_change': 'title_changes',
@@ -560,12 +560,15 @@ def compose_com_msg_on_new_search(link, name, age, age_wording, activities, mana
     return [msg_2, msg_1, msg_3]  # 1 - general, 2 - activities, 3 - managers
 
 
-def compose_com_msg_on_coords_change(link, name, age, age_wording, region, new_value):
+def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
     """compose the common, user-independent message on coordinates change"""
 
     age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
     # msg = f'Поиск <a href="{link}">{name}{age_info}</a>:\n'
     msg = ''
+    lat, lon = None, None
+    link_text = '{link_text}'
+    region = '{region}'
 
     # structure: lat, lon, prev_desc, curr_desc
     list_of_coords_changes = ast.literal_eval(new_value)
@@ -594,51 +597,50 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, region, new_v
     # TODO: temp try (content is needed, try itself is temp)
     try:
         if verdict['change']:
-            msg += f'Смена координат по <a href="{link}">{name}{age_info}</a>:\nНовые координаты '
+            msg += f'📍 Смена координат по <a href="{link}">{name}{age_info}</a>{region}:\nНовые '
             for line in list_of_coords_changes:
                 if line[2] == 0 and line[3] in {1, 2}:
                     link_text = '{link_text}'
                     clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
                     msg += f'{clickable_link}\n'
+                    lat = line[0]
+                    lon = line[1]
             # TODO: to think if it makes sense to show it?
-            msg += 'Старые координаты: '
+            msg += 'Старые '
             for line in list_of_coords_changes:
                 if line[2] in {1, 2} and line[3] in {0, 3, 4}:
                     msg += f'{line[0]}, {line[1]}\n'
             # TODO: to think if it makes sense to show it?
 
-        if verdict['again']:
+        elif verdict['again']:
             # TODO: to think about wording
-            msg += f'Старые координаты вновь актуальны по <a href="{link}">{name}{age_info}</a>:\n'
+            msg += f'📍 Старые координаты вновь актуальны по <a href="{link}">{name}{age_info}</a>{region}:\n'
             # TODO: to think about wording
             for line in list_of_coords_changes:
                 if line[2] in {3, 4} and line[3] in {1, 2}:
-                    link_text = '{link_text}'
                     clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
                     msg += f'{clickable_link}\n'
+                    lat = line[0]
+                    lon = line[1]
 
-        if verdict['add']:
-            msg += f'Объявлены координаты сбора <a href="{link}">{name}{age_info}</a>:\n'
+        elif verdict['add']:
+            msg += f'📍 Объявлены координаты сбора <a href="{link}">{name}{age_info}</a>{region}:\n'
             for line in list_of_coords_changes:
                 if line[2] == 0 and line[3] in {1, 2}:
-                    link_text = '{link_text}'
                     clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
                     msg += f'{clickable_link}\n'
+                    lat = line[0]
+                    lon = line[1]
 
-        if verdict['drop']:
-            msg += f'Координаты сбора по <a href="{link}">{name}{age_info}</a> более не актуальны:\n'
+        elif verdict['drop']:
+            msg += f'📍 Координаты сбора более не актуальны по <a href="{link}">{name}{age_info}</a>{region}:\n'
             for line in list_of_coords_changes:
                 if line[2] in {1, 2} and line[3] in {0, 3, 4}:
-                    link_text = '{link_text}'
                     clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
                     msg += f'{clickable_link}\n'
 
     except: # noqa
-        msg = '123'
-
-    # TODO: temp
-    msg.format(link_text='Текст Линка')
-    # TODO: temp
+        msg = f'error{region}{link_text}'
 
     """for line in list_of_coords_changes:
         if line[2] in {1, 2} and line[3] in {0, 3, 4}:
@@ -655,7 +657,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, region, new_v
     print(msg)
     # TODO: temp debug
 
-    return msg
+    return msg, lat, lon
 
 
 def compose_com_msg_on_status_change(status, link, name, age, age_wording, region):
@@ -762,8 +764,7 @@ def add_tel_link(incoming_text, modifier='all'):
     # Modifier for all users
     if modifier == 'all':
         outcome_text = incoming_text
-        nums = re.findall(r"(?:\+7|7|8)[\s]?[\s\-(]?[\s]?[\d]{3}[\s\-)]?[\s]?[\d]{3}[\s\-]?[\d]{2}[\s\-]?[\d]{2}",
-                          incoming_text)
+        nums = re.findall(r"(?:\+7|7|8)\s?[\s\-(]?\s?\d{3}[\s\-)]?\s?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}", incoming_text)
         for num in nums:
             outcome_text = outcome_text.replace(num, '<code>' + str(num) + '</code>')
 
@@ -813,10 +814,9 @@ def enrich_new_records_with_message_texts():
             elif line.changed_field == 'inforg_replies':
                 line.message = compose_com_msg_on_inforg_comments(line.link, line.name, line.age, line.age_wording,
                                                                   line.comments_inforg, line.region)
-
             elif line.change_type == 6:  # coords_change
-                line.message = compose_com_msg_on_coords_change(line.link, line.name, line.age, line.age_wording,
-                                                                line.region, line.new_value)
+                line.message, line.search_latitude, search_longitude = \
+                    compose_com_msg_on_coords_change(line.link, line.name, line.age, line.age_wording, line.new_value)
 
         logging.info('New Records enriched with common Message Texts')
 
@@ -1126,6 +1126,7 @@ def iterate_over_all_users_and_updates(conn):
                 changed_field = new_record.changed_field
                 change_type = new_record.change_type
 
+                # TODO: to replace mailing_type_id HERE and LATER with change_type and that's it
                 mailing_type_id = 99  # which is for 'non defined'
                 if changed_field == 'new_search':
                     mailing_type_id = 0
@@ -1149,6 +1150,7 @@ def iterate_over_all_users_and_updates(conn):
                 # TODO: DEBUG
                 if this_record_was_processed_already:
                     logging.info('[comp_notif]: 2 MAILINGS for 1 CHANGE LOG RECORD identified')
+                # TODO: DEBUG
 
                 # record into SQL table notif_mailings
                 sql_text = sqlalchemy.text("""
@@ -1241,11 +1243,13 @@ def iterate_over_all_users_and_updates(conn):
                                             message = new_record.message
 
                                         elif change_type == 6:  # coords_change
-                                            message = new_record.message
+                                            message = compose_individual_message_on_coords_change(new_record, s_lat,
+                                                                                                  s_lon, u_lat, u_lon,
+                                                                                                  region_to_show)
 
                                         if message:
 
-                                            if changed_field in {'new_search'}:
+                                            if changed_field in {'new_search'} or change_type in {6}:
                                                 message_group_id = get_the_new_group_id()
                                             else:
                                                 message_group_id = None
@@ -1279,7 +1283,8 @@ def iterate_over_all_users_and_updates(conn):
                                                                                        change_id_for_analytics)
 
                                                 write_message_creation_status(conn, message_id, 'created', mailing_id,
-                                                                              change_id_for_analytics, user.user_id, 'text')
+                                                                              change_id_for_analytics, user.user_id,
+                                                                              'text')
 
                                                 # TODO: do we need it?
                                                 # TODO: testing notif_mailings
@@ -1300,7 +1305,24 @@ def iterate_over_all_users_and_updates(conn):
 
                                                     write_message_creation_status(conn, message_id, 'created',
                                                                                   mailing_id,
-                                                                                  change_id_for_analytics, user.user_id, 'coords')
+                                                                                  change_id_for_analytics, user.user_id,
+                                                                                  'coords')
+
+                                                if change_type == 6 and s_lat and s_lon:  # coords_change
+                                                    message_params = {'latitude': s_lat,
+                                                                      'longitude': s_lon}
+
+                                                    message_id = save_to_sql_notif_by_user(mailing_id, user.user_id,
+                                                                                           None,
+                                                                                           None, 'coords',
+                                                                                           message_params,
+                                                                                           message_group_id,
+                                                                                           change_id_for_analytics)
+
+                                                    write_message_creation_status(conn, message_id, 'created',
+                                                                                  mailing_id,
+                                                                                  change_id_for_analytics, user.user_id,
+                                                                                  'coords')
 
                                                 number_of_messages_sent += 1
 
@@ -1393,8 +1415,8 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
     # 3. Dist & Dir – individual part for every user
     if s_lat and s_lon and u_lat and u_lon:
         try:
-            dist, direc = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
-            direction = '\n\nОт вас ~' + str(dist) + ' км ' + direc
+            dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
+            direction = '\n\nОт вас ~' + str(dist) + ' км ' + direct
 
             message += generate_yandex_maps_place_link2(s_lat, s_lon, direction)
             message += '\n'
@@ -1434,6 +1456,29 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
                        'в Настройках Бота.</i>'
 
     return message
+
+
+def compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat, u_lon, region_to_show):
+    """compose individual message for notification of every user on change of coordinates"""
+
+    msg = new_record.message
+
+    region = f' в регионе {region_to_show}' if region_to_show else ''
+    msg = msg.format(region=region)
+
+    link_text = f'{s_lat}, {s_lon}'
+
+    if s_lat and s_lon and u_lat and u_lon:
+        try:
+            dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
+            link_text = 'От вас ~' + str(dist) + ' км ' + direct
+
+        except Exception as e:
+            logging.exception(e)
+
+    msg = msg.format(link_text=link_text)
+
+    return msg
 
 
 def publish_to_pubsub(topic_name, message):
@@ -1617,7 +1662,8 @@ def main(event, context):  # noqa
     if analytics_notif_times:
         len_n = len(analytics_notif_times)
         average = sum(analytics_notif_times) / len_n
-        notify_admin(f'[comp_notif]: Analytics: Search_id {search_id_for_analytics}, Change_id {change_id_for_analytics}, Change_type {change_type_for_analytics}, '
+        notify_admin(f'[comp_notif]: Analytics: Search_id {search_id_for_analytics}, Change_id '
+                     f'{change_id_for_analytics}, Change_type {change_type_for_analytics}, '
                      f'Mailing_id {mailing_id}: num of messages {len_n}, average time {round(average, 1)} seconds, '
                      f'total time {round(sum(analytics_notif_times), 1)} seconds')
         analytics_notif_times = []
