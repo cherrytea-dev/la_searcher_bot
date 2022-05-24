@@ -241,7 +241,8 @@ class LineInChangeLog:
                  managers=None,
                  start_time=None,
                  ignore=None,
-                 region=None
+                 region=None,
+                 coords_change_type=None
                  ):
         self.forum_search_num = forum_search_num
         self.change_type = change_type
@@ -268,13 +269,15 @@ class LineInChangeLog:
         self.start_time = start_time
         self.ignore = ignore
         self.region = region
+        self.coords_change_type = coords_change_type
 
     def __str__(self):
         return str([self.forum_search_num, self.change_type, self.changed_field, self.new_value, self.change_id,
                     self.name, self.link,
                     self.status, self.n_of_replies, self.title, self.age, self.age_wording, self.forum_folder,
                     self.search_latitude, self.search_longitude, self.activities, self.comments, self.comments_inforg,
-                    self.message, self.processed, self.managers, self.start_time, self.ignore, self.region])
+                    self.message, self.processed, self.managers, self.start_time, self.ignore, self.region,
+                    self.coords_change_type])
 
 
 class User:
@@ -574,6 +577,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
     list_of_coords_changes = ast.literal_eval(new_value)
 
     verdict = {"drop": False, "add": False, "again": False, 'change': False}
+    scenario = None
 
     for line in list_of_coords_changes:
         if line[2] in {1, 2} and line[3] in {0, 3, 4}:
@@ -611,6 +615,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
                 if line[2] in {1, 2} and line[3] in {0, 3, 4}:
                     msg += f'{line[0]}, {line[1]}\n'
             # TODO: to think if it makes sense to show it?
+            status = 'change'
 
         elif verdict['again']:
             # TODO: to think about wording
@@ -622,6 +627,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
                     msg += f'{clickable_link}\n'
                     lat = line[0]
                     lon = line[1]
+            status = 'again'
 
         elif verdict['add']:
             msg += f'📍 Объявлены координаты сбора <a href="{link}">{name}{age_info}</a>{region}:\n'
@@ -631,13 +637,15 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
                     msg += f'{clickable_link}\n'
                     lat = line[0]
                     lon = line[1]
+            status = 'add'
 
         elif verdict['drop']:
-            msg += f'📍 Координаты сбора более не актуальны по <a href="{link}">{name}{age_info}</a>{region}:\n'
+            msg += f'📍 Координаты более НЕ актуальны по <a href="{link}">{name}{age_info}</a>{region}:\n'
             for line in list_of_coords_changes:
                 if line[2] in {1, 2} and line[3] in {0, 3, 4}:
                     clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
                     msg += f'{clickable_link}\n'
+            status = 'drop'
 
     except: # noqa
         msg = f'error{region}{link_text}'
@@ -657,7 +665,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
     print(msg)
     # TODO: temp debug
 
-    return msg, lat, lon
+    return msg, lat, lon, status
 
 
 def compose_com_msg_on_status_change(status, link, name, age, age_wording, region):
@@ -815,7 +823,7 @@ def enrich_new_records_with_message_texts():
                 line.message = compose_com_msg_on_inforg_comments(line.link, line.name, line.age, line.age_wording,
                                                                   line.comments_inforg, line.region)
             elif line.change_type == 6:  # coords_change
-                line.message, line.search_latitude, search_longitude = \
+                line.message, line.search_latitude, line.search_longitude, line.coords_change_type = \
                     compose_com_msg_on_coords_change(line.link, line.name, line.age, line.age_wording, line.new_value)
 
         logging.info('New Records enriched with common Message Texts')
@@ -1312,7 +1320,9 @@ def iterate_over_all_users_and_updates(conn):
                                                                                   change_id_for_analytics, user.user_id,
                                                                                   'coords')
 
-                                                if change_type == 6 and s_lat and s_lon and user.user_id in adm:  # coords_change
+                                                if change_type == 6 and s_lat and s_lon \
+                                                        and new_record.coords_change_type != 'drop' \
+                                                        and user.user_id in adm:  # coords_change
                                                     message_params = {'latitude': s_lat,
                                                                       'longitude': s_lon}
 
@@ -1462,7 +1472,8 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
     return message
 
 
-def compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat, u_lon, region_to_show):
+def compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat, u_lon, region_to_show,
+                                                coords_change_type):
     """compose individual message for notification of every user on change of coordinates"""
 
     msg = new_record.message
