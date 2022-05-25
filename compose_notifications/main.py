@@ -609,6 +609,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
                     msg += f'{clickable_link}\n'
                     lat = line[0]
                     lon = line[1]
+                    break
             # TODO: to think if it makes sense to show it?
             msg += 'Старые '
             for line in list_of_coords_changes:
@@ -627,6 +628,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
                     msg += f'{clickable_link}\n'
                     lat = line[0]
                     lon = line[1]
+                    break
             scenario = 'again'
 
         elif verdict['add']:
@@ -637,14 +639,16 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
                     msg += f'{clickable_link}\n'
                     lat = line[0]
                     lon = line[1]
+                    break
             scenario = 'add'
 
         elif verdict['drop']:
             msg += f'📍 Координаты более НЕ актуальны по <a href="{link}">{name}{age_info}</a>{region}:\n'
             for line in list_of_coords_changes:
                 if line[2] in {1, 2} and line[3] in {0, 3, 4}:
-                    clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
-                    msg += f'{clickable_link}\n'
+                    # clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
+                    # msg += f'{clickable_link}\n'
+                    msg =+ f'{line[0]}, {line[1]}{link_text}\n'
             scenario = 'drop'
 
     except Exception as e:
@@ -1249,7 +1253,7 @@ def iterate_over_all_users_and_updates(conn):
                                         elif change_type == 6:  # coords_change
                                             message = compose_individual_message_on_coords_change(new_record, s_lat,
                                                                                                   s_lon, u_lat, u_lon,
-                                                                                                  region_to_show, )
+                                                                                                  region_to_show)
 
                                         if message:
 
@@ -1470,8 +1474,7 @@ def compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat,
     msg = new_record.message
 
     region = f' в регионе {region_to_show}' if region_to_show else ''
-
-    link_text = f'{s_lat}, {s_lon}'
+    link_text = f'{s_lat}, {s_lon}' if new_record.coords_change_type != 'drop' else ''
 
     if s_lat and s_lon and u_lat and u_lon:
         try:
