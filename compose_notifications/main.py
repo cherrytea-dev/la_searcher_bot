@@ -484,6 +484,11 @@ def enrich_new_records_with_comments(conn, type_of_comments):
             comments = conn.execute("""SELECT comment_url, comment_text, comment_author_nickname, comment_author_link, 
                         search_forum_num, comment_num FROM comments WHERE notification_sent IS NULL 
                         AND LOWER(LEFT(comment_author_nickname,6))='инфорг';""").fetchall()
+
+            # TODO: debug
+            print(f'getting inforg comments: {comments}')
+            # TODO: debug
+
         else:
             comments = None
 
@@ -515,6 +520,10 @@ def enrich_new_records_with_comments(conn, type_of_comments):
                                 comment.comment_author_nickname = comment.comment_author_nickname.replace('<', '')
 
                             temp_list_of_comments.append(comment)
+
+                # TODO: debug
+                print(f'temp list of comments from inforg: {temp_list_of_comments}')
+                # TODO: debug
 
                 if type_of_comments == 'all':
                     r_line.comments = temp_list_of_comments
@@ -648,7 +657,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
                 if line[2] in {1, 2} and line[3] in {0, 3, 4}:
                     # clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
                     # msg += f'{clickable_link}\n'
-                    msg =+ f'{line[0]}, {line[1]}{link_text}\n'
+                    msg += f'{line[0]}, {line[1]}{link_text}\n'
             scenario = 'drop'
 
     except Exception as e:
@@ -858,6 +867,10 @@ def compose_users_list_from_users(conn):
                 new_line.user_new_search_notifs = 0
             else:
                 new_line.user_new_search_notifs = int(line[4])
+            # TODO: temp debug
+            if new_line.user_id == 429998111:
+                print(f'XXX: user is found in compose_users_list_from_users function: {str(new_line)}')
+            # TODO: temp debug
             users_list.append(new_line)
 
         logging.info('User List composed')
@@ -877,7 +890,7 @@ def enrich_users_list_with_notification_preferences(conn):
 
     try:
         notif_prefs = conn.execute(
-            """SELECT user_id, preference FROM user_preferences;"""
+            """SELECT user_id, preference, pref_id FROM user_preferences;"""
         ).fetchall()
 
         # look for matching User_ID in Users List & Notification Preferences
@@ -887,6 +900,12 @@ def enrich_users_list_with_notification_preferences(conn):
                 # when match is found
                 if u_line.user_id == np_line[0]:
                     prefs_array.append(np_line[1])
+
+                    # TODO: temp debug
+                    if np_line[0] == 429998111:
+                        print(f'XXX: user is found in enrich_users_list_with_notification_preferences function: {np_line}')
+                    # TODO: temp debug
+
             u_line.notification_preferences = prefs_array
 
         logging.info('Users List enriched with Notification Prefs')
@@ -915,7 +934,14 @@ def enrich_users_list_with_user_regions(conn):
                 # when match is found
                 if u_line.user_id == rp_line[0]:
                     prefs_array.append(rp_line[1])
+
+                    # TODO: temp debug
+                    if rp_line[0] == 429998111:
+                        print(f'XXX: user is found in enrich_users_list_with_user_regions function: {rp_line}')
+                    # TODO: temp debug
+
             u_line.user_regions = prefs_array
+
             if len(prefs_array) < 2:
                 u_line.user_in_multi_regions = False
 
@@ -1083,7 +1109,7 @@ def iterate_over_all_users_and_updates(conn):
 
         users_who_was_notified = []
         # TODO: in the future it's needed to be assumed re text - non text and delete duplicated users here
-        logging.info("raw_data_:")
+        logging.info("list of users who was already notified – raw_data_:")
         logging.info(raw_data_)
         for line in raw_data_:
             users_who_was_notified.append(line[2])
@@ -1148,6 +1174,10 @@ def iterate_over_all_users_and_updates(conn):
                     mailing_type_id = 3
                 elif change_type == 6:  # coords_change
                     mailing_type_id = 6
+
+                # TODO: debug
+                print(f'XXX: change_type={change_type}, change_field={changed_field}, mailing_type_id={mailing_type_id}')
+                # TODO: debug
 
                 # check if this change_log record was somehow processed
                 sql_text = sqlalchemy.text("""
@@ -1243,6 +1273,10 @@ def iterate_over_all_users_and_updates(conn):
                                                 message += new_record.message[1]
                                             if new_record.message[2]:
                                                 message += new_record.message[2]
+
+                                            # TODO: debug
+                                            print(f'XXX: message={message}')
+                                            # TODO: debug
 
                                         elif changed_field == 'replies_num_change':
                                             message = new_record.message[0]
