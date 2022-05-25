@@ -615,7 +615,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
                 if line[2] in {1, 2} and line[3] in {0, 3, 4}:
                     msg += f'{line[0]}, {line[1]}\n'
             # TODO: to think if it makes sense to show it?
-            status = 'change'
+            scenario = 'change'
 
         elif verdict['again']:
             # TODO: to think about wording
@@ -627,7 +627,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
                     msg += f'{clickable_link}\n'
                     lat = line[0]
                     lon = line[1]
-            status = 'again'
+            scenario = 'again'
 
         elif verdict['add']:
             msg += f'📍 Объявлены координаты сбора <a href="{link}">{name}{age_info}</a>{region}:\n'
@@ -637,7 +637,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
                     msg += f'{clickable_link}\n'
                     lat = line[0]
                     lon = line[1]
-            status = 'add'
+            scenario = 'add'
 
         elif verdict['drop']:
             msg += f'📍 Координаты более НЕ актуальны по <a href="{link}">{name}{age_info}</a>{region}:\n'
@@ -645,19 +645,11 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
                 if line[2] in {1, 2} and line[3] in {0, 3, 4}:
                     clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
                     msg += f'{clickable_link}\n'
-            status = 'drop'
+            scenario = 'drop'
 
-    except: # noqa
+    except Exception as e:
+        logging.exception(e)
         msg = f'error{region}{link_text}'
-
-    """for line in list_of_coords_changes:
-        if line[2] in {1, 2} and line[3] in {0, 3, 4}:
-            msg += f' * координаты {line[0]}, {line[1]} более не актуальны!\n'
-        elif line[2] == 0 and line[3] in {1, 2}:
-            msg += f' * новые координаты поиска! {line[0]}, {line[1]}\n'
-        elif line[2] in {3, 4} and line[3] in {1, 2}:
-            msg += f' * координаты {line[0]}, {line[1]} вновь актуальны!\n'
-    """
 
     # TODO: temp debug
     print(str(new_value))
@@ -665,7 +657,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
     print(msg)
     # TODO: temp debug
 
-    return msg, lat, lon, status
+    return msg, lat, lon, scenario
 
 
 def compose_com_msg_on_status_change(status, link, name, age, age_wording, region):
@@ -1257,7 +1249,7 @@ def iterate_over_all_users_and_updates(conn):
                                         elif change_type == 6:  # coords_change
                                             message = compose_individual_message_on_coords_change(new_record, s_lat,
                                                                                                   s_lon, u_lat, u_lon,
-                                                                                                  region_to_show)
+                                                                                                  region_to_show, )
 
                                         if message:
 
@@ -1472,8 +1464,7 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
     return message
 
 
-def compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat, u_lon, region_to_show,
-                                                coords_change_type):
+def compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat, u_lon, region_to_show):
     """compose individual message for notification of every user on change of coordinates"""
 
     msg = new_record.message
