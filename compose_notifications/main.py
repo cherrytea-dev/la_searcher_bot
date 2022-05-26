@@ -1602,23 +1602,24 @@ def mark_new_comments_as_processed(conn):
     """mark in SQL table Comments all the comments that were processed at this step, basing on search_forum_id"""
 
     try:
-        change_id_list = []
+        change_id_list_all = []
+        change_id_list_inforg = []
         for record in new_records_list:
             if record.processed == 'yes' and record.change_type == 3 and record.ignore != 'y':
-                change_id_list.append(record.forum_search_num)
+                change_id_list_all.append(record.forum_search_num)
             elif record.processed == 'yes' and record.change_type == 4 and record.ignore != 'y':
-                change_id_list.append(record.forum_search_num)
+                change_id_list_inforg.append(record.forum_search_num)
 
-        for record in change_id_list:
-            if record.change_type == 3:  # if new comments
-                sql_text = sqlalchemy.text("UPDATE comments SET notification_sent = 'y' WHERE search_forum_num=:a;")
-
-            else:  # if inforg new comments
-                sql_text = sqlalchemy.text("UPDATE comments SET notif_sent_inforg = 'y' WHERE search_forum_num=:a;")
-
+        for record in change_id_list_all:
+            sql_text = sqlalchemy.text("UPDATE comments SET notification_sent = 'y' WHERE search_forum_num=:a;")
             conn.execute(sql_text, a=record)
 
-        logging.info('The list of Updates with Comments that are processed and not ignored: ' + str(change_id_list))
+        for record in change_id_list_inforg:
+            sql_text = sqlalchemy.text("UPDATE comments SET notif_sent_inforg = 'y' WHERE search_forum_num=:a;")
+            conn.execute(sql_text, a=record)
+
+        logging.info('The list of Updates with Comments that are processed '
+                     'and not ignored: ' + str(change_id_list_all) + str(change_id_list_inforg))
         logging.info('All Comments are marked as processed')
 
     except Exception as e:
