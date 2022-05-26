@@ -482,7 +482,7 @@ def enrich_new_records_with_comments(conn, type_of_comments):
 
         elif type_of_comments == 'inforg':
             comments = conn.execute("""SELECT comment_url, comment_text, comment_author_nickname, comment_author_link, 
-                        search_forum_num, comment_num FROM comments WHERE notification_sent IS NULL 
+                        search_forum_num, comment_num FROM comments WHERE notif_sent_inforg IS NULL 
                         AND LOWER(LEFT(comment_author_nickname,6))='инфорг';""").fetchall()
 
             # TODO: debug
