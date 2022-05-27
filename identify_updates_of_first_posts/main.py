@@ -242,18 +242,18 @@ def process_coords_comparison(conn, search_id, first_page_content_curr, first_pa
     conn.execute(sql_text, a=str(coords_curr), b=search_id)
 
     # TODO: temp debug
-    if coords_prev:
-        publish_to_pubsub('topic_notify_admin', f'[ide_post]: prev coords {search_id}: {str(coords_prev)}')
-        publish_to_pubsub('topic_notify_admin', f'[ide_post]: curr coords {search_id}: {str(coords_curr)}')
-        logging.info(f'[ide_post]: prev coords {search_id}: {str(coords_prev)}')
-        logging.info(f'[ide_post]: curr coords {search_id}: {str(coords_curr)}')
+    if coords_prev and coords_curr and coords_prev != coords_curr:
+        publish_to_pubsub('topic_notify_admin', f'[ide_post]: prev coords {search_id}: {coords_prev}')
+        publish_to_pubsub('topic_notify_admin', f'[ide_post]: curr coords {search_id}: {coords_curr}')
+    logging.info(f'[ide_post]: prev coords {search_id}: {coords_prev}')
+    logging.info(f'[ide_post]: curr coords {search_id}: {coords_curr}')
     # TODO: temp debug
 
     # get a list of changed coordinates
     # TODO: + temp DEBUG message for admin
     coords_change_list, msg = get_resulting_message_on_coordinates_change(coords_prev, coords_curr)
     if msg:
-        msg = f'[ide_post]: coords change {search_id}: \n' + msg
+        msg = f'[ide_post]: coords change {search_id}: \n{msg}'
         publish_to_pubsub('topic_notify_admin', msg)
 
     # record the change into change_lot
@@ -402,6 +402,11 @@ def get_message_on_field_trip(text):
     field_trip_sbor = re.findall(r'(?:место.{0,3}|время.{0,3}|координаты.{0,3}(?:места.{0,3}|)|)сбор(?:а|)',
                                  text.lower())
 
+    context = 'now'
+    for phrase in field_trip_vyezd:
+        if re.findall(r'(планируется|ожидается|готовится)', phrase.lower()):
+            context = 'future'
+
     total_list = field_trip_sbor + field_trip_vyezd
     output_message = None
 
@@ -411,7 +416,7 @@ def get_message_on_field_trip(text):
         else:
             output_message = 'Внимание, выезд!'
 
-    return output_message
+    return output_message, context
 
 
 def age_writer(age):
@@ -458,6 +463,7 @@ def main(event, context):  # noqa
                 first_page_content_curr = raw_data[0]
                 first_page_content_curr_compact = raw_data[1]
 
+                # TODO: why we're doing it in this script but not in che_posts??
                 # save compact first page content
                 if not first_page_content_curr_compact:
                     content_compact = get_compressed_first_post(first_page_content_curr)
@@ -481,45 +487,52 @@ def main(event, context):  # noqa
                 logging.info(f'first page content curr: {first_page_content_curr}')
                 # TODO: temp debug
 
-                # check the diff between prev and curr coords and save it in change_log
-                process_coords_comparison(conn, search_id, first_page_content_curr, first_page_content_prev)
-
-                # -------------------- block of field trips checks ---------------
-                # TODO DEBUG try
+                # TODO: DEBUG try
                 try:
-                    sql_text = sqlalchemy.text("""
-                                    SELECT family_name, age FROM searches WHERE search_forum_num=:a;
-                                    """)
-                    raw_data = conn.execute(sql_text, a=search_id).fetchone()
-                    name = raw_data[0]
-                    age = raw_data[1]
-                    link = 'https://lizaalert.org/forum/viewtopic.php?t=' + str(search_id)
-                    msg_2 = ''
-                    msg_2 += '<a href="' + link + '">'
-                    msg_2 += name
-                    if name[0].isupper() and age and age != 0:
-                        msg_2 += ' '
-                        msg_2 += age_writer(age)
-                    msg_2 += '</a>'
+                    if first_page_content_curr and first_page_content_prev:
 
-                    publish_to_pubsub('topic_notify_admin', f'[ide_post]: testing: {msg_2}')
+                        # TODO: should go after field trip block
+                        # check the diff between prev and curr coords and save it in change_log
+                        process_coords_comparison(conn, search_id, first_page_content_curr, first_page_content_prev)
 
-                    if first_page_content_curr:
-                        field_trip_curr = get_message_on_field_trip(first_page_content_curr)
-                    else:
-                        field_trip_curr = None
-                    if first_page_content_prev:
-                        field_trip_prev = get_message_on_field_trip(first_page_content_prev)
-                    else:
-                        field_trip_prev = None
+                        # -------------------- block of field trips checks ---------------
+                        sql_text = sqlalchemy.text("""
+                                        SELECT family_name, age FROM searches WHERE search_forum_num=:a;
+                                        """)
+                        raw_data = conn.execute(sql_text, a=search_id).fetchone()
+                        name = raw_data[0]
+                        age = raw_data[1]
 
-                    if not field_trip_prev and field_trip_curr:
-                        message_field_trip = field_trip_curr + '\nПоиск ' + msg_2
-                        publish_to_pubsub('topic_notify_admin', message_field_trip)
-                        publish_to_pubsub('topic_notify_admin', first_page_content_prev[:3900])
+                        link = f'https://lizaalert.org/forum/viewtopic.php?t={search_id}'
+                        age_wording = age_writer(age) if age else None
+                        age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
+
+                        msg_2 = f'<a href="{link}">{name}{age_info}</a>'
+
+                        # publish_to_pubsub('topic_notify_admin', f'[ide_post]: testing: {msg_2}')
+
+                        field_trip_curr, context_curr = get_message_on_field_trip(first_page_content_curr)
+                        field_trip_prev, context_prev = get_message_on_field_trip(first_page_content_prev)
+
+                        if not field_trip_prev and field_trip_curr:
+
+                            # TODO: here we should record the message to be saved in change_log
+
+                            message_field_trip = f'{field_trip_curr} по поиску {msg_2}'
+                            publish_to_pubsub('topic_notify_admin', message_field_trip)
+
+                        if field_trip_curr and field_trip_prev:
+
+                            # if context_curr == 'now' and context_prev == 'future':
+
+                            publish_to_pubsub('topic_notify_admin', f'[ide_posts]: Mike, field trips: '
+                                                                    f'{field_trip_curr} || {field_trip_prev}. '
+                                                                    f'Context {context_curr} || {context_prev}')
+
+                            # TODO: continuation
 
                 except Exception as e:
-                    logging.error(e)
+                    logging.exception(e)
                     publish_to_pubsub('topic_notify_admin', '[ide_posts]: ERROR: notify Field Trip Failed: '
                                       + repr(e)[:3900])
 
