@@ -498,17 +498,17 @@ def distance_to_search(search_lat, search_lon, user_let, user_lon):
     # define direction
 
     def calc_bearing(lat_2, lon_2, lat_1, lon_1):
-        d_lon = (lon_2 - lon_1)
-        x = math.cos(math.radians(lat_2)) * math.sin(math.radians(d_lon))
+        d_lon_ = (lon_2 - lon_1)
+        x = math.cos(math.radians(lat_2)) * math.sin(math.radians(d_lon_))
         y = math.cos(math.radians(lat_1)) * math.sin(math.radians(lat_2)) - math.sin(math.radians(lat_1)) * math.cos(
-            math.radians(lat_2)) * math.cos(math.radians(d_lon))
+            math.radians(lat_2)) * math.cos(math.radians(d_lon_))
         bearing = math.atan2(x, y)
         bearing = math.degrees(bearing)
 
         return bearing
 
     def calc_nsew(lat_1, lon_1, lat_2, lon_2):
-        points3 = ['&#8593;&#xFE0E;', '&#x2197;&#xFE0F;', '&#8594;&#xFE0E;', '&#8600;&#xFE0E;', '&#8595;&#xFE0E;',
+        points3 = ['⬆️', '↗️', '➡️', '&#8600;&#xFE0E;', '&#8595;&#xFE0E;',
                    '&#8601;&#xFE0E;', '&#8592;&#xFE0E;', '&#8598;&#xFE0E;']
 
         bearing = calc_bearing(lat_1, lon_1, lat_2, lon_2)
@@ -951,6 +951,8 @@ def update_and_download_list_of_regions(curr_user_id, got_message, com_30):
     # case for the first entry to the screen of Reg Settings
     if got_message == com_30:
         is_first_entry = 'yes'
+    elif got_message in fed_okr_dict:
+        pass
     else:
         try:
 
