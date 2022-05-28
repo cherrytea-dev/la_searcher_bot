@@ -6,7 +6,6 @@ import logging
 import qrcode
 from io import BytesIO
 
-
 import psycopg2
 from psycopg2 import sql
 
@@ -35,43 +34,18 @@ class MockClass2:
         pass
 
 
-project_id = None
-client = None
 db = None
 cur = MockClass1()
 conn_psy = MockClass2()
 local_development = False
-bot = None
-bot_debug = None
+# bot = None
+# bot_debug = None
 admin_user_id = None
 coordinates_format = "{0:.5f}"
+
 publisher = pubsub_v1.PublisherClient()
-
-
-def set_basic_parameters():
-    global project_id
-    global client
-    global cur
-    global conn_psy
-    global local_development
-    global bot
-    global bot_debug
-    global admin_user_id
-
-    project_id = os.environ["GCP_PROJECT"]
-    client = secretmanager.SecretManagerServiceClient()
-    bot_token = get_secrets("bot_api_token__prod")
-
-    # initiate Debug Bot
-    bot_token_debug = get_secrets("bot_api_token")
-    admin_user_id = get_secrets("my_telegram_id")
-    bot_debug = Bot(token=bot_token_debug)
-
-    sql_connect_by_psycopg2()
-
-    bot = Bot(token=bot_token)
-
-    return None
+project_id = os.environ["GCP_PROJECT"]
+client = secretmanager.SecretManagerServiceClient()
 
 
 def get_secrets(secret_request):
@@ -113,11 +87,13 @@ def publish_to_pubsub(topic_name, message):
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify that publishing succeeded
-        print('DBG.P.3: Pub/sub message published')
-        return 'Message published.'
+        logging.info('Pub/sub message was published')
+
     except Exception as e:
-        print('DBG.P.3.ERR: pub/sub NOT published', repr(e))
-        return repr(e), 500
+        logging.info('Pub/sub message was NOT published')
+        logging.exception(e)
+
+    return None
 
 
 def time_counter_since_search_start(start_time):
@@ -247,42 +223,6 @@ def define_family_name(title_string):
     return fam_name
 
 
-# noinspection PyUnresolvedReferences
-def get_list_of_five_active_searches():
-    # TODO: under dev't
-
-    global cur
-    global conn_psy
-
-    output = []
-
-    cur.execute(
-        """SELECT search_forum_num, parsed_time, status_short, forum_search_title, cut_link, search_start_time, 
-        num_of_replies, family_name, age, id FROM searches WHERE status_short='Ищем' ORDER BY search_start_time DESC 
-        LIMIT 5; """
-    )
-    conn_psy.commit()
-    database = cur.fetchall()
-
-    for i in range(len(database)):
-        db_line = list(database[i])
-        family_name = define_family_name(db_line[3])
-        first_letter = str(family_name)[0]
-        if first_letter.isupper() and db_line[8] and db_line[8] != 0:
-            family_name += ' ' + age_writer(db_line[8])
-        search_num = db_line[0]
-        line = [family_name, search_num]
-        output.append(line)
-        print('M_DBG_list5: ', str(output))
-
-    return output
-
-    # msg += time_counter_since_search_start(db_line[5])
-    # msg += ' <a href="https://lizaalert.org/forum/viewtopic.php?f=276&t=' + str(db_line[0]) + '">'
-    # msg += family_name
-    # msg += '</a>\n'
-
-
 def compose_msg_on_all_last_searches(region):
     global cur
     global conn_psy
@@ -322,10 +262,6 @@ def compose_msg_on_all_last_searches(region):
             msg += ' '
             msg += age_writer(db_line[8])
         msg += '</a>\n'
-
-        """DEBUG"""
-        print('DBG.C.1.msg_of_compose_all:', msg)
-        """DEBUG"""
 
     return msg
 
@@ -548,12 +484,12 @@ def distance_to_search(search_lat, search_lon, user_let, user_lon):
     lon2 = math.radians(float(user_lon))
 
     # change in coordinates
-    dlon = lon2 - lon1
+    d_lon = lon2 - lon1
 
-    dlat = lat2 - lat1
+    d_lat = lat2 - lat1
 
     # Haversine formula
-    a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    a = math.sin(d_lat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(d_lon / 2) ** 2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     distance = r * c
@@ -566,7 +502,7 @@ def distance_to_search(search_lat, search_lon, user_let, user_lon):
         x = math.cos(math.radians(lat_2)) * math.sin(math.radians(d_lon))
         y = math.cos(math.radians(lat_1)) * math.sin(math.radians(lat_2)) - math.sin(math.radians(lat_1)) * math.cos(
             math.radians(lat_2)) * math.cos(math.radians(d_lon))
-        bearing = math.atan2(x, y)  # use atan2 to determine the quadrant
+        bearing = math.atan2(x, y)
         bearing = math.degrees(bearing)
 
         return bearing
@@ -583,10 +519,9 @@ def distance_to_search(search_lat, search_lon, user_let, user_lon):
 
         return nsew
 
-    direc = calc_nsew(lat1, lon1, lat2, lon2)
-    # print("The Lincoln memorial is " + points + " of the White House")
+    direction = calc_nsew(lat1, lon1, lat2, lon2)
 
-    return [dist, direc]
+    return [dist, direction]
 
 
 def get_user_regional_preferences(input_user_id):
@@ -611,10 +546,11 @@ def get_user_regional_preferences(input_user_id):
             if temp[0] not in no_show:
                 user_prefs_list.append(temp[0])
 
-        print(user_prefs_list)
+        logging.info(str(user_prefs_list))
 
     except Exception as e:
-        print('Error catcher:', str(e))
+        logging.info('failed to get user regional prefs')
+        logging.exception(e)
 
     return user_prefs_list
 
@@ -901,7 +837,7 @@ def save_preference(input_user_id, preference):
 
 
 def update_and_download_list_of_regions(curr_user_id, got_message, com_30):
-    """upload & download of list of user's regions"""
+    """upload & download the list of user's regions"""
 
     global cur
     global conn_psy
@@ -1058,9 +994,9 @@ def update_and_download_list_of_regions(curr_user_id, got_message, com_30):
                     )
                     conn_psy.commit()
 
-        # "try" here plays a role of "if". It's not an error - not all "got_message" are in the dict
         except Exception as e:
-            print('DBG.C.10.EXC:', repr(e))
+            logging.info('failed to upload & download the list of user\'s regions')
+            logging.exception(e)
 
     # Get the list of resulting regions
     cur.execute(
@@ -1106,12 +1042,15 @@ def get_last_bot_msg(user_id):
         """, (user_id,))
     conn_psy.commit()
     extract = cur.fetchone()
-    print('DBG.C.333.extract: ' + str(extract))
+    logging.info(f'get the last bot message to user to define if user is expected to give exact answer')
+    logging.info(str(extract))
+
     if extract and extract != 'None':
         msg_type = extract[0]
     else:
         msg_type = None
-    print('DBG.C.334.msg_type: ' + str(msg_type))
+
+    logging.info(f'type of the last message from bot: {msg_type}')
 
     return msg_type
 
@@ -1124,10 +1063,7 @@ def generate_yandex_maps_place_link(lat, lon, param):
     else:
         display = 'Карта'
 
-    msg = '<a href="https://yandex.ru/maps/?pt='
-    msg += str(lon) + ',' + str(lat)
-    msg += '&z=11&l=map">' + display + '</a>'
-    print(msg)
+    msg = f'<a href="https://yandex.ru/maps/?pt={lon},{lat}&z=11&l=map">{display}</a>'
 
     return msg
 
@@ -1184,7 +1120,7 @@ def compose_msg_on_reqd_urs_attr(usr_id):
     return msg
 
 
-def check_and_record_usr_arrts(usr_id, user_input):
+def check_and_record_user_attrs(usr_id, user_input):
     """check if user input is inline with requirements and if yes – record them all"""
 
     global cur
@@ -1249,7 +1185,7 @@ def check_and_record_usr_arrts(usr_id, user_input):
     return finish_status
 
 
-# TODO: deactivate since Sep 12 2021 – decision not to store QR code imgs but generate it dynamically
+# TODO: deactivate since Sep 12 2021 – decision not to store QR code images but generate it dynamically
 def set_cloud_storage(user_id):
     """sets the basic parameters for connection to txt file in cloud storage, which stores QR codes"""
 
@@ -1263,7 +1199,7 @@ def set_cloud_storage(user_id):
     return blob
 
 
-# TODO: deactivate since Sep 12 2021 – decision not to store QR code imgs but generate it dynamically
+# TODO: deactivate since Sep 12 2021 – decision not to store QR code images but generate it dynamically
 def write_to_cloud_storage(user_id, what_to_write):
     """writes current searches' snapshot to txt file in cloud storage"""
 
@@ -1273,7 +1209,7 @@ def write_to_cloud_storage(user_id, what_to_write):
     return None
 
 
-# TODO: deactivate since Sep 12 2021 – decision not to store QR code imgs but generate it dynamically
+# TODO: deactivate since Sep 12 2021 – decision not to store QR code images but generate it dynamically
 def read_from_cloud_storage(folder_num):
     """reads previous searches' snapshot from txt file in cloud storage"""
 
@@ -1338,12 +1274,12 @@ def check_if_ready_for_qr_code(user_id):
     else:
         usr_attrs = list(received_data)
         for attr in usr_attrs:
-            print('lets check attr=', attr)
+            logging.info(f'lets check attr={attr}')
             if attr is None:
-                print('attr is None', attr)
+                logging.info('attr is None')
                 verdict = 'add attrs'
                 pass
-    print(verdict)
+    logging.info(verdict)
 
     return verdict
 
@@ -1392,17 +1328,22 @@ def get_param_if_exists(upd, func_input):
 def main(request):
     """main function to orchestrate the whole script"""
 
-    global project_id  # TODO: can be deleted?
-    global client  # TODO: can be deleted?
+    # global project_id  # TODO: can be deleted?
+    # global client  # TODO: can be deleted?
     global cur
     global conn_psy
-    global local_development  # TODO: can be deleted?
-    global bot
-    global bot_debug
     global admin_user_id
 
     # Set basic params
-    set_basic_parameters()
+    bot_token = get_secrets("bot_api_token__prod")
+    bot_token_debug = get_secrets("bot_api_token")
+
+    bot = Bot(token=bot_token)
+    bot_debug = Bot(token=bot_token_debug)
+
+    admin_user_id = get_secrets("my_telegram_id")
+    sql_connect_by_psycopg2()
+
     bot_request_aft_usr_msg = ''
     msg_sent_by_specific_code = False
 
@@ -1497,9 +1438,8 @@ def main(request):
                 logging.info('curr_user_id: ' + str(curr_user_id))
 
             except Exception as e:
-                print('DBG.C.4.ERR: GENERAL COMM CRASH:', repr(e))
-                bot_debug.sendMessage(chat_id=admin_user_id, text=('Упал скрипт Communicate4:' + str(e)),
-                                      parse_mode='HTML')
+                logging.info('DBG.C.4.ERR: GENERAL COMM CRASH:')
+                logging.exception(e)
                 logging.error('Error in getting general attributes of the received message in communication script.')
 
             # check if user is new - and if so - saving him/her
@@ -1534,9 +1474,8 @@ def main(request):
                     got_message = update.effective_message.text
 
             except Exception as e:
-                print('DBG.C.2.ERR: GENERAL COMM CRASH:', repr(e))
-                bot_debug.sendMessage(chat_id=admin_user_id, text=('Упал скрипт Communicate2:' + str(e)),
-                                      parse_mode='HTML')
+                logging.info('DBG.C.2.ERR: GENERAL COMM CRASH:')
+                logging.exception(e)
 
             # to avoid errors
             bot_message = ''
@@ -1840,7 +1779,7 @@ def main(request):
             keyboard_other = [[com_1], [b_goto_first_search],
                               [b_goto_community], [b_back_to_start]]
 
-            # Admin - specially keep it for Mike, regular users unlikely will be interested in it
+            # Admin - specially keep it for Admin, regular users unlikely will be interested in it
 
             com_10 = 'названия'  # these are "Title update notification" button
 
@@ -1853,16 +1792,15 @@ def main(request):
             # basic markup which will be substituted for all specific cases
             reply_markup = reply_markup_main
 
-            try:
-                # Check what was last bot's request and if bot is expecting user's input
-                bot_request_bfr_usr_msg = get_last_bot_msg(curr_user_id)
-                print('what is expected from user:', bot_request_bfr_usr_msg)
+            # Check what was last request from bot and if bot is expecting user's input
+            bot_request_bfr_usr_msg = get_last_bot_msg(curr_user_id)
 
-            except Exception as e:
-                print('DBG.C.3.ERR: GENERAL COMM CRASH:', repr(e))
-                bot_debug.sendMessage(chat_id=admin_user_id, text=('Упал скрипт Communicate3:' + str(e)),
-                                      parse_mode='HTML')
-                bot_request_bfr_usr_msg = None
+            if bot_request_bfr_usr_msg:
+                logging.info(f'bore this message bot was waiting for {bot_request_bfr_usr_msg} '
+                             f'from user {curr_user_id}')
+            else:
+                logging.info(f'bore this message bot was NOT waiting anything from user {curr_user_id}')
+
             try:
                 # get coordinates from the text
                 if bot_request_bfr_usr_msg == 'input_of_coords_man':
@@ -1914,8 +1852,10 @@ def main(request):
                                 """,
                                 (curr_user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
                             conn_psy.commit()
-                        except Exception as e1:
-                            print('DBG.C.50.EXC:', repr(e1))
+
+                        except Exception as e:
+                            logging.info('failed to update the last saved message from bot')
+                            logging.exception(e)
 
                     # Send summaries
                     elif got_message in {com_1, com_2}:
@@ -1961,24 +1901,12 @@ def main(request):
                                         """,
                                         (curr_user_id, datetime.datetime.now(), 'report'))
                                     conn_psy.commit()
+
                                 except Exception as e:
-                                    print('DBG.C.50.EXC:', repr(e))
+                                    logging.info('failed to save the last message from bot')
+                                    logging.exception(e)
 
                     # Perform individual replies
-                    # else:
-                    # TODO: under construction
-                    # checking if it's a message on tech preferences
-                    elif got_message[0:12] == 'Участвовать:':
-                        bot_message = "как будто мы сделали вас участником какого-то поиска"
-                        list_of_five_searches = get_list_of_five_active_searches()
-                        number_to_participate = 0
-                        for i in range(len(list_of_five_searches)):
-                            if got_message[13:] == list_of_five_searches[i][0]:
-                                number_to_participate = list_of_five_searches[i][1]
-                                break
-                        bot_message += '\nЗначит, вы выбрали поиск ' + str(number_to_participate) + '?'
-
-                        reply_markup = reply_markup_main
 
                     # Admin mode
                     elif got_message.lower() == b_admin_menu:
@@ -2093,7 +2021,7 @@ def main(request):
                     elif bot_request_bfr_usr_msg == 'addl_attrs_for_qr' and got_message \
                             and got_message not in {b_back_to_start}:
 
-                        result = check_and_record_usr_arrts(curr_user_id, got_message)
+                        result = check_and_record_user_attrs(curr_user_id, got_message)
 
                         if result:
                             bot_message = 'Супер! Теперь ваш QR код всегда в доступе: его можно либо открывать ' \
@@ -2116,7 +2044,7 @@ def main(request):
                             keyboard = [[b_add_usr_attr_menu], [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-                    # TODO: for dubugging purposes only
+                    # TODO: for debugging purposes only
                     elif got_message.lower() == 'go':
                         publish_to_pubsub('topic_notify_admin', 'test_admin_check')
 
@@ -2163,7 +2091,7 @@ def main(request):
 
                     elif got_message == b_other:
                         bot_message = 'Здесь можно посмотреть статистику по 20 последним поискам, перейти в ' \
-                                      'канал Коммьюнити или Прочитать важную информацию для Новичка'
+                                      'канал Коммъюнити или Прочитать важную информацию для Новичка'
                         reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
 
                     elif got_message in {com_30, b_fed_dist_pick_other}:
@@ -2468,10 +2396,12 @@ def main(request):
                             (curr_user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
                         conn_psy.commit()
                     except Exception as e1:
-                        print('DBG.C.50.EXC:', repr(e1))
+                        logging.info('DBG.C.50.EXC:')
+                        logging.exception(e1)
 
                 else:
-                    print('DBG.C.6. THERE IS a COMM SCRIPT INVOCATION w/O MESSAGE OR COORDINATES:', update)
+                    logging.info('DBG.C.6. THERE IS a COMM SCRIPT INVOCATION w/O MESSAGE OR COORDINATES:')
+                    logging.info(str(update))
                     text_for_admin = 'Пустое сообщение в скрипте Communicate: '
                     try:
                         text_for_admin += str(curr_user_id) + ', ' + str(curr_username) + ', '
