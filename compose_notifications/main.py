@@ -954,7 +954,7 @@ def get_list_of_admins_and_testers(conn):
 
 
 def record_notification_statistics(conn):
-    """records +1 into users' statistics of new searches notification"""
+    """records +1 into users' statistics of new searches notification. needed only for usability tips"""
 
     global stat_list_of_recipients
 
@@ -1017,6 +1017,10 @@ def iterate_over_all_users_and_updates(conn):
                                  g=message_group_id_,
                                  h=change_log_id_
                                  ).fetchone()
+
+        # TODO: debug
+        print(f'YYY: we are in saving to sql for coords message')
+        # TODO: debug
 
         return raw_data_[0]
 
@@ -1250,15 +1254,23 @@ def iterate_over_all_users_and_updates(conn):
                                             message = new_record.message
 
                                         elif change_type == 6:  # coords_change
-                                            message = compose_individual_message_on_coords_change(new_record, s_lat,
+
+                                            # TODO: temp debug
+                                            print(f'YYY: user_id={user.user_id}, user={user}, '
+                                                  f'prefs={user_notif_prefs}')
+                                            # TODO: temp debug
+
+                                            # TODO: temp limitation for ADMIN
+                                            if user.user_id in adm:
+                                                message = compose_individual_message_on_coords_change(new_record, s_lat,
                                                                                                   s_lon, u_lat, u_lon,
                                                                                                   region_to_show)
 
                                         if message:
 
-                                            if changed_field in {'new_search'} or \
-                                                    (change_type in {6} and user.user_id in adm):
+                                            if change_type in {0, 6}:  # new_search or coord_change
                                                 message_group_id = get_the_new_group_id()
+
                                             else:
                                                 message_group_id = None
 
@@ -1294,11 +1306,9 @@ def iterate_over_all_users_and_updates(conn):
                                                                               change_id_for_analytics, user.user_id,
                                                                               'text')
 
-                                                # TODO: do we need it?
-                                                # TODO: testing notif_mailings
+                                                # for user tips – to increase sent messages counter
                                                 if changed_field == 'new_search':
                                                     stat_list_of_recipients.append(user.user_id)
-                                                # TODO: do we need it?
 
                                                 if changed_field == 'new_search' and s_lat and s_lon:
                                                     message_params = {'latitude': s_lat,
@@ -1316,11 +1326,22 @@ def iterate_over_all_users_and_updates(conn):
                                                                                   change_id_for_analytics, user.user_id,
                                                                                   'coords')
 
+                                                # TODO: debug
+                                                if change_type == 6:
+                                                    print(f'YYY: s_lat={s_lat}, s_lon={s_lon}, '
+                                                          f'coords_change_type={new_record.coords_change_type}, '
+                                                          f'user={user.user_id}')
+                                                # TODO: debug
+
                                                 if change_type == 6 and s_lat and s_lon \
                                                         and new_record.coords_change_type != 'drop' \
                                                         and user.user_id in adm:  # coords_change
                                                     message_params = {'latitude': s_lat,
                                                                       'longitude': s_lon}
+
+                                                    # TODO: debug
+                                                    print(f'YYY: we are in a condition for saving coords to sql')
+                                                    # TODO: debug
 
                                                     message_id = save_to_sql_notif_by_user(mailing_id, user.user_id,
                                                                                            None,
@@ -1329,10 +1350,20 @@ def iterate_over_all_users_and_updates(conn):
                                                                                            message_group_id,
                                                                                            change_id_for_analytics)
 
+                                                    # TODO: debug
+                                                    print(f'YYY: we are in a condition after saving coords to sql, '
+                                                          f'message_id={message_id}')
+                                                    # TODO: debug
+
                                                     write_message_creation_status(conn, message_id, 'created',
                                                                                   mailing_id,
                                                                                   change_id_for_analytics, user.user_id,
                                                                                   'coords')
+
+                                                    # TODO: debug
+                                                    print(f'YYY: we are in a condition after writing message creation '
+                                                          f'status to sql')
+                                                    # TODO: debug
 
                                                 number_of_messages_sent += 1
 

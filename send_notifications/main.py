@@ -283,10 +283,6 @@ def check_for_notifs_to_send(conn):
 
     msg_w_o_notif = conn.execute(sql_text).fetchone()
 
-    # TODO: temp debug
-    logging.info(str(msg_w_o_notif))
-    # TODO: temp debug
-
     return msg_w_o_notif
 
 
@@ -386,11 +382,7 @@ def iterate_over_notifications(bot, script_start_time):
             # check if there are any non-notified users
             msg_w_o_notif = check_for_notifs_to_send(conn)
 
-            analytics_check_time = datetime.datetime.now()
-            analytics_time_for_check = round((analytics_check_time - analytics_iteration_start).total_seconds(), 2)
-
             logging.info(str(msg_w_o_notif))
-            logging.info(f'time: iter start -> check: {analytics_time_for_check}')
 
             if msg_w_o_notif:
 
