@@ -6,6 +6,7 @@ import logging
 import ast
 import re
 import requests
+import copy
 
 import sqlalchemy
 from bs4 import BeautifulSoup
@@ -91,12 +92,20 @@ def publish_to_pubsub(topic_name, message):
 
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publish succeeded
+        publish_future.result()  # Verify the publishing succeeded
         logging.info('Sent pub/sub message: ' + str(message))
 
     except Exception as e:
         logging.error('Not able to send pub/sub message: ' + repr(e))
         logging.exception(e)
+
+    return None
+
+
+def notify_admin(message):
+    """send the pub/sub message to Debug to Admin"""
+
+    publish_to_pubsub('topic_notify_admin', message)
 
     return None
 
@@ -287,20 +296,20 @@ def get_the_search_status_out_of_text(initial_text):
 
         # get the list of all mentions of coords at all
         # majority of coords in RU: lat in [40-80], long in [20-180], expected minimal format = XX.XXX
-        list_of_all_coords = re.findall(r'0?[3-8]\d\.[\d]{1,10}.{0,10}(?:0,1)?[2-8]\d\.[\d]{1,10}', initial_text)
+        list_of_all_coords = re.findall(r'0?[3-8]\d\.\d{1,10}.{0,10}(?:0,1)?[2-8]\d\.\d{1,10}', initial_text)
         if list_of_all_coords:
             for line in list_of_all_coords:
-                nums = re.findall(r'0?[2-8]\d\.[\d]{1,10}', line)
+                nums = re.findall(r'0?[2-8]\d\.\d{1,10}', line)
                 list_of_all_coord_mentions.append([float(nums[0]), float(nums[1]), '2. coordinates w/o word coord'])
 
         # get the list of all mentions with word 'Coordinates'
         list_of_all_mentions_of_word_coord = re.findall(r'[Кк]оординат[^ор].{0,150}', initial_text)
         if list_of_all_mentions_of_word_coord:
             for line in list_of_all_mentions_of_word_coord:
-                list_of_coords = re.findall(r'0?[3-8]\d\.[\d]{1,10}.{0,10}(?:0,1)?[2-8]\d\.[\d]{1,10}', line)
+                list_of_coords = re.findall(r'0?[3-8]\d\.\d{1,10}.{0,10}(?:0,1)?[2-8]\d\.\d{1,10}', line)
                 if list_of_coords:
                     for line_2 in list_of_coords:
-                        nums = re.findall(r'0?[2-8]\d\.[\d]{1,10}', line_2)
+                        nums = re.findall(r'0?[2-8]\d\.\d{1,10}', line_2)
                         for line_3 in list_of_all_coord_mentions:
                             if float(nums[0]) == line_3[0] and float(nums[1]) == line_3[1]:
                                 line_3[2] = '1. coordinates w/ word coord'
@@ -311,10 +320,10 @@ def get_the_search_status_out_of_text(initial_text):
         if deleted_text:
             for line in deleted_text:
                 line = str(line)
-                list_of_coords = re.findall(r'0?[3-8]\d\.[\d]{1,10}.{0,10}(?:0,1)?[2-8]\d\.[\d]{1,10}', line)
+                list_of_coords = re.findall(r'0?[3-8]\d\.\d{1,10}.{0,10}(?:0,1)?[2-8]\d\.\d{1,10}', line)
                 if list_of_coords:
                     for line_2 in list_of_coords:
-                        nums = re.findall(r'0?[2-8]\d\.[\d]{1,10}', line_2)
+                        nums = re.findall(r'0?[2-8]\d\.\d{1,10}', line_2)
                         for line_3 in list_of_all_coord_mentions:
                             if float(nums[0]) == line_3[0] and float(nums[1]) == line_3[1]:
                                 line_3[2] = '3. deleted coord'
@@ -325,10 +334,10 @@ def get_the_search_status_out_of_text(initial_text):
         if boxed_text:
             for line in boxed_text:
                 line = str(line)
-                list_of_coords = re.findall(r'0?[3-8]\d\.[\d]{1,10}.{0,10}(?:0,1)?[2-8]\d\.[\d]{1,10}', line)
+                list_of_coords = re.findall(r'0?[3-8]\d\.\d{1,10}.{0,10}(?:0,1)?[2-8]\d\.\d{1,10}', line)
                 if list_of_coords:
                     for line_2 in list_of_coords:
-                        nums = re.findall(r'0?[2-8]\d\.[\d]{1,10}', line_2)
+                        nums = re.findall(r'0?[2-8]\d\.\d{1,10}', line_2)
                         for line_3 in list_of_all_coord_mentions:
                             if float(nums[0]) == line_3[0] and float(nums[1]) == line_3[1]:
                                 line_3[2] = '4. boxed coord'
@@ -384,6 +393,23 @@ def get_compressed_first_post(initial_text):
             compressed_string += list_line + '\n'
 
     return compressed_string
+
+
+def split_text_to_deleted_and_regular_parts(text):
+    """split text into two strings: one for deleted (line-through) text and second for regular"""
+
+    soup = BeautifulSoup(text, features="html.parser")
+
+    soup_without_deleted = copy.copy(soup)
+    deleted_text = soup_without_deleted.find_all('span', {'style': 'text-decoration:line-through'})
+    for case in deleted_text:
+        case.decompose()
+    non_deleted_text = str(soup_without_deleted)
+
+    deleted_list = soup.find_all('span', {'style': 'text-decoration:line-through'})
+    deleted_text = '\n'.join(deleted_list)
+
+    return deleted_text, non_deleted_text
 
 
 def get_message_on_field_trip(text):
@@ -511,10 +537,28 @@ def main(event, context):  # noqa
 
                         # publish_to_pubsub('topic_notify_admin', f'[ide_post]: testing: {msg_2}')
 
-                        field_trip_curr, context_curr = get_message_on_field_trip(first_page_content_curr)
-                        field_trip_prev, context_prev = get_message_on_field_trip(first_page_content_prev)
+                        text_prev_del, text_prev_reg = split_text_to_deleted_and_regular_parts(first_page_content_prev)
+                        text_curr_del, text_curr_reg = split_text_to_deleted_and_regular_parts(first_page_content_curr)
 
-                        if not field_trip_prev and field_trip_curr:
+                        field_trip_prev_del, context_prev_del = get_message_on_field_trip(text_prev_del)
+                        field_trip_prev_reg, context_prev_reg = get_message_on_field_trip(text_prev_reg)
+                        field_trip_curr_del, context_curr_del = get_message_on_field_trip(text_curr_del)
+                        field_trip_curr_reg, context_curr_reg = get_message_on_field_trip(text_curr_reg)
+
+                        # TODO: temp debug
+                        debug_msg = f'[field_trip] for {msg_2}\n' \
+                                    f'f_trip_prev_del={field_trip_prev_del}, context_prev_del={context_prev_del} \n' \
+                                    f'f_trip_prev_reg={field_trip_prev_reg}, context_prev_reg={context_prev_reg} \n' \
+                                    f'f_trip_curr_del={field_trip_curr_del}, context_curr_del={context_curr_del} \n' \
+                                    f'f_trip_curr_reg={field_trip_curr_reg}, context_curr_reg={context_curr_reg} \n'
+                        notify_admin(debug_msg)
+                        logging.info(debug_msg)
+                        # TODO: temp debug
+
+                        # field_trip_curr, context_curr = get_message_on_field_trip(first_page_content_curr)
+                        # field_trip_prev, context_prev = get_message_on_field_trip(first_page_content_prev)
+
+                        """if not field_trip_prev and field_trip_curr:
 
                             # TODO: here we should record the message to be saved in change_log
 
@@ -527,14 +571,13 @@ def main(event, context):  # noqa
 
                             publish_to_pubsub('topic_notify_admin', f'[ide_posts]: Mike, field trips: '
                                                                     f'{field_trip_curr} || {field_trip_prev}. '
-                                                                    f'Context {context_curr} || {context_prev}')
+                                                                    f'Context {context_curr} || {context_prev}')"""
 
-                            # TODO: continuation
+                        # TODO: continuation
 
                 except Exception as e:
                     logging.exception(e)
-                    publish_to_pubsub('topic_notify_admin', '[ide_posts]: ERROR: notify Field Trip Failed: '
-                                      + repr(e)[:3900])
+                    notify_admin('[ide_posts]: ERROR: notify Field Trip Failed ')
 
                 # save folder number for the search that has an update
                 folder_num = parse_search_folder(search_id)

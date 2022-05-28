@@ -367,7 +367,7 @@ def iterate_over_notifications(bot, script_start_time):
     with sql_connect().connect() as conn:
 
         # TODO: only for DEBUG. for prod it's not needed
-        list_of_admins, list_of_testers = get_list_of_admins_and_testers(conn)
+        # list_of_admins, list_of_testers = get_list_of_admins_and_testers(conn)
 
         trigger_to_continue_iterations = True
 
@@ -389,10 +389,10 @@ def iterate_over_notifications(bot, script_start_time):
                 user_id = msg_w_o_notif[1]
                 message_id = msg_w_o_notif[0]
                 message_content = msg_w_o_notif[5]
-                message_failed = msg_w_o_notif[12]
+                # message_failed = msg_w_o_notif[12]
                 message_type = msg_w_o_notif[6]
-                created_time = msg_w_o_notif[2]
-                how_old_is_notif = (datetime.datetime.now() - created_time).total_seconds()
+                # created_time = msg_w_o_notif[2]
+                # how_old_is_notif = (datetime.datetime.now() - created_time).total_seconds()
 
                 # limitation to avoid telegram "message too long"
                 if message_content:
@@ -423,7 +423,7 @@ def iterate_over_notifications(bot, script_start_time):
                 else:
                     result = 'cancelled_due_to_doubling'
 
-                analytics_save_sql_strart = datetime.datetime.now()
+                analytics_save_sql_start = datetime.datetime.now()
 
                 # save result of sending telegram notification into SQL
                 write_message_sending_status(conn, message_id, result, mailing_id,
@@ -432,7 +432,7 @@ def iterate_over_notifications(bot, script_start_time):
                 analytics_after_double_saved_in_sql = datetime.datetime.now()
 
                 analytics_save_sql_duration = round((analytics_after_double_saved_in_sql -
-                                                     analytics_save_sql_strart).total_seconds(), 2)
+                                                     analytics_save_sql_start).total_seconds(), 2)
                 logging.info(f'time: {analytics_save_sql_duration} – saving to sql')
 
                 analytics_doubling_checked_saved_to_sql = round((analytics_after_double_saved_in_sql -
@@ -488,7 +488,7 @@ def main_func(event, context):  # noqa
     script_start_time = datetime.datetime.now()
 
     message_from_pubsub = process_pubsub_message(event)
-    logging.info(message_from_pubsub)
+    logging.info(f'received message from pub/sub: {message_from_pubsub}')
 
     bot_token = get_secrets("bot_api_token__prod")
     bot = Bot(token=bot_token)
@@ -501,7 +501,7 @@ def main_func(event, context):  # noqa
         average = sum(analytics_notif_times) / len_n
         message = f'[send_notifs] Analytics: num of messages {len_n}, average time {round(average, 1)} seconds, ' \
                   f'total time {round(sum(analytics_notif_times), 1)} seconds'
-        notify_admin(message)
+        # notify_admin(message)
         logging.info(message)
 
         analytics_notif_times = []

@@ -49,7 +49,7 @@ def sql_connect():
 
     pool = sqlalchemy.create_engine(
         sqlalchemy.engine.url.URL(
-            drivername="postgresql+pg8000",
+            "postgresql+pg8000",
             username=db_user,
             password=db_pass,
             database=db_name,
@@ -69,19 +69,17 @@ def sql_connect():
 def publish_to_pubsub(topic_name, message):
     """publish a new message to pub/sub"""
 
-    # global project_id
-
     topic_path = publisher.topic_path(project_id, topic_name)
     message_json = json.dumps({'data': {'message': message}, })
     message_bytes = message_json.encode('utf-8')
 
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publish succeeded
+        publish_future.result()  # Verify the publishing succeeded
         logging.info('Sent pub/sub message: ' + str(message))
 
     except Exception as e:
-        logging.error('Not able to send pub/sub message: ' + repr(e))
+        logging.info('Not able to send pub/sub message: ')
         logging.exception(e)
 
     return None
@@ -206,7 +204,7 @@ def get_and_update_list_of_active_searches(number_of_searches):
             if not search[3]:
                 cleared_list_of_active_searches.append(search)
 
-        # them we add not-new lines that are not deleted
+        # then we add not-new lines that are not deleted
         for line in full_list_of_active_searches:
             search = list(line)
             if search[3] and search[3] != 'deleted':  # and search[3] != 'hidden':
@@ -345,7 +343,7 @@ def parse_first_post(search_num):
             finish = content.rfind('>')
             content = content[:(finish + 1)]
 
-            # exclude  dynamic info – views of the pictures
+            # exclude dynamic info – views of the pictures
             patterns = re.findall(r'\) \d+ просмотр(?:а|ов)?', content)
             if patterns:
                 for word in patterns:
@@ -473,7 +471,7 @@ def get_list_of_searches_for_first_post_update(percent_of_searches):
                 line.append(i)
                 i += 1
 
-            # sort the table by 4rd arg = number of check that were already done
+            # sort the table by 4th arg = number of check that were already done
             # number 1 – should be the first to check
             # number ∞ – should be the last to check
             base_table.sort(key=lambda x: x[4])
@@ -486,12 +484,12 @@ def get_list_of_searches_for_first_post_update(percent_of_searches):
             # baseline scenario for final weight = (x * y * z * a),
             # where x, y, z and a – are order number for start, update, folder weight, num of completed checks
             for line in base_table:
-                w_start = line[5]
+                # w_start = line[5]
                 w_update = line[6]
-                w_folder = line[7]
+                # w_folder = line[7]
                 w_checks = line[8]
                 # line.append(line[5] * line[6] * line[7] * line[8])
-                line.append(w_update * w_checks)  # scenario WITH OUT folder weight
+                line.append(w_update * w_checks)  # scenario WITHOUT folder weight
 
             # final sort: lower weight – higher priority
             # number 1 – should be the first to check
@@ -654,7 +652,7 @@ def main(event, context): # noqa
     get_and_update_list_of_active_searches(number_of_checked_searches)
 
     # temp block – is used only for batch updates of user regional settings
-    number_of_users_to_update = 2
+    # number_of_users_to_update = 2
     # update_user_regional_settings(number_of_users_to_update)
 
     percent_of_first_posts_to_check = 10
