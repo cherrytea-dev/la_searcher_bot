@@ -58,30 +58,16 @@ def set_basic_parameters():
     global bot_debug
     global admin_user_id
 
-    # check if script is run locally or on cloud server
-    if 'GCLOUD_PROJECT' in os.environ:
-        local_development = False
-    else:
-        local_development = True
+    project_id = os.environ["GCP_PROJECT"]
+    client = secretmanager.SecretManagerServiceClient()
+    bot_token = get_secrets("bot_api_token__prod")
 
-    if local_development is False:
-        project_id = os.environ["GCP_PROJECT"]
-        client = secretmanager.SecretManagerServiceClient()
-        bot_token = get_secrets("bot_api_token__prod")
+    # initiate Debug Bot
+    bot_token_debug = get_secrets("bot_api_token")
+    admin_user_id = get_secrets("my_telegram_id")
+    bot_debug = Bot(token=bot_token_debug)
 
-        # initiate Debug Bot
-        bot_token_debug = get_secrets("bot_api_token")
-        admin_user_id = get_secrets("my_telegram_id")
-        bot_debug = Bot(token=bot_token_debug)
-
-        sql_connect_by_psycopg2()
-    else:
-        # import sys
-        # sys.path.insert(1, '/local_run')
-        from local_parameters import bot_api_token__debug
-
-        bot_token = bot_api_token__debug
-        sql_connect_to_local_db()
+    sql_connect_by_psycopg2()
 
     bot = Bot(token=bot_token)
 
@@ -112,18 +98,6 @@ def sql_connect_by_psycopg2():
     return None
 
 
-def sql_connect_to_local_db():
-    from local_parameters import db_user, db_pass, db_name
-
-    global cur
-    global conn_psy
-
-    conn_psy = psycopg2.connect(dbname=db_name, user=db_user, password=db_pass)
-    cur = conn_psy.cursor()
-
-    return None
-
-
 def publish_to_pubsub(topic_name, message):
     global project_id
     global publisher
@@ -138,7 +112,7 @@ def publish_to_pubsub(topic_name, message):
     # Publish the message
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publish succeeded
+        publish_future.result()  # Verify that publishing succeeded
         print('DBG.P.3: Pub/sub message published')
         return 'Message published.'
     except Exception as e:
@@ -230,7 +204,7 @@ def send_user_preferences(input_user_id):
             elif user_pref_line[0] == 'status_changes':
                 prefs_wording += ' &#8226; об изменении статуса\n'
             elif user_pref_line[0] == 'title_changes':
-                prefs_wording += ' &#8226; об изменении нозвания\n'
+                prefs_wording += ' &#8226; об изменении названия\n'
             elif user_pref_line[0] == 'comments_changes':
                 prefs_wording += ' &#8226; о всех комментариях\n'
             elif user_pref_line[0] == 'inforg_comments':
@@ -254,7 +228,7 @@ def define_family_name(title_string):
     string_by_word = title_string.split()
 
     # exception case: when Family Name is third word
-    # it happens when first two wither Найден Жив or Найден Погиб with different word forms
+    # it happens when first two either Найден Жив or Найден Погиб with different word forms
     if string_by_word[0][0:4].lower() == "найд":
         fam_name = string_by_word[2]
 
@@ -266,7 +240,7 @@ def define_family_name(title_string):
     elif string_by_word[1][0:6].lower() == 'заверш':
         fam_name = string_by_word[2]
 
-    # all other cases
+    # all the other cases
     else:
         fam_name = string_by_word[1]
 
@@ -431,13 +405,13 @@ def send_a_list_of_searches(list_type, curr_user_id, region, region_name):
                   + '">' + region_name + '</a>:\n' + msg
 
         else:
-            msg = 'Не получается отобразить послендие поиски разделе ' \
+            msg = 'Не получается отобразить последние поиски в разделе ' \
                   '<a href="https://lizaalert.org/forum/viewforum.php?f=' + str(region) \
                   + '">' + region_name + '</a>, что-то пошло не так, простите. Напишите об этом разработчику ' \
                                          'в <a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">Специальном Чате ' \
                                          'в телеграм</a>, пожалуйста.'
 
-    # Combine the list of latest active searches
+    # Combine the list of the latest active searches
     else:
 
         msg += compose_msg_on_active_searches_in_one_reg(region, user_data)
@@ -704,6 +678,9 @@ def save_preference(input_user_id, preference):
             pref_id = 1
         elif preference == 'title_changes':
             pref_id = 2
+        else:
+            # only for error cases
+            pref_id = 99
 
         cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
                     (input_user_id, preference, pref_id))
@@ -1059,7 +1036,7 @@ def update_and_download_list_of_regions(curr_user_id, got_message, com_30):
                 if len(user_curr_regs) - len(list_of_regs_to_upload) < 1:
                     region_is_the_only = 'yes'
 
-            # Scenario: this setting WAS in place and now we need to DELETE it
+            # Scenario: this setting WAS in place, and now we need to DELETE it
             if region_was_in_db == 'yes' and not region_is_the_only:
                 for region in list_of_regs_to_upload:
                     cur.execute(
@@ -1068,7 +1045,7 @@ def update_and_download_list_of_regions(curr_user_id, got_message, com_30):
                     )
                     conn_psy.commit()
 
-            # Scenario: this setting WAS in place but now it's the last one - we cannot delete it
+            # Scenario: this setting WAS in place, but now it's the last one - we cannot delete it
             elif region_was_in_db == 'yes' and region_is_the_only:
                 pass
 
@@ -1288,7 +1265,7 @@ def set_cloud_storage(user_id):
 
 # TODO: deactivate since Sep 12 2021 – decision not to store QR code imgs but generate it dynamically
 def write_to_cloud_storage(user_id, what_to_write):
-    """writes current searches snapshot to txt file in cloud storage"""
+    """writes current searches' snapshot to txt file in cloud storage"""
 
     blob = set_cloud_storage(user_id)
     blob.upload_from_filename(what_to_write.name, content_type='png')
@@ -1298,7 +1275,7 @@ def write_to_cloud_storage(user_id, what_to_write):
 
 # TODO: deactivate since Sep 12 2021 – decision not to store QR code imgs but generate it dynamically
 def read_from_cloud_storage(folder_num):
-    """reads previous searches snapshot from txt file in cloud storage"""
+    """reads previous searches' snapshot from txt file in cloud storage"""
 
     blob = set_cloud_storage(folder_num)
     contents_as_bytes = blob.download_as_string()
@@ -1437,32 +1414,32 @@ def main(request):
 
         user_new_status = get_param_if_exists(update, 'update.my_chat_member.new_chat_member.status')
         timer_changed = get_param_if_exists(update, 'update.message.message_auto_delete_timer_changed')
-        usr = get_param_if_exists(update, 'update.my_chat_member.chat.id')
-        curr_user_id = get_param_if_exists(update, 'update.effective_message.from_user.id')
         message_id = get_param_if_exists(update, 'update.effective_message.message_id')
         photo = get_param_if_exists(update, 'update.message.photo')
+        contact = get_param_if_exists(update, 'update.message.contact')
+        inline_query = get_param_if_exists(update, 'update.inline_query')
+
         channel_type = get_param_if_exists(update, 'update.edited_channel_post.chat.type')
         if not channel_type:
             channel_type = get_param_if_exists(update, 'update.channel_post.chat.type')
         if not channel_type:
             channel_type = get_param_if_exists(update, 'update.my_chat_member.chat.type')
+
+        curr_username = get_param_if_exists(update, 'update.effective_message.from_user.username')
+
+        # TODO: below are chat_id, curr_user_id - but it all the same. to be merged
+        curr_user_id = get_param_if_exists(update, 'update.effective_message.from_user.id')
         chat_id = get_param_if_exists(update, 'update.effective_message.chat.id')
         if not chat_id:
             chat_id = get_param_if_exists(update, 'update.edited_channel_post.chat.id')
         if not chat_id:
             chat_id = get_param_if_exists(update, 'update.my_chat_member.chat.id')
-        contact = get_param_if_exists(update, 'update.message.contact')
-
-        # TODO: DEBUG messages to admin only in rare cases
-        if timer_changed:
-            dbg_text = f'[comm]: msg from user, new_status: {user_new_status}, tmr_chg: {timer_changed}, ' \
-                       f'usr: {usr}, msg: {message_id}'
-            bot_debug.sendMessage(chat_id=admin_user_id, text=dbg_text, parse_mode='HTML')
 
         # CASE 1 – when user blocked / unblocked the bot
         if user_new_status in {'kicked', 'member'}:
             try:
                 status_dict = {'kicked': 'block_user', 'member': 'unblock_user'}
+                # TODO: why redefined the outer scope?
                 curr_user_id = update.my_chat_member.chat.id
 
                 # mark user as blocked in psql
@@ -1478,13 +1455,11 @@ def main(request):
 
         # CASE 2 – when user changed auto-delete setting in the bot
         elif timer_changed:
-            bot_debug.sendMessage(chat_id=admin_user_id, text='INFO: User changed auto-delete timer')
             logging.info('user changed auto-delete timer settings')
 
         # CASE 3 – when user sends a PHOTO
         elif photo:
-            bot_debug.sendMessage(chat_id=admin_user_id, text='INFO: users sends us photos!')
-            logging.debug('user sends up photos!')
+            logging.debug('user sends photos to bot')
             # TODO: it should be avoided for now - but in future we can be able to receive QR codes
             bot.sendMessage(chat_id=chat_id, text='Спасибо, интересное! Только бот не работает с изображениями '
                                                   'и отвечает только на определенные текстовые команды.')
@@ -1502,14 +1477,18 @@ def main(request):
 
         # CASE 5 – when user sends Contact
         elif contact:
-            bot_debug.sendMessage(chat_id=admin_user_id, text='[Comm]: INFO: user sends CONTACT to bot!')
             bot.sendMessage(chat_id=chat_id, text='Спасибо, буду знать. Вот только бот не работает с контактами '
                                                   'и отвечает только на определенные текстовые команды.')
 
-        # CASE 6 – regular messaging with bot
+        # CASE 6 – when user mentions bot as @LizaAlert_Searcher_Bot in another telegram chat. Bot should do nothing
+        elif inline_query:
+            bot_debug.sendMessage(chat_id=admin_user_id, text='[comm]: User mentioned bot in some chats')
+
+        # CASE 7 – regular messaging with bot
         else:
             # handling the input messages
             try:
+                # TODO: why reassigning the above variables?
                 message_id = update.effective_message.message_id
                 curr_user_id = update.effective_message.from_user.id
                 curr_username = update.effective_message.from_user.username
@@ -1529,16 +1508,10 @@ def main(request):
                 # TODO: to replace with another user_management script?
                 save_new_user(curr_user_id, curr_username)
 
-            try:
-                # get user regional settings (which regions he/she is interested it)
-                user_regions = get_user_regional_preferences(curr_user_id)
+            # get user regional settings (which regions he/she is interested it)
+            user_regions = get_user_regional_preferences(curr_user_id)
 
-            except Exception as e:
-                print('DBG.C.6.ERR: GENERAL COMM CRASH:', repr(e))
-                bot_debug.sendMessage(chat_id=admin_user_id, text=('Упал скрипт Communicate6:' + str(e)),
-                                      parse_mode='HTML')
-
-            # getting message parameters if user send a REPLY to bot's message
+            # getting message parameters if user send a REPLY to bot message
             reply_to_message_text = ''
             nickname_of_feedback_author = ''
             user_latitude = None
@@ -1753,7 +1726,7 @@ def main(request):
             b_reg_ekat = 'Свердловская обл.'
             b_reg_kurgan = 'Курганская обл.'
             b_reg_tyumen = 'Тюменская обл.'
-            b_reg_hanty_mansi = 'Ханты-Манскийский АО'
+            b_reg_hanty_mansi = 'Ханты-Мансийский АО'
             b_reg_chelyabinks = 'Челябинская обл.'
             b_reg_yamal = 'Ямало-Ненецкий АО'
             b_reg_urals_reg_other = 'Прочие поиски по УФО'
@@ -1869,7 +1842,7 @@ def main(request):
 
             # Admin - specially keep it for Mike, regular users unlikely will be interested in it
 
-            com_10 = 'названия'  # these is "Title update notification" button
+            com_10 = 'названия'  # these are "Title update notification" button
 
             b_admin_menu = 'admin'
             b_test_menu = 'test'
@@ -1938,8 +1911,8 @@ def main(request):
                             cur.execute(
                                 """
                                 INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
-                                """
-                                , (curr_user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
+                                """,
+                                (curr_user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
                             conn_psy.commit()
                         except Exception as e1:
                             print('DBG.C.50.EXC:', repr(e1))
@@ -1950,7 +1923,6 @@ def main(request):
                         msg_sent_by_specific_code = True
 
                         temp_dict = {com_1: 'all', com_2: 'active'}
-                        num_of_regions = len(user_regions)
 
                         cur.execute(
                             """
@@ -1962,13 +1934,13 @@ def main(request):
 
                         region_name = ''
                         for region in user_regions:
-
                             for line in regions_table:
+
                                 if line[0] == region:
                                     region_name = line[1]
                                     break
 
-                            # check if region – is an archive folder: if so – it can be send only to 'all'
+                            # check if region – is an archive folder: if so – it can be sent only to 'all'
                             if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
 
                                 bot_message = send_a_list_of_searches(temp_dict[got_message], curr_user_id,
@@ -1986,8 +1958,8 @@ def main(request):
                                     cur.execute(
                                         """
                                         INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
-                                        """
-                                        , (curr_user_id, datetime.datetime.now(), 'report'))
+                                        """,
+                                        (curr_user_id, datetime.datetime.now(), 'report'))
                                     conn_psy.commit()
                                 except Exception as e:
                                     print('DBG.C.50.EXC:', repr(e))
@@ -2020,8 +1992,8 @@ def main(request):
                     elif got_message.lower() == b_test_menu:
                         bot_message = 'Вы вошли в специальный тестовый раздел, здесь доступны функции в стадии ' \
                                       'отладки и тестирования. Представленный здесь функционал может не работать ' \
-                                      'на 100% корректно. Если заметите случаи некорректного выполненя функционала' \
-                                      ' из этого раздела – пишите, пожалуста, в телеграм-чат ' \
+                                      'на 100% корректно. Если заметите случаи некорректного выполнения функционала' \
+                                      ' из этого раздела – пишите, пожалуйста, в телеграм-чат ' \
                                       'https://t.me/joinchat/2J-kV0GaCgwxY2Ni'
                         keyboard_coordinates_admin = [[b_act_new_filed_trip], [b_deact_new_filed_trip],
                                                       [b_act_coords_change], [b_deact_coords_change], [b_back_to_start]]
@@ -2038,17 +2010,19 @@ def main(request):
                             # add the New User into table user_regional_preferences
                             # region is Moscow for Active Searches & InfoPod
                             cur.execute(
-                                """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values (%s, %s);""",
-                                (input_user_id, 276))
+                                """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values 
+                                (%s, %s);""",
+                                (curr_user_id, 276))
                             conn_psy.commit()
                             cur.execute(
-                                """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values (%s, %s);""",
-                                (input_user_id, 41))
+                                """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values 
+                                (%s, %s);""",
+                                (curr_user_id, 41))
                             conn_psy.commit()
 
                     elif got_message == b_reg_not_moscow:
-                        bot_message = 'Спасибо, тогда, пожалуйста, выбрите хотя бы один регион поисков, чтобы начать ' \
-                                      'получать уведомления. Вы в любой момент сможете изменить список ' \
+                        bot_message = 'Спасибо, тогда, пожалуйста, выберите хотя бы один регион поисков, ' \
+                                      'чтобы начать получать уведомления. Вы в любой момент сможете изменить список ' \
                                       'регионов через настройки бота.'
                         keyboard = [[com_30], [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -2103,7 +2077,7 @@ def main(request):
                                       'строчке. Получается, что сколько параметров вам нужно ввести, столько строк ' \
                                       'и будет в вашем единственном сообщении. Если у нас нет позывного или авто, ' \
                                       'на котором вы ездите на поиски, просто поставьте прочерки в ' \
-                                      'соответствующих строках.\nИтак, отправьте в сообжении, п-та:\n'
+                                      'соответствующих строках.\nИтак, отправьте в сообщении, п-та:\n'
                         bot_message += compose_msg_on_reqd_urs_attr(curr_user_id)
                         keyboard = [[b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -2122,8 +2096,8 @@ def main(request):
                         result = check_and_record_usr_arrts(curr_user_id, got_message)
 
                         if result:
-                            bot_message = 'Супер! Теперь ваш QR код всегда в досутпе: его можно либо открывать ' \
-                                          'из истории изображений от бота в телеграме, либо в нужный момент ' \
+                            bot_message = 'Супер! Теперь ваш QR код всегда в доступе: его можно либо открывать ' \
+                                          'из истории изображений от бота в телеграм, либо в нужный момент ' \
                                           'его можно скачать заново (для работы бота требуется интернет)'
                             keyboard = [[b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -2165,7 +2139,7 @@ def main(request):
                                           'строк ' \
                                           'и будет в вашем сообщении. Если у нас нет позывного или авто, ' \
                                           'на котором вы ездите на поиски, обязательно поставьте прочерки в ' \
-                                          'соответствующих строках\n Итак, отправьте в сообжении п-та:\n'
+                                          'соответствующих строках\n Итак, отправьте в сообщении п-та:\n'
                             bot_message += compose_msg_on_reqd_urs_attr(curr_user_id)
                             keyboard = [[b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -2177,7 +2151,7 @@ def main(request):
                                           'форума или искать в сохраненных файлах. Однако, чтобы Бот смог получить ' \
                                           'QR-код, необходимо пройти 2 простых шага:\n 1. Связать свой аккаунт ' \
                                           'телеграм и аккаунт на форуме. Для этого нужно просто указать своё имя ' \
-                                          'пользвателя на форуме.\n 2. Далее ввести дополнительные данные, если ' \
+                                          'пользователя на форуме.\n 2. Далее ввести дополнительные данные, если ' \
                                           'их не ' \
                                           'будет на форуме.\n На основе этого бот автоматически сгенерирует ваш ' \
                                           'QR-код, который ' \
@@ -2189,7 +2163,7 @@ def main(request):
 
                     elif got_message == b_other:
                         bot_message = 'Здесь можно посмотреть статистику по 20 последним поискам, перейти в ' \
-                                      'канал Коммьюнити или Прочитать важную информацю для Новичка'
+                                      'канал Коммьюнити или Прочитать важную информацию для Новичка'
                         reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
 
                     elif got_message in {com_30, b_fed_dist_pick_other}:
@@ -2228,11 +2202,11 @@ def main(request):
                         reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
 
                     elif got_message == b_settings_coords:
-                        bot_message = 'Нажмите на кнопку и разрешите определить вашу текщущую геопозицию или ' \
+                        bot_message = 'Нажмите на кнопку и разрешите определить вашу текущую геопозицию или ' \
                                       'введите ее вручную, чтобы бот смог запомнить ее. Далее эти координаты ' \
                                       'будут считаться вашим "домом", откуда будем рассчитывать расстояние и ' \
-                                      'направление до поисков. Автоматическое определение коодринат работет ' \
-                                      'только для носимых устройств с функцитей GPS, для Настольных ПК ' \
+                                      'направление до поисков. Автоматическое определение координат работает ' \
+                                      'только для носимых устройств с функцией GPS, для Настольных ПК ' \
                                       'используйте, пожалуйста, ручной ввод.'
                         keyboard_coordinates_1 = [[b_coords_auto_def], [b_coords_man_def], [b_coords_check],
                                                   [b_coords_del], [b_back_to_start]]
@@ -2247,7 +2221,7 @@ def main(request):
                         reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
 
                     elif got_message == b_coords_man_def:
-                        bot_message = 'Введите кооординаты вашего дома вручную в теле сообщения и просто ' \
+                        bot_message = 'Введите координаты вашего дома вручную в теле сообщения и просто ' \
                                       'отправьте. Формат: XX.XXX, XX.XXX, где количество цифр после точки ' \
                                       'может быть различным. Широта должна быть между 30.0 и 80.0 градусами, ' \
                                       'Долгота – между 10.0 и 190.0 градусами.'
@@ -2311,7 +2285,7 @@ def main(request):
                     # save preference for +ALL
                     elif got_message == com_4:
                         bot_message = 'Супер! теперь вы будете получать уведомления в телеграм в случаях: ' \
-                                      'появляние нового поиска, изменение статуса поиска (стоп, НЖ, НП), ' \
+                                      'появление нового поиска, изменение статуса поиска (стоп, НЖ, НП), ' \
                                       'появление новых комментариев по всем поискам. Вы в любой момент можете ' \
                                       'изменить список уведомлений'
                         save_preference(curr_user_id, 'all')
@@ -2330,7 +2304,7 @@ def main(request):
                         bot_message = 'Если вы новичок и у вас за плечами не так много поисков – приглашаем ' \
                                       '<a href="https://xn--b1afkdgwddgp9h.xn--p1ai/">ознакомиться с основами ' \
                                       'работы ЛА</a>. Всю теорию работы ЛА необходимо получать от специально ' \
-                                      'обученных волонтеров ЛА. Но если у вас еще не было возможночти пройти ' \
+                                      'обученных волонтеров ЛА. Но если у вас еще не было возможности пройти ' \
                                       'официальное обучение, а вы уже готовы выехать на поиск – этот ресурс для вас.'
                         keyboard_other = [[com_1], [b_goto_community], [b_goto_first_search], [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
@@ -2344,7 +2318,7 @@ def main(request):
                         # save preference for +NEW SEARCHES
                         if got_message == com_5:
                             bot_message = 'Отлично! Теперь вы будете получать уведомления в телеграм при ' \
-                                          'появлянии нового поиска. Вы в любой момент можете изменить ' \
+                                          'появлении нового поиска. Вы в любой момент можете изменить ' \
                                           'список уведомлений'
                             save_preference(curr_user_id, 'new_searches')
 
@@ -2355,7 +2329,7 @@ def main(request):
 
                         # save preference for +BotNews
                         elif got_message == com_9:
-                            bot_message = 'Теперь в случае появляния нового функционала бота вы узнаете об этом в ' \
+                            bot_message = 'Теперь в случае появления нового функционала бота вы узнаете об этом в ' \
                                           'небольшом новостном сообщении'
                             save_preference(curr_user_id, 'bot_news')
 
@@ -2410,7 +2384,7 @@ def main(request):
                         # save preference for +NewFieldTrips
                         elif got_message == b_act_new_filed_trip:
                             bot_message = 'Теперь вы будете получать уведомления о новых выездах по уже идущим ' \
-                                          'поискам. Обртите внимание, что это не рассылка по новым темам на форуме, ' \
+                                          'поискам. Обратите внимание, что это не рассылка по новым темам на форуме, ' \
                                           'а именно о том, что в существующей теме в ПЕРВОМ посте появилась ' \
                                           'информация о новом выезде'
                             save_preference(curr_user_id, 'new_field_trips')
@@ -2508,7 +2482,7 @@ def main(request):
                     except: # noqa
                         pass
                     try:
-                        text_for_admin += str(cupdate.effective_message) + ', '
+                        text_for_admin += str(update.effective_message) + ', '
                     except: # noqa
                         pass
                     try:
@@ -2527,8 +2501,4 @@ def main(request):
     cur.close()
     conn_psy.close()
 
-    return "okay"
-
-
-if __name__ == '__main__':
-    main(request)
+    return None
