@@ -508,7 +508,7 @@ def distance_to_search(search_lat, search_lon, user_let, user_lon):
         return bearing
 
     def calc_nsew(lat_1, lon_1, lat_2, lon_2):
-        points3 = ['⬆️', '↗️', '➡️', '&#8600;&#xFE0E;', '&#8595;&#xFE0E;',
+        points3 = ['&#8593;&#xFE0E;', '&#x2197;&#xFE0F;', '&#8594;&#xFE0E;', '&#8600;&#xFE0E;', '&#8595;&#xFE0E;',
                    '&#8601;&#xFE0E;', '&#8592;&#xFE0E;', '&#8598;&#xFE0E;']
 
         bearing = calc_bearing(lat_1, lon_1, lat_2, lon_2)
@@ -836,7 +836,7 @@ def save_preference(input_user_id, preference):
     return None
 
 
-def update_and_download_list_of_regions(curr_user_id, got_message, com_30):
+def update_and_download_list_of_regions(curr_user_id, got_message, com_30, b_fed_dist_pick_other):
     """upload & download the list of user's regions"""
 
     global cur
@@ -951,7 +951,7 @@ def update_and_download_list_of_regions(curr_user_id, got_message, com_30):
     # case for the first entry to the screen of Reg Settings
     if got_message == com_30:
         is_first_entry = 'yes'
-    elif got_message in fed_okr_dict:
+    elif got_message in fed_okr_dict or got_message == b_fed_dist_pick_other:
         pass
     else:
         try:
@@ -1019,12 +1019,12 @@ def update_and_download_list_of_regions(curr_user_id, got_message, com_30):
     if is_first_entry:
         pre_msg = "Бот может показывать поиски в любом регионе работы ЛА, доступном на форуме.\n"
         pre_msg += "Вы можете подписаться на несколько регионов – просто кликните на соответствующие кнопки регионов." \
-                   "\nЧтобы ОТПИСАТЬСЯ от ненужных регионов – нажмите на соответствующую кнопку еще раз.\n"
+                   "\nЧтобы ОТПИСАТЬСЯ от ненужных регионов – нажмите на соответствующую кнопку региона еще раз.\n\n"
         pre_msg += "Текущий список ваших регионов:"
         msg = pre_msg + msg
     elif region_is_the_only:
         msg = 'Необходимо выбрать как минимум один регион. Сейчас выбран' + msg
-    elif got_message in fed_okr_dict:
+    elif got_message in fed_okr_dict or got_message == b_fed_dist_pick_other:
         msg = 'Текущий список ваших регионов:' + msg
     else:
         msg = 'Записали. Обновленный список ваших регионов:' + msg
@@ -2097,7 +2097,8 @@ def main(request):
                         reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
 
                     elif got_message in {com_30, b_fed_dist_pick_other}:
-                        bot_message = update_and_download_list_of_regions(curr_user_id, got_message, com_30)
+                        bot_message = update_and_download_list_of_regions(curr_user_id, got_message, com_30,
+                                                                          b_fed_dist_pick_other)
                         reply_markup = ReplyKeyboardMarkup(keyboard_fed_dist_set, resize_keyboard=True)
 
                     # elif got_message == b_fed_dist_pick_other:
@@ -2105,12 +2106,14 @@ def main(request):
                     #    reply_markup = ReplyKeyboardMarkup(keyboard_fed_dist_set, resize_keyboard=True)
 
                     elif got_message in dict_of_fed_dist:
-                        updated_regions = update_and_download_list_of_regions(curr_user_id, got_message, com_30)
+                        updated_regions = update_and_download_list_of_regions(curr_user_id, got_message, com_30,
+                                                                              b_fed_dist_pick_other)
                         bot_message = updated_regions
                         reply_markup = ReplyKeyboardMarkup(dict_of_fed_dist[got_message], resize_keyboard=True)
 
                     elif got_message in full_dict_of_regions:
-                        updated_regions = update_and_download_list_of_regions(curr_user_id, got_message, com_30)
+                        updated_regions = update_and_download_list_of_regions(curr_user_id, got_message, com_30,
+                                                                              b_fed_dist_pick_other)
                         bot_message = updated_regions
                         keyboard = keyboard_fed_dist_set
                         for fed_dist in dict_of_fed_dist:
