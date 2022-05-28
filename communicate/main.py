@@ -43,9 +43,8 @@ def sql_connect_by_psycopg2():
     db_host = '/cloudsql/' + db_conn
 
     conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
-    cur = conn_psy.cursor()
 
-    return conn_psy, cur
+    return conn_psy
 
 
 def publish_to_pubsub(topic_name, message):
@@ -1238,7 +1237,7 @@ def main(request):
 
     admin_user_id = get_secrets("my_telegram_id")
 
-    with sql_connect_by_psycopg2()[0] as conn_psy, sql_connect_by_psycopg2()[1] as cur:
+    with sql_connect_by_psycopg2() as conn_psy, conn_psy.cursor() as cur:
 
         bot_request_aft_usr_msg = ''
         msg_sent_by_specific_code = False
