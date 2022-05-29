@@ -1262,19 +1262,27 @@ def main(request):
             if not channel_type:
                 channel_type = get_param_if_exists(update, 'update.my_chat_member.chat.type')
 
-            curr_username = get_param_if_exists(update, 'update.effective_message.from_user.username')
+            username = get_param_if_exists(update, 'update.effective_message.from_user.username')
 
             # the purpose of this bot - sending messages to unique users, this way
             # chat_id is treated as user_id and vice versa (which is not true in general)
 
             # TODO: below are user_id - but it all the same. to be merged
             user_id = get_param_if_exists(update, 'update.effective_message.from_user.id')
+            print(f'1: {user_id}')
             if not user_id:
                 user_id = get_param_if_exists(update, 'update.effective_message.chat.id')
+                print(f'2: {user_id}')
             if not user_id:
                 user_id = get_param_if_exists(update, 'update.edited_channel_post.chat.id')
+                print(f'3: {user_id}')
             if not user_id:
                 user_id = get_param_if_exists(update, 'update.my_chat_member.chat.id')
+                print(f'4: {user_id}')
+            print(f'5: {user_id}')
+            if not user_id:
+                user_id = get_param_if_exists(update, 'update.message.chat.id')
+                print(f'6: {user_id}')
 
             # CASE 1 – when user blocked / unblocked the bot
             if user_new_status in {'kicked', 'member'}:
@@ -1329,7 +1337,7 @@ def main(request):
                 user_is_new = check_if_new_user(conn_psy, cur, user_id)
                 if user_is_new:
                     # TODO: to replace with another user_management script?
-                    save_new_user(conn_psy, cur, user_id, curr_username)
+                    save_new_user(conn_psy, cur, user_id, username)
 
                 # get user regional settings (which regions he/she is interested it)
                 user_regions = get_user_regional_preferences(conn_psy, cur, user_id)
@@ -2295,7 +2303,7 @@ def main(request):
                     else:
                         logging.info('DBG.C.6. THERE IS a COMM SCRIPT INVOCATION w/O MESSAGE OR COORDINATES:')
                         logging.info(str(update))
-                        text_for_admin = f'[comm]: Empty message in Comm, user={user_id}, username={curr_username}, ' \
+                        text_for_admin = f'[comm]: Empty message in Comm, user={user_id}, username={username}, ' \
                                          f'got_message={got_message}, update={update}, ' \
                                          f'bot_request_bfr_usr_msg={bot_request_bfr_usr_msg}'
                         notify_admin(text_for_admin)
