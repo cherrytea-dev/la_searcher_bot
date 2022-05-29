@@ -24,7 +24,7 @@ publisher = pubsub_v1.PublisherClient()
 # Made as a placeholder to avoid PyCharm errors. db to be re-defined in a function sql_connect()
 db = sqlalchemy.create_engine(
     sqlalchemy.engine.url.URL(
-        drivername="postgresql+pg8000", username='db_user', password='db_pass', database='db_name',
+        "postgresql+pg8000", username='db_user', password='db_pass', database='db_name',
         query={"unix_sock": "{}/{}/.s.PGSQL.5432".format('db_socket_dir', 'db_conn')}
     )
 )
@@ -62,7 +62,7 @@ def set_cloud_storage(bucket_name, folder_num):
 
 
 def write_snapshot_to_cloud_storage(bucket_to_write, what_to_write, folder_num):
-    """writes current searches snapshot to txt file in cloud storage"""
+    """writes current search's snapshot to txt file in cloud storage"""
 
     blob = set_cloud_storage(bucket_to_write, folder_num)
     blob.upload_from_string(what_to_write)
@@ -71,7 +71,7 @@ def write_snapshot_to_cloud_storage(bucket_to_write, what_to_write, folder_num):
 
 
 def read_snapshot_from_cloud_storage(bucket_to_read, folder_num):
-    """reads previous searches snapshot from txt file in cloud storage"""
+    """reads previous search's snapshot from txt file in cloud storage"""
 
     try:
         blob = set_cloud_storage(bucket_to_read, folder_num)
@@ -668,7 +668,7 @@ def publish_to_pubsub(topic_name, message):
     # Publish a message
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publish succeeded
+        publish_future.result()  # Verify the publishing succeeded
         logging.info('DBG.P.3: Pub/sub message published')
         logging.info('publish_future_.result(): ' + str(publish_future.result()))
 
@@ -677,6 +677,7 @@ def publish_to_pubsub(topic_name, message):
         logging.exception(e)
 
     return None
+
 
 def notify_admin(message):
     """send the pub/sub message to Debug to Admin"""
@@ -731,7 +732,7 @@ def sql_connect():
 
     pool = sqlalchemy.create_engine(
         sqlalchemy.engine.url.URL(
-            drivername="postgresql+pg8000",
+            "postgresql+pg8000",
             username=db_user,
             password=db_pass,
             database=db_name,
@@ -1261,7 +1262,7 @@ def parse_one_comment(search_num, comment_num):
         try:
             comment_author_nickname = comment_author_block.text
         except Exception as e:
-            logging.info('Mike, here is an exception 7 for search ' + str(search_num) + ', and comment ' +
+            logging.info('Here is an exception 7 for search ' + str(search_num) + ', and comment ' +
                          str(comment_num) +
                          ' error: ' + repr(e))
             try:
@@ -1278,14 +1279,14 @@ def parse_one_comment(search_num, comment_num):
             comment_author_link = int("".join(filter(str.isdigit, comment_author_block['href'][36:43])))
 
         except Exception as e:
-            logging.info('Mike, here is an exception 9 for search ' + str(search_num) + ', and comment ' +
+            logging.info('Here is an exception 9 for search ' + str(search_num) + ', and comment ' +
                          str(comment_num) +
                          ' error: ' + repr(e))
             try:
                 comment_author_link = int(
                     "".join(filter(str.isdigit, search_code_blocks.find('a', 'username-coloured')['href'][36:43])))
             except Exception as e2:
-                logging.info('Mike, here is an exception 10' + repr(e2))
+                logging.info('Here is an exception 10' + repr(e2))
                 comment_author_link = 'unidentified_link'
 
         # finding the global comment NUMBER
