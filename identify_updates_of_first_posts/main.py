@@ -406,8 +406,16 @@ def split_text_to_deleted_and_regular_parts(text):
         case.decompose()
     non_deleted_text = str(soup_without_deleted)
 
-    deleted_list = soup.find_all('span', {'style': 'text-decoration:line-through'})
+    deleted_list = [
+        item.getText(strip=True) for item in soup.find_all('span', {'style': 'text-decoration:line-through'})
+    ]
+
     deleted_text = '\n'.join(deleted_list)
+
+    # TODO: debug
+    print(f'deleted text = {deleted_text}')
+    print(f'non-deleted text = {non_deleted_text}')
+    # TODO: debug
 
     return deleted_text, non_deleted_text
 
