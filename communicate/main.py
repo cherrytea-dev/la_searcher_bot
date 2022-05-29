@@ -1223,7 +1223,7 @@ def get_param_if_exists(upd, func_input):
     update = upd  # noqa
 
     try:
-        func_output = literal_eval(func_input)
+        func_output = eval(func_input)
     except:  # noqa
         func_output = None
 
