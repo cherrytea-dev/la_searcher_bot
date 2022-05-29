@@ -7,7 +7,6 @@ import json
 import logging
 import math
 from io import BytesIO
-from ast import literal_eval
 import qrcode
 
 import psycopg2
@@ -1269,20 +1268,14 @@ def main(request):
 
             # TODO: below are user_id - but it all the same. to be merged
             user_id = get_param_if_exists(update, 'update.effective_message.from_user.id')
-            print(f'1: {user_id}')
             if not user_id:
                 user_id = get_param_if_exists(update, 'update.effective_message.chat.id')
-                print(f'2: {user_id}')
             if not user_id:
                 user_id = get_param_if_exists(update, 'update.edited_channel_post.chat.id')
-                print(f'3: {user_id}')
             if not user_id:
                 user_id = get_param_if_exists(update, 'update.my_chat_member.chat.id')
-                print(f'4: {user_id}')
-            print(f'5: {user_id}')
             if not user_id:
-                user_id = get_param_if_exists(update, 'update.message.chat.id')
-                print(f'6: {user_id}')
+                logging.error('failed to define user_id')
 
             # CASE 1 – when user blocked / unblocked the bot
             if user_new_status in {'kicked', 'member'}:
