@@ -479,7 +479,7 @@ def distance_to_search(search_lat, search_lon, user_let, user_lon):
         # indicators of the direction, like ↖︎
         points = ['&#8593;&#xFE0E;', '&#8599;&#xFE0F;', '&#8594;&#xFE0E;', '&#8600;&#xFE0E;',
                   '&#8595;&#xFE0E;', '&#8601;&#xFE0E;', '&#8592;&#xFE0E;', '&#8598;&#xFE0E;']
-        points4= ['↑', '↗','→︎','↘︎',     '↓︎','↙︎','←','↖︎'︎]
+        points4= ['↑', '↗', '→︎', '↘︎', '↓︎', '↙︎', '←', '↖︎'︎]
 
         bearing = calc_bearing(lat_1, lon_1, lat_2, lon_2)
         bearing += 22.5
