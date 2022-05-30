@@ -18,7 +18,6 @@ from google.cloud import pubsub_v1
 project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
 publisher = pubsub_v1.PublisherClient()
-db = None
 new_records_list = []
 users_list = []
 coordinates_format = "{0:.5f}"
@@ -27,12 +26,10 @@ fib_list = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987]
 
 
 # for analytics
-analytics_notif_times = []
 search_id_for_analytics = None
 change_id_for_analytics = None
 change_type_for_analytics = None
 mailing_id = None
-script_start_time = None
 
 
 def sql_connect():
@@ -659,6 +656,24 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
     return msg, lat, lon, scenario
 
 
+def compose_com_msg_on_field_trip(link, name, age, age_wording, new_value):
+    """compose the common, user-independent message on filed trips change"""
+
+    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
+
+    # msg = ''
+    lat, lon = None, None
+    # link_text = '{link_text}'
+    region = '{region}'
+
+    msg = f'Выезд по поиску <a href="{link}">{name}{age_info}</a>{region}:\n'
+
+    # clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
+    # msg += f'{clickable_link}\n'
+
+    return msg, lat, lon
+
+
 def compose_com_msg_on_status_change(status, link, name, age, age_wording, region):
     """compose the common, user-independent message on search status change"""
 
@@ -813,6 +828,11 @@ def enrich_new_records_with_message_texts():
             elif line.changed_field == 'inforg_replies':
                 line.message = compose_com_msg_on_inforg_comments(line.link, line.name, line.age, line.age_wording,
                                                                   line.comments_inforg, line.region)
+
+            elif line.change_type == 5:  # field_trip
+                line.message, line.search_latitude, line.search_longitude = \
+                    compose_com_msg_on_field_trip(line.link, line.name, line.age, line.age_wording, line.new_value)
+
             elif line.change_type == 6:  # coords_change
                 line.message, line.search_latitude, line.search_longitude, line.coords_change_type = \
                     compose_com_msg_on_coords_change(line.link, line.name, line.age, line.age_wording, line.new_value)
@@ -1149,6 +1169,8 @@ def iterate_over_all_users_and_updates(conn):
                     mailing_type_id = 2
                 elif changed_field == 'replies_num_change':
                     mailing_type_id = 3
+                elif change_type == 5:  # field_trip
+                    mailing_type_id = 5
                 elif change_type == 6:  # coords_change
                     mailing_type_id = 6
 
@@ -1266,6 +1288,17 @@ def iterate_over_all_users_and_updates(conn):
                                                                                                       s_lon, u_lat,
                                                                                                       u_lon,
                                                                                                       region_to_show)
+
+                                        elif change_type == 5:  # filed_trip
+
+                                            # TODO: temp debug
+                                            print(f'YYY: user_id={user.user_id}, user={user}, '
+                                                  f'prefs={user_notif_prefs}')
+                                            # TODO: temp debug
+
+                                            # TODO: temp limitation for ADMIN
+                                            if user.user_id in admins_list:
+                                                message = new_record.message
 
                                         if message:
 
@@ -1441,11 +1474,9 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
     """compose individual message for notification of every user on new search"""
 
     # 0. Heading and Region clause if user is 'multi-regional'
-    message = 'Новый поиск'
-    if region_to_show:
-        message += ' в регионе ' + str(region_to_show) + '!\n'
-    else:
-        message += '! \n'
+
+    region_wording = f' в регионе {region_to_show}' if region_to_show else ''
+    message = f'Новый поиск{region_wording}!\n'
 
     # 1. Search important attributes - common part (e.g. 'Внимание, выезд!)
     if new_record.message[1]:
@@ -1458,27 +1489,25 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
     if s_lat and s_lon and u_lat and u_lon:
         try:
             dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
-            direction = '\n\nОт вас ~' + str(dist) + ' км ' + direct
+            direction = f'\n\nОт вас ~{dist} км {direct}'
 
             message += generate_yandex_maps_place_link2(s_lat, s_lon, direction)
-            message += '\n'
-            message += '<code>' + str(coordinates_format.format(float(s_lat)))
-            message += ', ' + str(coordinates_format.format(float(s_lon)))
-            message += '</code>'
+            message += f'\n<code>{coordinates_format.format(float(s_lat))}, ' \
+                       f'{coordinates_format.format(float(s_lon))}</code>'
 
-        except Exception as ee:
-            logging.error('Not able to compose individual msg with distance & direction, params: '
-                          + str([new_record, s_lat, s_lon, u_lat, u_lon]) + ', error: ' + repr(ee))
-            logging.exception(ee)
+        except Exception as e:
+            logging.info(f'Not able to compose individual msg with distance & direction, params: '
+                         f'[{new_record}, {s_lat}, {s_lon}, {u_lat}, {u_lon}]')
+            logging.exception(e)
 
     if s_lat and s_lon and not u_lat and not u_lon:
         try:
             message += '\n\n' + generate_yandex_maps_place_link2(s_lat, s_lon, 'map')
 
-        except Exception as ee:
-            logging.error('Not able to compose message with Yandex Map Link, params:'
-                          + str([new_record, s_lat, s_lon, u_lat, u_lon]) + ', error:' + repr(ee))
-            logging.exception(ee)
+        except Exception as e:
+            logging.info(f'Not able to compose message with Yandex Map Link, params: '
+                         f'[{new_record}, {s_lat}, {s_lon}, {u_lat}, {u_lon}]')
+            logging.exception(e)
 
     # 4. Managers – common part
     if new_record.message[2]:
@@ -1529,10 +1558,10 @@ def publish_to_pubsub(topic_name, message):
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publishing succeeded
-        logging.info('Sent pub/sub message: ' + str(message))
+        logging.info(f'Sent pub/sub message: {message}')
 
     except Exception as e:
-        logging.error('Not able to send pub/sub message: ' + repr(e))
+        logging.info('Not able to send pub/sub message: ')
         logging.exception(e)
 
     return None
@@ -1572,8 +1601,8 @@ def mark_new_records_as_processed(conn):
             sql_text = sqlalchemy.text("""UPDATE change_log SET notification_sent = 'n' WHERE id=:a;""")
             conn.execute(sql_text, a=record)
 
-        logging.info('The list of Updates that are processed and not ignored: ' + str(change_id_list))
-        logging.info('The list of Updates that are processed and ignored: ' + str(change_id_list_ignored))
+        logging.info(f'The list of Updates that are processed and not ignored: {change_id_list}')
+        logging.info(f'The list of Updates that are processed and ignored: {change_id_list_ignored}')
         logging.info('All Updates are marked as processed in Change Log')
 
     except Exception as e:
@@ -1612,8 +1641,8 @@ def mark_new_comments_as_processed(conn):
             sql_text = sqlalchemy.text("UPDATE comments SET notif_sent_inforg = 'y' WHERE search_forum_num=:a;")
             conn.execute(sql_text, a=record)
 
-        logging.info('The list of Updates with Comments that are processed '
-                     'and not ignored: ' + str(change_id_list_all) + str(change_id_list_inforg))
+        logging.info(f'The list of Updates with Comments that are processed and not ignored: {change_id_list_all}, '
+                     f'{change_id_list_inforg}')
         logging.info('All Comments are marked as processed')
 
     except Exception as e:
@@ -1625,7 +1654,7 @@ def mark_new_comments_as_processed(conn):
                                         ;""")
         conn.execute(sql_text)
 
-        logging.error('Not able to mark Comments as Processed: ' + repr(e))
+        logging.info('Not able to mark Comments as Processed:')
         logging.exception(e)
         logging.info('Due to error, all Comments are marked as processed')
         notify_admin('ERROR: Not able to mark Comments as Processed!')
@@ -1638,11 +1667,6 @@ def main(event, context):  # noqa
 
     global new_records_list
     global users_list
-    global db
-    global analytics_notif_times
-    global script_start_time
-
-    script_start_time = datetime.datetime.now()
 
     # TODO: should be avoided in the future (doesn't return None help?)
     # the below two lines are required - in other case these arrays are not always empty,
@@ -1651,41 +1675,38 @@ def main(event, context):  # noqa
     users_list = []
 
     # initiate SQL connection
-    db = sql_connect()
-    conn = db.connect()
+    with sql_connect().connect() as conn:
 
-    # compose New Records List: the delta from Change log
-    compose_new_records_from_change_log(conn)
+        # compose New Records List: the delta from Change log
+        compose_new_records_from_change_log(conn)
 
-    # only if there are updates in Change Log
-    if new_records_list:
+        # only if there are updates in Change Log
+        if new_records_list:
 
-        # enrich New Records List with all the updates that should be in notifications
-        enrich_new_records_from_searches(conn)
-        enrich_new_records_with_search_activities(conn)
-        enrich_new_records_with_managers(conn)
-        enrich_new_records_with_comments(conn, 'all')
-        enrich_new_records_with_comments(conn, 'inforg')
-        enrich_new_records_with_message_texts()
+            # enrich New Records List with all the updates that should be in notifications
+            enrich_new_records_from_searches(conn)
+            enrich_new_records_with_search_activities(conn)
+            enrich_new_records_with_managers(conn)
+            enrich_new_records_with_comments(conn, 'all')
+            enrich_new_records_with_comments(conn, 'inforg')
+            enrich_new_records_with_message_texts()
 
-        # compose Users List: all the notifications recipients' details
-        compose_users_list_from_users(conn)
-        enrich_users_list_with_notification_preferences(conn)
-        enrich_users_list_with_user_regions(conn)
+            # compose Users List: all the notifications recipients' details
+            compose_users_list_from_users(conn)
+            enrich_users_list_with_notification_preferences(conn)
+            enrich_users_list_with_user_regions(conn)
 
-        # check the matrix: new update - user and initiate sending notifications
-        iterate_over_all_users_and_updates(conn)
+            # check the matrix: new update - user and initiate sending notifications
+            iterate_over_all_users_and_updates(conn)
 
-        # mark all the "new" lines in tables Change Log & Comments as "old"
-        mark_new_records_as_processed(conn)
-        mark_new_comments_as_processed(conn)
+            # mark all the "new" lines in tables Change Log & Comments as "old"
+            mark_new_records_as_processed(conn)
+            mark_new_comments_as_processed(conn)
 
-        # final step – update statistics on how many users received notifications on new searches
-        record_notification_statistics(conn)
+            # final step – update statistics on how many users received notifications on new searches
+            record_notification_statistics(conn)
 
-    # check if there are any notifications remained to be sent
-    # TODO: delete try
-    try:
+        # check if there are any notifications remained to be sent
         check = conn.execute(
             """
             SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log 
@@ -1695,24 +1716,9 @@ def main(event, context):  # noqa
         if check:
             logging.info('we checked – there is still something to notify, so we re-initiated this function')
             publish_to_pubsub('topic_for_notification', 're-run from same script')
-    except Exception as e:  # noqa
-        logging.error('Error!')
-        logging.exception(e)
 
-    conn.close()
     del new_records_list
     del users_list
-    del db
-    del conn
-
-    if analytics_notif_times:
-        len_n = len(analytics_notif_times)
-        average = sum(analytics_notif_times) / len_n
-        notify_admin(f'[comp_notif]: Analytics: Search_id {search_id_for_analytics}, Change_id '
-                     f'{change_id_for_analytics}, Change_type {change_type_for_analytics}, '
-                     f'Mailing_id {mailing_id}: num of messages {len_n}, average time {round(average, 1)} seconds, '
-                     f'total time {round(sum(analytics_notif_times), 1)} seconds')
-        analytics_notif_times = []
 
     publish_to_pubsub('topic_to_send_notifications', 'initiate notifs send out')
 
