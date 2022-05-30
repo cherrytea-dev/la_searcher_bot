@@ -929,11 +929,8 @@ def update_and_download_list_of_regions(conn_psy, cur, user_id, got_message, b_m
     user_curr_regs_list = [reg[0] for reg in user_curr_regs]
 
     for reg in user_curr_regs_list:
-        try:
-            if rev_reg_dict[reg]:
-                msg += ',\n &#8226; ' + rev_reg_dict[reg]
-        except:  # noqa
-            pass
+        if reg in rev_reg_dict:
+            msg += ',\n &#8226; ' + rev_reg_dict[reg]
 
     msg = msg[1:]
 
