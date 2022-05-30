@@ -604,7 +604,7 @@ def parse_coordinates(search_num):
                                 logging.info('DBG.P.36.EXC. Coords-1:')
                                 logging.exception(e2)
         except Exception as e:
-            logging.info('Mike, here is an exception 3')
+            logging.info('exception:')
             logging.exception(e)
             pass
 
@@ -635,7 +635,7 @@ def update_coordinates(parsed_summary):
 
     for i in range(len(parsed_summary)):
         if parsed_summary[i][2] == 'Ищем':
-            logging.info(f'Mike, for this search coordinates should be saved {parsed_summary[i][1]}')
+            logging.info(f'search coordinates should be saved {parsed_summary[i][1]}')
             coords = parse_coordinates(parsed_summary[i][1])
 
             if coords[0] != 0 and coords[1] != 0:
@@ -1262,13 +1262,13 @@ def parse_one_comment(search_num, comment_num):
         try:
             comment_author_nickname = comment_author_block.text
         except Exception as e:
-            logging.info('Here is an exception 7 for search ' + str(search_num) + ', and comment ' +
-                         str(comment_num) +
-                         ' error: ' + repr(e))
+            logging.info(f'exception for search={search_num} and comment={comment_num}')
+            logging.exception(e)
             try:
                 comment_author_nickname = search_code_blocks.find('a', 'username-coloured').text
-            except Exception as e2:
-                logging.info('Mike, here is an exception 8' + repr(e2))
+            except Exception as e:
+                logging.info('exception:')
+                logging.exception(e)
                 comment_author_nickname = 'unidentified_username'
 
         if comment_author_nickname[:6].lower() == 'инфорг':
@@ -1298,9 +1298,8 @@ def parse_one_comment(search_num, comment_num):
             external_span = comment_text_0.blockquote.extract()
             comment_text_1 = comment_text_0.text
         except Exception as e:
-            logging.info('Mike, here is an exception 11 for search ' + str(search_num) + ', and comment ' +
-                         str(comment_num) +
-                         ' error: ' + repr(e))
+            logging.info(f'exception for search={search_num} and comment={comment_num}')
+            logging.exception(e)
             comment_text_1 = comment_text_0.text
         comment_text = " ".join(comment_text_1.split())
 
@@ -1372,8 +1371,8 @@ def process_delta(folder_num):
         '''1. move UPD to Change Log'''
         change_log_updates = []
         there_are_inforg_comments = False
-        for i in range(len(snapshot)):
-            snpsht = list(snapshot[i])
+        for line in snapshot:
+            snpsht = list(line)
             for j in range(len(searches_full_list)):
                 srchs = list(searches_full_list[j])
                 if snpsht[0] == srchs[0]:

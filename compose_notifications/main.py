@@ -136,12 +136,12 @@ def define_dist_and_dir_to_search(search_lat, search_lon, user_let, user_lon):
     lon2 = math.radians(float(user_lon))
 
     # change in coordinates
-    dlon = lon2 - lon1
+    d_lon = lon2 - lon1
 
-    dlat = lat2 - lat1
+    d_lat = lat2 - lat1
 
     # Haversine formula
-    a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    a = math.sin(d_lat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(d_lon / 2) ** 2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     distance = earth_radius * c
@@ -150,10 +150,10 @@ def define_dist_and_dir_to_search(search_lat, search_lon, user_let, user_lon):
     # define direction
 
     def calc_bearing(lat_2, lon_2, lat_1, lon_1):
-        d_lon = (lon_2 - lon_1)
-        x = math.cos(math.radians(lat_2)) * math.sin(math.radians(d_lon))
+        d_lon_ = (lon_2 - lon_1)
+        x = math.cos(math.radians(lat_2)) * math.sin(math.radians(d_lon_))
         y = math.cos(math.radians(lat_1)) * math.sin(math.radians(lat_2)) - math.sin(math.radians(lat_1)) * math.cos(
-            math.radians(lat_2)) * math.cos(math.radians(d_lon))
+            math.radians(lat_2)) * math.cos(math.radians(d_lon_))
         bearing = math.atan2(x, y)  # use atan2 to determine the quadrant
         bearing = math.degrees(bearing)
 
@@ -361,7 +361,7 @@ def compose_new_records_from_change_log(conn):
 
 
 def enrich_new_records_from_searches(conn):
-    """add the add'l data from Searches into New Records list"""
+    """add the additional data from Searches into New Records list"""
 
     global new_records_list
 
@@ -867,7 +867,7 @@ def compose_users_list_from_users(conn):
 
 
 def enrich_users_list_with_notification_preferences(conn):
-    """add the add'l data on notification preferences from User_preferences into Users List"""
+    """add the additional data on notification preferences from User_preferences into Users List"""
 
     global users_list
 
@@ -896,7 +896,7 @@ def enrich_users_list_with_notification_preferences(conn):
 
 
 def enrich_users_list_with_user_regions(conn):
-    """add the add'l data on user preferred regions from User Regional Preferences into Users List"""
+    """add the additional data on user preferred regions from User Regional Preferences into Users List"""
 
     global users_list
 
@@ -947,7 +947,7 @@ def get_list_of_admins_and_testers(conn):
         logging.info('Got the Lists of Admins & Testers')
 
     except Exception as e:
-        logging.error('Not able to get the lists of Admins & Testers: ' + repr(e))
+        logging.info('Not able to get the lists of Admins & Testers ')
         logging.exception(e)
 
     return list_of_admins, list_of_testers
@@ -1129,7 +1129,7 @@ def iterate_over_all_users_and_updates(conn):
             if new_record.ignore != 'y':
 
                 # TODO: temp debug
-                adm = get_list_of_admins_and_testers(conn)
+                admins_list, testers_list = get_list_of_admins_and_testers(conn)
                 # TODO: temp debug
 
                 s_lat = new_record.search_latitude
@@ -1261,10 +1261,11 @@ def iterate_over_all_users_and_updates(conn):
                                             # TODO: temp debug
 
                                             # TODO: temp limitation for ADMIN
-                                            if user.user_id in adm:
+                                            if user.user_id in admins_list:
                                                 message = compose_individual_message_on_coords_change(new_record, s_lat,
-                                                                                                  s_lon, u_lat, u_lon,
-                                                                                                  region_to_show)
+                                                                                                      s_lon, u_lat,
+                                                                                                      u_lon,
+                                                                                                      region_to_show)
 
                                         if message:
 
@@ -1335,7 +1336,7 @@ def iterate_over_all_users_and_updates(conn):
 
                                                 if change_type == 6 and s_lat and s_lon \
                                                         and new_record.coords_change_type != 'drop' \
-                                                        and user.user_id in adm:  # coords_change
+                                                        and user.user_id in admins_list:  # coords_change
                                                     message_params = {'latitude': s_lat,
                                                                       'longitude': s_lon}
 
@@ -1508,12 +1509,8 @@ def compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat,
     link_text = f'{s_lat}, {s_lon}' if new_record.coords_change_type != 'drop' else ''
 
     if s_lat and s_lon and u_lat and u_lon:
-        try:
-            dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
-            link_text = 'От вас ~' + str(dist) + ' км ' + direct
-
-        except Exception as e:
-            logging.exception(e)
+        dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
+        link_text = f'От вас ~{dist} км {direct}'
 
     msg = msg.format(region=region, link_text=link_text)
 
