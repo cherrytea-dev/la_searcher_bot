@@ -1295,7 +1295,7 @@ def parse_one_comment(search_num, comment_num):
         # finding TEXT of the comment
         comment_text_0 = search_code_blocks.find('div', 'content')
         try:
-            external_span = comment_text_0.blockquote.extract()
+            # external_span = comment_text_0.blockquote.extract()
             comment_text_1 = comment_text_0.text
         except Exception as e:
             logging.info(f'exception for search={search_num} and comment={comment_num}')
