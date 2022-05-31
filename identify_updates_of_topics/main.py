@@ -1259,6 +1259,8 @@ def parse_one_comment(search_num, comment_num):
 
         # finding USERNAME
         comment_author_block = search_code_blocks.find('a', 'username')
+        if not comment_author_block:
+            comment_author_block = search_code_blocks.find('a', 'username-coloured')
         try:
             comment_author_nickname = comment_author_block.text
         except Exception as e:
