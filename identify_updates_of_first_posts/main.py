@@ -436,10 +436,37 @@ def get_message_on_field_trip(text):
     field_trip_sbor = re.findall(r'(?:место.{0,3}|время.{0,3}|координаты.{0,3}(?:места.{0,3}|)|)сбор(?:а|)',
                                  text.lower())
 
+    output_dict = {'vyezd': False,  # True for vyezd
+                   'sbor': False,  # True for sbor
+                   'now': True,  # True for now of and False for future
+                   'urgent': False,  # True for urgent
+                   'secondary': False,  # True for secondary
+                   '': ''}
     context = 'now'
+
+    # Update the parameters of the output_dict
+    # vyezd
+    if field_trip_vyezd:
+        output_dict['vyezd'] = True
+
+    # sbor
+    if field_trip_sbor:
+        output_dict['vyezd'] = True
+
     for phrase in field_trip_vyezd:
+
+        # now
         if re.findall(r'(планируется|ожидается|готовится)', phrase.lower()):
             context = 'future'
+            output_dict['now'] = False
+
+        # urgent
+        if re.findall(r'срочн', phrase.lower()):
+            output_dict['urgent'] = True
+
+        # secondary
+        if re.findall(r'повторн', phrase.lower()):
+            output_dict['secondary'] = True
 
     total_list = field_trip_sbor + field_trip_vyezd
     output_message = None
@@ -450,7 +477,7 @@ def get_message_on_field_trip(text):
         else:
             output_message = 'Внимание, выезд!'
 
-    return output_message, context
+    return output_message, output_dict
 
 
 def age_writer(age):
@@ -479,13 +506,11 @@ def main(event, context):  # noqa
     message_from_pubsub = process_pubsub_message(event)
     list_of_updated_searches = ast.literal_eval(message_from_pubsub)
 
-    db = sql_connect()
-
     list_of_folders_with_upd_searches = []
 
     if list_of_updated_searches:
 
-        with db.connect() as conn:
+        with sql_connect().connect() as conn:
 
             for search_id in list_of_updated_searches:
 
@@ -531,57 +556,81 @@ def main(event, context):  # noqa
 
                         # -------------------- block of field trips checks ---------------
                         sql_text = sqlalchemy.text("""
-                                        SELECT family_name, age FROM searches WHERE search_forum_num=:a;
+                                        SELECT family_name, age, status_short FROM searches WHERE search_forum_num=:a;
                                         """)
                         raw_data = conn.execute(sql_text, a=search_id).fetchone()
                         name = raw_data[0]
                         age = raw_data[1]
+                        status_short = raw_data[2]
 
-                        link = f'https://lizaalert.org/forum/viewtopic.php?t={search_id}'
-                        age_wording = age_writer(age) if age else None
-                        age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
+                        if status_short == 'Ищем':
+                            # TODO: this block is only for DEBUG - to be deleted
+                            link = f'https://lizaalert.org/forum/viewtopic.php?t={search_id}'
+                            age_wording = age_writer(age) if age else None
+                            age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
 
-                        msg_2 = f'<a href="{link}">{name}{age_info}</a>'
+                            msg_2 = f'<a href="{link}">{name}{age_info}</a>'
+                            # TODO: this block is only for DEBUG - to be deleted
 
-                        # publish_to_pubsub('topic_notify_admin', f'[ide_post]: testing: {msg_2}')
+                            # publish_to_pubsub('topic_notify_admin', f'[ide_post]: testing: {msg_2}')
 
-                        text_prev_del, text_prev_reg = split_text_to_deleted_and_regular_parts(first_page_content_prev)
-                        text_curr_del, text_curr_reg = split_text_to_deleted_and_regular_parts(first_page_content_curr)
+                            text_prev_del, text_prev_reg = split_text_to_deleted_and_regular_parts(first_page_content_prev)
+                            text_curr_del, text_curr_reg = split_text_to_deleted_and_regular_parts(first_page_content_curr)
 
-                        field_trip_prev_del, context_prev_del = get_message_on_field_trip(text_prev_del)
-                        field_trip_prev_reg, context_prev_reg = get_message_on_field_trip(text_prev_reg)
-                        field_trip_curr_del, context_curr_del = get_message_on_field_trip(text_curr_del)
-                        field_trip_curr_reg, context_curr_reg = get_message_on_field_trip(text_curr_reg)
+                            field_trip_prev_del, context_prev_del = get_message_on_field_trip(text_prev_del)
+                            field_trip_prev_reg, context_prev_reg = get_message_on_field_trip(text_prev_reg)
+                            field_trip_curr_del, context_curr_del = get_message_on_field_trip(text_curr_del)
+                            field_trip_curr_reg, context_curr_reg = get_message_on_field_trip(text_curr_reg)
 
-                        # TODO: temp debug
-                        debug_msg = f'[field_trip] for {msg_2}\n' \
-                                    f'f_trip_prev_del={field_trip_prev_del}, context_prev_del={context_prev_del} \n' \
-                                    f'f_trip_prev_reg={field_trip_prev_reg}, context_prev_reg={context_prev_reg} \n' \
-                                    f'f_trip_curr_del={field_trip_curr_del}, context_curr_del={context_curr_del} \n' \
-                                    f'f_trip_curr_reg={field_trip_curr_reg}, context_curr_reg={context_curr_reg} \n'
-                        notify_admin(debug_msg)
-                        logging.info(debug_msg)
-                        # TODO: temp debug
+                            # TODO: temp debug
+                            debug_msg = f'[field_trip] for {msg_2}\n' \
+                                        f'f_trip_prev_del={field_trip_prev_del}, context_prev_del={context_prev_del} \n' \
+                                        f'f_trip_prev_reg={field_trip_prev_reg}, context_prev_reg={context_prev_reg} \n' \
+                                        f'f_trip_curr_del={field_trip_curr_del}, context_curr_del={context_curr_del} \n' \
+                                        f'f_trip_curr_reg={field_trip_curr_reg}, context_curr_reg={context_curr_reg} \n'
+                            notify_admin(debug_msg)
+                            logging.info(debug_msg)
+                            # TODO: temp debug
 
-                        # field_trip_curr, context_curr = get_message_on_field_trip(first_page_content_curr)
-                        # field_trip_prev, context_prev = get_message_on_field_trip(first_page_content_prev)
+                            """# CASE 1. First Announcement: nothing -> Field trip (planned)
+                            if not field_trip_prev_del and not field_trip_prev_reg \
+                                    and not field_trip_curr_del and field_trip_curr_reg:
+    
+                                output_dict['scenario'] = 'first_announcement'
+                                if context_curr_reg == 'future':
+                                    output_dict['scenario'] = 'future'
+                                else:
+                                    output_dict['scenario'] = 'now'
+    
+                            # CASE 2. Secondary trip: Deleted --> Field trip
+                            if field_trip_prev_del and not field_trip_prev_reg \
+                                    and field_trip_curr_del and field_trip_curr_reg:
+    
+                                output_dict['scenario'] = 'secondary_announcement'
+                                if context_curr_reg == 'future':
+                                    output_dict['scenario'] = 'future'
+                                else:
+                                    output_dict['scenario'] = 'now'"""
 
-                        """if not field_trip_prev and field_trip_curr:
+                            # CASE 3. Plan to action: Field trip planned --> field trip now
+                            # CASE 4. Change of filed trip
 
-                            # TODO: here we should record the message to be saved in change_log
+                            """if not field_trip_prev and field_trip_curr:
+    
+                                # TODO: here we should record the message to be saved in change_log
+    
+                                message_field_trip = f'{field_trip_curr} по поиску {msg_2}'
+                                publish_to_pubsub('topic_notify_admin', message_field_trip)
+    
+                            if field_trip_curr and field_trip_prev:
+    
+                                # if context_curr == 'now' and context_prev == 'future':
+    
+                                publish_to_pubsub('topic_notify_admin', f'[ide_posts]: Mike, field trips: '
+                                                                        f'{field_trip_curr} || {field_trip_prev}. '
+                                                                        f'Context {context_curr} || {context_prev}')"""
 
-                            message_field_trip = f'{field_trip_curr} по поиску {msg_2}'
-                            publish_to_pubsub('topic_notify_admin', message_field_trip)
-
-                        if field_trip_curr and field_trip_prev:
-
-                            # if context_curr == 'now' and context_prev == 'future':
-
-                            publish_to_pubsub('topic_notify_admin', f'[ide_posts]: Mike, field trips: '
-                                                                    f'{field_trip_curr} || {field_trip_prev}. '
-                                                                    f'Context {context_curr} || {context_prev}')"""
-
-                        # TODO: continuation
+                            # TODO: continuation
 
                 except Exception as e:
                     logging.exception(e)
