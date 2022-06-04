@@ -85,6 +85,14 @@ def publish_to_pubsub(topic_name, message):
     return None
 
 
+def notify_admin(message):
+    """send the pub/sub message to Debug to Admin"""
+
+    publish_to_pubsub('topic_notify_admin', message)
+
+    return None
+
+
 def check_if_search_is_deleted_or_hidden(search_num):
     """check is the existing search was deleted or hidden"""
 
@@ -99,6 +107,8 @@ def check_if_search_is_deleted_or_hidden(search_num):
     if content:
 
         bad_gateway = True if content.find('502 Bad Gateway') > 0 else False
+        # TODO: temp check, if this "patch" can help to remover timeouts
+        bad_gateway = True if content.find('') > 0 else False
 
         if not bad_gateway:
 
@@ -168,7 +178,7 @@ def update_one_search_status(search_id):
         bad_gateway_counter += 1
         logging.info('502: {} - {}'.format(str(search_id), trigger_if_switched_to_proxy))
 
-        if bad_gateway_counter > 3 and not trigger_if_switched_to_proxy:
+        """if bad_gateway_counter > 3 and not trigger_if_switched_to_proxy:
             requests_session.close()
             requests_session = requests.Session()
             requests_session.proxies = {
@@ -176,7 +186,7 @@ def update_one_search_status(search_id):
                 'https': 'https://Vwv0eM:eZ53DB@193.187.145.105:8000',
             }
             bad_gateway_counter = 0
-            trigger_if_switched_to_proxy = True
+            trigger_if_switched_to_proxy = True"""
 
     return None
 
@@ -188,9 +198,7 @@ def get_and_update_list_of_active_searches(number_of_searches):
     global requests_session
     global trigger_if_switched_to_proxy
 
-    db = sql_connect()
-
-    with db.connect() as conn:
+    with sql_connect().connect() as conn:
         full_list_of_active_searches = conn.execute("""select * from (select s1.status_short, s1.search_forum_num, 
             s1.forum_search_title, s2.status, s2.timestamp from searches s1 LEFT JOIN search_health_check s2 ON
             s1.search_forum_num = s2.search_forum_num) s3 WHERE s3.status_short = 'Ищем' ORDER BY s3.timestamp;
@@ -222,8 +230,6 @@ def get_and_update_list_of_active_searches(number_of_searches):
 
                 if bad_gateway_counter > 3 and trigger_if_switched_to_proxy:
                     break
-
-    del db
 
     return None
 
@@ -304,9 +310,43 @@ def parse_search(search_num):
         r = requests_session.get(url, timeout=10)  # seconds – not sure if we need it in this script
         content = r.content.decode("utf-8")
 
+    # TODO: all experimenting
+    except requests.exceptions.ReadTimeout as e:
+        try:
+            exec_id = requests_session.headers.get('function-execution-id')
+            logging.info(f'[che_posts]: requests.exceptions.ReadTimeout for EXEC_ID: {exec_id}')
+            notify_admin(f'[che_posts]: requests.exceptions.ReadTimeout for EXEC_ID: {exec_id}')
+        except:  # noqa
+            pass
+
+    except requests.exceptions.Timeout as e:
+        try:
+            exec_id = requests_session.headers.get('function-execution-id')
+            logging.info(f'[che_posts]: requests.exceptions.Timeout for EXEC_ID: {exec_id}')
+            notify_admin(f'[che_posts]: requests.exceptions.Timeout for EXEC_ID: {exec_id}')
+        except:  # noqa
+            pass
+
+    except requests.exceptions.ProxyError as e:
+        try:
+            exec_id = requests_session.headers.get('function-execution-id')
+            logging.info(f'[che_posts]: requests.exceptions.ProxyError for EXEC_ID: {exec_id}')
+            notify_admin(f'[che_posts]: requests.exceptions.ProxyError for EXEC_ID: {exec_id}')
+        except:  # noqa
+            pass
+
+    except ConnectionError:
+        try:
+            exec_id = requests_session.headers.get('function-execution-id')
+            logging.info(f'[che_posts]: CONNECTION ERROR OR TIMEOUT for EXEC_ID: {exec_id}')
+            notify_admin(f'[che_posts]: CONNECTION ERROR OR TIMEOUT for EXEC_ID: {exec_id}')
+        except:  # noqa
+            pass
+
     except Exception as e:
-        logging.info('[che_posts]: Timeout')
+        logging.info('[che_posts]: Unknown exception')
         logging.exception(e)
+    # TODO: all experimenting
 
     return content
 

@@ -25,7 +25,7 @@ def check_updates_in_folder_with_folders(start_folder_num):
         url = 'https://lizaalert.org/forum/viewforum.php?f=' + str(start_folder_num)
 
     try:
-        r = requests.Session().get(url, timeout=20)  # timeout is req'd to mitigate daily night forum update
+        r = requests.Session().get(url, timeout=20)  # timeout is required to mitigate daily night forum update
 
         only_tag = SoupStrainer('div', {'class': 'forabg'})
         soup = BeautifulSoup(r.content, features='lxml', parse_only=only_tag)
@@ -82,7 +82,7 @@ def check_updates_in_folder_with_folders(start_folder_num):
 
 
 def time_delta(now, time):
-    """provides a difference in minutes for 2 datetimes"""
+    """provides a difference in minutes for 2 timestamps"""
 
     time_diff = now - time
     time_diff_in_min = (time_diff.days * 24 * 60) + (time_diff.seconds // 60)

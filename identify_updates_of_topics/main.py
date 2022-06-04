@@ -847,6 +847,7 @@ def define_age_from_search_title(search_title):
 def define_status_from_search_title(title):
     """define the status from search' title"""
 
+    # TODO: change to regex and to result in two strings: status_original, status_classified
     search_status = title
 
     # Identify and delete the text of text for Training activities
@@ -1251,7 +1252,7 @@ def parse_one_comment(search_num, comment_num):
     url = 'https://lizaalert.org/forum/viewtopic.php?'
     comment_url = url + '&t=' + str(search_num) + '&start=' + str(comment_num)
     there_are_inforg_comments = False
-    comment_author_nickname = None
+
     try:
         r = requests_session.get(comment_url)  # noqa
         soup = BeautifulSoup(r.content, features='lxml')
@@ -1266,12 +1267,7 @@ def parse_one_comment(search_num, comment_num):
         except Exception as e:
             logging.info(f'exception for search={search_num} and comment={comment_num}')
             logging.exception(e)
-            try:
-                comment_author_nickname = search_code_blocks.find('a', 'username-coloured').text
-            except Exception as e:
-                logging.info('exception:')
-                logging.exception(e)
-                comment_author_nickname = 'unidentified_username'
+            comment_author_nickname = 'unidentified_username'
 
         if comment_author_nickname[:6].lower() == 'инфорг':
             there_are_inforg_comments = True
