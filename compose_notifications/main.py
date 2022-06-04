@@ -598,50 +598,50 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
 
     # TODO: temp try (content is needed, try itself is temp)
     try:
+        # CASE 1. Change of coordinates: A -> B
         if verdict['change']:
-            msg += f'📍 Смена координат по <a href="{link}">{name}{age_info}</a>{region}:\nНовые '
+            msg += f'🧭 Смена координат по <a href="{link}">{name}{age_info}</a> ({region}):\n\nНовые '
             for line in list_of_coords_changes:
                 if line[2] == 0 and line[3] in {1, 2}:
                     link_text = '{link_text}'
                     clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
-                    msg += f'{clickable_link}\n'
+                    msg += f'{clickable_link}\n<code>{line[0]}, {line[1]}</code>\n'
                     lat = line[0]
                     lon = line[1]
                     break
-            # TODO: to think if it makes sense to show it?
             msg += 'Старые '
             for line in list_of_coords_changes:
                 if line[2] in {1, 2} and line[3] in {0, 3, 4}:
                     msg += f'{line[0]}, {line[1]}\n'
-            # TODO: to think if it makes sense to show it?
             scenario = 'change'
 
+        # CASE 2. Re-opening of closed coordinates: A -> not-A -> A
         elif verdict['again']:
-            # TODO: to think about wording
-            msg += f'📍 Старые координаты вновь актуальны по <a href="{link}">{name}{age_info}</a>{region}:\n'
-            # TODO: to think about wording
+            msg += f'🧭 Старые координаты вновь актуальны по <a href="{link}">{name}{age_info}</a> ({region}):\n\n'
             for line in list_of_coords_changes:
                 if line[2] in {3, 4} and line[3] in {1, 2}:
                     clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
-                    msg += f'{clickable_link}\n'
+                    msg += f'{clickable_link}\n<code>{line[0]}, {line[1]}</code>\n'
                     lat = line[0]
                     lon = line[1]
                     break
             scenario = 'again'
 
+        # CASE 3. Announcement of new coordinates: not-A -> A
         elif verdict['add']:
-            msg += f'📍 Объявлены координаты сбора <a href="{link}">{name}{age_info}</a>{region}:\n'
+            msg += f'🧭 Объявлены координаты сбора <a href="{link}">{name}{age_info}</a> ({region}):\n'
             for line in list_of_coords_changes:
                 if line[2] == 0 and line[3] in {1, 2}:
                     clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
-                    msg += f'{clickable_link}\n'
+                    msg += f'{clickable_link}\n<code>{line[0]}, {line[1]}</code>\n'
                     lat = line[0]
                     lon = line[1]
                     break
             scenario = 'add'
 
+        # CASE 4. Cancellation of announced coordinates: A -> not-A
         elif verdict['drop']:
-            msg += f'📍 Координаты более НЕ актуальны по <a href="{link}">{name}{age_info}</a>{region}:\n'
+            msg += f'🧭 Отмена координат по <a href="{link}">{name}{age_info}</a> ({region}):\n'
             for line in list_of_coords_changes:
                 if line[2] in {1, 2} and line[3] in {0, 3, 4}:
                     # clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
@@ -666,7 +666,7 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, new_value):
     # link_text = '{link_text}'
     region = '{region}'
 
-    msg = f'Выезд по поиску <a href="{link}">{name}{age_info}</a>{region}:\n'
+    msg = f'🚨 Выезд по поиску <a href="{link}">{name}{age_info}</a>{region}:\n'
 
     # clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
     # msg += f'{clickable_link}\n'
@@ -793,7 +793,7 @@ def add_tel_link(incoming_text, modifier='all'):
     return outcome_text
 
 
-def enrich_new_records_with_message_texts():
+def enrich_new_records_with_com_message_texts():
     """add user-independent message texts to New Records list"""
 
     global new_records_list
@@ -1534,7 +1534,7 @@ def compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat,
 
     msg = new_record.message
 
-    region = f' в регионе {region_to_show}' if region_to_show else ''
+    region = f'{region_to_show}' if region_to_show else ''
     link_text = f'{s_lat}, {s_lon}' if new_record.coords_change_type != 'drop' else ''
 
     if s_lat and s_lon and u_lat and u_lon:
@@ -1689,7 +1689,7 @@ def main(event, context):  # noqa
             enrich_new_records_with_managers(conn)
             enrich_new_records_with_comments(conn, 'all')
             enrich_new_records_with_comments(conn, 'inforg')
-            enrich_new_records_with_message_texts()
+            enrich_new_records_with_com_message_texts()
 
             # compose Users List: all the notifications recipients' details
             compose_users_list_from_users(conn)
