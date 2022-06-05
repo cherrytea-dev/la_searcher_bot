@@ -233,7 +233,7 @@ def get_resulting_message_on_coordinates_change(prev_coords, curr_coords):
 
 
 def process_coords_comparison(conn, search_id, first_page_content_curr, first_page_content_prev):
-    """compare first post content to identify diff in coords and save this diff to change_log"""
+    """compare first post content to identify diff in coords"""
 
     # get the lists of coordinates & context: curr vs prev
     coords_curr = get_the_list_of_coords_out_of_text(first_page_content_curr)
@@ -265,20 +265,113 @@ def process_coords_comparison(conn, search_id, first_page_content_curr, first_pa
         msg = f'[ide_post]: coords change {search_id}: \n{msg}'
         publish_to_pubsub('topic_notify_admin', msg)
 
-    # save the change into change_log
-    if coords_change_list:
-        stmt = sqlalchemy.text(
-            """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type) 
-            values (:a, :b, :c, :d, :e);"""
-        )
+    return coords_change_list
 
-        conn.execute(stmt,
-                     a=datetime.datetime.now(),
-                     b=search_id,
-                     c='coords_change',
-                     d=str(coords_change_list),
-                     e=6
-                     )
+
+def process_field_trips_comparison(conn, search_id, first_page_content_prev, first_page_content_curr):
+    """compare first post content to identify diff in field trips"""
+
+    field_trips_dict = {'case': None, 'coords': {}}
+
+    sql_text = sqlalchemy.text("""
+                    SELECT family_name, age, status_short FROM searches WHERE search_forum_num=:a;
+                    """)
+    raw_data = conn.execute(sql_text, a=search_id).fetchone()
+    name = raw_data[0]
+    age = raw_data[1]
+    status_short = raw_data[2]
+
+    if status_short == 'Ищем':
+        # TODO: this block is only for DEBUG - to be deleted
+        link = f'https://lizaalert.org/forum/viewtopic.php?t={search_id}'
+        age_wording = age_writer(age) if age else None
+        age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
+
+        msg_2 = f'{name}{age_info}, {search_id}, {link}'
+        # TODO: this block is only for DEBUG - to be deleted
+
+        # publish_to_pubsub('topic_notify_admin', f'[ide_post]: testing: {msg_2}')
+
+        text_prev_del, text_prev_reg = \
+            split_text_to_deleted_and_regular_parts(first_page_content_prev)
+        text_curr_del, text_curr_reg = \
+            split_text_to_deleted_and_regular_parts(first_page_content_curr)
+
+        context_prev_del = check_changes_of_field_trip(text_prev_del)
+        context_prev_reg = check_changes_of_field_trip(text_prev_reg)
+        context_curr_del = check_changes_of_field_trip(text_curr_del)
+        context_curr_reg = check_changes_of_field_trip(text_curr_reg)
+
+        # TODO: temp debug
+        debug_msg = f'[field_trip] for {msg_2}\n' \
+                    f'context_prev_del={context_prev_del} \n' \
+                    f'context_prev_reg={context_prev_reg} \n' \
+                    f'context_curr_del={context_curr_del} \n' \
+                    f'context_curr_reg={context_curr_reg} \n'
+        notify_admin(debug_msg)
+        logging.info(debug_msg)
+        # TODO: temp debug
+
+        field_trips_dict = {
+            'case': None,  # can be: None / add / drop / change
+            'prev_del': context_prev_del,
+            'prev_reg': context_prev_reg,
+            'curr_del': context_curr_del,
+            'curr_reg': context_curr_reg,
+            'coords': None
+        }
+
+        # define the CASE (None / add / drop / change)
+        # CASE 1 "add"
+        if (context_curr_reg['sbor'] or context_curr_reg['vyezd']) and \
+                not context_prev_reg['sbor'] and \
+                not context_prev_reg['vyezd']:
+            field_trips_dict['case'] = 'add'
+
+        # CASE 2 "drop"
+        if not context_curr_reg['sbor'] and \
+                not context_curr_reg['vyezd'] and \
+                (context_prev_reg['sbor'] or context_prev_reg['vyezd']):
+            field_trips_dict['case'] = 'drop'
+
+        # CASE 3 "change"
+        # CASE 3.1 "was nothing in prev and here's already cancelled one in curr"
+        if (context_curr_reg['sbor'] or context_curr_reg['vyezd']) and \
+                not context_prev_reg['sbor'] and \
+                not context_prev_reg['vyezd'] and \
+                (context_curr_del['sbor'] or context_curr_del['vyezd']):
+            field_trips_dict['case'] = 'change'
+
+        # CASE 3.2 "there was something which differs in prev and curr"
+        if (context_curr_reg['sbor'] or context_curr_reg['vyezd']) and \
+                (context_prev_reg['sbor'] or context_prev_reg['vyezd']) and \
+                (context_curr_reg['original_text'] != context_prev_reg['original_text'] or
+                 context_curr_reg['now'] != context_prev_reg['now'] or
+                 context_curr_reg['secondary'] != context_prev_reg['secondary']):
+            field_trips_dict['case'] = 'change'
+
+        # TODO: temp debug
+        notify_admin(f'[ide_posts]:{msg_2}\n\n{field_trips_dict}')
+        # TODO: temp debug
+
+    return field_trips_dict
+
+
+def save_new_record_into_change_log(conn, search_id, coords_change_list, changed_field, change_type):
+    """save the coordinates change into change_log"""
+
+    stmt = sqlalchemy.text(
+        """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type) 
+        values (:a, :b, :c, :d, :e);"""
+    )
+
+    conn.execute(stmt,
+                 a=datetime.datetime.now(),
+                 b=search_id,
+                 c=changed_field,
+                 d=str(coords_change_list),
+                 e=change_type
+                 )
 
     return None
 
@@ -436,7 +529,7 @@ def check_changes_of_field_trip(text):
     field_trip_sbor = re.findall(r'(?:место.{0,3}|время.{0,3}|координаты.{0,3}(?:места.{0,3}|)|)сбор(?:а|)',
                                  text.lower())
 
-    output_dict = {'vyezd': False,  # True for vyezd
+    one_trip_dict = {'vyezd': False,  # True for vyezd
                    'sbor': False,  # True for sbor
                    'now': True,  # True for now of and False for future
                    'urgent': False,  # True for urgent
@@ -448,39 +541,39 @@ def check_changes_of_field_trip(text):
     # Update the parameters of the output_dict
     # vyezd
     if field_trip_vyezd:
-        output_dict['vyezd'] = True
-        output_dict['original_text'] = '. '.join(field_trip_vyezd)
+        one_trip_dict['vyezd'] = True
+        one_trip_dict['original_text'] = '. '.join(field_trip_vyezd)
         for line in field_trip_vyezd:
             prettified_line = line.lower().capitalize()
             # TODO: other cosmetics are also expected: e.g.
             #  making all delimiters as blank spaces except after 'внимание'
-            output_dict['prettified_text'] += f'{prettified_line}\n'
+            one_trip_dict['prettified_text'] += f'{prettified_line}\n'
 
     # sbor
     if field_trip_sbor:
-        output_dict['vyezd'] = True
-        output_dict['original_text'] = '. '.join(field_trip_sbor)
+        one_trip_dict['vyezd'] = True
+        one_trip_dict['original_text'] = '. '.join(field_trip_sbor)
         for line in field_trip_sbor:
             prettified_line = line.lower().capitalize()
             # TODO: other cosmetics are also expected: e.g.
             #  making all delimiters as blank spaces except after 'внимание'
-            output_dict['prettified_text'] += f'{prettified_line}\n'
+            one_trip_dict['prettified_text'] += f'{prettified_line}\n'
 
     for phrase in field_trip_vyezd:
 
         # now
         if re.findall(r'(планируется|ожидается|готовится)', phrase.lower()):
-            output_dict['now'] = False
+            one_trip_dict['now'] = False
 
         # urgent
         if re.findall(r'срочн', phrase.lower()):
-            output_dict['urgent'] = True
+            one_trip_dict['urgent'] = True
 
         # secondary
         if re.findall(r'повторн', phrase.lower()):
-            output_dict['secondary'] = True
+            one_trip_dict['secondary'] = True
 
-    return output_dict
+    return one_trip_dict
 
 
 def age_writer(age):
@@ -553,106 +646,33 @@ def main(event, context):  # noqa
                 try:
                     if first_page_content_curr and first_page_content_prev:
 
-                        # TODO: should go after field trip block
-                        # check the diff between prev and curr coords and save it in change_log
-                        process_coords_comparison(conn, search_id, first_page_content_curr, first_page_content_prev)
+                        field_trips_dict = process_field_trips_comparison(conn, search_id, first_page_content_prev,
+                                                                          first_page_content_curr)
+                        # CASE 1. There were Field Trips changes
+                        if field_trips_dict['case']:
 
-                        # -------------------- block of field trips checks ---------------
-                        sql_text = sqlalchemy.text("""
-                                        SELECT family_name, age, status_short FROM searches WHERE search_forum_num=:a;
-                                        """)
-                        raw_data = conn.execute(sql_text, a=search_id).fetchone()
-                        name = raw_data[0]
-                        age = raw_data[1]
-                        status_short = raw_data[2]
+                            # Check if coords changed as well during Field Trip
+                            coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
+                                                                           first_page_content_prev)
 
-                        if status_short == 'Ищем':
-                            # TODO: this block is only for DEBUG - to be deleted
-                            link = f'https://lizaalert.org/forum/viewtopic.php?t={search_id}'
-                            age_wording = age_writer(age) if age else None
-                            age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
+                            field_trips_dict['coords'] = str(coords_change_list)
 
-                            msg_2 = f'{name}{age_info}, {search_id}, {link}'
-                            # TODO: this block is only for DEBUG - to be deleted
+                            # Save Field Trip (incl potential Coords change) into Change_log
+                            save_new_record_into_change_log(conn, search_id, str(field_trips_dict), 'field_trip', 5)
 
-                            # publish_to_pubsub('topic_notify_admin', f'[ide_post]: testing: {msg_2}')
+                        # CASE 2. There are no Field Trip changes – we're checking coords change only
+                        else:
 
-                            text_prev_del, text_prev_reg = \
-                                split_text_to_deleted_and_regular_parts(first_page_content_prev)
-                            text_curr_del, text_curr_reg = \
-                                split_text_to_deleted_and_regular_parts(first_page_content_curr)
+                            coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
+                                                                           first_page_content_prev)
+                            if coords_change_list:
 
-                            context_prev_del = check_changes_of_field_trip(text_prev_del)
-                            context_prev_reg = check_changes_of_field_trip(text_prev_reg)
-                            context_curr_del = check_changes_of_field_trip(text_curr_del)
-                            context_curr_reg = check_changes_of_field_trip(text_curr_reg)
+                                # Save Coords change into Change_log
+                                save_new_record_into_change_log(conn, search_id, coords_change_list, 'coords_change', 6)
 
-                            # TODO: temp debug
-                            debug_msg = f'[field_trip] for {msg_2}\n' \
-                                        f'context_prev_del={context_prev_del} \n' \
-                                        f'context_prev_reg={context_prev_reg} \n' \
-                                        f'context_curr_del={context_curr_del} \n' \
-                                        f'context_curr_reg={context_curr_reg} \n'
-                            notify_admin(debug_msg)
-                            logging.info(debug_msg)
-                            # TODO: temp debug
 
-                            output_dict = {
-                                "case": None,  # can be: None / add / drop / change
-                                "prev_del": context_prev_del,
-                                "prev_reg": context_prev_reg,
-                                "curr_del": context_curr_del,
-                                "curr_reg": context_curr_reg
-                            }
 
-                            # define the CASE (None / add / drop / change)
-                            # CASE 1 "add"
-                            if (context_curr_reg['sbor'] or context_curr_reg['vyezd']) and \
-                                    not context_prev_reg['sbor'] and \
-                                    not context_prev_reg['vyezd']:
-                                output_dict['case'] = 'add'
 
-                            # CASE 2 "drop"
-                            if not context_curr_reg['sbor'] and \
-                                    not context_curr_reg['vyezd'] and \
-                                    (context_prev_reg['sbor'] or context_prev_reg['vyezd']):
-                                output_dict['case'] = 'drop'
-
-                            # CASE 3 "change"
-                            # CASE 3.1 "was nothing in prev and here's already cancelled one in curr"
-                            if (context_curr_reg['sbor'] or context_curr_reg['vyezd']) and \
-                                    not context_prev_reg['sbor'] and \
-                                    not context_prev_reg['vyezd'] and \
-                                    (context_curr_del['sbor'] or context_curr_del['vyezd']):
-                                output_dict['case'] = 'change'
-
-                            # CASE 3.2 "there was something which differs in prev and curr"
-                            if (context_curr_reg['sbor'] or context_curr_reg['vyezd']) and \
-                                    (context_prev_reg['sbor'] or context_prev_reg['vyezd']) and \
-                                    (context_curr_reg['original_text'] != context_prev_reg['original_text'] or
-                                     context_curr_reg['now'] != context_prev_reg['now'] or
-                                     context_curr_reg['secondary'] != context_prev_reg['secondary']):
-                                output_dict['case'] = 'change'
-
-                            if output_dict['case']:
-
-                                # TODO: temp debug
-                                notify_admin(f'[ide_posts]:{msg_2}\n\n{output_dict}')
-                                # TODO: temp debug
-
-                                # save the change into change_log
-                                stmt = sqlalchemy.text(
-                                    """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, 
-                                    new_value, change_type) values (:a, :b, :c, :d, :e);"""
-                                )
-
-                                conn.execute(stmt,
-                                             a=datetime.datetime.now(),
-                                             b=search_id,
-                                             c='filed_trip',
-                                             d=str(output_dict),
-                                             e=5
-                                             )
 
                 except Exception as e:
                     logging.info('[ide_posts]: Error fired while output_dict creation.')
