@@ -76,10 +76,10 @@ def publish_to_pubsub(topic_name, message):
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publishing succeeded
-        logging.info('Sent pub/sub message: ' + str(message))
+        logging.info(f'Sent pub/sub message: {message}')
 
     except Exception as e:
-        logging.info('Not able to send pub/sub message: ')
+        logging.info(f'Not able to send pub/sub message: {message}')
         logging.exception(e)
 
     return None
@@ -310,43 +310,25 @@ def parse_search(search_num):
         r = requests_session.get(url, timeout=10)  # seconds – not sure if we need it in this script
         content = r.content.decode("utf-8")
 
-    # TODO: all experimenting
-    except requests.exceptions.ReadTimeout as e:
-        try:
-            exec_id = requests_session.headers.get('function-execution-id')
-            logging.info(f'[che_posts]: requests.exceptions.ReadTimeout for EXEC_ID: {exec_id}')
-            notify_admin(f'[che_posts]: requests.exceptions.ReadTimeout for EXEC_ID: {exec_id}')
-        except:  # noqa
-            pass
+    except requests.exceptions.ReadTimeout:
+        logging.info(f'[che_posts]: requests.exceptions.ReadTimeout')
+        notify_admin(f'[che_posts]: requests.exceptions.ReadTimeout')
 
-    except requests.exceptions.Timeout as e:
-        try:
-            exec_id = requests_session.headers.get('function-execution-id')
-            logging.info(f'[che_posts]: requests.exceptions.Timeout for EXEC_ID: {exec_id}')
-            notify_admin(f'[che_posts]: requests.exceptions.Timeout for EXEC_ID: {exec_id}')
-        except:  # noqa
-            pass
+    except requests.exceptions.Timeout:
+        logging.info(f'[che_posts]: requests.exceptions.Timeout')
+        notify_admin(f'[che_posts]: requests.exceptions.Timeout')
 
-    except requests.exceptions.ProxyError as e:
-        try:
-            exec_id = requests_session.headers.get('function-execution-id')
-            logging.info(f'[che_posts]: requests.exceptions.ProxyError for EXEC_ID: {exec_id}')
-            notify_admin(f'[che_posts]: requests.exceptions.ProxyError for EXEC_ID: {exec_id}')
-        except:  # noqa
-            pass
+    except requests.exceptions.ProxyError:
+        logging.info(f'[che_posts]: requests.exceptions.ProxyError')
+        notify_admin(f'[che_posts]: requests.exceptions.ProxyError')
 
     except ConnectionError:
-        try:
-            exec_id = requests_session.headers.get('function-execution-id')
-            logging.info(f'[che_posts]: CONNECTION ERROR OR TIMEOUT for EXEC_ID: {exec_id}')
-            notify_admin(f'[che_posts]: CONNECTION ERROR OR TIMEOUT for EXEC_ID: {exec_id}')
-        except:  # noqa
-            pass
+        logging.info(f'[che_posts]: CONNECTION ERROR OR TIMEOUT')
+        notify_admin(f'[che_posts]: CONNECTION ERROR OR TIMEOUT')
 
     except Exception as e:
         logging.info('[che_posts]: Unknown exception')
         logging.exception(e)
-    # TODO: all experimenting
 
     return content
 
@@ -419,9 +401,7 @@ def get_list_of_searches_for_first_post_update(percent_of_searches):
 
     if percent_of_searches > 0:
 
-        db = sql_connect()
-
-        with db.connect() as conn:
+        with sql_connect().connect() as conn:
 
             # get the data from sql with the structure:
             # [search_id, search_start_time, forum_folder_id, search_update_time, number_of_searches_in_folder]
@@ -540,8 +520,6 @@ def get_list_of_searches_for_first_post_update(percent_of_searches):
 
             for i in range(num_of_searches):
                 outcome_list.append(base_table[i])
-
-        del db
 
     return outcome_list
 
