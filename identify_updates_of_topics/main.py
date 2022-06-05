@@ -434,10 +434,9 @@ def parse_coordinates(search_num):
                     else:
                         save_geolocation_in_psql(address_string, 'fail', None, None)
                 except Exception as e6:
-                    logging.info('error in script get_coordinates_from_address for address_string: '
-                                 + address_string + '. Repr: ')
+                    logging.info(f'Error in func get_coordinates_from_address for address: {address_string}. Repr: ')
                     logging.exception(e6)
-                    notify_admin('ERROR: get_coords_from_address failed. It includes geolocator frequency check')
+                    notify_admin('ERROR: get_coords_from_address failed.')
 
         return latitude, longitude
 
@@ -612,10 +611,13 @@ def parse_coordinates(search_num):
     if lat == 0:
         try:
             address = parse_address_from_title(title)
-            save_place_in_psql(address)
-            lat, lon = get_coordinates_from_address(address)
-            if lat != 0:
-                coord_type = '4. coordinates by address'
+            if address:
+                save_place_in_psql(address)
+                lat, lon = get_coordinates_from_address(address)
+                if lat != 0:
+                    coord_type = '4. coordinates by address'
+            else:
+                logging.info(f'No address was found for search {search_num}, title {title}')
         except Exception as e5:
             logging.info('DBG.P.42.EXC:')
             logging.exception(e5)
