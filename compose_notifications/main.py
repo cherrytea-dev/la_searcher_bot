@@ -600,7 +600,12 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
     try:
         # CASE 1. Change of coordinates: A -> B
         if verdict['change']:
-            msg += f'🧭 Смена координат по <a href="{link}">{name}{age_info}</a> ({region}):\n\nНовые '
+            msg += f'🧭 Смена координат по <a href="{link}">{name}{age_info}</a> ({region}):\n\nСтарые: '
+            for line in list_of_coords_changes:
+                if line[2] in {1, 2} and line[3] in {0, 3, 4}:
+                    msg += f'{line[0]}, {line[1]}\n'
+
+            msg += '\nНовые:\n'
             for line in list_of_coords_changes:
                 if line[2] == 0 and line[3] in {1, 2}:
                     link_text = '{link_text}'
@@ -609,10 +614,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
                     lat = line[0]
                     lon = line[1]
                     break
-            msg += 'Старые '
-            for line in list_of_coords_changes:
-                if line[2] in {1, 2} and line[3] in {0, 3, 4}:
-                    msg += f'{line[0]}, {line[1]}\n'
+
             scenario = 'change'
 
         # CASE 2. Re-opening of closed coordinates: A -> not-A -> A
@@ -1301,7 +1303,6 @@ def iterate_over_all_users_and_updates(conn):
                                                                                                       s_lon, u_lat,
                                                                                                       u_lon,
                                                                                                       region_to_show)
-
 
                                         if message:
 

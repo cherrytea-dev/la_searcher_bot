@@ -141,6 +141,8 @@ never-returning-functions=sys.exit,argparse.parse_error
 # The type of string formatting that logging methods do. `old` means using %
 # formatting, `new` is for `{}` formatting.
 logging-format-style=old
+disable=logging-fstring-interpolation
+enable=logging-not-lazy
 
 # Logging modules to check that the string format arguments are in logging
 # function parameter format.
@@ -413,7 +415,12 @@ good-names=i,
            ex,
            Run,
            _,
-           e
+           e,
+           a,
+           b,
+           c,
+           r
+
 
 # Good variable names regexes, separated by a comma. If names match any regex,
 # they will always be accepted

@@ -1,3 +1,6 @@
+"""Check if the first post of the search was updated in terms of field trips and coordinates change.
+Result to be recorded into Change_log and triggered another script identify_updates_of_folders."""
+
 import datetime
 import os
 import base64
@@ -52,9 +55,7 @@ def sql_connect():
             password=db_pass,
             database=db_name,
             query={
-                "unix_sock": "{}/{}/.s.PGSQL.5432".format(
-                    db_socket_dir,
-                    db_conn)
+                "unix_sock": f"{db_socket_dir}/{db_conn}/.s.PGSQL.5432"
             }
         ),
         **db_config
@@ -76,15 +77,13 @@ def process_pubsub_message(event):
     data_in_ascii = encoded_to_ascii['data']
     message_in_ascii = str(data_in_ascii['message'])
 
-    logging.info('LOGGING-INFO: incoming Pub/Sub message: ' + str(message_in_ascii))
+    logging.info(f'LOGGING-INFO: incoming Pub/Sub message: {message_in_ascii}')
 
     return message_in_ascii
 
 
 def publish_to_pubsub(topic_name, message):
     """publish a new message to pub/sub"""
-
-    # global project_id
 
     topic_path = publisher.topic_path(project_id, topic_name)
     message_json = json.dumps({'data': {'message': message}, })
@@ -93,10 +92,10 @@ def publish_to_pubsub(topic_name, message):
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publishing succeeded
-        logging.info('Sent pub/sub message: ' + str(message))
+        logging.info(f'Sent pub/sub message: {message}')
 
     except Exception as e:
-        logging.error('Not able to send pub/sub message: ' + repr(e))
+        logging.error('Not able to send pub/sub message')
         logging.exception(e)
 
     return None
@@ -225,9 +224,9 @@ def get_resulting_message_on_coordinates_change(prev_coords, curr_coords):
                 if line[2] in {1, 2} and line[3] in {0, 3, 4}:
                     message += f' * координаты {line[0]}, {line[1]} более не актуальны!\n'
                 elif line[2] == 0 and line[3] in {1, 2}:
-                    message += ' * новые координаты поиска! {}, {}\n'.format(line[0], line[1])
+                    message += f' * новые координаты поиска! {line[0]}, {line[1]}\n'
                 elif line[2] in {3, 4} and line[3] in {1, 2}:
-                    message += ' * координаты {}, {} вновь актуальны!\n'.format(line[0], line[1])
+                    message += f' * координаты {line[0]}, {line[1]} вновь актуальны!\n'
 
     return filtered_list, message
 
@@ -302,16 +301,6 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
         context_curr_del = check_changes_of_field_trip(text_curr_del)
         context_curr_reg = check_changes_of_field_trip(text_curr_reg)
 
-        # TODO: temp debug
-        debug_msg = f'[field_trip] for {msg_2}\n' \
-                    f'context_prev_del={context_prev_del} \n' \
-                    f'context_prev_reg={context_prev_reg} \n' \
-                    f'context_curr_del={context_curr_del} \n' \
-                    f'context_curr_reg={context_curr_reg} \n'
-        notify_admin(debug_msg)
-        logging.info(debug_msg)
-        # TODO: temp debug
-
         field_trips_dict = {
             'case': None,  # can be: None / add / drop / change
             'prev_del': context_prev_del,
@@ -352,6 +341,7 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
 
         # TODO: temp debug
         notify_admin(f'[ide_posts]:{msg_2}\n\n{field_trips_dict}')
+        logging.info(f'{msg_2}\n\n{field_trips_dict}')
         # TODO: temp debug
 
     return field_trips_dict
@@ -361,7 +351,7 @@ def save_new_record_into_change_log(conn, search_id, coords_change_list, changed
     """save the coordinates change into change_log"""
 
     stmt = sqlalchemy.text(
-        """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type) 
+        """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type)
         values (:a, :b, :c, :d, :e);"""
     )
 
@@ -478,9 +468,10 @@ def get_compressed_first_post(initial_text):
         basic_text_string = basic_text_string.replace('\n', ' ')
 
         # width of text block in symbols
-        x = 50
+        block_width = 50
 
-        list_from_string = [basic_text_string[i: i + x] for i in range(0, len(basic_text_string), x)]
+        list_from_string = [basic_text_string[i: i + block_width] for i in
+                            range(0, len(basic_text_string), block_width)]
 
         for list_line in list_from_string:
             compressed_string += list_line + '\n'
@@ -530,13 +521,13 @@ def check_changes_of_field_trip(text):
                                  text.lower())
 
     one_trip_dict = {'vyezd': False,  # True for vyezd
-                   'sbor': False,  # True for sbor
-                   'now': True,  # True for now of and False for future
-                   'urgent': False,  # True for urgent
-                   'secondary': False,  # True for secondary
-                   'original_text': '',  # All the matched cases by regex
-                   'prettified_text': ''  # Prettified to be shown as one text.
-                   }
+                     'sbor': False,  # True for sbor
+                     'now': True,  # True for now of and False for future
+                     'urgent': False,  # True for urgent
+                     'secondary': False,  # True for secondary
+                     'original_text': '',  # All the matched cases by regex
+                     'prettified_text': ''  # Prettified to be shown as one text.
+                     }
 
     # Update the parameters of the output_dict
     # vyezd
@@ -585,7 +576,7 @@ def age_writer(age):
         c = age - a * 100 - b * 10
         if c == 1 and b != 1:
             wording = str(age) + " год"
-        elif (c == 2 or c == 3 or c == 4) and b != 1:
+        elif c in {2, 3, 4} and b != 1:
             wording = str(age) + " года"
         else:
             wording = str(age) + " лет"
@@ -670,14 +661,10 @@ def main(event, context):  # noqa
                                 # Save Coords change into Change_log
                                 save_new_record_into_change_log(conn, search_id, coords_change_list, 'coords_change', 6)
 
-
-
-
-
                 except Exception as e:
-                    logging.info('[ide_posts]: Error fired while output_dict creation.')
+                    logging.info('[ide_posts]: Error fired during output_dict creation.')
                     logging.exception(e)
-                    notify_admin('[ide_posts]: Error fired while output_dict creation.')
+                    notify_admin('[ide_posts]: Error fired during output_dict creation.')
 
                 # save folder number for the search that has an update
                 folder_num = parse_search_folder(search_id)
@@ -686,7 +673,7 @@ def main(event, context):  # noqa
                 if new_line and new_line not in list_of_folders_with_upd_searches:
                     list_of_folders_with_upd_searches.append(new_line)
 
-            # evoke 'parsing script' to check in the folders with updated searches have any update
+            # evoke 'parsing script' to check if the folders with updated searches have any update
             if list_of_folders_with_upd_searches:
                 # notify_admin(f'[ide_post]: {str(list_of_folders_with_upd_searches)}')
                 publish_to_pubsub('topic_to_run_parsing_script', str(list_of_folders_with_upd_searches))
