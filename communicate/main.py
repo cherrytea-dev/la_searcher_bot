@@ -1511,7 +1511,7 @@ def main(request):
                 b_reg_murmansk = 'Мурманская обл.'
                 b_reg_pskov = 'Псковская обл.'
                 b_reg_archangelsk = 'Архангельская обл.'
-                b_reg_sev_zap_other = 'Все остальные в СЗФО'
+                b_reg_sev_zap_other = 'Прочие поиски по СЗФО'
                 keyboard_sev_zap_reg_choice = [[b_reg_vologda],
                                                [b_reg_komi],
                                                [b_reg_karelia],
@@ -1680,10 +1680,10 @@ def main(request):
                 bot_request_bfr_usr_msg = get_last_bot_msg(conn_psy, cur, user_id)
 
                 if bot_request_bfr_usr_msg:
-                    logging.info(f'bore this message bot was waiting for {bot_request_bfr_usr_msg} '
+                    logging.info(f'before this message bot was waiting for {bot_request_bfr_usr_msg} '
                                  f'from user {user_id}')
                 else:
-                    logging.info(f'bore this message bot was NOT waiting anything from user {user_id}')
+                    logging.info(f'before this message bot was NOT waiting anything from user {user_id}')
 
                 try:
                     # get coordinates from the text
