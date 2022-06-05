@@ -675,7 +675,7 @@ def main(event, context):  # noqa
 
             # evoke 'parsing script' to check in the folders with updated searches have any update
             if list_of_folders_with_upd_searches:
-                notify_admin(f'[ide_post]: {str(list_of_folders_with_upd_searches)}')
+                # notify_admin(f'[ide_post]: {str(list_of_folders_with_upd_searches)}')
                 publish_to_pubsub('topic_to_run_parsing_script', str(list_of_folders_with_upd_searches))
 
     # Close the open session
