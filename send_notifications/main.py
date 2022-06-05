@@ -16,11 +16,10 @@ project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
 publisher = pubsub_v1.PublisherClient()
 
-# TODO: experiment to get rid of "Retrying" logs - googled here:
-#  https://stackoverflow.com/questions/71717852/how-to-hide-telegram-vendor-ptb-error-and-warning-messages
+# To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
+# Important – these are not errors, but jest informational warnings that there were retries, that's why we exclude them
 logging.getLogger("telegram.vendor.ptb_urllib3.urllib3").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
-# TODO: experiment
 
 analytics_notif_times = []
 
