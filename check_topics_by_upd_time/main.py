@@ -18,6 +18,7 @@ def check_updates_in_folder_with_folders(start_folder_num):
 
     last_folder_update = datetime.datetime(1, 1, 1, 0, 0)
     page_summary = []
+    search_code_blocks = None
 
     if not start_folder_num:
         url = 'https://lizaalert.org/forum/index.php'
@@ -42,10 +43,25 @@ def check_updates_in_folder_with_folders(start_folder_num):
             # final list is: 1st, 2nd and pre-last blocks
             search_code_blocks.append(temp_block)
 
-    except Exception as e1:
-        logging.info(f'Checking topics by update time in folder {start_folder_num} triggered an error')
-        logging.exception(e1)
-        search_code_blocks = None
+    except requests.exceptions.ReadTimeout:
+        logging.info(f'[che_topics]: requests.exceptions.ReadTimeout')
+        notify_admin(f'[che_topics]: requests.exceptions.ReadTimeout')
+
+    except requests.exceptions.Timeout:
+        logging.info(f'[che_topics]: requests.exceptions.Timeout')
+        notify_admin(f'[che_topics]: requests.exceptions.Timeout')
+
+    except requests.exceptions.ProxyError:
+        logging.info(f'[che_topics]: requests.exceptions.ProxyError')
+        notify_admin(f'[che_topics]: requests.exceptions.ProxyError')
+
+    except ConnectionError:
+        logging.info(f'[che_topics]: CONNECTION ERROR OR TIMEOUT')
+        notify_admin(f'[che_topics]: CONNECTION ERROR OR TIMEOUT')
+
+    except Exception as e:
+        logging.info('[che_posts]: Unknown exception in folder {start_folder_num}')
+        logging.exception(e)
 
     try:
         if search_code_blocks:
@@ -105,28 +121,29 @@ def get_the_list_folders_to_update(list_of_folders_and_times, now_time, delay_ti
     return list_of_updated_folders
 
 
-def publish_to_pubsub(message):
-    """publish a pub/sub message"""
+def publish_to_pubsub(topic_name, message):
+    """publish a new message to pub/sub"""
 
-    global project_id
-    global publisher
-
-    # Prepare to turn to the existing pub/sub topic
-    topic_name = 'topic_update_identified'
     topic_path = publisher.topic_path(project_id, topic_name)
-
-    # Prepare the message
     message_json = json.dumps({'data': {'message': message}, })
     message_bytes = message_json.encode('utf-8')
 
-    # Publish a message
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publish succeeded
+        publish_future.result()  # Verify the publishing succeeded
+        logging.info(f'Sent pub/sub message: {message}')
 
     except Exception as e:
-        logging.info('Pub/sub message was NOT published, fired an error')
+        logging.info(f'Not able to send pub/sub message: {message}')
         logging.exception(e)
+
+    return None
+
+
+def notify_admin(message):
+    """send the pub/sub message to Debug to Admin"""
+
+    publish_to_pubsub('topic_notify_admin', message)
 
     return None
 
@@ -161,6 +178,6 @@ def main(event, context): # noqa
         for line in list_of_folders_and_times:
             list_for_pubsub.append([line[0], line[1]])
 
-        publish_to_pubsub(str(list_for_pubsub))
+        publish_to_pubsub('topic_update_identified', str(list_for_pubsub))
 
     return None
