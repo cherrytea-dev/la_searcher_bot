@@ -5,8 +5,8 @@ import json
 import logging
 import ast
 import re
-import requests
 import copy
+import requests
 
 import sqlalchemy
 from bs4 import BeautifulSoup
@@ -265,7 +265,7 @@ def process_coords_comparison(conn, search_id, first_page_content_curr, first_pa
         msg = f'[ide_post]: coords change {search_id}: \n{msg}'
         publish_to_pubsub('topic_notify_admin', msg)
 
-    # record the change into change_lot
+    # save the change into change_log
     if coords_change_list:
         stmt = sqlalchemy.text(
             """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type) 
@@ -470,7 +470,6 @@ def check_changes_of_field_trip(text):
 
         # now
         if re.findall(r'(планируется|ожидается|готовится)', phrase.lower()):
-            context = 'future'
             output_dict['now'] = False
 
         # urgent
@@ -480,15 +479,6 @@ def check_changes_of_field_trip(text):
         # secondary
         if re.findall(r'повторн', phrase.lower()):
             output_dict['secondary'] = True
-
-    total_list = field_trip_sbor + field_trip_vyezd
-    output_message = None
-
-    if total_list:
-        if field_trip_vyezd:
-            output_message = field_trip_vyezd[0].capitalize()
-        else:
-            output_message = 'Внимание, выезд!'
 
     return output_dict
 
@@ -587,8 +577,10 @@ def main(event, context):  # noqa
 
                             # publish_to_pubsub('topic_notify_admin', f'[ide_post]: testing: {msg_2}')
 
-                            text_prev_del, text_prev_reg = split_text_to_deleted_and_regular_parts(first_page_content_prev)
-                            text_curr_del, text_curr_reg = split_text_to_deleted_and_regular_parts(first_page_content_curr)
+                            text_prev_del, text_prev_reg = \
+                                split_text_to_deleted_and_regular_parts(first_page_content_prev)
+                            text_curr_del, text_curr_reg = \
+                                split_text_to_deleted_and_regular_parts(first_page_content_curr)
 
                             context_prev_del = check_changes_of_field_trip(text_prev_del)
                             context_prev_reg = check_changes_of_field_trip(text_prev_reg)
@@ -612,16 +604,6 @@ def main(event, context):  # noqa
                                 "curr_del": context_curr_del,
                                 "curr_reg": context_curr_reg
                             }
-
-                            # FOR REFERENCE
-                            """{'vyezd': False,  # True for vyezd
-                             'sbor': False,  # True for sbor
-                             'now': True,  # True for now of and False for future
-                             'urgent': False,  # True for urgent
-                             'secondary': False,  # True for secondary
-                             'original_text': '',  # All the matched cases by regex
-                             'prettified_text': ''  # Prettified to be shown as one text.
-                             }"""
 
                             # define the CASE (None / add / drop / change)
                             # CASE 1 "add"
@@ -652,14 +634,25 @@ def main(event, context):  # noqa
                                      context_curr_reg['secondary'] != context_prev_reg['secondary']):
                                 output_dict['case'] = 'change'
 
-                            # TODO: temp debug
                             if output_dict['case']:
-                                notify_admin(f'[ide_posts]:\n{output_dict}')
-                            # TODO: temp debug
 
-                            # TODO
-                            # TODO
-                            # TODO: if above works – we'd need to understand how to link coords change on that
+                                # TODO: temp debug
+                                notify_admin(f'[ide_posts]:{msg_2}\n\n{output_dict}')
+                                # TODO: temp debug
+
+                                # save the change into change_log
+                                stmt = sqlalchemy.text(
+                                    """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, 
+                                    new_value, change_type) values (:a, :b, :c, :d, :e);"""
+                                )
+
+                                conn.execute(stmt,
+                                             a=datetime.datetime.now(),
+                                             b=search_id,
+                                             c='filed_trip',
+                                             d=str(output_dict),
+                                             e=5
+                                             )
 
                 except Exception as e:
                     logging.info('[ide_posts]: Error fired while output_dict creation.')
