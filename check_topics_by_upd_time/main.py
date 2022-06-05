@@ -60,7 +60,7 @@ def check_updates_in_folder_with_folders(start_folder_num):
         notify_admin(f'[che_topics]: CONNECTION ERROR OR TIMEOUT')
 
     except Exception as e:
-        logging.info('[che_posts]: Unknown exception in folder {start_folder_num}')
+        logging.info(f'[che_posts]: Unknown exception in folder {start_folder_num}')
         logging.exception(e)
 
     try:
