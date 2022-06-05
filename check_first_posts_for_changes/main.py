@@ -551,9 +551,7 @@ def update_first_posts(percent_of_searches):
 
     if list_of_searches:
 
-        db = sql_connect()
-
-        with db.connect() as conn:
+        with sql_connect().connect() as conn:
 
             for line in list_of_searches:
 
@@ -603,7 +601,7 @@ def update_first_posts(percent_of_searches):
                             if last_content and act_content:
                                 delta = get_the_diff_between_strings(last_content, act_content)
                                 publish_to_pubsub('topic_notify_admin',
-                                                  '[che_posts]: {} 1st POST UPD:\n{}'. format(search_id, delta))
+                                                  f'[che_posts]: {search_id} 1st POST UPD:\n{delta}')
 
                         # if record for this search – actual
                         else:
@@ -653,8 +651,6 @@ def update_first_posts(percent_of_searches):
                     except: # noqa
                         pass
 
-        del db
-
     if list_of_searches_with_updated_first_posts:
         # send pub/sub message on the updated first page
         publish_to_pubsub('topic_for_first_post_processing', list_of_searches_with_updated_first_posts)
@@ -665,16 +661,17 @@ def update_first_posts(percent_of_searches):
 def main(event, context): # noqa
     """main function"""
 
-    # block for checking if there are deleted or hidden searches within active ones
+    # BLOCK 1. for checking if there are deleted or hidden searches within active ones
     number_of_checked_searches = 10
     get_and_update_list_of_active_searches(number_of_checked_searches)
 
-    # temp block – is used only for batch updates of user regional settings
-    # number_of_users_to_update = 2
-    # update_user_regional_settings(number_of_users_to_update)
-
+    # BLOCK 2. for checking in first posts were changes
     percent_of_first_posts_to_check = 10
     update_first_posts(percent_of_first_posts_to_check)
+
+    # TEMP BLOCK – is used only for batch updates of user regional settings
+    # number_of_users_to_update = 2
+    # update_user_regional_settings(number_of_users_to_update)
 
     if bad_gateway_counter > 3:
         publish_to_pubsub('topic_notify_admin', '[che_posts]: Bad Gateway > 3')
