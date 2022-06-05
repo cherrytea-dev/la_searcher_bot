@@ -21,6 +21,11 @@ publisher = pubsub_v1.PublisherClient()
 project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
 
+# To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
+# Important – these are not errors, but jest informational warnings that there were retries, that's why we exclude them
+logging.getLogger("telegram.vendor.ptb_urllib3.urllib3").setLevel(logging.ERROR)
+logger = logging.getLogger(__name__)
+
 
 def get_secrets(secret_request):
     """Get GCP secret"""
