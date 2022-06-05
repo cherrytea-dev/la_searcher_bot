@@ -666,7 +666,7 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, new_value):
     # link_text = '{link_text}'
     region = '{region}'
 
-    msg = f'🚨 Выезд по поиску <a href="{link}">{name}{age_info}</a>{region}:\n'
+    msg = f'🚨 Выезд по поиску <a href="{link}">{name}{age_info}</a>{region}:\n\n{new_value}'
 
     # clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
     # msg += f'{clickable_link}\n'
@@ -1243,7 +1243,9 @@ def iterate_over_all_users_and_updates(conn):
                                 for notif_pref in user_notif_prefs:
 
                                     # check if user wants to receive this kind of notifications
-                                    if notif_pref == new_record.changed_field_for_user or notif_pref == 'all':
+                                    # TODO: temp limitation for ones who have 5 or 6
+                                    if notif_pref == new_record.changed_field_for_user or\
+                                            (notif_pref == 'all' and change_type not in {5, 6}):
 
                                         # on this step - we're certain: user should receive the notification
                                         # start preparation on notifications
@@ -1275,6 +1277,17 @@ def iterate_over_all_users_and_updates(conn):
                                         elif changed_field == 'title_change':
                                             message = new_record.message
 
+                                        elif change_type == 5:  # filed_trip
+
+                                            # TODO: temp debug
+                                            print(f'ZZZ: user_id={user.user_id}, user={user}, '
+                                                  f'prefs={user_notif_prefs}')
+                                            # TODO: temp debug
+
+                                            # TODO: temp limitation for ADMIN
+                                            if user.user_id in admins_list:
+                                                message = new_record.message
+
                                         elif change_type == 6:  # coords_change
 
                                             # TODO: temp debug
@@ -1289,16 +1302,6 @@ def iterate_over_all_users_and_updates(conn):
                                                                                                       u_lon,
                                                                                                       region_to_show)
 
-                                        elif change_type == 5:  # filed_trip
-
-                                            # TODO: temp debug
-                                            print(f'YYY: user_id={user.user_id}, user={user}, '
-                                                  f'prefs={user_notif_prefs}')
-                                            # TODO: temp debug
-
-                                            # TODO: temp limitation for ADMIN
-                                            if user.user_id in admins_list:
-                                                message = new_record.message
 
                                         if message:
 
