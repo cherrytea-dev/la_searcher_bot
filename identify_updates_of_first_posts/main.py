@@ -420,7 +420,7 @@ def split_text_to_deleted_and_regular_parts(text):
     return deleted_text, non_deleted_text
 
 
-def get_message_on_field_trip(text):
+def check_changes_of_field_trip(text):
     """return the 'filed trip' message for the search's text"""
 
     field_trip_vyezd = re.findall(r'(?:внимание.{0,3}|)'
@@ -441,17 +441,30 @@ def get_message_on_field_trip(text):
                    'now': True,  # True for now of and False for future
                    'urgent': False,  # True for urgent
                    'secondary': False,  # True for secondary
-                   '': ''}
-    context = 'now'
+                   'original_text': '',  # All the matched cases by regex
+                   'prettified_text': ''  # Prettified to be shown as one text.
+                   }
 
     # Update the parameters of the output_dict
     # vyezd
     if field_trip_vyezd:
         output_dict['vyezd'] = True
+        output_dict['original_text'] = '. '.join(field_trip_vyezd)
+        for line in field_trip_vyezd:
+            prettified_line = line.lower().capitalize()
+            # TODO: other cosmetics are also expected: e.g.
+            #  making all delimiters as blank spaces except after 'внимание'
+            output_dict['prettified_text'] += f'{prettified_line}\n'
 
     # sbor
     if field_trip_sbor:
         output_dict['vyezd'] = True
+        output_dict['original_text'] = '. '.join(field_trip_sbor)
+        for line in field_trip_sbor:
+            prettified_line = line.lower().capitalize()
+            # TODO: other cosmetics are also expected: e.g.
+            #  making all delimiters as blank spaces except after 'внимание'
+            output_dict['prettified_text'] += f'{prettified_line}\n'
 
     for phrase in field_trip_vyezd:
 
@@ -477,7 +490,7 @@ def get_message_on_field_trip(text):
         else:
             output_message = 'Внимание, выезд!'
 
-    return output_message, output_dict
+    return output_dict
 
 
 def age_writer(age):
@@ -569,7 +582,7 @@ def main(event, context):  # noqa
                             age_wording = age_writer(age) if age else None
                             age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
 
-                            msg_2 = f'<a href="{link}">{name}{age_info}</a>'
+                            msg_2 = f'{name}{age_info}, {search_id}, {link}'
                             # TODO: this block is only for DEBUG - to be deleted
 
                             # publish_to_pubsub('topic_notify_admin', f'[ide_post]: testing: {msg_2}')
@@ -577,64 +590,81 @@ def main(event, context):  # noqa
                             text_prev_del, text_prev_reg = split_text_to_deleted_and_regular_parts(first_page_content_prev)
                             text_curr_del, text_curr_reg = split_text_to_deleted_and_regular_parts(first_page_content_curr)
 
-                            field_trip_prev_del, context_prev_del = get_message_on_field_trip(text_prev_del)
-                            field_trip_prev_reg, context_prev_reg = get_message_on_field_trip(text_prev_reg)
-                            field_trip_curr_del, context_curr_del = get_message_on_field_trip(text_curr_del)
-                            field_trip_curr_reg, context_curr_reg = get_message_on_field_trip(text_curr_reg)
+                            context_prev_del = check_changes_of_field_trip(text_prev_del)
+                            context_prev_reg = check_changes_of_field_trip(text_prev_reg)
+                            context_curr_del = check_changes_of_field_trip(text_curr_del)
+                            context_curr_reg = check_changes_of_field_trip(text_curr_reg)
 
                             # TODO: temp debug
                             debug_msg = f'[field_trip] for {msg_2}\n' \
-                                        f'f_trip_prev_del={field_trip_prev_del}, context_prev_del={context_prev_del} \n' \
-                                        f'f_trip_prev_reg={field_trip_prev_reg}, context_prev_reg={context_prev_reg} \n' \
-                                        f'f_trip_curr_del={field_trip_curr_del}, context_curr_del={context_curr_del} \n' \
-                                        f'f_trip_curr_reg={field_trip_curr_reg}, context_curr_reg={context_curr_reg} \n'
+                                        f'context_prev_del={context_prev_del} \n' \
+                                        f'context_prev_reg={context_prev_reg} \n' \
+                                        f'context_curr_del={context_curr_del} \n' \
+                                        f'context_curr_reg={context_curr_reg} \n'
                             notify_admin(debug_msg)
                             logging.info(debug_msg)
                             # TODO: temp debug
 
-                            """# CASE 1. First Announcement: nothing -> Field trip (planned)
-                            if not field_trip_prev_del and not field_trip_prev_reg \
-                                    and not field_trip_curr_del and field_trip_curr_reg:
-    
-                                output_dict['scenario'] = 'first_announcement'
-                                if context_curr_reg == 'future':
-                                    output_dict['scenario'] = 'future'
-                                else:
-                                    output_dict['scenario'] = 'now'
-    
-                            # CASE 2. Secondary trip: Deleted --> Field trip
-                            if field_trip_prev_del and not field_trip_prev_reg \
-                                    and field_trip_curr_del and field_trip_curr_reg:
-    
-                                output_dict['scenario'] = 'secondary_announcement'
-                                if context_curr_reg == 'future':
-                                    output_dict['scenario'] = 'future'
-                                else:
-                                    output_dict['scenario'] = 'now'"""
+                            output_dict = {
+                                "case": None,  # can be: None / add / drop / change
+                                "prev_del": context_prev_del,
+                                "prev_reg": context_prev_reg,
+                                "curr_del": context_curr_del,
+                                "curr_reg": context_curr_reg
+                            }
 
-                            # CASE 3. Plan to action: Field trip planned --> field trip now
-                            # CASE 4. Change of filed trip
+                            # FOR REFERENCE
+                            """{'vyezd': False,  # True for vyezd
+                             'sbor': False,  # True for sbor
+                             'now': True,  # True for now of and False for future
+                             'urgent': False,  # True for urgent
+                             'secondary': False,  # True for secondary
+                             'original_text': '',  # All the matched cases by regex
+                             'prettified_text': ''  # Prettified to be shown as one text.
+                             }"""
 
-                            """if not field_trip_prev and field_trip_curr:
-    
-                                # TODO: here we should record the message to be saved in change_log
-    
-                                message_field_trip = f'{field_trip_curr} по поиску {msg_2}'
-                                publish_to_pubsub('topic_notify_admin', message_field_trip)
-    
-                            if field_trip_curr and field_trip_prev:
-    
-                                # if context_curr == 'now' and context_prev == 'future':
-    
-                                publish_to_pubsub('topic_notify_admin', f'[ide_posts]: Mike, field trips: '
-                                                                        f'{field_trip_curr} || {field_trip_prev}. '
-                                                                        f'Context {context_curr} || {context_prev}')"""
+                            # define the CASE (None / add / drop / change)
+                            # CASE 1 "add"
+                            if (context_curr_reg['sbor'] or context_curr_reg['vyezd']) and \
+                                    not context_prev_reg['sbor'] and \
+                                    not context_prev_reg['vyezd']:
+                                output_dict['case'] = 'add'
 
-                            # TODO: continuation
+                            # CASE 2 "drop"
+                            if not context_curr_reg['sbor'] and \
+                                    not context_curr_reg['vyezd'] and \
+                                    (context_prev_reg['sbor'] or context_prev_reg['vyezd']):
+                                output_dict['case'] = 'drop'
+
+                            # CASE 3 "change"
+                            # CASE 3.1 "was nothing in prev and here's already cancelled one in curr"
+                            if (context_curr_reg['sbor'] or context_curr_reg['vyezd']) and \
+                                    not context_prev_reg['sbor'] and \
+                                    not context_prev_reg['vyezd'] and \
+                                    (context_curr_del['sbor'] or context_curr_del['vyezd']):
+                                output_dict['case'] = 'change'
+
+                            # CASE 3.2 "there was something which differs in prev and curr"
+                            if (context_curr_reg['sbor'] or context_curr_reg['vyezd']) and \
+                                    (context_prev_reg['sbor'] or context_prev_reg['vyezd']) and \
+                                    (context_curr_reg['original_text'] != context_prev_reg['original_text'] or
+                                     context_curr_reg['now'] != context_prev_reg['now'] or
+                                     context_curr_reg['secondary'] != context_prev_reg['secondary']):
+                                output_dict['case'] = 'change'
+
+                            # TODO: temp debug
+                            if output_dict['case']:
+                                notify_admin(f'[ide_posts]:\n{output_dict}')
+                            # TODO: temp debug
+
+                            # TODO
+                            # TODO
+                            # TODO: if above works – we'd need to understand how to link coords change on that
 
                 except Exception as e:
+                    logging.info('[ide_posts]: Error fired while output_dict creation.')
                     logging.exception(e)
-                    notify_admin('[ide_posts]: ERROR: notify Field Trip Failed ')
+                    notify_admin('[ide_posts]: Error fired while output_dict creation.')
 
                 # save folder number for the search that has an update
                 folder_num = parse_search_folder(search_id)
@@ -645,7 +675,7 @@ def main(event, context):  # noqa
 
             # evoke 'parsing script' to check in the folders with updated searches have any update
             if list_of_folders_with_upd_searches:
-                publish_to_pubsub('topic_notify_admin', f'[ide_post]: {str(list_of_folders_with_upd_searches)}')
+                notify_admin(f'[ide_post]: {str(list_of_folders_with_upd_searches)}')
                 publish_to_pubsub('topic_to_run_parsing_script', str(list_of_folders_with_upd_searches))
 
     # Close the open session
