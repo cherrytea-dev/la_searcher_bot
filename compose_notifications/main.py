@@ -619,7 +619,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
 
         # CASE 2. Re-opening of closed coordinates: A -> not-A -> A
         elif verdict['again']:
-            msg += f'🧭 Старые координаты вновь актуальны по <a href="{link}">{name}{age_info}</a> ({region}):\n\n'
+            msg += f'🧭 Прежние координаты вновь актуальны по <a href="{link}">{name}{age_info}</a> ({region}):\n\n'
             for line in list_of_coords_changes:
                 if line[2] in {3, 4} and line[3] in {1, 2}:
                     clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
@@ -864,8 +864,15 @@ def enrich_new_records_with_com_message_texts():
                                                                   line.comments_inforg, line.region)
 
             elif line.change_type == 5:  # field_trip
+                # TODO temp debug
+                print(f'1 line.message={line.message}')
+                # TODO temp debug
                 line.message, line.search_latitude, line.search_longitude = \
                     compose_com_msg_on_field_trip(line.link, line.name, line.age, line.age_wording, line.new_value)
+
+                # TODO temp debug
+                print(f'2 line.message={line.message}')
+                # TODO temp debug
 
             elif line.change_type == 6:  # coords_change
                 line.message, line.search_latitude, line.search_longitude, line.coords_change_type = \
@@ -1277,6 +1284,17 @@ def iterate_over_all_users_and_updates(conn):
                                 for notif_pref in user_notif_prefs:
 
                                     # check if user wants to receive this kind of notifications
+
+                                    # TODO temp debug
+                                    if user.user_id in admins_list:
+                                        print(f'ZZZ: notif_pref={notif_pref}')
+                                        print(f'ZZZ: new_record.changed_field_for_user={new_record.changed_field_for_user}')
+                                        print(f'ZZZ: change_type={change_type}')
+                                        print(f'ZZZ: small if 1 ={notif_pref == new_record.changed_field_for_user}')
+                                        print(f'ZZZ: small if 2 ={notif_pref == "all" and change_type not in {5, 6}}')
+                                        print(f'ZZZ: big if={notif_pref == new_record.changed_field_for_user or (notif_pref == "all" and change_type not in {5, 6})}')
+                                    # TODO temp debug
+
                                     # TODO: temp limitation for ones who have 5 or 6
                                     if notif_pref == new_record.changed_field_for_user or\
                                             (notif_pref == 'all' and change_type not in {5, 6}):
