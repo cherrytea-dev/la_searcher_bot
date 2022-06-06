@@ -294,8 +294,6 @@ def check_for_notifs_to_send(conn):
 def send_single_message(bot, user_id, message_content, message_params, message_type):
     """send one message to telegram"""
 
-    analytics_send_start = datetime.datetime.now()
-
     if message_params:
         # convert string to bool
         if 'disable_web_page_preview' in message_params:
@@ -311,15 +309,9 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
         result = 'completed'
 
-        # TODO: temp for debug
-        analytics_only_send_message_finish = datetime.datetime.now()
-        analytics_only_send_message_duration = round((analytics_only_send_message_finish -
-                                                     analytics_send_start).total_seconds(), 2)
-        logging.info(f'time: sendMessage duration: {analytics_only_send_message_duration}')
-
         logging.info(f'success sending a msg to telegram user={user_id}')
-        # TODO: temp for debug
 
+    # TODO: to be redone for exact names of Exceptions
     except Exception as e:  # when sending to telegram fails
 
         error_description = str(e)
@@ -354,11 +346,6 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
             logging.info(f'failed sending to telegram user={user_id}, message={message_content}')
             logging.exception(error_description)
-
-    analytics_send_finish = datetime.datetime.now()
-    analytics_send_duration = round((analytics_send_finish -
-                                    analytics_send_start).total_seconds(), 2)
-    logging.info(f'time: {analytics_send_duration} – msg send script duration')
 
     return result
 
@@ -400,11 +387,11 @@ def iterate_over_notifications(bot, script_start_time):
                 # how_old_is_notif = (datetime.datetime.now() - created_time).total_seconds()
 
                 # limitation to avoid telegram "message too long"
-                if message_content:
+                """if message_content:
                     if len(message_content) > 3000:
                         p1 = message_content[:1500]
                         p2 = message_content[-1000:]
-                        message_content = p1 + '...' + p2
+                        message_content = p1 + '...' + p2"""
 
                 message_params = ast.literal_eval(msg_w_o_notif[7]) if msg_w_o_notif[7] else {}
 
@@ -418,6 +405,8 @@ def iterate_over_notifications(bot, script_start_time):
                 # send the message to telegram if it is not a clone-message
                 if doubling_trigger == 'no_doubling':
 
+                    # TODO: to introduce check of the status for the Coord_change and field_trip:
+                    #  if status != 'Ищем': do not send, result = 'cancelled'
                     result = send_single_message(bot, user_id, message_content, message_params, message_type)
 
                     analytics_send_finish = datetime.datetime.now()
