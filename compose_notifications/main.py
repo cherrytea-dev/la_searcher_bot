@@ -643,12 +643,12 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
 
         # CASE 4. Cancellation of announced coordinates: A -> not-A
         elif verdict['drop']:
-            msg += f'🧭 Отмена координат по <a href="{link}">{name}{age_info}</a> ({region}):\n'
+            msg += f'🧭 Координаты по <a href="{link}">{name}{age_info}</a> ({region}):\n'
             for line in list_of_coords_changes:
                 if line[2] in {1, 2} and line[3] in {0, 3, 4}:
                     # clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
                     # msg += f'{clickable_link}\n'
-                    msg += f'{line[0]}, {line[1]}{link_text}\n'
+                    msg += f'Более НЕ АКТУАЛЬНЫ {line[0]}, {line[1]}{link_text}\n'
             scenario = 'drop'
 
     except Exception as e:
@@ -668,7 +668,39 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, new_value):
     # link_text = '{link_text}'
     region = '{region}'
 
+    new_value = ast.literal_eval(new_value) if new_value else {}
+
+    # FIXME TEMP DEBUG
+    notify_admin(f'NEW VALUE evaluated: {new_value}')
+
+    # NOTE - structure if new_val
+    # 'case': None,  # can be: None / add / drop / change
+    # 'prev_del': context_prev_del,
+    # 'prev_reg': context_prev_reg,
+    # 'curr_del': context_curr_del,
+    # 'curr_reg': context_curr_reg,
+    #'coords': None
+
+    case = new_value['case']
+    prev_del = new_value['prev_del']
+    prev_reg = new_value['prev_reg']
+    curr_del = new_value['curr_del']
+    curr_reg = new_value['curr_reg']
+
+    if case == 'add':
+        new_value = f'MIKE {case}: {curr_reg}'
+    elif case == 'drop':
+        new_value = f'MIKE {case}: {prev_reg}'
+    elif case == 'change':
+        new_value = f'MIKE {case}: prev: {prev_reg}, curr: {curr_reg}'
+    else:
+        new_value = 'undefined'
+
+    notify_admin(f'NEW VALUE evaluated: {new_value}')
+
     msg = f'🚨 Выезд по поиску <a href="{link}">{name}{age_info}</a>{region}:\n\n{new_value}'
+    # FIXME TEMP DEBUG
+
 
     # clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
     # msg += f'{clickable_link}\n'
