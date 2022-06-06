@@ -329,7 +329,7 @@ def compose_new_records_from_change_log(conn):
         # Convert preference from Change_Log Naming into User_Preferences Naming
         dictionary = {'new_search': 'new_searches', 'status_change': 'status_changes',
                       'replies_num_change': 'comments_changes', 'title_change': 'title_changes',
-                      'inforg_replies': 'inforg_comments', 'coords_change': 'coords_change'}
+                      'inforg_replies': 'inforg_comments', 'coords_change': 'coords_change', 'field_trip': 'field_trip'}
         new_line.changed_field_for_user = dictionary[new_line.changed_field]
 
         try:
