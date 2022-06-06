@@ -329,7 +329,8 @@ def compose_new_records_from_change_log(conn):
         # Convert preference from Change_Log Naming into User_Preferences Naming
         dictionary = {'new_search': 'new_searches', 'status_change': 'status_changes',
                       'replies_num_change': 'comments_changes', 'title_change': 'title_changes',
-                      'inforg_replies': 'inforg_comments', 'coords_change': 'coords_change', 'field_trip': 'field_trip'}
+                      'inforg_replies': 'inforg_comments', 'coords_change': 'coords_change',
+                      'new_field_trips': 'new_field_trips'}
         new_line.changed_field_for_user = dictionary[new_line.changed_field]
 
         try:
@@ -863,7 +864,7 @@ def enrich_new_records_with_com_message_texts():
                 line.message = compose_com_msg_on_inforg_comments(line.link, line.name, line.age, line.age_wording,
                                                                   line.comments_inforg, line.region)
 
-            elif line.change_type == 5:  # field_trip
+            elif line.change_type == 5:  # new_field_trips
                 # TODO temp debug
                 print(f'1 line.message={line.message}')
                 # TODO temp debug
@@ -1210,7 +1211,7 @@ def iterate_over_all_users_and_updates(conn):
                     mailing_type_id = 2
                 elif changed_field == 'replies_num_change':
                     mailing_type_id = 3
-                elif change_type == 5:  # field_trip
+                elif change_type == 5:  # new_field_trips
                     mailing_type_id = 5
                 elif change_type == 6:  # coords_change
                     mailing_type_id = 6
