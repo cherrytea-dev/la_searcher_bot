@@ -387,11 +387,11 @@ def iterate_over_notifications(bot, script_start_time):
                 # how_old_is_notif = (datetime.datetime.now() - created_time).total_seconds()
 
                 # limitation to avoid telegram "message too long"
-                """if message_content:
+                if message_content:
                     if len(message_content) > 3000:
                         p1 = message_content[:1500]
                         p2 = message_content[-1000:]
-                        message_content = p1 + '...' + p2"""
+                        message_content = p1 + '...' + p2
 
                 message_params = ast.literal_eval(msg_w_o_notif[7]) if msg_w_o_notif[7] else {}
 
