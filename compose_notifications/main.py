@@ -215,9 +215,9 @@ class Comment:
 class LineInChangeLog:
     def __init__(self,
                  forum_search_num=None,
-                 change_type=None,
+                 change_type=None,  # it is int from 0 to 99 which represents "change_type" column in change_log
                  changed_field=None,
-                 changed_field_for_user=None,
+                 changed_field_for_user=None,  # TODO: to be deleted
                  change_id=None,
                  new_value=None,
                  name=None,
@@ -244,7 +244,7 @@ class LineInChangeLog:
         self.forum_search_num = forum_search_num
         self.change_type = change_type
         self.changed_field = changed_field
-        self.changed_field_for_user = changed_field_for_user
+        self.changed_field_for_user = changed_field_for_user  # TODO: to be deleted
         self.change_id = change_id
         self.new_value = new_value
         self.name = name
@@ -282,6 +282,7 @@ class User:
                  user_id=None,
                  username_telegram=None,
                  notification_preferences=None,
+                 notif_pref_ids_list=None,
                  user_latitude=None,
                  user_longitude=None,
                  user_regions=None,
@@ -292,6 +293,7 @@ class User:
         self.user_id = user_id
         self.username_telegram = username_telegram
         self.notification_preferences = notification_preferences
+        self.notif_pref_ids_list = notif_pref_ids_list
         self.user_latitude = user_latitude
         self.user_longitude = user_longitude
         self.user_regions = user_regions
@@ -300,9 +302,9 @@ class User:
         self.user_new_search_notifs = user_new_search_notifs
 
     def __str__(self):
-        return str([self.user_id, self.username_telegram, self.notification_preferences, self.user_latitude,
-                    self.user_longitude, self.user_regions, self.user_in_multi_regions, self.user_corr_regions,
-                    self.user_new_search_notifs])
+        return str([self.user_id, self.username_telegram, self.notification_preferences, self.notif_pref_ids_list,
+                    self.user_latitude, self.user_longitude, self.user_regions, self.user_in_multi_regions,
+                    self.user_corr_regions, self.user_new_search_notifs])
 
 
 def compose_new_records_from_change_log(conn):
@@ -345,9 +347,11 @@ def compose_new_records_from_change_log(conn):
             # define if this Record in change log is about New comments and New comments were already loaded into msgs
             decision = 'add'
 
-            if len(new_records_list) > 0 and new_line.changed_field == 'replies_num_change':
+            # if len(new_records_list) > 0 and new_line.changed_field == 'replies_num_change':
+            if len(new_records_list) > 0 and new_line.change_type == 3:   # 'replies_num_change':
                 for j in new_records_list:
-                    if j.forum_search_num == new_line.forum_search_num and j.changed_field == new_line.changed_field:
+                    # if j.forum_search_num == new_line.forum_search_num and j.changed_field == new_line.changed_field:
+                    if j.forum_search_num == new_line.forum_search_num and j.change_type == new_line.change_type:
                         decision = 'drop'
             if decision == 'add':
                 new_records_list.append(new_line)
@@ -404,7 +408,8 @@ def enrich_new_records_from_searches(conn):
                     r_line.region = s_line[10]
 
                     # case: when new search's status is already not "Ищем" – to be ignored
-                    if r_line.status != 'Ищем' and r_line.changed_field == "new_search":
+                    # if r_line.status != 'Ищем' and r_line.changed_field == "new_search":
+                    if r_line.status != 'Ищем' and r_line.change_type == 0:  # "new_search":
                         r_line.ignore = 'y'
                     break
 
@@ -496,7 +501,8 @@ def enrich_new_records_with_comments(conn, type_of_comments):
 
         # look for matching Forum Search Num    bers in New Records List & Comments
         for r_line in new_records_list:
-            if r_line.changed_field in {'replies_num_change', 'inforg_replies'}:
+            # if r_line.changed_field in {'replies_num_change', 'inforg_replies'}:
+            if r_line.change_type in {3, 4}:  # {'replies_num_change', 'inforg_replies'}:
                 temp_list_of_comments = []
                 for c_line in comments:
                     # when match of Forum Numbers is found
@@ -688,7 +694,7 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, new_value):
     # 'prev_reg': context_prev_reg,
     # 'curr_del': context_curr_del,
     # 'curr_reg': context_curr_reg,
-    #'coords': None
+    # 'coords': None
 
     case = new_value['case']
     prev_del = new_value['prev_del']
@@ -709,7 +715,6 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, new_value):
 
     msg = f'🚨 Выезд по поиску <a href="{link}">{name}{age_info}</a>{region}:\n\n{new_value}'
     # FIXME TEMP DEBUG
-
 
     # clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
     # msg += f'{clickable_link}\n'
@@ -847,7 +852,7 @@ def enrich_new_records_with_com_message_texts():
         for line in new_records_list:
             last_line = line
             # TODO: to shift from "names" to "ids" in change types
-            if line.changed_field == 'new_search':
+            if line.change_type == 0:  # 'new_search':
 
                 start = line.start_time
                 now = datetime.datetime.now()
@@ -859,31 +864,31 @@ def enrich_new_records_with_com_message_texts():
                 else:
                     line.ignore = 'y'
 
-            elif line.changed_field == 'status_change':
+            elif line.change_type == 1:  # 'status_change':
                 line.message = compose_com_msg_on_status_change(line.status, line.link, line.name, line.age,
                                                                 line.age_wording, line.region)
-            elif line.changed_field == 'title_change':
+            elif line.change_type == 2:  # 'title_change':
                 line.message = compose_com_msg_on_title_change(line.title, line.link, line.name, line.age,
                                                                line.age_wording)
-            elif line.changed_field == 'replies_num_change':
+            elif line.change_type == 3:  # 'replies_num_change':
                 line.message = compose_com_msg_on_new_comments(line.link, line.name, line.age, line.age_wording,
                                                                line.comments)
-            elif line.changed_field == 'inforg_replies':
+            elif line.change_type == 4:  # 'inforg_replies':
                 line.message = compose_com_msg_on_inforg_comments(line.link, line.name, line.age, line.age_wording,
                                                                   line.comments_inforg, line.region)
 
-            elif line.change_type == 5:  # new_field_trips
+            elif line.change_type == 5:  # topic_field_trip_new
                 # TODO temp debug
-                print(f'1 line.message={line.message}')
+                print(f'ZZZ: 1 line.message={line.message}')
                 # TODO temp debug
                 line.message, line.search_latitude, line.search_longitude = \
                     compose_com_msg_on_field_trip(line.link, line.name, line.age, line.age_wording, line.new_value)
 
                 # TODO temp debug
-                print(f'2 line.message={line.message}')
+                print(f'ZZZ: 2 line.message={line.message}')
                 # TODO temp debug
 
-            elif line.change_type == 6:  # coords_change
+            elif line.change_type == 6:  # TODO: coords_change --> topic_field_trip_change
                 line.message, line.search_latitude, line.search_longitude, line.coords_change_type = \
                     compose_com_msg_on_coords_change(line.link, line.name, line.age, line.age_wording, line.new_value)
 
@@ -949,12 +954,15 @@ def enrich_users_list_with_notification_preferences(conn):
         # look for matching User_ID in Users List & Notification Preferences
         for u_line in users_list:
             prefs_array = []
+            user_pref_ids_list = []
             for np_line in notif_prefs:
                 # when match is found
                 if u_line.user_id == np_line[0]:
                     prefs_array.append(np_line[1])
+                    user_pref_ids_list.append(np_line[2])
 
             u_line.notification_preferences = prefs_array
+            u_line.notif_pref_ids_list = user_pref_ids_list
 
         logging.info('Users List enriched with Notification Prefs')
 
@@ -1204,12 +1212,12 @@ def iterate_over_all_users_and_updates(conn):
 
                 s_lat = new_record.search_latitude
                 s_lon = new_record.search_longitude
-                changed_field = new_record.changed_field
+                # changed_field = new_record.changed_field
                 change_type = new_record.change_type
 
                 # TODO: to replace mailing_type_id HERE and LATER with change_type and that's it
                 mailing_type_id = 99  # which is for 'non defined'
-                if changed_field == 'new_search':
+                """if changed_field == 'new_search':
                     mailing_type_id = 0
                 elif changed_field == 'status_change':
                     mailing_type_id = 1
@@ -1222,7 +1230,8 @@ def iterate_over_all_users_and_updates(conn):
                 elif change_type == 5:  # new_field_trips
                     mailing_type_id = 5
                 elif change_type == 6:  # coords_change
-                    mailing_type_id = 6
+                    mailing_type_id = 6"""
+                mailing_id = change_type
 
                 # check if this change_log record was somehow processed
                 sql_text = sqlalchemy.text("""
@@ -1278,6 +1287,7 @@ def iterate_over_all_users_and_updates(conn):
                         u_lat = user.user_latitude
                         u_lon = user.user_longitude
                         user_notif_prefs = user.notification_preferences
+                        user_notif_pref_ids_list = user.notif_pref_ids_list
                         user_reg_prefs = user.user_regions
 
                         # as user can have multi-reg preferences – check every region
@@ -1290,7 +1300,8 @@ def iterate_over_all_users_and_updates(conn):
                                     region_to_show = new_record.region
 
                                 # as user can have several notification preferences – check every preference
-                                for notif_pref in user_notif_prefs:
+                                # for notif_pref in user_notif_prefs:
+                                for user_notif_pref_id in user_notif_pref_ids_list:
 
                                     # check if user wants to receive this kind of notifications
 
@@ -1298,53 +1309,57 @@ def iterate_over_all_users_and_updates(conn):
                                     if user.user_id in admins_list:
                                         print(f'ZZZ: user_id={user.user_id}')
                                         print(f'ZZZ: admins_list={admins_list}')
-                                        print(f'ZZZ: notif_pref={notif_pref}')
+                                        print(f'ZZZ: notif_pref={user_notif_pref_id}')
                                         print(f'ZZZ: new_record.changed_field_for_user={new_record.changed_field_for_user}')
                                         print(f'ZZZ: change_type={change_type}')
-                                        print(f'ZZZ: small if 1 ={notif_pref == new_record.changed_field_for_user}')
-                                        print(f'ZZZ: small if 2 ={notif_pref == "all" and change_type not in {5, 6}}')
-                                        print(f'ZZZ: big if={notif_pref == new_record.changed_field_for_user or (notif_pref == "all" and change_type not in {5, 6})}')
+                                        print(f'ZZZ: small if 1 ={user_notif_pref_id == new_record.changed_field_for_user}')
+                                        print(f'ZZZ: small if 2 ={user_notif_pref_id == 30 and change_type not in {5, 6}}')  # 30 = 'all'
+                                        print(f'ZZZ: big if={user_notif_pref_id == new_record.changed_field_for_user or (user_notif_pref_id == 30 and change_type not in {5, 6})}')  # 30='all"
                                     # TODO temp debug
 
                                     # TODO: temp limitation for ones who have 5 or 6
-                                    if notif_pref == new_record.changed_field_for_user or\
-                                            (notif_pref == 'all' and change_type not in {5, 6}):
+                                    if user_notif_pref_id == change_type or\
+                                            (user_notif_pref_id == 30 and change_type not in {5, 6}):  # 30 = 'all'
 
                                         # on this step - we're certain: user should receive the notification
                                         # start preparation on notifications
                                         message = ''
                                         number_of_situations_checked += 1
 
-                                        if changed_field == 'new_search':
+                                        # if changed_field == 'new_search':
+                                        if change_type == 0:  # new_search
                                             sent_already = user.user_new_search_notifs
                                             message = compose_individual_message_on_new_search(new_record, s_lat, s_lon,
                                                                                                u_lat, u_lon,
                                                                                                region_to_show,
                                                                                                sent_already)
-
-                                        elif changed_field == 'status_change':
+                                        # elif changed_field == 'status_change':
+                                        elif change_type == 1:  # status_change
                                             message = new_record.message[0]
                                             if user.user_in_multi_regions and new_record.message[1]:
                                                 message += new_record.message[1]
 
-                                        elif changed_field == 'inforg_replies':
+                                        # elif changed_field == 'inforg_replies':
+                                        elif change_type == 4:  # 'inforg_replies':
                                             message = new_record.message[0]
                                             if user.user_in_multi_regions and new_record.message[1]:
                                                 message += new_record.message[1]
                                             if new_record.message[2]:
                                                 message += new_record.message[2]
 
-                                        elif changed_field == 'replies_num_change':
+                                        # elif changed_field == 'replies_num_change':
+                                        elif change_type == 3:  # 'replies_num_change':
                                             message = new_record.message[0]
 
-                                        elif changed_field == 'title_change':
+                                        # elif changed_field == 'title_change':
+                                        elif change_type == 2:  # 'title_change':
                                             message = new_record.message
 
                                         elif change_type == 5:  # filed_trip
 
                                             # TODO: temp debug
                                             print(f'ZZZ: user_id={user.user_id}, user={user}, '
-                                                  f'prefs={user_notif_prefs}')
+                                                  f'prefs={user_notif_pref_ids_list}')
                                             # TODO: temp debug
 
                                             # TODO: temp limitation for ADMIN
@@ -1355,7 +1370,7 @@ def iterate_over_all_users_and_updates(conn):
 
                                             # TODO: temp debug
                                             print(f'YYY: user_id={user.user_id}, user={user}, '
-                                                  f'prefs={user_notif_prefs}')
+                                                  f'prefs={user_notif_pref_ids_list}')
                                             # TODO: temp debug
 
                                             # TODO: temp limitation for ADMIN
@@ -1406,10 +1421,12 @@ def iterate_over_all_users_and_updates(conn):
                                                                               'text')
 
                                                 # for user tips – to increase sent messages counter
-                                                if changed_field == 'new_search':
+                                                # if changed_field == 'new_search':
+                                                if change_type == 0:  # 'new_search':
                                                     stat_list_of_recipients.append(user.user_id)
 
-                                                if changed_field == 'new_search' and s_lat and s_lon:
+                                                # if changed_field == 'new_search' and s_lat and s_lon:
+                                                if change_type == 0 and s_lat and s_lon:  # 'new_search'
                                                     message_params = {'latitude': s_lat,
                                                                       'longitude': s_lon}
 
