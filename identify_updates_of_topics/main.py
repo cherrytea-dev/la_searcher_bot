@@ -263,7 +263,9 @@ def parse_coordinates(search_num):
 
         # add Russia to be sure
         # Openstreetmap.org treats Krym as Ukraine - so for search purposes Russia is avoided
-        if address_string.lower().find('крым') == -1 and address_string.lower().find('севастополь') == -1:
+        if address_string \
+                and address_string.lower().find('крым') == -1 \
+                and address_string.lower().find('севастополь') == -1:
             address_string = address_string[new_start:] + ', Россия'
 
         # case - first "с.", "п." and "д." are often misinterpreted - so it's easier to remove it
