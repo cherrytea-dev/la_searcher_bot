@@ -1296,6 +1296,8 @@ def iterate_over_all_users_and_updates(conn):
 
                                     # TODO temp debug
                                     if user.user_id in admins_list:
+                                        print(f'ZZZ: user_id={user.user_id}')
+                                        print(f'ZZZ: admins_list={admins_list}')
                                         print(f'ZZZ: notif_pref={notif_pref}')
                                         print(f'ZZZ: new_record.changed_field_for_user={new_record.changed_field_for_user}')
                                         print(f'ZZZ: change_type={change_type}')
