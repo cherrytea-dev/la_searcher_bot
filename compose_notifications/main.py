@@ -327,11 +327,19 @@ def compose_new_records_from_change_log(conn):
 
         # TODO: to avoid "names" and substitute by "ids" for change types
         # Convert preference from Change_Log Naming into User_Preferences Naming
-        dictionary = {'new_search': 'new_searches', 'status_change': 'status_changes',
-                      'replies_num_change': 'comments_changes', 'title_change': 'title_changes',
-                      'inforg_replies': 'inforg_comments', 'coords_change': 'coords_change',
-                      'new_field_trips': 'new_field_trips'}
-        new_line.changed_field_for_user = dictionary[new_line.changed_field]
+        # TODO: temp try, content is needed
+        try:
+            dictionary = {'new_search': 'new_searches', 'status_change': 'status_changes',
+                          'replies_num_change': 'comments_changes', 'title_change': 'title_changes',
+                          'inforg_replies': 'inforg_comments', 'coords_change': 'coords_change',
+                          'new_field_trips': 'new_field_trips', 'field_trip': 'field_trip'}
+            new_line.changed_field_for_user = dictionary[new_line.changed_field]
+
+        except Exception as e:
+            logging.info(f'ZZZ: EXCEPT')
+            logging.exception(e)
+            new_line.changed_field_for_user = new_line.changed_field
+        # TODO: temp try, content is needed
 
         try:
             # define if this Record in change log is about New comments and New comments were already loaded into msgs
