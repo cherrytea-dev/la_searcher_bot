@@ -670,7 +670,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
 
 
 def compose_com_msg_on_field_trip(link, name, age, age_wording, new_value):
-    """compose the common, user-independent message on filed trips change"""
+    """compose the common, user-independent message on field trips: new, change"""
 
     age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
 
@@ -680,9 +680,6 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, new_value):
     region = '{region}'
 
     new_value = ast.literal_eval(new_value) if new_value else {}
-
-    # FIXME TEMP DEBUG
-    notify_admin(f'NEW VALUE evaluated: {new_value}')
 
     # NOTE - structure if new_val
     # 'case': None,  # can be: None / add / drop / change
@@ -699,17 +696,20 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, new_value):
     curr_reg = new_value['curr_reg']
 
     if case == 'add':
-        new_value = f'MIKE {case}: {curr_reg}'
+        prettified_text = new_value['curr_reg']['prettified_text']
+        tech_line = f'tech_line: case={case}: curr_reg={curr_reg}'
+        msg = f'🚨 {prettified_text} по поиску <a href="{link}">{name}{age_info}</a>{region}:\n\n{tech_line}'
     elif case == 'drop':
-        new_value = f'MIKE {case}: {prev_reg}'
+        tech_line = f'tech_line: case={case}: curr_reg={curr_reg}'
+        msg = f'Завершен выезд по поиску <a href="{link}">{name}{age_info}</a>{region}.\n\n{tech_line}'
     elif case == 'change':
-        new_value = f'MIKE {case}: prev: {prev_reg}, curr: {curr_reg}'
-    else:
-        new_value = 'undefined'
+        tech_line = f'tech_line: case={case}: prev={prev_reg},\ncurr={curr_reg}'
+        msg = f'Изменения по выезду поиска <a href="{link}">{name}{age_info}</a>{region}:\n\n{tech_line}'
+    else
+        msg = None
 
     notify_admin(f'NEW VALUE evaluated: {new_value}')
 
-    msg = f'🚨 Выезд по поиску <a href="{link}">{name}{age_info}</a>{region}:\n\n{new_value}'
     # FIXME TEMP DEBUG
 
     # clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
@@ -884,7 +884,12 @@ def enrich_new_records_with_com_message_texts():
                 print(f'ZZZ: 2 line.message={line.message}')
                 # TODO temp debug
 
-            elif line.change_type == 6:  # TODO: coords_change --> topic_field_trip_change
+            elif line.change_type == 6:  # topic_field_trip_change
+                line.message, line.search_latitude, line.search_longitude = \
+                    compose_com_msg_on_field_trip(line.link, line.name, line.age, line.age_wording, line.new_value)
+
+            # TODO: temp
+            elif line.change_type == 7:  # coords_change
                 line.message, line.search_latitude, line.search_longitude, line.coords_change_type = \
                     compose_com_msg_on_coords_change(line.link, line.name, line.age, line.age_wording, line.new_value)
 
@@ -1210,10 +1215,6 @@ def iterate_over_all_users_and_updates(conn):
                 s_lon = new_record.search_longitude
                 change_type = new_record.change_type
 
-                # TODO: to replace mailing_type_id HERE and LATER with change_type and that's it
-                mailing_type_id = 99  # which is for 'non defined'
-                mailing_id = change_type
-
                 # check if this change_log record was somehow processed
                 sql_text = sqlalchemy.text("""
                                     SELECT EXISTS (SELECT * FROM notif_mailings WHERE change_log_id=:a);
@@ -1234,13 +1235,13 @@ def iterate_over_all_users_and_updates(conn):
                 raw_data = conn.execute(sql_text,
                                         a=new_record.forum_search_num,
                                         b='notifications_script',
-                                        c=mailing_type_id,
+                                        c=change_type,
                                         d=new_record.change_id
                                         ).fetchone()
 
                 search_id_for_analytics = new_record.forum_search_num
                 mailing_id = raw_data[0]
-                change_type_for_analytics = mailing_type_id
+                change_type_for_analytics = change_type
                 change_id_for_analytics = new_record.change_id
 
                 logging.info(mailing_id)
@@ -1298,7 +1299,7 @@ def iterate_over_all_users_and_updates(conn):
 
                                     # TODO: temp limitation for ones who have 5 or 6
                                     if user_notif_pref_id == change_type or\
-                                            (user_notif_pref_id == 30 and change_type not in {5, 6}):  # 30 = 'all'
+                                            (user_notif_pref_id == 30 and change_type not in {5, 6, 7}):  # 30 = 'all'
 
                                         # on this step - we're certain: user should receive the notification
                                         # start preparation on notifications
@@ -1316,6 +1317,12 @@ def iterate_over_all_users_and_updates(conn):
                                             if user.user_in_multi_regions and new_record.message[1]:
                                                 message += new_record.message[1]
 
+                                        elif change_type == 2:  # 'title_change':
+                                            message = new_record.message
+
+                                        elif change_type == 3:  # 'replies_num_change':
+                                            message = new_record.message[0]
+
                                         elif change_type == 4:  # 'inforg_replies':
                                             message = new_record.message[0]
                                             if user.user_in_multi_regions and new_record.message[1]:
@@ -1323,14 +1330,7 @@ def iterate_over_all_users_and_updates(conn):
                                             if new_record.message[2]:
                                                 message += new_record.message[2]
 
-                                        elif change_type == 3:  # 'replies_num_change':
-                                            message = new_record.message[0]
-
-                                        elif change_type == 2:  # 'title_change':
-                                            message = new_record.message
-
-                                        elif change_type == 5:  # filed_trip
-
+                                        elif change_type == 5:  # field_trips_new
                                             # TODO: temp debug
                                             print(f'ZZZ: user_id={user.user_id}, user={user}, '
                                                   f'prefs={user_notif_pref_ids_list}')
@@ -1340,8 +1340,17 @@ def iterate_over_all_users_and_updates(conn):
                                             if user.user_id in admins_list:
                                                 message = new_record.message
 
-                                        elif change_type == 6:  # coords_change
+                                        elif change_type == 6:  # field_trips_change
+                                            # TODO: temp debug
+                                            print(f'ZZZ: user_id={user.user_id}, user={user}, '
+                                                  f'prefs={user_notif_pref_ids_list}')
+                                            # TODO: temp debug
 
+                                            # TODO: temp limitation for ADMIN
+                                            if user.user_id in admins_list:
+                                                message = new_record.message
+
+                                        elif change_type == 7:  # coords_change
                                             # TODO: temp debug
                                             print(f'YYY: user_id={user.user_id}, user={user}, '
                                                   f'prefs={user_notif_pref_ids_list}')
@@ -1356,7 +1365,8 @@ def iterate_over_all_users_and_updates(conn):
 
                                         if message:
 
-                                            if change_type in {0, 6}:  # new_search or coord_change
+                                            if change_type in {0, 5, 6, 7}:  # new_search, field_trips_new,
+                                                # field_trips_change,  coord_change
                                                 message_group_id = get_the_new_group_id()
 
                                             else:
@@ -1414,14 +1424,18 @@ def iterate_over_all_users_and_updates(conn):
                                                                                   change_id_for_analytics, user.user_id,
                                                                                   'coords')
 
+                                                # TODO: to be added for change_type = 5 and 6
+                                                # TODO: to be added for change_type = 5 and 6
+                                                # TODO: to be added for change_type = 5 and 6
+
                                                 # TODO: debug
-                                                if change_type == 6:
+                                                if change_type == 7:
                                                     print(f'YYY: s_lat={s_lat}, s_lon={s_lon}, '
                                                           f'coords_change_type={new_record.coords_change_type}, '
                                                           f'user={user.user_id}')
                                                 # TODO: debug
 
-                                                if change_type == 6 and s_lat and s_lon \
+                                                if change_type == 7 and s_lat and s_lon \
                                                         and new_record.coords_change_type != 'drop' \
                                                         and user.user_id in admins_list:  # coords_change
                                                     message_params = {'latitude': s_lat,

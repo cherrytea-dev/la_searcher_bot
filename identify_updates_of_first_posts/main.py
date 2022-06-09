@@ -525,6 +525,8 @@ def check_changes_of_field_trip(text):
                      'now': True,  # True for now of and False for future
                      'urgent': False,  # True for urgent
                      'secondary': False,  # True for secondary
+                     'original_prefix': '',  # for 'Внимание срочный выезд'
+                     'prettified_prefix': '',  # for 'Внимание срочный выезд'
                      'original_text': '',  # All the matched cases by regex
                      'prettified_text': ''  # Prettified to be shown as one text.
                      }
@@ -639,8 +641,8 @@ def main(event, context):  # noqa
 
                         field_trips_dict = process_field_trips_comparison(conn, search_id, first_page_content_prev,
                                                                           first_page_content_curr)
-                        # CASE 1. There were Field Trips changes
-                        if field_trips_dict['case']:
+                        # CASE 1. There were NEW Field Trips
+                        if field_trips_dict['case'] == 'add':
 
                             # Check if coords changed as well during Field Trip
                             coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
@@ -649,9 +651,22 @@ def main(event, context):  # noqa
                             field_trips_dict['coords'] = str(coords_change_list)
 
                             # Save Field Trip (incl potential Coords change) into Change_log
-                            save_new_record_into_change_log(conn, search_id, str(field_trips_dict), 'field_trip', 5)
+                            save_new_record_into_change_log(conn, search_id,
+                                                            str(field_trips_dict), 'field_trip_new', 5)
 
-                        # CASE 2. There are no Field Trip changes – we're checking coords change only
+                        # CASE 2. There were Field Trips Changes or Drops
+                        elif field_trips_dict['case'] in {'drop', 'change'}:
+                            # Check if coords changed as well during Field Trip
+                            coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
+                                                                           first_page_content_prev)
+
+                            field_trips_dict['coords'] = str(coords_change_list)
+
+                            # Save Field Trip (incl potential Coords change) into Change_log
+                            save_new_record_into_change_log(conn, search_id,
+                                                            str(field_trips_dict), 'field_trip_change', 6)
+
+                        # CASE 3. There are no Field Trip changes – we're checking coords change only
                         else:
 
                             coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
@@ -659,7 +674,8 @@ def main(event, context):  # noqa
                             if coords_change_list:
 
                                 # Save Coords change into Change_log
-                                save_new_record_into_change_log(conn, search_id, coords_change_list, 'coords_change', 6)
+                                save_new_record_into_change_log(conn, search_id,
+                                                                coords_change_list, 'coords_change', 7)
 
                 except Exception as e:
                     logging.info('[ide_posts]: Error fired during output_dict creation.')
