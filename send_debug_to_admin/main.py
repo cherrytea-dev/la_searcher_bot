@@ -11,6 +11,9 @@ from google.cloud import secretmanager
 project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
 
+logging.getLogger("telegram.vendor.ptb_urllib3.urllib3").setLevel(logging.ERROR)
+logger = logging.getLogger(__name__)
+
 
 def get_secrets(secret_request):
     """get google cloud secret"""
