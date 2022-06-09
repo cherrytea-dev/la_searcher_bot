@@ -2262,12 +2262,12 @@ def main(request):
                                 bot_message = 'Теперь вы будете получать уведомления о ключевых изменениях при ' \
                                               'выездах, в т.ч. изменение или завершение выезда. Обратите внимание, ' \
                                               'что эта рассылка отражает изменения только в ПЕРВОМ посте поиска.'
-                                save_preference(conn_psy, cur, user_id, 'field_trips_new')
+                                save_preference(conn_psy, cur, user_id, 'field_trips_change')
 
                             # save preference for -FieldTripsChange
                             elif got_message == b_deact_field_trips_change:
                                 bot_message = 'Вы отписались от уведомлений по изменениям выездов'
-                                save_preference(conn_psy, cur, user_id, '-field_trips_new')
+                                save_preference(conn_psy, cur, user_id, '-field_trips_change')
 
                             # save preference for +CoordsChange
                             elif got_message == b_act_coords_change:
