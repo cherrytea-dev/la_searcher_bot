@@ -705,7 +705,7 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, new_value):
     elif case == 'change':
         tech_line = f'tech_line: case={case}: prev={prev_reg},\ncurr={curr_reg}'
         msg = f'Изменения по выезду поиска <a href="{link}">{name}{age_info}</a>{region}:\n\n{tech_line}'
-    else
+    else:
         msg = None
 
     notify_admin(f'NEW VALUE evaluated: {new_value}')
