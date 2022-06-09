@@ -537,6 +537,7 @@ def save_preference(conn_psy, cur, user_id, preference):
     # 4 | topic_inforg_comment_new
     # 5 | topic_field_trip_new
     # 6 | topic_field_trip_change
+    # 7 | topic_coords_change
     # 20 | bot_news
     # 30 | all
     # 99 | not_defined
@@ -699,17 +700,17 @@ def save_preference(conn_psy, cur, user_id, preference):
             (user_id,))
         conn_psy.commit()
 
-    # if user wants notifications ON FIELD TRIPS
-    elif preference == 'new_field_trips':
+    # if user wants notifications ON NEW FIELD TRIPS
+    elif preference == 'field_trips_new':
 
         # Delete Start & Finish
         cur.execute(
             """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
-            preference='finish' OR preference='new_field_trips' OR pref_id=5);""",
+            preference='finish' OR preference='field_trips_new' OR pref_id=5);""",
             (user_id,))
         conn_psy.commit()
 
-        # Check if ALL is in place
+        # Check if ALL is in plac
         cur.execute(
             "SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' or pref_id=30) LIMIT 1;",
             (user_id,))
@@ -723,10 +724,41 @@ def save_preference(conn_psy, cur, user_id, preference):
             conn_psy.commit()
 
     # if user DOESN'T want notifications ON FIELD TRIPS
-    elif preference == '-new_field_trips':
+    elif preference == '-field_trips_new':
 
         cur.execute(
-            """DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'new_field_trips' OR pref_id=5);""",
+            """DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'field_trips_new' OR pref_id=5);""",
+            (user_id,))
+        conn_psy.commit()
+
+    # if user wants notifications ON NEW FIELD TRIPS
+    elif preference == 'field_trips_change':
+
+        # Delete Start & Finish
+        cur.execute(
+            """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
+            preference='finish' OR preference='field_trips_change' OR pref_id=6);""",
+            (user_id,))
+        conn_psy.commit()
+
+        # Check if ALL is in place
+        cur.execute(
+            "SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' or pref_id=30) LIMIT 1;",
+            (user_id,))
+        conn_psy.commit()
+        already_all = str(cur.fetchone())
+
+        # Add filed_trips_change ONLY in there's no ALL
+        if already_all == 'None':
+            cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
+                        (user_id, preference, 6))
+            conn_psy.commit()
+
+    # if user DOESN'T want notifications ON FIELD TRIPS CHANGES
+    elif preference == '-field_trips_change':
+
+        cur.execute(
+            """DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'field_trips_change' OR pref_id=6);""",
             (user_id,))
         conn_psy.commit()
 
@@ -736,7 +768,7 @@ def save_preference(conn_psy, cur, user_id, preference):
         # Delete Start & Finish
         cur.execute(
             """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
-            preference='finish' OR preference='coords_change' OR pref_id=6);""",
+            preference='finish' OR preference='coords_change' OR pref_id=7);""",
             (user_id,))
         conn_psy.commit()
 
@@ -750,14 +782,14 @@ def save_preference(conn_psy, cur, user_id, preference):
         # Add new_filed_trips ONLY in there's no ALL
         if already_all == 'None':
             cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
-                        (user_id, preference, 6))
+                        (user_id, preference, 7))
             conn_psy.commit()
 
     # if user DOESN'T want notifications ON COORDS CHANGE
     elif preference == '-coords_change':
 
         cur.execute(
-            """DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'coords_change' OR pref_id=6);""",
+            """DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'coords_change' OR pref_id=7);""",
             (user_id,))
         conn_psy.commit()
 
@@ -1390,7 +1422,8 @@ def main(request):
                 com_6 = 'включить: об изменениях статусов'
                 com_7 = 'включить: о всех новых комментариях'
                 b_act_inforg_com = 'включить: о комментариях Инфорга'
-                b_act_new_filed_trip = 'включить: о новых выездах'
+                b_act_field_trips_new = 'включить: о новых выездах'
+                b_act_field_trips_change = 'включить: об изменениях в выездах'
                 b_act_coords_change = 'включить: о смене места штаба'
                 com_9 = 'включить: о новых функциях бота'
                 com_15 = 'отключить и настроить более гибко'
@@ -1398,7 +1431,8 @@ def main(request):
                 com_17 = 'отключить: об изменениях статусов'
                 com_18 = 'отключить: о всех новых комментариях'
                 b_deact_inforg_com = 'отключить: о комментариях Инфорга'
-                b_deact_new_filed_trip = 'отключить: о новых выездах'
+                b_deact_field_trips_new = 'отключить: о новых выездах'
+                b_deact_field_trips_change = 'отключить: об изменениях в выездах'
                 b_deact_coords_change = 'отключить: о смене места штаба'
                 com_12 = 'отключить: о новых функциях бота'
                 # TODO: experiment
@@ -1814,7 +1848,8 @@ def main(request):
                                           'на 100% корректно. Если заметите случаи некорректного выполнения ' \
                                           'функционала из этого раздела – пишите, пожалуйста, в телеграм-чат ' \
                                           'https://t.me/joinchat/2J-kV0GaCgwxY2Ni'
-                            keyboard_coordinates_admin = [[b_act_new_filed_trip], [b_deact_new_filed_trip],
+                            keyboard_coordinates_admin = [[b_act_field_trips_new], [b_deact_field_trips_new],
+                                                          [b_act_field_trips_change], [b_deact_field_trips_change],
                                                           [b_act_coords_change], [b_deact_coords_change],
                                                           [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
@@ -2138,7 +2173,8 @@ def main(request):
                         # special block for flexible menu on notification preferences
                         elif got_message in {com_5, com_6, com_10, com_7, com_3, com_17, com_18, com_16, com_9, com_12,
                                              b_act_inforg_com, b_deact_inforg_com,
-                                             b_act_new_filed_trip, b_deact_new_filed_trip,
+                                             b_act_field_trips_new, b_deact_field_trips_new,
+                                             b_act_field_trips_change, b_deact_field_trips_change,
                                              b_act_coords_change, b_deact_coords_change}:
 
                             # save preference for +NEW SEARCHES
@@ -2208,18 +2244,30 @@ def main(request):
                                 bot_message = 'Вы отписались от уведомлений по новым комментариям от Инфорга'
                                 save_preference(conn_psy, cur, user_id, '-inforg_comments')
 
-                            # save preference for +NewFieldTrips
-                            elif got_message == b_act_new_filed_trip:
+                            # save preference for +FieldTripsNew
+                            elif got_message == b_act_field_trips_new:
                                 bot_message = 'Теперь вы будете получать уведомления о новых выездах по уже идущим ' \
                                               'поискам. Обратите внимание, что это не рассылка по новым темам на ' \
                                               'форуме, а именно о том, что в существующей теме в ПЕРВОМ посте ' \
                                               'появилась информация о новом выезде'
-                                save_preference(conn_psy, cur, user_id, 'new_field_trips')
+                                save_preference(conn_psy, cur, user_id, 'field_trips_new')
 
-                            # save preference for -NewFieldTrips
-                            elif got_message == b_deact_new_filed_trip:
+                            # save preference for -FieldTripsNew
+                            elif got_message == b_deact_field_trips_new:
                                 bot_message = 'Вы отписались от уведомлений по новым выездам'
-                                save_preference(conn_psy, cur, user_id, '-new_field_trips')
+                                save_preference(conn_psy, cur, user_id, '-field_trips_new')
+
+                            # save preference for +FieldTripsChange
+                            elif got_message == b_act_field_trips_change:
+                                bot_message = 'Теперь вы будете получать уведомления о ключевых изменениях при ' \
+                                              'выездах, в т.ч. изменение или завершение выезда. Обратите внимание, ' \
+                                              'что эта рассылка отражает изменения только в ПЕРВОМ посте поиска.'
+                                save_preference(conn_psy, cur, user_id, 'field_trips_new')
+
+                            # save preference for -FieldTripsChange
+                            elif got_message == b_deact_field_trips_change:
+                                bot_message = 'Вы отписались от уведомлений по изменениям выездов'
+                                save_preference(conn_psy, cur, user_id, '-field_trips_new')
 
                             # save preference for +CoordsChange
                             elif got_message == b_act_coords_change:
