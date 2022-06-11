@@ -1312,6 +1312,8 @@ def main(request):
             if not user_id:
                 user_id = get_param_if_exists(update, 'update.my_chat_member.chat.id')
             if not user_id:
+                user_id = get_param_if_exists(update, 'update.inline_query.from.id')
+            if not user_id:
                 logging.error('failed to define user_id')
 
             # CASE 1 – when user blocked / unblocked the bot
