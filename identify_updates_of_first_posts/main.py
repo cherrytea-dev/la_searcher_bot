@@ -270,44 +270,49 @@ def process_coords_comparison(conn, search_id, first_page_content_curr, first_pa
 def process_field_trips_comparison(conn, search_id, first_page_content_prev, first_page_content_curr):
     """compare first post content to identify diff in field trips"""
 
-    field_trips_dict = {'case': None, 'coords': {}}
+    field_trips_dict = {'case': None}
 
-    sql_text = sqlalchemy.text("""
-                    SELECT family_name, age, status_short FROM searches WHERE search_forum_num=:a;
-                    """)
-    raw_data = conn.execute(sql_text, a=search_id).fetchone()
-    name = raw_data[0]
-    age = raw_data[1]
-    status_short = raw_data[2]
+    # check the latest status on this search
+    sql_text = sqlalchemy.text("""SELECT family_name, age, status_short FROM searches WHERE search_forum_num=:a;""")
+    name, age, status_short = conn.execute(sql_text, a=search_id).fetchone()
 
+    # updated are made only for non-finished searches
     if status_short == 'Ищем':
+
         # TODO: this block is only for DEBUG - to be deleted
         link = f'https://lizaalert.org/forum/viewtopic.php?t={search_id}'
         age_wording = age_writer(age) if age else None
         age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
-
         msg_2 = f'{name}{age_info}, {search_id}, {link}'
+        # publish_to_pubsub('topic_notify_admin', f'[ide_post]: testing: {msg_2}')
         # TODO: this block is only for DEBUG - to be deleted
 
-        # publish_to_pubsub('topic_notify_admin', f'[ide_post]: testing: {msg_2}')
+        # split the texts of the first posts into deleted and regular blocks
+        text_prev_del, text_prev_reg = split_text_to_deleted_and_regular_parts(first_page_content_prev)
+        text_curr_del, text_curr_reg = split_text_to_deleted_and_regular_parts(first_page_content_curr)
 
-        text_prev_del, text_prev_reg = \
-            split_text_to_deleted_and_regular_parts(first_page_content_prev)
-        text_curr_del, text_curr_reg = \
-            split_text_to_deleted_and_regular_parts(first_page_content_curr)
-
-        context_prev_del = check_changes_of_field_trip(text_prev_del)
+        # get field_trip-related context from texts
+        # format:
+        # context_prev_del = check_changes_of_field_trip(text_prev_del)
         context_prev_reg = check_changes_of_field_trip(text_prev_reg)
         context_curr_del = check_changes_of_field_trip(text_curr_del)
         context_curr_reg = check_changes_of_field_trip(text_curr_reg)
 
         field_trips_dict = {
-            'case': None,  # can be: None / add / drop / change
-            'prev_del': context_prev_del,
-            'prev_reg': context_prev_reg,
-            'curr_del': context_curr_del,
-            'curr_reg': context_curr_reg,
-            'coords': None
+            # 'prev_del': context_prev_del,  # not used
+            'prev_reg': context_prev_reg,  # TODO: to be deleted
+            'curr_del': context_curr_del,  # TODO: to be deleted
+            'curr_reg': context_curr_reg,  # TODO: to be deleted
+
+            'case': None  # can be: None / add / drop / change
+            # 'urgent': False,
+            # 'now': True,
+            # 'secondary': False,
+            # 'date_and_time': None,
+            # 'address': None,
+            # 'latitude': None,
+            # 'longitude': None
+
         }
 
         # define the CASE (None / add / drop / change)
@@ -316,6 +321,17 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
                 not context_prev_reg['sbor'] and \
                 not context_prev_reg['vyezd']:
             field_trips_dict['case'] = 'add'
+
+            field_trips_dict['urgent'] = context_curr_reg['urgent']
+            field_trips_dict['now'] = context_curr_reg['now']
+            field_trips_dict['secondary'] = context_curr_reg['secondary']
+
+            # TODO: datetime – to be added
+            field_trips_dict['date_and_time'] = None
+            # TODO: address – to be added
+            field_trips_dict['address'] = None
+            # TODO: coords – to be added
+            field_trips_dict['coords'] = None
 
         # CASE 2 "drop"
         if not context_curr_reg['sbor'] and \
@@ -331,6 +347,13 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
                 (context_curr_del['sbor'] or context_curr_del['vyezd']):
             field_trips_dict['case'] = 'change'
 
+            # TODO: datetime – to be added
+            field_trips_dict['date_and_time'] = None
+            # TODO: address – to be added
+            field_trips_dict['address'] = None
+            # TODO: coords – to be added
+            field_trips_dict['coords'] = None
+
         # CASE 3.2 "there was something which differs in prev and curr"
         if (context_curr_reg['sbor'] or context_curr_reg['vyezd']) and \
                 (context_prev_reg['sbor'] or context_prev_reg['vyezd']) and \
@@ -338,6 +361,13 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
                  context_curr_reg['now'] != context_prev_reg['now'] or
                  context_curr_reg['secondary'] != context_prev_reg['secondary']):
             field_trips_dict['case'] = 'change'
+
+            # TODO: datetime – to be added
+            field_trips_dict['date_and_time'] = None
+            # TODO: address – to be added
+            field_trips_dict['address'] = None
+            # TODO: coords – to be added
+            field_trips_dict['coords'] = None
 
         # TODO: temp debug
         notify_admin(f'[ide_posts]:{msg_2}\n\n{field_trips_dict}')
@@ -522,13 +552,19 @@ def check_changes_of_field_trip(text):
 
     one_trip_dict = {'vyezd': False,  # True for vyezd
                      'sbor': False,  # True for sbor
+
                      'now': True,  # True for now of and False for future
                      'urgent': False,  # True for urgent
                      'secondary': False,  # True for secondary
+
                      'original_prefix': '',  # for 'Внимание срочный выезд'
                      'prettified_prefix': '',  # for 'Внимание срочный выезд'
                      'original_text': '',  # All the matched cases by regex
-                     'prettified_text': ''  # Prettified to be shown as one text.
+                     'prettified_text': '',  # Prettified to be shown as one text.
+
+                     'datetime': None,  # time of filed trip
+                     'address': None  # place of filed trip (not coords)
+
                      }
 
     # Update the parameters of the output_dict
@@ -544,7 +580,7 @@ def check_changes_of_field_trip(text):
 
     # sbor
     if field_trip_sbor:
-        one_trip_dict['vyezd'] = True
+        one_trip_dict['sbor'] = True
         one_trip_dict['original_text'] = '. '.join(field_trip_sbor)
         for line in field_trip_sbor:
             prettified_line = line.lower().capitalize()

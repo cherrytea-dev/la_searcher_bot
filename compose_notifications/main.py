@@ -669,51 +669,53 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
     return msg, lat, lon, scenario
 
 
-def compose_com_msg_on_field_trip(link, name, age, age_wording, new_value):
+def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
     """compose the common, user-independent message on field trips: new, change"""
 
-    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
+    parameters = ast.literal_eval(parameters) if parameters else {}
 
-    # msg = ''
-    lat, lon = None, None
-    # link_text = '{link_text}'
-    region = '{region}'
+    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else None
+    region = '{region}'  # will be added on level of individual user (some of them see region, some don't)
+    direction_and_distance = '{direction_and_distance}'  # will be added on level of individual user (user-specific)
+    case = parameters['case']  # scenario of field trip update: None / add / drop / change
+    prev_reg = parameters['prev_reg']  # previous snapshot of first post's context about field trip
+    curr_reg = parameters['curr_reg']  # actual snapshot of first post's context about field trip
+    coords_list = parameters["coords"] if 'coords' in parameters else None
+    lat = coords_list[0] if coords_list else None
+    lon = coords_list[1] if coords_list else None
+    coords = f'<code>{coordinates_format.format(float(coords_list[0]))}, ' \
+             f'{coordinates_format.format(float(coords_list[1]))}</code>' if coords_list else None
+    now = ' планируется' if 'now' in parameters and not parameters['now'] else None
+    urgent = ' срочный' if 'urgent' in parameters and parameters['urgent'] else None
+    secondary = ' повторный' if 'secondary' in parameters and parameters['secondary'] else None
+    date_and_time = f'{parameters["date_and_time"]}\n' if 'date_and_time' in parameters else None
+    address = f'{parameters["address"]}\n' if 'datetime' in parameters else None
 
-    new_value = ast.literal_eval(new_value) if new_value else {}
-
-    # NOTE - structure if new_val
-    # 'case': None,  # can be: None / add / drop / change
-    # 'prev_del': context_prev_del,
-    # 'prev_reg': context_prev_reg,
-    # 'curr_del': context_curr_del,
-    # 'curr_reg': context_curr_reg,
-    # 'coords': None
-
-    case = new_value['case']
-    prev_del = new_value['prev_del']
-    prev_reg = new_value['prev_reg']
-    curr_del = new_value['curr_del']
-    curr_reg = new_value['curr_reg']
+    tech_line = f'tech_line: case={case}: curr_reg={curr_reg}'
 
     if case == 'add':
-        prettified_text = new_value['curr_reg']['prettified_text']
-        tech_line = f'tech_line: case={case}: curr_reg={curr_reg}'
-        msg = f'🚨 {prettified_text} по поиску <a href="{link}">{name}{age_info}</a>{region}:\n\n{tech_line}'
+
+        msg = f'🚨 Внимание, {urgent}{now}{secondary} выезд!\n' \
+              f'Поиск <a href="{link}">{name}{age_info}</a>{region}:\n\n' \
+              f'{date_and_time}{address}' \
+              f'{direction_and_distance}' \
+              f'{coords}' \
+              f'\n\n{tech_line}'
+
     elif case == 'drop':
         tech_line = f'tech_line: case={case}: curr_reg={curr_reg}'
-        msg = f'Завершен выезд по поиску <a href="{link}">{name}{age_info}</a>{region}.\n\n{tech_line}'
+        msg = f'🚨 Завершен выезд по поиску <a href="{link}">{name}{age_info}</a>{region}.\n\n{tech_line}'
+
     elif case == 'change':
         tech_line = f'tech_line: case={case}: prev={prev_reg},\ncurr={curr_reg}'
-        msg = f'Изменения по выезду поиска <a href="{link}">{name}{age_info}</a>{region}:\n\n{tech_line}'
+        msg = f'🚨 Изменения по выезду поиска <a href="{link}">{name}{age_info}</a>{region}:\n\n{tech_line}'
+
     else:
         msg = None
 
-    notify_admin(f'NEW VALUE evaluated: {new_value}')
-
-    # FIXME TEMP DEBUG
-
-    # clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
-    # msg += f'{clickable_link}\n'
+    # TODO temp debug
+    notify_admin(f'Field Trips / Common Message: {msg}')
+    # TODO temp debug
 
     return msg, lat, lon
 
@@ -1293,25 +1295,27 @@ def iterate_over_all_users_and_updates(conn):
                                         print(f'ZZZ: notif_pref={user_notif_pref_id}')
                                         print(f'ZZZ: change_type={change_type}')
                                         print(f'ZZZ: small if 1 ={user_notif_pref_id == change_type}')
-                                        print(f'ZZZ: small if 2 ={user_notif_pref_id == 30 and change_type not in {5, 6}}')  # 30 = 'all'
-                                        print(f'ZZZ: big if={user_notif_pref_id == change_type or (user_notif_pref_id == 30 and change_type not in {5, 6})}')  # 30='all"
+                                        print(f'ZZZ: small if 2 ={user_notif_pref_id == 30 and change_type not in {5, 6, 7}}')  # 30 = 'all'
+                                        print(f'ZZZ: big if={user_notif_pref_id == change_type or (user_notif_pref_id == 30 and change_type not in {5, 6, 7})}')  # 30='all"
                                     # TODO temp debug
 
-                                    # TODO: temp limitation for ones who have 5 or 6
+                                    # TODO: temp limitation for ones who have 5 or 6 or 7
+                                    # if this is a mailing that users wants to receive
                                     if user_notif_pref_id == change_type or\
                                             (user_notif_pref_id == 30 and change_type not in {5, 6, 7}):  # 30 = 'all'
 
                                         # on this step - we're certain: user should receive the notification
-                                        # start preparation on notifications
+                                        # compose the notification
                                         message = ''
                                         number_of_situations_checked += 1
 
+                                        # start composing individual messages (specific user on specific situation)
                                         if change_type == 0:  # new_search
-                                            sent_already = user.user_new_search_notifs
+                                            num_of_msgs_sent_already = user.user_new_search_notifs
                                             message = compose_individual_message_on_new_search(new_record, s_lat, s_lon,
                                                                                                u_lat, u_lon,
                                                                                                region_to_show,
-                                                                                               sent_already)
+                                                                                               num_of_msgs_sent_already)
                                         elif change_type == 1:  # status_change
                                             message = new_record.message[0]
                                             if user.user_in_multi_regions and new_record.message[1]:
@@ -1338,7 +1342,10 @@ def iterate_over_all_users_and_updates(conn):
 
                                             # TODO: temp limitation for ADMIN
                                             if user.user_id in admins_list:
-                                                message = new_record.message
+                                                message = compose_individual_message_on_field_trip_new(new_record,
+                                                                                                       s_lat, s_lon,
+                                                                                                       u_lat, u_lon,
+                                                                                                       region_to_show)
 
                                         elif change_type == 6:  # field_trips_change
                                             # TODO: temp debug
@@ -1363,111 +1370,105 @@ def iterate_over_all_users_and_updates(conn):
                                                                                                       u_lon,
                                                                                                       region_to_show)
 
-                                        if message:
+                                        # messages followed by coordinates (sendMessage + sendLocation) have same group
+                                        msg_group_id = get_the_new_group_id() if change_type in {0, 5, 6, 7} else None
+                                        # not None for new_search, field_trips_new, field_trips_change,  coord_change
 
-                                            if change_type in {0, 5, 6, 7}:  # new_search, field_trips_new,
-                                                # field_trips_change,  coord_change
-                                                message_group_id = get_the_new_group_id()
+                                        # define if user received this message already
+                                        this_user_was_notified = False
+                                        if this_record_was_processed_already:
+                                            this_user_was_notified = get_from_sql_if_was_notified_already(
+                                                mailing_id, user.user_id, 'text')
 
+                                            # logging block
+                                            logging.info('this user was notified already {}, {}'.format(
+                                                user.user_id, this_user_was_notified))
+                                            if user.user_id in users_who_should_not_be_informed:
+                                                logging.info('this user is in the list of non-notifiers')
                                             else:
-                                                message_group_id = None
+                                                logging.info('this user is NOT in the list of non-notifiers')
 
-                                            message_type = 'text'
-                                            this_user_was_notified = False
+                                        if message and not this_user_was_notified:
 
-                                            if this_record_was_processed_already:
-                                                this_user_was_notified = get_from_sql_if_was_notified_already(
-                                                    mailing_id, user.user_id, message_type)
-                                                logging.info('this user was notified already {}, {}'.format(
-                                                    user.user_id, this_user_was_notified))
-                                                if user.user_id in users_who_should_not_be_informed:
-                                                    logging.info('this user is in the list of non-notifiers')
-                                                else:
-                                                    logging.info('this user is NOT in the list of non-notifiers')
+                                            # TODO: make text more compact within 50 symbols
+                                            message_without_html = re.sub(cleaner, '', message)
 
-                                            if not this_user_was_notified:
+                                            message_params = {'parse_mode': 'HTML',
+                                                              'disable_web_page_preview': 'True'}
 
-                                                # record into SQL table notif_by_user
-                                                # TODO: make text more compact within 50 symbols
-                                                message_without_html = re.sub(cleaner, '', message)
+                                            # record into SQL table notif_by_user
+                                            message_id = save_to_sql_notif_by_user(mailing_id, user.user_id,
+                                                                                   message,
+                                                                                   message_without_html,
+                                                                                   'text',
+                                                                                   message_params, msg_group_id,
+                                                                                   change_id_for_analytics)
 
-                                                message_params = {'parse_mode': 'HTML',
-                                                                  'disable_web_page_preview': 'True'}
+                                            # record into SQL table notif_by_user_status
+                                            write_message_creation_status(conn, message_id, 'created', mailing_id,
+                                                                          change_id_for_analytics, user.user_id,
+                                                                          'text')
+
+                                            # for user tips in "new search" notifs – to increase sent messages counter
+                                            if change_type == 0:  # 'new_search':
+                                                stat_list_of_recipients.append(user.user_id)
+
+                                            # save to SQL the sendLocation notification for "new search"
+                                            if change_type == 0 and s_lat and s_lon:  # 'new_search'
+                                                message_params = {'latitude': s_lat,
+                                                                  'longitude': s_lon}
+
+                                                # record into SQL table notif_by_user (not text, but coords only)
                                                 message_id = save_to_sql_notif_by_user(mailing_id, user.user_id,
-                                                                                       message,
-                                                                                       message_without_html,
-                                                                                       message_type,
-                                                                                       message_params, message_group_id,
+                                                                                       None,
+                                                                                       None, 'coords',
+                                                                                       message_params,
+                                                                                       msg_group_id,
                                                                                        change_id_for_analytics)
 
+                                                # record into SQL table notif_by_user_status
                                                 write_message_creation_status(conn, message_id, 'created', mailing_id,
                                                                               change_id_for_analytics, user.user_id,
-                                                                              'text')
+                                                                              'coords')
 
-                                                # for user tips – to increase sent messages counter
-                                                if change_type == 0:  # 'new_search':
-                                                    stat_list_of_recipients.append(user.user_id)
+                                            # TODO: to be added for change_type = 5 and 6
+                                            # TODO: to be added for change_type = 5 and 6
+                                            # TODO: to be added for change_type = 5 and 6
 
-                                                if change_type == 0 and s_lat and s_lon:  # 'new_search'
-                                                    message_params = {'latitude': s_lat,
-                                                                      'longitude': s_lon}
-
-                                                    message_id = save_to_sql_notif_by_user(mailing_id, user.user_id,
-                                                                                           None,
-                                                                                           None, 'coords',
-                                                                                           message_params,
-                                                                                           message_group_id,
-                                                                                           change_id_for_analytics)
-
-                                                    write_message_creation_status(conn, message_id, 'created',
-                                                                                  mailing_id,
-                                                                                  change_id_for_analytics, user.user_id,
-                                                                                  'coords')
-
-                                                # TODO: to be added for change_type = 5 and 6
-                                                # TODO: to be added for change_type = 5 and 6
-                                                # TODO: to be added for change_type = 5 and 6
+                                            # save to SQL the sendLocation notification for "coords change"
+                                            if change_type == 7 and s_lat and s_lon \
+                                                    and new_record.coords_change_type != 'drop' \
+                                                    and user.user_id in admins_list:  # coords_change
+                                                message_params = {'latitude': s_lat,
+                                                                  'longitude': s_lon}
 
                                                 # TODO: debug
-                                                if change_type == 7:
-                                                    print(f'YYY: s_lat={s_lat}, s_lon={s_lon}, '
-                                                          f'coords_change_type={new_record.coords_change_type}, '
-                                                          f'user={user.user_id}')
+                                                print(f'YYY: we are in a condition for saving coords to sql')
                                                 # TODO: debug
 
-                                                if change_type == 7 and s_lat and s_lon \
-                                                        and new_record.coords_change_type != 'drop' \
-                                                        and user.user_id in admins_list:  # coords_change
-                                                    message_params = {'latitude': s_lat,
-                                                                      'longitude': s_lon}
+                                                message_id = save_to_sql_notif_by_user(mailing_id, user.user_id,
+                                                                                       None,
+                                                                                       None, 'coords',
+                                                                                       message_params,
+                                                                                       msg_group_id,
+                                                                                       change_id_for_analytics)
 
-                                                    # TODO: debug
-                                                    print(f'YYY: we are in a condition for saving coords to sql')
-                                                    # TODO: debug
+                                                # TODO: debug
+                                                print(f'YYY: we are in a condition after saving coords to sql, '
+                                                      f'message_id={message_id}')
+                                                # TODO: debug
 
-                                                    message_id = save_to_sql_notif_by_user(mailing_id, user.user_id,
-                                                                                           None,
-                                                                                           None, 'coords',
-                                                                                           message_params,
-                                                                                           message_group_id,
-                                                                                           change_id_for_analytics)
+                                                write_message_creation_status(conn, message_id, 'created',
+                                                                              mailing_id,
+                                                                              change_id_for_analytics, user.user_id,
+                                                                              'coords')
 
-                                                    # TODO: debug
-                                                    print(f'YYY: we are in a condition after saving coords to sql, '
-                                                          f'message_id={message_id}')
-                                                    # TODO: debug
+                                                # TODO: debug
+                                                print(f'YYY: we are in a condition after writing message creation '
+                                                      f'status to sql')
+                                                # TODO: debug
 
-                                                    write_message_creation_status(conn, message_id, 'created',
-                                                                                  mailing_id,
-                                                                                  change_id_for_analytics, user.user_id,
-                                                                                  'coords')
-
-                                                    # TODO: debug
-                                                    print(f'YYY: we are in a condition after writing message creation '
-                                                          f'status to sql')
-                                                    # TODO: debug
-
-                                                number_of_messages_sent += 1
+                                            number_of_messages_sent += 1
 
                 # mark this line as all-processed
                 new_record.processed = 'yes'
@@ -1488,16 +1489,8 @@ def iterate_over_all_users_and_updates(conn):
 def generate_yandex_maps_place_link2(lat, lon, param):
     """generate a link to yandex map with lat/lon"""
 
-    global coordinates_format
-
-    if param == 'map':
-        display = 'Карта'
-    else:
-        display = param
-
-    msg = '<a href="https://yandex.ru/maps/?pt='
-    msg += str(lon) + ',' + str(lat)
-    msg += '&z=11&l=map">' + display + '</a>'
+    display = 'Карта' if param == 'map' else param
+    msg = f'<a href="https://yandex.ru/maps/?pt={lon},{lat}&z=11&l=map">{display}</a>'
 
     return msg
 
@@ -1593,6 +1586,35 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
             message += '<i>Совет: Чтобы Бот показывал Направление и Расстояние' \
                        ' до поиска – просто укажите ваши "Домашние координаты" ' \
                        'в Настройках Бота.</i>'
+
+    return message
+
+
+def compose_individual_message_on_field_trip_new(new_record, s_lat, s_lon, u_lat, u_lon, region_to_show):
+    """compose individual message for notification of every user on new search"""
+
+    # Case 1. Add a new field trip
+    # for reference, the below is the structure of common message
+    """msg = f'🚨 Внимание, {urgent}{now}{secondary} выезд!\n' \
+          f'Поиск <a href="{link}">{name}{age_info}</a>{region}:\n\n' \
+          f'{date_and_time}{address}' \
+          f'{direction_and_distance}' \
+          f'{coords}' \
+          f'\n\n{tech_line}'"""
+
+    # the list of parameters to be defined on user-level:
+    region = region_to_show
+    if s_lat and s_lon and u_lat and u_lon:
+        dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
+        direction_wording = f'От вас ~{dist} км {direct}'
+        direction_and_distance = generate_yandex_maps_place_link2(s_lat, s_lon, direction_wording)
+    elif s_lat and s_lon and not u_lat and not u_lon:
+        direction_and_distance = generate_yandex_maps_place_link2(s_lat, s_lon, 'map')
+    else:
+        direction_and_distance = None
+
+    # taking the common message and injecting individual user-related parameters
+    message = new_record.message.format(region=region, direction_and_distance=direction_and_distance)
 
     return message
 
