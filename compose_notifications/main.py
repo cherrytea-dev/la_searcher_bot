@@ -674,7 +674,7 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
 
     parameters = ast.literal_eval(parameters) if parameters else {}
 
-    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else None
+    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
     region = '{region}'  # will be added on level of individual user (some of them see region, some don't)
     direction_and_distance = '{direction_and_distance}'  # will be added on level of individual user (user-specific)
     case = parameters['case']  # scenario of field trip update: None / add / drop / change
@@ -686,13 +686,13 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
     # coords = f'<code>{coordinates_format.format(float(coords_list[0]))}, ' \
     #          f'{coordinates_format.format(float(coords_list[1]))}</code>' if coords_list else None
     coords = f'<code>{coords_list}</code>'
-    now = ' планируется' if 'now' in parameters and not parameters['now'] else None
-    urgent = ' срочный' if 'urgent' in parameters and parameters['urgent'] else None
-    secondary = ' повторный' if 'secondary' in parameters and parameters['secondary'] else None
-    date_and_time = f'{parameters["date_and_time"]}\n' if 'date_and_time' in parameters else None
-    address = f'{parameters["address"]}\n' if 'datetime' in parameters else None
+    now = ' планируется' if 'now' in parameters and not parameters['now'] else ''
+    urgent = ' срочный' if 'urgent' in parameters and parameters['urgent'] else ''
+    secondary = ' повторный' if 'secondary' in parameters and parameters['secondary'] else ''
+    date_and_time = f'{parameters["date_and_time"]}\n' if 'date_and_time' in parameters else ''
+    address = f'{parameters["address"]}\n' if 'datetime' in parameters else ''
 
-    tech_line = f'tech_line: case={case}: curr_reg={curr_reg}'
+    # tech_line = f'tech_line: case={case}: curr_reg={curr_reg}'
 
     if case == 'add':
 
@@ -700,8 +700,7 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
               f'Поиск <a href="{link}">{name}{age_info}</a>{region}:\n\n' \
               f'{date_and_time}{address}' \
               f'{direction_and_distance}' \
-              f'{coords}' \
-              f'\n\n{tech_line}'
+              f'{coords}'
 
     elif case == 'drop':
         tech_line = f'tech_line: case={case}: curr_reg={curr_reg}'
