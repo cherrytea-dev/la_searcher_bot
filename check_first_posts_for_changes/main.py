@@ -303,6 +303,7 @@ def update_user_regional_settings(number_of_lines_to_update):
 def parse_search(search_num):
     """parse the whole search page"""
 
+    global requests_session
     content = None
 
     try:
@@ -321,6 +322,13 @@ def parse_search(search_num):
     except requests.exceptions.ProxyError:
         logging.info(f'[che_posts]: requests.exceptions.ProxyError')
         notify_admin(f'[che_posts]: requests.exceptions.ProxyError')
+
+        requests_session.proxies = {
+            'http': 'http://4asNEp:RpSK0n@31.134.4.105:8000',
+            'https': 'https://4asNEp:RpSK0n@31.134.4.105:8000',
+        }
+        logging.info(f'[che_posts]: Proxy set')
+        notify_admin(f'[che_posts]: Proxy set')
 
     except ConnectionError:
         logging.info(f'[che_posts]: CONNECTION ERROR OR TIMEOUT')
@@ -635,8 +643,8 @@ def update_first_posts(percent_of_searches):
                         requests_session.close()
                         requests_session = requests.Session()
                         requests_session.proxies = {
-                            'http': 'http://Vwv0eM:eZ53DB@193.187.145.105:8000',
-                            'https': 'https://Vwv0eM:eZ53DB@193.187.145.105:8000',
+                            'http': 'http://4asNEp:RpSK0n@31.134.4.105:8000',
+                            'https': 'https://4asNEp:RpSK0n@31.134.4.105:8000',
                         }
                         bad_gateway_counter = 0
                         trigger_if_switched_to_proxy = True
