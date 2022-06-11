@@ -680,7 +680,7 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
     case = parameters['case']  # scenario of field trip update: None / add / drop / change
     prev_reg = parameters['prev_reg']  # previous snapshot of first post's context about field trip
     curr_reg = parameters['curr_reg']  # actual snapshot of first post's context about field trip
-    coords_list = parameters["coords"] if 'coords' in parameters else None
+    coords_list = ast.literal_eval(parameters["coords"]) if 'coords' in parameters else None
     lat = coords_list[0] if coords_list else None
     lon = coords_list[1] if coords_list else None
     coords = f'<code>{coordinates_format.format(float(coords_list[0]))}, ' \
