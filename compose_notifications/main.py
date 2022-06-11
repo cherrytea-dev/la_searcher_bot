@@ -683,8 +683,9 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
     coords_list = ast.literal_eval(parameters["coords"]) if 'coords' in parameters else None
     lat = coords_list[0] if coords_list else None
     lon = coords_list[1] if coords_list else None
-    coords = f'<code>{coordinates_format.format(float(coords_list[0]))}, ' \
-             f'{coordinates_format.format(float(coords_list[1]))}</code>' if coords_list else None
+    # coords = f'<code>{coordinates_format.format(float(coords_list[0]))}, ' \
+    #          f'{coordinates_format.format(float(coords_list[1]))}</code>' if coords_list else None
+    coords = f'<code>{coords_list}</code>'
     now = ' планируется' if 'now' in parameters and not parameters['now'] else None
     urgent = ' срочный' if 'urgent' in parameters and parameters['urgent'] else None
     secondary = ' повторный' if 'secondary' in parameters and parameters['secondary'] else None
