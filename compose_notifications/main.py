@@ -696,8 +696,8 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
 
     if case == 'add':
 
-        msg = f'🚨 Внимание, {urgent}{now}{secondary} выезд!\n' \
-              f'Поиск <a href="{link}">{name}{age_info}</a>{region}:\n\n' \
+        msg = f'🚨 Внимание,{urgent}{now}{secondary} выезд!\n' \
+              f'Поиск <a href="{link}">{name}{age_info}</a>\n{region}\n\n' \
               f'{date_and_time}{address}' \
               f'{direction_and_distance}' \
               f'{coords}'
@@ -1611,7 +1611,7 @@ def compose_individual_message_on_field_trip_new(new_record, s_lat, s_lon, u_lat
     elif s_lat and s_lon and not u_lat and not u_lon:
         direction_and_distance = generate_yandex_maps_place_link2(s_lat, s_lon, 'map')
     else:
-        direction_and_distance = None
+        direction_and_distance = ''
 
     # taking the common message and injecting individual user-related parameters
     message = new_record.message.format(region=region, direction_and_distance=direction_and_distance)

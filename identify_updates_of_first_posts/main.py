@@ -683,6 +683,8 @@ def main(event, context):  # noqa
                             # Check if coords changed as well during Field Trip
                             coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
                                                                            first_page_content_prev)
+                            if not coords_change_list:
+                                coords_change_list = ''
 
                             field_trips_dict['coords'] = str(coords_change_list)
 
