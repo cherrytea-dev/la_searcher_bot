@@ -1621,7 +1621,7 @@ def compose_individual_message_on_field_trip_new(new_record, s_lat, s_lon, u_lat
         direction_and_distance = ''
 
     # taking the common message and injecting individual user-related parameters
-    message = new_record.message.format(region=region, direction_and_distance=direction_and_distance)
+    message = new_record.message  # TODO temp deactivate.format(region=region, direction_and_distance=direction_and_distance)
 
     return message
 
