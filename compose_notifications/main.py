@@ -1609,8 +1609,9 @@ def compose_individual_message_on_field_trip_new(new_record, s_lat, s_lon, u_lat
     # the list of parameters to be defined on user-level:
     region = region_to_show
     if s_lat and s_lon and u_lat and u_lon:
-        dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
-        direction_wording = f'От вас ~{dist} км {direct}'
+        # TODO temp deactivate dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
+        # TODO temp deactivate direction_wording = f'От вас ~{dist} км {direct}'
+        direction_wording = 'direction wording'
         # TODO temp deactivate direction_and_distance = generate_yandex_maps_place_link2(s_lat, s_lon, direction_wording)
         direction_and_distance = 'test'
     elif s_lat and s_lon and not u_lat and not u_lon:
