@@ -714,37 +714,32 @@ def main(event, context):  # noqa
                 try:
                     if first_page_content_curr and first_page_content_prev:
 
+                        # get the final list of parameters on field trip (new, change or drop)
                         field_trips_dict = process_field_trips_comparison(conn, search_id, first_page_content_prev,
                                                                           first_page_content_curr)
-                        # CASE 1. There were NEW Field Trips
-                        if field_trips_dict['case'] == 'add':
 
-                            # Save Field Trip (incl potential Coords change) into Change_log
+                        # Save Field Trip (incl potential Coords change) into Change_log
+                        if field_trips_dict['case'] == 'add':
                             save_new_record_into_change_log(conn, search_id,
                                                             str(field_trips_dict), 'field_trip_new', 5)
 
-                        # CASE 2. There were Field Trips Changes or Drops
                         elif field_trips_dict['case'] in {'drop', 'change'}:
+
                             # Check if coords changed as well during Field Trip
                             # structure: lat, lon, prev_desc, curr_desc
                             coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
                                                                            first_page_content_prev)
-
                             field_trips_dict['coords'] = str(coords_change_list)
 
-                            # Save Field Trip (incl potential Coords change) into Change_log
                             save_new_record_into_change_log(conn, search_id,
                                                             str(field_trips_dict), 'field_trip_change', 6)
 
-                        # CASE 3. There are no Field Trip changes – we're checking coords change only
                         else:
 
                             # structure_list: lat, lon, prev_desc, curr_desc
                             coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
                                                                            first_page_content_prev)
                             if coords_change_list:
-
-                                # Save Coords change into Change_log
                                 save_new_record_into_change_log(conn, search_id,
                                                                 coords_change_list, 'coords_change', 7)
 

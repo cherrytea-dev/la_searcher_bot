@@ -686,17 +686,27 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
     date_and_time = f'\n{parameters["date_and_time"]}' if 'date_and_time' in parameters else ''
     address = f'\n{parameters["address"]}' if 'datetime' in parameters else ''
     coords_list = ast.literal_eval(parameters["coords"]) if 'coords' in parameters else None
+
+    notify_admin(f'AAA: check the ast.literal_eval of coords_list {coords_list}')
+    notify_admin(f'AAA: check if condition for coords_list is met: {coords_list and len(coords_list) > 1}')
+
     if coords_list and len(coords_list) > 1:
-        lat = coords_list[0]  # if coords_list else None
-        lon = coords_list[1]  # if coords_list else None
-        # coords = f'<code>{coordinates_format.format(float(coords_list[0]))}, ' \
-        #          f'{coordinates_format.format(float(coords_list[1]))}</code>' if coords_list else None
-        coords = f'\n<code>{coords_list}</code>'
+        # TODO temp try content is needed
+        try:
+            lat = coords_list[0]  # if coords_list else None
+            lon = coords_list[1]  # if coords_list else None
+            coords = f'\n<code>{coordinates_format.format(float(lat))}, ' \
+                     f'{coordinates_format.format(float(lon))}</code>' if coords_list else None
+            # coords = f'\n<code>{coords_list}</code>'
+        except:
+            lat, lon = None, None
+            coords = ''
+
     else:
         lat, lon = None, None
         coords = ''
 
-    # tech_line = f'tech_line: case={case}: curr_reg={curr_reg}'
+    tech_line = 'tech_line: case=' + str(case) + ': curr_reg=' + str(curr_reg)
 
     if case == 'add':
 
@@ -707,18 +717,21 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
               f'{coords}'
 
     elif case == 'drop':
-        tech_line = f'tech_line: case={case}: curr_reg={curr_reg}'
-        msg = f'🚨 Завершен выезд по поиску <a href="{link}">{name}{age_info}</a>{region}.\n\n{tech_line}'
+        tech_line = 'tech_line: case=' + str(case) + ': curr_reg=' + str(curr_reg)
+        msg = f'🚨 Завершен выезд по поиску <a href="{link}">{name}{age_info}</a>{region}.'
 
     elif case == 'change':
-        tech_line = f'tech_line: case={case}: prev={prev_reg},\ncurr={curr_reg}'
-        msg = f'🚨 Изменения по выезду поиска <a href="{link}">{name}{age_info}</a>{region}:\n\n{tech_line}'
+        tech_line = 'tech_line: case=' + str(case) + ': curr_reg=' + str(curr_reg) + 'prev_reg=' + str(prev_reg)
+
+        msg = f'🚨 Изменения по выезду поиска <a href="{link}">{name}{age_info}</a>{region}:'
 
     else:
         msg = None
+        tech_line = ''
 
     # TODO temp debug
     notify_admin(f'Field Trips / Common Message: {msg}')
+    notify_admin('Field Trips / Tech_line: ' + str(tech_line))
     # TODO temp debug
 
     return msg, lat, lon
