@@ -174,6 +174,7 @@ def get_the_list_of_coords_out_of_text(initial_text):
                 if line not in resulting_list:
                     resulting_list.append(line)
 
+    # output [[lat_1, lon_1, type_1], ... ,[lat_N, lon_N, type_N]]
     return resulting_list
 
 
@@ -228,6 +229,7 @@ def get_resulting_message_on_coordinates_change(prev_coords, curr_coords):
                 elif line[2] in {3, 4} and line[3] in {1, 2}:
                     message += f' * координаты {line[0]}, {line[1]} вновь актуальны!\n'
 
+    # structure of filtered_list: lat, lon, prev_desc, curr_desc
     return filtered_list, message
 
 
@@ -235,6 +237,7 @@ def process_coords_comparison(conn, search_id, first_page_content_curr, first_pa
     """compare first post content to identify diff in coords"""
 
     # get the lists of coordinates & context: curr vs prev
+    # format [[lat_1, lon_1, type_1], ... ,[lat_N, lon_N, type_N]]
     coords_curr = get_the_list_of_coords_out_of_text(first_page_content_curr)
     coords_prev = get_the_list_of_coords_out_of_text(first_page_content_prev)
 
@@ -259,11 +262,13 @@ def process_coords_comparison(conn, search_id, first_page_content_curr, first_pa
 
     # get a list of changed coordinates
     # TODO: + temp DEBUG message for admin
+    # structure of coords_change_list: lat, lon, prev_desc, curr_desc
     coords_change_list, msg = get_resulting_message_on_coordinates_change(coords_prev, coords_curr)
     if msg:
         msg = f'[ide_post]: coords change {search_id}: \n{msg}'
         publish_to_pubsub('topic_notify_admin', msg)
 
+    # structure of coords_change_list: lat, lon, prev_desc, curr_desc
     return coords_change_list
 
 
@@ -294,9 +299,9 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
         # get field_trip-related context from texts
         # format:
         # context_prev_del = check_changes_of_field_trip(text_prev_del)
-        context_prev_reg = check_changes_of_field_trip(text_prev_reg)
-        context_curr_del = check_changes_of_field_trip(text_curr_del)
-        context_curr_reg = check_changes_of_field_trip(text_curr_reg)
+        context_prev_reg = get_field_trip_details_from_text(text_prev_reg)
+        context_curr_del = get_field_trip_details_from_text(text_curr_del)
+        context_curr_reg = get_field_trip_details_from_text(text_curr_reg)
 
         field_trips_dict = {
             # 'prev_del': context_prev_del,  # not used
@@ -308,10 +313,9 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
             # 'urgent': False,
             # 'now': True,
             # 'secondary': False,
-            # 'date_and_time': None,
-            # 'address': None,
-            # 'latitude': None,
-            # 'longitude': None
+            # 'date_and_time_curr': None,
+            # 'address_curr': None,
+            # 'coords_curr': None
 
         }
 
@@ -320,18 +324,17 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
         if (context_curr_reg['sbor'] or context_curr_reg['vyezd']) and \
                 not context_prev_reg['sbor'] and \
                 not context_prev_reg['vyezd']:
+
             field_trips_dict['case'] = 'add'
 
             field_trips_dict['urgent'] = context_curr_reg['urgent']
             field_trips_dict['now'] = context_curr_reg['now']
             field_trips_dict['secondary'] = context_curr_reg['secondary']
+            if 'coords' in context_curr_reg:
+                field_trips_dict['coords'] = context_curr_reg['coords']
 
-            # TODO: datetime – to be added
-            field_trips_dict['date_and_time'] = None
-            # TODO: address – to be added
-            field_trips_dict['address'] = None
-            # TODO: coords – to be added
-            field_trips_dict['coords'] = None
+            field_trips_dict['date_and_time_curr'] = context_curr_reg['datetime']
+            field_trips_dict['address_curr'] = context_curr_reg['address']
 
         # CASE 2 "drop"
         if not context_curr_reg['sbor'] and \
@@ -347,12 +350,11 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
                 (context_curr_del['sbor'] or context_curr_del['vyezd']):
             field_trips_dict['case'] = 'change'
 
-            # TODO: datetime – to be added
-            field_trips_dict['date_and_time'] = None
-            # TODO: address – to be added
-            field_trips_dict['address'] = None
-            # TODO: coords – to be added
-            field_trips_dict['coords'] = None
+            field_trips_dict['date_and_time_curr'] = context_curr_reg['datetime']
+            field_trips_dict['address_curr'] = context_curr_reg['address']
+
+            if 'coords' in context_curr_reg:
+                field_trips_dict['coords_curr'] = context_curr_reg['coords']
 
         # CASE 3.2 "there was something which differs in prev and curr"
         if (context_curr_reg['sbor'] or context_curr_reg['vyezd']) and \
@@ -362,12 +364,11 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
                  context_curr_reg['secondary'] != context_prev_reg['secondary']):
             field_trips_dict['case'] = 'change'
 
-            # TODO: datetime – to be added
-            field_trips_dict['date_and_time'] = None
-            # TODO: address – to be added
-            field_trips_dict['address'] = None
-            # TODO: coords – to be added
-            field_trips_dict['coords'] = None
+            field_trips_dict['date_and_time_curr'] = context_curr_reg['datetime']
+            field_trips_dict['address_curr'] = context_curr_reg['address']
+
+            if 'coords' in context_curr_reg:
+                field_trips_dict['coords_curr'] = context_curr_reg['coords']
 
         # TODO: temp debug
         notify_admin(f'[ide_posts]:{msg_2}\n\n{field_trips_dict}')
@@ -534,75 +535,113 @@ def split_text_to_deleted_and_regular_parts(text):
     return deleted_text, non_deleted_text
 
 
-def check_changes_of_field_trip(text):
-    """return the 'filed trip' message for the search's text"""
+def get_field_trip_details_from_text(text):
+    """return the dict with 'filed trip' parameters for the search's text"""
 
-    field_trip_vyezd = re.findall(r'(?:внимание.{0,3}|)'
-                                  r'(?:скоро.{0,3}|)'
+    field_trip_vyezd = re.findall(r'(?i)(?:внимание.{0,3}|)'
+                                  r'(?:скоро.{0,3}|срочно.{0,3}|)'
                                   r'(?:планируется.{0,3}|ожидается.{0,3}|готовится.{0,3}|запланирован.{0,3}|)'
                                   r'(?:повторный.{0,3}|срочный.{0,3}|активный.{0,3})?'
-                                  r'выезд'
-                                  r'(?:.{0,3}срочно|)'
+                                  r'(?:выезд|вылет)'
+                                  r'(?:.{0,3}срочно|сейчас|)'
                                   r'(?:.{0,3}планируется|.{0,3}ожидается|.{0,3}готовится|.{0,3}запланирован|)'
-                                  r'(?:.{0,3}\d\d\.\d\d\.\d\d(?:\d\d|)|)',
-                                  text.lower())
+                                  r'(?:.{0,3}\d\d\.\d\d\.\d\d(?:\d\d|)|)'
+                                  r'.{0,3}(?:[\r\n]+|.){0,1000}',
+                                  text)
 
     field_trip_sbor = re.findall(r'(?:место.{0,3}|время.{0,3}|координаты.{0,3}(?:места.{0,3}|)|)сбор(?:а|)',
                                  text.lower())
 
-    one_trip_dict = {'vyezd': False,  # True for vyezd
-                     'sbor': False,  # True for sbor
+    resulting_field_trip_dict = {'vyezd': False,  # True for vyezd
+                                 'sbor': False,  # True for sbor
 
-                     'now': True,  # True for now of and False for future
-                     'urgent': False,  # True for urgent
-                     'secondary': False,  # True for secondary
+                                 'now': True,  # True for now of and False for future
+                                 'urgent': False,  # True for urgent
+                                 'secondary': False,  # True for secondary
 
-                     'original_prefix': '',  # for 'Внимание срочный выезд'
-                     'prettified_prefix': '',  # for 'Внимание срочный выезд'
-                     'original_text': '',  # All the matched cases by regex
-                     'prettified_text': '',  # Prettified to be shown as one text.
+                                 'coords': None,  # [lat, lon] for the most relevant pair of coords
 
-                     'datetime': None,  # time of filed trip
-                     'address': None  # place of filed trip (not coords)
+                                 'datetime': None,  # time of filed trip
+                                 'address': None,  # place of filed trip (not coords)
 
-                     }
+                                 # TODO: block to be deleted
+                                 'original_prefix': '',  # for 'Внимание срочный выезд'
+                                 'prettified_prefix': '',  # for 'Внимание срочный выезд'
+                                 'original_text': '',  # All the matched cases by regex
+                                 'prettified_text': ''  # Prettified to be shown as one text.
+                                 # TODO: block to be deleted
+
+                                 }
 
     # Update the parameters of the output_dict
     # vyezd
     if field_trip_vyezd:
-        one_trip_dict['vyezd'] = True
-        one_trip_dict['original_text'] = '. '.join(field_trip_vyezd)
+        resulting_field_trip_dict['vyezd'] = True
+        resulting_field_trip_dict['original_text'] = '. '.join(field_trip_vyezd)
         for line in field_trip_vyezd:
             prettified_line = line.lower().capitalize()
             # TODO: other cosmetics are also expected: e.g.
             #  making all delimiters as blank spaces except after 'внимание'
-            one_trip_dict['prettified_text'] += f'{prettified_line}\n'
+            resulting_field_trip_dict['prettified_text'] += f'{prettified_line}\n'
 
     # sbor
     if field_trip_sbor:
-        one_trip_dict['sbor'] = True
-        one_trip_dict['original_text'] = '. '.join(field_trip_sbor)
+        resulting_field_trip_dict['sbor'] = True
+        resulting_field_trip_dict['original_text'] = '. '.join(field_trip_sbor)
         for line in field_trip_sbor:
             prettified_line = line.lower().capitalize()
             # TODO: other cosmetics are also expected: e.g.
             #  making all delimiters as blank spaces except after 'внимание'
-            one_trip_dict['prettified_text'] += f'{prettified_line}\n'
+            resulting_field_trip_dict['prettified_text'] += f'{prettified_line}\n'
 
+    # now / urgent  /secondary
     for phrase in field_trip_vyezd:
 
         # now
         if re.findall(r'(планируется|ожидается|готовится)', phrase.lower()):
-            one_trip_dict['now'] = False
+            resulting_field_trip_dict['now'] = False
 
         # urgent
         if re.findall(r'срочн', phrase.lower()):
-            one_trip_dict['urgent'] = True
+            resulting_field_trip_dict['urgent'] = True
 
         # secondary
         if re.findall(r'повторн', phrase.lower()):
-            one_trip_dict['secondary'] = True
+            resulting_field_trip_dict['secondary'] = True
 
-    return one_trip_dict
+    # coords
+    coords_curr_full_list = get_the_list_of_coords_out_of_text(text)
+    # format [[lat_1, lon_1, type_1], ... ,[lat_N, lon_N, type_N]]
+
+    # we just need to get curr coords of type 1 or 2 (with world coords or without)
+    lat, lon = None, None
+    if coords_curr_full_list:
+        for line in coords_curr_full_list:
+            if line[2][0] == '1':
+                lat, lon = line[0], line[1]
+                break
+        if lat is None and lon is None:
+            for line in coords_curr_full_list:
+                if line[2][0] == '2':
+                    lat, lon = line[0], line[1]
+                    break
+
+    if lat is not None and lon is not None:
+        resulting_field_trip_dict['coords'] = [lat, lon]
+
+    # datetime and address
+    for line_ft in field_trip_vyezd:
+        list_of_lines = line_ft.splitlines()
+        for list_line in list_of_lines:
+            r = re.search(r'(?i)(?:^штаб[^а][^\sсвернут]|.{0,10}(?:адрес|место)).{0,100}', list_line)
+            resulting_field_trip_dict['address'] = r.group() if r else ''
+
+            r = re.search(
+                r'(?i)^(?!.*мест. сбор).{0,10}(?:время|сбор.{1,3}(?:в\s|к\s|с\s|.{1,10}\d{2}.{1,3}\d{2})).{0,100}',
+                list_line)
+            resulting_field_trip_dict['datetime'] = r.group() if r else ''
+
+    return resulting_field_trip_dict
 
 
 def age_writer(age):
@@ -680,14 +719,6 @@ def main(event, context):  # noqa
                         # CASE 1. There were NEW Field Trips
                         if field_trips_dict['case'] == 'add':
 
-                            # Check if coords changed as well during Field Trip
-                            coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
-                                                                           first_page_content_prev)
-                            if not coords_change_list:
-                                coords_change_list = ''
-
-                            field_trips_dict['coords'] = str(coords_change_list)
-
                             # Save Field Trip (incl potential Coords change) into Change_log
                             save_new_record_into_change_log(conn, search_id,
                                                             str(field_trips_dict), 'field_trip_new', 5)
@@ -695,6 +726,7 @@ def main(event, context):  # noqa
                         # CASE 2. There were Field Trips Changes or Drops
                         elif field_trips_dict['case'] in {'drop', 'change'}:
                             # Check if coords changed as well during Field Trip
+                            # structure: lat, lon, prev_desc, curr_desc
                             coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
                                                                            first_page_content_prev)
 
@@ -707,6 +739,7 @@ def main(event, context):  # noqa
                         # CASE 3. There are no Field Trip changes – we're checking coords change only
                         else:
 
+                            # structure_list: lat, lon, prev_desc, curr_desc
                             coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
                                                                            first_page_content_prev)
                             if coords_change_list:
