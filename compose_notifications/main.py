@@ -683,28 +683,17 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
     now = ' планируется' if 'now' in parameters and not parameters['now'] else ''
     urgent = ' срочный' if 'urgent' in parameters and parameters['urgent'] else ''
     secondary = ' повторный' if 'secondary' in parameters and parameters['secondary'] else ''
-    date_and_time = f'\n{parameters["date_and_time"]}' if 'date_and_time' in parameters else ''
-    address = f'\n{parameters["address"]}' if 'datetime' in parameters else ''
-    coords_list = ast.literal_eval(parameters["coords"]) if 'coords' in parameters else None
+    date_and_time_curr = f'\n{parameters["date_and_time_curr"]}' if 'date_and_time_curr' in parameters else ''
+    address_curr = f'\n{parameters["address_curr"]}' if 'address_curr' in parameters else ''
+    coords_list_curr = parameters["coords_curr"] if 'coords_curr' in parameters else None
 
-    notify_admin(f'AAA: check the ast.literal_eval of coords_list {coords_list}')
-    notify_admin(f'AAA: check if condition for coords_list is met: {coords_list and len(coords_list) > 1}')
-
-    if coords_list and len(coords_list) > 1:
-        # TODO temp try content is needed
-        try:
-            lat = coords_list[0]  # if coords_list else None
-            lon = coords_list[1]  # if coords_list else None
-            coords = f'\n<code>{coordinates_format.format(float(lat))}, ' \
-                     f'{coordinates_format.format(float(lon))}</code>' if coords_list else None
-            # coords = f'\n<code>{coords_list}</code>'
-        except:
-            lat, lon = None, None
-            coords = ''
-
+    if coords_list_curr:
+        lat = coordinates_format.format(float(coords_list_curr[0]))
+        lon = coordinates_format.format(float(coords_list_curr[1]))
+        coords_curr = f'\n<code>{lat}, {lon}</code>'
     else:
         lat, lon = None, None
-        coords = ''
+        coords_curr = ''
 
     tech_line = 'tech_line: case=' + str(case) + ': curr_reg=' + str(curr_reg)
 
@@ -712,18 +701,21 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
 
         msg = f'🚨 Внимание,{urgent}{now}{secondary} выезд!\n' \
               f'Поиск <a href="{link}">{name}{age_info}</a>\n{region}\n\n' \
-              f'{date_and_time}{address}' \
+              f'{date_and_time_curr}{address_curr}' \
               f'{direction_and_distance}' \
-              f'{coords}'
+              f'{coords_curr}'
 
     elif case == 'drop':
         tech_line = 'tech_line: case=' + str(case) + ': curr_reg=' + str(curr_reg)
-        msg = f'🚨 Завершен выезд по поиску <a href="{link}">{name}{age_info}</a>{region}.'
+        msg = f'🚨 Выезд завершен, поиск <a href="{link}">{name}{age_info}</a>{region}.'
 
     elif case == 'change':
         tech_line = 'tech_line: case=' + str(case) + ': curr_reg=' + str(curr_reg) + 'prev_reg=' + str(prev_reg)
 
-        msg = f'🚨 Изменения по выезду поиска <a href="{link}">{name}{age_info}</a>{region}:'
+        msg = f'🚨 Изменения по выезду поиска <a href="{link}">{name}{age_info}</a>{region}:' \
+              f'Новые параметры: {date_and_time_curr}{address_curr}' \
+              f'{direction_and_distance}' \
+              f'{coords_curr}'
 
     else:
         msg = None
