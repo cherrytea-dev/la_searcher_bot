@@ -590,22 +590,22 @@ def get_field_trip_details_from_text(text):
     # vyezd
     if field_trip_vyezd:
         resulting_field_trip_dict['vyezd'] = True
-        resulting_field_trip_dict['original_text'] = '. '.join(field_trip_vyezd)
+        """resulting_field_trip_dict['original_text'] = '. '.join(field_trip_vyezd)
         for line in field_trip_vyezd:
             prettified_line = line.lower().capitalize()
             # TODO: other cosmetics are also expected: e.g.
             #  making all delimiters as blank spaces except after 'внимание'
-            resulting_field_trip_dict['prettified_text'] += f'{prettified_line}\n'
+            resulting_field_trip_dict['prettified_text'] = f'{prettified_line}\n'"""
 
     # sbor
     if field_trip_sbor:
         resulting_field_trip_dict['sbor'] = True
-        resulting_field_trip_dict['original_text'] = '. '.join(field_trip_sbor)
+        """        resulting_field_trip_dict['original_text'] = '. '.join(field_trip_sbor)
         for line in field_trip_sbor:
             prettified_line = line.lower().capitalize()
             # TODO: other cosmetics are also expected: e.g.
             #  making all delimiters as blank spaces except after 'внимание'
-            resulting_field_trip_dict['prettified_text'] += f'{prettified_line}\n'
+            resulting_field_trip_dict['prettified_text'] = f'{prettified_line}\n'"""
 
     # now / urgent  /secondary
     for phrase in field_trip_vyezd:
