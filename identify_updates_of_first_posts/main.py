@@ -345,20 +345,20 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
 
             if context_curr_reg['date_and_time'] != context_curr_del['date_and_time']:
                 field_trips_dict['date_and_time_prev'] = context_curr_del['date_and_time']
-            else:
-                field_trips_dict['date_and_time_prev'] = ''
+            # else:
+            #    field_trips_dict['date_and_time_prev'] = ''
 
             if context_curr_reg['address'] != context_curr_del['address']:
                 field_trips_dict['address_prev'] = context_curr_del['address']
-            else:
-                field_trips_dict['address_prev'] = ''
+            # else:
+            #    field_trips_dict['address_prev'] = ''
 
             if 'coords' in context_curr_del and \
                     'coords' in context_curr_reg and \
                     context_curr_reg['coords'] != context_curr_del['coords']:
                 field_trips_dict['coords_prev'] = context_curr_del['coords']
-            else:
-                field_trips_dict['coords_prev'] = ''
+            # else:
+            #     field_trips_dict['coords_prev'] = ''
 
         # CASE 3.2 "there was something which differs in prev and curr"
         if (context_curr_reg['sbor'] or context_curr_reg['vyezd']) and \
@@ -374,20 +374,20 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
 
             if context_curr_reg['date_and_time'] != context_prev_reg['date_and_time']:
                 field_trips_dict['date_and_time_prev'] = context_prev_reg['date_and_time']
-            else:
-                field_trips_dict['date_and_time_prev'] = ''
+            # else:
+            #    field_trips_dict['date_and_time_prev'] = ''
 
             if context_curr_reg['address'] != context_prev_reg['address']:
                 field_trips_dict['address_prev'] = context_prev_reg['address']
-            else:
-                field_trips_dict['address_prev'] = ''
+            # else:
+            #    field_trips_dict['address_prev'] = ''
 
             if 'coords' in context_prev_reg and \
                     'coords' in context_curr_reg and \
                     context_curr_reg['coords'] != context_prev_reg['coords']:
                 field_trips_dict['coords_prev'] = context_prev_reg['coords']
-            else:
-                field_trips_dict['coords_prev'] = ''
+            # else:
+            #    field_trips_dict['coords_prev'] = ''
 
         # TODO: temp debug
         notify_admin(f'[ide_posts]:{msg_2}\n\n{field_trips_dict}')
