@@ -677,15 +677,22 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
     age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
     region = '{region}'  # will be added on level of individual user (some of them see region, some don't)
     direction_and_distance = '{direction_and_distance}'  # will be added on level of individual user (user-specific)
+
     case = parameters['case']  # scenario of field trip update: None / add / drop / change
     prev_reg = parameters['prev_reg']  # previous snapshot of first post's context about field trip
     curr_reg = parameters['curr_reg']  # actual snapshot of first post's context about field trip
+
     now = ' планируется' if 'now' in parameters and not parameters['now'] else ''
     urgent = ' срочный' if 'urgent' in parameters and parameters['urgent'] else ''
     secondary = ' повторный' if 'secondary' in parameters and parameters['secondary'] else ''
+
     date_and_time_curr = f'\n{parameters["date_and_time_curr"]}' if 'date_and_time_curr' in parameters else ''
     address_curr = f'\n{parameters["address_curr"]}' if 'address_curr' in parameters else ''
     coords_list_curr = parameters["coords_curr"] if 'coords_curr' in parameters else None
+
+    date_and_time_prev = f'\n{parameters["date_and_time_prev"]}' if 'date_and_time_prev' in parameters else ''
+    address_prev = f'\n{parameters["address_prev"]}' if 'address_prev' in parameters else ''
+    coords_list_prev = parameters["coords_prev"] if 'coords_prev' in parameters else None
 
     if coords_list_curr:
         lat = coordinates_format.format(float(coords_list_curr[0]))
@@ -695,27 +702,39 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
         lat, lon = None, None
         coords_curr = ''
 
+    if coords_list_prev:
+        lat_prev = coordinates_format.format(float(coords_list_prev[0]))
+        lon_prev = coordinates_format.format(float(coords_list_prev[1]))
+        coords_prev = f'\n{lat_prev}, {lon_prev}'
+    else:
+        coords_prev = ''
+
     tech_line = 'tech_line: case=' + str(case) + ': curr_reg=' + str(curr_reg)
 
     if case == 'add':
 
         msg = f'🚨 Внимание,{urgent}{now}{secondary} выезд!\n' \
               f'Поиск <a href="{link}">{name}{age_info}</a>\n{region}\n\n' \
-              f'{date_and_time_curr}{address_curr}' \
+              f'{date_and_time_curr}' \
+              f'{address_curr}' \
               f'{direction_and_distance}' \
               f'{coords_curr}'
-
-    elif case == 'drop':
-        tech_line = 'tech_line: case=' + str(case) + ': curr_reg=' + str(curr_reg)
-        msg = f'🚨 Выезд завершен, поиск <a href="{link}">{name}{age_info}</a>{region}.'
 
     elif case == 'change':
         tech_line = 'tech_line: case=' + str(case) + ': curr_reg=' + str(curr_reg) + 'prev_reg=' + str(prev_reg)
 
         msg = f'🚨 Изменения по выезду поиска <a href="{link}">{name}{age_info}</a>{region}:' \
-              f'Новые параметры: {date_and_time_curr}{address_curr}' \
+              f'<del>{date_and_time_prev}' \
+              f'{address_prev}' \
+              f'{coords_prev}</del>' \
+              f'{date_and_time_curr}' \
+              f'{address_curr}' \
               f'{direction_and_distance}' \
               f'{coords_curr}'
+
+    elif case == 'drop':
+
+        msg = f'🚨 Штаб свёрнут – поиск <a href="{link}">{name}{age_info}</a>{region}.'
 
     else:
         msg = None
@@ -1344,27 +1363,22 @@ def iterate_over_all_users_and_updates(conn):
                                                 message += new_record.message[2]
 
                                         elif change_type == 5:  # field_trips_new
-                                            # TODO: temp debug
-                                            print(f'ZZZ: user_id={user.user_id}, user={user}, '
-                                                  f'prefs={user_notif_pref_ids_list}')
-                                            # TODO: temp debug
 
                                             # TODO: temp limitation for ADMIN
                                             if user.user_id in admins_list:
-                                                message = compose_individual_message_on_field_trip_new(new_record,
-                                                                                                       s_lat, s_lon,
-                                                                                                       u_lat, u_lon,
-                                                                                                       region_to_show)
+                                                message = compose_individ_msg_on_field_trip_new(new_record.message,
+                                                                                                s_lat, s_lon,
+                                                                                                u_lat, u_lon,
+                                                                                                region_to_show)
 
                                         elif change_type == 6:  # field_trips_change
-                                            # TODO: temp debug
-                                            print(f'ZZZ: user_id={user.user_id}, user={user}, '
-                                                  f'prefs={user_notif_pref_ids_list}')
-                                            # TODO: temp debug
 
                                             # TODO: temp limitation for ADMIN
                                             if user.user_id in admins_list:
-                                                message = new_record.message
+                                                message = compose_individ_msg_on_field_trip_new(new_record.message,
+                                                                                                s_lat, s_lon,
+                                                                                                u_lat, u_lon,
+                                                                                                region_to_show)
 
                                         elif change_type == 7:  # coords_change
                                             # TODO: temp debug
@@ -1599,36 +1613,62 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
     return message
 
 
-def compose_individual_message_on_field_trip_new(new_record, s_lat, s_lon, u_lat, u_lon, region_to_show):
-    """compose individual message for notification of every user on new search"""
+def compose_individ_msg_on_field_trip_new(common_message, s_lat, s_lon, u_lat, u_lon, region_to_show):
+    """compose individual message for notification of every user on new field trip"""
 
-    # Case 1. Add a new field trip
     # for reference, the below is the structure of common message
-    """msg = f'🚨 Внимание, {urgent}{now}{secondary} выезд!\n' \
-          f'Поиск <a href="{link}">{name}{age_info}</a>{region}:\n\n' \
-          f'{date_and_time}{address}' \
+    """com_msg = f'🚨 Внимание, (urgent)(now)(secondary) выезд!\n' \
+          f'Поиск <a href="(link)">(name)(age_info)</a>{region}:\n\n' \
+          f'(date_and_time_curr)(address_curr)' \
           f'{direction_and_distance}' \
-          f'{coords}' \
-          f'\n\n{tech_line}'"""
+          f'(coords)'"""
 
     # the list of parameters to be defined on user-level:
     region = region_to_show
     if s_lat and s_lon and u_lat and u_lon:
-        # TODO temp deactivate dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
-        # TODO temp deactivate direction_wording = f'От вас ~{dist} км {direct}'
-        direction_wording = 'direction wording'
-        # TODO temp deactivate direction_and_distance = generate_yandex_maps_place_link2(s_lat, s_lon, direction_wording)
-        direction_and_distance = 'test'
+        dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
+        direction_wording = f'От вас ~{dist} км {direct}'
+        direction_and_distance = generate_yandex_maps_place_link2(s_lat, s_lon, direction_wording)
+
     elif s_lat and s_lon and not u_lat and not u_lon:
-        # TODO temp deactivate direction_and_distance = generate_yandex_maps_place_link2(s_lat, s_lon, 'map')
-        direction_and_distance = 'test'
+        direction_and_distance = generate_yandex_maps_place_link2(s_lat, s_lon, 'map')
+
     else:
         direction_and_distance = ''
 
     # taking the common message and injecting individual user-related parameters
-    message = new_record.message  # TODO temp deactivate.format(region=region, direction_and_distance=direction_and_distance)
+    individual_message = common_message.format(region=region, direction_and_distance=direction_and_distance)
 
-    return message
+    return individual_message
+
+
+def compose_individ_msg_on_field_trip_change(common_message, s_lat, s_lon, u_lat, u_lon, region_to_show):
+    """compose individual message for notification of every user on changed field trip"""
+
+    # for reference, the below is the structure of common message
+    """com_msg = f'🚨 Внимание, (urgent)(now)(secondary) выезд!\n' \
+          f'Поиск <a href="(link)">(name)(age_info)</a>{region}:\n\n' \
+          f'(date_and_time_curr)(address_curr)' \
+          f'{direction_and_distance}' \
+          f'(coords)'"""
+
+    # the list of parameters to be defined on user-level:
+    region = region_to_show
+    if s_lat and s_lon and u_lat and u_lon:
+        dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
+        direction_wording = f'От вас ~{dist} км {direct}'
+        direction_and_distance = generate_yandex_maps_place_link2(s_lat, s_lon, direction_wording)
+
+    elif s_lat and s_lon and not u_lat and not u_lon:
+        direction_and_distance = generate_yandex_maps_place_link2(s_lat, s_lon, 'map')
+
+    else:
+        direction_and_distance = ''
+
+    # taking the common message and injecting individual user-related parameters
+    individual_message = common_message.format(region=region, direction_and_distance=direction_and_distance)
+
+    return individual_message
 
 
 def compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat, u_lon, region_to_show):
