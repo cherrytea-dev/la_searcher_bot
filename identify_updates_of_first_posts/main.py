@@ -561,7 +561,7 @@ def get_field_trip_details_from_text(text):
                                   r'(?:скоро.{0,3}|срочно.{0,3}|)'
                                   r'(?:планируется.{0,3}|ожидается.{0,3}|готовится.{0,3}|запланирован.{0,3}|)'
                                   r'(?:повторный.{0,3}|срочный.{0,3}|активный.{0,3})?'
-                                  r'(?:выезд|вылет|cбор на поиск)'
+                                  r'(?:выезд|вылет|cбор на поиск|сбор)'
                                   r'(?:.{0,3}срочно|сейчас|)'
                                   r'(?:.{0,3}планируется|.{0,3}ожидается|.{0,3}готовится|.{0,3}запланирован|)'
                                   r'(?:.{0,3}\d\d\.\d\d\.\d\d(?:\d\d|)|)'
@@ -647,12 +647,14 @@ def get_field_trip_details_from_text(text):
         list_of_lines = line_ft.splitlines()
         for list_line in list_of_lines:
             r = re.search(r'(?i)(?:^штаб[^а][^\sсвернут]|.{0,10}(?:адрес|место)).{0,100}', list_line)
-            resulting_field_trip_dict['address'] = r.group() if r else ''
+            if r:
+                resulting_field_trip_dict['address'] = r.group()
 
             r = re.search(
                 r'(?i)^(?!.*мест. сбор).{0,10}(?:время|сбор.{1,3}(?:в\s|к\s|с\s|.{1,10}\d{2}.{1,3}\d{2})).{0,100}',
                 list_line)
-            resulting_field_trip_dict['date_and_time'] = r.group() if r else ''
+            if r:
+                resulting_field_trip_dict['date_and_time'] = r.group()
 
     return resulting_field_trip_dict
 

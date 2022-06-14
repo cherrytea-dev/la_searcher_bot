@@ -135,7 +135,7 @@ def check_if_search_is_deleted_or_hidden(search_num):
     return deleted_trigger, hidden_trigger, bad_gateway
 
 
-def update_one_search_status(search_id):
+def update_one_topic_visibility(search_id):
     """update the status of one search: if it is ok or was deleted or hidden"""
 
     global bad_gateway_counter
@@ -149,11 +149,11 @@ def update_one_search_status(search_id):
     if not bad_gateway_trigger:
         if del_trig or hid_trig:
             if del_trig:
-                set_status = 'deleted'
+                set_visibility = 'deleted'
             else:
-                set_status = 'hidden'
+                set_visibility = 'hidden'
         else:
-            set_status = 'ok'
+            set_visibility = 'ok'
 
         with sql_connect().connect() as conn:
 
@@ -165,9 +165,9 @@ def update_one_search_status(search_id):
 
             stmt = sqlalchemy.text("""INSERT INTO search_health_check (search_forum_num, timestamp, status) 
                                 VALUES (:a, :b, :c);""")
-            conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=set_status)
+            conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=set_visibility)
 
-            logging.info('psql updated for {} status is set {}'.format(search_id, set_status))
+            logging.info('psql updated for {} status is set {}'.format(search_id, set_visibility))
             logging.info('---------------')
 
     else:
@@ -222,7 +222,7 @@ def get_and_update_list_of_active_searches(number_of_searches):
 
             for search in cleared_list_of_active_searches:
 
-                update_one_search_status(search[1])
+                update_one_topic_visibility(search[1])
 
                 if bad_gateway_counter > 3 and trigger_if_switched_to_proxy:
                     break
@@ -649,7 +649,7 @@ def update_first_posts(percent_of_searches):
                 elif not_found_trigger:
                     # TODO: debug, temp
                     try:
-                        update_one_search_status(search_id)
+                        update_one_topic_visibility(search_id)
                     except: # noqa
                         pass
 
