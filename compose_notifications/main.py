@@ -680,7 +680,7 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
 
     case = parameters['case']  # scenario of field trip update: None / add / drop / change
     # prev_reg = parameters['prev_reg']  # previous snapshot of first post's context about field trip
-    curr_reg = parameters['curr_reg']  # actual snapshot of first post's context about field trip
+    # curr_reg = parameters['curr_reg']  # actual snapshot of first post's context about field trip
 
     now = ' планируется' if 'now' in parameters and not parameters['now'] else ''
     urgent = ' срочный' if 'urgent' in parameters and parameters['urgent'] else ''
@@ -709,7 +709,7 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
     else:
         coords_prev = ''
 
-    tech_line = 'tech_line: case=' + str(case) + ': curr_reg=' + str(curr_reg)
+    tech_line = 'tech_line: case=' + str(case)  # + ': curr_reg=' + str(curr_reg)
 
     if case == 'add':
 
