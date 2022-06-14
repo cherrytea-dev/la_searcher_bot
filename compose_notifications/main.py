@@ -679,7 +679,7 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
     direction_and_distance = '{direction_and_distance}'  # will be added on level of individual user (user-specific)
 
     case = parameters['case']  # scenario of field trip update: None / add / drop / change
-    prev_reg = parameters['prev_reg']  # previous snapshot of first post's context about field trip
+    # prev_reg = parameters['prev_reg']  # previous snapshot of first post's context about field trip
     curr_reg = parameters['curr_reg']  # actual snapshot of first post's context about field trip
 
     now = ' планируется' if 'now' in parameters and not parameters['now'] else ''
@@ -721,7 +721,6 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
               f'{coords_curr}'
 
     elif case == 'change':
-        tech_line = 'tech_line: case=' + str(case) + ': curr_reg=' + str(curr_reg) + 'prev_reg=' + str(prev_reg)
 
         msg = f'🚨 Изменения по выезду поиска <a href="{link}">{name}{age_info}</a>{region}:' \
               f'<del>{date_and_time_prev}' \
