@@ -27,7 +27,7 @@ fib_list = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987]
 
 # for analytics
 search_id_for_analytics = None
-change_id_for_analytics = None
+change_type_id = None
 change_type_for_analytics = None
 mailing_id = None
 
@@ -1217,7 +1217,7 @@ def iterate_over_all_users_and_updates(conn):
     global stat_list_of_recipients
 
     global search_id_for_analytics
-    global change_id_for_analytics
+    global change_type_id
     global change_type_for_analytics
     global mailing_id
 
@@ -1269,7 +1269,7 @@ def iterate_over_all_users_and_updates(conn):
                 search_id_for_analytics = new_record.forum_search_num
                 mailing_id = raw_data[0]
                 change_type_for_analytics = change_type
-                change_id_for_analytics = new_record.change_id
+                change_type_id = new_record.change_id
 
                 logging.info(mailing_id)
 
@@ -1411,19 +1411,20 @@ def iterate_over_all_users_and_updates(conn):
                                                                                    message_without_html,
                                                                                    'text',
                                                                                    message_params, msg_group_id,
-                                                                                   change_id_for_analytics)
+                                                                                   change_type_id)
 
                                             # record into SQL table notif_by_user_status
                                             write_message_creation_status(conn, message_id, 'created', mailing_id,
-                                                                          change_id_for_analytics, user.user_id,
+                                                                          change_type_id, user.user_id,
                                                                           'text')
 
                                             # for user tips in "new search" notifs – to increase sent messages counter
                                             if change_type == 0:  # 'new_search':
                                                 stat_list_of_recipients.append(user.user_id)
 
-                                            # save to SQL the sendLocation notification for "new search"
-                                            if change_type == 0 and s_lat and s_lon:  # 'new_search'
+                                            # save to SQL the sendLocation notification for "new search" & "field trips"
+                                            if change_type in {0, 5, 6} and s_lat and s_lon:
+                                                # 'new_search', field_trip_new, field_trip_change
                                                 message_params = {'latitude': s_lat,
                                                                   'longitude': s_lon}
 
@@ -1433,16 +1434,12 @@ def iterate_over_all_users_and_updates(conn):
                                                                                        None, 'coords',
                                                                                        message_params,
                                                                                        msg_group_id,
-                                                                                       change_id_for_analytics)
+                                                                                       change_type_id)
 
                                                 # record into SQL table notif_by_user_status
                                                 write_message_creation_status(conn, message_id, 'created', mailing_id,
-                                                                              change_id_for_analytics, user.user_id,
+                                                                              change_type_id, user.user_id,
                                                                               'coords')
-
-                                            # TODO: to be added for change_type = 5 and 6
-                                            # TODO: to be added for change_type = 5 and 6
-                                            # TODO: to be added for change_type = 5 and 6
 
                                             # save to SQL the sendLocation notification for "coords change"
                                             if change_type == 7 and s_lat and s_lon \
@@ -1451,31 +1448,17 @@ def iterate_over_all_users_and_updates(conn):
                                                 message_params = {'latitude': s_lat,
                                                                   'longitude': s_lon}
 
-                                                # TODO: debug
-                                                print(f'YYY: we are in a condition for saving coords to sql')
-                                                # TODO: debug
-
                                                 message_id = save_to_sql_notif_by_user(mailing_id, user.user_id,
                                                                                        None,
                                                                                        None, 'coords',
                                                                                        message_params,
                                                                                        msg_group_id,
-                                                                                       change_id_for_analytics)
-
-                                                # TODO: debug
-                                                print(f'YYY: we are in a condition after saving coords to sql, '
-                                                      f'message_id={message_id}')
-                                                # TODO: debug
+                                                                                       change_type_id)
 
                                                 write_message_creation_status(conn, message_id, 'created',
                                                                               mailing_id,
-                                                                              change_id_for_analytics, user.user_id,
+                                                                              change_type_id, user.user_id,
                                                                               'coords')
-
-                                                # TODO: debug
-                                                print(f'YYY: we are in a condition after writing message creation '
-                                                      f'status to sql')
-                                                # TODO: debug
 
                                             number_of_messages_sent += 1
 
