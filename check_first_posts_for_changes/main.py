@@ -155,9 +155,7 @@ def update_one_search_status(search_id):
         else:
             set_status = 'ok'
 
-        db = sql_connect()
-
-        with db.connect() as conn:
+        with sql_connect().connect() as conn:
 
             try:
                 stmt = sqlalchemy.text("""DELETE FROM search_health_check WHERE search_forum_num=:a;""")
@@ -171,8 +169,6 @@ def update_one_search_status(search_id):
 
             logging.info('psql updated for {} status is set {}'.format(search_id, set_status))
             logging.info('---------------')
-
-        del db
 
     else:
         bad_gateway_counter += 1
@@ -237,9 +233,7 @@ def get_and_update_list_of_active_searches(number_of_searches):
 def update_user_regional_settings(number_of_lines_to_update):
     """temp function to add archives to all who has not it"""
 
-    db = sql_connect()
-
-    with db.connect() as conn:
+    with sql_connect().connect() as conn:
 
         new_list_of_user_reg_prefs_4 = conn.execute("""
         select rp.user_id, rp.forum_folder_num, rtf.region_id, rtf.folder_description
