@@ -320,7 +320,7 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
             field_trips_dict['date_and_time_curr'] = context_curr_reg['date_and_time']
             field_trips_dict['address_curr'] = context_curr_reg['address']
             if 'coords' in context_curr_reg:
-                field_trips_dict['coords'] = context_curr_reg['coords']
+                field_trips_dict['coords_curr'] = context_curr_reg['coords']
 
         # CASE 2 "drop"
         if not context_curr_reg['sbor'] and \
@@ -626,12 +626,17 @@ def get_field_trip_details_from_text(text):
     coords_curr_full_list = get_the_list_of_coords_out_of_text(text)
     # format [[lat_1, lon_1, type_1], ... ,[lat_N, lon_N, type_N]]
 
+    # TODO: temp debug
+    print(f'BBB: coords_curr_full_list={coords_curr_full_list}')
+    # TODO: temp debug
+
     # we just need to get curr coords of type 1 or 2 (with world coords or without)
     lat, lon = None, None
     if coords_curr_full_list:
         for line in coords_curr_full_list:
             if line[2][0] == '1':
                 lat, lon = line[0], line[1]
+
                 break
         if lat is None and lon is None:
             for line in coords_curr_full_list:
@@ -639,8 +644,16 @@ def get_field_trip_details_from_text(text):
                     lat, lon = line[0], line[1]
                     break
 
+    # TODO: temp debug
+    print(f'BBB: lat, lon={lat}, {lon}')
+    # TODO: temp debug
+
     if lat is not None and lon is not None:
         resulting_field_trip_dict['coords'] = [lat, lon]
+
+    # TODO: temp debug
+    print(f'BBB: resulting_field_trip_dict["coords"]={resulting_field_trip_dict["coords"]}')
+    # TODO: temp debug
 
     # date_and_time and address
     for line_ft in field_trip_vyezd:

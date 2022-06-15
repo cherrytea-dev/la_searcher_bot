@@ -711,8 +711,8 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
 
     if case == 'add':
 
-        msg = f'🚨 Внимание,{urgent}{planned}{secondary} выезд!\n' \
-              f'Поиск <a href="{link}">{name}{age_info}</a>\n{region}\n\n' \
+        msg = f'🚨 Внимание,{urgent}{planned}{secondary} выезд!\n{region}\n\n' \
+              f'<a href="{link}">{name}{age_info}</a>\n\n' \
               f'{date_and_time_curr}' \
               f'{address_curr}' \
               f'{direction_and_distance}' \
@@ -720,7 +720,7 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
 
     elif case == 'change':
 
-        msg = f'🚨 Изменения по выезду – поиск <a href="{link}">{name}{age_info}</a>{region}:\n' \
+        msg = f'🚨 Изменения по выезду <a href="{link}">{name}{age_info}</a>\n{region}:\n' \
               f'<del>{date_and_time_prev}' \
               f'{address_prev}' \
               f'{coords_prev}</del>' \
@@ -731,7 +731,8 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
 
     elif case == 'drop':
 
-        msg = f'🚨 Штаб свёрнут – поиск <a href="{link}">{name}{age_info}</a>{region}.'
+        msg = f'🚨 Штаб свёрнут – <a href="{link}">{name}{age_info}</a>\n' \
+              f'{region}.'
 
     else:
         msg = None
@@ -1593,7 +1594,7 @@ def compose_individual_msg_on_field_trip(common_message, s_lat, s_lon, u_lat, u_
           f'(coords)'"""
 
     # the list of parameters to be defined on user-level:
-    region = f' ({region_to_show})' if region_to_show else ''
+    region = f'{region_to_show}' if region_to_show else ''
     if s_lat and s_lon and u_lat and u_lon:
         dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
         direction_wording = f'От вас ~{dist} км {direct}'
