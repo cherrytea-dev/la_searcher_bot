@@ -106,10 +106,10 @@ def check_if_search_is_deleted_or_hidden(search_num):
 
     if content:
 
-        bad_gateway = True if content.find('502 Bad Gateway') > 0 else False
+        # bad_gateway = True if content.find('502 Bad Gateway') > 0 else False
 
         # TODO: temp check, if this "patch" can help to remover timeouts
-        # bad_gateway = True if content.find('') > 0 else False
+        bad_gateway = True if content.find('') > 0 else False
 
         if not bad_gateway:
 
