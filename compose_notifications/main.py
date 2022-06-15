@@ -680,7 +680,7 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
 
     case = parameters['case']  # scenario of field trip update: None / add / drop / change
 
-    now = ' планируется' if 'now' in parameters and not parameters['now'] else ''
+    planned = ' планируется' if 'now' in parameters and not parameters['now'] else ''
     urgent = ' срочный' if 'urgent' in parameters and parameters['urgent'] else ''
     secondary = ' повторный' if 'secondary' in parameters and parameters['secondary'] else ''
 
@@ -711,7 +711,7 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
 
     if case == 'add':
 
-        msg = f'🚨 Внимание,{urgent}{now}{secondary} выезд!\n' \
+        msg = f'🚨 Внимание,{urgent}{planned}{secondary} выезд!\n' \
               f'Поиск <a href="{link}">{name}{age_info}</a>\n{region}\n\n' \
               f'{date_and_time_curr}' \
               f'{address_curr}' \

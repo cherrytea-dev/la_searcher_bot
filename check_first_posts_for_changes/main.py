@@ -619,6 +619,32 @@ def update_first_posts(percent_of_searches):
                                                 """)
                             conn.execute(stmt, a=(prev_number_of_checks + 1), b=search_id)
 
+                        # block to check if Status of the search has changed – if so send a pub/sub to topic_management
+                        # get the Title out of page content (intentionally avoid BS4 to make pack slimmer)
+                        pre_title = re.search(r'<h2 class="topic-title"><a href=.{1,500}</a>', act_content)
+                        pre_title = pre_title.group()
+                        pre_title = re.search(r'">.{1,500}</a>', pre_title[32:])
+                        title = pre_title.group()[2:-4]
+                        missed = re.search(r'(?i).{0,10}пропал.*', title)
+                        if missed:
+                            status = 'Ищем'
+                        else:
+                            missed = re.search(r'(?i).{0,10}(?:найден|).{0,5}жив', title)
+                            if missed:
+                                status = 'НЖ'
+                            else:
+                                missed = re.search(r'(?i).{0,10}(?:найден|).{0,5}пог', title)
+                                if missed:
+                                    status = 'НП'
+                                else:
+                                    missed = re.search(r'(?i).{0,10}заверш.н', title)
+                                    if missed:
+                                        status = 'Завершен'
+                                    else:
+                                        status = 'Undefined'
+                        if status in {'НЖ', 'НП', 'Завершен'}:
+                            publish_to_pubsub('topic_for_topic_management', {'status': status})
+
                     # if record for this search – does not exist – add a new record
                     else:
 
