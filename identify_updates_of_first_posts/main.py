@@ -648,13 +648,13 @@ def get_field_trip_details_from_text(text):
         for list_line in list_of_lines:
             r = re.search(r'(?i)(?:^штаб[^а][^\sсвернут]|.{0,10}(?:адрес|место)).{0,100}', list_line)
             if r:
-                resulting_field_trip_dict['address'] = r.group()
+                resulting_field_trip_dict['address'] = re.sub(re.compile('<.*?>'), '', r.group())
 
             r = re.search(
                 r'(?i)^(?!.*мест. сбор).{0,10}(?:время|сбор.{1,3}(?:в\s|к\s|с\s|.{1,10}\d{2}.{1,3}\d{2})).{0,100}',
                 list_line)
             if r:
-                resulting_field_trip_dict['date_and_time'] = r.group()
+                resulting_field_trip_dict['date_and_time'] = re.sub(re.compile('<.*?>'), '', r.group())
 
     return resulting_field_trip_dict
 
