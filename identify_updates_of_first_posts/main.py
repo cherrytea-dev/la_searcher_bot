@@ -309,6 +309,15 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
                             'secondary': context_curr_reg['secondary']
                             }
 
+        # TODO: temp debug
+        print(f"context_curr_reg['sbor']={context_curr_reg['sbor']}")
+        print(f"context_curr_reg['vyezd']={context_curr_reg['vyezd']}")
+        print(f"context_prev_reg['sbor']={context_prev_reg['sbor']}")
+        print(f"context_prev_reg['vyezd']={context_prev_reg['vyezd']}")
+        print(f"add if={(context_curr_reg['sbor'] or context_curr_reg['vyezd']) and not context_prev_reg['sbor'] and not context_prev_reg['vyezd']}")
+        print(f"drop if={not context_curr_reg['sbor'] and not context_curr_reg['vyezd'] and (context_prev_reg['sbor'] or context_prev_reg['vyezd'])}")
+        # TODO: temp debug
+
         # define the CASE (None / add / drop / change)
         # CASE 1 "add"
         if (context_curr_reg['sbor'] or context_curr_reg['vyezd']) and \
@@ -541,7 +550,7 @@ def split_text_to_deleted_and_regular_parts(text):
     non_deleted_text = str(soup_without_deleted)
 
     deleted_list = [
-        item.getText(strip=True) for item in soup.find_all('span', {'style': 'text-decoration:line-through'})
+        item.getText(strip=False) for item in soup.find_all('span', {'style': 'text-decoration:line-through'})
     ]
 
     deleted_text = '\n'.join(deleted_list)
