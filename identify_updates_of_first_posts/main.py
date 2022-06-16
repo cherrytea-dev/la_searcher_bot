@@ -312,6 +312,13 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
         if 'secondary' in context_curr_reg:
             field_trips_dict['secondary'] = context_curr_reg['secondary']
 
+        if 'date_and_time' in context_curr_reg:
+            field_trips_dict['date_and_time_curr'] = context_curr_reg['date_and_time']
+        if 'address' in context_curr_reg:
+            field_trips_dict['address_curr'] = context_curr_reg['address']
+        if 'coords' in context_curr_reg:
+            field_trips_dict['coords_curr'] = context_curr_reg['coords']
+
         # TODO: temp debug
         print(f"context_prev_reg={context_prev_reg}")
         print(f"context_curr_del={context_curr_del}")
@@ -322,87 +329,55 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
 
         # define the CASE (None / add / drop / change)
         # CASE 1 "add"
-        if (context_curr_reg['sbor'] or context_curr_reg['vyezd']) and \
-                not context_prev_reg['sbor'] and \
-                not context_prev_reg['vyezd']:
+        if context_curr_reg['vyezd'] and not context_prev_reg['vyezd']:
 
             field_trips_dict['case'] = 'add'
 
-            if context_curr_reg['date_and_time']:
-                field_trips_dict['date_and_time_curr'] = context_curr_reg['date_and_time']
-            if context_curr_reg['address']:
-                field_trips_dict['address_curr'] = context_curr_reg['address']
-            if 'coords' in context_curr_reg:
-                field_trips_dict['coords_curr'] = context_curr_reg['coords']
-
         # CASE 2 "drop"
-        if not context_curr_reg['sbor'] and \
-                not context_curr_reg['vyezd'] and \
-                (context_prev_reg['sbor'] or context_prev_reg['vyezd']):
+        if not context_curr_reg['vyezd'] and context_prev_reg['vyezd']:
 
             field_trips_dict['case'] = 'drop'
 
         # CASE 3 "change"
         # CASE 3.1 "was nothing in prev and here's already cancelled one and regular one in curr"
-        if (context_curr_reg['sbor'] or context_curr_reg['vyezd']) and \
-                not context_prev_reg['sbor'] and \
-                not context_prev_reg['vyezd'] and \
-                (context_curr_del['sbor'] or context_curr_del['vyezd']):
+        if context_curr_reg['vyezd'] and not context_prev_reg['vyezd'] and context_curr_del['vyezd']:
 
             field_trips_dict['case'] = 'change'
 
-            if context_curr_reg['date_and_time']:
-                field_trips_dict['date_and_time_curr'] = context_curr_reg['date_and_time']
-            if context_curr_reg['address']:
-                field_trips_dict['address_curr'] = context_curr_reg['address']
-            if 'coords' in context_curr_reg:
-                field_trips_dict['coords_curr'] = context_curr_reg['coords']
-
-            if context_curr_reg['date_and_time'] != context_curr_del['date_and_time']:
+            time_and_date_curr = context_curr_reg['date_and_time'] if 'time_and_date' in context_curr_reg else ''
+            time_and_date_prev = context_curr_del['date_and_time'] if 'time_and_date' in context_curr_del else ''
+            if time_and_date_curr != time_and_date_prev and 'time_and_date' in context_curr_del:
                 field_trips_dict['date_and_time_prev'] = context_curr_del['date_and_time']
-            # else:
-            #    field_trips_dict['date_and_time_prev'] = ''
 
-            if context_curr_reg['address'] != context_curr_del['address']:
+            address_curr = context_curr_reg['address'] if 'address' in context_curr_reg else ''
+            address_prev = context_curr_del['address'] if 'address' in context_curr_del else ''
+            if address_curr != address_prev and 'address' in context_curr_del:
                 field_trips_dict['address_prev'] = context_curr_del['address']
-            # else:
-            #    field_trips_dict['address_prev'] = ''
 
-            if 'coords' in context_curr_del and \
-                    'coords' in context_curr_reg and \
-                    context_curr_reg['coords'] != context_curr_del['coords']:
+            coords_curr = context_curr_reg['coords'] if 'coords' in context_curr_reg else ''
+            coords_prev = context_curr_del['coords'] if 'coords' in context_curr_del else ''
+            if coords_curr != coords_prev and 'coords' in context_curr_del:
                 field_trips_dict['coords_prev'] = context_curr_del['coords']
-            # else:
-            #     field_trips_dict['coords_prev'] = ''
 
         # CASE 3.2 "there was something which differs in prev and curr"
-        if (context_curr_reg['sbor'] or context_curr_reg['vyezd']) and \
-                (context_prev_reg['sbor'] or context_prev_reg['vyezd']) and \
-                (context_curr_reg != context_prev_reg):
+        if context_curr_reg['vyezd'] and context_prev_reg['vyezd'] and (context_curr_reg != context_prev_reg):
 
             field_trips_dict['case'] = 'change'
 
-            field_trips_dict['date_and_time_curr'] = context_curr_reg['date_and_time']
-            field_trips_dict['address_curr'] = context_curr_reg['address']
-            if 'coords' in context_curr_reg:
-                field_trips_dict['coords_curr'] = context_curr_reg['coords']
-
-            if context_curr_reg['date_and_time'] != context_prev_reg['date_and_time']:
+            time_and_date_curr = context_curr_reg['date_and_time'] if 'time_and_date' in context_curr_reg else ''
+            time_and_date_prev = context_prev_reg['date_and_time'] if 'time_and_date' in context_prev_reg else ''
+            if time_and_date_curr != time_and_date_prev and 'time_and_date' in context_prev_reg:
                 field_trips_dict['date_and_time_prev'] = context_prev_reg['date_and_time']
-            # else:
-            #    field_trips_dict['date_and_time_prev'] = ''
 
-            if context_curr_reg['address'] != context_prev_reg['address']:
+            address_curr = context_curr_reg['address'] if 'address' in context_curr_reg else ''
+            address_prev = context_prev_reg['address'] if 'address' in context_prev_reg else ''
+            if address_curr != address_prev and 'address' in context_prev_reg:
                 field_trips_dict['address_prev'] = context_prev_reg['address']
-            # else:
-            #    field_trips_dict['address_prev'] = ''
 
-            if 'coords' in context_prev_reg and \
-                    'coords' in context_curr_reg and \
-                    context_curr_reg['coords'] != context_prev_reg['coords']:
+            coords_curr = context_curr_reg['coords'] if 'coords' in context_curr_reg else ''
+            coords_prev = context_prev_reg['coords'] if 'coords' in context_prev_reg else ''
+            if coords_curr != coords_prev and 'coords' in context_prev_reg:
                 field_trips_dict['coords_prev'] = context_prev_reg['coords']
-            # else:
-            #    field_trips_dict['coords_prev'] = ''
 
         # TODO: temp debug
         notify_admin(f'[ide_posts]:{msg_2}\n\n{field_trips_dict}')
@@ -579,7 +554,7 @@ def get_field_trip_details_from_text(text):
                                   r'(?:выезд|вылет|cбор на поиск|сбор)'
                                   r'(?:.{0,3}срочно|сейчас|)'
                                   r'(?:.{0,3}планируется|.{0,3}ожидается|.{0,3}готовится|.{0,3}запланирован|)'
-                                  r'(?:.{0,3}\d\d\.\d\d\.\d\d(?:\d\d|)|)'
+                                  r'(?:.{0,4}\d\d\.\d\d\.\d\d(?:\d\d|)|)'
                                   r'.{0,3}(?:[\r\n]+|.){0,1000}',
                                   text)
 
@@ -662,7 +637,7 @@ def get_field_trip_details_from_text(text):
     for line_ft in field_trip_vyezd:
         list_of_lines = line_ft.splitlines()
         for list_line in list_of_lines:
-            r = re.search(r'(?i)(?:^штаб[^а][^\sсвернут]|.{0,10}(?:адрес|место)).{0,100}', list_line)
+            r = re.search(r'(?i)(?:^штаб[^а][^\sсвернут]|.{0,10}(?:адрес|место|точка сбора)).{0,100}', list_line)
             if r:
                 resulting_field_trip_dict['address'] = re.sub(re.compile('<.*?>'), '', r.group())
 
