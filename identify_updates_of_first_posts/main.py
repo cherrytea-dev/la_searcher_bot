@@ -303,11 +303,14 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
         context_curr_del = get_field_trip_details_from_text(text_curr_del)
         context_curr_reg = get_field_trip_details_from_text(text_curr_reg)
 
-        field_trips_dict = {'case': None,
-                            'urgent': context_curr_reg['urgent'],
-                            'now': context_curr_reg['now'],
-                            'secondary': context_curr_reg['secondary']
-                            }
+        field_trips_dict = {'case': None}
+
+        if 'urgent' in context_curr_reg:
+            field_trips_dict['urgent'] = context_curr_reg['urgent']
+        if 'planned' in context_curr_reg:
+            field_trips_dict['planned'] = context_curr_reg['planned']
+        if 'secondary' in context_curr_reg:
+            field_trips_dict['secondary'] = context_curr_reg['secondary']
 
         # TODO: temp debug
         print(f"context_prev_reg={context_prev_reg}")

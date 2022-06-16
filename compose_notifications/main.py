@@ -741,6 +741,10 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
     notify_admin(f'Field Trips / Common Message: {msg}')
     # TODO temp debug
 
+    # Clean the message from excessive line breaks, like \n\n\n. tree repetitions covers majority of cases
+    # TODO: to make it more pythonic. it does its' job, but looks ugly
+    msg = msg.replace('\n\n\n', '\n\n').replace('\n\n\n', '\n\n').replace('\n\n\n', '\n\n')
+
     return msg, lat, lon
 
 
