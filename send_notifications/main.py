@@ -371,8 +371,14 @@ def iterate_over_notifications(bot, script_start_time):
             logging.info('time: -------------- loop start -------------')
 
             # TODO: to remove admin
+
+            analytics_sql_start = datetime.datetime.now()
             # check if there are any non-notified users
             msg_w_o_notif = check_for_notifs_to_send(conn)
+            analytics_sql_finish = datetime.datetime.now()
+            analytics_sql_duration = round((analytics_sql_finish -
+                                                 analytics_sql_start).total_seconds(), 2)
+            logging.info('time: reading sql=' + str(analytics_sql_duration))
 
             logging.info(str(msg_w_o_notif))
 
@@ -495,7 +501,7 @@ def main_func(event, context):  # noqa
         average = sum(analytics_notif_times) / len_n
         message = f'[send_notifs] Analytics: num of messages {len_n}, average time {round(average, 1)} seconds, ' \
                   f'total time {round(sum(analytics_notif_times), 1)} seconds'
-        # notify_admin(message)
+        notify_admin(message)
         logging.info(message)
 
         analytics_notif_times = []
