@@ -680,7 +680,8 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
 
     case = parameters['case']  # scenario of field trip update: None / add / drop / change
 
-    planned = ' планируется' if 'now' in parameters and not parameters['now'] else ''
+    planned = ' планируется' if 'planned' in parameters else ''
+    # TODO: probably in urgent and secondary "and parameters['urgent']" is not needed
     urgent = ' срочный' if 'urgent' in parameters and parameters['urgent'] else ''
     secondary = ' повторный' if 'secondary' in parameters and parameters['secondary'] else ''
 
@@ -707,15 +708,13 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
     else:
         coords_prev = ''
 
-    tech_line = 'tech_line: case=' + str(case)
-
     if case == 'add':
 
         msg = f'🚨 Внимание,{urgent}{planned}{secondary} выезд!\n{region}\n\n' \
               f'<a href="{link}">{name}{age_info}</a>\n\n' \
               f'{date_and_time_curr}' \
               f'{address_curr}' \
-              f'{direction_and_distance}' \
+              f'\n{direction_and_distance}' \
               f'{coords_curr}'
 
     elif case == 'change':
@@ -726,7 +725,7 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
               f'{coords_prev}</del>' \
               f'{date_and_time_curr}' \
               f'{address_curr}' \
-              f'{direction_and_distance}' \
+              f'\n{direction_and_distance}' \
               f'{coords_curr}'
 
     elif case == 'drop':
@@ -736,11 +735,10 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
 
     else:
         msg = None
-        tech_line = ''
 
     # TODO temp debug
+    notify_admin(f'Field Trips / incoming parameters: {parameters}')
     notify_admin(f'Field Trips / Common Message: {msg}')
-    notify_admin('Field Trips / Tech_line: ' + str(tech_line))
     # TODO temp debug
 
     return msg, lat, lon

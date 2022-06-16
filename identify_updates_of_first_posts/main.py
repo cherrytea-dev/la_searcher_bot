@@ -310,10 +310,9 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
                             }
 
         # TODO: temp debug
-        print(f"context_curr_reg['sbor']={context_curr_reg['sbor']}")
-        print(f"context_curr_reg['vyezd']={context_curr_reg['vyezd']}")
-        print(f"context_prev_reg['sbor']={context_prev_reg['sbor']}")
-        print(f"context_prev_reg['vyezd']={context_prev_reg['vyezd']}")
+        print(f"context_prev_reg={context_prev_reg}")
+        print(f"context_curr_del={context_curr_del}")
+        print(f"context_curr_reg={context_curr_reg}")
         print(f"add if={(context_curr_reg['sbor'] or context_curr_reg['vyezd']) and not context_prev_reg['sbor'] and not context_prev_reg['vyezd']}")
         print(f"drop if={not context_curr_reg['sbor'] and not context_curr_reg['vyezd'] and (context_prev_reg['sbor'] or context_prev_reg['vyezd'])}")
         # TODO: temp debug
@@ -326,8 +325,10 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
 
             field_trips_dict['case'] = 'add'
 
-            field_trips_dict['date_and_time_curr'] = context_curr_reg['date_and_time']
-            field_trips_dict['address_curr'] = context_curr_reg['address']
+            if context_curr_reg['date_and_time']:
+                field_trips_dict['date_and_time_curr'] = context_curr_reg['date_and_time']
+            if context_curr_reg['address']:
+                field_trips_dict['address_curr'] = context_curr_reg['address']
             if 'coords' in context_curr_reg:
                 field_trips_dict['coords_curr'] = context_curr_reg['coords']
 
@@ -347,8 +348,10 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
 
             field_trips_dict['case'] = 'change'
 
-            field_trips_dict['date_and_time_curr'] = context_curr_reg['date_and_time']
-            field_trips_dict['address_curr'] = context_curr_reg['address']
+            if context_curr_reg['date_and_time']:
+                field_trips_dict['date_and_time_curr'] = context_curr_reg['date_and_time']
+            if context_curr_reg['address']:
+                field_trips_dict['address_curr'] = context_curr_reg['address']
             if 'coords' in context_curr_reg:
                 field_trips_dict['coords_curr'] = context_curr_reg['coords']
 
@@ -582,7 +585,9 @@ def get_field_trip_details_from_text(text):
                                  text.lower())
     # TODO: to be deleted
 
-    resulting_field_trip_dict = {'vyezd': False,  # True for vyezd
+    resulting_field_trip_dict = {'vyezd': False}
+
+    """resulting_field_trip_dict = {'vyezd': False,  # True for vyezd
                                  'sbor': False,  # True for sbor
 
                                  'now': True,  # True for now of and False for future
@@ -593,28 +598,17 @@ def get_field_trip_details_from_text(text):
 
                                  'date_and_time': None,  # time of filed trip
                                  'address': None,  # place of filed trip (not coords)
-                                 }
+                                 }"""
 
     # Update the parameters of the output_dict
     # vyezd
     if field_trip_vyezd:
         resulting_field_trip_dict['vyezd'] = True
-        """resulting_field_trip_dict['original_text'] = '. '.join(field_trip_vyezd)
-        for line in field_trip_vyezd:
-            prettified_line = line.lower().capitalize()
-            # TODO: other cosmetics are also expected: e.g.
-            #  making all delimiters as blank spaces except after 'внимание'
-            resulting_field_trip_dict['prettified_text'] = f'{prettified_line}\n'"""
 
+    # TODO: to delete
     # sbor
     if field_trip_sbor:
         resulting_field_trip_dict['sbor'] = True
-        """        resulting_field_trip_dict['original_text'] = '. '.join(field_trip_sbor)
-        for line in field_trip_sbor:
-            prettified_line = line.lower().capitalize()
-            # TODO: other cosmetics are also expected: e.g.
-            #  making all delimiters as blank spaces except after 'внимание'
-            resulting_field_trip_dict['prettified_text'] = f'{prettified_line}\n'"""
 
     # now / urgent  /secondary
     for phrase in field_trip_vyezd:
@@ -622,6 +616,7 @@ def get_field_trip_details_from_text(text):
         # now
         if re.findall(r'(планируется|ожидается|готовится)', phrase.lower()):
             resulting_field_trip_dict['now'] = False
+            resulting_field_trip_dict['planned'] = True
 
         # urgent
         if re.findall(r'срочн', phrase.lower()):
@@ -659,10 +654,6 @@ def get_field_trip_details_from_text(text):
 
     if lat is not None and lon is not None:
         resulting_field_trip_dict['coords'] = [lat, lon]
-
-    # TODO: temp debug
-    print(f'BBB: resulting_field_trip_dict["coords"]={resulting_field_trip_dict["coords"]}')
-    # TODO: temp debug
 
     # date_and_time and address
     for line_ft in field_trip_vyezd:
