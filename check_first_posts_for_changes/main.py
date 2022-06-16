@@ -582,7 +582,6 @@ def update_first_posts(percent_of_searches):
 
     list_of_searches_with_updated_first_posts = []
     list_of_searches = get_list_of_searches_for_first_post_update(percent_of_searches)
-    logging.info('list of searches for first post update: {}'.format(str(list_of_searches)))
 
     if list_of_searches:
 
@@ -652,7 +651,10 @@ def update_first_posts(percent_of_searches):
                                                 """)
                             conn.execute(stmt, a=(prev_number_of_checks + 1), b=search_id)
 
-                        get_status_from_content_and_send_to_topic_management(act_content)
+                        # As far as we do have the content for previously-parsed searches –
+                        # then it's an opportunity to update the status
+                        if act_content:
+                            get_status_from_content_and_send_to_topic_management(act_content)
 
                     # if record for this search – does not exist – add a new record
                     else:
