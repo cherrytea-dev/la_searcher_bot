@@ -323,8 +323,6 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
         print(f"context_prev_reg={context_prev_reg}")
         print(f"context_curr_del={context_curr_del}")
         print(f"context_curr_reg={context_curr_reg}")
-        print(f"add if={(context_curr_reg['sbor'] or context_curr_reg['vyezd']) and not context_prev_reg['sbor'] and not context_prev_reg['vyezd']}")
-        print(f"drop if={not context_curr_reg['sbor'] and not context_curr_reg['vyezd'] and (context_prev_reg['sbor'] or context_prev_reg['vyezd'])}")
         # TODO: temp debug
 
         # define the CASE (None / add / drop / change)
