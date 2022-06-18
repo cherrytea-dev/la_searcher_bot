@@ -2361,4 +2361,6 @@ def main(request):
                     logging.exception(e)
                     notify_admin('[comm] general script fail')
 
+    conn_psy.close()
+
     return None
