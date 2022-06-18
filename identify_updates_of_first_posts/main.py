@@ -378,7 +378,8 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
                 field_trips_dict['coords_prev'] = context_prev_reg['coords']
 
         # TODO: temp debug
-        notify_admin(f'[ide_posts]:{msg_2}\n\n{field_trips_dict}')
+        if 'case' in field_trips_dict and field_trips_dict['case'] not in {'None', None}:
+            notify_admin(f'[ide_posts]:{msg_2}\n\n{field_trips_dict}')
         logging.info(f'{msg_2}\n\n{field_trips_dict}')
         # TODO: temp debug
 

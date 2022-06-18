@@ -655,8 +655,8 @@ def update_first_posts(percent_of_searches):
                                 # TODO: delete after DEBUG
                                 if last_content and act_content:
                                     delta = get_the_diff_between_strings(last_content, act_content)
-                                    publish_to_pubsub('topic_notify_admin',
-                                                      f'[che_posts]: {search_id} 1st POST UPD:\n{delta}')
+                                    # publish_to_pubsub('topic_notify_admin',
+                                    #                   f'[che_posts]: {search_id} 1st POST UPD:\n{delta}')
 
                             # if record for this search – actual
                             else:
