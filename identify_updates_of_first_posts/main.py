@@ -44,7 +44,7 @@ def sql_connect():
     db_config = {
         "pool_size": 30,
         "max_overflow": 0,
-        "pool_timeout": 10,  # seconds
+        "pool_timeout": 0,  # seconds
         "pool_recycle": 0,  # seconds
     }
 
@@ -680,89 +680,95 @@ def main(event, context):  # noqa
 
         with sql_connect().connect() as conn:
 
-            for search_id in list_of_updated_searches:
+            try:
 
-                # get the Current First Page Content
-                sql_text = sqlalchemy.text("""
-                SELECT content, content_compact FROM search_first_posts WHERE search_id=:a AND actual = True;
-                """)
-                raw_data = conn.execute(sql_text, a=search_id).fetchone()
-                first_page_content_curr = raw_data[0]
-                first_page_content_curr_compact = raw_data[1]
+                for search_id in list_of_updated_searches:
 
-                # TODO: why we're doing it in this script but not in che_posts??
-                # save compact first page content
-                if not first_page_content_curr_compact:
-                    content_compact = get_compressed_first_post(first_page_content_curr)
+                    # get the Current First Page Content
                     sql_text = sqlalchemy.text("""
-                                    UPDATE search_first_posts SET content_compact=:a 
-                                    WHERE search_id=:b AND actual = True;
-                                    """)
-                    conn.execute(sql_text, a=content_compact, b=search_id)
+                    SELECT content, content_compact FROM search_first_posts WHERE search_id=:a AND actual = True;
+                    """)
+                    raw_data = conn.execute(sql_text, a=search_id).fetchone()
+                    first_page_content_curr = raw_data[0]
+                    first_page_content_curr_compact = raw_data[1]
 
-                # get the Previous First Page Content
-                sql_text = sqlalchemy.text("""
-                               SELECT content 
-                               FROM search_first_posts 
-                               WHERE search_id=:a AND actual=False 
-                               ORDER BY timestamp DESC;
-                               """)
-                first_page_content_prev = conn.execute(sql_text, a=search_id).fetchone()[0]
+                    # TODO: why we're doing it in this script but not in che_posts??
+                    # save compact first page content
+                    if not first_page_content_curr_compact:
+                        content_compact = get_compressed_first_post(first_page_content_curr)
+                        sql_text = sqlalchemy.text("""
+                                        UPDATE search_first_posts SET content_compact=:a 
+                                        WHERE search_id=:b AND actual = True;
+                                        """)
+                        conn.execute(sql_text, a=content_compact, b=search_id)
 
-                # TODO: temp debug
-                logging.info(f'first page content prev: {first_page_content_prev}')
-                logging.info(f'first page content curr: {first_page_content_curr}')
-                # TODO: temp debug
+                    # get the Previous First Page Content
+                    sql_text = sqlalchemy.text("""
+                                   SELECT content 
+                                   FROM search_first_posts 
+                                   WHERE search_id=:a AND actual=False 
+                                   ORDER BY timestamp DESC;
+                                   """)
+                    first_page_content_prev = conn.execute(sql_text, a=search_id).fetchone()[0]
 
-                # TODO: DEBUG try
-                try:
-                    if first_page_content_curr and first_page_content_prev:
+                    # TODO: temp debug
+                    logging.info(f'first page content prev: {first_page_content_prev}')
+                    logging.info(f'first page content curr: {first_page_content_curr}')
+                    # TODO: temp debug
 
-                        # get the final list of parameters on field trip (new, change or drop)
-                        field_trips_dict = process_field_trips_comparison(conn, search_id, first_page_content_prev,
-                                                                          first_page_content_curr)
+                    # TODO: DEBUG try
+                    try:
+                        if first_page_content_curr and first_page_content_prev:
 
-                        # Save Field Trip (incl potential Coords change) into Change_log
-                        if field_trips_dict['case'] == 'add':
-                            save_new_record_into_change_log(conn, search_id,
-                                                            str(field_trips_dict), 'field_trip_new', 5)
+                            # get the final list of parameters on field trip (new, change or drop)
+                            field_trips_dict = process_field_trips_comparison(conn, search_id, first_page_content_prev,
+                                                                              first_page_content_curr)
 
-                        elif field_trips_dict['case'] in {'drop', 'change'}:
-
-                            # Check if coords changed as well during Field Trip
-                            # structure: lat, lon, prev_desc, curr_desc
-                            coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
-                                                                           first_page_content_prev)
-                            field_trips_dict['coords'] = str(coords_change_list)
-
-                            save_new_record_into_change_log(conn, search_id,
-                                                            str(field_trips_dict), 'field_trip_change', 6)
-
-                        else:
-
-                            # structure_list: lat, lon, prev_desc, curr_desc
-                            coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
-                                                                           first_page_content_prev)
-                            if coords_change_list:
+                            # Save Field Trip (incl potential Coords change) into Change_log
+                            if field_trips_dict['case'] == 'add':
                                 save_new_record_into_change_log(conn, search_id,
-                                                                coords_change_list, 'coords_change', 7)
+                                                                str(field_trips_dict), 'field_trip_new', 5)
 
-                except Exception as e:
-                    logging.info('[ide_posts]: Error fired during output_dict creation.')
-                    logging.exception(e)
-                    notify_admin('[ide_posts]: Error fired during output_dict creation.')
+                            elif field_trips_dict['case'] in {'drop', 'change'}:
 
-                # save folder number for the search that has an update
-                folder_num = parse_search_folder(search_id)
-                new_line = [folder_num, None] if folder_num else None
+                                # Check if coords changed as well during Field Trip
+                                # structure: lat, lon, prev_desc, curr_desc
+                                coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
+                                                                               first_page_content_prev)
+                                field_trips_dict['coords'] = str(coords_change_list)
 
-                if new_line and new_line not in list_of_folders_with_upd_searches:
-                    list_of_folders_with_upd_searches.append(new_line)
+                                save_new_record_into_change_log(conn, search_id,
+                                                                str(field_trips_dict), 'field_trip_change', 6)
 
-            # evoke 'parsing script' to check if the folders with updated searches have any update
-            if list_of_folders_with_upd_searches:
-                # notify_admin(f'[ide_post]: {str(list_of_folders_with_upd_searches)}')
-                publish_to_pubsub('topic_to_run_parsing_script', str(list_of_folders_with_upd_searches))
+                            else:
+
+                                # structure_list: lat, lon, prev_desc, curr_desc
+                                coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
+                                                                               first_page_content_prev)
+                                if coords_change_list:
+                                    save_new_record_into_change_log(conn, search_id,
+                                                                    coords_change_list, 'coords_change', 7)
+
+                    except Exception as e:
+                        logging.info('[ide_posts]: Error fired during output_dict creation.')
+                        logging.exception(e)
+                        notify_admin('[ide_posts]: Error fired during output_dict creation.')
+
+                    # save folder number for the search that has an update
+                    folder_num = parse_search_folder(search_id)
+                    new_line = [folder_num, None] if folder_num else None
+
+                    if new_line and new_line not in list_of_folders_with_upd_searches:
+                        list_of_folders_with_upd_searches.append(new_line)
+
+                # evoke 'parsing script' to check if the folders with updated searches have any update
+                if list_of_folders_with_upd_searches:
+                    # notify_admin(f'[ide_post]: {str(list_of_folders_with_upd_searches)}')
+                    publish_to_pubsub('topic_to_run_parsing_script', str(list_of_folders_with_upd_searches))
+
+            except Exception as e:
+                logging.info('exception in main function')
+                logging.exception(e)
 
     # Close the open session
     requests_session.close()
