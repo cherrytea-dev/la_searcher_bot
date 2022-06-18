@@ -726,11 +726,11 @@ def main(event, context): # noqa
     """main function"""
 
     # BLOCK 1. for checking if there are deleted or hidden searches within active ones
-    number_of_checked_searches = 1
+    number_of_checked_searches = 100
     get_and_update_list_of_active_searches(number_of_checked_searches)
 
     # BLOCK 2. for checking in first posts were changes
-    percent_of_first_posts_to_check = 1
+    percent_of_first_posts_to_check = 30
     update_first_posts(percent_of_first_posts_to_check)
 
     # TEMP BLOCK – is used only for batch updates of user regional settings
