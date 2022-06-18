@@ -147,7 +147,7 @@ def compose_user_preferences_message(conn_psy, cur, user_id):
     """Compose a text for user on which types of notifications are enabled for zir"""
 
     cur.execute("""SELECT preference FROM user_preferences WHERE user_id=%s ORDER BY preference;""", (user_id,))
-    conn_psy.commit()
+    # conn_psy.commit()
     user_prefs = cur.fetchall()
 
     prefs_wording = ''
@@ -224,7 +224,7 @@ def compose_msg_on_all_last_searches(conn_psy, cur, region):
         WHERE (shc.status is NULL or shc.status='ok')
         ORDER BY s2.search_start_time DESC;""", (region,)
     )
-    conn_psy.commit()
+    # conn_psy.commit()
     database = cur.fetchall()
 
     for db_line in database:
@@ -268,7 +268,7 @@ def compose_msg_on_active_searches_in_one_reg(conn_psy, cur, region, user_data):
         search_health_check shc ON s2.search_forum_num=shc.search_forum_num
         WHERE (shc.status is NULL or shc.status='ok') ORDER BY s2.search_start_time DESC;""", (region,)
     )
-    conn_psy.commit()
+    # conn_psy.commit()
     database = cur.fetchall()
 
     user_lat = None
@@ -314,7 +314,7 @@ def compose_full_message_on_list_of_searches(conn_psy, cur, list_type, user_id, 
     cur.execute(
         "SELECT latitude, longitude FROM user_coordinates WHERE user_id=%s LIMIT 1;", (user_id,)
     )
-    conn_psy.commit()
+    # conn_psy.commit()
     user_data = cur.fetchone()
 
     # combine the list of last 20 searches
@@ -355,19 +355,19 @@ def save_new_user(conn_psy, cur, user_id, input_username):
     # add the New User into table users
     cur.execute("""INSERT INTO users (user_id, username_telegram, reg_date) values (%s, %s, %s);""",
                 (user_id, input_username, datetime.datetime.now()))
-    conn_psy.commit()
+    # conn_psy.commit()
 
     # add the New User into table user_preferences
     # default setting is set as notifications on new searches & status changes
     cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
                 (user_id, 'new_searches', 0))
-    conn_psy.commit()
+    # conn_psy.commit()
     cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
                 (user_id, 'status_changes', 1))
-    conn_psy.commit()
+    # conn_psy.commit()
     cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
                 (user_id, 'bot_news', 20))
-    conn_psy.commit()
+    # conn_psy.commit()
 
     message_for_admin = 'New user, name: ' + str(input_username) + ' id: ' + str(user_id)
     logging.info(message_for_admin)
@@ -379,7 +379,7 @@ def check_if_new_user(conn_psy, cur, user_id):
     """check if the user is new or not"""
 
     cur.execute("""SELECT user_id FROM users WHERE user_id=%s LIMIT 1;""", (user_id,))
-    conn_psy.commit()
+    # conn_psy.commit()
     info_on_user_from_users = str(cur.fetchone())
 
     if info_on_user_from_users == 'None':
@@ -398,7 +398,7 @@ def save_feedback(conn_psy, cur, func_input):
             """INSERT INTO feedback (username, feedback_text, feedback_time, user_id, message_id) values
             (%s, %s, %s, %s, %s);""",
             (func_input[0], func_input[2], func_input[1], func_input[3], func_input[4]))
-        conn_psy.commit()
+        # conn_psy.commit()
 
     return None
 
@@ -409,12 +409,12 @@ def save_user_coordinates(conn_psy, cur, user_id, input_latitude, input_longitud
     cur.execute(
         "DELETE FROM user_coordinates WHERE user_id=%s;", (user_id,)
     )
-    conn_psy.commit()
+    # conn_psy.commit()
 
     now = datetime.datetime.now()
     cur.execute("""INSERT INTO user_coordinates (user_id, latitude, longitude, upd_time) values (%s, %s, %s, %s);""",
                 (user_id, input_latitude, input_longitude, now))
-    conn_psy.commit()
+    # conn_psy.commit()
 
     return None
 
@@ -424,7 +424,7 @@ def show_user_coordinates(conn_psy, cur, user_id):
 
     cur.execute("""SELECT latitude, longitude FROM user_coordinates WHERE user_id=%s LIMIT 1;""",
                 (user_id,))
-    conn_psy.commit()
+    # conn_psy.commit()
 
     try:
         lat, lon = list(cur.fetchone())
@@ -441,7 +441,7 @@ def delete_user_coordinates(conn_psy, cur, user_id):
     cur.execute(
         "DELETE FROM user_coordinates WHERE user_id=%s;", (user_id,)
     )
-    conn_psy.commit()
+    # conn_psy.commit()
 
     return None
 
@@ -506,7 +506,7 @@ def get_user_regional_preferences(conn_psy, cur, user_id):
 
     try:
         cur.execute("SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=%s;", (user_id,))
-        # conn_psy.commit()
+        # # conn_psy.commit()
         user_reg_prefs_array = cur.fetchall()
 
         # TODO: to make on SQL level not in py code
@@ -549,27 +549,27 @@ def save_preference(conn_psy, cur, user_id, preference):
     # if user wants to have +ALL notifications
     if preference == 'all':
         cur.execute("""DELETE FROM user_preferences WHERE user_id=%s;""", (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
 
         cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
                     (user_id, preference, 30))
-        conn_psy.commit()
+        # conn_psy.commit()
 
     # if user DOESN'T want to have -ALL notifications
     elif preference == '-all':
         cur.execute("""DELETE FROM user_preferences WHERE user_id=%s;""", (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
 
         cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
                     (user_id, 'bot_news', 20))
-        conn_psy.commit()
+        # conn_psy.commit()
 
     # if user wants notifications on NEW SEARCHES or STATUS or TITLE updates
     elif preference in {'new_searches', 'status_changes', 'title_changes'}:
 
         # Check if there's "ALL" preference
         cur.execute("SELECT id FROM user_preferences WHERE user_id=%s AND preference='all' LIMIT 1;", (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
         user_had_all = str(cur.fetchone())
 
         #
@@ -577,7 +577,7 @@ def save_preference(conn_psy, cur, user_id, preference):
             """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR preference='finish' OR
             preference='all' OR preference=%s);""",
             (user_id, preference))
-        conn_psy.commit()
+        # conn_psy.commit()
 
         if preference == 'new_searches':
             pref_id = 0
@@ -591,13 +591,13 @@ def save_preference(conn_psy, cur, user_id, preference):
 
         cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
                     (user_id, preference, pref_id))
-        conn_psy.commit()
+        # conn_psy.commit()
 
         # Inforg updates handling
         if user_had_all != 'None':
             cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
                         (user_id, 'bot_news', 20))
-            conn_psy.commit()
+            # conn_psy.commit()
 
     # if user DOESN'T want notifications on SPECIFIC updates
     elif preference in {'-new_searches', '-status_changes'}:  # or preference == '-title_changes'
@@ -610,10 +610,10 @@ def save_preference(conn_psy, cur, user_id, preference):
             pref_id = 99
         cur.execute("""DELETE FROM user_preferences WHERE user_id = %s AND pref_id = %s;""",
                     (user_id, pref_id))
-        conn_psy.commit()
+        # conn_psy.commit()
 
         cur.execute("SELECT id FROM user_preferences WHERE user_id=%s LIMIT 1;", (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
 
     # if user wants notifications ON COMMENTS
     elif preference == 'comments_changes':
@@ -622,22 +622,22 @@ def save_preference(conn_psy, cur, user_id, preference):
             """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
             preference='all' OR preference='finish' OR preference='inforg_comments');""",
             (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
 
         cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
                     (user_id, preference, 3))
-        conn_psy.commit()
+        # conn_psy.commit()
 
     # if user DOESN'T want notifications on COMMENTS
     elif preference == '-comments_changes':
 
         cur.execute("""DELETE FROM user_preferences WHERE user_id = %s AND preference = 'comments_changes';""",
                     (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
 
         cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
                     (user_id, 'inforg_comments', 4))
-        conn_psy.commit()
+        # conn_psy.commit()
 
     # if user wants notifications ON INFORG COMMENTS
     elif preference == 'inforg_comments':
@@ -647,28 +647,28 @@ def save_preference(conn_psy, cur, user_id, preference):
             """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
             preference='finish' OR preference='inforg_comments');""",
             (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
 
         # Check if ALL of Comments_changes are in place
         cur.execute(
             """SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' OR
             preference='comments_changes' OR pref_id=30 OR pref_id=3) LIMIT 1;""",
             (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
         info_on_user = str(cur.fetchone())
 
         # Add Inforg_comments ONLY in there's no ALL or Comments_changes
         if info_on_user == 'None':
             cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
                         (user_id, preference, 4))
-            conn_psy.commit()
+            # conn_psy.commit()
 
     # if user DOESN'T want notifications ON INFORG COMMENTS
     elif preference == '-inforg_comments':
 
         cur.execute("""DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'inforg_comments');""",
                     (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
 
     # if user wants notifications ON BOT NEWS
     elif preference == 'bot_news':
@@ -678,20 +678,20 @@ def save_preference(conn_psy, cur, user_id, preference):
             """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
             preference='finish' OR preference='bot_news');""",
             (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
 
         # Check if ALL is in place
         cur.execute(
             "SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' OR pref_id=30) LIMIT 1;",
             (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
         already_all = str(cur.fetchone())
 
         # Add Bot_News ONLY in there's no ALL
         if already_all == 'None':
             cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
                         (user_id, preference, 20))
-            conn_psy.commit()
+            # conn_psy.commit()
 
     # if user DOESN'T want notifications ON BOT NEWS
     elif preference == '-bot_news':
@@ -699,7 +699,7 @@ def save_preference(conn_psy, cur, user_id, preference):
         cur.execute(
             """DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'bot_news' OR pref_id=20);""",
             (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
 
     # if user wants notifications ON NEW FIELD TRIPS
     elif preference == 'field_trips_new':
@@ -709,20 +709,20 @@ def save_preference(conn_psy, cur, user_id, preference):
             """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
             preference='finish' OR preference='field_trips_new' OR pref_id=5);""",
             (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
 
         # Check if ALL is in plac
         cur.execute(
             "SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' or pref_id=30) LIMIT 1;",
             (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
         already_all = str(cur.fetchone())
 
         # Add new_filed_trips ONLY in there's no ALL
         if already_all == 'None':
             cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
                         (user_id, preference, 5))
-            conn_psy.commit()
+            # conn_psy.commit()
 
     # if user DOESN'T want notifications ON FIELD TRIPS
     elif preference == '-field_trips_new':
@@ -730,7 +730,7 @@ def save_preference(conn_psy, cur, user_id, preference):
         cur.execute(
             """DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'field_trips_new' OR pref_id=5);""",
             (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
 
     # if user wants notifications ON NEW FIELD TRIPS
     elif preference == 'field_trips_change':
@@ -740,20 +740,20 @@ def save_preference(conn_psy, cur, user_id, preference):
             """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
             preference='finish' OR preference='field_trips_change' OR pref_id=6);""",
             (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
 
         # Check if ALL is in place
         cur.execute(
             "SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' or pref_id=30) LIMIT 1;",
             (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
         already_all = str(cur.fetchone())
 
         # Add filed_trips_change ONLY in there's no ALL
         if already_all == 'None':
             cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
                         (user_id, preference, 6))
-            conn_psy.commit()
+            # conn_psy.commit()
 
     # if user DOESN'T want notifications ON FIELD TRIPS CHANGES
     elif preference == '-field_trips_change':
@@ -761,7 +761,7 @@ def save_preference(conn_psy, cur, user_id, preference):
         cur.execute(
             """DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'field_trips_change' OR pref_id=6);""",
             (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
 
     # if user wants notifications ON COORDS CHANGE
     elif preference == 'coords_change':
@@ -771,20 +771,20 @@ def save_preference(conn_psy, cur, user_id, preference):
             """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
             preference='finish' OR preference='coords_change' OR pref_id=7);""",
             (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
 
         # Check if ALL is in place
         cur.execute(
             "SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' OR pref_id=30) LIMIT 1;",
             (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
         already_all = str(cur.fetchone())
 
         # Add new_filed_trips ONLY in there's no ALL
         if already_all == 'None':
             cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
                         (user_id, preference, 7))
-            conn_psy.commit()
+            # conn_psy.commit()
 
     # if user DOESN'T want notifications ON COORDS CHANGE
     elif preference == '-coords_change':
@@ -792,7 +792,7 @@ def save_preference(conn_psy, cur, user_id, preference):
         cur.execute(
             """DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'coords_change' OR pref_id=7);""",
             (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
 
     return None
 
@@ -920,7 +920,7 @@ def update_and_download_list_of_regions(conn_psy, cur, user_id, got_message, b_m
             cur.execute(
                 """SELECT forum_folder_num from user_regional_preferences WHERE user_id=%s;""", (user_id,)
             )
-            conn_psy.commit()
+            # conn_psy.commit()
             user_curr_regs_temp = cur.fetchall()
             user_curr_regs = [reg[0] for reg in user_curr_regs_temp]
 
@@ -939,7 +939,7 @@ def update_and_download_list_of_regions(conn_psy, cur, user_id, got_message, b_m
                         """DELETE FROM user_regional_preferences WHERE user_id=%s and forum_folder_num=%s;""",
                         (user_id, region)
                     )
-                    conn_psy.commit()
+                    # conn_psy.commit()
 
             # Scenario: this setting WAS in place, but now it's the last one - we cannot delete it
             elif region_was_in_db == 'yes' and region_is_the_only:
@@ -952,7 +952,7 @@ def update_and_download_list_of_regions(conn_psy, cur, user_id, got_message, b_m
                         """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values (%s, %s);""",
                         (user_id, region)
                     )
-                    conn_psy.commit()
+                    # conn_psy.commit()
 
         except Exception as e:
             logging.info('failed to upload & download the list of user\'s regions')
@@ -962,7 +962,7 @@ def update_and_download_list_of_regions(conn_psy, cur, user_id, got_message, b_m
     cur.execute(
         """SELECT forum_folder_num from user_regional_preferences WHERE user_id=%s;""", (user_id,)
     )
-    conn_psy.commit()
+    # conn_psy.commit()
     user_curr_regs = cur.fetchall()
     user_curr_regs_list = [reg[0] for reg in user_curr_regs]
 
@@ -995,7 +995,7 @@ def get_last_bot_msg(conn_psy, cur, user_id):
         """
         SELECT msg_type FROM msg_from_bot WHERE user_id=%s LIMIT 1;
         """, (user_id,))
-    conn_psy.commit()
+    # conn_psy.commit()
     extract = cur.fetchone()
     logging.info(f'get the last bot message to user to define if user is expected to give exact answer')
     logging.info(str(extract))
@@ -1035,7 +1035,7 @@ def compose_msg_on_reqd_urs_attr(conn_psy, cur, user_id):
         FROM user_attributes WHERE user_id=%s;
         """, (user_id,)
     )
-    conn_psy.commit()
+    # conn_psy.commit()
     available_data = list(cur.fetchone())
 
     msg = ''
@@ -1078,7 +1078,7 @@ def check_and_record_user_attrs(conn_psy, cur, user_id, user_input):
         FROM user_attributes WHERE user_id=%s;
         """, (user_id,)
     )
-    conn_psy.commit()
+    # conn_psy.commit()
     available_data = list(cur.fetchone())
 
     if available_data:
@@ -1122,7 +1122,7 @@ def check_and_record_user_attrs(conn_psy, cur, user_id, user_input):
 
         for i in range(len(list_from_user)):
             cur.execute(query.format(sql.Identifier(list_of_reqd_attr[i])), [list_from_user[i], user_id])
-            conn_psy.commit()
+            # conn_psy.commit()
 
         finish_status = True
 
@@ -1176,7 +1176,7 @@ def generate_text_for_qr_code(conn_psy, cur, user_id):
         LIMIT 1;
         """, (user_id,)
     )
-    conn_psy.commit()
+    # conn_psy.commit()
     usr_attrs = list(cur.fetchone())
 
     line1 = usr_attrs[0] + ' ' + usr_attrs[1] + '\n'
@@ -1205,7 +1205,7 @@ def check_if_ready_for_qr_code(conn_psy, cur, user_id):
         LIMIT 1;
         """, (user_id,)
     )
-    conn_psy.commit()
+    # conn_psy.commit()
     received_data = cur.fetchone()
 
     # Logic: if all None
@@ -1770,14 +1770,14 @@ def main(request):
 
                             try:
                                 cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
-                                conn_psy.commit()
+                                # conn_psy.commit()
 
                                 cur.execute(
                                     """
                                     INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
                                     """,
                                     (user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
-                                conn_psy.commit()
+                                # conn_psy.commit()
 
                             except Exception as e:
                                 logging.info('failed to update the last saved message from bot')
@@ -1795,7 +1795,7 @@ def main(request):
                                 select forum_folder_id, folder_description from regions_to_folders;
                                 """
                             )
-                            conn_psy.commit()
+                            # conn_psy.commit()
                             regions_table = cur.fetchall()
 
                             region_name = ''
@@ -1821,14 +1821,14 @@ def main(request):
                                     # saving the last message from bot
                                     try:
                                         cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
-                                        conn_psy.commit()
+                                        # conn_psy.commit()
 
                                         cur.execute(
                                             """
                                             INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
                                             """,
                                             (user_id, datetime.datetime.now(), 'report'))
-                                        conn_psy.commit()
+                                        # conn_psy.commit()
 
                                     except Exception as e:
                                         logging.info('failed to save the last message from bot')
@@ -1871,12 +1871,12 @@ def main(request):
                                     """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
                                     (%s, %s);""",
                                     (user_id, 276))
-                                conn_psy.commit()
+                                # conn_psy.commit()
                                 cur.execute(
                                     """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
                                     (%s, %s);""",
                                     (user_id, 41))
-                                conn_psy.commit()
+                                # conn_psy.commit()
 
                         elif got_message == b_reg_not_moscow:
                             bot_message = 'Спасибо, тогда, пожалуйста, выберите хотя бы один регион поисков, ' \
@@ -1910,12 +1910,12 @@ def main(request):
                             WHERE user_id=%s and timestamp =
                             (SELECT MAX(timestamp) FROM user_forum_attributes WHERE user_id=%s);""",
                                         (user_id, user_id))
-                            conn_psy.commit()
+                            # conn_psy.commit()
 
                             # Delete prev record in user_attributes
                             cur.execute("""DELETE FROM user_attributes
                             WHERe user_id=%s;""", (user_id,))
-                            conn_psy.commit()
+                            # conn_psy.commit()
 
                             # Copy verified QR-related data to static table
                             cur.execute("""
@@ -1927,7 +1927,7 @@ def main(request):
                                         SELECT MAX(timestamp) FROM user_forum_attributes 
                                         WHERE user_id=%s and status='verified'));
                                         """, (user_id, user_id))
-                            conn_psy.commit()
+                            # conn_psy.commit()
 
                             bot_message = 'Отлично, мы записали: теперь бот будет понимать, кто вы на форуме.\n' \
                                           'Теперь для генерации QR-кода, пожалуйста, вышлите ваши параметры ' \
@@ -2337,14 +2337,14 @@ def main(request):
 
                         try:
                             cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
-                            conn_psy.commit()
+                            # conn_psy.commit()
 
                             cur.execute(
                                 """
                                 INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
                                 """,
                                 (user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
-                            conn_psy.commit()
+                            # conn_psy.commit()
                         except Exception as e:
                             logging.info(f'failed updates of table msg_from_bot for user={user_id}')
                             logging.exception(e)
