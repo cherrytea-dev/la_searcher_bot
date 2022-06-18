@@ -1,5 +1,5 @@
 psycopg2==2.8.6
-pg8000==1.19.4
+pg8000==1.19.4 # TODO: to be deleted
 
 markdownify==0.9.4
 pillow==8.3.2

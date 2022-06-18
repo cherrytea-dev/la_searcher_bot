@@ -46,6 +46,7 @@ def sql_connect_by_psycopg2():
     db_host = '/cloudsql/' + db_conn
 
     conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
+    conn_psy.autocommit = True
 
     return conn_psy
 
@@ -505,7 +506,7 @@ def get_user_regional_preferences(conn_psy, cur, user_id):
 
     try:
         cur.execute("SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=%s;", (user_id,))
-        conn_psy.commit()
+        # conn_psy.commit()
         user_reg_prefs_array = cur.fetchall()
 
         # TODO: to make on SQL level not in py code
