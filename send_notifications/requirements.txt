@@ -1,6 +1,7 @@
 urllib3==1.26.4
 SQLAlchemy==1.4.11
-pg8000==1.19.4
+psycopg2==2.8.6
+pg8000==1.19.4 # TODO: to be deleted
 
 python-telegram-bot==13.4.1
 

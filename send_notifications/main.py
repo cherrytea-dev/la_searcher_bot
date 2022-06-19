@@ -6,6 +6,7 @@ import base64
 import logging
 import json
 import sqlalchemy
+import psycopg2
 
 from telegram import Bot
 
@@ -84,6 +85,29 @@ def sql_connect():
         pool = None
 
     return pool
+
+
+def sql_connect_by_psycopg2():
+    """connect to GCP SLQ via PsycoPG2"""
+
+    try:
+        db_user = get_secrets("cloud-postgres-username")
+        db_pass = get_secrets("cloud-postgres-password")
+        db_name = get_secrets("cloud-postgres-db-name")
+        db_conn = get_secrets("cloud-postgres-connection-name")
+        db_host = '/cloudsql/' + db_conn
+
+        conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
+        conn_psy.autocommit = True
+
+        logging.info('sql connection set via psycopg2')
+
+    except Exception as e:
+        logging.error('failed to set sql connection by psycopg2')
+        logging.exception(e)
+        conn_psy = None
+
+    return conn_psy
 
 
 def publish_to_pubsub(topic_name, message):
@@ -356,7 +380,10 @@ def iterate_over_notifications(bot, script_start_time):
     # TODO: to think to increase 30 seconds to 500 seconds - if helpful
     custom_timeout = 30  # seconds, after which iterations should stop to prevent the whole script timeout
 
-    with sql_connect().connect() as conn:
+    # with sql_connect().connect() as conn:
+    with sql_connect_by_psycopg2() as conn:
+
+        # TODO: do we need a checker if conn=None (connection failed?)
 
         # TODO: only for DEBUG. for prod it's not needed
         # list_of_admins, list_of_testers = get_list_of_admins_and_testers(conn)
@@ -377,7 +404,7 @@ def iterate_over_notifications(bot, script_start_time):
             msg_w_o_notif = check_for_notifs_to_send(conn)
             analytics_sql_finish = datetime.datetime.now()
             analytics_sql_duration = round((analytics_sql_finish -
-                                                 analytics_sql_start).total_seconds(), 2)
+                                            analytics_sql_start).total_seconds(), 2)
             logging.info('time: reading sql=' + str(analytics_sql_duration))
 
             logging.info(str(msg_w_o_notif))
