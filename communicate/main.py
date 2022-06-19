@@ -508,7 +508,7 @@ def get_user_regional_preferences(conn_psy, cur, user_id):
     try:
         # cur.execute("SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=%s;", (user_id,))
         #######
-        sql_text = sqlalchemy.text("""SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=:a;" """)
+        sql_text = sqlalchemy.text("""SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=:a;""")
 
         cur.execute(sql_text, a=user_id)
         #####
