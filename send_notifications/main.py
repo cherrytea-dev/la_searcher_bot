@@ -99,6 +99,7 @@ def sql_connect_by_psycopg2():
 
         conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
         conn_psy.autocommit = True
+        cur = conn_psy.cursor()
 
         logging.info('sql connection set via psycopg2')
 
@@ -106,8 +107,9 @@ def sql_connect_by_psycopg2():
         logging.error('failed to set sql connection by psycopg2')
         logging.exception(e)
         conn_psy = None
+        cur = None
 
-    return conn_psy
+    return cur
 
 
 def publish_to_pubsub(topic_name, message):
