@@ -382,8 +382,8 @@ def iterate_over_notifications(bot, script_start_time):
     # TODO: to think to increase 30 seconds to 500 seconds - if helpful
     custom_timeout = 30  # seconds, after which iterations should stop to prevent the whole script timeout
 
-    # with sql_connect().connect() as conn:
-    with sql_connect_by_psycopg2() as conn:
+    with sql_connect().connect() as conn:
+        # with sql_connect_by_psycopg2() as conn:
 
         # TODO: do we need a checker if conn=None (connection failed?)
 
