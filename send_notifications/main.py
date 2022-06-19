@@ -69,7 +69,8 @@ def sql_connect():
     try:
         pool = sqlalchemy.create_engine(
             sqlalchemy.engine.url.URL(
-                'postgresql+pg8000',
+                # 'postgresql+pg8000',
+                'postgresql+psycopg2',
                 username=db_user,
                 password=db_pass,
                 database=db_name,
