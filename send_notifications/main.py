@@ -235,7 +235,7 @@ def write_message_sending_status(conn_, message_id_, result, mailing_id_, change
 
             logging.info(f'[send_notif]: message {message_id_}, sending status is {result} for conn')
 
-            with sql_connect().connect() as conn2:
+            with sql_connect() as db, db.connect() as conn2:
 
                 conn2.execute(sql_text,
                               a=message_id_,
@@ -247,8 +247,17 @@ def write_message_sending_status(conn_, message_id_, result, mailing_id_, change
                               g=message_type_,
                               h='send_notifs'
                               )
+
+                # TODO: experiment
+                conn2.invalidate()
+                db.dispose()
+                # TODO: experiment
+
+
             # TODO: debug notify
             notify_admin('Send_notifications: message {}, sending status is {} for conn2'.format(message_id_, result))
+
+
 
     except Exception as e:  # noqa
         notify_admin(f'[send_notif]: ERR write to SQL notif_by_user_status, message_id {message_id_}, status {result}')
@@ -383,7 +392,7 @@ def iterate_over_notifications(bot, script_start_time):
     # TODO: to think to increase 30 seconds to 500 seconds - if helpful
     custom_timeout = 30  # seconds, after which iterations should stop to prevent the whole script timeout
 
-    with sql_connect().connect() as conn:
+    with sql_connect() as db, db.connect() as conn:
         # with sql_connect_by_psycopg2() as conn:
 
         # TODO: do we need a checker if conn=None (connection failed?)
@@ -505,6 +514,16 @@ def iterate_over_notifications(bot, script_start_time):
             analytics_iteration_duration = round((analytics_end_of_iteration -
                                                  analytics_iteration_start).total_seconds(), 2)
             logging.info(f'time: iteration duration: {analytics_iteration_duration}')
+
+        # TODO: experiment
+        # TODO: experiment
+        # TODO: experiment
+        # TODO: experiment
+        # TODO: experiment
+        conn.invalidate()
+        db.dispose()
+        # TODO: experiment
+        # TODO: experiment
 
     return None
 
