@@ -38,7 +38,7 @@ def sql_connect():
 
     pool = sqlalchemy.create_engine(
         sqlalchemy.engine.url.URL(
-            drivername="postgresql+pg8000",
+            "postgresql+pg8000",
             username=db_user,
             password=db_pass,
             database=db_name,
@@ -66,7 +66,7 @@ def publish_to_pubsub(topic_name, message):
 
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publish succeeded
+        publish_future.result()  # Verify the publishing succeeded
         logging.info('Sent pub/sub message: ' + str(message))
 
     except Exception as e:
@@ -112,13 +112,6 @@ def main(event, context): # noqa
             """)
             conn.execute(stmt)
 
-            # DEBUG 2
-            stmt = sqlalchemy.text("""
-                            SELECT MAX(mailing_id) FROM notif_by_user__history;
-                            """)
-            result = conn.execute(stmt).fetchone()
-            logging.info('The max mailing_id in __hist: {}'.format(result[0]))
-
             # delete the old stuff
             stmt = sqlalchemy.text("""
                 DELETE FROM notif_by_user 
@@ -127,13 +120,6 @@ def main(event, context): # noqa
                 )
             """)
             conn.execute(stmt)
-
-            # DEBUG 3
-            stmt = sqlalchemy.text("""
-                            SELECT MIN(mailing_id) FROM notif_by_user;
-                            """)
-            result = conn.execute(stmt).fetchone()
-            logging.info('After script: min mailing_id in nbu: {}'.format(result[0]))
 
             publish_to_pubsub('topic_to_archive_notifs', 'go')
 
@@ -173,13 +159,6 @@ def main(event, context): # noqa
                             """)
                 conn.execute(stmt)
 
-                # DEBUG 2
-                stmt = sqlalchemy.text("""
-                                            SELECT MAX(mailing_id) FROM notif_by_user_status__history;
-                                            """)
-                result = conn.execute(stmt).fetchone()
-                logging.info('The max mailing_id in status__hist: {}'.format(result[0]))
-
                 # delete the old stuff
                 stmt = sqlalchemy.text("""
                                 DELETE FROM notif_by_user_status 
@@ -188,13 +167,6 @@ def main(event, context): # noqa
                                 )
                             """)
                 conn.execute(stmt)
-
-                # DEBUG 3
-                stmt = sqlalchemy.text("""
-                                            SELECT MIN(mailing_id) FROM notif_by_user_status;
-                                            """)
-                result = conn.execute(stmt).fetchone()
-                logging.info('After script: min mailing_id in nbus: {}'.format(result[0]))
 
                 publish_to_pubsub('topic_to_archive_notifs', 'go')
 
