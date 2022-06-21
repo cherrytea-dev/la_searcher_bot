@@ -40,10 +40,10 @@ def sql_connect():
     db_name = get_secrets("cloud-postgres-db-name")
     db_conn = get_secrets("cloud-postgres-connection-name")
     db_config = {
-        "pool_size": 20,
+        "pool_size": 5,
         "max_overflow": 0,
         "pool_timeout": 0,  # seconds
-        "pool_recycle": 0,  # seconds
+        "pool_recycle": 60,  # seconds
     }
 
     try:
@@ -722,7 +722,7 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
         msg = f'🚨 Изменения по выезду <a href="{link}">{name}{age_info}</a>\n{region}:\n' \
               f'<del>{date_and_time_prev}' \
               f'{address_prev}' \
-              f'{coords_prev}</del>' \
+              f'{coords_prev}</del>\n' \
               f'{date_and_time_curr}' \
               f'{address_curr}' \
               f'\n{direction_and_distance}' \
@@ -1111,8 +1111,9 @@ def iterate_over_all_users_and_updates(conn):
                                 message_type, 
                                 message_params,
                                 message_group_id,
-                                change_log_id) 
-                            VALUES (:a, :b, :c, :d, :e, :f, :g, :h)
+                                change_log_id,
+                                created) 
+                            VALUES (:a, :b, :c, :d, :e, :f, :g, :h, :i)
                             RETURNING message_id;
                             """)
 
@@ -1124,11 +1125,12 @@ def iterate_over_all_users_and_updates(conn):
                                  e=message_type_,
                                  f=message_params_,
                                  g=message_group_id_,
-                                 h=change_log_id_
+                                 h=change_log_id_,
+                                 i=datetime.datetime.now()
                                  ).fetchone()
 
         # TODO: debug
-        print(f'YYY: we are in saving to sql for coords message')
+        print(f'YYY: we saved the new message into sql: table notif_by_user')
         # TODO: debug
 
         return raw_data_[0]
@@ -1157,7 +1159,10 @@ def iterate_over_all_users_and_updates(conn):
                 ) as s3 
                 ON s2.mailing_id=s3.mailing_id 
                 WHERE s2.user_id=:b AND s2.message_type=:c
-        );""")
+        )
+        /*action='get_from_sql_if_was_notified_already'*/
+        ;
+        """)
 
         user_was_already_notified = conn.execute(sql_text_,
                                                  a=mailing_id_,
@@ -1189,7 +1194,9 @@ def iterate_over_all_users_and_updates(conn):
                     )
                 ) as s3 
                 ON s2.mailing_id=s3.mailing_id
-        ;""")
+        /*action='get_from_sql_list_of_already_notified_users'*/
+        ;
+        """)
 
         raw_data_ = conn.execute(sql_text_, a=mailing_id_).fetchall()
 
@@ -1205,7 +1212,9 @@ def iterate_over_all_users_and_updates(conn):
     def get_the_new_group_id():
         """define the max message_group_id in notif_by_user and add +1"""
 
-        raw_data_ = conn.execute("""SELECT MAX(message_group_id) FROM notif_by_user;""").fetchone()
+        raw_data_ = conn.execute("""SELECT MAX(message_group_id) FROM notif_by_user
+        /*action='get_the_new_group_id'*/
+        ;""").fetchone()
 
         if raw_data_[0]:
             next_id = raw_data_[0] + 1
@@ -1760,7 +1769,8 @@ def main(event, context):  # noqa
     users_list = []
 
     # initiate SQL connection
-    with sql_connect().connect() as conn:
+    pool = sql_connect()
+    with pool.connect() as conn:
 
         # compose New Records List: the delta from Change log
         compose_new_records_from_change_log(conn)
@@ -1801,6 +1811,9 @@ def main(event, context):  # noqa
         if check:
             logging.info('we checked – there is still something to notify, so we re-initiated this function')
             publish_to_pubsub('topic_for_notification', 're-run from same script')
+
+        conn.close()
+    pool.dispose()
 
     del new_records_list
     del users_list
