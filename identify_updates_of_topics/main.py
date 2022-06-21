@@ -330,6 +330,8 @@ def parse_coordinates(search_num):
                     :b, :c, :d); """
                 )
                 conn.execute(stmt, a=address_string, b=status, c=latitude, d=longitude)
+                conn.close()
+
         except Exception as e7:
             logging.info('DBG.P.EXC.109: ')
             logging.exception(e7)
@@ -358,6 +360,8 @@ def parse_coordinates(search_num):
                     )
                     conn.execute(stmt, a=search_num, b=address_string, c=datetime.now())
 
+                conn.close()
+
         except Exception as e7:
             logging.info('DBG.P.EXC.110: ')
             logging.exception(e7)
@@ -375,6 +379,8 @@ def parse_coordinates(search_num):
                 """SELECT address, status, latitude, longitude from geocoding WHERE address=:a LIMIT 1; """
             )
             saved_result = conn.execute(stmt, a=address_string).fetchone()
+
+            conn.close()
 
         return saved_result
 
@@ -654,6 +660,8 @@ def update_coordinates(parsed_summary):
                             :b, :c, :d); """
                         )
                         conn.execute(stmt, a=parsed_summary[i][1], b=coords[0], c=coords[1], d=coords[2])
+                conn.close()
+
     return None
 
 
@@ -728,10 +736,10 @@ def sql_connect():
     db_socket_dir = "/cloudsql"
 
     db_config = {
-        "pool_size": 30,
+        "pool_size": 5,
         "max_overflow": 0,
-        "pool_timeout": 10,  # seconds
-        "pool_recycle": 0,  # seconds
+        "pool_timeout": 0,  # seconds
+        "pool_recycle": 120,  # seconds
     }
 
     pool = sqlalchemy.create_engine(
@@ -1341,6 +1349,8 @@ def parse_one_comment(search_num, comment_num):
                 conn.execute(stmt, a=comment_url, b=comment_text, c=comment_author_nickname, d=comment_author_link,
                              e=search_num, f=comment_num)
 
+            conn.close()
+
     except ConnectionResetError:
         logging.info('There is a connection error')
 
@@ -1544,6 +1554,8 @@ def process_delta(folder_num):
                              g=new_searches_from_snapshot[i][6], h=new_searches_from_snapshot[i][7],
                              i=new_searches_from_snapshot[i][8], j=new_searches_from_snapshot[i][9])
 
+        conn.close()
+
     # DEBUG - function execution time counter
     func_finish = datetime.now()
     func_execution_time_ms = func_finish - func_start
@@ -1575,6 +1587,8 @@ def rewrite_snapshot_in_sql(parsed_summary, folder_num):
             conn.execute(sql_text, a=line_of_pars_sum[1], b=line_of_pars_sum[0], c=line_of_pars_sum[2],
                          d=line_of_pars_sum[3], e='', f=line_of_pars_sum[5], g=line_of_pars_sum[6],
                          h=line_of_pars_sum[7], i=line_of_pars_sum[8], j=line_of_pars_sum[9])
+
+        conn.close()
 
     return None
 
@@ -1650,12 +1664,7 @@ def parse_and_upd_function(event, context):  # noqa
     if list_from_pubsub:
         for line in list_from_pubsub:
             folders_list.append(line[0])
-        logging.info(f'folder_list_2:  {str(folders_list)}')
-
-    """DEBUG"""
-    # in order to separate different iterations in logs while Debugging
-    logging.info('----------------------------------------------------')
-    """DEBUG"""
+        logging.info(f'full list of folders with updates received from pub/sub: {folders_list}')
 
     if not folders_list:
 
@@ -1704,33 +1713,20 @@ def parse_and_upd_function(event, context):  # noqa
     list_of_folders_with_updates = []
     for folder in folders_list:
 
-        """DEBUG"""
-        logging.info('DBG.P.31.Folder:' + str(folder))
-        """DEBUG"""
+        logging.info(f'the folder with update: {folder}')
 
         update_trigger, debug_message = process_one_folder(folder)
 
         if update_trigger == 'yes':
             list_of_folders_with_updates.append(folder)
 
-    """DEBUG"""
-    logging.info('Here\'s a list of folders with updates: ' + str(list_of_folders_with_updates))
-    """DEBUG"""
+    logging.info(f'Here\'s a list of folders with updates: {list_of_folders_with_updates}')
 
     if list_of_folders_with_updates:
-        # Download the actual Notification Config
-        # This file is done for Canary Deployment of the new version of Notification script
-        # Config defines the shares of users to be covered by Prod & Temp Staging Notification scripts
-        notifications_config_text = read_yaml_from_cloud_storage('bucket_for_ad_hoc', 'config_notification_script.yml')
-        notifications_config = yaml.safe_load(notifications_config_text)
-        publish_to_pubsub('topic_for_notification', str(notifications_config))
-
-        """DEBUG"""
-        logging.info('Here\'s notif config: ' + str(notifications_config))
-        # notify_admin(notifications_config)
-        """DEBUG"""
+        publish_to_pubsub('topic_for_notification', 'let\'s compose notifications')
 
     # Close the open session
     requests_session.close()
+    db.dispose()
 
     return None
