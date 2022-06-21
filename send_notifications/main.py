@@ -310,7 +310,9 @@ def check_for_notifs_to_send(conn):
                             s2.completed IS NULL AND
                             s2.cancelled IS NULL
                         ORDER BY 1
-                        LIMIT 1;
+                        LIMIT 1 
+                        /*action='biggest_query' */
+                        ;
                         """)
 
     msg_w_o_notif = conn.execute(sql_text).fetchone()
@@ -383,7 +385,8 @@ def iterate_over_notifications(bot, script_start_time):
     # TODO: to think to increase 30 seconds to 500 seconds - if helpful
     custom_timeout = 30  # seconds, after which iterations should stop to prevent the whole script timeout
 
-    with sql_connect().connect() as conn:
+    pool = sql_connect()
+    with pool.connect() as conn:
         # with sql_connect_by_psycopg2() as conn:
 
         # TODO: do we need a checker if conn=None (connection failed?)
@@ -505,6 +508,9 @@ def iterate_over_notifications(bot, script_start_time):
             analytics_iteration_duration = round((analytics_end_of_iteration -
                                                  analytics_iteration_start).total_seconds(), 2)
             logging.info(f'time: iteration duration: {analytics_iteration_duration}')
+
+        conn.close()
+    pool.dispose()
 
     return None
 
