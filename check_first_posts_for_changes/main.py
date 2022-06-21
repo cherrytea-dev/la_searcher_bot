@@ -8,6 +8,7 @@ import difflib
 import hashlib
 
 import sqlalchemy
+# TODO: to move to psycopg2
 
 from google.cloud import secretmanager
 from google.cloud import pubsub_v1
@@ -41,10 +42,10 @@ def sql_connect():
     db_socket_dir = "/cloudsql"
 
     db_config = {
-        "pool_size": 30,
+        "pool_size": 5,
         "max_overflow": 0,
         "pool_timeout": 0,  # seconds
-        "pool_recycle": 0,  # seconds
+        "pool_recycle": 120,  # seconds
     }
 
     pool = sqlalchemy.create_engine(
@@ -156,7 +157,8 @@ def update_one_topic_visibility(search_id):
         else:
             set_visibility = 'ok'
 
-        with sql_connect().connect() as conn:
+        pool = sql_connect()
+        with pool.connect() as conn:
 
             try:
                 stmt = sqlalchemy.text("""DELETE FROM search_health_check WHERE search_forum_num=:a;""")
@@ -172,6 +174,10 @@ def update_one_topic_visibility(search_id):
             except Exception as e:
                 logging.info('exception in update_one_topic_visibility')
                 logging.exception(e)
+
+            conn.close()
+
+        pool.dispose()
 
     else:
         bad_gateway_counter += 1
@@ -197,12 +203,15 @@ def get_and_update_list_of_active_searches(number_of_searches):
     global requests_session
     global trigger_if_switched_to_proxy
 
-    with sql_connect().connect() as conn:
+    pool = sql_connect()
+    with pool.connect() as conn:
 
         try:
             full_list_of_active_searches = conn.execute("""select * from (select s1.status_short, s1.search_forum_num, 
                 s1.forum_search_title, s2.status, s2.timestamp from searches s1 LEFT JOIN search_health_check s2 ON
-                s1.search_forum_num = s2.search_forum_num) s3 WHERE s3.status_short = 'Ищем' ORDER BY s3.timestamp;
+                s1.search_forum_num = s2.search_forum_num) s3 WHERE s3.status_short = 'Ищем' ORDER BY s3.timestamp 
+                /*action='get_full_list_of_active_searches' */
+                ;
                 """).fetchall()
 
             cleared_list_of_active_searches = []
@@ -236,26 +245,35 @@ def get_and_update_list_of_active_searches(number_of_searches):
             logging.info('exception in get_and_update_list_of_active_searches')
             logging.exception(e)
 
+        conn.close()
+
+    pool.dispose()
+
     return None
 
 
 def update_user_regional_settings(number_of_lines_to_update):
     """temp function to add archives to all who has not it"""
 
-    with sql_connect().connect() as conn:
+    pool = sql_connect()
+    with pool.connect() as conn:
 
         try:
             new_list_of_user_reg_prefs_4 = conn.execute("""
             select rp.user_id, rp.forum_folder_num, rtf.region_id, rtf.folder_description
             from user_regional_preferences rp LEFT JOIN regions_to_folders rtf 
-            ON rp.forum_folder_num=rtf.forum_folder_id WHERE region_id <> 1;
+            ON rp.forum_folder_num=rtf.forum_folder_id WHERE region_id <> 1
+            /*action='new_list_of_user_reg_prefs_4' */
+            ;
             """).fetchall()
 
             user_reg_5 = conn.execute("""
                     select distinct rp.user_id, rtf.region_id
             from user_regional_preferences rp LEFT JOIN regions_to_folders rtf 
-            ON rp.forum_folder_num=rtf.forum_folder_id WHERE region_id <> 1 ORDER BY rp.user_id;
-                    """).fetchall()
+            ON rp.forum_folder_num=rtf.forum_folder_id WHERE region_id <> 1 ORDER BY rp.user_id
+            /*action='user_reg_5' */
+            ;
+            """).fetchall()
 
             final_table = []
             for line in user_reg_5:
@@ -304,6 +322,9 @@ def update_user_regional_settings(number_of_lines_to_update):
         except Exception as e:
             logging.info('exception in update_user_regional_settings')
             logging.exception(e)
+
+        conn.close()
+    pool.dispose()
 
     return None
 
@@ -417,7 +438,8 @@ def get_list_of_searches_for_first_post_update(percent_of_searches):
 
     if percent_of_searches > 0:
 
-        with sql_connect().connect() as conn:
+        pool = sql_connect()
+        with pool.connect() as conn:
 
             try:
 
@@ -467,7 +489,9 @@ def get_list_of_searches_for_first_post_update(percent_of_searches):
                             count(*) DESC
                     ) s5 
                     ON 
-                        s4.forum_folder_id=s5.forum_folder_id;
+                        s4.forum_folder_id=s5.forum_folder_id
+                /*action='raw_sql_extract' */        
+                ;
                 """).fetchall()
 
                 # form the list-like table
@@ -543,6 +567,9 @@ def get_list_of_searches_for_first_post_update(percent_of_searches):
                 logging.info('exception in get_list_of_searches_for_first_post_update')
                 logging.exception(e)
 
+            conn.close()
+        pool.dispose()
+
     return outcome_list
 
 
@@ -604,7 +631,8 @@ def update_first_posts(percent_of_searches):
 
     if list_of_searches:
 
-        with sql_connect().connect() as conn:
+        pool = sql_connect()
+        with pool.connect() as conn:
 
             try:
 
@@ -715,6 +743,9 @@ def update_first_posts(percent_of_searches):
                 logging.info('exception in update_first_posts')
                 logging.exception(e)
 
+            conn.close()
+        pool.dispose()
+
     if list_of_searches_with_updated_first_posts:
         # send pub/sub message on the updated first page
         publish_to_pubsub('topic_for_first_post_processing', list_of_searches_with_updated_first_posts)
@@ -726,11 +757,11 @@ def main(event, context): # noqa
     """main function"""
 
     # BLOCK 1. for checking if there are deleted or hidden searches within active ones
-    number_of_checked_searches = 100
+    number_of_checked_searches = 20
     get_and_update_list_of_active_searches(number_of_checked_searches)
 
     # BLOCK 2. for checking in first posts were changes
-    percent_of_first_posts_to_check = 30
+    percent_of_first_posts_to_check = 10
     update_first_posts(percent_of_first_posts_to_check)
 
     # TEMP BLOCK – is used only for batch updates of user regional settings
