@@ -311,7 +311,7 @@ def check_for_notifs_to_send(conn):
                             s2.cancelled IS NULL
                         ORDER BY 1
                         LIMIT 1 
-                        /*action='biggest_query' */
+                        /*action='check_for_notifs_to_send' */
                         ;
                         """)
 
@@ -377,6 +377,51 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
             logging.exception(error_description)
 
     return result
+
+
+def save_sending_status_to_notif_by_user(conn, message_id, result):
+    """save the status of sending to telegram to notif_by_user sql table"""
+
+    if result == 'completed':
+        sql_text = sqlalchemy.text("""
+                                UPDATE notif_by_user
+                                SET completed = :a
+                                WHERE message_id = :b;
+                                /*action='save_sending_status_to_notif_by_user_completed' */
+                                ;
+                                """)
+        conn.execute(sql_text,
+                     a=datetime.datetime.now(),
+                     b=message_id
+                     )
+
+    elif result[0:10] == 'cancelled':
+        sql_text = sqlalchemy.text("""
+                                UPDATE notif_by_user
+                                SET cancelled = :a
+                                WHERE message_id = :b;
+                                /*action='save_sending_status_to_notif_by_user_cancelled' */
+                                ;
+                                """)
+        conn.execute(sql_text,
+                     a=datetime.datetime.now(),
+                     b=message_id
+                     )
+
+    elif result[0:7] == 'failed':
+        sql_text = sqlalchemy.text("""
+                                UPDATE notif_by_user
+                                SET failed = :a
+                                WHERE message_id = :b;
+                                /*action='save_sending_status_to_notif_by_user_failed' */
+                                ;
+                                """)
+        conn.execute(sql_text,
+                     a=datetime.datetime.now(),
+                     b=message_id
+                     )
+
+    return None
 
 
 def iterate_over_notifications(bot, script_start_time):
@@ -461,6 +506,9 @@ def iterate_over_notifications(bot, script_start_time):
                 # save result of sending telegram notification into SQL
                 write_message_sending_status(conn, message_id, result, mailing_id,
                                              change_log_id, user_id, message_type)
+
+                # FIXME: new block for saving result to notif_by_user
+                save_sending_status_to_notif_by_user(conn, message_id, result)
 
                 analytics_after_double_saved_in_sql = datetime.datetime.now()
 
