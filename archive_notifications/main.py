@@ -176,7 +176,8 @@ def main(event, context):  # noqa
                 logging.info('nothing to migrate in notif_by_user_status')
 
         # TODO: trying to make a copying mechanism notif_by_user_status__history -> notif_by_user__archive
-        for i in range(1):
+
+        if 1 == 0:
             stmt = sqlalchemy.text(f"""
                                     SELECT 
                                     message_id, event, event_timestamp,
