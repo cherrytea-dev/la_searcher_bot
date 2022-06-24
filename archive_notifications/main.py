@@ -76,12 +76,13 @@ def publish_to_pubsub(topic_name, message):
     return None
 
 
-def main(event, context): # noqa
+def main(event, context):  # noqa
     """main function"""
 
-    with sql_connect().connect() as conn:
+    pool = sql_connect()
+    with pool.connect() as conn:
 
-        # checker – gives us a minimal date in notif_by_user, which is at least 2 days older than current
+        # checker – gives us a minimal date in notif_by_user, which is at least 2 hours older than current
         stmt = sqlalchemy.text("""
                         SELECT MIN(cl.parsed_time) 
                         FROM notif_by_user AS nm 
@@ -100,7 +101,7 @@ def main(event, context): # noqa
                     SELECT MIN(mailing_id) FROM notif_by_user;
                     """)
             result = conn.execute(stmt).fetchone()
-            logging.info('The mailing_id to be updated in nbu: {}'. format(result[0]))
+            logging.info('The mailing_id to be updated in nbu: {}'.format(result[0]))
 
             # migrate all records with "lowest" mailing_id from notif_by_user to notif_by_user__history
             stmt = sqlalchemy.text("""
@@ -173,5 +174,50 @@ def main(event, context): # noqa
             else:
 
                 logging.info('nothing to migrate in notif_by_user_status')
+
+        # TODO: trying to make a copying mechanism notif_by_user_status__history -> notif_by_user__archive
+        for i in range(5):
+            stmt = sqlalchemy.text(f"""
+                                    SELECT 
+                                    message_id, event, event_timestamp,
+                                    mailing_id, change_log_id, user_id, message_type 
+                                    FROM 
+                                    notif_by_user_status__history 
+                                    ORDER BY message_id 
+                                    LIMIT 1
+                                    OFFSET {i}
+                                    /*action='copy to notif_by_user__archive 1'*/
+                                    ;
+                                    """)
+            oldest_msg_id_in_status_hist = conn.execute(stmt).fetchone()
+            if oldest_msg_id_in_status_hist:
+
+                message_id = oldest_msg_id_in_status_hist[0]
+                event = oldest_msg_id_in_status_hist[1]
+                event_timestamp = oldest_msg_id_in_status_hist[2]
+                mailing_id = oldest_msg_id_in_status_hist[3]
+                change_log_id = oldest_msg_id_in_status_hist[4]
+                user_id = oldest_msg_id_in_status_hist[5]
+                message_type = oldest_msg_id_in_status_hist[6]
+
+                if event in {'created', 'completed', 'cancelled', 'failed'}:
+                    stmt = sqlalchemy.text(f"""
+                                        INSERT INTO notif_by_user__archive (
+                                            message_id, mailing_id, change_log_id, 
+                                            user_id, message_type, {event})
+                                        VALUES (:a, :b, :c, :d, :e, :f)
+                                        ON CONFLICT (message_id)
+                                        DO
+                                            UPDATE SET 
+                                            message_id = :a, mailing_id = :b, change_log_id = :c,
+                                            user_id = :d, message_type = :e, {event} = :f
+                                        /*action='copy to notif_by_user__archive 2'*/
+                                        ;
+                                        """)
+                    conn.execute(stmt, a=message_id, b=mailing_id, c=change_log_id,
+                                 d=user_id, e=message_type, f=event_timestamp)
+
+        conn.close()
+    pool.dispose()
 
     return None
