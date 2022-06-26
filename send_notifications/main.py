@@ -260,6 +260,44 @@ def write_message_sending_status(conn_, message_id_, result, mailing_id_, change
 def check_for_notifs_to_send(conn):
     """return a line with notification which was not sent"""
 
+    # TODO: A NEW QUERY
+    sql_text = sqlalchemy.text("""
+                            SELECT 
+                                message_id,
+                                user_id,
+                                created,
+                                completed,
+                                cancelled, 
+                                message_content, 
+                                message_type, 
+                                message_params, 
+                                message_group_id,
+                                change_log_id,
+                                mailing_id,
+                                (CASE 
+                                    WHEN DENSE_RANK() OVER (
+                                        PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id) + 
+                                        DENSE_RANK() OVER (
+                                        PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id DESC) 
+                                        -1 = 1 
+                                    THEN 'no_doubling' 
+                                    ELSE 'doubling' 
+                                END) AS doubling, 
+                                failed 
+                            FROM
+                            notif_by_user
+                            WHERE 
+                                completed IS NULL AND
+                                cancelled IS NULL
+                            ORDER BY 1
+                            LIMIT 1 
+                            /*action='check_for_notifs_to_send 2.0' */
+                            ;
+                            """)
+
+    tempo = conn.execute(sql_text).fetchone()
+    print(f'CCC: NEW: {tempo}')
+
     sql_text = sqlalchemy.text("""
                         SELECT 
                             s2.message_id,
@@ -316,6 +354,8 @@ def check_for_notifs_to_send(conn):
                         """)
 
     msg_w_o_notif = conn.execute(sql_text).fetchone()
+    # TODO: DELETE
+    print(f'CCC: OLD: {msg_w_o_notif}')
 
     return msg_w_o_notif
 
