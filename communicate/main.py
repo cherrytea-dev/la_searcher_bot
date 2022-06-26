@@ -391,6 +391,21 @@ def check_if_new_user(conn_psy, cur, user_id):
     return user_is_new
 
 
+def check_if_user_has_no_regions(conn_psy, cur, user_id):
+    """check if the user has at least one region"""
+
+    cur.execute("""SELECT user_id FROM user_regional_preferences WHERE user_id=%s LIMIT 1;""", (user_id,))
+    # conn_psy.commit()
+    info_on_user_from_users = str(cur.fetchone())
+
+    if info_on_user_from_users == 'None':
+        no_regions = True
+    else:
+        no_regions = False
+
+    return no_regions
+
+
 # TODO: to be deleted
 def save_feedback(conn_psy, cur, func_input):
 
@@ -1870,7 +1885,7 @@ def main(request):
                                           'список регионов через настройки бота.'
                             reply_markup = reply_markup_main
 
-                            if user_is_new:
+                            if check_if_user_has_no_regions:
                                 # add the New User into table user_regional_preferences
                                 # region is Moscow for Active Searches & InfoPod
                                 cur.execute(
