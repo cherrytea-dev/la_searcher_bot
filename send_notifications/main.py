@@ -357,8 +357,8 @@ def check_for_notifs_to_send(conn):
     # TODO: DELETE
     print(f'CCC: OLD: {msg_w_o_notif}')
     if msg_w_o_notif and tempo and msg_w_o_notif not in {'None', None} and tempo not in {'None', None}:
-        print(f'CCC: comparison: {tempo == msg_w_o_notif}')
-        # notify_admin(f'CCC: comparison: {tempo == msg_w_o_notif}')
+        print(f'CCC: comparison: {tempo[:3] + tempo[4:] == msg_w_o_notif[:3] + msg_w_o_notif[4:]}')
+        notify_admin(f'CCC: comparison: {tempo[:3] + tempo[4:] == msg_w_o_notif[:3] + msg_w_o_notif[4:]}')
 
     return msg_w_o_notif
 
