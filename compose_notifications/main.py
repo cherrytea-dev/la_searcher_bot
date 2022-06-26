@@ -1135,7 +1135,7 @@ def iterate_over_all_users_and_updates(conn):
 
         return raw_data_[0]
 
-    def get_from_sql_if_was_notified_already(mailing_id_, user_id_, message_type_):
+    def get_from_sql_if_was_notified_already(mailing_id_, user_id_, message_type_, change_log_id_):
         """check in sql if this user was already notified re this change_log record"""
 
         sql_text_ = sqlalchemy.text("""
@@ -1169,6 +1169,72 @@ def iterate_over_all_users_and_updates(conn):
                                                  b=user_id_,
                                                  c=message_type_
                                                  ).fetchone()[0]
+
+        # FIXME: EXPERIMENT ZONE!!
+        try:
+            # OLD SCENARIO
+            sql_text_ = sqlalchemy.text("""
+                    
+                        SELECT s2.*, s3.source_script from (
+                            SELECT s1.*, nbu.mailing_id, nbu.user_id, nbu.message_type 
+                            FROM (
+                                SELECT message_id from notif_by_user_status 
+                                WHERE event = 'completed'
+                            ) as s1 
+                            LEFT JOIN notif_by_user nbu 
+                            ON s1.message_id=nbu.message_id
+                            ) as s2 
+                            INNER JOIN (
+                                SELECT mailing_id, source_script 
+                                FROM notif_mailings 
+                                WHERE change_log_id = (
+                                    SELECT change_log_id from notif_mailings 
+                                    WHERE mailing_id=:a
+                                )
+                            ) as s3 
+                            ON s2.mailing_id=s3.mailing_id 
+                            WHERE s2.user_id=:b AND s2.message_type=:c
+                    
+                    /*action='get_from_sql_if_was_notified_already_experiment_old'*/
+                    ;
+                    """)
+
+            old_output = conn.execute(sql_text_,
+                                      a=mailing_id_,
+                                      b=user_id_,
+                                      c=message_type_
+                                      ).fetchone()
+
+            # NEW SCENARIO
+            sql_text_ = sqlalchemy.text("""
+ 
+                                    SELECT 
+                                        message_id, mailing_id, user_id, message_type 
+                                    FROM 
+                                        notif_by_user 
+                                    WHERE 
+                                        completed IS NOT NULL AND
+                                        user_id=:b AND 
+                                        message_type=:c AND
+                                        change_log_id=:a
+                                    /*action='get_from_sql_if_was_notified_already_experiment_new'*/
+                                    ;
+                                    """)
+
+            new_output = conn.execute(sql_text_,
+                                      a=change_log_id_,
+                                      b=user_id_,
+                                      c=message_type_
+                                      ).fetchone()
+            print('CCC')
+            print(str(old_output))
+            print(str(new_output))
+            print(old_output == new_output)
+            print('CCC')
+        except Exception as e:
+            print('CCC: exception')
+            logging.exception(e)
+        # FIXME: EXPERIMENT ZONE!!
 
         return user_was_already_notified
 
@@ -1399,7 +1465,7 @@ def iterate_over_all_users_and_updates(conn):
                                         this_user_was_notified = False
                                         if this_record_was_processed_already:
                                             this_user_was_notified = get_from_sql_if_was_notified_already(
-                                                mailing_id, user.user_id, 'text')
+                                                mailing_id, user.user_id, 'text', new_record.change_id)
 
                                             # logging block
                                             logging.info('this user was notified already {}, {}'.format(
