@@ -358,7 +358,7 @@ def check_for_notifs_to_send(conn):
     print(f'CCC: OLD: {msg_w_o_notif}')
     if msg_w_o_notif and tempo and msg_w_o_notif not in {'None', None} and tempo not in {'None', None}:
         print(f'CCC: comparison: {tempo == msg_w_o_notif}')
-        notify_admin(f'CCC: comparison: {tempo == msg_w_o_notif}')
+        # notify_admin(f'CCC: comparison: {tempo == msg_w_o_notif}')
 
     return msg_w_o_notif
 
