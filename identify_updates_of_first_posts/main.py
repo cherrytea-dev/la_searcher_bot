@@ -42,10 +42,10 @@ def sql_connect():
     db_socket_dir = "/cloudsql"
 
     db_config = {
-        "pool_size": 30,
+        "pool_size": 5,
         "max_overflow": 0,
         "pool_timeout": 0,  # seconds
-        "pool_recycle": 0,  # seconds
+        "pool_recycle": 30,  # seconds
     }
 
     pool = sqlalchemy.create_engine(
@@ -766,6 +766,7 @@ def main(event, context):  # noqa
                 if list_of_folders_with_upd_searches:
                     # notify_admin(f'[ide_post]: {str(list_of_folders_with_upd_searches)}')
                     publish_to_pubsub('topic_to_run_parsing_script', str(list_of_folders_with_upd_searches))
+                    publish_to_pubsub('topic_for_notification', str(list_of_folders_with_upd_searches))
 
             except Exception as e:
                 logging.info('exception in main function')

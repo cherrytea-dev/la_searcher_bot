@@ -175,61 +175,6 @@ def main(event, context):  # noqa
 
                 logging.info('nothing to migrate in notif_by_user_status')
 
-        # TODO: trying to make a copying mechanism notif_by_user_status__history -> notif_by_user__archive
-
-        if 1 == 0:
-            stmt = sqlalchemy.text(f"""
-                                    SELECT 
-                                    message_id, event, event_timestamp,
-                                    mailing_id, change_log_id, user_id, message_type, id 
-                                    FROM 
-                                    notif_by_user_status__history 
-                                    ORDER BY message_id 
-                                    LIMIT 1
-                                    OFFSET {i}
-                                    /*action='copy to notif_by_user__archive 1'*/
-                                    ;
-                                    """)
-            oldest_msg_id_in_status_hist = conn.execute(stmt).fetchone()
-            if oldest_msg_id_in_status_hist:
-
-                message_id = oldest_msg_id_in_status_hist[0]
-                event = oldest_msg_id_in_status_hist[1]
-                event_timestamp = oldest_msg_id_in_status_hist[2]
-                mailing_id = oldest_msg_id_in_status_hist[3]
-                change_log_id = oldest_msg_id_in_status_hist[4]
-                user_id = oldest_msg_id_in_status_hist[5]
-                message_type = oldest_msg_id_in_status_hist[6]
-                id = oldest_msg_id_in_status_hist[7]
-
-                if event in {'created', 'completed', 'cancelled', 'failed'}:
-                    stmt = sqlalchemy.text(f"""
-                                        INSERT INTO notif_by_user__archive (
-                                            message_id, mailing_id, change_log_id, 
-                                            user_id, message_type, {event})
-                                        VALUES (:a, :b, :c, :d, :e, :f)
-                                        ON CONFLICT (message_id)
-                                        DO
-                                            UPDATE SET 
-                                            message_id = :a, mailing_id = :b, change_log_id = :c,
-                                            user_id = :d, message_type = :e, {event} = :f
-                                        /*action='copy to notif_by_user__archive 2'*/
-                                        ;
-                                        """)
-                    conn.execute(stmt, a=message_id, b=mailing_id, c=change_log_id,
-                                 d=user_id, e=message_type, f=event_timestamp)
-
-                    # delete the record from initial table
-                    stmt = sqlalchemy.text(f"""
-                                               DELETE FROM
-                                               notif_by_user_status__history
-                                               WHERE
-                                               id = :a
-                                               /*action='copy to notif_by_user__archive 3'*/
-                                               ;
-                                               """)
-                    conn.execute(stmt, a=id)
-
         conn.close()
     pool.dispose()
 
