@@ -209,12 +209,11 @@ def check_for_notifs_to_send(cur):
                                 cancelled IS NULL
                             ORDER BY 1
                             LIMIT 1 
-                            /*action='check_for_notifs_to_send 2.0' */
                             ;
                             """
     # notification = conn.execute(sql_text).fetchone()
-
-    notification = cur.execute(sql_text_psy).fetchone()
+    cur.execute(sql_text_psy)
+    notification = cur.fetchone()
 
     return notification
 
@@ -307,7 +306,7 @@ def save_sending_status_to_notif_by_user(cur, message_id, result):
                     /*action='save_sending_status_to_notif_by_user_{result}' */
                     ;"""
 
-        cur.execute(sql_text_psy, (datetime.datetime.now(),message_id))
+        cur.execute(sql_text_psy, (datetime.datetime.now(), message_id))
 
     return None
 
