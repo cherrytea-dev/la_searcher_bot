@@ -8,7 +8,7 @@ import json
 import sqlalchemy
 import psycopg2
 
-from telegram import Bot
+from telegram import Bot, error
 
 from google.cloud import secretmanager
 from google.cloud import pubsub_v1
@@ -60,10 +60,10 @@ def sql_connect():
     db_name = get_secrets("cloud-postgres-db-name")
     db_conn = get_secrets("cloud-postgres-connection-name")
     db_config = {
-        "pool_size": 20,
+        "pool_size": 5,
         "max_overflow": 0,
         "pool_timeout": 0,  # seconds
-        "pool_recycle": 0,  # seconds
+        "pool_recycle": 15,  # seconds
     }
 
     try:
@@ -88,6 +88,7 @@ def sql_connect():
     return pool
 
 
+# TODO: still an experiment
 def sql_connect_by_psycopg2():
     """connect to GCP SLQ via PsycoPG2"""
 
@@ -142,128 +143,10 @@ def notify_admin(message):
     return None
 
 
-# TODO: temp for DEBUG
-def get_list_of_admins_and_testers(conn):
-    """get the list of users with admin & testers roles from PSQL"""
-
-    list_of_admins = []
-    list_of_testers = []
-
-    try:
-        user_roles = conn.execute(
-            """SELECT user_id, role FROM user_roles;"""
-        ).fetchall()
-
-        for line in user_roles:
-            if line[1] == 'admin':
-                list_of_admins.append(line[0])
-            elif line[1] == 'tester':
-                list_of_testers.append(line[0])
-
-        logging.info('Got the Lists of Admins & Testers')
-
-    except Exception as e:
-        logging.error('Not able to get the lists of Admins & Testers')
-        logging.exception(e)
-
-    return list_of_admins, list_of_testers
-
-
-def write_message_sending_status(conn_, message_id_, result, mailing_id_, change_log_id_, user_id_, message_type_):
-    """write to SQL table notif_by_user_status the status of individual message sent"""
-
-    try:
-        # record into SQL table notif_by_user_status
-        sql_text = sqlalchemy.text("""
-                    INSERT INTO notif_by_user_status (
-                        message_id, 
-                        event, 
-                        event_timestamp,
-                        mailing_id,
-                        change_log_id,
-                        user_id,
-                        message_type,
-                        context) 
-                    VALUES (:a, :b, :c, :d, :e, :f, :g, :h);
-                    """)
-
-        if result in {'created', 'completed'}:
-            conn_.execute(sql_text,
-                          a=message_id_,
-                          b=result,
-                          c=datetime.datetime.now(),
-                          d=mailing_id_,
-                          e=change_log_id_,
-                          f=user_id_,
-                          g=message_type_,
-                          h='send_notifs')
-
-        elif result in {'cancelled_bad_request'}:
-            conn_.execute(sql_text,
-                          a=message_id_,
-                          b='cancelled',
-                          c=datetime.datetime.now(),
-                          d=mailing_id_,
-                          e=change_log_id_,
-                          f=user_id_,
-                          g=message_type_,
-                          h='send_notifs, bad request')
-
-        elif result == 'failed_flood_control':
-            conn_.execute(sql_text,
-                          a=message_id_,
-                          b='failed',
-                          c=datetime.datetime.now(),
-                          d=mailing_id_,
-                          e=change_log_id_,
-                          f=user_id_,
-                          g=message_type_,
-                          h='send_notifs, flood control')
-
-        elif result == 'cancelled_due_to_doubling':
-            conn_.execute(sql_text,
-                          a=message_id_,
-                          b='cancelled',
-                          c=datetime.datetime.now(),
-                          d=mailing_id_,
-                          e=change_log_id_,
-                          f=user_id_,
-                          g=message_type_,
-                          h='send_notifs, doubling')
-
-        else:
-
-            logging.info(f'[send_notif]: message {message_id_}, sending status is {result} for conn')
-
-            pool = sql_connect()
-            with pool.connect() as conn2:
-
-                conn2.execute(sql_text,
-                              a=message_id_,
-                              b=result,
-                              c=datetime.datetime.now(),
-                              d=mailing_id_,
-                              e=change_log_id_,
-                              f=user_id_,
-                              g=message_type_,
-                              h='send_notifs'
-                              )
-                conn2.close()
-            pool.dispose()
-            # TODO: debug notify
-            notify_admin('[send_notif]: conn2: message {}, sending status is {} for conn2'.format(message_id_, result))
-
-    except Exception as e:  # noqa
-        notify_admin(f'[send_notif]: ERR write to SQL notif_by_user_status, message_id {message_id_}, status {result}')
-        logging.exception(e)
-
-    return None
-
-
 def check_for_notifs_to_send(conn):
-    """return a line with notification which was not sent"""
+    """return a notification which should be sent"""
 
-    # TODO: A NEW QUERY
+    # TODO: can "doubling" be done not dynamically but as a field of table?
     sql_text = sqlalchemy.text("""
                             SELECT 
                                 message_id,
@@ -298,73 +181,9 @@ def check_for_notifs_to_send(conn):
                             ;
                             """)
 
-    tempo = conn.execute(sql_text).fetchone()
-    print(f'CCC: NEW: {tempo}')
+    notification = conn.execute(sql_text).fetchone()
 
-    sql_text = sqlalchemy.text("""
-                        SELECT 
-                            s2.message_id,
-                            s2.user_id,
-                            s2.created,
-                            s2.completed,
-                            s2.cancelled, 
-                            nbu.message_content, 
-                            nbu.message_type, 
-                            nbu.message_params, 
-                            nbu.message_group_id,
-                            nbu.change_log_id,
-                            nbu.mailing_id,
-                            s2.doubling,
-                            s2.failed 
-                        FROM
-                            (SELECT DISTINCT 
-                                s1.message_id, 
-                                s1.user_id,
-                                min(s1.event_timestamp) 
-                                    FILTER (WHERE s1.event='created') 
-                                    OVER (PARTITION BY message_id) AS created, 
-                                max(s1.event_timestamp) 
-                                    FILTER (WHERE s1.event='completed') 
-                                    OVER (PARTITION BY message_id) AS completed,
-                                max(s1.event_timestamp) 
-                                    FILTER (WHERE s1.event='cancelled') 
-                                    OVER (PARTITION BY message_id) AS cancelled, 
-                                max(s1.event_timestamp) 
-                                    FILTER (WHERE s1.event='failed') 
-                                    OVER (PARTITION BY message_id) AS failed, 
-                                (CASE 
-                                    WHEN DENSE_RANK() OVER (
-                                        PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id) + 
-                                        DENSE_RANK() OVER (
-                                        PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id DESC) 
-                                        -1 = 1 
-                                    THEN 'no_doubling' 
-                                    ELSE 'doubling' 
-                                END) AS doubling 
-                            FROM notif_by_user_status 
-                            AS s1) 
-                        AS s2
-                        LEFT JOIN
-                        notif_by_user AS nbu
-                        ON s2.message_id=nbu.message_id
-                        WHERE 
-                            s2.completed IS NULL AND
-                            s2.cancelled IS NULL
-                        ORDER BY 1
-                        LIMIT 1 
-                        /*action='check_for_notifs_to_send' */
-                        ;
-                        """)
-
-    # msg_w_o_notif = conn.execute(sql_text).fetchone()
-    # TODO: DELETE
-    # print(f'CCC: OLD: {msg_w_o_notif}')
-    #if msg_w_o_notif and tempo and msg_w_o_notif not in {'None', None} and tempo not in {'None', None}:
-    #    print(f'CCC: comparison: {tempo[:2] + tempo[3:] == msg_w_o_notif[:2] + msg_w_o_notif[3:]}')
-    #    if tempo[:2] + tempo[3:] != msg_w_o_notif[:2] + msg_w_o_notif[3:]:
-    #        notify_admin(f'CCC: comparison FALSE')
-
-    return tempo
+    return notification
 
 
 def send_single_message(bot, user_id, message_content, message_params, message_type):
@@ -387,25 +206,27 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
         logging.info(f'success sending a msg to telegram user={user_id}')
 
-    # TODO: to be redone for exact names of Exceptions
-    except Exception as e:  # when sending to telegram fails
+    except error.BadRequest as e:
+
+        result = 'cancelled_bad_request'
+
+        logging.info(f'failed sending to telegram due to Bad Request user={user_id}, message={message_content}')
+        logging.error(e)
+
+    except error.RetryAfter as e:
+
+        result = 'failed_flood_control'
+
+        logging.info(f'"flood control": failed sending to telegram user={user_id}, message={message_content}')
+        logging.error(e)
+        time.sleep(5)  # TODO: temp placeholder to wait 5 seconds
+
+    except Exception as e:  # when sending to telegram fails by other reasons
 
         error_description = str(e)
 
-        if error_description.find('BadRequest()') > -1:
-            result = 'cancelled_bad_request'
-
-            logging.info(f'failed sending to telegram due to Bad Request user={user_id}, message={message_content}')
-            logging.error(error_description)
-
-        elif error_description.find('Flood control exceeded') > -1:
-            result = 'failed_flood_control'
-
-            logging.info(f'"flood control": failed sending to telegram user={user_id}, message={message_content}')
-            time.sleep(5)  # TODO: temp placeholder to wait 5 seconds
-
         # if user blocked the bot OR user is deactivated (deleted telegram account)
-        elif error_description.find('bot was blocked by the user') != -1 \
+        if error_description.find('bot was blocked by the user') != -1 \
                 or error_description.find('user is deactivated') != -1:
             if error_description.find('bot was blocked by the user') != -1:
                 action = 'block_user'
@@ -427,46 +248,21 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
 
 def save_sending_status_to_notif_by_user(conn, message_id, result):
-    """save the status of sending to telegram to notif_by_user sql table"""
+    """save the telegram sending status to sql table notif_by_user"""
 
-    if result == 'completed':
-        sql_text = sqlalchemy.text("""
-                                UPDATE notif_by_user
-                                SET completed = :a
-                                WHERE message_id = :b;
-                                /*action='save_sending_status_to_notif_by_user_completed' */
-                                ;
-                                """)
-        conn.execute(sql_text,
-                     a=datetime.datetime.now(),
-                     b=message_id
-                     )
-
-    elif result[0:10] == 'cancelled':
-        sql_text = sqlalchemy.text("""
-                                UPDATE notif_by_user
-                                SET cancelled = :a
-                                WHERE message_id = :b;
-                                /*action='save_sending_status_to_notif_by_user_cancelled' */
-                                ;
-                                """)
-        conn.execute(sql_text,
-                     a=datetime.datetime.now(),
-                     b=message_id
-                     )
-
+    if result[0:10] == 'cancelled':
+        result = result[0:10]
     elif result[0:7] == 'failed':
-        sql_text = sqlalchemy.text("""
-                                UPDATE notif_by_user
-                                SET failed = :a
-                                WHERE message_id = :b;
-                                /*action='save_sending_status_to_notif_by_user_failed' */
-                                ;
-                                """)
-        conn.execute(sql_text,
-                     a=datetime.datetime.now(),
-                     b=message_id
-                     )
+        result = result[0:7]
+
+    if result in {'completed', 'cancelled', 'failed'}:
+        sql_text = sqlalchemy.text(f"""
+                                    UPDATE notif_by_user
+                                    SET {result} = :a
+                                    WHERE message_id = :b;
+                                    /*action='save_sending_status_to_notif_by_user_{result}' */
+                                    ;""")
+        conn.execute(sql_text, a=datetime.datetime.now(), b=message_id)
 
     return None
 
@@ -475,66 +271,45 @@ def iterate_over_notifications(bot, script_start_time):
     """iterate over all available notifications, finishes if timeout is met or no new notifications"""
 
     # TODO: to think to increase 30 seconds to 500 seconds - if helpful
-    custom_timeout = 30  # seconds, after which iterations should stop to prevent the whole script timeout
+    custom_timeout = 120  # seconds, after which iterations should stop to prevent the whole script timeout
 
     pool = sql_connect()
     with pool.connect() as conn:
-        # with sql_connect_by_psycopg2() as conn:
-
-        # TODO: do we need a checker if conn=None (connection failed?)
-
-        # TODO: only for DEBUG. for prod it's not needed
-        # list_of_admins, list_of_testers = get_list_of_admins_and_testers(conn)
 
         trigger_to_continue_iterations = True
-
         while trigger_to_continue_iterations:
 
             # analytics on sending speed - start for every user/notification
             analytics_sm_start = datetime.datetime.now()
             analytics_iteration_start = datetime.datetime.now()
             logging.info('time: -------------- loop start -------------')
-
-            # TODO: to remove admin
-
             analytics_sql_start = datetime.datetime.now()
+
             # check if there are any non-notified users
-            msg_w_o_notif = check_for_notifs_to_send(conn)
+            message_to_send = check_for_notifs_to_send(conn)
+
             analytics_sql_finish = datetime.datetime.now()
             analytics_sql_duration = round((analytics_sql_finish -
                                             analytics_sql_start).total_seconds(), 2)
             logging.info('time: reading sql=' + str(analytics_sql_duration))
+            logging.info(str(message_to_send))
 
-            logging.info(str(msg_w_o_notif))
+            if message_to_send:
+                doubling_trigger = message_to_send[11]
 
-            if msg_w_o_notif:
-
-                user_id = msg_w_o_notif[1]
-                message_id = msg_w_o_notif[0]
-                message_content = msg_w_o_notif[5]
-                # message_failed = msg_w_o_notif[12]
-                message_type = msg_w_o_notif[6]
-                # created_time = msg_w_o_notif[2]
-                # how_old_is_notif = (datetime.datetime.now() - created_time).total_seconds()
-
-                # limitation to avoid telegram "message too long"
-                if message_content:
-                    if len(message_content) > 3000:
-                        p1 = message_content[:1500]
-                        p2 = message_content[-1000:]
-                        message_content = p1 + '...' + p2
-
-                message_params = ast.literal_eval(msg_w_o_notif[7]) if msg_w_o_notif[7] else {}
-
-                # message_group_id = msg_w_o_notif[8]
-                change_log_id = msg_w_o_notif[9]
-                mailing_id = msg_w_o_notif[10]
-                doubling_trigger = msg_w_o_notif[11]
-
-                analytics_pre_sending_msg = datetime.datetime.now()
-
-                # send the message to telegram if it is not a clone-message
                 if doubling_trigger == 'no_doubling':
+
+                    user_id = message_to_send[1]
+                    message_id = message_to_send[0]
+                    message_type = message_to_send[6]
+                    message_params = ast.literal_eval(message_to_send[7]) if message_to_send[7] else {}
+
+                    message_content = message_to_send[5]
+                    # limitation to avoid telegram "message too long"
+                    if message_content and len(message_content) > 3000:
+                        message_content = f'{message_content[:1500]}...{message_content[-1000:]}'
+
+                    analytics_pre_sending_msg = datetime.datetime.now()
 
                     # TODO: to introduce check of the status for the Coord_change and field_trip:
                     #  if status != 'Ищем': do not send, result = 'cancelled'
@@ -549,10 +324,6 @@ def iterate_over_notifications(bot, script_start_time):
                     result = 'cancelled_due_to_doubling'
 
                 analytics_save_sql_start = datetime.datetime.now()
-
-                # TODO: to delete the whole function
-                # write_message_sending_status(conn, message_id, result, mailing_id,
-                #                             change_log_id, user_id, message_type)
 
                 # save result of sending telegram notification into SQL notif_by_user
                 save_sending_status_to_notif_by_user(conn, message_id, result)
@@ -578,9 +349,9 @@ def iterate_over_notifications(bot, script_start_time):
                 # wait for 10 seconds – maybe any new notification will pop up
                 time.sleep(10)
 
-                msg_w_o_notif = check_for_notifs_to_send(conn)
+                message_to_send = check_for_notifs_to_send(conn)
 
-                no_new_notifications = False if msg_w_o_notif else True
+                no_new_notifications = False if message_to_send else True
 
             # check if not too much time passed (not more than 500 seconds)
             now = datetime.datetime.now()
