@@ -101,7 +101,6 @@ def sql_connect_by_psycopg2():
 
         conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
         conn_psy.autocommit = True
-        cur = conn_psy.cursor()
 
         logging.info('sql connection set via psycopg2')
 
@@ -109,9 +108,8 @@ def sql_connect_by_psycopg2():
         logging.error('failed to set sql connection by psycopg2')
         logging.exception(e)
         conn_psy = None
-        cur = None
 
-    return cur
+    return conn_psy
 
 
 def publish_to_pubsub(topic_name, message):
@@ -143,7 +141,7 @@ def notify_admin(message):
     return None
 
 
-def check_for_notifs_to_send(conn):
+def check_for_notifs_to_send(cur):
     """return a notification which should be sent"""
 
     # TODO: can "doubling" be done not dynamically but as a field of table?
@@ -181,7 +179,9 @@ def check_for_notifs_to_send(conn):
                             ;
                             """)
 
-    notification = conn.execute(sql_text).fetchone()
+    # notification = conn.execute(sql_text).fetchone()
+
+    notification = cur.execute(sql_text).fetchone()
 
     return notification
 
@@ -247,7 +247,7 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
     return result
 
 
-def save_sending_status_to_notif_by_user(conn, message_id, result):
+def save_sending_status_to_notif_by_user(cur, message_id, result):
     """save the telegram sending status to sql table notif_by_user"""
 
     if result[0:10] == 'cancelled':
@@ -256,13 +256,25 @@ def save_sending_status_to_notif_by_user(conn, message_id, result):
         result = result[0:7]
 
     if result in {'completed', 'cancelled', 'failed'}:
+
+        # TODO: to delete
         sql_text = sqlalchemy.text(f"""
                                     UPDATE notif_by_user
                                     SET {result} = :a
                                     WHERE message_id = :b;
                                     /*action='save_sending_status_to_notif_by_user_{result}' */
                                     ;""")
-        conn.execute(sql_text, a=datetime.datetime.now(), b=message_id)
+
+        # conn.execute(sql_text, a=datetime.datetime.now(), b=message_id)
+
+        sql_text_psy = f"""
+                    UPDATE notif_by_user
+                    SET {result} = %s
+                    WHERE message_id = %s;
+                    /*action='save_sending_status_to_notif_by_user_{result}' */
+                    ;"""
+
+        cur.execute(sql_text_psy, (datetime.datetime.now(),message_id))
 
     return None
 
@@ -273,8 +285,11 @@ def iterate_over_notifications(bot, script_start_time):
     # TODO: to think to increase 30 seconds to 500 seconds - if helpful
     custom_timeout = 120  # seconds, after which iterations should stop to prevent the whole script timeout
 
-    pool = sql_connect()
-    with pool.connect() as conn:
+    # TODO: delete
+    # pool = sql_connect()
+    # with pool.connect() as conn:
+
+    with sql_connect_by_psycopg2() as conn_psy, conn_psy.cursor() as cur:
 
         trigger_to_continue_iterations = True
         while trigger_to_continue_iterations:
@@ -286,7 +301,7 @@ def iterate_over_notifications(bot, script_start_time):
             analytics_sql_start = datetime.datetime.now()
 
             # check if there are any non-notified users
-            message_to_send = check_for_notifs_to_send(conn)
+            message_to_send = check_for_notifs_to_send(cur)
 
             analytics_sql_finish = datetime.datetime.now()
             analytics_sql_duration = round((analytics_sql_finish -
@@ -326,7 +341,7 @@ def iterate_over_notifications(bot, script_start_time):
                 analytics_save_sql_start = datetime.datetime.now()
 
                 # save result of sending telegram notification into SQL notif_by_user
-                save_sending_status_to_notif_by_user(conn, message_id, result)
+                save_sending_status_to_notif_by_user(cur, message_id, result)
 
                 analytics_after_double_saved_in_sql = datetime.datetime.now()
 
@@ -349,7 +364,7 @@ def iterate_over_notifications(bot, script_start_time):
                 # wait for 10 seconds – maybe any new notification will pop up
                 time.sleep(10)
 
-                message_to_send = check_for_notifs_to_send(conn)
+                message_to_send = check_for_notifs_to_send(cur)
 
                 no_new_notifications = False if message_to_send else True
 
@@ -375,8 +390,10 @@ def iterate_over_notifications(bot, script_start_time):
                                                  analytics_iteration_start).total_seconds(), 2)
             logging.info(f'time: iteration duration: {analytics_iteration_duration}')
 
-        conn.close()
-    pool.dispose()
+        # conn.close()
+        cur.close()
+    # pool.dispose()
+    conn_psy.close()
 
     return None
 
