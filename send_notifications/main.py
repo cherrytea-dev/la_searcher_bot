@@ -137,6 +137,7 @@ def check_for_notifs_to_send(cur):
                         cancelled IS NULL
                     ORDER BY 1
                     LIMIT 1 
+                    /*action='check_for_notifs_to_send 2.0' */
                     ;
                     """
 
