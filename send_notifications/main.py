@@ -550,11 +550,11 @@ def iterate_over_notifications(bot, script_start_time):
 
                 analytics_save_sql_start = datetime.datetime.now()
 
-                # save result of sending telegram notification into SQL
-                write_message_sending_status(conn, message_id, result, mailing_id,
-                                             change_log_id, user_id, message_type)
+                # TODO: to delete the whole function
+                # write_message_sending_status(conn, message_id, result, mailing_id,
+                #                             change_log_id, user_id, message_type)
 
-                # FIXME: new block for saving result to notif_by_user
+                # save result of sending telegram notification into SQL notif_by_user
                 save_sending_status_to_notif_by_user(conn, message_id, result)
 
                 analytics_after_double_saved_in_sql = datetime.datetime.now()
