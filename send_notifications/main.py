@@ -5,7 +5,6 @@ import os
 import base64
 import logging
 import json
-import sqlalchemy
 import psycopg2
 
 from telegram import Bot, error
@@ -52,43 +51,6 @@ def get_secrets(secret_request):
     return response.payload.data.decode("UTF-8")
 
 
-def sql_connect():
-    """connect to google cloud sql"""
-
-    db_user = get_secrets("cloud-postgres-username")
-    db_pass = get_secrets("cloud-postgres-password")
-    db_name = get_secrets("cloud-postgres-db-name")
-    db_conn = get_secrets("cloud-postgres-connection-name")
-    db_config = {
-        "pool_size": 5,
-        "max_overflow": 0,
-        "pool_timeout": 0,  # seconds
-        "pool_recycle": 15,  # seconds
-    }
-
-    try:
-        pool = sqlalchemy.create_engine(
-            sqlalchemy.engine.url.URL(
-                'postgresql+pg8000',
-                # 'postgresql+psycopg2',
-                username=db_user,
-                password=db_pass,
-                database=db_name,
-                query={'unix_sock': f'/cloudsql/{db_conn}/.s.PGSQL.5432'}),
-            **db_config
-        )
-        pool.dialect.description_encoding = None
-        logging.info('sql connection set')
-
-    except Exception as e:
-        logging.error('sql connection was not set: ' + repr(e))
-        logging.exception(e)
-        pool = None
-
-    return pool
-
-
-# TODO: still an experiment
 def sql_connect_by_psycopg2():
     """connect to GCP SLQ via PsycoPG2"""
 
@@ -145,73 +107,39 @@ def check_for_notifs_to_send(cur):
     """return a notification which should be sent"""
 
     # TODO: can "doubling" be done not dynamically but as a field of table?
-    sql_text = sqlalchemy.text("""
-                            SELECT 
-                                message_id,
-                                user_id,
-                                created,
-                                completed,
-                                cancelled, 
-                                message_content, 
-                                message_type, 
-                                message_params, 
-                                message_group_id,
-                                change_log_id,
-                                mailing_id,
-                                (CASE 
-                                    WHEN DENSE_RANK() OVER (
-                                        PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id) + 
-                                        DENSE_RANK() OVER (
-                                        PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id DESC) 
-                                        -1 = 1 
-                                    THEN 'no_doubling' 
-                                    ELSE 'doubling' 
-                                END) AS doubling, 
-                                failed 
-                            FROM
-                            notif_by_user
-                            WHERE 
-                                completed IS NULL AND
-                                cancelled IS NULL
-                            ORDER BY 1
-                            LIMIT 1 
-                            /*action='check_for_notifs_to_send 2.0' */
-                            ;
-                            """)
-
     sql_text_psy = """
-                            SELECT 
-                                message_id,
-                                user_id,
-                                created,
-                                completed,
-                                cancelled, 
-                                message_content, 
-                                message_type, 
-                                message_params, 
-                                message_group_id,
-                                change_log_id,
-                                mailing_id,
-                                (CASE 
-                                    WHEN DENSE_RANK() OVER (
-                                        PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id) + 
-                                        DENSE_RANK() OVER (
-                                        PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id DESC) 
-                                        -1 = 1 
-                                    THEN 'no_doubling' 
-                                    ELSE 'doubling' 
-                                END) AS doubling, 
-                                failed 
-                            FROM
-                            notif_by_user
-                            WHERE 
-                                completed IS NULL AND
-                                cancelled IS NULL
-                            ORDER BY 1
-                            LIMIT 1 
-                            ;
-                            """
-    # notification = conn.execute(sql_text).fetchone()
+                    SELECT 
+                        message_id,
+                        user_id,
+                        created,
+                        completed,
+                        cancelled, 
+                        message_content, 
+                        message_type, 
+                        message_params, 
+                        message_group_id,
+                        change_log_id,
+                        mailing_id,
+                        (CASE 
+                            WHEN DENSE_RANK() OVER (
+                                PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id) + 
+                                DENSE_RANK() OVER (
+                                PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id DESC) 
+                                -1 = 1 
+                            THEN 'no_doubling' 
+                            ELSE 'doubling' 
+                        END) AS doubling, 
+                        failed 
+                    FROM
+                    notif_by_user
+                    WHERE 
+                        completed IS NULL AND
+                        cancelled IS NULL
+                    ORDER BY 1
+                    LIMIT 1 
+                    ;
+                    """
+
     cur.execute(sql_text_psy)
     notification = cur.fetchone()
 
@@ -289,15 +217,6 @@ def save_sending_status_to_notif_by_user(cur, message_id, result):
 
     if result in {'completed', 'cancelled', 'failed'}:
 
-        # TODO: to delete
-        sql_text = sqlalchemy.text(f"""
-                                    UPDATE notif_by_user
-                                    SET {result} = :a
-                                    WHERE message_id = :b;
-                                    /*action='save_sending_status_to_notif_by_user_{result}' */
-                                    ;""")
-
-        # conn.execute(sql_text, a=datetime.datetime.now(), b=message_id)
 
         sql_text_psy = f"""
                     UPDATE notif_by_user
@@ -316,10 +235,6 @@ def iterate_over_notifications(bot, script_start_time):
 
     # TODO: to think to increase 30 seconds to 500 seconds - if helpful
     custom_timeout = 120  # seconds, after which iterations should stop to prevent the whole script timeout
-
-    # TODO: delete
-    # pool = sql_connect()
-    # with pool.connect() as conn:
 
     with sql_connect_by_psycopg2() as conn_psy, conn_psy.cursor() as cur:
 
@@ -422,9 +337,7 @@ def iterate_over_notifications(bot, script_start_time):
                                                  analytics_iteration_start).total_seconds(), 2)
             logging.info(f'time: iteration duration: {analytics_iteration_duration}')
 
-        # conn.close()
         cur.close()
-    # pool.dispose()
     conn_psy.close()
 
     return None
@@ -450,7 +363,7 @@ def main_func(event, context):  # noqa
     if analytics_notif_times:
         len_n = len(analytics_notif_times)
         average = sum(analytics_notif_times) / len_n
-        message = f'[send_notifs] Analytics: num of messages {len_n}, average time {round(average, 1)} seconds, ' \
+        message = f'[send_notifs] Analytics: num of messages {len_n}, average time {round(average, 2)} seconds, ' \
                   f'total time {round(sum(analytics_notif_times), 1)} seconds'
         notify_admin(message)
         logging.info(message)
