@@ -290,8 +290,8 @@ def check_for_notifs_to_send(conn):
                             FROM
                             notif_by_user
                             WHERE 
-                                completed IS NULL AND
-                                cancelled IS NULL
+                                (completed IS NULL OR completed IS EMPTY) AND
+                                (cancelled IS NULL OR cancelled IS EMPTY)
                             ORDER BY 1
                             LIMIT 1 
                             /*action='check_for_notifs_to_send 2.0' */
@@ -356,15 +356,15 @@ def check_for_notifs_to_send(conn):
                         ;
                         """)
 
-    msg_w_o_notif = conn.execute(sql_text).fetchone()
+    # msg_w_o_notif = conn.execute(sql_text).fetchone()
     # TODO: DELETE
-    print(f'CCC: OLD: {msg_w_o_notif}')
-    if msg_w_o_notif and tempo and msg_w_o_notif not in {'None', None} and tempo not in {'None', None}:
-        print(f'CCC: comparison: {tempo[:2] + tempo[3:] == msg_w_o_notif[:2] + msg_w_o_notif[3:]}')
-        if tempo[:2] + tempo[3:] != msg_w_o_notif[:2] + msg_w_o_notif[3:]:
-            notify_admin(f'CCC: comparison FALSE')
+    # print(f'CCC: OLD: {msg_w_o_notif}')
+    #if msg_w_o_notif and tempo and msg_w_o_notif not in {'None', None} and tempo not in {'None', None}:
+    #    print(f'CCC: comparison: {tempo[:2] + tempo[3:] == msg_w_o_notif[:2] + msg_w_o_notif[3:]}')
+    #    if tempo[:2] + tempo[3:] != msg_w_o_notif[:2] + msg_w_o_notif[3:]:
+    #        notify_admin(f'CCC: comparison FALSE')
 
-    return msg_w_o_notif
+    return tempo
 
 
 def send_single_message(bot, user_id, message_content, message_params, message_type):
