@@ -290,8 +290,8 @@ def check_for_notifs_to_send(conn):
                             FROM
                             notif_by_user
                             WHERE 
-                                (completed IS NULL OR completed IS EMPTY) AND
-                                (cancelled IS NULL OR cancelled IS EMPTY)
+                                completed IS NULL AND
+                                cancelled IS NULL
                             ORDER BY 1
                             LIMIT 1 
                             /*action='check_for_notifs_to_send 2.0' */
