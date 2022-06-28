@@ -26,10 +26,10 @@ fib_list = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987]
 
 
 # for analytics
-search_id_for_analytics = None
-change_type_id = None
-change_type_for_analytics = None
-mailing_id = None
+# search_id_for_analytics = None
+# change_log_id = None
+# change_type_for_analytics = None
+# mailing_id = None
 
 
 def sql_connect():
@@ -1237,7 +1237,7 @@ def iterate_over_all_users_and_updates(conn):
 
         return user_was_already_notified
 
-    def get_from_sql_list_of_already_notified_users(mailing_id_, change_log_id):
+    def get_from_sql_list_of_already_notified_users(mailing_id_, change_log_id_):
         """check in sql if this user was already notified re this change_log record"""
 
         # TODO: OLD script
@@ -1285,7 +1285,7 @@ def iterate_over_all_users_and_updates(conn):
             ;
             """)
 
-        raw_data_new = conn.execute(sql_text_new, a=change_log_id).fetchall()
+        raw_data_new = conn.execute(sql_text_new, a=change_log_id_).fetchall()
         # TODO: to delete
         logging.info("DDD: NEW: were notified:")
         logging.info(raw_data_new)
@@ -1316,10 +1316,11 @@ def iterate_over_all_users_and_updates(conn):
     global coordinates_format
     global stat_list_of_recipients
 
-    global search_id_for_analytics
-    global change_type_id
-    global change_type_for_analytics
-    global mailing_id
+    # TODO: should not be globals
+    # global search_id_for_analytics
+    # global change_log_id
+    # global change_type_for_analytics
+    # global mailing_id
 
     stat_list_of_recipients = []  # still not clear why w/o it – saves data from prev iterations
     number_of_situations_checked = 0
@@ -1340,13 +1341,15 @@ def iterate_over_all_users_and_updates(conn):
 
                 s_lat = new_record.search_latitude
                 s_lon = new_record.search_longitude
+                topic_id = new_record.forum_search_num
                 change_type = new_record.change_type
+                change_log_id = new_record.change_id
 
                 # check if this change_log record was somehow processed
                 sql_text = sqlalchemy.text("""
                                     SELECT EXISTS (SELECT * FROM notif_mailings WHERE change_log_id=:a);
                                     """)
-                this_record_was_processed_already = conn.execute(sql_text, a=new_record.change_id).fetchone()[0]
+                this_record_was_processed_already = conn.execute(sql_text, a=change_log_id).fetchone()[0]
 
                 # TODO: DEBUG
                 if this_record_was_processed_already:
@@ -1360,24 +1363,24 @@ def iterate_over_all_users_and_updates(conn):
                 RETURNING mailing_id;
                 """)
                 raw_data = conn.execute(sql_text,
-                                        a=new_record.forum_search_num,
+                                        a=topic_id,
                                         b='notifications_script',
                                         c=change_type,
-                                        d=new_record.change_id
+                                        d=change_log_id
                                         ).fetchone()
 
-                search_id_for_analytics = new_record.forum_search_num
                 mailing_id = raw_data[0]
-                change_type_for_analytics = change_type
-                change_type_id = new_record.change_id
+                logging.info(f'mailing_id = {mailing_id}')
+                # search_id_for_analytics = new_record.forum_search_num
+                # change_type_for_analytics = change_type
 
-                logging.info(mailing_id)
-
-                users_who_should_not_be_informed = get_from_sql_list_of_already_notified_users(mailing_id, new_record.change_id)
+                users_who_should_not_be_informed = \
+                    get_from_sql_list_of_already_notified_users(mailing_id, change_log_id)
                 logging.info('users_who_should_not_be_informed:')
                 logging.info(users_who_should_not_be_informed)
                 logging.info('in total ' + str(len(users_who_should_not_be_informed)))
 
+                # TODO: do we need this table at all?
                 # record into SQL table notif_mailings_status
                 sql_text = sqlalchemy.text("""
                                     INSERT INTO notif_mailing_status (mailing_id, event, event_timestamp) 
@@ -1511,11 +1514,11 @@ def iterate_over_all_users_and_updates(conn):
                                                                                    message_without_html,
                                                                                    'text',
                                                                                    message_params, msg_group_id,
-                                                                                   change_type_id)
+                                                                                   change_log_id)
 
                                             # record into SQL table notif_by_user_status
                                             write_message_creation_status(conn, message_id, 'created', mailing_id,
-                                                                          change_type_id, user.user_id,
+                                                                          change_log_id, user.user_id,
                                                                           'text')
 
                                             # for user tips in "new search" notifs – to increase sent messages counter
@@ -1534,11 +1537,11 @@ def iterate_over_all_users_and_updates(conn):
                                                                                        None, 'coords',
                                                                                        message_params,
                                                                                        msg_group_id,
-                                                                                       change_type_id)
+                                                                                       change_log_id)
 
                                                 # record into SQL table notif_by_user_status
                                                 write_message_creation_status(conn, message_id, 'created', mailing_id,
-                                                                              change_type_id, user.user_id,
+                                                                              change_log_id, user.user_id,
                                                                               'coords')
 
                                             # save to SQL the sendLocation notification for "coords change"
@@ -1553,11 +1556,11 @@ def iterate_over_all_users_and_updates(conn):
                                                                                        None, 'coords',
                                                                                        message_params,
                                                                                        msg_group_id,
-                                                                                       change_type_id)
+                                                                                       change_log_id)
 
                                                 write_message_creation_status(conn, message_id, 'created',
                                                                               mailing_id,
-                                                                              change_type_id, user.user_id,
+                                                                              change_log_id, user.user_id,
                                                                               'coords')
 
                                             number_of_messages_sent += 1
