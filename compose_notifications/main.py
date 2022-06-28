@@ -217,8 +217,7 @@ class LineInChangeLog:
                  forum_search_num=None,
                  change_type=None,  # it is int from 0 to 99 which represents "change_type" column in change_log
                  changed_field=None,
-                 # changed_field_for_user=None,  # TODO: to be deleted
-                 change_id=None,
+                 change_id=None,  # means change_log_id
                  new_value=None,
                  name=None,
                  link=None,
@@ -1238,9 +1237,10 @@ def iterate_over_all_users_and_updates(conn):
 
         return user_was_already_notified
 
-    def get_from_sql_list_of_already_notified_users(mailing_id_):
+    def get_from_sql_list_of_already_notified_users(mailing_id_, change_log_id):
         """check in sql if this user was already notified re this change_log record"""
 
+        # TODO: OLD script
         sql_text_ = sqlalchemy.text("""
         SELECT s2.*, s3.source_script from (
                 SELECT s1.*, nbu.mailing_id, nbu.user_id, nbu.message_type 
@@ -1266,10 +1266,32 @@ def iterate_over_all_users_and_updates(conn):
 
         raw_data_ = conn.execute(sql_text_, a=mailing_id_).fetchall()
 
-        users_who_was_notified = []
         # TODO: in the future it's needed to be assumed re text - non text and delete duplicated users here
-        logging.info("list of users who was already notified – raw_data_:")
+        # TODO: to delete
+        logging.info("DDD: OLD: were notified:")
         logging.info(raw_data_)
+        # TODO: to delete
+
+        # TODO: NEW SCRIPT
+        sql_text_new = sqlalchemy.text("""
+
+            SELECT user_id 
+            FROM notif_by_user 
+            WHERE 
+                completed IS NOT NULL AND
+                change_log_id=:a
+                    
+            /*action='get_from_sql_list_of_already_notified_users 2.0'*/
+            ;
+            """)
+
+        raw_data_new = conn.execute(sql_text_new, a=change_log_id).fetchall()
+        # TODO: to delete
+        logging.info("DDD: NEW: were notified:")
+        logging.info(raw_data_new)
+        # TODO: to delete
+
+        users_who_was_notified = []
         for line in raw_data_:
             users_who_was_notified.append(line[2])
 
@@ -1351,7 +1373,7 @@ def iterate_over_all_users_and_updates(conn):
 
                 logging.info(mailing_id)
 
-                users_who_should_not_be_informed = get_from_sql_list_of_already_notified_users(mailing_id)
+                users_who_should_not_be_informed = get_from_sql_list_of_already_notified_users(mailing_id, new_record.change_id)
                 logging.info('users_who_should_not_be_informed:')
                 logging.info(users_who_should_not_be_informed)
                 logging.info('in total ' + str(len(users_who_should_not_be_informed)))
