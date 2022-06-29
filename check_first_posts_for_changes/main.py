@@ -343,7 +343,7 @@ def update_user_regional_settings_for_moscow(number_of_lines_to_update):
             WHERE (u.status IS NULL or u.status != 'blocked') AND u.user_id IS NOT NULL 
             GROUP BY 1 
             HAVING count(urp.forum_folder_num) = 0  
-            order by 1 desc limit 1000
+            ORDER by 1 desc limit 1000
             /*action='update_user_regional_settings_for_moscow'*/
             ;
             """).fetchall()
