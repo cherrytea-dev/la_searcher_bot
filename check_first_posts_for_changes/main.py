@@ -822,9 +822,9 @@ def main(event, context): # noqa
     update_first_posts(percent_of_first_posts_to_check)
 
     # TEMP BLOCK – is used only for batch updates of user regional settings
-    number_of_users_to_update = 100
+    # number_of_users_to_update = 100
     # update_user_regional_settings(number_of_users_to_update)
-    update_user_regional_settings_for_moscow(number_of_users_to_update)
+    # update_user_regional_settings_for_moscow(number_of_users_to_update)
 
     if bad_gateway_counter > 3:
         publish_to_pubsub('topic_notify_admin', '[che_posts]: Bad Gateway > 3')
