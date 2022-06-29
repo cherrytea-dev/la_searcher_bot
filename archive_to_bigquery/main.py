@@ -18,7 +18,8 @@ def main(event, context): # noqa
         """
 
     query_initial_rows_bq = client.query(query)
-    logging.info(f'initial rows in BQ: {query_initial_rows_bq}')
+    result = query_initial_rows_bq.result()
+    logging.info(f'initial rows in BQ: {result}')
 
     # 2. Get the initial row count of cloud sql table
     query = """
@@ -47,7 +48,7 @@ def main(event, context): # noqa
                 """
 
     query_move = client.query(query)
-    logging.info(f'move from cloud sql to bq: {query_move}')
+    logging.info(f'move from cloud sql to bq: {query_move.num_dml_affected_rows}')
 
     # 4. Validate that there are no doubling message_ids in the final bq table
     query = """
