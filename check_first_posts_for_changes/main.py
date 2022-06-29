@@ -329,6 +329,62 @@ def update_user_regional_settings(number_of_lines_to_update):
     return None
 
 
+def update_user_regional_settings_for_moscow(number_of_lines_to_update):
+    """temp function to add moscow folders to all who have zero regions"""
+
+    pool = sql_connect()
+    with pool.connect() as conn:
+
+        try:
+            list_of_users = conn.execute("""
+            select u.user_id from users AS u 
+            LEFT JOIN user_regional_preferences AS urp 
+            ON u.user_id=urp.user_id 
+            WHERE (u.status IS NULL or u.status != 'blocked') AND u.user_id IS NOT NULL 
+            GROUP BY 1 
+            HAVING count(urp.forum_folder_num) = 0  
+            order by 1 desc limit 1000;
+            /*action='update_user_regional_settings_for_moscow'*/
+            ;
+            """).fetchall()
+
+            logging.info(f'EEE: we identified {len(list_of_users)} users without any region')
+
+            final_table = []
+            for line in list_of_users:
+                temp_line = line[0]
+                final_table.append(temp_line)
+                if len(final_table) > number_of_lines_to_update:
+                    break
+
+            if len(final_table) > 0:
+                for i in range(number_of_lines_to_update):
+
+                    sql_text = sqlalchemy.text("""
+                    INSERT INTO user_regional_preferences (user_id, forum_folder_num) 
+                    VALUES (:a, :b);
+                    """)
+                    conn.execute(sql_text, a=final_table[i], b=276)
+                    logging.info(f'EEE: A folder=276 was added to user={final_table[i]}')
+
+                    sql_text = sqlalchemy.text("""
+                    INSERT INTO user_regional_preferences (user_id, forum_folder_num) 
+                    VALUES (:a, :b);
+                    """)
+                    conn.execute(sql_text, a=final_table[i], b=41)
+
+                    logging.info(f'EEE: A folder=276 was added to user={final_table[i]}')
+
+        except Exception as e:
+            logging.info('exception in update_user_regional_settings')
+            logging.exception(e)
+
+        conn.close()
+    pool.dispose()
+
+    return None
+
+
 def parse_search(search_num):
     """parse the whole search page"""
 
@@ -655,7 +711,7 @@ def update_first_posts(percent_of_searches):
 
                             last_hash = raw_data[0]
                             prev_number_of_checks = raw_data[1]
-                            last_content = raw_data[2]
+                            # last_content = raw_data[2]
 
                             if not prev_number_of_checks:
                                 prev_number_of_checks = 1
@@ -675,16 +731,17 @@ def update_first_posts(percent_of_searches):
                                 (search_id, timestamp, actual, content_hash, content, num_of_checks) 
                                 VALUES (:a, :b, TRUE, :c, :d, :e);
                                 """)
-                                conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=act_hash, d=act_content, e=1)
+                                conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=act_hash,
+                                             d=act_content, e=1)
 
                                 # add the search into the list of searches to be sent to pub/sub
                                 list_of_searches_with_updated_first_posts.append(search_id)
 
                                 # TODO: delete after DEBUG
-                                if last_content and act_content:
-                                    delta = get_the_diff_between_strings(last_content, act_content)
-                                    # publish_to_pubsub('topic_notify_admin',
-                                    #                   f'[che_posts]: {search_id} 1st POST UPD:\n{delta}')
+                                # if last_content and act_content:
+                                #    delta = get_the_diff_between_strings(last_content, act_content)
+                                # publish_to_pubsub('topic_notify_admin',
+                                #                   f'[che_posts]: {search_id} 1st POST UPD:\n{delta}')
 
                             # if record for this search – actual
                             else:
@@ -765,8 +822,9 @@ def main(event, context): # noqa
     update_first_posts(percent_of_first_posts_to_check)
 
     # TEMP BLOCK – is used only for batch updates of user regional settings
-    # number_of_users_to_update = 2
+    number_of_users_to_update = 2
     # update_user_regional_settings(number_of_users_to_update)
+    update_user_regional_settings_for_moscow(number_of_users_to_update)
 
     if bad_gateway_counter > 3:
         publish_to_pubsub('topic_notify_admin', '[che_posts]: Bad Gateway > 3')
