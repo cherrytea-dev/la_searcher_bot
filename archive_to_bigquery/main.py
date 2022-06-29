@@ -12,7 +12,7 @@ def main(event, context): # noqa
     # 1. Get the initial row count of bq table
     query = """
         SELECT
-            count(*)
+            count(*) AS count
         FROM 
             notif_archive.notif_by_user__archive
         """
@@ -23,7 +23,13 @@ def main(event, context): # noqa
     # logging.info(f'[0][0] initial rows in BQ: {result[0][0]}')
 
     for row in query_initial_rows_bq:
-        logging.info(f'(row) initial rows in BQ: {row}')
+        logging.info(f'(row) initial rows in BQ: {row.count}')
+
+    try:
+        logging.info(f'(row) initial rows in BQ: {query_initial_rows_bq[0].count}')
+    except Exception as e:
+        logging.info('doh')
+        logging.exception(e)
 
     # 2. Get the initial row count of cloud sql table
     query = """
