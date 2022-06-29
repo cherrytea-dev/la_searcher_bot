@@ -18,9 +18,9 @@ def main(event, context): # noqa
         """
 
     query_initial_rows_bq = client.query(query)
-    result = query_initial_rows_bq.result()
-    logging.info(f'[0] initial rows in BQ: {result[0]}')
-    logging.info(f'[0][0] initial rows in BQ: {result[0][0]}')
+    # result = query_initial_rows_bq.result()
+    # logging.info(f'[0] initial rows in BQ: {result[0]}')
+    # logging.info(f'[0][0] initial rows in BQ: {result[0][0]}')
 
     for row in query_initial_rows_bq:
         logging.info(f'(row) initial rows in BQ: {row}')
