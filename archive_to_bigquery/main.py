@@ -19,7 +19,11 @@ def main(event, context): # noqa
 
     query_initial_rows_bq = client.query(query)
     result = query_initial_rows_bq.result()
-    logging.info(f'initial rows in BQ: {result}')
+    logging.info(f'[0] initial rows in BQ: {result[0]}')
+    logging.info(f'[0][0] initial rows in BQ: {result[0][0]}')
+
+    for row in query_initial_rows_bq:
+        logging.info(f'(row) initial rows in BQ: {row}')
 
     # 2. Get the initial row count of cloud sql table
     query = """
