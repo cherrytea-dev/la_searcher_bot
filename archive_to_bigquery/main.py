@@ -49,6 +49,7 @@ def main(event, context): # noqa
             '''
 
     query_move = client.query(query)
+    result = query_move.result()
     logging.info(f'move from cloud sql to bq: {query_move.num_dml_affected_rows}')
 
     # 4. Validate that there are no doubling message_ids in the final bq table
