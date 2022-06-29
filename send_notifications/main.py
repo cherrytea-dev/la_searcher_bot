@@ -364,8 +364,7 @@ def main_func(event, context):  # noqa
     if analytics_notif_times:
         len_n = len(analytics_notif_times)
         average = sum(analytics_notif_times) / len_n
-        message = f'[send_notifs] Analytics: num of messages {len_n}, average time {round(average, 2)} seconds, ' \
-                  f'total time {round(sum(analytics_notif_times), 1)} seconds'
+        message = f'[send_notifs] {len_n} x {round(average, 2)} = {round(sum(analytics_notif_times), 1)} sec'
         notify_admin(message)
         logging.info(message)
 
