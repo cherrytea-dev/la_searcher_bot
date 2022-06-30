@@ -649,31 +649,40 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
     print(f'FFF: we started checking the topic {topic_id}')
     # get the Title out of page content (intentionally avoid BS4 to make pack slimmer)
     pre_title = re.search(r'<h2 class="topic-title"><a href=.{1,500}</a>', act_content)
+    print(f'FFF: {topic_id}: pre_title1: {pre_title}')
     pre_title = pre_title.group() if pre_title else None
+    print(f'FFF: {topic_id}: pre_title2: {pre_title}')
     pre_title = re.search(r'">.{1,500}</a>', pre_title[32:]) if pre_title else None
+    print(f'FFF: {topic_id}: pre_title2: {pre_title}')
     title = pre_title.group()[2:-4] if pre_title else None
+    print(f'FFF: {topic_id}: title: {title}')
     status = None
     if title:
         missed = re.search(r'(?i).{0,10}пропал.*', title) if title else None
+        print(f'FFF: {topic_id}: missed1: {missed}')
         if missed:
             status = 'Ищем'
         else:
             missed = re.search(r'(?i).{0,10}(?:найден|).{0,5}жив', title)
+            print(f'FFF: {topic_id}: missed2: {missed}')
             if missed:
                 status = 'НЖ'
             else:
                 missed = re.search(r'(?i).{0,10}(?:найден|).{0,5}пог', title)
+                print(f'FFF: {topic_id}: missed3: {missed}')
                 if missed:
                     status = 'НП'
                 else:
                     missed = re.search(r'(?i).{0,10}заверш.н', title)
+                    print(f'FFF: {topic_id}: missed4: {missed}')
                     if missed:
                         status = 'Завершен'
 
     print(f'FFF: we finished checking the topic {topic_id}, status is {status}')
 
     if status in {'НЖ', 'НП', 'Завершен'}:
-        publish_to_pubsub('topic_for_topic_management', {'topic_id': topic_id, 'status': status})
+        # publish_to_pubsub('topic_for_topic_management', {'topic_id': topic_id, 'status': status})
+        print(f'FFF: {topic_id}: status: {status}')
 
     return None
 
