@@ -106,8 +106,8 @@ def main(event, context): # noqa
 
         query_delete = client.query(query)
         result = query_delete.result()  # noqa
-        deleted_lines = query_delete.num_dml_affected_rows
-        logging.info(f'delete from cloud sql: {deleted_lines}')
+        # deleted_lines = query_delete.num_dml_affected_row
+        logging.info(f'deletion from cloud sql executed')
     else:
         logging.info('validations for deletion failed')
 
