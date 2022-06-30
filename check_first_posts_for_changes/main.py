@@ -647,6 +647,7 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
     """block to check if Status of the search has changed – if so send a pub/sub to topic_management"""
 
     print(f'FFF: we started checking the topic {topic_id}')
+    print(f'FFF: {topic_id} act_content: {act_content}')
     # get the Title out of page content (intentionally avoid BS4 to make pack slimmer)
     pre_title = re.search(r'<h2 class="topic-title"><a href=.{1,500}</a>', act_content)
     print(f'FFF: {topic_id}: pre_title1: {pre_title}')
