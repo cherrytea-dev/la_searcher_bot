@@ -148,20 +148,17 @@ def save_status_for_topic(topic_id, status):
             # 'НП' – search finished, found dead
             # etc.
 
-            if 1 == 0:
-                # update status in change_log table
-                stmt = sqlalchemy.text(
-                    """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters, 
-                    change_type) values (:a, :b, :c, :d, :e, :f); """)
-                conn.execute(stmt, a=datetime.datetime.now(), b=topic_id, c='status_change', d=status, e='', f=1)
+            # update status in change_log table
+            stmt = sqlalchemy.text(
+                """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters, 
+                change_type) values (:a, :b, :c, :d, :e, :f); """)
+            conn.execute(stmt, a=datetime.datetime.now(), b=topic_id, c='status_change', d=status, e='', f=1)
 
-                # update status in searches table
-                stmt = sqlalchemy.text("""UPDATE searches SET status_short=:a WHERE search_forum_num=:b;""")
-                conn.execute(stmt, a=status, b=topic_id)
+            # update status in searches table
+            stmt = sqlalchemy.text("""UPDATE searches SET status_short=:a WHERE search_forum_num=:b;""")
+            conn.execute(stmt, a=status, b=topic_id)
 
-                logging.info(f'Status is set={status} for topic_id={topic_id}')
-            else:
-                notify_admin(f'WE FAKED STATUS UPDATE: topic_id={topic_id}, status={status}')
+            logging.info(f'Status is set={status} for topic_id={topic_id}')
 
     except Exception as e:
         logging.exception(e)
