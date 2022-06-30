@@ -442,7 +442,6 @@ def parse_first_post(search_num):
 
         if not bad_gateway and not not_found:
 
-            print(f'FFF: before the check of status of a topic {search_num}')
             get_status_from_content_and_send_to_topic_management(search_num, content)
 
             # cut the wording of the first post
@@ -649,48 +648,35 @@ def get_the_diff_between_strings(string_1, string_2):
 def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
     """block to check if Status of the search has changed – if so send a pub/sub to topic_management"""
 
-    print(f'FFF: we started checking the topic {topic_id}')
-    print(f'FFF: {topic_id} act_content init: {act_content}')
-    try:
-        print(f'FFF: {topic_id} act_content decode: {act_content.decode("UTF-8")}')
-    except:
-        pass
     # get the Title out of page content (intentionally avoid BS4 to make pack slimmer)
     pre_title = re.search(r'<h2 class="topic-title"><a href=.{1,500}</a>', act_content)
-    print(f'FFF: {topic_id}: pre_title1: {pre_title}')
     pre_title = pre_title.group() if pre_title else None
-    print(f'FFF: {topic_id}: pre_title2: {pre_title}')
     pre_title = re.search(r'">.{1,500}</a>', pre_title[32:]) if pre_title else None
-    print(f'FFF: {topic_id}: pre_title2: {pre_title}')
     title = pre_title.group()[2:-4] if pre_title else None
     print(f'FFF: {topic_id}: title: {title}')
     status = None
     if title:
         missed = re.search(r'(?i).{0,10}пропал.*', title) if title else None
-        print(f'FFF: {topic_id}: missed1: {missed}')
         if missed:
             status = 'Ищем'
         else:
             missed = re.search(r'(?i).{0,10}(?:найден|).{0,5}жив', title)
-            print(f'FFF: {topic_id}: missed2: {missed}')
             if missed:
                 status = 'НЖ'
             else:
                 missed = re.search(r'(?i).{0,10}(?:найден|).{0,5}пог', title)
-                print(f'FFF: {topic_id}: missed3: {missed}')
                 if missed:
                     status = 'НП'
                 else:
                     missed = re.search(r'(?i).{0,10}заверш.н', title)
-                    print(f'FFF: {topic_id}: missed4: {missed}')
                     if missed:
                         status = 'Завершен'
 
     print(f'FFF: we finished checking the topic {topic_id}, status is {status}')
 
     if status in {'НЖ', 'НП', 'Завершен'}:
-        # publish_to_pubsub('topic_for_topic_management', {'topic_id': topic_id, 'status': status})
-        print(f'FFF: {topic_id}: status: {status}')
+        publish_to_pubsub('topic_for_topic_management', {'topic_id': topic_id, 'status': status})
+        logging.info(f'pub/sub message for topic_management triggered: topic_id: {topic_id}, status: {status}}')
 
     return None
 
@@ -716,11 +702,9 @@ def update_first_posts(percent_of_searches):
 
                     search_id = line[0]
                     act_hash, act_content, bad_gateway_trigger, not_found_trigger = parse_first_post(search_id)
-                    print(f'FFF: we just chose the topic_id = {search_id}')
 
                     if not bad_gateway_trigger and not not_found_trigger:
 
-                        print(f'FFF: we are in the main IF for topic_id = {search_id}')
                         # check the latest hash
                         stmt = sqlalchemy.text("""
                         SELECT content_hash, num_of_checks, content from search_first_posts WHERE search_id=:a 
