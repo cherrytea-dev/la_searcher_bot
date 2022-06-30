@@ -173,6 +173,8 @@ def main(event, context):  # noqa
 
             else:
 
+                publish_to_pubsub('topic_to_archive_to_bigquery', 'go')
+
                 logging.info('nothing to migrate in notif_by_user_status')
 
         conn.close()
