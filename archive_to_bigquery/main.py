@@ -95,13 +95,13 @@ def main(event, context): # noqa
     validation_on_psql_lines = init_psql_count - moved_lines
 
     # 6. Delete data from cloud sql
-    if validation_on_doubles == 0 and validation_on_bq_lines == 0: # and validation_on_psql_lines:
+    if validation_on_doubles == 0 and validation_on_bq_lines == 0:  # and validation_on_psql_lines:
         logging.info('validations for deletion passed')
         query = '''
                 SELECT *
                 FROM
                     EXTERNAL_QUERY("projects/lizaalert-bot-01/locations/europe-west3/connections/bq_to_cloud_sql",
-                    """DELETE FROM notif_by_user__history WHERE message_id > 0 LIMIT 100;""")
+                    """DELETE FROM notif_by_user__history WHERE message_id > 0;""")
                 '''
 
         query_delete = client.query(query)
@@ -121,7 +121,7 @@ def main(event, context): # noqa
             '''
 
     query_resulting_rows_psql = client.query(query)
-    new_psql_count = 0
+    new_psql_count = 0 # noqa
     for row in query_resulting_rows_psql:
         new_psql_count = row.count
         logging.info(f'resulting rows in psql: {new_psql_count}')
