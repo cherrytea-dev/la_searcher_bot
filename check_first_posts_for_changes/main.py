@@ -643,9 +643,10 @@ def get_the_diff_between_strings(string_1, string_2):
     return output_message
 
 
-def get_status_from_content_and_send_to_topic_management(act_content):
+def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
     """block to check if Status of the search has changed – if so send a pub/sub to topic_management"""
 
+    print(f'FFF: we started checking the topic {topic_id}')
     # get the Title out of page content (intentionally avoid BS4 to make pack slimmer)
     pre_title = re.search(r'<h2 class="topic-title"><a href=.{1,500}</a>', act_content)
     pre_title = pre_title.group() if pre_title else None
@@ -669,8 +670,10 @@ def get_status_from_content_and_send_to_topic_management(act_content):
                     if missed:
                         status = 'Завершен'
 
+    print(f'FFF: we finished checking the topic {topic_id}, status is {status}')
+
     if status in {'НЖ', 'НП', 'Завершен'}:
-        publish_to_pubsub('topic_for_topic_management', {'status': status})
+        publish_to_pubsub('topic_for_topic_management', {'topic_id': topic_id, 'status': status})
 
     return None
 
@@ -696,9 +699,11 @@ def update_first_posts(percent_of_searches):
 
                     search_id = line[0]
                     act_hash, act_content, bad_gateway_trigger, not_found_trigger = parse_first_post(search_id)
+                    print(f'FFF: we just chose the topic_id = {search_id}')
 
                     if not bad_gateway_trigger and not not_found_trigger:
 
+                        print(f'FFF: we are in the main IF for topic_id = {search_id}')
                         # check the latest hash
                         stmt = sqlalchemy.text("""
                         SELECT content_hash, num_of_checks, content from search_first_posts WHERE search_id=:a 
@@ -759,8 +764,9 @@ def update_first_posts(percent_of_searches):
 
                             # As far as we do have the content for previously-parsed searches –
                             # then it's an opportunity to update the status
+                            print(f'FFF: before the check of status of a topic {search_id}')
                             if act_content:
-                                get_status_from_content_and_send_to_topic_management(act_content)
+                                get_status_from_content_and_send_to_topic_management(search_id, act_content)
 
                         # if record for this search – does not exist – add a new record
                         else:
