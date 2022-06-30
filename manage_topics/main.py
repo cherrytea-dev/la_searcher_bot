@@ -80,10 +80,10 @@ def sql_connect():
     db_socket_dir = "/cloudsql"
 
     db_config = {
-        "pool_size": 20,
+        "pool_size": 5,
         "max_overflow": 0,
-        "pool_timeout": 10,  # seconds
-        "pool_recycle": 0,  # seconds
+        "pool_timeout": 0,  # seconds
+        "pool_recycle": 5,  # seconds
     }
 
     pool = sqlalchemy.create_engine(
@@ -109,7 +109,8 @@ def save_visibility_for_topic(topic_id, visibility):
     """save in SQL if topic was deleted, hidden or unhidden"""
 
     try:
-        with sql_connect().connect() as conn:
+        pool = sql_connect()
+        with pool.connect() as conn:
 
             # MEMO: visibility can be only:
             # 'deleted' – topic is permanently deleted
@@ -129,6 +130,8 @@ def save_visibility_for_topic(topic_id, visibility):
                 logging.info(f'Visibility is set={visibility} for topic_id={topic_id}')
             else:
                 notify_admin(f'WE FAKED VISIBILITY UPDATE: topic_id={topic_id}, visibility={visibility}')
+            conn.close()
+        pool.dispose()
 
     except Exception as e:
         logging.exception(e)
@@ -140,7 +143,8 @@ def save_status_for_topic(topic_id, status):
     """save in SQL if topic' status was updated: active search, search finished etc."""
 
     try:
-        with sql_connect().connect() as conn:
+        pool = sql_connect()
+        with pool.connect() as conn:
 
             # MEMO: status can be:
             # 'Ищем' – active search
@@ -159,6 +163,9 @@ def save_status_for_topic(topic_id, status):
             conn.execute(stmt, a=status, b=topic_id)
 
             logging.info(f'Status is set={status} for topic_id={topic_id}')
+
+            conn.close()
+        pool.dispose()
 
     except Exception as e:
         logging.exception(e)

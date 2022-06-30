@@ -1,8 +1,60 @@
 """move data from Cloud SQL to BigQuery for long-term storage & analysis"""
 
+import os
 import logging
-from google.cloud import bigquery
 
+import sqlalchemy
+
+from google.cloud import bigquery
+from google.cloud import secretmanager
+
+project_id = os.environ["GCP_PROJECT"]
+
+
+def get_secrets(secret_request):
+    """get secret from GCP Secret Manager"""
+
+    name = f"projects/{project_id}/secrets/{secret_request}/versions/latest"
+    client = secretmanager.SecretManagerServiceClient()
+
+    response = client.access_secret_version(name=name)
+
+    return response.payload.data.decode("UTF-8")
+
+
+def sql_connect():
+    """connect to PSQL in GCP"""
+
+    db_user = get_secrets("cloud-postgres-username")
+    db_pass = get_secrets("cloud-postgres-password")
+    db_name = get_secrets("cloud-postgres-db-name")
+    db_conn = get_secrets("cloud-postgres-connection-name")
+    db_socket_dir = "/cloudsql"
+
+    db_config = {
+        "pool_size": 5,
+        "max_overflow": 0,
+        "pool_timeout": 0,  # seconds
+        "pool_recycle": 5,  # seconds
+    }
+
+    pool = sqlalchemy.create_engine(
+        sqlalchemy.engine.url.URL(
+            "postgresql+pg8000",
+            username=db_user,
+            password=db_pass,
+            database=db_name,
+            query={
+                "unix_sock": "{}/{}/.s.PGSQL.5432".format(
+                    db_socket_dir,
+                    db_conn)
+            }
+        ),
+        **db_config
+    )
+    pool.dialect.description_encoding = None
+
+    return pool
 
 def main(event, context): # noqa
     """main function"""
@@ -97,16 +149,16 @@ def main(event, context): # noqa
     # 6. Delete data from cloud sql
     if validation_on_doubles == 0 and validation_on_bq_lines == 0:  # and validation_on_psql_lines:
         logging.info('validations for deletion passed')
-        query = '''
-                SELECT *
-                FROM
-                    EXTERNAL_QUERY("projects/lizaalert-bot-01/locations/europe-west3/connections/bq_to_cloud_sql",
-                    """DELETE FROM notif_by_user__history WHERE message_id > 0;""")
-                '''
 
-        query_delete = client.query(query)
-        result = query_delete.result()  # noqa
-        # deleted_lines = query_delete.num_dml_affected_row
+        pool = sql_connect()
+        conn = pool.connect()
+
+        stmt = sqlalchemy.text("""DELETE FROM notif_by_user__history WHERE message_id > 0 LIMIT 100;""")
+        conn.execute(stmt)
+
+        conn.close()
+        pool.dispose()
+
         logging.info(f'deletion from cloud sql executed')
     else:
         logging.info('validations for deletion failed')
