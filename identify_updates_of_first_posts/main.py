@@ -679,7 +679,8 @@ def main(event, context):  # noqa
 
     if list_of_updated_searches:
 
-        with sql_connect().connect() as conn:
+        pool = sql_connect()
+        with pool.connect() as conn:
 
             try:
 
@@ -772,7 +773,8 @@ def main(event, context):  # noqa
                 logging.info('exception in main function')
                 logging.exception(e)
 
-    # Close the open session
+            conn.close()
+        pool.dispose()
     requests_session.close()
 
     return None

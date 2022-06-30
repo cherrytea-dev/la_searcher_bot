@@ -442,6 +442,9 @@ def parse_first_post(search_num):
 
         if not bad_gateway and not not_found:
 
+            print(f'FFF: before the check of status of a topic {search_num}')
+            get_status_from_content_and_send_to_topic_management(search_num, content)
+
             # cut the wording of the first post
             start = content.find('<div class="content">')
             content = content[(start + 21):]
@@ -483,7 +486,7 @@ def parse_first_post(search_num):
             # craft a hash for this content
             hash_num = hashlib.md5(content.encode()).hexdigest()
 
-    return hash_num, content, bad_gateway, not_found
+    return hash_num, content, bad_gateway, not_found, title
 
 
 def get_list_of_searches_for_first_post_update(percent_of_searches):
@@ -712,7 +715,7 @@ def update_first_posts(percent_of_searches):
                 for line in list_of_searches:
 
                     search_id = line[0]
-                    act_hash, act_content, bad_gateway_trigger, not_found_trigger = parse_first_post(search_id)
+                    act_hash, act_content, bad_gateway_trigger, not_found_trigger, title = parse_first_post(search_id)
                     print(f'FFF: we just chose the topic_id = {search_id}')
 
                     if not bad_gateway_trigger and not not_found_trigger:
@@ -778,9 +781,9 @@ def update_first_posts(percent_of_searches):
 
                             # As far as we do have the content for previously-parsed searches –
                             # then it's an opportunity to update the status
-                            print(f'FFF: before the check of status of a topic {search_id}')
-                            if act_content:
-                                get_status_from_content_and_send_to_topic_management(search_id, act_content)
+
+                            # if act_content:
+                            #     get_status_from_content_and_send_to_topic_management(search_id, act_content)
 
                         # if record for this search – does not exist – add a new record
                         else:
