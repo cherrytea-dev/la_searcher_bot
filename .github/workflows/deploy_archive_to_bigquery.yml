@@ -37,4 +37,4 @@ jobs:
             # memory_mb: 8192 # UPD HERE!
             event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
             event_trigger_resource: projects/lizaalert-bot-01/topics/topic_to_archive_to_bigquery # UPD HERE! topic
-            service_account_email: connect-to-bigquery@lizaalert-bot-01.iam.gserviceaccount.com # SPECIAL CASE
+            # service_account_email: connect-to-bigquery@lizaalert-bot-01.iam.gserviceaccount.com # SPECIAL CASE

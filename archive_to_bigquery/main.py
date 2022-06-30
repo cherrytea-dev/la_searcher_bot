@@ -153,7 +153,7 @@ def main(event, context): # noqa
         pool = sql_connect()
         conn = pool.connect()
 
-        stmt = sqlalchemy.text("""DELETE FROM notif_by_user__history WHERE message_id > 0 LIMIT 100;""")
+        stmt = sqlalchemy.text("""DELETE FROM notif_by_user__history;""")
         conn.execute(stmt)
 
         conn.close()
