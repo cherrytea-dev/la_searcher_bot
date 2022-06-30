@@ -94,13 +94,14 @@ def notify_admin(message):
     return None
 
 
-def check_if_search_is_deleted_or_hidden(search_num):
+def check_topic_visibility(search_num):
     """check is the existing search was deleted or hidden"""
 
     global bad_gateway_counter
 
     deleted_trigger = None
     hidden_trigger = None
+    visibility = 'regular'
     bad_gateway = False
 
     content = parse_search(search_num)
@@ -116,25 +117,22 @@ def check_if_search_is_deleted_or_hidden(search_num):
 
             if content.find('Запрошенной темы не существует.') > -1:
                 deleted_trigger = True
+                visibility = 'deleted'
             # case when there's an error shown at the screen - it is shown on a white background
-            elif content.find('<body bgcolor="white">') > -1:
-                deleted_trigger = True
+            # elif content.find('<body bgcolor="white">') > -1:
+            #    deleted_trigger = True
             else:
                 deleted_trigger = False
 
             if content.find('Для просмотра этого форума вы должны быть авторизованы') > -1:
                 hidden_trigger = True
+                visibility = 'hidden'
             else:
                 hidden_trigger = False
 
-            if deleted_trigger:
-                logging.info(f'search {search_num} is Deleted')
-            elif hidden_trigger:
-                logging.info(f'search {search_num} is Hidden')
-            else:
-                logging.info(f'search {search_num} is ok')
+            logging.info(f'search {search_num} is {visibility}')
 
-    return deleted_trigger, hidden_trigger, bad_gateway
+    return deleted_trigger, hidden_trigger, bad_gateway, visibility
 
 
 def update_one_topic_visibility(search_id):
@@ -144,18 +142,11 @@ def update_one_topic_visibility(search_id):
     global trigger_if_switched_to_proxy
     global requests_session
 
-    del_trig, hid_trig, bad_gateway_trigger = check_if_search_is_deleted_or_hidden(search_id)
+    del_trig, hid_trig, bad_gateway_trigger, visibility = check_topic_visibility(search_id)
 
-    logging.info('{}: del_trig = {}, hid_trig = {}'.format(search_id, str(del_trig), str(hid_trig)))
+    logging.info(f'{search_id}: del_trig = {del_trig}, hid_trig = {hid_trig}, visibility = {visibility}')
 
     if not bad_gateway_trigger:
-        if del_trig or hid_trig:
-            if del_trig:
-                set_visibility = 'deleted'
-            else:
-                set_visibility = 'hidden'
-        else:
-            set_visibility = 'ok'
 
         pool = sql_connect()
         with pool.connect() as conn:
@@ -166,9 +157,9 @@ def update_one_topic_visibility(search_id):
 
                 stmt = sqlalchemy.text("""INSERT INTO search_health_check (search_forum_num, timestamp, status) 
                                     VALUES (:a, :b, :c);""")
-                conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=set_visibility)
+                conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=visibility)
 
-                logging.info('psql updated for {} status is set {}'.format(search_id, set_visibility))
+                logging.info('psql updated for {} status is set {}'.format(search_id, visibility))
                 logging.info('---------------')
 
             except Exception as e:
@@ -176,8 +167,11 @@ def update_one_topic_visibility(search_id):
                 logging.exception(e)
 
             conn.close()
-
         pool.dispose()
+
+        # TODO: still an experiment
+        publish_to_pubsub('topic_for_topic_management', {'topic_id': search_id, 'visibility': visibility})
+        logging.info(f'pub/sub message for topic_management triggered: topic_id: {search_id}, visibility: {visibility}')
 
     else:
         bad_gateway_counter += 1
@@ -225,7 +219,7 @@ def get_and_update_list_of_active_searches(number_of_searches):
             # then we add not-new lines that are not deleted
             for line in full_list_of_active_searches:
                 search = list(line)
-                if search[3] and search[3] != 'deleted':  # and search[3] != 'hidden':
+                if search[3]:  # and search[3] != 'deleted':  # and search[3] != 'hidden':
                     cleared_list_of_active_searches.append(search)
                     if len(cleared_list_of_active_searches) >= number_of_searches:
                         break
@@ -820,8 +814,8 @@ def update_first_posts(percent_of_searches):
 def main(event, context): # noqa
     """main function"""
 
-    # BLOCK 1. for checking if there are deleted or hidden searches within active ones
-    number_of_checked_searches = 20
+    # BLOCK 1. for checking visibility (deleted or hidden) and status (Ищем, НЖ, НП) of active searches
+    number_of_checked_searches = 50
     get_and_update_list_of_active_searches(number_of_checked_searches)
 
     # BLOCK 2. for checking in first posts were changes

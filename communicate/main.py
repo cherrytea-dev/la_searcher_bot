@@ -222,7 +222,7 @@ def compose_msg_on_all_last_searches(conn_psy, cur, region):
         search_start_time, num_of_replies, family_name, age, id, forum_folder_id FROM searches WHERE
         forum_folder_id=%s ORDER BY search_start_time DESC LIMIT 20) s2 LEFT JOIN
         search_health_check shc ON s2.search_forum_num=shc.search_forum_num
-        WHERE (shc.status is NULL or shc.status='ok')
+        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular')
         ORDER BY s2.search_start_time DESC;""", (region,)
     )
     # conn_psy.commit()
@@ -267,7 +267,8 @@ def compose_msg_on_active_searches_in_one_reg(conn_psy, cur, region, user_data):
         searches s LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id WHERE
         s.status_short='Ищем' AND s.forum_folder_id=%s ORDER BY s.search_start_time DESC) s2 LEFT JOIN
         search_health_check shc ON s2.search_forum_num=shc.search_forum_num
-        WHERE (shc.status is NULL or shc.status='ok') ORDER BY s2.search_start_time DESC;""", (region,)
+        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') ORDER BY s2.search_start_time DESC;""",
+        (region,)
     )
     # conn_psy.commit()
     database = cur.fetchall()
