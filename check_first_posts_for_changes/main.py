@@ -170,8 +170,8 @@ def update_one_topic_visibility(search_id):
         pool.dispose()
 
         # TODO: still an experiment
-        publish_to_pubsub('topic_for_topic_management', {'topic_id': search_id, 'visibility': visibility})
-        logging.info(f'pub/sub message for topic_management triggered: topic_id: {search_id}, visibility: {visibility}')
+        # publish_to_pubsub('topic_for_topic_management', {'topic_id': search_id, 'visibility': visibility})
+        # logging.info(f'pub/sub message for topic_management triggered: topic_id: {search_id}, visibility: {visibility}')
 
     else:
         bad_gateway_counter += 1
@@ -815,7 +815,7 @@ def main(event, context): # noqa
     """main function"""
 
     # BLOCK 1. for checking visibility (deleted or hidden) and status (Ищем, НЖ, НП) of active searches
-    number_of_checked_searches = 50
+    number_of_checked_searches = 150
     get_and_update_list_of_active_searches(number_of_checked_searches)
 
     # BLOCK 2. for checking in first posts were changes
