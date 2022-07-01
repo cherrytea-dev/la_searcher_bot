@@ -482,7 +482,7 @@ def parse_first_post(search_num):
     return hash_num, content, bad_gateway, not_found
 
 
-def get_list_of_searches_for_first_post_update(percent_of_searches):
+def get_list_of_searches_for_first_post_and_status_update(percent_of_searches):
     """get best list of searches for which first posts should be checked"""
 
     outcome_list = []
@@ -722,7 +722,7 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
     return None
 
 
-def update_first_posts(percent_of_searches):
+def update_first_posts_and_statuses(percent_of_searches):
     """periodically check if the first post of searches"""
 
     global bad_gateway_counter
@@ -730,7 +730,7 @@ def update_first_posts(percent_of_searches):
     global requests_session
 
     list_of_searches_with_updated_first_posts = []
-    list_of_searches = get_list_of_searches_for_first_post_update(percent_of_searches)
+    list_of_searches = get_list_of_searches_for_first_post_and_status_update(percent_of_searches)
 
     if list_of_searches:
 
@@ -845,7 +845,7 @@ def update_first_posts(percent_of_searches):
                             pass
 
             except Exception as e:
-                logging.info('exception in update_first_posts')
+                logging.info('exception in update_first_posts_and_statuses')
                 logging.exception(e)
 
             conn.close()
@@ -866,8 +866,8 @@ def main(event, context): # noqa
     update_visibility_for_list_of_active_searches(number_of_checked_searches)
 
     # BLOCK 2. for checking in first posts were changes
-    percent_of_first_posts_to_check = 2
-    update_first_posts(percent_of_first_posts_to_check)
+    percent_of_first_posts_to_check = 20
+    update_first_posts_and_statuses(percent_of_first_posts_to_check)
 
     # TEMP BLOCK – is used only for batch updates of user regional settings
     # number_of_users_to_update = 100
