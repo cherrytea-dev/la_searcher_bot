@@ -190,7 +190,7 @@ def update_one_topic_visibility(search_id):
     return None
 
 
-def get_and_update_list_of_active_searches(number_of_searches):
+def update_visibility_for_list_of_active_searches(number_of_searches):
     """update the status of all active searches if it was deleted of hidden"""
 
     global bad_gateway_counter
@@ -609,6 +609,8 @@ def get_list_of_searches_for_first_post_update(percent_of_searches):
                 # number 1 – should be the first to check
                 # number ∞ – should be the last to check
                 base_table.sort(key=lambda x: x[9])
+                print('below is base sorted table')
+                logging.info(base_table)
 
                 num_of_searches = round(len(base_table) * percent_of_searches / 100)
 
@@ -621,6 +623,9 @@ def get_list_of_searches_for_first_post_update(percent_of_searches):
 
             conn.close()
         pool.dispose()
+
+        print('below is ourcome list')
+        print(str(outcome_list))
 
     return outcome_list
 
@@ -816,7 +821,7 @@ def main(event, context): # noqa
 
     # BLOCK 1. for checking visibility (deleted or hidden) and status (Ищем, НЖ, НП) of active searches
     number_of_checked_searches = 20
-    get_and_update_list_of_active_searches(number_of_checked_searches)
+    update_visibility_for_list_of_active_searches(number_of_checked_searches)
 
     # BLOCK 2. for checking in first posts were changes
     percent_of_first_posts_to_check = 10
