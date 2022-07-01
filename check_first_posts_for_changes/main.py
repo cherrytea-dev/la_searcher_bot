@@ -815,7 +815,7 @@ def main(event, context): # noqa
     """main function"""
 
     # BLOCK 1. for checking visibility (deleted or hidden) and status (Ищем, НЖ, НП) of active searches
-    number_of_checked_searches = 150
+    number_of_checked_searches = 20
     get_and_update_list_of_active_searches(number_of_checked_searches)
 
     # BLOCK 2. for checking in first posts were changes
