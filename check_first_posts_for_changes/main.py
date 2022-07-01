@@ -219,7 +219,7 @@ def get_and_update_list_of_active_searches(number_of_searches):
             # then we add not-new lines that are not deleted
             for line in full_list_of_active_searches:
                 search = list(line)
-                if search[3]:  # and search[3] != 'deleted':  # and search[3] != 'hidden':
+                if search[3] and search[3] != 'deleted':  # and search[3] != 'hidden':
                     cleared_list_of_active_searches.append(search)
                     if len(cleared_list_of_active_searches) >= number_of_searches:
                         break
