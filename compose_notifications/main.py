@@ -407,7 +407,21 @@ def enrich_new_records_from_searches(conn):
                     # case: when new search's status is already not "Ищем" – to be ignored
                     if r_line.status != 'Ищем' and r_line.change_type == 0:  # "new_search":
                         r_line.ignore = 'y'
+
+                    # TODO: TEMP - TO DELETE!
+                    # TODO: TEMP - TO DELETE!
+                    # TODO: TEMP - TO DELETE!
+                    if r_line.start_time.find('2021') > -1:
+                        notify_admin(f'we found! {r_line.start_time}')
+                        r_line.ignore = 'y'
+                    # TODO: TEMP - TO DELETE!
+                    # TODO: TEMP - TO DELETE!
+                    # TODO: TEMP - TO DELETE!
+
                     break
+
+
+
 
         logging.info('New Records enriched from Searches')
 
