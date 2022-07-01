@@ -426,9 +426,6 @@ def enrich_new_records_from_searches(conn):
 
                     break
 
-
-
-
         logging.info('New Records enriched from Searches')
 
     except Exception as e:
@@ -1154,149 +1151,41 @@ def iterate_over_all_users_and_updates(conn):
 
         return raw_data_[0]
 
-    def get_from_sql_if_was_notified_already(mailing_id_, user_id_, message_type_, change_log_id_):
+    def get_from_sql_if_was_notified_already(user_id_, message_type_, change_log_id_):
         """check in sql if this user was already notified re this change_log record"""
 
         sql_text_ = sqlalchemy.text("""
-        SELECT EXISTS (
-            SELECT s2.*, s3.source_script from (
-                SELECT s1.*, nbu.mailing_id, nbu.user_id, nbu.message_type 
-                FROM (
-                    SELECT message_id from notif_by_user_status 
-                    WHERE event = 'completed'
-                ) as s1 
-                LEFT JOIN notif_by_user nbu 
-                ON s1.message_id=nbu.message_id
-                ) as s2 
-                INNER JOIN (
-                    SELECT mailing_id, source_script 
-                    FROM notif_mailings 
-                    WHERE change_log_id = (
-                        SELECT change_log_id from notif_mailings 
-                        WHERE mailing_id=:a
-                    )
-                ) as s3 
-                ON s2.mailing_id=s3.mailing_id 
-                WHERE s2.user_id=:b AND s2.message_type=:c
-        )
-        /*action='get_from_sql_if_was_notified_already'*/
-        ;
+            SELECT EXISTS (
+                SELECT 
+                    message_id 
+                FROM 
+                    notif_by_user 
+                WHERE 
+                    completed IS NOT NULL AND
+                    user_id=:b AND 
+                    message_type=:c AND
+                    change_log_id=:a
+            )
+            /*action='get_from_sql_if_was_notified_already_new'*/
+            ;
         """)
 
         user_was_already_notified = conn.execute(sql_text_,
-                                                 a=mailing_id_,
+                                                 a=change_log_id_,
                                                  b=user_id_,
                                                  c=message_type_
                                                  ).fetchone()[0]
 
-        # FIXME: EXPERIMENT ZONE!!
-        try:
-            # OLD SCENARIO
-            sql_text_ = sqlalchemy.text("""
-                    
-                        SELECT s2.*, s3.source_script from (
-                            SELECT s1.*, nbu.mailing_id, nbu.user_id, nbu.message_type 
-                            FROM (
-                                SELECT message_id from notif_by_user_status 
-                                WHERE event = 'completed'
-                            ) as s1 
-                            LEFT JOIN notif_by_user nbu 
-                            ON s1.message_id=nbu.message_id
-                            ) as s2 
-                            INNER JOIN (
-                                SELECT mailing_id, source_script 
-                                FROM notif_mailings 
-                                WHERE change_log_id = (
-                                    SELECT change_log_id from notif_mailings 
-                                    WHERE mailing_id=:a
-                                )
-                            ) as s3 
-                            ON s2.mailing_id=s3.mailing_id 
-                            WHERE s2.user_id=:b AND s2.message_type=:c
-                    
-                    /*action='get_from_sql_if_was_notified_already_experiment_old'*/
-                    ;
-                    """)
-
-            old_output = conn.execute(sql_text_,
-                                      a=mailing_id_,
-                                      b=user_id_,
-                                      c=message_type_
-                                      ).fetchone()
-
-            # NEW SCENARIO
-            sql_text_ = sqlalchemy.text("""
- 
-                                    SELECT 
-                                        message_id, mailing_id, user_id, message_type 
-                                    FROM 
-                                        notif_by_user 
-                                    WHERE 
-                                        completed IS NOT NULL AND
-                                        user_id=:b AND 
-                                        message_type=:c AND
-                                        change_log_id=:a
-                                    /*action='get_from_sql_if_was_notified_already_experiment_new'*/
-                                    ;
-                                    """)
-
-            new_output = conn.execute(sql_text_,
-                                      a=change_log_id_,
-                                      b=user_id_,
-                                      c=message_type_
-                                      ).fetchone()
-            print('CCC')
-            print(str(old_output))
-            print(str(new_output))
-            print(old_output == new_output)
-            print('CCC')
-        except Exception as e:
-            print('CCC: exception')
-            logging.exception(e)
-        # FIXME: EXPERIMENT ZONE!!
-
         return user_was_already_notified
 
-    def get_from_sql_list_of_already_notified_users(mailing_id_, change_log_id_):
+    def get_from_sql_list_of_already_notified_users(change_log_id_):
         """check in sql if this user was already notified re this change_log record"""
 
-        # TODO: OLD script
         sql_text_ = sqlalchemy.text("""
-        SELECT s2.*, s3.source_script from (
-                SELECT s1.*, nbu.mailing_id, nbu.user_id, nbu.message_type 
-                FROM (
-                    SELECT message_id from notif_by_user_status 
-                    WHERE event = 'completed'
-                ) as s1 
-                LEFT JOIN notif_by_user nbu 
-                ON s1.message_id=nbu.message_id
-                ) as s2 
-                INNER JOIN (
-                    SELECT mailing_id, source_script 
-                    FROM notif_mailings 
-                    WHERE change_log_id = (
-                        SELECT change_log_id from notif_mailings 
-                        WHERE mailing_id=:a
-                    )
-                ) as s3 
-                ON s2.mailing_id=s3.mailing_id
-        /*action='get_from_sql_list_of_already_notified_users'*/
-        ;
-        """)
-
-        raw_data_ = conn.execute(sql_text_, a=mailing_id_).fetchall()
-
-        # TODO: in the future it's needed to be assumed re text - non text and delete duplicated users here
-        # TODO: to delete
-        logging.info("DDD: OLD: were notified:")
-        logging.info(raw_data_)
-        # TODO: to delete
-
-        # TODO: NEW SCRIPT
-        sql_text_new = sqlalchemy.text("""
-
-            SELECT user_id 
-            FROM notif_by_user 
+            SELECT 
+                user_id 
+            FROM 
+                notif_by_user 
             WHERE 
                 completed IS NOT NULL AND
                 change_log_id=:a
@@ -1305,15 +1194,14 @@ def iterate_over_all_users_and_updates(conn):
             ;
             """)
 
-        raw_data_new = conn.execute(sql_text_new, a=change_log_id_).fetchall()
+        raw_data_ = conn.execute(sql_text_, a=change_log_id_).fetchall()
         # TODO: to delete
         logging.info("DDD: NEW: were notified:")
-        logging.info(raw_data_new)
-        # TODO: to delete
+        logging.info(raw_data_)
 
         users_who_was_notified = []
         for line in raw_data_:
-            users_who_was_notified.append(line[2])
+            users_who_was_notified.append(line[0])
 
         return users_who_was_notified
 
@@ -1395,7 +1283,7 @@ def iterate_over_all_users_and_updates(conn):
                 # change_type_for_analytics = change_type
 
                 users_who_should_not_be_informed = \
-                    get_from_sql_list_of_already_notified_users(mailing_id, change_log_id)
+                    get_from_sql_list_of_already_notified_users(change_log_id)
                 logging.info('users_who_should_not_be_informed:')
                 logging.info(users_who_should_not_be_informed)
                 logging.info('in total ' + str(len(users_who_should_not_be_informed)))
@@ -1510,7 +1398,7 @@ def iterate_over_all_users_and_updates(conn):
                                         this_user_was_notified = False
                                         if this_record_was_processed_already:
                                             this_user_was_notified = get_from_sql_if_was_notified_already(
-                                                mailing_id, user.user_id, 'text', new_record.change_id)
+                                                user.user_id, 'text', new_record.change_id)
 
                                             # logging block
                                             logging.info('this user was notified already {}, {}'.format(
@@ -1536,11 +1424,6 @@ def iterate_over_all_users_and_updates(conn):
                                                                                    message_params, msg_group_id,
                                                                                    change_log_id)
 
-                                            # record into SQL table notif_by_user_status
-                                            write_message_creation_status(conn, message_id, 'created', mailing_id,
-                                                                          change_log_id, user.user_id,
-                                                                          'text')
-
                                             # for user tips in "new search" notifs – to increase sent messages counter
                                             if change_type == 0:  # 'new_search':
                                                 stat_list_of_recipients.append(user.user_id)
@@ -1559,11 +1442,6 @@ def iterate_over_all_users_and_updates(conn):
                                                                                        msg_group_id,
                                                                                        change_log_id)
 
-                                                # record into SQL table notif_by_user_status
-                                                write_message_creation_status(conn, message_id, 'created', mailing_id,
-                                                                              change_log_id, user.user_id,
-                                                                              'coords')
-
                                             # save to SQL the sendLocation notification for "coords change"
                                             if change_type == 7 and s_lat and s_lon \
                                                     and new_record.coords_change_type != 'drop' \
@@ -1577,11 +1455,6 @@ def iterate_over_all_users_and_updates(conn):
                                                                                        message_params,
                                                                                        msg_group_id,
                                                                                        change_log_id)
-
-                                                write_message_creation_status(conn, message_id, 'created',
-                                                                              mailing_id,
-                                                                              change_log_id, user.user_id,
-                                                                              'coords')
 
                                             number_of_messages_sent += 1
 
@@ -1608,42 +1481,6 @@ def generate_yandex_maps_place_link2(lat, lon, param):
     msg = f'<a href="https://yandex.ru/maps/?pt={lon},{lat}&z=11&l=map">{display}</a>'
 
     return msg
-
-
-def write_message_creation_status(conn_, message_id_, result, mailing_id_, change_log_id_, user_id_, message_type_):
-    """write to SQL table notif_by_user_status the status of individual message sent"""
-
-    try:
-        # record into SQL table notif_by_user_status
-        sql_text = sqlalchemy.text("""
-                    INSERT INTO notif_by_user_status (
-                        message_id, 
-                        event, 
-                        event_timestamp,
-                        mailing_id,
-                        change_log_id,
-                        user_id,
-                        message_type,
-                        context) 
-                    VALUES (:a, :b, :c, :d, :e, :f, :g, :h);
-                    """)
-
-        if result == 'created':
-            conn_.execute(sql_text,
-                          a=message_id_,
-                          b=result,
-                          c=datetime.datetime.now(),
-                          d=mailing_id_,
-                          e=change_log_id_,
-                          f=user_id_,
-                          g=message_type_,
-                          h='comp_notifs'
-                          )
-
-    except:  # noqa
-        notify_admin('ERR write to SQL notif_by_user_status, message_id {}, status {}'.format(message_id_, result))
-
-    return None
 
 
 def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_lon, region_to_show, num_of_sent):
