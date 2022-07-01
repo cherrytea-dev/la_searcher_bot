@@ -488,6 +488,15 @@ def get_list_of_searches_for_first_post_update(percent_of_searches):
     outcome_list = []
     base_table = []
 
+    # there are four types of search parameters:
+    # 1. search_start_time
+    # 2. search_update_time
+    # 3. folder weight
+    # 4. number of checks already made
+    # we'll pick a certain amount of searches from overall list of searches for check
+    # below is the weight distribution b/w these four dimension
+    weight = {"start_time": 50, "upd_time": 20, "folder_weight": 20, "checks_made": 10}
+
     if percent_of_searches > 0:
 
         pool = sql_connect()
@@ -558,7 +567,9 @@ def get_list_of_searches_for_first_post_update(percent_of_searches):
                             new_line[4] = 1
                         base_table.append(new_line)
 
-                # sort the table by 1st arg = search_start_time
+                num_of_searches = round(len(base_table) * percent_of_searches / 100)
+
+                # 1. sort the table by 1st arg = search_start_time
                 # number 1 – should be the first to check,
                 # number ∞ – should be the last to check
                 base_table.sort(key=lambda x: x[1], reverse=True)
@@ -567,7 +578,12 @@ def get_list_of_searches_for_first_post_update(percent_of_searches):
                     line.append(i)
                     i += 1
 
-                # sort the table by 2nd arg = search_update_time
+                group_of_searches = round(weight["start_time"]/100*num_of_searches)
+
+                for j in range(group_of_searches):
+                    outcome_list.append(base_table[j])
+
+                # 2. sort the table by 2nd arg = search_update_time
                 # number 1 – should be the first to check
                 # number ∞ – should be the last to check
                 base_table.sort(key=lambda x: x[2])
@@ -576,7 +592,16 @@ def get_list_of_searches_for_first_post_update(percent_of_searches):
                     line.append(i)
                     i += 1
 
-                # sort the table by 3rd arg = folder weight
+                group_of_searches = round(weight["upd_time"] / 100 * num_of_searches)
+
+                for j in range(len(base_table)):
+                    if base_table[j][0] not in [line[0] for line in outcome_list] and group_of_searches > 0:
+                        outcome_list.append(base_table[j])
+                        group_of_searches -= 1
+                    elif group_of_searches == 0:
+                        break
+
+                # 3. sort the table by 3rd arg = folder weight
                 # number 1 – should be the first to check
                 # number ∞ – should be the last to check
                 base_table.sort(key=lambda x: x[3], reverse=True)
@@ -585,7 +610,16 @@ def get_list_of_searches_for_first_post_update(percent_of_searches):
                     line.append(i)
                     i += 1
 
-                # sort the table by 4th arg = number of check that were already done
+                group_of_searches = round(weight["folder_weight"] / 100 * num_of_searches)
+
+                for j in range(len(base_table)):
+                    if base_table[j][0] not in [line[0] for line in outcome_list] and group_of_searches > 0:
+                        outcome_list.append(base_table[j])
+                        group_of_searches -= 1
+                    elif group_of_searches == 0:
+                        break
+
+                # 4. sort the table by 4th arg = number of check that were already done
                 # number 1 – should be the first to check
                 # number ∞ – should be the last to check
                 base_table.sort(key=lambda x: x[4])
@@ -594,28 +628,35 @@ def get_list_of_searches_for_first_post_update(percent_of_searches):
                     line.append(i)
                     i += 1
 
+                group_of_searches = round(weight["checks_made"] / 100 * num_of_searches)
+
+                for j in range(len(base_table)):
+                    if base_table[j][0] not in [line[0] for line in outcome_list] and group_of_searches > 0:
+                        outcome_list.append(base_table[j])
+                        group_of_searches -= 1
+                    elif group_of_searches == 0:
+                        break
+
                 # get the overall "weight" for every search
                 # baseline scenario for final weight = (x * y * z * a),
                 # where x, y, z and a – are order number for start, update, folder weight, num of completed checks
-                for line in base_table:
+                # for line in base_table:
                     # w_start = line[5]
-                    w_update = line[6]
+                    # w_update = line[6]
                     # w_folder = line[7]
-                    w_checks = line[8]
+                    # w_checks = line[8]
                     # line.append(line[5] * line[6] * line[7] * line[8])
-                    line.append(w_update * w_checks)  # scenario WITHOUT folder weight
+                    # line.append(w_update * w_checks)  # scenario WITHOUT folder weight
 
                 # final sort: lower weight – higher priority
                 # number 1 – should be the first to check
                 # number ∞ – should be the last to check
-                base_table.sort(key=lambda x: x[9])
-                print('below is base sorted table')
-                logging.info(base_table)
+                # base_table.sort(key=lambda x: x[9])
+                # print('below is base sorted table')
+                # logging.info(base_table)
 
-                num_of_searches = round(len(base_table) * percent_of_searches / 100)
-
-                for i in range(num_of_searches):
-                    outcome_list.append(base_table[i])
+                # for i in range(num_of_searches):
+                    # outcome_list.append(base_table[i])
 
             except Exception as e:
                 logging.info('exception in get_list_of_searches_for_first_post_update')
@@ -624,8 +665,9 @@ def get_list_of_searches_for_first_post_update(percent_of_searches):
             conn.close()
         pool.dispose()
 
-        print('below is ourcome list')
-        print(str(outcome_list))
+        print('below is outcome list')
+        for line in outcome_list:
+            print(str(line))
 
     return outcome_list
 
@@ -824,7 +866,7 @@ def main(event, context): # noqa
     update_visibility_for_list_of_active_searches(number_of_checked_searches)
 
     # BLOCK 2. for checking in first posts were changes
-    percent_of_first_posts_to_check = 10
+    percent_of_first_posts_to_check = 2
     update_first_posts(percent_of_first_posts_to_check)
 
     # TEMP BLOCK – is used only for batch updates of user regional settings
