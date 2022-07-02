@@ -210,7 +210,7 @@ def save_sql_stat_table_sizes(client):
             '''
 
     query = client.query(query)
-    result = query_move.result()  # noqa
+    result = query.result()  # noqa
     lines = query.num_dml_affected_rows
     logging.info(f'saved psql table sizes stat to bq, number of lines: {lines}')
 
