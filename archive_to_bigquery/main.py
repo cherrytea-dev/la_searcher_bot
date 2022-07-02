@@ -56,18 +56,17 @@ def sql_connect():
 
     return pool
 
-def main(event, context): # noqa
-    """main function"""
 
-    client = bigquery.Client()
+def archive_notif_by_user(client):
+    """archive (move) data from notif_by_user in psql into BQ"""
 
     # 1. Get the initial row count of bq table
     query = """
-        SELECT
-            count(*) AS count
-        FROM 
-            notif_archive.notif_by_user__archive
-        """
+            SELECT
+                count(*) AS count
+            FROM 
+                notif_archive.notif_by_user__archive
+            """
 
     query_initial_rows_bq = client.query(query)
     init_bq_count = None
@@ -77,12 +76,12 @@ def main(event, context): # noqa
 
     # 2. Get the initial row count of cloud sql table
     query = '''
-            SELECT
-                *
-            FROM
-                EXTERNAL_QUERY("projects/lizaalert-bot-01/locations/europe-west3/connections/bq_to_cloud_sql",
-            """SELECT count(*) AS count FROM notif_by_user__history;""")
-            '''
+                SELECT
+                    *
+                FROM
+                    EXTERNAL_QUERY("projects/lizaalert-bot-01/locations/europe-west3/connections/bq_to_cloud_sql",
+                """SELECT count(*) AS count FROM notif_by_user__history;""")
+                '''
 
     query_initial_rows_psql = client.query(query)
     init_psql_count = None
@@ -92,17 +91,17 @@ def main(event, context): # noqa
 
     # 3. Copy all the new rows from psql to bq
     query = '''
-            INSERT INTO
-                notif_archive.notif_by_user__archive (message_id, mailing_id, user_id, message_content, 
-                message_text, message_type, message_params, message_group_id, change_log_id, created, completed, 
-                cancelled, failed, num_of_fails)
-            SELECT *
-            FROM
-                EXTERNAL_QUERY("projects/lizaalert-bot-01/locations/europe-west3/connections/bq_to_cloud_sql",
-                """SELECT * FROM notif_by_user__history;""")
-            WHERE NOT message_id IN 
-                (SELECT message_id FROM notif_archive.notif_by_user__archive) 
-            '''
+                INSERT INTO
+                    notif_archive.notif_by_user__archive (message_id, mailing_id, user_id, message_content, 
+                    message_text, message_type, message_params, message_group_id, change_log_id, created, completed, 
+                    cancelled, failed, num_of_fails)
+                SELECT *
+                FROM
+                    EXTERNAL_QUERY("projects/lizaalert-bot-01/locations/europe-west3/connections/bq_to_cloud_sql",
+                    """SELECT * FROM notif_by_user__history;""")
+                WHERE NOT message_id IN 
+                    (SELECT message_id FROM notif_archive.notif_by_user__archive) 
+                '''
 
     query_move = client.query(query)
     result = query_move.result()  # noqa
@@ -111,11 +110,11 @@ def main(event, context): # noqa
 
     # 4. Get the resulting row count of bq table
     query = """
-        SELECT
-            count(*) AS count
-        FROM 
-            notif_archive.notif_by_user__archive
-        """
+            SELECT
+                count(*) AS count
+            FROM 
+                notif_archive.notif_by_user__archive
+            """
 
     query_resulting_rows_bq = client.query(query)
     new_bq_count = None
@@ -126,13 +125,13 @@ def main(event, context): # noqa
     # 5. Run checkers
     # 5.1. Validate that there are no doubling message_ids in the final bq table
     query = """
-        SELECT
-            message_id, count(*) AS count
-        FROM 
-            notif_archive.notif_by_user__archive
-        GROUP BY 1
-        HAVING count(*) > 1
-        """
+            SELECT
+                message_id, count(*) AS count
+            FROM 
+                notif_archive.notif_by_user__archive
+            GROUP BY 1
+            HAVING count(*) > 1
+            """
 
     query_job_final_check = client.query(query)
     validation_on_doubles = 0
@@ -165,17 +164,66 @@ def main(event, context): # noqa
 
     # 7. Get the resulting row count of cloud sql table
     query = '''
-            SELECT
-                *
-            FROM
-                EXTERNAL_QUERY("projects/lizaalert-bot-01/locations/europe-west3/connections/bq_to_cloud_sql",
-            """SELECT count(*) AS count FROM notif_by_user__history;""")
-            '''
+                SELECT
+                    *
+                FROM
+                    EXTERNAL_QUERY("projects/lizaalert-bot-01/locations/europe-west3/connections/bq_to_cloud_sql",
+                """SELECT count(*) AS count FROM notif_by_user__history;""")
+                '''
 
     query_resulting_rows_psql = client.query(query)
-    new_psql_count = 0 # noqa
+    new_psql_count = 0  # noqa
     for row in query_resulting_rows_psql:
         new_psql_count = row.count
         logging.info(f'resulting rows in psql: {new_psql_count}')
+
+
+def save_sql_stat_table_sizes(client):
+    """save current psql parameters: sizes of biggest tables"""
+
+    query = '''
+            INSERT INTO
+                stat.sql_table_sizes
+            SELECT
+                *
+            FROM
+              EXTERNAL_QUERY("projects/lizaalert-bot-01/locations/europe-west3/connections/bq_to_cloud_sql",
+                """
+                  SELECT 
+                    NOW() AS timestamp, * 
+                  FROM 
+                    (
+                    SELECT
+                      table_name, round(pg_relation_size(quote_ident(table_name))/1024/1024, 1) AS size_mb
+                    FROM
+                      information_schema.tables
+                    WHERE
+                      table_schema = 'public'
+                    ) AS s1  
+                  WHERE 
+                    s1.size_mb > 1
+                  ORDER BY 
+                    2 DESC
+                  ;
+                """
+              )
+            '''
+
+    query = client.query(query)
+    result = query_move.result()  # noqa
+    lines = query.num_dml_affected_rows
+    logging.info(f'saved psql table sizes stat to bq, number of lines: {lines}')
+
+    return None
+
+
+def main(event, context): # noqa
+    """main function"""
+
+    client = bigquery.Client()
+
+    archive_notif_by_user(client)
+
+    save_sql_stat_table_sizes(client)
 
     return None
