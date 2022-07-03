@@ -495,7 +495,7 @@ def get_list_of_searches_for_first_post_and_status_update(percent_of_searches):
     # 4. number of checks already made
     # we'll pick a certain amount of searches from overall list of searches for check
     # below is the weight distribution b/w these four dimension
-    weight = {"start_time": 40, "upd_time": 40, "folder_weight": 10, "checks_made": 10}
+    weight = {"start_time": 5, "upd_time": 5, "folder_weight": 5, "checks_made": 85}
 
     if percent_of_searches > 0:
 
@@ -866,7 +866,7 @@ def main(event, context): # noqa
     update_visibility_for_list_of_active_searches(number_of_checked_searches)
 
     # BLOCK 2. for checking in first posts were changes
-    percent_of_first_posts_to_check = 5
+    percent_of_first_posts_to_check = 15
     update_first_posts_and_statuses(percent_of_first_posts_to_check)
 
     # TEMP BLOCK – is used only for batch updates of user regional settings
