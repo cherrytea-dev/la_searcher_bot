@@ -41,6 +41,7 @@ dict_status_words = {'жив': 'one', 'жива': 'one', 'живы': 'many',
                      'найден': 'one', 'найдена': 'one', 'найдены': 'many',
                      'погиб': 'one', 'погибла': 'one', 'погибли': 'many',
                      'поиск': 'na', 'приостановлен': 'na', 'проверка': 'na',
+                     'похищен': 'one', 'похищена': 'one', 'похищены': 'many',
                      'пропал': 'one', 'пропала': 'one', 'пропали': 'many',
                      'стоп': 'na', 'эвакуация': 'na'}
 dict_ignore = {'', ':'}
@@ -864,6 +865,7 @@ def define_status_from_search_title(title):
 
     # Identify and delete the text of text for Training activities
     if search_status.lower().find('учебн') > -1:
+        # TODO: to change to regex
         search_status = search_status.replace('Учебные сборы ', '')
         search_status = search_status.replace('Учебный поиск ', '')
         search_status = search_status.replace('Учебный выход', '')
