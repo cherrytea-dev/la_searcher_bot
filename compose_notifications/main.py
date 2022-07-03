@@ -414,12 +414,8 @@ def enrich_new_records_from_searches(conn):
                     try:
                         year = int(r_line.start_time.strftime("%Y"))
                         month = int(r_line.start_time.strftime("%m"))
-                        date = r_line.start_time.strftime("%m/%d/%Y")
                         if year < 2022 or (year == 2022 and month < 6):
-                            notify_admin(f'❌❌❌ we found by year and month! {r_line.start_time}')
-                            r_line.ignore = 'y'
-                        elif date.find('2021') > -1:
-                            notify_admin(f'❌❌❌ we found by string! {r_line.start_time}')
+                            notify_admin(f'❌❌❌ {r_line.forum_search_num}! {r_line.start_time}')
                             r_line.ignore = 'y'
 
                     except:
