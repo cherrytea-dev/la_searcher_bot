@@ -495,7 +495,7 @@ def get_list_of_searches_for_first_post_and_status_update(percent_of_searches):
     # 4. number of checks already made
     # we'll pick a certain amount of searches from overall list of searches for check
     # below is the weight distribution b/w these four dimension
-    weight = {"start_time": 5, "upd_time": 5, "folder_weight": 5, "checks_made": 85}
+    weight = {"start_time": 5, "upd_time": 5, "folder_weight": 5, "checks_made": 0}
 
     if percent_of_searches > 0:
 
