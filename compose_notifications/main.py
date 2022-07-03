@@ -413,9 +413,13 @@ def enrich_new_records_from_searches(conn):
                     # TODO: TEMP - TO DELETE!
                     try:
                         year = r_line.start_time.strftime("%Y")
+                        notify_admin(year)
                         month = r_line.start_time.strftime("%m")
-                        if year < 2022 or (year == 2022 and month < 6):
-                            notify_admin(f'we found! {r_line.start_time}')
+                        notify_admin(month)
+                        date = r_line.start_time.strftime("%m/%d/%Y")
+                        notify_admin(date)
+                        if year < 2022 or (year == 2022 and month < 6) or date.find('2021' > -1):
+                            notify_admin(f'❌❌❌ we found! {r_line.start_time}')
                             r_line.ignore = 'y'
 
                     except:
