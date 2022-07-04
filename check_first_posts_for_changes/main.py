@@ -6,6 +6,7 @@ import json
 import logging
 import difflib
 import hashlib
+import random
 
 import sqlalchemy
 # TODO: to move to psycopg2
@@ -482,7 +483,7 @@ def parse_first_post(search_num):
     return hash_num, content, bad_gateway, not_found
 
 
-def get_list_of_searches_for_first_post_and_status_update(percent_of_searches):
+def get_list_of_searches_for_first_post_and_status_update(percent_of_searches, weights):
     """get best list of searches for which first posts should be checked"""
 
     outcome_list = []
@@ -493,9 +494,9 @@ def get_list_of_searches_for_first_post_and_status_update(percent_of_searches):
     # 2. search_update_time
     # 3. folder weight
     # 4. number of checks already made
+    # 5. random
     # we'll pick a certain amount of searches from overall list of searches for check
     # below is the weight distribution b/w these four dimension
-    weight = {"start_time": 5, "upd_time": 5, "folder_weight": 5, "checks_made": 85}
 
     if percent_of_searches > 0:
 
@@ -578,7 +579,7 @@ def get_list_of_searches_for_first_post_and_status_update(percent_of_searches):
                     line.append(i)
                     i += 1
 
-                group_of_searches = round(weight["start_time"]/100*num_of_searches)
+                group_of_searches = round(weights["start_time"]/100*num_of_searches)
 
                 for j in range(group_of_searches):
                     outcome_list.append(base_table[j])
@@ -592,7 +593,7 @@ def get_list_of_searches_for_first_post_and_status_update(percent_of_searches):
                     line.append(i)
                     i += 1
 
-                group_of_searches = round(weight["upd_time"] / 100 * num_of_searches)
+                group_of_searches = round(weights["upd_time"] / 100 * num_of_searches)
 
                 for j in range(len(base_table)):
                     if base_table[j][0] not in [line[0] for line in outcome_list] and group_of_searches > 0:
@@ -610,7 +611,7 @@ def get_list_of_searches_for_first_post_and_status_update(percent_of_searches):
                     line.append(i)
                     i += 1
 
-                group_of_searches = round(weight["folder_weight"] / 100 * num_of_searches)
+                group_of_searches = round(weights["folder_weight"] / 100 * num_of_searches)
 
                 for j in range(len(base_table)):
                     if base_table[j][0] not in [line[0] for line in outcome_list] and group_of_searches > 0:
@@ -628,7 +629,20 @@ def get_list_of_searches_for_first_post_and_status_update(percent_of_searches):
                     line.append(i)
                     i += 1
 
-                group_of_searches = round(weight["checks_made"] / 100 * num_of_searches)
+                group_of_searches = round(weights["checks_made"] / 100 * num_of_searches)
+
+                for j in range(len(base_table)):
+                    if base_table[j][0] not in [line[0] for line in outcome_list] and group_of_searches > 0:
+                        outcome_list.append(base_table[j])
+                        group_of_searches -= 1
+                    elif group_of_searches == 0:
+                        break
+
+                # 5. get random searches for checks
+
+                random.shuffle(base_table)
+
+                group_of_searches = round(weights["random"] / 100 * num_of_searches)
 
                 for j in range(len(base_table)):
                     if base_table[j][0] not in [line[0] for line in outcome_list] and group_of_searches > 0:
@@ -722,7 +736,7 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
     return None
 
 
-def update_first_posts_and_statuses(percent_of_searches):
+def update_first_posts_and_statuses(percent_of_searches, weights):
     """periodically check if the first post of searches"""
 
     global bad_gateway_counter
@@ -730,7 +744,7 @@ def update_first_posts_and_statuses(percent_of_searches):
     global requests_session
 
     list_of_searches_with_updated_first_posts = []
-    list_of_searches = get_list_of_searches_for_first_post_and_status_update(percent_of_searches)
+    list_of_searches = get_list_of_searches_for_first_post_and_status_update(percent_of_searches, weights)
 
     if list_of_searches:
 
@@ -867,7 +881,8 @@ def main(event, context): # noqa
 
     # BLOCK 2. for checking in first posts were changes
     percent_of_first_posts_to_check = 15
-    update_first_posts_and_statuses(percent_of_first_posts_to_check)
+    weights = {"start_time": 5, "upd_time": 5, "folder_weight": 5, "checks_made": 5, "random": 80}
+    update_first_posts_and_statuses(percent_of_first_posts_to_check, weights)
 
     # TEMP BLOCK – is used only for batch updates of user regional settings
     # number_of_users_to_update = 100
