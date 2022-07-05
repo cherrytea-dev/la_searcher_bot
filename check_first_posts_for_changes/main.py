@@ -145,7 +145,7 @@ def update_one_topic_visibility(search_id):
 
     del_trig, hid_trig, bad_gateway_trigger, visibility = check_topic_visibility(search_id)
 
-    logging.info(f'{search_id}: del_trig = {del_trig}, hid_trig = {hid_trig}, visibility = {visibility}')
+    logging.info(f'{search_id}: visibility = {visibility}')
 
     if not bad_gateway_trigger:
 
@@ -170,14 +170,11 @@ def update_one_topic_visibility(search_id):
             conn.close()
         pool.dispose()
 
-        # TODO: still an experiment
-        # publish_to_pubsub('topic_for_topic_management', {'topic_id': search_id, 'visibility': visibility})
-        # logging.info(f'pub/sub message for topic_management triggered: topic_id: {search_id}, visibility: {visibility}')
-
     else:
         bad_gateway_counter += 1
         logging.info('502: {} - {}'.format(str(search_id), trigger_if_switched_to_proxy))
 
+        # TODO something with it)))
         """if bad_gateway_counter > 3 and not trigger_if_switched_to_proxy:
             requests_session.close()
             requests_session = requests.Session()
@@ -651,37 +648,12 @@ def get_list_of_searches_for_first_post_and_status_update(percent_of_searches, w
                     elif group_of_searches == 0:
                         break
 
-                # get the overall "weight" for every search
-                # baseline scenario for final weight = (x * y * z * a),
-                # where x, y, z and a – are order number for start, update, folder weight, num of completed checks
-                # for line in base_table:
-                    # w_start = line[5]
-                    # w_update = line[6]
-                    # w_folder = line[7]
-                    # w_checks = line[8]
-                    # line.append(line[5] * line[6] * line[7] * line[8])
-                    # line.append(w_update * w_checks)  # scenario WITHOUT folder weight
-
-                # final sort: lower weight – higher priority
-                # number 1 – should be the first to check
-                # number ∞ – should be the last to check
-                # base_table.sort(key=lambda x: x[9])
-                # print('below is base sorted table')
-                # logging.info(base_table)
-
-                # for i in range(num_of_searches):
-                    # outcome_list.append(base_table[i])
-
             except Exception as e:
                 logging.info('exception in get_list_of_searches_for_first_post_update')
                 logging.exception(e)
 
             conn.close()
         pool.dispose()
-
-        print('below is outcome list')
-        for line in outcome_list:
-            print(str(line))
 
     return outcome_list
 
@@ -708,7 +680,6 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
     pre_title = pre_title.group() if pre_title else None
     pre_title = re.search(r'">.{1,500}</a>', pre_title[32:]) if pre_title else None
     title = pre_title.group()[2:-4] if pre_title else None
-    print(f'FFF: {topic_id}: title: {title}')
     status = None
     if title:
         missed = re.search(r'(?i).{0,10}пропал.*', title) if title else None
@@ -726,8 +697,6 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
                     missed = re.search(r'(?i).{0,10}заверш.н', title)
                     if missed:
                         status = 'Завершен'
-
-    print(f'FFF: we finished checking the topic {topic_id}, status is {status}')
 
     if status in {'НЖ', 'НП', 'Завершен'}:
         publish_to_pubsub('topic_for_topic_management', {'topic_id': topic_id, 'status': status})
@@ -798,12 +767,6 @@ def update_first_posts_and_statuses(percent_of_searches, weights):
                                 # add the search into the list of searches to be sent to pub/sub
                                 list_of_searches_with_updated_first_posts.append(search_id)
 
-                                # TODO: delete after DEBUG
-                                # if last_content and act_content:
-                                #    delta = get_the_diff_between_strings(last_content, act_content)
-                                # publish_to_pubsub('topic_notify_admin',
-                                #                   f'[che_posts]: {search_id} 1st POST UPD:\n{delta}')
-
                             # if record for this search – actual
                             else:
 
@@ -817,12 +780,6 @@ def update_first_posts_and_statuses(percent_of_searches, weights):
                                                         search_id = :b AND actual = True;
                                                     """)
                                 conn.execute(stmt, a=(prev_number_of_checks + 1), b=search_id)
-
-                            # As far as we do have the content for previously-parsed searches –
-                            # then it's an opportunity to update the status
-
-                            # if act_content:
-                            #     get_status_from_content_and_send_to_topic_management(search_id, act_content)
 
                         # if record for this search – does not exist – add a new record
                         else:

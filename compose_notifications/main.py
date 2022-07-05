@@ -12,6 +12,7 @@ import sqlalchemy  # TODO: to switch to psycopg2? probably not, due to SQL injec
 
 from google.cloud import secretmanager
 from google.cloud import pubsub_v1
+
 # TODO: to migrate to 3.9 python
 
 
@@ -346,7 +347,7 @@ def compose_new_records_from_change_log(conn):
             # define if this Record in change log is about New comments and New comments were already loaded into msgs
             decision = 'add'
 
-            if len(new_records_list) > 0 and new_line.change_type == 3:   # 'replies_num_change':
+            if len(new_records_list) > 0 and new_line.change_type == 3:  # 'replies_num_change':
                 for j in new_records_list:
                     if j.forum_search_num == new_line.forum_search_num and j.change_type == new_line.change_type:
                         decision = 'drop'
@@ -1089,8 +1090,6 @@ def record_notification_statistics(conn):
         for user_id in dict_of_user_and_number_of_new_notifs:
             number_to_add = dict_of_user_and_number_of_new_notifs[user_id]
 
-            logging.info('--->WE ARE HERE2: ' + str(number_to_add))
-
             sql_text = sqlalchemy.text("""
             INSERT INTO user_stat (user_id, num_of_new_search_notifs) 
             VALUES(:a, :b)
@@ -1100,8 +1099,6 @@ def record_notification_statistics(conn):
             WHERE user_stat.user_id = :a;
             """)
             conn.execute(sql_text, a=int(user_id), b=int(number_to_add))
-
-            logging.info('--->WE ARE HERE3: ' + str(sql_text))
 
     except Exception as e:
         logging.error('Recording statistics in notification script failed' + repr(e))
@@ -1129,30 +1126,26 @@ def iterate_over_all_users_and_updates(conn):
                                 message_group_id,
                                 change_log_id,
                                 created) 
-                            VALUES (:a, :b, :c, :d, :e, :f, :g, :h, :i)
-                            RETURNING message_id;
+                            VALUES (:a, :b, :c, :d, :e, :f, :g, :h, :i);
                             """)
 
-        raw_data_ = conn.execute(sql_text_,
-                                 a=mailing_id_,
-                                 b=user_id_,
-                                 c=message_,
-                                 d=message_without_html_,
-                                 e=message_type_,
-                                 f=message_params_,
-                                 g=message_group_id_,
-                                 h=change_log_id_,
-                                 i=datetime.datetime.now()
-                                 ).fetchone()
+        conn.execute(sql_text_,
+                     a=mailing_id_,
+                     b=user_id_,
+                     c=message_,
+                     d=message_without_html_,
+                     e=message_type_,
+                     f=message_params_,
+                     g=message_group_id_,
+                     h=change_log_id_,
+                     i=datetime.datetime.now()
+                     ).fetchone()
 
-        # TODO: debug
-        print(f'YYY: we saved the new message into sql: table notif_by_user')
-        # TODO: debug
-
-        return raw_data_[0]
+        return None
 
     def get_from_sql_if_was_notified_already(user_id_, message_type_, change_log_id_):
-        """check in sql if this user was already notified re this change_log record"""
+        """check in sql if this user was already notified re this change_log record
+        works for every user during iterations over users"""
 
         sql_text_ = sqlalchemy.text("""
             SELECT EXISTS (
@@ -1179,7 +1172,8 @@ def iterate_over_all_users_and_updates(conn):
         return user_was_already_notified
 
     def get_from_sql_list_of_already_notified_users(change_log_id_):
-        """check in sql if this user was already notified re this change_log record"""
+        """check in sql if this user was already notified for this change_log record
+        works one time only, prior to iteration over users"""
 
         sql_text_ = sqlalchemy.text("""
             SELECT 
@@ -1199,11 +1193,11 @@ def iterate_over_all_users_and_updates(conn):
         logging.info("DDD: NEW: were notified:")
         logging.info(raw_data_)
 
-        users_who_was_notified = []
+        users_who_were_notified = []
         for line in raw_data_:
-            users_who_was_notified.append(line[0])
+            users_who_were_notified.append(line[0])
 
-        return users_who_was_notified
+        return users_who_were_notified
 
     def get_the_new_group_id():
         """define the max message_group_id in notif_by_user and add +1"""
@@ -1223,12 +1217,6 @@ def iterate_over_all_users_and_updates(conn):
     global users_list
     global coordinates_format
     global stat_list_of_recipients
-
-    # TODO: should not be globals
-    # global search_id_for_analytics
-    # global change_log_id
-    # global change_type_for_analytics
-    # global mailing_id
 
     stat_list_of_recipients = []  # still not clear why w/o it – saves data from prev iterations
     number_of_situations_checked = 0
@@ -1279,8 +1267,6 @@ def iterate_over_all_users_and_updates(conn):
 
                 mailing_id = raw_data[0]
                 logging.info(f'mailing_id = {mailing_id}')
-                # search_id_for_analytics = new_record.forum_search_num
-                # change_type_for_analytics = change_type
 
                 users_who_should_not_be_informed = \
                     get_from_sql_list_of_already_notified_users(change_log_id)
@@ -1326,7 +1312,7 @@ def iterate_over_all_users_and_updates(conn):
 
                                     # TODO: temp limitation for ones who have 5 or 6 or 7
                                     # if this is a mailing that users wants to receive
-                                    if user_notif_pref_id == change_type or\
+                                    if user_notif_pref_id == change_type or \
                                             (user_notif_pref_id == 30 and change_type not in {5, 6, 7}):  # 30 = 'all'
 
                                         # on this step - we're certain: user should receive the notification
@@ -1390,6 +1376,7 @@ def iterate_over_all_users_and_updates(conn):
                                                                                                       u_lon,
                                                                                                       region_to_show)
 
+                                        # TODO: to delete msg_group at all
                                         # messages followed by coordinates (sendMessage + sendLocation) have same group
                                         msg_group_id = get_the_new_group_id() if change_type in {0, 5, 6, 7} else None
                                         # not None for new_search, field_trips_new, field_trips_change,  coord_change
@@ -1416,13 +1403,19 @@ def iterate_over_all_users_and_updates(conn):
                                             message_params = {'parse_mode': 'HTML',
                                                               'disable_web_page_preview': 'True'}
 
+                                            # TODO: Debug only - to delete
+                                            print(f'what we are saving to SQL: {mailing_id}, {user.user_id}, '
+                                                  f'{message_without_html}, {message_params}, {msg_group_id},'
+                                                  f'{change_log_id}')
+                                            # TODO: Debug only - to delete
+
                                             # record into SQL table notif_by_user
-                                            message_id = save_to_sql_notif_by_user(mailing_id, user.user_id,
-                                                                                   message,
-                                                                                   message_without_html,
-                                                                                   'text',
-                                                                                   message_params, msg_group_id,
-                                                                                   change_log_id)
+                                            save_to_sql_notif_by_user(mailing_id, user.user_id,
+                                                                      message,
+                                                                      message_without_html,
+                                                                      'text',
+                                                                      message_params, msg_group_id,
+                                                                      change_log_id)
 
                                             # for user tips in "new search" notifs – to increase sent messages counter
                                             if change_type == 0:  # 'new_search':
@@ -1435,12 +1428,12 @@ def iterate_over_all_users_and_updates(conn):
                                                                   'longitude': s_lon}
 
                                                 # record into SQL table notif_by_user (not text, but coords only)
-                                                message_id = save_to_sql_notif_by_user(mailing_id, user.user_id,
-                                                                                       None,
-                                                                                       None, 'coords',
-                                                                                       message_params,
-                                                                                       msg_group_id,
-                                                                                       change_log_id)
+                                                save_to_sql_notif_by_user(mailing_id, user.user_id,
+                                                                          None,
+                                                                          None, 'coords',
+                                                                          message_params,
+                                                                          msg_group_id,
+                                                                          change_log_id)
 
                                             # save to SQL the sendLocation notification for "coords change"
                                             if change_type == 7 and s_lat and s_lon \
@@ -1449,12 +1442,12 @@ def iterate_over_all_users_and_updates(conn):
                                                 message_params = {'latitude': s_lat,
                                                                   'longitude': s_lon}
 
-                                                message_id = save_to_sql_notif_by_user(mailing_id, user.user_id,
-                                                                                       None,
-                                                                                       None, 'coords',
-                                                                                       message_params,
-                                                                                       msg_group_id,
-                                                                                       change_log_id)
+                                                save_to_sql_notif_by_user(mailing_id, user.user_id,
+                                                                          None,
+                                                                          None, 'coords',
+                                                                          message_params,
+                                                                          msg_group_id,
+                                                                          change_log_id)
 
                                             number_of_messages_sent += 1
 
@@ -1634,12 +1627,10 @@ def mark_new_records_as_processed(conn):
                     change_id_list_ignored.append(record.change_id)
 
         for record in change_id_list:
-
             sql_text = sqlalchemy.text("""UPDATE change_log SET notification_sent = 'y' WHERE id=:a;""")
             conn.execute(sql_text, a=record)
 
         for record in change_id_list_ignored:
-
             sql_text = sqlalchemy.text("""UPDATE change_log SET notification_sent = 'n' WHERE id=:a;""")
             conn.execute(sql_text, a=record)
 
@@ -1725,7 +1716,6 @@ def main(event, context):  # noqa
 
         # only if there are updates in Change Log
         if new_records_list:
-
             # enrich New Records List with all the updates that should be in notifications
             enrich_new_records_from_searches(conn)
             enrich_new_records_with_search_activities(conn)
