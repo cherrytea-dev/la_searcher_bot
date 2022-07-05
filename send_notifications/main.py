@@ -366,7 +366,7 @@ def main_func(event, context):  # noqa
         average = sum(analytics_notif_times) / len_n
         ttl_time = round(sum(analytics_notif_times), 1)
         message = f'[send_notifs] {len_n} x {round(average, 2)} = {ttl_time} sec'
-        notify_admin(message)
+        # notify_admin(message)
         logging.info(message)
 
         # save to psql the analytics on sending speed
