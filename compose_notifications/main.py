@@ -1139,7 +1139,7 @@ def iterate_over_all_users_and_updates(conn):
                      g=message_group_id_,
                      h=change_log_id_,
                      i=datetime.datetime.now()
-                     ).fetchone()
+                     )
 
         return None
 

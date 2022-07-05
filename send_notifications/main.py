@@ -385,6 +385,10 @@ def main_func(event, context):  # noqa
             cur.execute(sql_text_psy, (datetime.datetime.now(), len_n, average, ttl_time))
         except:  # noqa
             pass
+
+        cur.close()
+        conn_psy.close()
+
         analytics_notif_times = []
 
     logging.info('script finished')
