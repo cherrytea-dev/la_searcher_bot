@@ -376,7 +376,7 @@ def main_func(event, context):  # noqa
         try:
             sql_text_psy = f"""
                             INSERT INTO notif_stat_sending_speed
-                            (timestamp, num_of_msgs, speed, ttl_time) = %s
+                            (timestamp, num_of_msgs, speed, ttl_time)
                             VALUES
                             (%s, %s, %s, %s);
                             /*action='notif_stat_sending_speed' */

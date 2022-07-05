@@ -37,7 +37,15 @@ def check_updates_in_folder_with_folders(start_folder_num):
         # if we parse the main page - we're interested in the first 3 blocks only
         if not start_folder_num:
             # block with archive folders
-            temp_block = search_code_blocks[-2]
+
+            # TODO: temp debug – temp_block is needed, but all try clause –not
+            try:
+                temp_block = search_code_blocks[-2]
+            except: # noqa
+                print(f'search_code_blocks= {search_code_blocks}')
+                temp_block = search_code_blocks[-2]
+            # TODO: temp debug
+
             # first 2 blocks (sometimes it's, surprisingly, 3)
             search_code_blocks = search_code_blocks[0:3]
             # final list is: 1st, 2nd and pre-last blocks
@@ -151,8 +159,8 @@ def notify_admin(message):
 def main(event, context): # noqa
     """main function that starts first"""
 
-    global project_id
-    global publisher
+    # global project_id
+    # global publisher
 
     now = datetime.datetime.now()
     folder_num_to_check = None
