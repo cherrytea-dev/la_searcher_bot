@@ -364,10 +364,27 @@ def main_func(event, context):  # noqa
     if analytics_notif_times:
         len_n = len(analytics_notif_times)
         average = sum(analytics_notif_times) / len_n
-        message = f'[send_notifs] {len_n} x {round(average, 2)} = {round(sum(analytics_notif_times), 1)} sec'
+        ttl_time = round(sum(analytics_notif_times), 1)
+        message = f'[send_notifs] {len_n} x {round(average, 2)} = {ttl_time} sec'
         notify_admin(message)
         logging.info(message)
 
+        # save to psql the analytics on sending speed
+        conn_psy = sql_connect_by_psycopg2()
+        cur = conn_psy.cursor()
+
+        try:
+            sql_text_psy = f"""
+                            INSERT INTO notif_stat_sending_speed
+                            (timestamp, num_of_msgs, speed, ttl_time) = %s
+                            VALUES
+                            (%s, %s, %s, %s);
+                            /*action='notif_stat_sending_speed' */
+                            ;"""
+
+            cur.execute(sql_text_psy, (datetime.datetime.now(), len_n, average, ttl_time))
+        except:  # noqa
+            pass
         analytics_notif_times = []
 
     logging.info('script finished')
