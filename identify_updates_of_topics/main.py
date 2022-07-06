@@ -1,6 +1,5 @@
 import os
 import ast
-import yaml
 import json
 import re
 import base64
@@ -1173,16 +1172,16 @@ def parse_search_profile(search_num):
     return left_text
 
 
-def parse(folder_num):
+def parse(folder_id):
     """key function to parse forum folders with searches' summaries"""
 
     global requests_session
 
-    parsed_summary_page = []
-    parsed_without_date = []
+    topics_summary_in_folder = []
+    topics_summary_in_folder_without_date = []
     current_datetime = datetime.now()
     db_timestamp = str(current_datetime.strftime("%d-%b %H:%M"))
-    url = 'https://lizaalert.org/forum/viewforum.php?f=' + str(folder_num)
+    url = f'https://lizaalert.org/forum/viewforum.php?f={folder_id}'
     try:
         r = requests_session.get(url, timeout=10)  # for every folder - req'd daily at night forum update # noqa
 
@@ -1212,7 +1211,7 @@ def parse(folder_num):
             search_title = search_title.replace('[size=140]', '', 1)
             search_title = search_title.replace('[/size]', '', 1)
 
-            # Some forum folders contain sid, some not
+            # Some forum folders contain sid, some don't
             sid = search_long_link.find('&sid')
             if sid == -1:
                 search_cut_link = search_long_link
@@ -1231,35 +1230,33 @@ def parse(folder_num):
             # exclude non-relevant searches
             if search_status_short != "не показываем":
                 search_summary = [current_datetime, search_id, search_status_short, search_title, search_cut_link,
-                                  start_datetime, search_replies_num, person_age, person_fam_name, folder_num]
-                parsed_summary_page.append(search_summary)
+                                  start_datetime, search_replies_num, person_age, person_fam_name, folder_id]
+                topics_summary_in_folder.append(search_summary)
 
                 parsed_wo_date = [search_title, search_replies_num]
-                parsed_without_date.append(parsed_wo_date)
+                topics_summary_in_folder_without_date.append(parsed_wo_date)
 
         del search_code_blocks
 
     # To catch timeout once a day in the night
     except requests.exceptions.Timeout as e:
-        logging.info('DBG.P.31.Timeout:')
         logging.exception(e)
-        parsed_summary_page = []
+        topics_summary_in_folder = []
     except ConnectionResetError as e:
-        logging.info('there is a connection error:' + repr(e) + db_timestamp)
-        parsed_summary_page = []
+        logging.exception(e)
+        topics_summary_in_folder = []
     except Exception as e:
-        logging.info('DBG.P.30.ERR in Parsing summary page:' + repr(e) + db_timestamp)
-        parsed_summary_page = []
+        logging.exception(e)
+        topics_summary_in_folder = []
 
-    """DEBUG"""
-    # if folder_num not in {276, 41}:
-    logging.info('DBG.P.29.Parsed_summary_page:\n' + str(parsed_summary_page))
-    """DEBUG"""
+    logging.info(f'Final Topics summary in Folder:\n{topics_summary_in_folder}')
 
-    return [parsed_summary_page, parsed_without_date]
+    return [topics_summary_in_folder, topics_summary_in_folder_without_date]
 
 
 def parse_one_comment(search_num, comment_num):
+    """parse all details on a specific comment in topic (by sequence number)"""
+
     global db
     global requests_session
 
@@ -1301,8 +1298,8 @@ def parse_one_comment(search_num, comment_num):
                 logging.info('Here is an exception 10' + repr(e2))
                 comment_author_link = 'unidentified_link'
 
-        # finding the global comment NUMBER
-        comment_global_num = search_code_blocks.find('p', 'author').findNext('a')['href'][-7:]
+        # finding the global comment id
+        comment_forum_global_id = int(search_code_blocks.find('p', 'author').findNext('a')['href'][-6:])
 
         # finding TEXT of the comment
         comment_text_0 = search_code_blocks.find('div', 'content')
@@ -1329,10 +1326,12 @@ def parse_one_comment(search_num, comment_num):
                     if not ignore:
                         stmt = sqlalchemy.text(
                             """INSERT INTO comments (comment_url, comment_text, comment_author_nickname, 
-                            comment_author_link, search_forum_num, comment_num) values (:a, :b, :c, :d, :e, :f); """
+                            comment_author_link, search_forum_num, comment_num, comment_global_num) 
+                            VALUES 
+                            (:a, :b, :c, :d, :e, :f, :g); """
                         )
                         conn.execute(stmt, a=comment_url, b=comment_text, c=comment_author_nickname,
-                                     d=comment_author_link, e=search_num, f=comment_num)
+                                     d=comment_author_link, e=search_num, f=comment_num, g=comment_forum_global_id)
                     else:
                         stmt = sqlalchemy.text(
                             """INSERT INTO comments (comment_url, comment_text, comment_author_nickname, 
@@ -1596,7 +1595,7 @@ def rewrite_snapshot_in_sql(parsed_summary, folder_num):
 
 
 def process_one_folder(folder_to_parse):
-    """is a key function for a single forum folder parsing & processing"""
+    """processes on forum folder: check for updates, upload them into cloud sql"""
 
     global db
 
@@ -1644,9 +1643,10 @@ def process_one_folder(folder_to_parse):
     return update_trigger, debug_message
 
 
-def parse_and_upd_function(event, context):  # noqa
-    """main function which starts every minute"""
+def main(event, context):  # noqa
+    """main function"""
 
+    # TODO: avoid globals
     global db
     global requests_session
 
@@ -1654,8 +1654,7 @@ def parse_and_upd_function(event, context):  # noqa
 
     message_from_pubsub = process_pubsub_message(event)
 
-    logging.info('event: ' + str(event))
-    logging.info('message_from_pubsub: ' + str(message_from_pubsub))
+    logging.info(f'received message from pubsub: {message_from_pubsub}')
 
     if message_from_pubsub:
         list_from_pubsub = ast.literal_eval(message_from_pubsub)
@@ -1666,7 +1665,7 @@ def parse_and_upd_function(event, context):  # noqa
     if list_from_pubsub:
         for line in list_from_pubsub:
             folders_list.append(line[0])
-        logging.info(f'full list of folders with updates received from pub/sub: {folders_list}')
+        logging.info(f'received list from pubsub: {folders_list}')
 
     if not folders_list:
 
@@ -1715,7 +1714,7 @@ def parse_and_upd_function(event, context):  # noqa
     list_of_folders_with_updates = []
     for folder in folders_list:
 
-        logging.info(f'the folder with update: {folder}')
+        logging.info(f'start checking if folder {folder} has any updates')
 
         update_trigger, debug_message = process_one_folder(folder)
 

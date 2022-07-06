@@ -28,7 +28,7 @@ jobs:
             source_dir: identify_updates_of_topics # name of directory
             name: identify_updates_of_topics
             runtime: python37
-            entry_point: parse_and_upd_function
+            entry_point: main
             region: europe-west3
             timeout: 540
             max_instances: 1
