@@ -77,9 +77,7 @@ def publish_to_pubsub(topic_name, message):
 
 
 def move_notifications_to_history_in_psql(conn):
-    """move all "completed" notifications to psql table __histoty"""
-
-    result = None
+    """move all "completed" notifications to psql table __history"""
 
     # checker – gives us a minimal date in notif_by_user, which is at least 2 hours older than current
     stmt = sqlalchemy.text("""
@@ -179,7 +177,7 @@ def move_notifications_to_history_in_psql(conn):
 
 
 def move_first_posts_to_history_in_psql(conn):
-    """move all first posts for "completed" searches to psql table __histoty"""
+    """move all first posts for "completed" searches to psql table __history"""
 
     # 1. COMPLETED SEARCHES
     # take all the first_posts for "completed" searches and copy it to __history table
@@ -196,11 +194,12 @@ def move_first_posts_to_history_in_psql(conn):
                             ON sfp.search_id=s.search_forum_num 
                             WHERE s.status_short = 'НЖ' or s.status_short = 'НП' or s.status_short = 'Завершен'
                         )
-                        RETURNING count(*)
+                        
                         ;""")
-    number_of_copied_rows = conn.execute(stmt).fetchone()
+    # number_of_copied_rows = conn.execute(stmt).fetchone()
+    conn.execute(stmt)
 
-    logging.info(f'{number_of_copied_rows[0]} first_posts for completed searches are copied to __history')
+    logging.info(f'first_posts for completed searches are copied to __history')
 
     # delete all the copied info from search_first_posts table
     stmt = sqlalchemy.text("""
@@ -217,11 +216,12 @@ def move_first_posts_to_history_in_psql(conn):
                 ON 
                     sfp.search_id=s.search_forum_num 
                 WHERE s.status_short = 'НЖ' or s.status_short = 'НП' or s.status_short = 'Завершен'
-        RETURNING count(*)
+        
         );""")
-    number_of_deleted_rows = conn.execute(stmt).fetchone()
+    # number_of_deleted_rows = conn.execute(stmt).fetchone()
+    conn.execute(stmt)
 
-    logging.info(f'{number_of_deleted_rows[0]} first_posts for completed searches are deleted from search_first_posts')
+    logging.info(f'first_posts for completed searches are deleted from search_first_posts')
 
     # 2. ELDER FIRST POSTS snapshots
     # take all the first_posts for "completed" searches and copy it to __history table
@@ -241,11 +241,11 @@ def move_first_posts_to_history_in_psql(conn):
                                         1, 2 DESC) as s1 
                                 WHERE rank > 2
                             )
-                            RETURNING count(*)
                             ;""")
-    number_of_copied_rows = conn.execute(stmt).fetchone()
+    # number_of_copied_rows = conn.execute(stmt).fetchone()
+    conn.execute(stmt)
 
-    logging.info(f'{number_of_copied_rows[0]} first_posts for elder snapshots are copied to __history')
+    logging.info(f'first_posts for elder snapshots are copied to __history')
 
     # delete all the copied info from search_first_posts table
     stmt = sqlalchemy.text("""
@@ -263,11 +263,11 @@ def move_first_posts_to_history_in_psql(conn):
                         ORDER BY 
                             1, 2 DESC) as s1 
                     WHERE rank > 2
-            RETURNING count(*)
             );""")
-    number_of_deleted_rows = conn.execute(stmt).fetchone()
+    # number_of_deleted_rows = conn.execute(stmt).fetchone()
+    conn.execute(stmt)
 
-    logging.info(f'{number_of_deleted_rows[0]} first_posts for elder snapshots are deleted from search_first_posts')
+    logging.info(f'first_posts for elder snapshots are deleted from search_first_posts')
 
     return None
 
