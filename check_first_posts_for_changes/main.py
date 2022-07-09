@@ -199,10 +199,32 @@ def update_visibility_for_list_of_active_searches(number_of_searches):
     with pool.connect() as conn:
 
         try:
-            full_list_of_active_searches = conn.execute("""select * from (select s1.status_short, s1.search_forum_num, 
-                s1.forum_search_title, s2.status, s2.timestamp from searches s1 LEFT JOIN search_health_check s2 ON
-                s1.search_forum_num = s2.search_forum_num) s3 WHERE s3.status_short = 'Ищем' ORDER BY s3.timestamp 
-                /*action='get_full_list_of_active_searches' */
+            full_list_of_active_searches = conn.execute("""
+                SELECT 
+                    s3.* 
+                FROM (
+                    SELECT
+                        s1.status_short, s1.search_forum_num, s1.forum_search_title, s2.status, s2.timestamp, 
+                        s1.forum_folder_id 
+                    FROM
+                        searches s1 
+                    LEFT JOIN 
+                        search_health_check s2 
+                    ON
+                        s1.search_forum_num = s2.search_forum_num 
+                    WHERE 
+                        s1.status_short = 'Ищем' 
+                        AND s2.status != 'deleted'
+                ) s3 
+                LEFT JOIN 
+                    folders f 
+                ON 
+                    s3.forum_folder_id=f.folder_id 
+                WHERE 
+                    f.folder_type IS NULL 
+                    OR f.folder_type = 'searches' 
+                ORDER BY s3.timestamp 
+                /*action='get_full_list_of_active_searches 2.0' */
                 ;
                 """).fetchall()
 
@@ -223,8 +245,8 @@ def update_visibility_for_list_of_active_searches(number_of_searches):
                         break
 
             if cleared_list_of_active_searches:
-
-                logging.info('cleared list of active searches: {}'.format(str(cleared_list_of_active_searches)))
+                logging.info(f'length of cleared list of active searches is {len(cleared_list_of_active_searches)}')
+                logging.info(f'cleared list of active searches: {cleared_list_of_active_searches}')
 
                 for search in cleared_list_of_active_searches:
 
