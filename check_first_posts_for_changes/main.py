@@ -196,71 +196,70 @@ def update_visibility_for_list_of_active_searches(number_of_searches):
     global trigger_if_switched_to_proxy
 
     pool = sql_connect()
-    with pool.connect() as conn:
+    conn = pool.connect()
 
-        try:
-            full_list_of_active_searches = conn.execute("""
-                SELECT 
-                    s3.* 
-                FROM (
-                    SELECT
-                        s1.status_short, s1.search_forum_num, s1.forum_search_title, s2.status, s2.timestamp, 
-                        s1.forum_folder_id 
-                    FROM
-                        searches s1 
-                    LEFT JOIN 
-                        search_health_check s2 
-                    ON
-                        s1.search_forum_num = s2.search_forum_num 
-                    WHERE 
-                        s1.status_short = 'Ищем' 
-                        AND s2.status != 'deleted'
-                ) s3 
+    try:
+        full_list_of_active_searches = conn.execute("""
+            SELECT 
+                s3.* 
+            FROM (
+                SELECT
+                    s1.status_short, s1.search_forum_num, s1.forum_search_title, s2.status, s2.timestamp, 
+                    s1.forum_folder_id 
+                FROM
+                    searches s1 
                 LEFT JOIN 
-                    folders f 
-                ON 
-                    s3.forum_folder_id=f.folder_id 
+                    search_health_check s2 
+                ON
+                    s1.search_forum_num = s2.search_forum_num 
                 WHERE 
-                    f.folder_type IS NULL 
-                    OR f.folder_type = 'searches' 
-                ORDER BY s3.timestamp 
-                /*action='get_full_list_of_active_searches 2.0' */
-                ;
-                """).fetchall()
+                    s1.status_short = 'Ищем' 
+                    AND s2.status != 'deleted'
+            ) s3 
+            LEFT JOIN 
+                folders f 
+            ON 
+                s3.forum_folder_id=f.folder_id 
+            WHERE 
+                f.folder_type IS NULL 
+                OR f.folder_type = 'searches' 
+            ORDER BY s3.timestamp 
+            /*action='get_full_list_of_active_searches 2.0' */
+            ;
+            """).fetchall()
 
-            cleared_list_of_active_searches = []
+        cleared_list_of_active_searches = []
 
-            # first we add new lines to the list
-            for line in full_list_of_active_searches:
-                search = list(line)
-                if not search[3]:
-                    cleared_list_of_active_searches.append(search)
+        # first we add new lines to the list
+        for line in full_list_of_active_searches:
+            search = list(line)
+            if not search[3]:
+                cleared_list_of_active_searches.append(search)
 
-            # then we add not-new lines that are not deleted
-            for line in full_list_of_active_searches:
-                search = list(line)
-                if search[3] and search[3] != 'deleted':  # and search[3] != 'hidden':
-                    cleared_list_of_active_searches.append(search)
-                    if len(cleared_list_of_active_searches) >= number_of_searches:
-                        break
+        # then we add not-new lines that are not deleted
+        for line in full_list_of_active_searches:
+            search = list(line)
+            if search[3] and search[3] != 'deleted':  # and search[3] != 'hidden':
+                cleared_list_of_active_searches.append(search)
+                if len(cleared_list_of_active_searches) >= number_of_searches:
+                    break
 
-            if cleared_list_of_active_searches:
-                logging.info(f'length of cleared list of active searches is {len(cleared_list_of_active_searches)}')
-                logging.info(f'cleared list of active searches: {cleared_list_of_active_searches}')
+        if cleared_list_of_active_searches:
+            logging.info(f'length of cleared list of active searches is {len(cleared_list_of_active_searches)}')
+            logging.info(f'cleared list of active searches: {cleared_list_of_active_searches}')
 
-                for search in cleared_list_of_active_searches:
+            for search in cleared_list_of_active_searches:
 
-                    update_one_topic_visibility(search[1])
+                update_one_topic_visibility(search[1])
 
-                    if bad_gateway_counter > 3 and trigger_if_switched_to_proxy:
-                        break
+                if bad_gateway_counter > 3 and trigger_if_switched_to_proxy:
+                    break
 
-        except Exception as e:
-            logging.info('exception in get_and_update_list_of_active_searches')
-            logging.exception(e)
+    except Exception as e:
+        logging.info('exception in get_and_update_list_of_active_searches')
+        logging.exception(e)
 
-        conn.close()
-
+    conn.close()
     pool.dispose()
 
     return None
@@ -520,17 +519,19 @@ def get_list_of_searches_for_first_post_and_status_update(percent_of_searches, w
     if percent_of_searches > 0:
 
         pool = sql_connect()
-        with pool.connect() as conn:
+        conn = pool.connect()
 
-            try:
-
-                # get the data from sql with the structure:
-                # [search_id, search_start_time, forum_folder_id, search_update_time, number_of_searches_in_folder]
-                # search_update_time – is a time of search's first post actualization in SQL
-                # number_of_searches_in_folder – is a historical number of searches in SQL assigned to each folder
-                raw_sql_extract = conn.execute("""
+        try:
+            # get the data from sql with the structure:
+            # [search_id, search_start_time, forum_folder_id, search_update_time, number_of_searches_in_folder]
+            # search_update_time – is a time of search's first post actualization in SQL
+            # number_of_searches_in_folder – is a historical number of searches in SQL assigned to each folder
+            raw_sql_extract = conn.execute("""
+            SELECT 
+                s4.*, s5.count 
+            FROM (
                 SELECT 
-                    s4.*, s5.count FROM (select s2.*, s3.timestamp, s3.num_of_checks
+                    s2.*, s3.timestamp, s3.num_of_checks
                 FROM (
                     SELECT 
                         s0.search_forum_num, s0.search_start_time, s0.forum_folder_id 
@@ -549,132 +550,141 @@ def get_list_of_searches_for_first_post_and_status_update(percent_of_searches, w
                     WHERE
                         (s1.status != 'deleted' AND s1.status != 'hidden')
                 ) s2 
-                LEFT JOIN (
-                    SELECT 
-                        search_id, timestamp, actual, content_hash, num_of_checks 
-                    FROM
-                        search_first_posts 
-                    WHERE
-                        actual=TRUE
-                    ) s3 
-                    ON
-                        s2.search_forum_num=s3.search_id) s4 
-                    LEFT JOIN (
-                        SELECT
-                            count(*), forum_folder_id
-                        FROM
-                            searches
-                        GROUP BY
-                            forum_folder_id
-                        ORDER BY
-                            count(*) DESC
-                    ) s5 
-                    ON 
-                        s4.forum_folder_id=s5.forum_folder_id
-                /*action='raw_sql_extract' */        
-                ;
-                """).fetchall()
+                LEFT JOIN 
+                (
+                SELECT 
+                    search_id, timestamp, actual, content_hash, num_of_checks 
+                FROM
+                    search_first_posts 
+                WHERE
+                    actual=TRUE
+                ) s3 
+                ON
+                    s2.search_forum_num=s3.search_id
+            ) s4 
+            LEFT JOIN 
+            (
+                SELECT
+                    count(*), forum_folder_id
+                FROM
+                    searches
+                GROUP BY
+                    forum_folder_id
+                ORDER BY
+                    count(*) DESC
+            ) s5 
+            ON 
+                s4.forum_folder_id=s5.forum_folder_id
+            LEFT JOIN
+                folders AS f
+            ON
+                s4.forum_folder_id = f.folder_id
+            WHERE 
+                f.folder_type IS NULL OR f.folder_type = 'searches'
+            /*action='get_list_of_searches_for_first_post_and_status_update 2.0' */        
+            ;
+            """).fetchall()
 
-                # form the list-like table
-                if raw_sql_extract:
-                    for line in raw_sql_extract:
-                        new_line = [line[0], line[1], line[3], line[5], line[4]]
-                        # for blank lines we paste the oldest date
-                        if not line[3]:
-                            new_line[2] = datetime.datetime(1, 1, 1, 0, 0)
-                        # for blank lines we paste the oldest date
-                        if not line[4]:
-                            new_line[4] = 1
-                        base_table.append(new_line)
+            # form the list-like table
+            if raw_sql_extract:
+                for line in raw_sql_extract:
+                    new_line = [line[0], line[1], line[3], line[5], line[4]]
+                    # for blank lines we paste the oldest date
+                    if not line[3]:
+                        new_line[2] = datetime.datetime(1, 1, 1, 0, 0)
+                    # for blank lines we paste the oldest date
+                    if not line[4]:
+                        new_line[4] = 1
+                    base_table.append(new_line)
 
-                num_of_searches = round(len(base_table) * percent_of_searches / 100)
+            num_of_searches = round(len(base_table) * percent_of_searches / 100)
 
-                # 1. sort the table by 1st arg = search_start_time
-                # number 1 – should be the first to check,
-                # number ∞ – should be the last to check
-                base_table.sort(key=lambda x: x[1], reverse=True)
-                i = 1
-                for line in base_table:
-                    line.append(i)
-                    i += 1
+            # 1. sort the table by 1st arg = search_start_time
+            # number 1 – should be the first to check,
+            # number ∞ – should be the last to check
+            base_table.sort(key=lambda x: x[1], reverse=True)
+            i = 1
+            for line in base_table:
+                line.append(i)
+                i += 1
 
-                group_of_searches = round(weights["start_time"]/100*num_of_searches)
+            group_of_searches = round(weights["start_time"]/100*num_of_searches)
 
-                for j in range(group_of_searches):
+            for j in range(group_of_searches):
+                outcome_list.append(base_table[j])
+
+            # 2. sort the table by 2nd arg = search_update_time
+            # number 1 – should be the first to check
+            # number ∞ – should be the last to check
+            base_table.sort(key=lambda x: x[2])
+            i = 1
+            for line in base_table:
+                line.append(i)
+                i += 1
+
+            group_of_searches = round(weights["upd_time"] / 100 * num_of_searches)
+
+            for j in range(len(base_table)):
+                if base_table[j][0] not in [line[0] for line in outcome_list] and group_of_searches > 0:
                     outcome_list.append(base_table[j])
+                    group_of_searches -= 1
+                elif group_of_searches == 0:
+                    break
 
-                # 2. sort the table by 2nd arg = search_update_time
-                # number 1 – should be the first to check
-                # number ∞ – should be the last to check
-                base_table.sort(key=lambda x: x[2])
-                i = 1
-                for line in base_table:
-                    line.append(i)
-                    i += 1
+            # 3. sort the table by 3rd arg = folder weight
+            # number 1 – should be the first to check
+            # number ∞ – should be the last to check
+            base_table.sort(key=lambda x: x[3], reverse=True)
+            i = 1
+            for line in base_table:
+                line.append(i)
+                i += 1
 
-                group_of_searches = round(weights["upd_time"] / 100 * num_of_searches)
+            group_of_searches = round(weights["folder_weight"] / 100 * num_of_searches)
 
-                for j in range(len(base_table)):
-                    if base_table[j][0] not in [line[0] for line in outcome_list] and group_of_searches > 0:
-                        outcome_list.append(base_table[j])
-                        group_of_searches -= 1
-                    elif group_of_searches == 0:
-                        break
+            for j in range(len(base_table)):
+                if base_table[j][0] not in [line[0] for line in outcome_list] and group_of_searches > 0:
+                    outcome_list.append(base_table[j])
+                    group_of_searches -= 1
+                elif group_of_searches == 0:
+                    break
 
-                # 3. sort the table by 3rd arg = folder weight
-                # number 1 – should be the first to check
-                # number ∞ – should be the last to check
-                base_table.sort(key=lambda x: x[3], reverse=True)
-                i = 1
-                for line in base_table:
-                    line.append(i)
-                    i += 1
+            # 4. sort the table by 4th arg = number of check that were already done
+            # number 1 – should be the first to check
+            # number ∞ – should be the last to check
+            base_table.sort(key=lambda x: x[4])
+            i = 1
+            for line in base_table:
+                line.append(i)
+                i += 1
 
-                group_of_searches = round(weights["folder_weight"] / 100 * num_of_searches)
+            group_of_searches = round(weights["checks_made"] / 100 * num_of_searches)
 
-                for j in range(len(base_table)):
-                    if base_table[j][0] not in [line[0] for line in outcome_list] and group_of_searches > 0:
-                        outcome_list.append(base_table[j])
-                        group_of_searches -= 1
-                    elif group_of_searches == 0:
-                        break
+            for j in range(len(base_table)):
+                if base_table[j][0] not in [line[0] for line in outcome_list] and group_of_searches > 0:
+                    outcome_list.append(base_table[j])
+                    group_of_searches -= 1
+                elif group_of_searches == 0:
+                    break
 
-                # 4. sort the table by 4th arg = number of check that were already done
-                # number 1 – should be the first to check
-                # number ∞ – should be the last to check
-                base_table.sort(key=lambda x: x[4])
-                i = 1
-                for line in base_table:
-                    line.append(i)
-                    i += 1
+            # 5. get random searches for checks
 
-                group_of_searches = round(weights["checks_made"] / 100 * num_of_searches)
+            random.shuffle(base_table)
 
-                for j in range(len(base_table)):
-                    if base_table[j][0] not in [line[0] for line in outcome_list] and group_of_searches > 0:
-                        outcome_list.append(base_table[j])
-                        group_of_searches -= 1
-                    elif group_of_searches == 0:
-                        break
+            group_of_searches = round(weights["random"] / 100 * num_of_searches)
 
-                # 5. get random searches for checks
+            for j in range(len(base_table)):
+                if base_table[j][0] not in [line[0] for line in outcome_list] and group_of_searches > 0:
+                    outcome_list.append(base_table[j])
+                    group_of_searches -= 1
+                elif group_of_searches == 0:
+                    break
 
-                random.shuffle(base_table)
+        except Exception as e:
+            logging.info('exception in get_list_of_searches_for_first_post_update')
+            logging.exception(e)
 
-                group_of_searches = round(weights["random"] / 100 * num_of_searches)
-
-                for j in range(len(base_table)):
-                    if base_table[j][0] not in [line[0] for line in outcome_list] and group_of_searches > 0:
-                        outcome_list.append(base_table[j])
-                        group_of_searches -= 1
-                    elif group_of_searches == 0:
-                        break
-
-            except Exception as e:
-                logging.info('exception in get_list_of_searches_for_first_post_update')
-                logging.exception(e)
-
-            conn.close()
+        conn.close()
         pool.dispose()
 
     return outcome_list
@@ -740,108 +750,107 @@ def update_first_posts_and_statuses(percent_of_searches, weights):
     if list_of_searches:
 
         pool = sql_connect()
-        with pool.connect() as conn:
+        conn = pool.connect()
 
-            try:
+        try:
+            for line in list_of_searches:
 
-                for line in list_of_searches:
+                search_id = line[0]
+                act_hash, act_content, bad_gateway_trigger, not_found_trigger = parse_first_post(search_id)
 
-                    search_id = line[0]
-                    act_hash, act_content, bad_gateway_trigger, not_found_trigger = parse_first_post(search_id)
+                if not bad_gateway_trigger and not not_found_trigger:
 
-                    if not bad_gateway_trigger and not not_found_trigger:
+                    # check the latest hash
+                    stmt = sqlalchemy.text("""
+                    SELECT content_hash, num_of_checks, content from search_first_posts WHERE search_id=:a 
+                    AND actual = TRUE;
+                    """)
+                    raw_data = conn.execute(stmt, a=search_id).fetchone()
 
-                        # check the latest hash
-                        stmt = sqlalchemy.text("""
-                        SELECT content_hash, num_of_checks, content from search_first_posts WHERE search_id=:a 
-                        AND actual = TRUE;
-                        """)
-                        raw_data = conn.execute(stmt, a=search_id).fetchone()
+                    # if record for this search – exists
+                    if raw_data:
 
-                        # if record for this search – exists
-                        if raw_data:
+                        last_hash = raw_data[0]
+                        prev_number_of_checks = raw_data[1]
+                        # last_content = raw_data[2]
 
-                            last_hash = raw_data[0]
-                            prev_number_of_checks = raw_data[1]
-                            # last_content = raw_data[2]
+                        if not prev_number_of_checks:
+                            prev_number_of_checks = 1
 
-                            if not prev_number_of_checks:
-                                prev_number_of_checks = 1
+                        # if record for this search – outdated
+                        if act_hash != last_hash:
 
-                            # if record for this search – outdated
-                            if act_hash != last_hash:
+                            # set all prev records as Actual = False
+                            stmt = sqlalchemy.text("""
+                            UPDATE search_first_posts SET actual = FALSE WHERE search_id = :a;
+                            """)
+                            conn.execute(stmt, a=search_id)
 
-                                # set all prev records as Actual = False
-                                stmt = sqlalchemy.text("""
-                                UPDATE search_first_posts SET actual = FALSE WHERE search_id = :a;
-                                """)
-                                conn.execute(stmt, a=search_id)
+                            # add new record
+                            stmt = sqlalchemy.text("""
+                            INSERT INTO search_first_posts 
+                            (search_id, timestamp, actual, content_hash, content, num_of_checks) 
+                            VALUES (:a, :b, TRUE, :c, :d, :e);
+                            """)
+                            conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=act_hash,
+                                         d=act_content, e=1)
 
-                                # add new record
-                                stmt = sqlalchemy.text("""
-                                INSERT INTO search_first_posts 
-                                (search_id, timestamp, actual, content_hash, content, num_of_checks) 
-                                VALUES (:a, :b, TRUE, :c, :d, :e);
-                                """)
-                                conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=act_hash,
-                                             d=act_content, e=1)
+                            # add the search into the list of searches to be sent to pub/sub
+                            list_of_searches_with_updated_first_posts.append(search_id)
 
-                                # add the search into the list of searches to be sent to pub/sub
-                                list_of_searches_with_updated_first_posts.append(search_id)
-
-                            # if record for this search – actual
-                            else:
-
-                                # update the number of checks for this search
-                                stmt = sqlalchemy.text("""
-                                                    UPDATE 
-                                                        search_first_posts 
-                                                    SET 
-                                                        num_of_checks = :a 
-                                                    WHERE 
-                                                        search_id = :b AND actual = True;
-                                                    """)
-                                conn.execute(stmt, a=(prev_number_of_checks + 1), b=search_id)
-
-                        # if record for this search – does not exist – add a new record
+                        # if record for this search – actual
                         else:
 
+                            # update the number of checks for this search
                             stmt = sqlalchemy.text("""
-                                                    INSERT INTO search_first_posts 
-                                                    (search_id, timestamp, actual, content_hash, content, num_of_checks) 
-                                                    VALUES (:a, :b, TRUE, :c, :d, :e);
-                                                    """)
-                            conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=act_hash, d=act_content, e=1)
+                                                UPDATE 
+                                                    search_first_posts 
+                                                SET 
+                                                    num_of_checks = :a 
+                                                WHERE 
+                                                    search_id = :b AND actual = True;
+                                                """)
+                            conn.execute(stmt, a=(prev_number_of_checks + 1), b=search_id)
 
-                    elif bad_gateway_trigger:
-                        bad_gateway_counter += 1
-                        logging.info('502: {} - {}'.format(search_id, trigger_if_switched_to_proxy))
+                    # if record for this search – does not exist – add a new record
+                    else:
 
-                        if bad_gateway_counter > 3 and not trigger_if_switched_to_proxy:
-                            requests_session.close()
-                            requests_session = requests.Session()
-                            requests_session.proxies = {
-                                'http': 'http://4asNEp:RpSK0n@31.134.4.105:8000',
-                                'https': 'https://4asNEp:RpSK0n@31.134.4.105:8000',
-                            }
-                            bad_gateway_counter = 0
-                            trigger_if_switched_to_proxy = True
+                        stmt = sqlalchemy.text("""
+                                                INSERT INTO search_first_posts 
+                                                (search_id, timestamp, actual, content_hash, content, num_of_checks) 
+                                                VALUES (:a, :b, TRUE, :c, :d, :e);
+                                                """)
+                        conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=act_hash, d=act_content, e=1)
 
-                        if bad_gateway_counter > 3 and trigger_if_switched_to_proxy:
-                            break
+                elif bad_gateway_trigger:
+                    bad_gateway_counter += 1
+                    logging.info('502: {} - {}'.format(search_id, trigger_if_switched_to_proxy))
 
-                    elif not_found_trigger:
-                        # TODO: debug, temp
-                        try:
-                            update_one_topic_visibility(search_id)
-                        except: # noqa
-                            pass
+                    if bad_gateway_counter > 3 and not trigger_if_switched_to_proxy:
+                        requests_session.close()
+                        requests_session = requests.Session()
+                        requests_session.proxies = {
+                            'http': 'http://4asNEp:RpSK0n@31.134.4.105:8000',
+                            'https': 'https://4asNEp:RpSK0n@31.134.4.105:8000',
+                        }
+                        bad_gateway_counter = 0
+                        trigger_if_switched_to_proxy = True
 
-            except Exception as e:
-                logging.info('exception in update_first_posts_and_statuses')
-                logging.exception(e)
+                    if bad_gateway_counter > 3 and trigger_if_switched_to_proxy:
+                        break
 
-            conn.close()
+                elif not_found_trigger:
+                    # TODO: debug, temp
+                    try:
+                        update_one_topic_visibility(search_id)
+                    except: # noqa
+                        pass
+
+        except Exception as e:
+            logging.info('exception in update_first_posts_and_statuses')
+            logging.exception(e)
+
+        conn.close()
         pool.dispose()
 
     if list_of_searches_with_updated_first_posts:
