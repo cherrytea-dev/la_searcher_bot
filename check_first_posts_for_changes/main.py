@@ -868,8 +868,8 @@ def main(event, context): # noqa
     update_visibility_for_list_of_active_searches(number_of_checked_searches)
 
     # BLOCK 2. for checking in first posts were changes
-    percent_of_first_posts_to_check = 15
-    weights = {"start_time": 5, "upd_time": 5, "folder_weight": 5, "checks_made": 5, "random": 80}
+    percent_of_first_posts_to_check = 8
+    weights = {"start_time": 20, "upd_time": 20, "folder_weight": 20, "checks_made": 20, "random": 20}
     update_first_posts_and_statuses(percent_of_first_posts_to_check, weights)
 
     # TEMP BLOCK – is used only for batch updates of user regional settings
