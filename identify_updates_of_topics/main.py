@@ -1663,8 +1663,6 @@ def get_the_list_of_ignored_folders():
     raw_list = conn.execute(sql_text).fetchall()
 
     list_of_ignored_folders = [line[0] for line in raw_list]
-    # TODO: temp
-    notify_admin(f'list: {list_of_ignored_folders}')
 
     conn.close()
 
