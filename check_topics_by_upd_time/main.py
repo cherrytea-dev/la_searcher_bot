@@ -36,20 +36,11 @@ def check_updates_in_folder_with_folders(start_folder_num):
 
         # if we parse the main page - we're interested in the first 3 blocks only
         if not start_folder_num:
-            # block with archive folders
 
-            # TODO: temp debug – temp_block is needed, but all try clause –not
-            try:
-                temp_block = search_code_blocks[-2]
-            except: # noqa
-                print(f'search_code_blocks= {search_code_blocks}')
-                temp_block = search_code_blocks[-2]
-            # TODO: temp debug
+            if search_code_blocks:
 
-            # first 2 blocks (sometimes it's, surprisingly, 3)
-            search_code_blocks = search_code_blocks[0:3]
-            # final list is: 1st, 2nd and pre-last blocks
-            search_code_blocks.append(temp_block)
+                # first 2 blocks (sometimes it's, surprisingly, 3) + block with archive folders
+                search_code_blocks = [search_code_blocks[i] for i in {0, 1, 2, 3, -2}]
 
     except requests.exceptions.ReadTimeout:
         logging.info(f'[che_topics]: requests.exceptions.ReadTimeout')
@@ -71,36 +62,32 @@ def check_updates_in_folder_with_folders(start_folder_num):
         logging.info(f'[che_posts]: Unknown exception in folder {start_folder_num}')
         logging.exception(e)
 
-    try:
-        if search_code_blocks:
-            for block in search_code_blocks:
+    if search_code_blocks:
+        for block in search_code_blocks:
 
-                folders = block.find_all('li', {'class': 'row'})
-                for folder in folders:
+            folders = block.find_all('li', {'class': 'row'})
+            for folder in folders:
 
-                    # found no cases where there can be more than 1 topic name or date, so find i/o find_all is used
-                    folder_num_str = folder.find('a', {'class': 'forumtitle'})['href']
+                # found no cases where there can be more than 1 topic name or date, so find i/o find_all is used
+                folder_num_str = folder.find('a', {'class': 'forumtitle'})['href']
 
-                    start_symb_to_del = folder_num_str.find('&sid=')
-                    if start_symb_to_del != -1:
-                        folder_num = int(folder_num_str[18:start_symb_to_del])
-                    else:
-                        folder_num = int(folder_num_str[18:])
+                start_symb_to_del = folder_num_str.find('&sid=')
+                if start_symb_to_del != -1:
+                    folder_num = int(folder_num_str[18:start_symb_to_del])
+                else:
+                    folder_num = int(folder_num_str[18:])
 
-                    folder_time_str = folder.find('time')['datetime']
-                    folder_time = datetime.datetime.strptime(folder_time_str, '%Y-%m-%dT%H:%M:%S+00:00')
+                folder_time_str = folder.find('time')['datetime']
+                folder_time = datetime.datetime.strptime(folder_time_str, '%Y-%m-%dT%H:%M:%S+00:00')
 
-                    # remove useless folders: Справочники, Снаряжение, Постскриптум and all from Обучение и Тренировки
-                    if folder_num not in {84, 113, 112, 270, 86, 87, 88, 165, 365, 89, 172, 91, 90}:
+                # remove useless folders: Справочники, Снаряжение, Постскриптум and all from Обучение и Тренировки
+                # MEMO: this limitation is just a pre-check. The final check to be done by other scripts basing on psql
+                if folder_num not in {84, 113, 112, 270, 86, 87, 88, 165, 365, 89, 172, 91, 90}:
 
-                        page_summary.append([folder_num, folder_time_str, folder_time])
+                    page_summary.append([folder_num, folder_time_str, folder_time])
 
-                        if last_folder_update < folder_time:
-                            last_folder_update = folder_time
-
-    except Exception as e2:
-        logging.info(f'composing the topics\' page summaries fired an error, mother-folder {start_folder_num}')
-        logging.exception(e2)
+                    if last_folder_update < folder_time:
+                        last_folder_update = folder_time
 
     return page_summary, last_folder_update
 
@@ -158,9 +145,6 @@ def notify_admin(message):
 
 def main(event, context): # noqa
     """main function that starts first"""
-
-    # global project_id
-    # global publisher
 
     now = datetime.datetime.now()
     folder_num_to_check = None

@@ -1643,6 +1643,34 @@ def process_one_folder(folder_to_parse):
     return update_trigger, debug_message
 
 
+def get_the_list_of_ignored_folders():
+    """get the list of folders which does not contain searches – thus should be ignored"""
+
+    global db
+    db = sql_connect()
+    conn = db.connect()
+
+    sql_text = sqlalchemy.text(
+        """
+        SELECT 
+            folder_id 
+        FROM
+            folders 
+        WHERE
+            folder_type != 'searches'
+        ;"""
+    )
+    raw_list = conn.execute(sql_text).fetchall()
+
+    list_of_ignored_folders = [line[0] for line in raw_list]
+    # TODO: temp
+    notify_admin(f'list: {list_of_ignored_folders}')
+
+    conn.close()
+
+    return list_of_ignored_folders
+
+
 def main(event, context):  # noqa
     """main function"""
 
@@ -1650,76 +1678,34 @@ def main(event, context):  # noqa
     global db
     global requests_session
 
+    folders_list = []
+
     requests_session = requests.Session()
 
     message_from_pubsub = process_pubsub_message(event)
-
+    list_from_pubsub = ast.literal_eval(message_from_pubsub) if message_from_pubsub else None
     logging.info(f'received message from pubsub: {message_from_pubsub}')
 
-    if message_from_pubsub:
-        list_from_pubsub = ast.literal_eval(message_from_pubsub)
-    else:
-        list_from_pubsub = None
-    folders_list = []
+    list_of_ignored_folders = get_the_list_of_ignored_folders()
 
     if list_from_pubsub:
-        for line in list_from_pubsub:
-            folders_list.append(line[0])
-        logging.info(f'received list from pubsub: {folders_list}')
+        folders_list = [line[0] for line in list_from_pubsub if line[0] not in list_of_ignored_folders]
+        logging.info(f'list of folders, received from pubsub but filtered by ignored folders: {folders_list}')
 
     if not folders_list:
-
-        # TODO: it's a theoretical scenario - need to understand if it happens at all
-        publish_to_pubsub('topic_notify_admin', 'ERROR: parsing script received empty folders list')
-
-        # The list to be checked every minute
+        notify_admin('ERROR: parsing script received empty folders list')
         folders_list = [276, 41]
 
-        minute_now = datetime.now().minute
-        hours_now = datetime.now().hour
-
-        # The folders to be checked every 15 minutes
-        if minute_now % 15 == 0:
-            folders_list.append(123)
-            folders_list.append(333)
-            folders_list.append(334)
-            folders_list.append(177)
-
-        if (minute_now + 3) % 15 == 0:
-            folders_list.append(120)
-            folders_list.append(143)
-            folders_list.append(265)
-            folders_list.append(121)
-
-        if (minute_now + 6) % 15 == 0:
-            folders_list.append(153)
-            folders_list.append(162)
-            folders_list.append(132)
-            folders_list.append(293)
-
-        if (minute_now + 8) % 15 == 0:
-            folders_list.append(138)
-            folders_list.append(371)
-
-        # The folders to be checked every hour on 59 min
-        if minute_now % 59 == 0 and hours_now == 23:
-            folders_list.append(305)
-            folders_list.append(300)
-            folders_list.append(193)
-            folders_list.append(372)
-            folders_list.append(373)
-
-            pass
-
     list_of_folders_with_updates = []
-    for folder in folders_list:
+    if folders_list:
+        for folder in folders_list:
 
-        logging.info(f'start checking if folder {folder} has any updates')
+            logging.info(f'start checking if folder {folder} has any updates')
 
-        update_trigger, debug_message = process_one_folder(folder)
+            update_trigger, debug_message = process_one_folder(folder)
 
-        if update_trigger == 'yes':
-            list_of_folders_with_updates.append(folder)
+            if update_trigger == 'yes':
+                list_of_folders_with_updates.append(folder)
 
     logging.info(f'Here\'s a list of folders with updates: {list_of_folders_with_updates}')
 

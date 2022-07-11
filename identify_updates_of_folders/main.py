@@ -300,8 +300,6 @@ def main(event, context): # noqa
         logging.info(line)
 
     if list_of_updated_low_level_folders:
-        # publish_to_pubsub('topic_notify_admin', f'[ide_fold]: list of fold for upd '
-        #                                         f'{str(list_of_updated_low_level_folders)}')
         publish_to_pubsub('topic_to_run_parsing_script', str(list_of_updated_low_level_folders))
 
     return None

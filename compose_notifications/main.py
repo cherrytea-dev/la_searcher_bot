@@ -198,6 +198,7 @@ class Comment:
                  comment_author_link=None,
                  search_forum_num=None,
                  comment_num=None,
+                 comment_forum_global_id=None,
                  ignore=None
                  ):
         self.comment_url = comment_url
@@ -206,11 +207,12 @@ class Comment:
         self.comment_author_link = comment_author_link
         self.search_forum_num = search_forum_num
         self.comment_num = comment_num
+        self.comment_forum_global_id = comment_forum_global_id
         self.ignore = ignore
 
     def __str__(self):
         return str([self.comment_url, self.comment_text, self.comment_author_nickname, self.comment_author_link,
-                    self.search_forum_num, self.comment_num, self.ignore])
+                    self.search_forum_num, self.comment_num, self.comment_forum_global_id, self.ignore])
 
 
 class LineInChangeLog:
@@ -502,18 +504,32 @@ def enrich_new_records_with_comments(conn, type_of_comments):
 
     try:
         if type_of_comments == 'all':
-            comments = conn.execute("""SELECT comment_url, comment_text, comment_author_nickname, comment_author_link, 
-            search_forum_num, comment_num FROM comments WHERE notification_sent IS NULL;""").fetchall()
+            comments = conn.execute("""
+                                    SELECT 
+                                        comment_url, comment_text, comment_author_nickname, comment_author_link, 
+                                        search_forum_num, comment_num, comment_global_num
+                                    FROM 
+                                        comments
+                                    WHERE
+                                        notification_sent IS NULL
+                                    ;""").fetchall()
 
         elif type_of_comments == 'inforg':
-            comments = conn.execute("""SELECT comment_url, comment_text, comment_author_nickname, comment_author_link, 
-                        search_forum_num, comment_num FROM comments WHERE notif_sent_inforg IS NULL 
-                        AND LOWER(LEFT(comment_author_nickname,6))='инфорг';""").fetchall()
+            comments = conn.execute("""
+                                    SELECT
+                                        comment_url, comment_text, comment_author_nickname, comment_author_link,
+                                        search_forum_num, comment_num, comment_global_num
+                                    FROM
+                                        comments 
+                                    WHERE 
+                                        notif_sent_inforg IS NULL 
+                                        AND LOWER(LEFT(comment_author_nickname,6))='инфорг'
+                                    ;""").fetchall()
 
         else:
             comments = None
 
-        # look for matching Forum Search Num    bers in New Records List & Comments
+        # look for matching Forum Search Numbers in New Records List & Comments
         for r_line in new_records_list:
             if r_line.change_type in {3, 4}:  # {'replies_num_change', 'inforg_replies'}:
                 temp_list_of_comments = []
@@ -522,10 +538,11 @@ def enrich_new_records_with_comments(conn, type_of_comments):
                     if r_line.forum_search_num == c_line[4]:
                         # check for empty comments
                         if c_line[1] and c_line[1][0:6].lower() != 'резерв':
+
                             comment = Comment()
                             comment.comment_url = c_line[0]
-
                             comment.comment_text = c_line[1]
+
                             # limitation for extra long messages
                             if len(comment.comment_text) > 3500:
                                 comment.comment_text = comment.comment_text[:2000] + '...'
@@ -533,12 +550,16 @@ def enrich_new_records_with_comments(conn, type_of_comments):
                             comment.comment_author_link = c_line[3]
                             comment.search_forum_num = c_line[4]
                             comment.comment_num = c_line[5]
+
                             # some nicknames can be like >>Белый<< which crashes html markup -> we delete symbols
                             comment.comment_author_nickname = c_line[2]
                             if comment.comment_author_nickname.find('>') > -1:
                                 comment.comment_author_nickname = comment.comment_author_nickname.replace('>', '')
                             if comment.comment_author_nickname.find('<') > -1:
                                 comment.comment_author_nickname = comment.comment_author_nickname.replace('<', '')
+
+                            if c_line[6] and c_line[6] > 0:
+                                comment.comment_forum_global_id = c_line[6]
 
                             temp_list_of_comments.append(comment)
 
@@ -1739,7 +1760,7 @@ def main(event, context):  # noqa
             # final step – update statistics on how many users received notifications on new searches
             record_notification_statistics(conn)
 
-        # check if there are any notifications remained to be sent
+        # check if there are any notifications remained to be composed
         check = conn.execute(
             """
             SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log 
