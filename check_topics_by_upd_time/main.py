@@ -40,7 +40,14 @@ def check_updates_in_folder_with_folders(start_folder_num):
             if search_code_blocks:
 
                 # first 2 blocks (sometimes it's, surprisingly, 3) + block with archive folders
-                search_code_blocks = [search_code_blocks[i] for i in {0, 1, 2,-2}]
+                # search_code_blocks = [search_code_blocks[i] for i in {0, 1, 2,-2}]
+
+                # block with archive folders
+                temp_block = search_code_blocks[-2]
+                # first 2 blocks (sometimes it's, surprisingly, 3)
+                search_code_blocks = search_code_blocks[0:3]
+                # final list is: 1st, 2nd and pre-last blocks
+                search_code_blocks.append(temp_block)
 
     except requests.exceptions.ReadTimeout:
         logging.info(f'[che_topics]: requests.exceptions.ReadTimeout')
