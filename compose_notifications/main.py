@@ -558,8 +558,9 @@ def enrich_new_records_with_comments(conn, type_of_comments):
                             if comment.comment_author_nickname.find('<') > -1:
                                 comment.comment_author_nickname = comment.comment_author_nickname.replace('<', '')
 
-                            if c_line[6] and c_line[6] > 0:
-                                comment.comment_forum_global_id = c_line[6]
+                            # FIXME: below is a buggy code
+                            # if c_line[6] and c_line[6] > 0:
+                            #    comment.comment_forum_global_id = c_line[6]
 
                             temp_list_of_comments.append(comment)
 
