@@ -1560,11 +1560,15 @@ def main(request):
                 b_reg_stavropol = 'Ставропольский край'
                 b_reg_chechnya = 'Чечня'
                 b_reg_kabarda = 'Кабардино-Балкария'
+                b_reg_ingushetia = 'Ингушетия'
+                b_reg_sev_osetia = 'Северная Осетия'
                 b_reg_sev_kav_other = 'Прочие поиски по СКФО'
                 keyboard_sev_kav_reg_choice = [[b_reg_dagestan],
                                                [b_reg_stavropol],
                                                [b_reg_chechnya],
                                                [b_reg_kabarda],
+                                               [b_reg_ingushetia],
+                                               [b_reg_sev_osetia],
                                                [b_reg_sev_kav_other],
                                                [b_fed_dist_pick_other],
                                                [b_back_to_start]]
