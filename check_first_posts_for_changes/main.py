@@ -864,12 +864,12 @@ def main(event, context): # noqa
     """main function"""
 
     # BLOCK 1. for checking visibility (deleted or hidden) and status (Ищем, НЖ, НП) of active searches
-    number_of_checked_searches = 20
+    number_of_checked_searches = 100
     update_visibility_for_list_of_active_searches(number_of_checked_searches)
 
     # BLOCK 2. for checking in first posts were changes
-    percent_of_first_posts_to_check = 10
-    weights = {"start_time": 50, "upd_time": 30, "folder_weight": 0, "checks_made": 0, "random": 20}
+    percent_of_first_posts_to_check = 20
+    weights = {"start_time": 20, "upd_time": 20, "folder_weight": 20, "checks_made": 20, "random": 20}
     update_first_posts_and_statuses(percent_of_first_posts_to_check, weights)
 
     # TEMP BLOCK – is used only for batch updates of user regional settings
