@@ -200,6 +200,10 @@ def define_family_name(title_string):
     elif string_by_word[1][0:8].lower() == 'приостан':
         fam_name = string_by_word[2]
 
+    # case when "Поиск остановлен"
+    elif string_by_word[1][0:8].lower() == 'остановл':
+        fam_name = string_by_word[2]
+
     # case when "Поиск завершен"
     elif string_by_word[1][0:6].lower() == 'заверш':
         fam_name = string_by_word[2]
