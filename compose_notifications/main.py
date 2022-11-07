@@ -1,3 +1,5 @@
+"""compose and save all the text / location messages, then initiate sending via pub-sub"""
+
 import os
 import base64
 
@@ -8,12 +10,10 @@ import json
 import logging
 import math
 
-import sqlalchemy  # TODO: to switch to psycopg2? probably not, due to SQL injection safety
+import sqlalchemy
 
 from google.cloud import secretmanager
 from google.cloud import pubsub_v1
-
-# TODO: to migrate to 3.9 python
 
 
 project_id = os.environ["GCP_PROJECT"]
@@ -24,13 +24,6 @@ users_list = []
 coordinates_format = "{0:.5f}"
 stat_list_of_recipients = []  # list of users who received notification on new search
 fib_list = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987]
-
-
-# for analytics
-# search_id_for_analytics = None
-# change_log_id = None
-# change_type_for_analytics = None
-# mailing_id = None
 
 
 def sql_connect():
@@ -156,7 +149,7 @@ def define_dist_and_dir_to_search(search_lat, search_lon, user_let, user_lon):
         x = math.cos(math.radians(lat_2)) * math.sin(math.radians(d_lon_))
         y = math.cos(math.radians(lat_1)) * math.sin(math.radians(lat_2)) - math.sin(math.radians(lat_1)) * math.cos(
             math.radians(lat_2)) * math.cos(math.radians(d_lon_))
-        bearing = math.atan2(x, y)  # use atan2 to determine the quadrant
+        bearing = math.atan2(x, y)  # used to determine the quadrant
         bearing = math.degrees(bearing)
 
         return bearing
@@ -344,7 +337,7 @@ def compose_new_records_from_change_log(conn):
             new_line.changed_field_for_user = dictionary[new_line.changed_field]
 
         except Exception as e:
-            logging.info(f'ZZZ: EXCEPT')
+            logging.info('EXCEPT')
             logging.exception(e)
             new_line.changed_field_for_user = new_line.changed_field"""
         # TODO: temp try, content is needed
@@ -425,7 +418,7 @@ def enrich_new_records_from_searches(conn):
                             notify_admin(f'❌❌❌ {r_line.forum_search_num}! {r_line.start_time}')
                             r_line.ignore = 'y'
 
-                    except:
+                    except: # noqa
                         pass
                     # TODO: TEMP - TO DELETE!
                     # TODO: TEMP - TO DELETE!

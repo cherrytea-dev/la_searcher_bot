@@ -1,3 +1,5 @@
+"""Send the prepared notifications to users (text and location)"""
+
 import ast
 import time
 import datetime
@@ -217,7 +219,6 @@ def save_sending_status_to_notif_by_user(cur, message_id, result):
         result = result[0:7]
 
     if result in {'completed', 'cancelled', 'failed'}:
-
 
         sql_text_psy = f"""
                     UPDATE notif_by_user

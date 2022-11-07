@@ -1,12 +1,10 @@
 import os
-from datetime import datetime
-import datetime
 
 import psycopg2
 
 import telegram
 from telegram import ParseMode
-from telegram import ReplyKeyboardMarkup, ForceReply, KeyboardButton
+from telegram import ReplyKeyboardMarkup
 
 from google.cloud import secretmanager
 
@@ -78,7 +76,7 @@ def set_basic_parameters():
         pass
 
 
-def main(event, context):
+def main(event, context): # noqa
     global project_id  # can be deleted?
     global client  # can be deleted?
     global cur

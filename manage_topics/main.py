@@ -117,6 +117,7 @@ def save_visibility_for_topic(topic_id, visibility):
             # 'hidden' – topic is hidden from public access, can become visible in the future
             # 'ok' – regular topics with public visibility
 
+            # FIXME
             if 1 == 0:
                 # clear the prev visibility status
                 stmt = sqlalchemy.text("""DELETE FROM search_health_check WHERE search_forum_num=:a;""")
@@ -140,7 +141,7 @@ def save_visibility_for_topic(topic_id, visibility):
 
 
 def save_status_for_topic(topic_id, status):
-    """save in SQL if topic' status was updated: active search, search finished etc."""
+    """save in SQL if topic status was updated: active search, search finished etc."""
 
     try:
         pool = sql_connect()

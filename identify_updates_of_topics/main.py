@@ -106,12 +106,12 @@ def parse_coordinates(search_num):
 
     global requests_session
 
-    def parse_address_from_title(title):
+    def parse_address_from_title(initial_title):
 
         after_age = 0
         age_dict = [' год ', ' год', ' года ', ' года', ' лет ', ' лет', 'г.р.', '(г.р.),', 'лет)', 'лет,']
         for word in age_dict:
-            age_words = title.find(word)
+            age_words = initial_title.find(word)
             if age_words == -1:
                 pass
             else:
@@ -119,18 +119,18 @@ def parse_coordinates(search_num):
 
         address_string = None
         if after_age > 0:
-            address_string = title[after_age:].strip()
+            address_string = initial_title[after_age:].strip()
         else:
-            numbers = [int(float(s)) for s in re.findall(r"\d*\d", title)]
+            numbers = [int(float(s)) for s in re.findall(r"\d*\d", initial_title)]
             if numbers and numbers[0]:
-                age_words = title.find(str(numbers[0]))
+                age_words = initial_title.find(str(numbers[0]))
                 if age_words == -1:
-                    address_string = title
+                    address_string = initial_title
                 else:
                     after_age = age_words + len(str(numbers[0]))
-                    address_string = title[after_age:].strip()
+                    address_string = initial_title[after_age:].strip()
             else:
-                address_string = title
+                address_string = initial_title
 
         # ABOVE is not optimized - but with this part ages are excluded better (for cases when there are 2 persons)
         trigger_of_age_mentions = True
@@ -222,10 +222,10 @@ def parse_coordinates(search_num):
             by_word = address_string.split()
             prev_word = None
             this_word = None
-            for i in range(len(by_word) - 1):
-                if by_word[i + 1] == 'района':
-                    prev_word = by_word[i]
-                    this_word = by_word[i + 1]
+            for k in range(len(by_word) - 1):
+                if by_word[k + 1] == 'района':
+                    prev_word = by_word[k]
+                    this_word = by_word[k + 1]
                     break
             if prev_word and this_word:
                 address_string = address_string.replace(prev_word, prev_word[:-3] + 'ий')
@@ -236,10 +236,10 @@ def parse_coordinates(search_num):
             by_word = address_string.split()
             prev_word = None
             this_word = None
-            for i in range(len(by_word) - 1):
-                if by_word[i + 1] == 'области':
-                    prev_word = by_word[i]
-                    this_word = by_word[i + 1]
+            for k in range(len(by_word) - 1):
+                if by_word[k + 1] == 'области':
+                    prev_word = by_word[k]
+                    this_word = by_word[k + 1]
                     break
             if prev_word and this_word:
                 address_string = address_string.replace(prev_word, prev_word[:-2] + 'ая')
@@ -793,7 +793,7 @@ def update_checker(current_hash, folder_num):
 
 
 def define_family_name_from_search_title_new(title, printit=False):
-    """Define the family name of the lost person out ot search' title.
+    """Define the family name of the lost person out ot search title.
     It is very basic method which works in 99% of cases.
     Probably in the future more complicated model will be implemented"""
 
@@ -837,7 +837,7 @@ def define_family_name_from_search_title_new(title, printit=False):
 
 
 def define_age_from_search_title(search_title):
-    """finds the age from the search' title"""
+    """finds the age from the search title"""
     # it's really simple now and gets just a first number out of all – but this simple solution seems to work well
     # probably in the future we'd need to have an ML model to define age more accurately
 
@@ -858,7 +858,7 @@ def define_age_from_search_title(search_title):
 
 
 def define_status_from_search_title(title):
-    """define the status from search' title"""
+    """define the status from search title"""
 
     # TODO: change to regex and to result in two strings: status_original, status_classified
     search_status = title
@@ -935,13 +935,6 @@ def define_last_post_parameters(blocks):
         last_post_block = ''
 
     return last_post_block
-
-
-# TODO: under construction
-def profile_get_search_events(first_post_text):
-    """TBD"""
-
-    return None
 
 
 def profile_get_type_of_activity(text_of_activity):
@@ -1077,18 +1070,6 @@ def profile_get_managers(text_of_managers):
                         manager_line = manager_line.replace(', ,', ',')
                         manager_line = manager_line.replace('  ', ' ')
 
-                        # Block of phone number substitution with clickable link
-                        # TODO: turned out "tel:" protocol does not work in telegram,
-                        #  and phone numbers are maid clickable only if the message is
-                        #  short and it's user device who decides if number should be marked up
-                        #  as tel: link or not. So it is not controllable – thus tel: functionality was excluded
-                        """nums = re.findall(
-                            r'(?:\+7|7|8)[\s]?[\s\-(]?[\s]?[\d]{3}[\s\-)]?[\s]?[\d]{3}[\s\-]?[\d]{2}[\s\-]?[\d]{2}',
-                            manager_line)
-                        for num in nums:
-                            manager_line = manager_line.replace(num,
-                                                                '<a href="tel:' + str(num) + '">' + str(num) + '</a>')
-"""
                         managers.append(manager_line)
                         break
 
@@ -1181,7 +1162,6 @@ def parse(folder_id):
     topics_summary_in_folder = []
     topics_summary_in_folder_without_date = []
     current_datetime = datetime.now()
-    db_timestamp = str(current_datetime.strftime("%d-%b %H:%M"))
     url = f'https://lizaalert.org/forum/viewforum.php?f={folder_id}'
     try:
         r = requests_session.get(url, timeout=10)  # for every folder - req'd daily at night forum update # noqa
@@ -1466,7 +1446,6 @@ def process_delta(folder_num):
 
                     parsed_profile_text = parse_search_profile(search_num)
                     search_activities = profile_get_type_of_activity(parsed_profile_text)
-                    # search_events = profile_get_search_events(parsed_profile_text)
                     """DBG"""
                     logging.info('DBG.P.103:Search activities:' + str(search_activities))
                     """DBG"""

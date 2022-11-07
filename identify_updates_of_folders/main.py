@@ -42,7 +42,7 @@ def publish_to_pubsub(topic_name, message):
     # Publishes a message
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publish succeeded
+        publish_future.result()  # Verify that the publishing succeeded
         logging.info('Pub/sub message was published successfully')
 
     except Exception as e:
@@ -90,7 +90,7 @@ def compare_old_and_new_folder_hash_and_give_list_of_upd_folders(new_str, old_st
 
     list_of_changed_folders = []
 
-    # if these is no "old" version, we treat all the folder from new_str as newly parsed
+    # if there is no "old" version, we treat all the folder from new_str as newly parsed
     if not old_str:
         new_list = ast.literal_eval(new_str)
         for n_line in new_list:
