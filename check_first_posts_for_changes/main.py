@@ -815,7 +815,7 @@ def update_first_posts_and_statuses(percent_of_searches, weights):
                     bad_gateway_counter += 1
                     logging.info('502: {} - {}'.format(search_id, trigger_if_switched_to_proxy))
 
-                    #TODO: seems this one should be deleted?
+                    # TODO: seems this one should be deleted?
                     if bad_gateway_counter > 3 and not trigger_if_switched_to_proxy:
                         requests_session.close()
                         requests_session = requests.Session()

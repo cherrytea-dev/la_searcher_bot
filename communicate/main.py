@@ -8,9 +8,9 @@ import logging
 import math
 import psycopg2
 
-from telegram import ReplyKeyboardMarkup, ForceReply, KeyboardButton, Bot, Update
+from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update
 
-from google.cloud import secretmanager, pubsub_v1, storage
+from google.cloud import secretmanager, pubsub_v1
 
 
 publisher = pubsub_v1.PublisherClient()
@@ -139,11 +139,10 @@ def age_writer(age):
     return wording
 
 
-def compose_user_preferences_message(conn_psy, cur, user_id):
+def compose_user_preferences_message(cur, user_id):
     """Compose a text for user on which types of notifications are enabled for zir"""
 
     cur.execute("""SELECT preference FROM user_preferences WHERE user_id=%s ORDER BY preference;""", (user_id,))
-    # conn_psy.commit()
     user_prefs = cur.fetchall()
 
     prefs_wording = ''
@@ -180,7 +179,7 @@ def compose_user_preferences_message(conn_psy, cur, user_id):
 
 
 def define_family_name(title_string):
-    """return Family name from search' title"""
+    """return Family name from search title"""
     # TODO: TO BE DELETED and FAM NAME to be TAKEN from SEARCHES Table and field NAME
     # TODO: add family_name from Searches table directly
 
@@ -210,7 +209,7 @@ def define_family_name(title_string):
     return fam_name
 
 
-def compose_msg_on_all_last_searches(conn_psy, cur, region):
+def compose_msg_on_all_last_searches(cur, region):
     """Compose a part of message on the list of recent searches in the given region with relation to user's coords"""
 
     msg = ''
@@ -252,7 +251,7 @@ def compose_msg_on_all_last_searches(conn_psy, cur, region):
     return msg
 
 
-def compose_msg_on_active_searches_in_one_reg(conn_psy, cur, region, user_data):
+def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
     """Compose a part of message on the list of active searches in the given region with relation to user's coords"""
 
     msg = ''
@@ -268,7 +267,7 @@ def compose_msg_on_active_searches_in_one_reg(conn_psy, cur, region, user_data):
         WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') ORDER BY s2.search_start_time DESC;""",
         (region,)
     )
-    # conn_psy.commit()
+    
     database = cur.fetchall()
 
     user_lat = None
@@ -306,7 +305,7 @@ def compose_msg_on_active_searches_in_one_reg(conn_psy, cur, region, user_data):
     return msg
 
 
-def compose_full_message_on_list_of_searches(conn_psy, cur, list_type, user_id, region, region_name):
+def compose_full_message_on_list_of_searches(cur, list_type, user_id, region, region_name):
     """Compose a Final message on the list of searches in the given region"""
 
     msg = ''
@@ -314,13 +313,13 @@ def compose_full_message_on_list_of_searches(conn_psy, cur, list_type, user_id, 
     cur.execute(
         "SELECT latitude, longitude FROM user_coordinates WHERE user_id=%s LIMIT 1;", (user_id,)
     )
-    # conn_psy.commit()
+    
     user_data = cur.fetchone()
 
     # combine the list of last 20 searches
     if list_type == 'all':
 
-        msg += compose_msg_on_all_last_searches(conn_psy, cur, region)
+        msg += compose_msg_on_all_last_searches(cur, region)
 
         if msg:
             msg = 'Последние 20 поисков в разделе <a href="https://lizaalert.org/forum/viewforum.php?f=' + str(region) \
@@ -336,7 +335,7 @@ def compose_full_message_on_list_of_searches(conn_psy, cur, list_type, user_id, 
     # Combine the list of the latest active searches
     else:
 
-        msg += compose_msg_on_active_searches_in_one_reg(conn_psy, cur, region, user_data)
+        msg += compose_msg_on_active_searches_in_one_reg(cur, region, user_data)
 
         if msg:
             msg = 'Актуальные поиски за 60 дней в разделе <a href="https://lizaalert.org/forum/viewforum.php?f=' \
@@ -349,25 +348,23 @@ def compose_full_message_on_list_of_searches(conn_psy, cur, list_type, user_id, 
     return msg
 
 
-def save_new_user(conn_psy, cur, user_id, input_username):
+def save_new_user(cur, user_id, input_username):
     """save the new user in the user-related tables: users, user_preferences"""
 
     # add the New User into table users
     cur.execute("""INSERT INTO users (user_id, username_telegram, reg_date) values (%s, %s, %s);""",
                 (user_id, input_username, datetime.datetime.now()))
-    # conn_psy.commit()
 
     # add the New User into table user_preferences
     # default setting is set as notifications on new searches & status changes
     cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
                 (user_id, 'new_searches', 0))
-    # conn_psy.commit()
+    
     cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
                 (user_id, 'status_changes', 1))
-    # conn_psy.commit()
+    
     cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
                 (user_id, 'bot_news', 20))
-    # conn_psy.commit()
 
     message_for_admin = 'New user, name: ' + str(input_username) + ' id: ' + str(user_id)
     logging.info(message_for_admin)
@@ -375,11 +372,11 @@ def save_new_user(conn_psy, cur, user_id, input_username):
     return None
 
 
-def check_if_new_user(conn_psy, cur, user_id):
+def check_if_new_user(cur, user_id):
     """check if the user is new or not"""
 
     cur.execute("""SELECT user_id FROM users WHERE user_id=%s LIMIT 1;""", (user_id,))
-    # conn_psy.commit()
+    
     info_on_user_from_users = str(cur.fetchone())
 
     if info_on_user_from_users == 'None':
@@ -390,11 +387,11 @@ def check_if_new_user(conn_psy, cur, user_id):
     return user_is_new
 
 
-def check_if_user_has_no_regions(conn_psy, cur, user_id):
+def check_if_user_has_no_regions(cur, user_id):
     """check if the user has at least one region"""
 
     cur.execute("""SELECT user_id FROM user_regional_preferences WHERE user_id=%s LIMIT 1;""", (user_id,))
-    # conn_psy.commit()
+    
     info_on_user_from_users = str(cur.fetchone())
 
     if info_on_user_from_users == 'None':
@@ -405,28 +402,25 @@ def check_if_user_has_no_regions(conn_psy, cur, user_id):
     return no_regions
 
 
-def save_user_coordinates(conn_psy, cur, user_id, input_latitude, input_longitude):
+def save_user_coordinates(cur, user_id, input_latitude, input_longitude):
     """Save / update user "home" coordinates"""
 
     cur.execute(
         "DELETE FROM user_coordinates WHERE user_id=%s;", (user_id,)
     )
-    # conn_psy.commit()
 
     now = datetime.datetime.now()
     cur.execute("""INSERT INTO user_coordinates (user_id, latitude, longitude, upd_time) values (%s, %s, %s, %s);""",
                 (user_id, input_latitude, input_longitude, now))
-    # conn_psy.commit()
 
     return None
 
 
-def show_user_coordinates(conn_psy, cur, user_id):
+def show_user_coordinates(cur, user_id):
     """Return the saved user "home" coordinates"""
 
     cur.execute("""SELECT latitude, longitude FROM user_coordinates WHERE user_id=%s LIMIT 1;""",
                 (user_id,))
-    # conn_psy.commit()
 
     try:
         lat, lon = list(cur.fetchone())
@@ -437,19 +431,18 @@ def show_user_coordinates(conn_psy, cur, user_id):
     return lat, lon
 
 
-def delete_user_coordinates(conn_psy, cur, user_id):
+def delete_user_coordinates(cur, user_id):
     """Delete the saved user "home" coordinates"""
 
     cur.execute(
         "DELETE FROM user_coordinates WHERE user_id=%s;", (user_id,)
     )
-    # conn_psy.commit()
 
     return None
 
 
 def distance_to_search(search_lat, search_lon, user_let, user_lon):
-    """Return the distance and direction from user "home" coordinates to the search' coordinates"""
+    """Return the distance and direction from user "home" coordinates to the search coordinates"""
 
     r = 6373.0  # radius of the Earth
 
@@ -501,7 +494,7 @@ def distance_to_search(search_lat, search_lon, user_let, user_lon):
     return [dist, direction]
 
 
-def get_user_regional_preferences(conn_psy, cur, user_id):
+def get_user_regional_preferences(cur, user_id):
     """Return user's regional preferences"""
 
     user_prefs_list = []
@@ -527,7 +520,7 @@ def get_user_regional_preferences(conn_psy, cur, user_id):
     return user_prefs_list
 
 
-def save_preference(conn_psy, cur, user_id, preference):
+def save_preference(cur, user_id, preference):
     """Save user preference on types of notifications to be sent by bot"""
 
     # the mater-table is notif_mailing_types:
@@ -550,27 +543,23 @@ def save_preference(conn_psy, cur, user_id, preference):
     # if user wants to have +ALL notifications
     if preference == 'all':
         cur.execute("""DELETE FROM user_preferences WHERE user_id=%s;""", (user_id,))
-        # conn_psy.commit()
 
         cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
                     (user_id, preference, 30))
-        # conn_psy.commit()
 
     # if user DOESN'T want to have -ALL notifications
     elif preference == '-all':
         cur.execute("""DELETE FROM user_preferences WHERE user_id=%s;""", (user_id,))
-        # conn_psy.commit()
 
         cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
                     (user_id, 'bot_news', 20))
-        # conn_psy.commit()
 
     # if user wants notifications on NEW SEARCHES or STATUS or TITLE updates
     elif preference in {'new_searches', 'status_changes', 'title_changes'}:
 
         # Check if there's "ALL" preference
         cur.execute("SELECT id FROM user_preferences WHERE user_id=%s AND preference='all' LIMIT 1;", (user_id,))
-        # conn_psy.commit()
+        
         user_had_all = str(cur.fetchone())
 
         #
@@ -578,7 +567,6 @@ def save_preference(conn_psy, cur, user_id, preference):
             """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR preference='finish' OR
             preference='all' OR preference=%s);""",
             (user_id, preference))
-        # conn_psy.commit()
 
         if preference == 'new_searches':
             pref_id = 0
@@ -592,13 +580,11 @@ def save_preference(conn_psy, cur, user_id, preference):
 
         cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
                     (user_id, preference, pref_id))
-        # conn_psy.commit()
 
         # Inforg updates handling
         if user_had_all != 'None':
             cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
                         (user_id, 'bot_news', 20))
-            # conn_psy.commit()
 
     # if user DOESN'T want notifications on SPECIFIC updates
     elif preference in {'-new_searches', '-status_changes'}:  # or preference == '-title_changes'
@@ -611,10 +597,8 @@ def save_preference(conn_psy, cur, user_id, preference):
             pref_id = 99
         cur.execute("""DELETE FROM user_preferences WHERE user_id = %s AND pref_id = %s;""",
                     (user_id, pref_id))
-        # conn_psy.commit()
 
         cur.execute("SELECT id FROM user_preferences WHERE user_id=%s LIMIT 1;", (user_id,))
-        # conn_psy.commit()
 
     # if user wants notifications ON COMMENTS
     elif preference == 'comments_changes':
@@ -623,22 +607,18 @@ def save_preference(conn_psy, cur, user_id, preference):
             """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
             preference='all' OR preference='finish' OR preference='inforg_comments');""",
             (user_id,))
-        # conn_psy.commit()
 
         cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
                     (user_id, preference, 3))
-        # conn_psy.commit()
 
     # if user DOESN'T want notifications on COMMENTS
     elif preference == '-comments_changes':
 
         cur.execute("""DELETE FROM user_preferences WHERE user_id = %s AND preference = 'comments_changes';""",
                     (user_id,))
-        # conn_psy.commit()
 
         cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
                     (user_id, 'inforg_comments', 4))
-        # conn_psy.commit()
 
     # if user wants notifications ON INFORG COMMENTS
     elif preference == 'inforg_comments':
@@ -648,28 +628,25 @@ def save_preference(conn_psy, cur, user_id, preference):
             """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
             preference='finish' OR preference='inforg_comments');""",
             (user_id,))
-        # conn_psy.commit()
 
         # Check if ALL of Comments_changes are in place
         cur.execute(
             """SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' OR
             preference='comments_changes' OR pref_id=30 OR pref_id=3) LIMIT 1;""",
             (user_id,))
-        # conn_psy.commit()
+        
         info_on_user = str(cur.fetchone())
 
         # Add Inforg_comments ONLY in there's no ALL or Comments_changes
         if info_on_user == 'None':
             cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
                         (user_id, preference, 4))
-            # conn_psy.commit()
 
     # if user DOESN'T want notifications ON INFORG COMMENTS
     elif preference == '-inforg_comments':
 
         cur.execute("""DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'inforg_comments');""",
                     (user_id,))
-        # conn_psy.commit()
 
     # if user wants notifications ON BOT NEWS
     elif preference == 'bot_news':
@@ -679,20 +656,18 @@ def save_preference(conn_psy, cur, user_id, preference):
             """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
             preference='finish' OR preference='bot_news');""",
             (user_id,))
-        # conn_psy.commit()
 
         # Check if ALL is in place
         cur.execute(
             "SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' OR pref_id=30) LIMIT 1;",
             (user_id,))
-        # conn_psy.commit()
+
         already_all = str(cur.fetchone())
 
         # Add Bot_News ONLY in there's no ALL
         if already_all == 'None':
             cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
                         (user_id, preference, 20))
-            # conn_psy.commit()
 
     # if user DOESN'T want notifications ON BOT NEWS
     elif preference == '-bot_news':
@@ -700,7 +675,6 @@ def save_preference(conn_psy, cur, user_id, preference):
         cur.execute(
             """DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'bot_news' OR pref_id=20);""",
             (user_id,))
-        # conn_psy.commit()
 
     # if user wants notifications ON NEW FIELD TRIPS
     elif preference == 'field_trips_new':
@@ -710,20 +684,18 @@ def save_preference(conn_psy, cur, user_id, preference):
             """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
             preference='finish' OR preference='field_trips_new' OR pref_id=5);""",
             (user_id,))
-        # conn_psy.commit()
 
         # Check if ALL is in plac
         cur.execute(
             "SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' or pref_id=30) LIMIT 1;",
             (user_id,))
-        # conn_psy.commit()
+        
         already_all = str(cur.fetchone())
 
         # Add new_filed_trips ONLY in there's no ALL
         if already_all == 'None':
             cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
                         (user_id, preference, 5))
-            # conn_psy.commit()
 
     # if user DOESN'T want notifications ON FIELD TRIPS
     elif preference == '-field_trips_new':
@@ -731,7 +703,6 @@ def save_preference(conn_psy, cur, user_id, preference):
         cur.execute(
             """DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'field_trips_new' OR pref_id=5);""",
             (user_id,))
-        # conn_psy.commit()
 
     # if user wants notifications ON NEW FIELD TRIPS
     elif preference == 'field_trips_change':
@@ -741,20 +712,18 @@ def save_preference(conn_psy, cur, user_id, preference):
             """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
             preference='finish' OR preference='field_trips_change' OR pref_id=6);""",
             (user_id,))
-        # conn_psy.commit()
 
         # Check if ALL is in place
         cur.execute(
             "SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' or pref_id=30) LIMIT 1;",
             (user_id,))
-        # conn_psy.commit()
+
         already_all = str(cur.fetchone())
 
         # Add filed_trips_change ONLY in there's no ALL
         if already_all == 'None':
             cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
                         (user_id, preference, 6))
-            # conn_psy.commit()
 
     # if user DOESN'T want notifications ON FIELD TRIPS CHANGES
     elif preference == '-field_trips_change':
@@ -762,7 +731,6 @@ def save_preference(conn_psy, cur, user_id, preference):
         cur.execute(
             """DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'field_trips_change' OR pref_id=6);""",
             (user_id,))
-        # conn_psy.commit()
 
     # if user wants notifications ON COORDS CHANGE
     elif preference == 'coords_change':
@@ -772,20 +740,18 @@ def save_preference(conn_psy, cur, user_id, preference):
             """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
             preference='finish' OR preference='coords_change' OR pref_id=7);""",
             (user_id,))
-        # conn_psy.commit()
 
         # Check if ALL is in place
         cur.execute(
             "SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' OR pref_id=30) LIMIT 1;",
             (user_id,))
-        # conn_psy.commit()
+
         already_all = str(cur.fetchone())
 
         # Add new_filed_trips ONLY in there's no ALL
         if already_all == 'None':
             cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
                         (user_id, preference, 7))
-            # conn_psy.commit()
 
     # if user DOESN'T want notifications ON COORDS CHANGE
     elif preference == '-coords_change':
@@ -793,12 +759,11 @@ def save_preference(conn_psy, cur, user_id, preference):
         cur.execute(
             """DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'coords_change' OR pref_id=7);""",
             (user_id,))
-        # conn_psy.commit()
 
     return None
 
 
-def update_and_download_list_of_regions(conn_psy, cur, user_id, got_message, b_menu_set_region, b_fed_dist_pick_other):
+def update_and_download_list_of_regions(cur, user_id, got_message, b_menu_set_region, b_fed_dist_pick_other):
     """Upload, download and compose a message on the list of user's regions"""
 
     msg = ''
@@ -923,7 +888,7 @@ def update_and_download_list_of_regions(conn_psy, cur, user_id, got_message, b_m
             cur.execute(
                 """SELECT forum_folder_num from user_regional_preferences WHERE user_id=%s;""", (user_id,)
             )
-            # conn_psy.commit()
+            
             user_curr_regs_temp = cur.fetchall()
             user_curr_regs = [reg[0] for reg in user_curr_regs_temp]
 
@@ -942,7 +907,6 @@ def update_and_download_list_of_regions(conn_psy, cur, user_id, got_message, b_m
                         """DELETE FROM user_regional_preferences WHERE user_id=%s and forum_folder_num=%s;""",
                         (user_id, region)
                     )
-                    # conn_psy.commit()
 
             # Scenario: this setting WAS in place, but now it's the last one - we cannot delete it
             elif region_was_in_db == 'yes' and region_is_the_only:
@@ -955,7 +919,6 @@ def update_and_download_list_of_regions(conn_psy, cur, user_id, got_message, b_m
                         """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values (%s, %s);""",
                         (user_id, region)
                     )
-                    # conn_psy.commit()
 
         except Exception as e:
             logging.info('failed to upload & download the list of user\'s regions')
@@ -965,7 +928,7 @@ def update_and_download_list_of_regions(conn_psy, cur, user_id, got_message, b_m
     cur.execute(
         """SELECT forum_folder_num from user_regional_preferences WHERE user_id=%s;""", (user_id,)
     )
-    # conn_psy.commit()
+    
     user_curr_regs = cur.fetchall()
     user_curr_regs_list = [reg[0] for reg in user_curr_regs]
 
@@ -991,14 +954,14 @@ def update_and_download_list_of_regions(conn_psy, cur, user_id, got_message, b_m
     return msg
 
 
-def get_last_bot_msg(conn_psy, cur, user_id):
+def get_last_bot_msg(cur, user_id):
     """Get the last bot message to user to define if user is expected to give exact answer"""
 
     cur.execute(
         """
         SELECT msg_type FROM msg_from_bot WHERE user_id=%s LIMIT 1;
         """, (user_id,))
-    # conn_psy.commit()
+    
     extract = cur.fetchone()
     logging.info(f'get the last bot message to user to define if user is expected to give exact answer')
     logging.info(str(extract))
@@ -1062,7 +1025,6 @@ def main(request):
 
             user_new_status = get_param_if_exists(update, 'update.my_chat_member.new_chat_member.status')
             timer_changed = get_param_if_exists(update, 'update.message.message_auto_delete_timer_changed')
-            message_id = get_param_if_exists(update, 'update.effective_message.message_id')
             photo = get_param_if_exists(update, 'update.message.photo')
             contact = get_param_if_exists(update, 'update.message.contact')
             inline_query = get_param_if_exists(update, 'update.inline_query')
@@ -1141,17 +1103,16 @@ def main(request):
             else:
 
                 # check if user is new - and if so - saving him/her
-                user_is_new = check_if_new_user(conn_psy, cur, user_id)
+                user_is_new = check_if_new_user(cur, user_id)
                 if user_is_new:
                     # TODO: to replace with another user_management script?
-                    save_new_user(conn_psy, cur, user_id, username)
+                    save_new_user(cur, user_id, username)
 
                 # get user regional settings (which regions he/she is interested it)
-                user_regions = get_user_regional_preferences(conn_psy, cur, user_id)
+                user_regions = get_user_regional_preferences(cur, user_id)
 
                 # getting message parameters if user send a REPLY to bot message
                 reply_to_message_text = ''
-                nickname_of_feedback_author = ''
                 user_latitude = None
                 user_longitude = None
                 got_message = None
@@ -1160,9 +1121,6 @@ def main(request):
                     # TODO: to check if this functionality is in use – probably to delete
                     if update.effective_message.reply_to_message is not None:
                         reply_to_message_text = str(update.effective_message.reply_to_message.text)
-                        nickname_of_feedback_author = str(update.effective_message.reply_to_message.chat.username)
-                        feedback_time = update.effective_message.reply_to_message.date
-                        feedback_from_user = update.effective_message.text
 
                     if update.effective_message.location is not None:
                         user_latitude = update.effective_message.location.latitude
@@ -1183,7 +1141,6 @@ def main(request):
                 b_start = '/start'
                 com_2 = 'посмотреть актуальные поиски'
                 com_27 = 'настроить бот'
-                b_gen_qr = 'получить QR-код'
                 b_other = 'другие возможности'
                 keyboard_main = [[com_2], [com_27], [b_other]]  # [[com_2], [com_27], [b_gen_qr], [b_other]]
                 reply_markup_main = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
@@ -1241,8 +1198,6 @@ def main(request):
                 b_fed_dist_central = 'Центральный ФО'
                 b_fed_dist_yuzhniy = 'Южный ФО'
                 b_fed_dist_other_r = 'Прочие поиски по РФ'
-                # b_fed_dist_belarus = 'Беларусь'
-                # b_fed_dist_kazakhs = 'Казахстан'
                 b_fed_dist_pick_other = 'выбрать другой Федеральный Округ'
                 keyboard_fed_dist_set = [[b_fed_dist_dal_vos],
                                          [b_fed_dist_privolz],
@@ -1253,8 +1208,6 @@ def main(request):
                                          [b_fed_dist_central],
                                          [b_fed_dist_yuzhniy],
                                          [b_fed_dist_other_r],
-                                         # [b_fed_dist_belarus],
-                                         # [b_fed_dist_kazakhs],
                                          [b_back_to_start]]
 
                 # Settings - Dalnevostochniy Fed Dist - Regions
@@ -1464,17 +1417,6 @@ def main(request):
                                     # b_fed_dist_other_r: keyboard_fed_dist_set
                                     }
 
-                # Feedback
-                text_of_feedback_request = 'Если у вас есть комментарии или пожелания по работе бота, ' \
-                                           'отправьте их разработчику обратным сообщением с цитированием. \n' \
-                                           'Если вы отключите цитирование этого сообщения и отправите что-либо ' \
-                                           'боту – ваше сообщение не будет сохранено, а вы вернетесь на начальный экран'
-                reply_markup_feedback_reply = ForceReply(force_reply=True, seletive=False)
-
-                # Forum actions
-                b_yes_its_me = 'да, это я'
-                b_no_its_not_me = 'нет, это не я'
-
                 # Other menu
                 com_1 = 'посмотреть последние поиски'
                 b_goto_community = 'написать разработчику бота'
@@ -1488,15 +1430,12 @@ def main(request):
 
                 b_admin_menu = 'admin'
                 b_test_menu = 'test'
-                # b_prep_for_qr = 'настроить бот и получить QR-код' - OUTDATED
-                b_link_to_forum = 'связать аккаунты бота и форума'
-                b_add_usr_attr_menu = 'ввести требуемые параметры'
 
                 # basic markup which will be substituted for all specific cases
                 reply_markup = reply_markup_main
 
                 # Check what was last request from bot and if bot is expecting user's input
-                bot_request_bfr_usr_msg = get_last_bot_msg(conn_psy, cur, user_id)
+                bot_request_bfr_usr_msg = get_last_bot_msg(cur, user_id)
 
                 if bot_request_bfr_usr_msg:
                     logging.info(f'before this message bot was waiting for {bot_request_bfr_usr_msg} '
@@ -1526,7 +1465,7 @@ def main(request):
                         # if there are user's coordinates in the message
                         if user_latitude:
 
-                            save_user_coordinates(conn_psy, cur, user_id, user_latitude, user_longitude)
+                            save_user_coordinates(cur, user_id, user_latitude, user_longitude)
                             bot_message = 'Ваши "домашние координаты" сохранены:\n'
                             bot_message += generate_yandex_maps_place_link(user_latitude, user_longitude, 'coords')
                             bot_message += '\nТеперь для всех поисков, где удастся распознать координаты штаба или ' \
@@ -1547,14 +1486,12 @@ def main(request):
 
                             try:
                                 cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
-                                # conn_psy.commit()
 
                                 cur.execute(
                                     """
                                     INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
                                     """,
                                     (user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
-                                # conn_psy.commit()
 
                             except Exception as e:
                                 logging.info('failed to update the last saved message from bot')
@@ -1572,7 +1509,7 @@ def main(request):
                                 select forum_folder_id, folder_description from regions_to_folders;
                                 """
                             )
-                            # conn_psy.commit()
+                            
                             regions_table = cur.fetchall()
 
                             region_name = ''
@@ -1586,7 +1523,7 @@ def main(request):
                                 # check if region – is an archive folder: if so – it can be sent only to 'all'
                                 if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
 
-                                    bot_message = compose_full_message_on_list_of_searches(conn_psy, cur,
+                                    bot_message = compose_full_message_on_list_of_searches(cur,
                                                                                            temp_dict[got_message],
                                                                                            user_id,
                                                                                            region, region_name)
@@ -1598,14 +1535,12 @@ def main(request):
                                     # saving the last message from bot
                                     try:
                                         cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
-                                        # conn_psy.commit()
 
                                         cur.execute(
                                             """
                                             INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
                                             """,
                                             (user_id, datetime.datetime.now(), 'report'))
-                                        # conn_psy.commit()
 
                                     except Exception as e:
                                         logging.info('failed to save the last message from bot')
@@ -1618,7 +1553,7 @@ def main(request):
                             bot_message = "Вы вошли в специальный тестовый админ-раздел"
 
                             # keyboard for Home Coordinates sharing
-                            keyboard_coordinates_admin = [[b_link_to_forum], [b_back_to_start]]
+                            keyboard_coordinates_admin = [[b_back_to_start], [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
                         # Test mode
@@ -1641,6 +1576,7 @@ def main(request):
                                           'список регионов через настройки бота.'
                             reply_markup = reply_markup_main
 
+                            # TODO: why below with no arguments?
                             if check_if_user_has_no_regions:
                                 # add the New User into table user_regional_preferences
                                 # region is Moscow for Active Searches & InfoPod
@@ -1670,14 +1606,14 @@ def main(request):
                             reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
 
                         elif got_message in {b_menu_set_region, b_fed_dist_pick_other}:
-                            bot_message = update_and_download_list_of_regions(conn_psy, cur,
+                            bot_message = update_and_download_list_of_regions(cur,
                                                                               user_id, got_message,
                                                                               b_menu_set_region,
                                                                               b_fed_dist_pick_other)
                             reply_markup = ReplyKeyboardMarkup(keyboard_fed_dist_set, resize_keyboard=True)
 
                         elif got_message in dict_of_fed_dist:
-                            updated_regions = update_and_download_list_of_regions(conn_psy, cur,
+                            updated_regions = update_and_download_list_of_regions(cur,
                                                                                   user_id, got_message,
                                                                                   b_menu_set_region,
                                                                                   b_fed_dist_pick_other)
@@ -1685,7 +1621,7 @@ def main(request):
                             reply_markup = ReplyKeyboardMarkup(dict_of_fed_dist[got_message], resize_keyboard=True)
 
                         elif got_message in full_dict_of_regions:
-                            updated_regions = update_and_download_list_of_regions(conn_psy, cur,
+                            updated_regions = update_and_download_list_of_regions(cur,
                                                                                   user_id, got_message,
                                                                                   b_menu_set_region,
                                                                                   b_fed_dist_pick_other)
@@ -1721,7 +1657,7 @@ def main(request):
                             reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
 
                         elif got_message == b_coords_del:
-                            delete_user_coordinates(conn_psy, cur, user_id)
+                            delete_user_coordinates(cur, user_id)
                             bot_message = 'Ваши "домашние координаты" удалены. Теперь расстояние и направление ' \
                                           'до поисков не будет отображаться.'
                             keyboard_coordinates_1 = [[b_coords_auto_def], [b_coords_man_def], [b_coords_check],
@@ -1740,7 +1676,7 @@ def main(request):
 
                         elif got_message == b_coords_check:
 
-                            lat, lon = show_user_coordinates(conn_psy, cur, user_id)
+                            lat, lon = show_user_coordinates(cur, user_id)
                             if lat and lon:
                                 bot_message = 'Ваши "домашние координаты" '
                                 bot_message += generate_yandex_maps_place_link(lat, lon, 'coords')
@@ -1772,7 +1708,7 @@ def main(request):
                         # save preference for -ALL
                         elif got_message == com_15:
                             bot_message = 'Уведомления отключены. Кстати, их можно настроить более гибко'
-                            save_preference(conn_psy, cur, user_id, '-all')
+                            save_preference(cur, user_id, '-all')
                             keyboard_notifications_all_quit = [[com_4], [com_5], [com_6], [com_7], [com_12],
                                                                [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_notifications_all_quit, resize_keyboard=True)
@@ -1783,7 +1719,7 @@ def main(request):
                                           'появление нового поиска, изменение статуса поиска (стоп, НЖ, НП), ' \
                                           'появление новых комментариев по всем поискам. Вы в любой момент можете ' \
                                           'изменить список уведомлений'
-                            save_preference(conn_psy, cur, user_id, 'all')
+                            save_preference(cur, user_id, 'all')
                             keyboard_notifications_all_quit = [[com_15], [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_notifications_all_quit, resize_keyboard=True)
 
@@ -1817,54 +1753,54 @@ def main(request):
                                 bot_message = 'Отлично! Теперь вы будете получать уведомления в телеграм при ' \
                                               'появлении нового поиска. Вы в любой момент можете изменить ' \
                                               'список уведомлений'
-                                save_preference(conn_psy, cur, user_id, 'new_searches')
+                                save_preference(cur, user_id, 'new_searches')
 
                             # save preference for -NEW SEARCHES
                             elif got_message == com_16:
                                 bot_message = 'Записали'
-                                save_preference(conn_psy, cur, user_id, '-new_searches')
+                                save_preference(cur, user_id, '-new_searches')
 
                             # save preference for +BotNews
                             elif got_message == com_9:
                                 bot_message = 'Теперь в случае появления нового функционала бота вы узнаете об ' \
                                               'этом в небольшом новостном сообщении'
-                                save_preference(conn_psy, cur, user_id, 'bot_news')
+                                save_preference(cur, user_id, 'bot_news')
 
                             # save preference for -BotNews
                             elif got_message == com_12:
                                 bot_message = 'Вы отписались от уведомлений по новому функционалу бота. Когда ' \
                                               'появится какая-либо новая функция - бот, к сожалению, не сможет вам ' \
                                               'об этом сообщить.'
-                                save_preference(conn_psy, cur, user_id, '-bot_news')
+                                save_preference(cur, user_id, '-bot_news')
 
                             # save preference for +STATUS UPDATES
                             elif got_message == com_6:
                                 bot_message = 'Отлично! теперь вы будете получать уведомления в телеграм при ' \
                                               'изменении статуса поисков (НЖ, НП, СТОП и т.п.). Вы в любой момент ' \
                                               'можете изменить список уведомлений'
-                                save_preference(conn_psy, cur, user_id, 'status_changes')
+                                save_preference(cur, user_id, 'status_changes')
 
                             # save preference for -STATUS UPDATES
                             elif got_message == com_17:
                                 bot_message = 'Записали'
-                                save_preference(conn_psy, cur, user_id, '-status_changes')
+                                save_preference(cur, user_id, '-status_changes')
 
                             # save preference for TITLE UPDATES
                             elif got_message == com_10:
                                 bot_message = 'Отлично!'
-                                save_preference(conn_psy, cur, user_id, 'title_changes')
+                                save_preference(cur, user_id, 'title_changes')
 
                             # save preference for +COMMENTS
                             elif got_message == com_7:
                                 bot_message = 'Отлично! Теперь все новые комментарии будут у вас! Вы в любой момент ' \
                                               'можете изменить список уведомлений'
-                                save_preference(conn_psy, cur, user_id, 'comments_changes')
+                                save_preference(cur, user_id, 'comments_changes')
 
                             # save preference for -COMMENTS
                             elif got_message == com_18:
                                 bot_message = 'Записали. Мы только оставили вам включенными уведомления о ' \
                                               'комментариях Инфорга. Их тоже можно отключить'
-                                save_preference(conn_psy, cur, user_id, '-comments_changes')
+                                save_preference(cur, user_id, '-comments_changes')
 
                             # save preference for +InforgComments
                             elif got_message == b_act_inforg_com:
@@ -1872,12 +1808,12 @@ def main(request):
                                               'вы будете получать уведомления о комментариях от Инфорга. Если же вы ' \
                                               'уже подписаны на все комментарии – то всё остаётся без изменений: бот ' \
                                               'уведомит вас по всем комментариям, включая от Инфорга'
-                                save_preference(conn_psy, cur, user_id, 'inforg_comments')
+                                save_preference(cur, user_id, 'inforg_comments')
 
                             # save preference for -InforgComments
                             elif got_message == b_deact_inforg_com:
                                 bot_message = 'Вы отписались от уведомлений по новым комментариям от Инфорга'
-                                save_preference(conn_psy, cur, user_id, '-inforg_comments')
+                                save_preference(cur, user_id, '-inforg_comments')
 
                             # save preference for +FieldTripsNew
                             elif got_message == b_act_field_trips_new:
@@ -1885,39 +1821,39 @@ def main(request):
                                               'поискам. Обратите внимание, что это не рассылка по новым темам на ' \
                                               'форуме, а именно о том, что в существующей теме в ПЕРВОМ посте ' \
                                               'появилась информация о новом выезде'
-                                save_preference(conn_psy, cur, user_id, 'field_trips_new')
+                                save_preference(cur, user_id, 'field_trips_new')
 
                             # save preference for -FieldTripsNew
                             elif got_message == b_deact_field_trips_new:
                                 bot_message = 'Вы отписались от уведомлений по новым выездам'
-                                save_preference(conn_psy, cur, user_id, '-field_trips_new')
+                                save_preference(cur, user_id, '-field_trips_new')
 
                             # save preference for +FieldTripsChange
                             elif got_message == b_act_field_trips_change:
                                 bot_message = 'Теперь вы будете получать уведомления о ключевых изменениях при ' \
                                               'выездах, в т.ч. изменение или завершение выезда. Обратите внимание, ' \
                                               'что эта рассылка отражает изменения только в ПЕРВОМ посте поиска.'
-                                save_preference(conn_psy, cur, user_id, 'field_trips_change')
+                                save_preference(cur, user_id, 'field_trips_change')
 
                             # save preference for -FieldTripsChange
                             elif got_message == b_deact_field_trips_change:
                                 bot_message = 'Вы отписались от уведомлений по изменениям выездов'
-                                save_preference(conn_psy, cur, user_id, '-field_trips_change')
+                                save_preference(cur, user_id, '-field_trips_change')
 
                             # save preference for +CoordsChange
                             elif got_message == b_act_coords_change:
                                 bot_message = 'Если у штаба поменяются координаты (и об этом будет написано в первом ' \
                                               'посте на форуме) – бот уведомит вас об этом'
-                                save_preference(conn_psy, cur, user_id, 'coords_change')
+                                save_preference(cur, user_id, 'coords_change')
 
                             # save preference for -CoordsChange
                             elif got_message == b_deact_coords_change:
                                 bot_message = 'Вы отписались от уведомлений о смене места (координат) штаба'
-                                save_preference(conn_psy, cur, user_id, '-coords_change')
+                                save_preference(cur, user_id, '-coords_change')
 
                             # GET what are preferences
                             elif got_message == com_3:
-                                prefs = compose_user_preferences_message(conn_psy, cur, user_id)
+                                prefs = compose_user_preferences_message(cur, user_id)
                                 if prefs[0] == 'пока нет включенных уведомлений' or prefs[0] == 'неизвестная настройка':
                                     bot_message = 'Выберите, какие уведомления вы бы хотели получать'
                                 else:
@@ -1928,7 +1864,7 @@ def main(request):
                                 bot_message = 'empty message'
 
                             # getting the list of user notification preferences
-                            prefs = compose_user_preferences_message(conn_psy, cur, user_id)
+                            prefs = compose_user_preferences_message(cur, user_id)
                             keyboard_notifications_flexible = [[com_4], [com_5], [com_6], [com_7], [b_act_inforg_com],
                                                                [com_9], [b_back_to_start]]
                             # just a comparison with negative [[com_15],[com_16],[com_17],[com_18],[b_deact_inforg_com],
@@ -1969,14 +1905,13 @@ def main(request):
 
                         try:
                             cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
-                            # conn_psy.commit()
 
                             cur.execute(
                                 """
                                 INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
                                 """,
                                 (user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
-                            # conn_psy.commit()
+                            
                         except Exception as e:
                             logging.info(f'failed updates of table msg_from_bot for user={user_id}')
                             logging.exception(e)
