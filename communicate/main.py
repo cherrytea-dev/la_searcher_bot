@@ -6,12 +6,7 @@ import re
 import json
 import logging
 import math
-from io import BytesIO
-import qrcode
-
-import sqlalchemy
 import psycopg2
-from psycopg2 import sql
 
 from telegram import ReplyKeyboardMarkup, ForceReply, KeyboardButton, Bot, Update
 
@@ -229,12 +224,11 @@ def compose_msg_on_all_last_searches(conn_psy, cur, region):
         WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular')
         ORDER BY s2.search_start_time DESC;""", (region,)
     )
-    # conn_psy.commit()
+
     database = cur.fetchall()
 
     for db_line in database:
 
-        # TODO: to prettify
         if str(db_line[2])[0:4] == 'Ищем':
             msg += 'Ищем ' + time_counter_since_search_start(db_line[5])[0]
         else:
@@ -411,19 +405,6 @@ def check_if_user_has_no_regions(conn_psy, cur, user_id):
     return no_regions
 
 
-# TODO: to be deleted
-def save_feedback(conn_psy, cur, func_input):
-
-    if func_input:
-        cur.execute(
-            """INSERT INTO feedback (username, feedback_text, feedback_time, user_id, message_id) values
-            (%s, %s, %s, %s, %s);""",
-            (func_input[0], func_input[2], func_input[1], func_input[3], func_input[4]))
-        # conn_psy.commit()
-
-    return None
-
-
 def save_user_coordinates(conn_psy, cur, user_id, input_latitude, input_longitude):
     """Save / update user "home" coordinates"""
 
@@ -527,12 +508,6 @@ def get_user_regional_preferences(conn_psy, cur, user_id):
 
     try:
         cur.execute("SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=%s;", (user_id,))
-        #######
-        # sql_text = sqlalchemy.text("""SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=:a;""")
-
-        # cur.execute(sql_text, a=user_id)
-        #####
-        # # conn_psy.commit()
         user_reg_prefs_array = cur.fetchall()
 
         # TODO: to make on SQL level not in py code
@@ -1053,235 +1028,6 @@ def generate_yandex_maps_place_link(lat, lon, param):
     return msg
 
 
-# TODO: to be deleted?
-def compose_msg_on_reqd_urs_attr(conn_psy, cur, user_id):
-    """Get the list of attributes, required for QR code generation"""
-
-    cur.execute(
-        """
-        SELECT callsign, region, auto_num, phone, firstname, lastname
-        FROM user_attributes WHERE user_id=%s;
-        """, (user_id,)
-    )
-    # conn_psy.commit()
-    available_data = list(cur.fetchone())
-
-    msg = ''
-
-    if available_data:
-        u_callsign = available_data[0]
-        u_region = available_data[1]
-        u_auto_num = available_data[2]
-        u_phone = available_data[3]
-        u_firstname = available_data[4]
-        u_lastname = available_data[5]
-
-        if not u_firstname:
-            msg += ' &#8226; Ваше имя,\n'
-        if not u_lastname:
-            msg += ' &#8226; Ваша фамилия,\n'
-        if not u_callsign:
-            msg += ' &#8226; Позывной,\n'
-        if not u_region:
-            msg += ' &#8226; Ваш Регион,\n'
-        if not u_phone:
-            msg += ' &#8226; Номер телефона,\n'
-        if not u_auto_num:
-            msg += ' &#8226; Гос.номер авто (если есть),\n'
-
-        msg = msg[:-2]
-
-    return msg
-
-
-# TODO: to be deleted?
-def check_and_record_user_attrs(conn_psy, cur, user_id, user_input):
-    """Check if user input is inline with requirements and if yes – record them all"""
-
-    finish_status = False
-
-    cur.execute(
-        """
-        SELECT callsign, region, auto_num, phone, firstname, lastname
-        FROM user_attributes WHERE user_id=%s;
-        """, (user_id,)
-    )
-    # conn_psy.commit()
-    available_data = list(cur.fetchone())
-
-    if available_data:
-        u_callsign = available_data[0]
-        u_region = available_data[1]
-        u_auto_num = available_data[2]
-        u_phone = available_data[3]
-        u_firstname = available_data[4]
-        u_lastname = available_data[5]
-
-    number_of_reqd_attr = 0
-    list_of_reqd_attr = []
-
-    # TODO: can be simplified with dict & for loop
-    if not u_firstname:  # noqa
-        number_of_reqd_attr += 1
-        list_of_reqd_attr.append('firstname')
-    if not u_lastname:  # noqa
-        number_of_reqd_attr += 1
-        list_of_reqd_attr.append('lastname')
-    if not u_callsign:  # noqa
-        number_of_reqd_attr += 1
-        list_of_reqd_attr.append('callsign')
-    if not u_region:  # noqa
-        number_of_reqd_attr += 1
-        list_of_reqd_attr.append('region')
-    if not u_phone:  # noqa
-        number_of_reqd_attr += 1
-        list_of_reqd_attr.append('phone')
-    if not u_auto_num:  # noqa
-        number_of_reqd_attr += 1
-        list_of_reqd_attr.append('auto_num')
-
-    list_from_user = user_input.split('\n')
-
-    if len(list_from_user) == len(list_of_reqd_attr):
-
-        query = sql.SQL("""
-            UPDATE user_attributes SET {}=%s WHERE user_id=%s;
-            """)
-
-        for i in range(len(list_from_user)):
-            cur.execute(query.format(sql.Identifier(list_of_reqd_attr[i])), [list_from_user[i], user_id])
-            # conn_psy.commit()
-
-        finish_status = True
-
-    return finish_status
-
-
-# TODO: deactivate since Sep 12 2021 – decision not to store QR code images but generate it dynamically
-def set_cloud_storage(user_id):
-    """sets the basic parameters for connection to txt file in cloud storage, which stores QR codes"""
-
-    bucket_name = 'bucket_for_qr_codes'
-    blob_name = str(user_id) + '.png'
-
-    storage_client = storage.Client()
-    bucket = storage_client.get_bucket(bucket_name)
-    blob = bucket.blob(blob_name)
-
-    return blob
-
-
-# TODO: deactivate since Sep 12 2021 – decision not to store QR code images but generate it dynamically
-def write_to_cloud_storage(user_id, what_to_write):
-    """writes current searches' snapshot to txt file in cloud storage"""
-
-    blob = set_cloud_storage(user_id)
-    blob.upload_from_filename(what_to_write.name, content_type='png')
-
-    return None
-
-
-# TODO: deactivate since Sep 12 2021 – decision not to store QR code images but generate it dynamically
-def read_from_cloud_storage(folder_num):
-    """reads previous searches' snapshot from txt file in cloud storage"""
-
-    blob = set_cloud_storage(folder_num)
-    contents_as_bytes = blob.download_as_string()
-    contents = str(contents_as_bytes, 'utf-8')
-
-    return contents
-
-
-# TODO: to be deleted?
-def generate_text_for_qr_code(conn_psy, cur, user_id):
-    """generate text string for further encoding into QR code"""
-
-    cur.execute(
-        """
-        SELECT lastname, firstname, callsign, forum_username, region, phone, auto_num
-        FROM user_attributes
-        WHERE user_id=%s
-        LIMIT 1;
-        """, (user_id,)
-    )
-    # conn_psy.commit()
-    usr_attrs = list(cur.fetchone())
-
-    line1 = usr_attrs[0] + ' ' + usr_attrs[1] + '\n'
-    line2 = usr_attrs[2] + '\n'
-    line3 = usr_attrs[3] + '\n'
-    line4 = usr_attrs[4] + '\n'
-    line5 = usr_attrs[5] + '\n'
-    line6 = usr_attrs[6]
-
-    text_string = line1 + line2 + line3 + line4 + line5 + line6
-
-    return text_string
-
-
-# TODO: to be deleted?
-def check_if_ready_for_qr_code(conn_psy, cur, user_id):
-    """check if bot has all the necessary info to generate QR code"""
-
-    verdict = 'good to go'
-
-    cur.execute(
-        """
-        SELECT lastname, firstname, callsign, forum_username, region, phone, auto_num
-        FROM user_attributes
-        WHERE user_id=%s
-        LIMIT 1;
-        """, (user_id,)
-    )
-    # conn_psy.commit()
-    received_data = cur.fetchone()
-
-    # Logic: if all None
-    if received_data is None:
-        verdict = 'link accounts'
-    else:
-        usr_attrs = list(received_data)
-        for attr in usr_attrs:
-            logging.info(f'lets check attr={attr}')
-            if attr is None:
-                logging.info('attr is None')
-                verdict = 'add attrs'
-                pass
-    logging.info(verdict)
-
-    return verdict
-
-
-# TODO: to be deleted?
-def compose_qr_code(input_data):
-    """convert text into picture and save it"""
-
-    qr = qrcode.QRCode(
-        version=1,
-        box_size=10,
-        border=5)
-    qr.add_data(input_data)
-    qr.make(fit=True)
-    img = qr.make_image(fill='black', back_color='white')
-
-    return img
-
-
-# TODO: to be deleted?
-def prepare_qr_code(conn_psy, cur, user_id):
-    """make ALL work from getting data in SQL to prepared picture to be sent to telegram"""
-
-    qr_text = generate_text_for_qr_code(conn_psy, cur, user_id)
-    qr_img = compose_qr_code(qr_text)
-
-    bio = BytesIO()
-    bio.name = 'image.png'
-    qr_img.save(bio, 'PNG')
-    bio.seek(0)
-
-    return bio
-
-
 def get_param_if_exists(upd, func_input):
     """Return either value if exist or None. Used for messages with changing schema from telegram"""
 
@@ -1731,7 +1477,6 @@ def main(request):
 
                 # Other menu
                 com_1 = 'посмотреть последние поиски'
-                b_send_feedback = 'написать разработчику бота - старое'
                 b_goto_community = 'написать разработчику бота'
                 b_goto_first_search = 'полезная информация для новичка'
                 keyboard_other = [[com_1], [b_goto_first_search],
@@ -1903,12 +1648,10 @@ def main(request):
                                     """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
                                     (%s, %s);""",
                                     (user_id, 276))
-                                # conn_psy.commit()
                                 cur.execute(
                                     """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
                                     (%s, %s);""",
                                     (user_id, 41))
-                                # conn_psy.commit()
 
                         elif got_message == b_reg_not_moscow:
                             bot_message = 'Спасибо, тогда, пожалуйста, выберите хотя бы один регион поисков, ' \
@@ -1917,139 +1660,9 @@ def main(request):
                             keyboard = [[b_menu_set_region], [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-                        # TODO: not in use right now (after QR codes deprecation)
-                        elif got_message == b_link_to_forum:
-                            bot_message = 'Чтобы связать бота с вашим аккаунтом, введите ответным сообщением ваше ' \
-                                          'Имя Пользователя на форуме (логин). Желательно даже скопировать имя ' \
-                                          'с форума, чтобы избежать ошибок.'
-                            keyboard = [[b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-                            bot_request_aft_usr_msg = 'input_of_forum_username'
-
-                        elif bot_request_bfr_usr_msg == 'input_of_forum_username' \
-                                and got_message not in {b_admin_menu, b_back_to_start, b_test_menu} \
-                                and len(got_message.split()) < 4:
-                            message_for_pubsub = [user_id, got_message]
-                            publish_to_pubsub('parse_user_profile_from_forum', message_for_pubsub)
-                            bot_message = 'Сейчас посмотрю, это может занять до 10 секунд...'
-                            keyboard = [[b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-                        elif got_message in {b_yes_its_me, b_add_usr_attr_menu}:
-
-                            # Write "verified" for user
-                            cur.execute("""UPDATE user_forum_attributes SET status='verified'
-                            WHERE user_id=%s and timestamp =
-                            (SELECT MAX(timestamp) FROM user_forum_attributes WHERE user_id=%s);""",
-                                        (user_id, user_id))
-                            # conn_psy.commit()
-
-                            # Delete prev record in user_attributes
-                            cur.execute("""DELETE FROM user_attributes
-                            WHERe user_id=%s;""", (user_id,))
-                            # conn_psy.commit()
-
-                            # Copy verified QR-related data to static table
-                            cur.execute("""
-                                        INSERT INTO user_attributes (user_id, forum_user_id, forum_username, callsign, 
-                                        region, auto_num, phone)
-                                        (SELECT user_id, forum_user_id, forum_username, forum_callsign, forum_region, 
-                                        forum_auto_num, forum_phone FROM user_forum_attributes 
-                                        WHERE user_id=%s AND timestamp = (
-                                        SELECT MAX(timestamp) FROM user_forum_attributes 
-                                        WHERE user_id=%s and status='verified'));
-                                        """, (user_id, user_id))
-                            # conn_psy.commit()
-
-                            bot_message = 'Отлично, мы записали: теперь бот будет понимать, кто вы на форуме.\n' \
-                                          'Теперь для генерации QR-кода, пожалуйста, вышлите ваши параметры ' \
-                                          'в теле одного сообщения: по одному в каждой ' \
-                                          'строчке. Получается, что сколько параметров вам нужно ввести, столько ' \
-                                          'строк и будет в вашем единственном сообщении. Если у нас нет позывного ' \
-                                          'или авто, на котором вы ездите на поиски, просто поставьте прочерки в ' \
-                                          'соответствующих строках.\nИтак, отправьте в сообщении, п-та:\n'
-                            bot_message += compose_msg_on_reqd_urs_attr(conn_psy, cur, user_id)
-                            keyboard = [[b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-                            bot_request_aft_usr_msg = 'addl_attrs_for_qr'
-
-                        elif got_message == b_no_its_not_me:
-                            bot_message = 'Пожалуйста, тщательно проверьте написание вашего ника на форуме ' \
-                                          '(кириллица/латиница, без пробела в конце) и введите его заново'
-                            keyboard = [[b_link_to_forum], [b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-                            bot_request_aft_usr_msg = 'input_of_forum_username'
-
-                        elif bot_request_bfr_usr_msg == 'addl_attrs_for_qr' and got_message \
-                                and got_message not in {b_back_to_start}:
-
-                            result = check_and_record_user_attrs(conn_psy, cur, user_id, got_message)
-
-                            if result:
-                                bot_message = 'Супер! Теперь ваш QR код всегда в доступе: его можно либо открывать ' \
-                                              'из истории изображений от бота в телеграм, либо в нужный момент ' \
-                                              'его можно скачать заново (для работы бота требуется интернет)'
-                                keyboard = [[b_back_to_start]]
-                                reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-                                bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
-                                                parse_mode='HTML', disable_web_page_preview=True)
-
-                                qr_picture = prepare_qr_code(conn_psy, cur, user_id)
-                                reply_markup = reply_markup_main
-                                bot.sendPhoto(chat_id=user_id, photo=qr_picture, reply_markup=reply_markup)
-
-                                msg_sent_by_specific_code = True
-
-                            else:
-                                bot_message = 'к сожалению, что-то пошло не так. Пожалуйста, попробуйте еще раз ' \
-                                              'ввести дополнительные параметры'
-                                keyboard = [[b_add_usr_attr_menu], [b_back_to_start]]
-                                reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
                         # TODO: for debugging purposes only
                         elif got_message.lower() == 'go':
                             publish_to_pubsub('topic_notify_admin', 'test_admin_check')
-
-                        elif got_message == b_gen_qr:
-
-                            qr_status = check_if_ready_for_qr_code(conn_psy, cur, user_id)
-
-                            if qr_status == 'good to go':
-
-                                qr_picture = prepare_qr_code(conn_psy, cur, user_id)
-                                reply_markup = reply_markup_main
-                                bot.sendPhoto(chat_id=user_id, photo=qr_picture, reply_markup=reply_markup)
-                                msg_sent_by_specific_code = True
-
-                            elif qr_status == 'add attrs':
-                                bot_message = 'Для генерации QR-кода не хватает некоторых ваших данных.\n' \
-                                              'Пожалуйста, вышлите ваши параметры ' \
-                                              'в теле сообщения: по одному в каждой ' \
-                                              'строчке. Получается, что сколько параметров вам нужно ввести, столько ' \
-                                              'строк ' \
-                                              'и будет в вашем сообщении. Если у нас нет позывного или авто, ' \
-                                              'на котором вы ездите на поиски, обязательно поставьте прочерки в ' \
-                                              'соответствующих строках\n Итак, отправьте в сообщении п-та:\n'
-                                bot_message += compose_msg_on_reqd_urs_attr(conn_psy, cur, user_id)
-                                keyboard = [[b_back_to_start]]
-                                reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-                                bot_request_aft_usr_msg = 'addl_attrs_for_qr'
-
-                            elif qr_status == 'link accounts':
-                                bot_message = 'Иметь QR под рукой в Боте гораздо удобнее, чем каждый раз открывать ' \
-                                              'разделы ' \
-                                              'форума или искать в сохраненных файлах. Однако, чтобы Бот смог ' \
-                                              'получить QR-код, необходимо пройти 2 простых шага:\n 1. Связать ' \
-                                              'свой аккаунт телеграм и аккаунт на форуме. Для этого нужно просто ' \
-                                              'указать своё имя пользователя на форуме.\n 2. Далее ввести ' \
-                                              'дополнительные данные, если их не ' \
-                                              'будет на форуме.\n На основе этого бот автоматически сгенерирует ваш ' \
-                                              'QR-код, который ' \
-                                              'теперь всегда будет доступен в боте за пару кликов. Также, если ' \
-                                              'однажды запросить бота сгенерировать QR код – он может храниться ' \
-                                              'в истории Телеграм и быть всегда под рукой.'
-                                keyboard = [[b_link_to_forum], [b_back_to_start]]
-                                reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
                         elif got_message == b_other:
                             bot_message = 'Здесь можно посмотреть статистику по 20 последним поискам, перейти в ' \
@@ -2151,19 +1764,6 @@ def main(request):
                             else:
                                 bot_message = 'Привет! Бот управляется кнопками, которые заменяют обычную клавиатуру.'
                                 reply_markup = reply_markup_main
-
-                        # TODO: to be deprecated
-                        elif got_message == b_send_feedback:
-                            bot_message = text_of_feedback_request
-                            reply_markup = reply_markup_feedback_reply
-
-                        elif reply_to_message_text == text_of_feedback_request:
-                            combined_feedback = [nickname_of_feedback_author, feedback_time, feedback_from_user,
-                                                 user_id, message_id]
-                            save_feedback(conn_psy, cur, combined_feedback)
-                            bot_message = 'Спасибо за обратную связь, она помогает делать работу поисковиков ' \
-                                          'ЛА удобнее!'
-                            reply_markup = reply_markup_main
 
                         elif got_message == b_back_to_start:
                             bot_message = 'возвращаемся в главное меню'

@@ -111,7 +111,7 @@ def check_topic_visibility(search_num):
 
         # bad_gateway = True if content.find('502 Bad Gateway') > 0 else False
 
-        # TODO: temp check, if this "patch" can help to remover timeouts
+        # TODO: temp check, if this "patch" can help to remove timeouts
         bad_gateway = True if content.find('') > 0 else False
 
         if not bad_gateway:
@@ -173,17 +173,6 @@ def update_one_topic_visibility(search_id):
     else:
         bad_gateway_counter += 1
         logging.info('502: {} - {}'.format(str(search_id), trigger_if_switched_to_proxy))
-
-        # TODO something with it)))
-        """if bad_gateway_counter > 3 and not trigger_if_switched_to_proxy:
-            requests_session.close()
-            requests_session = requests.Session()
-            requests_session.proxies = {
-                'http': 'http://Vwv0eM:eZ53DB@193.187.145.105:8000',
-                'https': 'https://Vwv0eM:eZ53DB@193.187.145.105:8000',
-            }
-            bad_gateway_counter = 0
-            trigger_if_switched_to_proxy = True"""
 
     return None
 
@@ -826,6 +815,7 @@ def update_first_posts_and_statuses(percent_of_searches, weights):
                     bad_gateway_counter += 1
                     logging.info('502: {} - {}'.format(search_id, trigger_if_switched_to_proxy))
 
+                    #TODO: seems this one should be deleted?
                     if bad_gateway_counter > 3 and not trigger_if_switched_to_proxy:
                         requests_session.close()
                         requests_session = requests.Session()
