@@ -120,8 +120,6 @@ def check_topic_visibility(search_num):
         # FIXME – below is a check if content.find('') > 0 is not always True
         if content.find('') > 0:
             notify_admin(f'content.find() > 0 is True for {search_num}. BadGateway = {bad_gateway}')
-        else:
-            notify_admin(f"content.find('') = {content.find('')} for search {search_num}")
         # FIXME – end
 
         # FIXME – below is a check if content.find('502 Bad Gateway') is a right format for bad_gateway
