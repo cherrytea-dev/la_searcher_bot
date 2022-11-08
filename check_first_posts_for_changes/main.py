@@ -1,3 +1,9 @@
+"""Script does several things:
+1. checks if the first posts of the searches were changed
+2. checks active searches' status (Ищем, НЖ, НП, etc.)
+3. checks active searches' visibility (accessible for everyone, restricted to a certain group or permanently deleted).
+Updates are either saved in PSQL or send via pub/sub to other scripts"""
+
 import os
 import requests
 import datetime
@@ -109,8 +115,18 @@ def check_topic_visibility(search_num):
     if content:
 
         # TODO: temp check, if this "patch" can help to remove timeouts
-        # bad_gateway = True if content.find('502 Bad Gateway') > 0 else False
         bad_gateway = True if content.find('') > 0 else False
+
+        # FIXME – below is a check if content.find('') > 0 is not always True
+        if content.find('') > 0:
+            notify_admin(f'content.find() > 0 is True for {search_num}. BadGateway = {bad_gateway}')
+        # FIXME – end
+
+        # FIXME – below is a check if content.find('502 Bad Gateway') is a right format for bad_gateway
+        test_old__bad_gateway = True if content.find('502 Bad Gateway') > 0 else False
+        if test_old__bad_gateway:
+            notify_admin(f'BadGateway for {search_num}, content[3000]:{content[3000]}')
+        # FIXME – end
 
         if not bad_gateway:
 
@@ -222,7 +238,7 @@ def update_visibility_for_list_of_active_searches(number_of_searches):
         # then we add not-new lines that are not deleted
         for line in full_list_of_active_searches:
             search = list(line)
-            if search[3] and search[3] != 'deleted':  # and search[3] != 'hidden':
+            if search[3] and search[3] != 'deleted':
                 cleared_list_of_active_searches.append(search)
                 if len(cleared_list_of_active_searches) >= number_of_searches:
                     break
@@ -357,14 +373,13 @@ def get_list_of_searches_for_first_post_and_status_update(percent_of_searches, w
     outcome_list = []
     base_table = []
 
-    # there are four types of search parameters:
+    # there are five types of search parameters:
     # 1. search_start_time
     # 2. search_update_time
     # 3. folder weight
     # 4. number of checks already made
     # 5. random
-    # we'll pick a certain amount of searches from overall list of searches for check
-    # below is the weight distribution b/w these four dimension
+    # we'll pick a certain amount of searches from overall list for each category
 
     if percent_of_searches > 0:
 
@@ -676,11 +691,7 @@ def update_first_posts_and_statuses(percent_of_searches, weights):
                     logging.info('502: {} - {}'.format(search_id, bad_gateway_counter))
 
                 elif not_found_trigger:
-                    # TODO: debug, temp
-                    try:
-                        update_one_topic_visibility(search_id)
-                    except: # noqa
-                        pass
+                    update_one_topic_visibility(search_id)
 
         except Exception as e:
             logging.info('exception in update_first_posts_and_statuses')
@@ -699,12 +710,26 @@ def update_first_posts_and_statuses(percent_of_searches, weights):
 def main(event, context): # noqa
     """main function"""
 
-    # BLOCK 1. for checking visibility (deleted or hidden) and status (Ищем, НЖ, НП) of active searches
+    # BLOCK 1. for checking visibility (deleted or hidden) and status (Ищем, НЖ, НП) changes of active searches
+    # A reason why this functionality – is in this script, is that it worth update the list of active searches first
+    # and then check for first posts. Plus, once first posts checker finds something odd – it triggers a visibility
+    # check for this search
     number_of_checked_searches = 100
     update_visibility_for_list_of_active_searches(number_of_checked_searches)
 
-    # BLOCK 2. for checking in first posts were changes
+    # BLOCK 2. for checking if the first posts were changed
+    # check is made for a certain % from the full list of active searches
+    # below percent – is a matter of experiments: avoiding script timeout and minimize costs, but to get updates ASAP
     percent_of_first_posts_to_check = 20
+    # the chosen number of searches, for which first posts will be checked:
+    # [first_posts] = [all_act_searches] * [percent]
+    # then the [first_posts] is split by 5 subcategories, which has different % (sum of % should be 100)
+    # so the check for first posts updates is happening
+    # 1. start_time – will help to check only the latest searches with "freshest" starting time
+    # 2. upd_time – will help to check only searches with the oldest previous update time
+    # 3. folder_weight – will help to check only searches in the most popular regions
+    # 4. checks_made – will help to check only searches with fewer previous checks
+    # 5. random – turned out a good solution to check other searches that don't fall into prev categories
     weights = {"start_time": 20, "upd_time": 20, "folder_weight": 20, "checks_made": 20, "random": 20}
     update_first_posts_and_statuses(percent_of_first_posts_to_check, weights)
 

@@ -117,7 +117,7 @@ def save_visibility_for_topic(topic_id, visibility):
             # 'hidden' – topic is hidden from public access, can become visible in the future
             # 'ok' – regular topics with public visibility
 
-            # FIXME
+            # FIXME – why it was deactivated? cannot remember
             if 1 == 0:
                 # clear the prev visibility status
                 stmt = sqlalchemy.text("""DELETE FROM search_health_check WHERE search_forum_num=:a;""")
@@ -197,7 +197,7 @@ def main(event, context): # noqa
         logging.error('Topic management script failed:' + repr(e))
         logging.exception(e)
 
-        # TODO: it's only debug
+        # alarm admin
         notify_admin('ERROR in manage_topics: ' + repr(e))
 
     return None

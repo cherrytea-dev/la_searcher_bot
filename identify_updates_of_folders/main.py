@@ -1,3 +1,6 @@
+"""Parses the folder-tree on the forum, checking the last update time. Collects the list of leaf-level folders
+which contain updates – and makes a pub/sub call for other script to parse content of these folders"""
+
 import os
 import base64
 import ast
@@ -171,10 +174,12 @@ def decompose_folder_to_subfolders_and_searches(start_folder_num):
                     except: # noqa
                         folder_time_str = None
 
-                    # TODO - do we need it here? likely no
                     # remove useless folders: Справочники, Снаряжение, Постскриптум and all from Обучение и Тренировки
-                    if folder_num not in {84, 113, 112, 270, 86, 87, 88, 165, 365, 89, 172, 91, 90,
-                                          316, 234, 230, 319}:
+                    # NB! there was an idea to remove this part of code and make a limitation basing on info in PSQL.
+                    # However, in reality, this script does not import any SQL capabilities. Thus, it's more
+                    # efficient from cold-start perspective / time for script initiation & memory it occupies – not to
+                    # use SQL call here as well. So the limitation is made on python level.
+                    if folder_num not in {84, 113, 112, 270, 86, 87, 88, 165, 365, 89, 172, 91, 90, 316, 234, 230, 319}:
                         page_summary_folders.append([folder_num, folder_time_str])
 
     except Exception as e2:

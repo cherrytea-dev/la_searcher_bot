@@ -587,7 +587,7 @@ def get_field_trip_details_from_text(text):
     if field_trip_sbor:
         resulting_field_trip_dict['sbor'] = True
 
-    # now / urgent  /secondary
+    # now / urgent / secondary
     for phrase in field_trip_vyezd:
 
         # now
