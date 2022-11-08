@@ -1,3 +1,6 @@
+"""Script send the Debug messages to Admin via special Debug Bot in telegram https://t.me/la_test_1_bot
+To receive notifications one should be marked as Admin in PSQL"""
+
 import datetime
 import os
 import base64
@@ -42,11 +45,6 @@ def process_pubsub_message(event):
 def send_message(admin_user_id, message, bot):
     """send individual notification message to telegram (debug)"""
 
-    # TODO: DEBUG
-    # logger_for_send_message = logging.getLogger('sendMessage')
-    # logger_for_send_message.setLevel()
-    # TODO: DEBUG
-
     try:
 
         # to avoid 4000 symbols restriction for telegram message
@@ -60,15 +58,11 @@ def send_message(admin_user_id, message, bot):
         logging.exception(e)
 
         try:
-            # for rare case:
-            # "('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))"
-            # TODO: if it continues – reason should be clarified and mitigated
-
-            debug_message = 'ERROR! ' + str(datetime.datetime.now()) + ': ' + str(e)
+            debug_message = f'ERROR! {datetime.datetime.now()}: {e}'
             bot.sendMessage(chat_id=admin_user_id, text=debug_message)
 
-        except: # noqa
-            pass
+        except Exception as e2:
+            logging.exception(e2)
 
     return None
 
@@ -77,7 +71,7 @@ def main(event, context): # noqa
     """main function, envoked by pub/sub, which sends the notification to Admin""" # noqa
 
     pubsub_message = base64.b64decode(event['data']).decode('utf-8')
-    logging.info('[sand_debug]: received from pubsub: {}'.format(pubsub_message)) # noqa
+    logging.info('[send_debug]: received from pubsub: {}'.format(pubsub_message)) # noqa
 
     message_from_pubsub = process_pubsub_message(event)
 

@@ -108,9 +108,10 @@ def notify_admin(message):
 def check_for_notifs_to_send(cur):
     """return a notification which should be sent"""
 
-    # TODO: can "doubling" be done not dynamically but as a field of table?
+    # TODO: can "doubling" calculation be done not dynamically but as a field of table?
     sql_text_psy = """
-                    SELECT 
+                    WITH notification AS (
+                    SELECT
                         message_id,
                         user_id,
                         created,
@@ -133,13 +134,29 @@ def check_for_notifs_to_send(cur):
                         END) AS doubling, 
                         failed 
                     FROM
-                    notif_by_user
+                        notif_by_user
                     WHERE 
                         completed IS NULL AND
                         cancelled IS NULL
                     ORDER BY 1
-                    LIMIT 1 
-                    /*action='check_for_notifs_to_send 2.0' */
+                    LIMIT 1 )
+
+                    SELECT
+                        n.*, 
+                        s.status_short AS status,
+                        cl.change_type
+                    FROM
+                        notification AS n
+                    LEFT JOIN
+                        change_log AS cl
+                    ON
+                        n.change_log_id=cl.id
+                    LEFT JOIN
+                        searches AS s
+                    ON
+                        cl.search_forum_num = s.search_forum_num
+ 
+                    /*action='check_for_notifs_to_send 3.0' */
                     ;
                     """
 
@@ -182,7 +199,7 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
         logging.info(f'"flood control": failed sending to telegram user={user_id}, message={message_content}')
         logging.error(e)
-        time.sleep(5)  # TODO: temp placeholder to wait 5 seconds
+        time.sleep(5)  # to mitigate flood control
 
     except Exception as e:  # when sending to telegram fails by other reasons
 
@@ -235,7 +252,6 @@ def save_sending_status_to_notif_by_user(cur, message_id, result):
 def iterate_over_notifications(bot, script_start_time):
     """iterate over all available notifications, finishes if timeout is met or no new notifications"""
 
-    # TODO: to think to increase 30 seconds to 500 seconds - if helpful
     custom_timeout = 120  # seconds, after which iterations should stop to prevent the whole script timeout
 
     with sql_connect_by_psycopg2() as conn_psy, conn_psy.cursor() as cur:
@@ -275,9 +291,14 @@ def iterate_over_notifications(bot, script_start_time):
 
                     analytics_pre_sending_msg = datetime.datetime.now()
 
-                    # TODO: to introduce check of the status for the Coord_change and field_trip:
-                    #  if status != 'Ищем': do not send, result = 'cancelled'
-                    result = send_single_message(bot, user_id, message_content, message_params, message_type)
+                    status = message_to_send[13]
+                    change_type = message_to_send[14]
+
+                    # if notif is about field trips or coords change and search is inactive – no need to send it
+                    if change_type in {5, 6, 7} and status != 'Ищем':
+                        result = 'cancelled'
+                    else:
+                        result = send_single_message(bot, user_id, message_content, message_params, message_type)
 
                     analytics_send_finish = datetime.datetime.now()
                     analytics_send_start_finish = round((analytics_send_finish -
