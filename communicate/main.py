@@ -1012,22 +1012,23 @@ def main(request):
                 try:
                     status_dict = {'kicked': 'block_user', 'member': 'unblock_user'}
 
-                    # mark user as blocked in psql
+                    # mark user as blocked / unblocked in psql
                     message_for_pubsub = {'action': status_dict[user_new_status], 'info': {'user': user_id}}
                     publish_to_pubsub('topic_for_user_management', message_for_pubsub)
 
-                    bot_message = 'С возвращением! Бот скучал:) Жаль, что вы долго не заходили. ' \
-                                  'Мы постарались сохранить все ваши настройки с вашего прошлого визита. ' \
-                                  'Если у вас есть трудности в работе бота или пожелания, как сделать бот ' \
-                                  'удобнее – напишите, пожалуйста, свои мысли в' \
-                                  '<a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">Специальный Чат' \
-                                  'в телеграм</a>. Спасибо:)'
+                    if user_new_status == 'member':
+                        bot_message = 'С возвращением! Бот скучал:) Жаль, что вы долго не заходили. ' \
+                                      'Мы постарались сохранить все ваши настройки с вашего прошлого визита. ' \
+                                      'Если у вас есть трудности в работе бота или пожелания, как сделать бот ' \
+                                      'удобнее – напишите, пожалуйста, свои мысли в' \
+                                      '<a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">Специальный Чат' \
+                                      'в телеграм</a>. Спасибо:)'
 
-                    keyboard_main = [['посмотреть актуальные поиски'], ['настроить бот'], ['другие возможности']]
-                    reply_markup = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
+                        keyboard_main = [['посмотреть актуальные поиски'], ['настроить бот'], ['другие возможности']]
+                        reply_markup = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
 
-                    bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
-                                    parse_mode='HTML', disable_web_page_preview=True)
+                        bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
+                                        parse_mode='HTML', disable_web_page_preview=True)
 
                 except Exception as e:
                     logging.info('Error in finding basic data for block/unblock user in Communicate script')
