@@ -2,5 +2,5 @@ SQLAlchemy==1.4.11
 pg8000==1.19.4
 
 google-cloud-secret-manager==2.4.0
-google-cloud-bigquery # TODO: to define the version
+google-cloud-bigquery==3.3.6
 

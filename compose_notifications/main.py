@@ -243,7 +243,6 @@ class LineInChangeLog:
         self.forum_search_num = forum_search_num
         self.change_type = change_type
         self.changed_field = changed_field
-        # self.changed_field_for_user = changed_field_for_user  # TODO: to be deleted
         self.change_id = change_id
         self.new_value = new_value
         self.name = name
@@ -326,22 +325,6 @@ def compose_new_records_from_change_log(conn):
         new_line.change_id = one_line_in_change_log[3]
         new_line.change_type = one_line_in_change_log[4]
 
-        # TODO: to avoid "names" and substitute by "ids" for change types
-        # Convert preference from Change_Log Naming into User_Preferences Naming
-        # TODO: temp try, content is needed
-        """try:
-            dictionary = {'new_search': 'new_searches', 'status_change': 'status_changes',
-                          'replies_num_change': 'comments_changes', 'title_change': 'title_changes',
-                          'inforg_replies': 'inforg_comments', 'coords_change': 'coords_change',
-                          'new_field_trips': 'new_field_trips', 'field_trip': 'field_trip'}
-            new_line.changed_field_for_user = dictionary[new_line.changed_field]
-
-        except Exception as e:
-            logging.info('EXCEPT')
-            logging.exception(e)
-            new_line.changed_field_for_user = new_line.changed_field"""
-        # TODO: temp try, content is needed
-
         try:
             # define if this Record in change log is about New comments and New comments were already loaded into msgs
             decision = 'add'
@@ -408,21 +391,20 @@ def enrich_new_records_from_searches(conn):
                     if r_line.status != 'Ищем' and r_line.change_type == 0:  # "new_search":
                         r_line.ignore = 'y'
 
-                    # TODO: TEMP - TO DELETE!
-                    # TODO: TEMP - TO DELETE!
-                    # TODO: TEMP - TO DELETE!
+                    # limit notification sending only for searches started 60 days ago
+                    # 60 days – is a compromise and can be reviewed if community votes for another setting
                     try:
-                        year = int(r_line.start_time.strftime("%Y"))
-                        month = int(r_line.start_time.strftime("%m"))
-                        if year < 2022 or (year == 2022 and month < 6):
-                            notify_admin(f'❌❌❌ {r_line.forum_search_num}! {r_line.start_time}')
+                        days_window_for_alerting = 60
+                        latest_when_alert = r_line.start_time + datetime.timedelta(days=days_window_for_alerting)
+                        if latest_when_alert < datetime.datetime.now():
                             r_line.ignore = 'y'
+
+                            # DEBUG purposes only
+                            notify_admin(f'ignoring old search upd {r_line.forum_search_num} '
+                                         f'with start time {r_line.start_time}')
 
                     except: # noqa
                         pass
-                    # TODO: TEMP - TO DELETE!
-                    # TODO: TEMP - TO DELETE!
-                    # TODO: TEMP - TO DELETE!
 
                     break
 
@@ -554,10 +536,6 @@ def enrich_new_records_with_comments(conn, type_of_comments):
                                 comment.comment_author_nickname = comment.comment_author_nickname.replace('>', '')
                             if comment.comment_author_nickname.find('<') > -1:
                                 comment.comment_author_nickname = comment.comment_author_nickname.replace('<', '')
-
-                            # FIXME: below is a buggy code
-                            # if c_line[6] and c_line[6] > 0:
-                            #    comment.comment_forum_global_id = c_line[6]
 
                             temp_list_of_comments.append(comment)
 
@@ -772,10 +750,10 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
     else:
         msg = None
 
-    # TODO temp debug
+    # DEBUG
     notify_admin(f'Field Trips / incoming parameters: {parameters}')
     notify_admin(f'Field Trips / Common Message: {msg}')
-    # TODO temp debug
+    # DEBUG
 
     # Clean the message from excessive line breaks, like \n\n\n. tree repetitions covers majority of cases
     # TODO: to make it more pythonic. it does its' job, but looks ugly
@@ -913,7 +891,7 @@ def enrich_new_records_with_com_message_texts():
     try:
         for line in new_records_list:
             last_line = line
-            # TODO: to shift from "names" to "ids" in change types
+
             if line.change_type == 0:  # 'new_search':
 
                 start = line.start_time

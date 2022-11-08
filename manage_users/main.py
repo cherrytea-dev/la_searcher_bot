@@ -119,6 +119,35 @@ def save_updated_status_for_user(action, user_id):
     return None
 
 
+def save_default_notif_settings(user_id):
+    """if the user is new – set the default notification categories in user_preferences table"""
+
+    # set PSQL connection & cursor
+    conn = sql_connect_by_psycopg2()
+    cur = conn.cursor()
+
+    # default setting is set as notifications on new searches & status changes
+    cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
+                (user_id, 'new_searches', 0))
+    conn.commit()
+
+    cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
+                (user_id, 'status_changes', 1))
+    conn.commit()
+
+    cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
+                (user_id, 'bot_news', 20))
+    conn.commit()
+
+    # close connection & cursor
+    cur.close()
+    conn.close()
+
+    logging.info(f'New user with id: {user_id}, default notif categories are set.')
+
+    return None
+
+
 def main(event, context): # noqa
     """main function"""
 
@@ -132,6 +161,10 @@ def main(event, context): # noqa
 
                 curr_user_id = received_dict['info']['user']
                 save_updated_status_for_user(action, curr_user_id)
+
+                if action == 'new':
+
+                    save_default_notif_settings(curr_user_id)
 
     except Exception as e:
         logging.error('User management script failed:' + repr(e))

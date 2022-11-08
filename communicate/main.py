@@ -178,37 +178,6 @@ def compose_user_preferences_message(cur, user_id):
     return prefs_wording_and_list
 
 
-def define_family_name(title_string):
-    """return Family name from search title"""
-    # TODO: TO BE DELETED and FAM NAME to be TAKEN from SEARCHES Table and field NAME
-    # TODO: add family_name from Searches table directly
-
-    string_by_word = title_string.split()
-
-    # exception case: when Family Name is third word
-    # it happens when first two either Найден Жив or Найден Погиб with different word forms
-    if string_by_word[0][0:4].lower() == "найд":
-        fam_name = string_by_word[2]
-
-    # case when "Поиск приостановлен"
-    elif string_by_word[1][0:8].lower() == 'приостан':
-        fam_name = string_by_word[2]
-
-    # case when "Поиск остановлен"
-    elif string_by_word[1][0:8].lower() == 'остановл':
-        fam_name = string_by_word[2]
-
-    # case when "Поиск завершен"
-    elif string_by_word[1][0:6].lower() == 'заверш':
-        fam_name = string_by_word[2]
-
-    # all the other cases
-    else:
-        fam_name = string_by_word[1]
-
-    return fam_name
-
-
 def compose_msg_on_all_last_searches(cur, region):
     """Compose a part of message on the list of recent searches in the given region with relation to user's coords"""
 
@@ -235,10 +204,7 @@ def compose_msg_on_all_last_searches(cur, region):
 
         msg += ' <a href="https://lizaalert.org/forum/viewtopic.php?t=' + str(db_line[0]) + '">'
 
-        if db_line[7]:
-            family_name = db_line[7]
-        else:
-            family_name = define_family_name(db_line[3])
+        family_name = db_line[7]
 
         msg += family_name
 
@@ -291,10 +257,7 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
                     msg += ' ' + dist[1] + ' ' + str(dist[0]) + ' км'
             msg += ' <a href="https://lizaalert.org/forum/viewtopic.php?t=' + str(db_line[0]) + '">'
 
-            if db_line[7]:
-                family_name = db_line[7]
-            else:
-                family_name = define_family_name(db_line[3])
+            family_name = db_line[7]
             msg += family_name
             first_letter = str(family_name)[0]
             if first_letter.isupper() and db_line[8] and db_line[8] != 0:
@@ -503,13 +466,8 @@ def get_user_regional_preferences(cur, user_id):
         cur.execute("SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=%s;", (user_id,))
         user_reg_prefs_array = cur.fetchall()
 
-        # TODO: to make on SQL level not in py code
-        # List of folders not to be shown
-        no_show = [233, 300, 305, 310]
-
         for line in user_reg_prefs_array:
-            if line[0] not in no_show:
-                user_prefs_list.append(line[0])
+            user_prefs_list.append(line[0])
 
         logging.info(str(user_prefs_list))
 
@@ -523,7 +481,7 @@ def get_user_regional_preferences(cur, user_id):
 def save_preference(cur, user_id, preference):
     """Save user preference on types of notifications to be sent by bot"""
 
-    # the mater-table is notif_mailing_types:
+    # the master-table is notif_mailing_types:
     # type_id | type_name
     # 0 | topic_new
     # 1 | topic_status_change
@@ -536,9 +494,6 @@ def save_preference(cur, user_id, preference):
     # 20 | bot_news
     # 30 | all
     # 99 | not_defined
-
-    # TODO: make a SQL script to get pref_id instead of preference (name)
-    # TODO: to send pref_id to each update
 
     # if user wants to have +ALL notifications
     if preference == 'all':
@@ -1040,7 +995,6 @@ def main(request):
             # the purpose of this bot - sending messages to unique users, this way
             # chat_id is treated as user_id and vice versa (which is not true in general)
 
-            # TODO: below are user_id - but it all the same. to be merged
             user_id = get_param_if_exists(update, 'update.effective_message.from_user.id')
             if not user_id:
                 user_id = get_param_if_exists(update, 'update.effective_message.chat.id')
@@ -1062,7 +1016,18 @@ def main(request):
                     message_for_pubsub = {'action': status_dict[user_new_status], 'info': {'user': user_id}}
                     publish_to_pubsub('topic_for_user_management', message_for_pubsub)
 
-                    # TODO: in case of unblock – send a message "welcome back, please let us know how to improve?"
+                    bot_message = 'С возвращением! Бот скучал:) Жаль, что вы долго не заходили. ' \
+                                  'Мы постарались сохранить все ваши настройки с вашего прошлого визита. ' \
+                                  'Если у вас есть трудности в работе бота или пожелания, как сделать бот ' \
+                                  'удобнее – напишите, пожалуйста, свои мысли в' \
+                                  '<a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">Специальный Чат' \
+                                  'в телеграм</a>. Спасибо:)'
+
+                    keyboard_main = [['посмотреть актуальные поиски'], ['настроить бот'], ['другие возможности']]
+                    reply_markup = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
+
+                    bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
+                                    parse_mode='HTML', disable_web_page_preview=True)
 
                 except Exception as e:
                     logging.info('Error in finding basic data for block/unblock user in Communicate script')
@@ -1075,7 +1040,6 @@ def main(request):
             # CASE 3 – when user sends a PHOTO
             elif photo:
                 logging.debug('user sends photos to bot')
-                # TODO: it should be avoided for now - but in future we can be able to receive QR codes
                 bot.sendMessage(chat_id=user_id, text='Спасибо, интересное! Только бот не работает с изображениями '
                                                       'и отвечает только на определенные текстовые команды.')
 
@@ -1105,22 +1069,20 @@ def main(request):
                 # check if user is new - and if so - saving him/her
                 user_is_new = check_if_new_user(cur, user_id)
                 if user_is_new:
-                    # TODO: to replace with another user_management script?
-                    save_new_user(cur, user_id, username)
+                    # initiate the manage_users script
+                    message_for_pubsub = {'action': 'new', 'info': {'user': user_id}}
+                    publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+                    # save_new_user(cur, user_id, username)
 
                 # get user regional settings (which regions he/she is interested it)
                 user_regions = get_user_regional_preferences(cur, user_id)
 
                 # getting message parameters if user send a REPLY to bot message
-                reply_to_message_text = ''
                 user_latitude = None
                 user_longitude = None
                 got_message = None
 
                 try:
-                    # TODO: to check if this functionality is in use – probably to delete
-                    if update.effective_message.reply_to_message is not None:
-                        reply_to_message_text = str(update.effective_message.reply_to_message.text)
 
                     if update.effective_message.location is not None:
                         user_latitude = update.effective_message.location.latitude
@@ -1142,7 +1104,7 @@ def main(request):
                 com_2 = 'посмотреть актуальные поиски'
                 com_27 = 'настроить бот'
                 b_other = 'другие возможности'
-                keyboard_main = [[com_2], [com_27], [b_other]]  # [[com_2], [com_27], [b_gen_qr], [b_other]]
+                keyboard_main = [[com_2], [com_27], [b_other]]
                 reply_markup_main = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
 
                 # Settings menu
@@ -1169,13 +1131,6 @@ def main(request):
                 b_deact_field_trips_change = 'отключить: об изменениях в выездах'
                 b_deact_coords_change = 'отключить: о смене места штаба'
                 com_12 = 'отключить: о новых функциях бота'
-                # TODO: experiment
-                # com_yy = 'включить: об изменении списка задач по поиску'
-                # com_xx = 'отключить: об изменении списка задач по поиску'
-                # com_40 = 'включить: о ключевых изменениях по поискам'
-                # com_41 = 'отключить: о ключевых изменениях по поискам'
-                # com_25 = 'включить: статистика за прошедшую неделю'
-                # com_26 = 'отключить: статистика за прошедшую неделю'
 
                 # Settings - coordinates
                 b_coords_auto_def = KeyboardButton(text='автоматически определить "домашние координаты"',
@@ -1576,8 +1531,7 @@ def main(request):
                                           'список регионов через настройки бота.'
                             reply_markup = reply_markup_main
 
-                            # TODO: why below with no arguments?
-                            if check_if_user_has_no_regions:
+                            if check_if_user_has_no_regions(cur, user_id):
                                 # add the New User into table user_regional_preferences
                                 # region is Moscow for Active Searches & InfoPod
                                 cur.execute(
@@ -1596,7 +1550,7 @@ def main(request):
                             keyboard = [[b_menu_set_region], [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-                        # TODO: for debugging purposes only
+                        # DEBUG: for debugging purposes only
                         elif got_message.lower() == 'go':
                             publish_to_pubsub('topic_notify_admin', 'test_admin_check')
 
@@ -1892,7 +1846,6 @@ def main(request):
                             # If command in unknown
                             bot_message = 'не понимаю такой команды, пожалуйста, используйте кнопки со стандартными ' \
                                           'командами ниже'
-                            bot_message += reply_to_message_text
                             reply_markup = reply_markup_main
 
                         if not msg_sent_by_specific_code:

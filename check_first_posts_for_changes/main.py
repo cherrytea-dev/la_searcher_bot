@@ -9,7 +9,7 @@ import hashlib
 import random
 
 import sqlalchemy
-# TODO: to move to psycopg2
+# idea for optimization – to move to psycopg2
 
 from google.cloud import secretmanager
 from google.cloud import pubsub_v1
@@ -19,9 +19,8 @@ project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
 requests_session = requests.Session()
 publisher = pubsub_v1.PublisherClient()
-# TODO: check if the below block for connection to proxy – is still needed
+
 bad_gateway_counter = 0
-trigger_if_switched_to_proxy = False
 
 
 def get_secrets(secret_request):
@@ -109,9 +108,8 @@ def check_topic_visibility(search_num):
 
     if content:
 
-        # bad_gateway = True if content.find('502 Bad Gateway') > 0 else False
-
         # TODO: temp check, if this "patch" can help to remove timeouts
+        # bad_gateway = True if content.find('502 Bad Gateway') > 0 else False
         bad_gateway = True if content.find('') > 0 else False
 
         if not bad_gateway:
@@ -119,9 +117,7 @@ def check_topic_visibility(search_num):
             if content.find('Запрошенной темы не существует.') > -1:
                 deleted_trigger = True
                 visibility = 'deleted'
-            # case when there's an error shown at the screen - it is shown on a white background
-            # elif content.find('<body bgcolor="white">') > -1:
-            #    deleted_trigger = True
+
             else:
                 deleted_trigger = False
 
@@ -140,7 +136,6 @@ def update_one_topic_visibility(search_id):
     """update the status of one search: if it is ok or was deleted or hidden"""
 
     global bad_gateway_counter
-    global trigger_if_switched_to_proxy
     global requests_session
 
     del_trig, hid_trig, bad_gateway_trigger, visibility = check_topic_visibility(search_id)
@@ -172,7 +167,7 @@ def update_one_topic_visibility(search_id):
 
     else:
         bad_gateway_counter += 1
-        logging.info('502: {} - {}'.format(str(search_id), trigger_if_switched_to_proxy))
+        logging.info('502: {} - {}'.format(str(search_id), bad_gateway_counter))
 
     return None
 
@@ -182,7 +177,6 @@ def update_visibility_for_list_of_active_searches(number_of_searches):
 
     global bad_gateway_counter
     global requests_session
-    global trigger_if_switched_to_proxy
 
     pool = sql_connect()
     conn = pool.connect()
@@ -241,7 +235,7 @@ def update_visibility_for_list_of_active_searches(number_of_searches):
 
                 update_one_topic_visibility(search[1])
 
-                if bad_gateway_counter > 3 and trigger_if_switched_to_proxy:
+                if bad_gateway_counter > 3:
                     break
 
     except Exception as e:
@@ -249,139 +243,6 @@ def update_visibility_for_list_of_active_searches(number_of_searches):
         logging.exception(e)
 
     conn.close()
-    pool.dispose()
-
-    return None
-
-
-def update_user_regional_settings(number_of_lines_to_update):
-    """temp function to add archives to all who has not it"""
-
-    pool = sql_connect()
-    with pool.connect() as conn:
-
-        try:
-            new_list_of_user_reg_prefs_4 = conn.execute("""
-            select rp.user_id, rp.forum_folder_num, rtf.region_id, rtf.folder_description
-            from user_regional_preferences rp LEFT JOIN regions_to_folders rtf 
-            ON rp.forum_folder_num=rtf.forum_folder_id WHERE region_id <> 1
-            /*action='new_list_of_user_reg_prefs_4' */
-            ;
-            """).fetchall()
-
-            user_reg_5 = conn.execute("""
-                    select distinct rp.user_id, rtf.region_id
-            from user_regional_preferences rp LEFT JOIN regions_to_folders rtf 
-            ON rp.forum_folder_num=rtf.forum_folder_id WHERE region_id <> 1 ORDER BY rp.user_id
-            /*action='user_reg_5' */
-            ;
-            """).fetchall()
-
-            final_table = []
-            for line in user_reg_5:
-                temp_line = [line[0], line[1], None, None, None, None]
-                final_table.append(temp_line)
-
-            table_4 = []
-            for line in new_list_of_user_reg_prefs_4:
-                temp_line = [line[0], line[1], line[2], line[3]]
-                table_4.append(temp_line)
-            # Schema: user_id, forum_folder_num, region_id, folder_description
-
-            for line in final_table:
-                user = line[0]
-                region = line[1]
-                for search_line in table_4:
-                    if search_line[0] == user and search_line[2] == region:
-                        if search_line[3].lower().find('заверш') > -1:
-                            line[3] = True
-                        else:
-                            line[2] = True
-                    if search_line[2] == region and search_line[3].lower().find('заверш') > -1:
-                        line[4] = search_line[3]
-                        line[5] = search_line[1]
-
-            final_final_table = []
-            for line in final_table:
-                if line[2] and not line[3] and line[4]:
-                    final_final_table.append(line)
-
-            logging.info(f'in total we saw {len(final_final_table)} lines')
-
-            if len(final_final_table) > number_of_lines_to_update:
-                for i in range(number_of_lines_to_update):
-
-                    user = final_final_table[i][0]
-                    add_folder = final_final_table[i][5]
-
-                    sql_text = sqlalchemy.text("""
-                    INSERT INTO user_regional_preferences (user_id, forum_folder_num) 
-                    VALUES (:a, :b);
-                    """)
-                    conn.execute(sql_text, a=user, b=add_folder)
-                    logging.info(f'we just added a folder={add_folder} to user={user}')
-
-        except Exception as e:
-            logging.info('exception in update_user_regional_settings')
-            logging.exception(e)
-
-        conn.close()
-    pool.dispose()
-
-    return None
-
-
-def update_user_regional_settings_for_moscow(number_of_lines_to_update):
-    """temp function to add moscow folders to all who have zero regions"""
-
-    pool = sql_connect()
-    with pool.connect() as conn:
-
-        try:
-            list_of_users = conn.execute("""
-            select u.user_id from users AS u 
-            LEFT JOIN user_regional_preferences AS urp 
-            ON u.user_id=urp.user_id 
-            WHERE (u.status IS NULL or u.status != 'blocked') AND u.user_id IS NOT NULL 
-            GROUP BY 1 
-            HAVING count(urp.forum_folder_num) = 0  
-            ORDER by 1 desc limit 1000
-            /*action='update_user_regional_settings_for_moscow'*/
-            ;
-            """).fetchall()
-
-            logging.info(f'EEE: we identified {len(list_of_users)} users without any region')
-
-            final_table = []
-            for line in list_of_users:
-                temp_line = line[0]
-                final_table.append(temp_line)
-                if len(final_table) > number_of_lines_to_update:
-                    break
-
-            if len(final_table) > 0:
-                for i in range(number_of_lines_to_update):
-
-                    sql_text = sqlalchemy.text("""
-                    INSERT INTO user_regional_preferences (user_id, forum_folder_num) 
-                    VALUES (:a, :b);
-                    """)
-                    conn.execute(sql_text, a=final_table[i], b=276)
-                    logging.info(f'EEE: A folder=276 was added to user={final_table[i]}')
-
-                    sql_text = sqlalchemy.text("""
-                    INSERT INTO user_regional_preferences (user_id, forum_folder_num) 
-                    VALUES (:a, :b);
-                    """)
-                    conn.execute(sql_text, a=final_table[i], b=41)
-
-                    logging.info(f'EEE: A folder=276 was added to user={final_table[i]}')
-
-        except Exception as e:
-            logging.info('exception in update_user_regional_settings')
-            logging.exception(e)
-
-        conn.close()
     pool.dispose()
 
     return None
@@ -395,7 +256,7 @@ def parse_search(search_num):
 
     try:
         url = 'https://lizaalert.org/forum/viewtopic.php?t=' + str(search_num)
-        r = requests_session.get(url, timeout=10)  # seconds – not sure if we need it in this script
+        r = requests_session.get(url, timeout=10)  # seconds – not sure if it is efficient in this case
         content = r.content.decode("utf-8")
 
     except requests.exceptions.ReadTimeout:
@@ -730,7 +591,6 @@ def update_first_posts_and_statuses(percent_of_searches, weights):
     """periodically check if the first post of searches"""
 
     global bad_gateway_counter
-    global trigger_if_switched_to_proxy
     global requests_session
 
     list_of_searches_with_updated_first_posts = []
@@ -813,21 +673,7 @@ def update_first_posts_and_statuses(percent_of_searches, weights):
 
                 elif bad_gateway_trigger:
                     bad_gateway_counter += 1
-                    logging.info('502: {} - {}'.format(search_id, trigger_if_switched_to_proxy))
-
-                    # TODO: seems this one should be deleted?
-                    if bad_gateway_counter > 3 and not trigger_if_switched_to_proxy:
-                        requests_session.close()
-                        requests_session = requests.Session()
-                        requests_session.proxies = {
-                            'http': 'http://4asNEp:RpSK0n@31.134.4.105:8000',
-                            'https': 'https://4asNEp:RpSK0n@31.134.4.105:8000',
-                        }
-                        bad_gateway_counter = 0
-                        trigger_if_switched_to_proxy = True
-
-                    if bad_gateway_counter > 3 and trigger_if_switched_to_proxy:
-                        break
+                    logging.info('502: {} - {}'.format(search_id, bad_gateway_counter))
 
                 elif not_found_trigger:
                     # TODO: debug, temp
@@ -862,13 +708,8 @@ def main(event, context): # noqa
     weights = {"start_time": 20, "upd_time": 20, "folder_weight": 20, "checks_made": 20, "random": 20}
     update_first_posts_and_statuses(percent_of_first_posts_to_check, weights)
 
-    # TEMP BLOCK – is used only for batch updates of user regional settings
-    # number_of_users_to_update = 100
-    # update_user_regional_settings(number_of_users_to_update)
-    # update_user_regional_settings_for_moscow(number_of_users_to_update)
-
     if bad_gateway_counter > 3:
-        publish_to_pubsub('topic_notify_admin', '[che_posts]: Bad Gateway > 3')
+        publish_to_pubsub('topic_notify_admin', f'[che_posts]: Bad Gateway {bad_gateway_counter} times')
 
     # Close the open session
     requests_session.close()
