@@ -123,7 +123,7 @@ def check_topic_visibility(search_num):
         # FIXME – end
 
         # FIXME – below is a check if content.find('502 Bad Gateway') is a right format for bad_gateway
-        test_old__bad_gateway = True if content.find('502 Bad Gateway') > 0 else False
+        test_old__bad_gateway = True if content.find('Bad Gateway') > 0 else False
         if test_old__bad_gateway:
             notify_admin(f'BadGateway for {search_num}, content[3000]:{content[3000]}')
         # FIXME – end
@@ -268,35 +268,28 @@ def parse_search(search_num):
     """parse the whole search page"""
 
     global requests_session
+    global bad_gateway_counter
     content = None
 
     try:
-        url = 'https://lizaalert.org/forum/viewtopic.php?t=' + str(search_num)
+        url = f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
         r = requests_session.get(url, timeout=10)  # seconds – not sure if it is efficient in this case
         content = r.content.decode("utf-8")
 
     except requests.exceptions.ReadTimeout:
         logging.info(f'[che_posts]: requests.exceptions.ReadTimeout')
         notify_admin(f'[che_posts]: requests.exceptions.ReadTimeout')
+        bad_gateway_counter += 1
 
     except requests.exceptions.Timeout:
         logging.info(f'[che_posts]: requests.exceptions.Timeout')
         notify_admin(f'[che_posts]: requests.exceptions.Timeout')
-
-    except requests.exceptions.ProxyError:
-        logging.info(f'[che_posts]: requests.exceptions.ProxyError')
-        notify_admin(f'[che_posts]: requests.exceptions.ProxyError')
-
-        requests_session.proxies = {
-            'http': 'http://4asNEp:RpSK0n@31.134.4.105:8000',
-            'https': 'https://4asNEp:RpSK0n@31.134.4.105:8000',
-        }
-        logging.info(f'[che_posts]: Proxy set')
-        notify_admin(f'[che_posts]: Proxy set')
+        bad_gateway_counter += 1
 
     except ConnectionError:
         logging.info(f'[che_posts]: CONNECTION ERROR OR TIMEOUT')
         notify_admin(f'[che_posts]: CONNECTION ERROR OR TIMEOUT')
+        bad_gateway_counter += 1
 
     except Exception as e:
         logging.info('[che_posts]: Unknown exception')
