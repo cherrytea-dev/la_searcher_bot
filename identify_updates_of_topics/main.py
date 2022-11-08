@@ -1,3 +1,6 @@
+"""Script takes as input the list of recently-updated forum folders. Then it parses first 20 searches (aka topics)
+and saves into PSQL if there are any updates"""
+
 import os
 import ast
 import json
@@ -19,15 +22,6 @@ project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
 publisher = pubsub_v1.PublisherClient()
 
-# TODO: to delete and replace errors by noqa
-# Made as a placeholder to avoid PyCharm errors. db to be re-defined in a function sql_connect()
-db = sqlalchemy.create_engine(
-    sqlalchemy.engine.url.URL(
-        "postgresql+pg8000", username='db_user', password='db_pass', database='db_name',
-        query={"unix_sock": "{}/{}/.s.PGSQL.5432".format('db_socket_dir', 'db_conn')}
-    )
-)
-
 # Sessions – to reuse for reoccurring requests
 requests_session = None
 
@@ -47,7 +41,6 @@ dict_status_words = {'жив': 'one', 'жива': 'one', 'живы': 'many',
 dict_ignore = {'', ':'}
 
 
-# TODO: requires update - to change folder_num to file_name
 def set_cloud_storage(bucket_name, folder_num):
     """sets the basic parameters for connection to txt file in cloud storage, which stores searches snapshots"""
 
@@ -98,7 +91,7 @@ def read_yaml_from_cloud_storage(bucket_to_read, folder_num):
     return contents
 
 
-def parse_coordinates(search_num):
+def parse_coordinates(db, search_num):
     """finds coordinates of the search"""
 
     from geopy.geocoders import Nominatim
@@ -117,7 +110,6 @@ def parse_coordinates(search_num):
             else:
                 after_age = max(after_age, age_words + len(word))
 
-        address_string = None
         if after_age > 0:
             address_string = initial_title[after_age:].strip()
         else:
@@ -246,7 +238,6 @@ def parse_coordinates(search_num):
                 address_string = address_string.replace(this_word, this_word[:-1] + 'ь')
 
         # add all the cases ABOVE
-        # TODO: can be refactored in a more pythonic way
         # delete garbage in the beginning of string
         try:
             first_num = re.search(r"\d", address_string).start()
@@ -320,12 +311,11 @@ def parse_coordinates(search_num):
 
         return address_string
 
-    def save_geolocation_in_psql(address_string, status, latitude, longitude):
+    def save_geolocation_in_psql(db2, address_string, status, latitude, longitude):
         """save results of geocoding to avoid multiple requests to openstreetmap service"""
 
-        global db
         try:
-            with db.connect() as conn:
+            with db2.connect() as conn:
                 stmt = sqlalchemy.text(
                     """INSERT INTO geocoding (address, status, latitude, longitude) VALUES (:a, 
                     :b, :c, :d); """
@@ -340,12 +330,11 @@ def parse_coordinates(search_num):
 
         return None
 
-    def save_place_in_psql(address_string):
+    def save_place_in_psql(db2, address_string):
         """save a link search to address in sql table search_places"""
 
-        global db
         try:
-            with db.connect() as conn:
+            with db2.connect() as conn:
                 # check if this record already exists
                 stmt = sqlalchemy.text(
                     """SELECT search_id FROM search_places 
@@ -370,12 +359,10 @@ def parse_coordinates(search_num):
 
         return None
 
-    def load_geolocation_form_psql(address_string):
+    def load_geolocation_form_psql(db2, address_string):
         """get results of geocoding from psql"""
 
-        global db
-
-        with db.connect() as conn:
+        with db2.connect() as conn:
             stmt = sqlalchemy.text(
                 """SELECT address, status, latitude, longitude from geocoding WHERE address=:a LIMIT 1; """
             )
@@ -385,9 +372,9 @@ def parse_coordinates(search_num):
 
         return saved_result
 
-    def get_coordinates_from_address(address_string):
+    def get_coordinates_from_address(db2, address_string):
         """return coordinates on the request of address string"""
-        """NB! openstreetmap allows request with requirements: NO more request than 1 min, no doubling requests"""
+        """NB! openstreetmap requirements: NO more than 1 request per 1 min, no doubling requests"""
 
         latitude = 0
         longitude = 0
@@ -396,9 +383,9 @@ def parse_coordinates(search_num):
         geolocator = Nominatim(user_agent="LizaAlertBot")
 
         # first - check if this address was already geolocated and saved to psql
-        saved_loc_list = load_geolocation_form_psql(address_string)
+        saved_loc_list = load_geolocation_form_psql(db2, address_string)
 
-        # there is a psql record on this address - no geocoding activities are requires
+        # there is a psql record on this address - no geocoding activities are required
         if saved_loc_list:
             if saved_loc_list[1] == 'ok':
                 latitude = saved_loc_list[2]
@@ -407,52 +394,50 @@ def parse_coordinates(search_num):
             elif saved_loc_list[1] == 'failed':
                 status_in_psql = 'failed'
 
-        # no psql record for this address found
-        else:
-            if not latitude and not longitude and status_in_psql != 'failed':
-                try:
-                    # second – check that next request won't be in less a minute from previous
-                    prev_str_of_geocheck = read_snapshot_from_cloud_storage('bucket_for_ad_hoc', 'geocode')
-                    logging.info(f'prev_str_of_geocheck: {prev_str_of_geocheck}')
+        # no psql record for this address found OR existing info is insufficient
 
-                    if prev_str_of_geocheck:
-                        prev_time_of_geocheck = datetime.strptime(prev_str_of_geocheck, '%Y-%m-%dT%H:%M:%S+00:00')
-                        now = datetime.now()
-                        if prev_time_of_geocheck:
-                            time_delta_bw_now_and_next_request = prev_time_of_geocheck + timedelta(seconds=1) - now
-                        else:
-                            time_delta_bw_now_and_next_request = timedelta(seconds=0)
-                        if time_delta_bw_now_and_next_request.total_seconds() > 0:
-                            time.sleep(time_delta_bw_now_and_next_request.total_seconds())
+        if not latitude and not longitude and status_in_psql != 'failed':
+            try:
+                # second – check that next request won't be in less a minute from previous
+                prev_str_of_geocheck = read_snapshot_from_cloud_storage('bucket_for_ad_hoc', 'geocode')
+                logging.info(f'prev_str_of_geocheck: {prev_str_of_geocheck}')
 
-                    try:
-                        search_location = geolocator.geocode(address_string, timeout=10000)
-                        logging.info(f'geo_location: {str(search_location)}')
-                    except Exception as e55:
-                        search_location = None
-                        logging.info('ERROR: geo loc ')
-                        logging.exception(e55)
-                        notify_admin(f'ERROR: in geo loc : {str(e55)}')
-
-                    now_str = datetime.now().strftime('%Y-%m-%dT%H:%M:%S+00:00')
-                    write_snapshot_to_cloud_storage('bucket_for_ad_hoc', now_str, 'geocode')
-
-                    if search_location:
-                        latitude, longitude = search_location.latitude, search_location.longitude
-                        save_geolocation_in_psql(address_string, 'ok', latitude, longitude)
+                if prev_str_of_geocheck:
+                    prev_time_of_geocheck = datetime.strptime(prev_str_of_geocheck, '%Y-%m-%dT%H:%M:%S+00:00')
+                    now = datetime.now()
+                    if prev_time_of_geocheck:
+                        time_delta_bw_now_and_next_request = prev_time_of_geocheck + timedelta(seconds=1) - now
                     else:
-                        save_geolocation_in_psql(address_string, 'fail', None, None)
-                except Exception as e6:
-                    logging.info(f'Error in func get_coordinates_from_address for address: {address_string}. Repr: ')
-                    logging.exception(e6)
-                    notify_admin('ERROR: get_coords_from_address failed.')
+                        time_delta_bw_now_and_next_request = timedelta(seconds=0)
+                    if time_delta_bw_now_and_next_request.total_seconds() > 0:
+                        time.sleep(time_delta_bw_now_and_next_request.total_seconds())
+
+                try:
+                    search_location = geolocator.geocode(address_string, timeout=10000)
+                    logging.info(f'geo_location: {str(search_location)}')
+                except Exception as e55:
+                    search_location = None
+                    logging.info('ERROR: geo loc ')
+                    logging.exception(e55)
+                    notify_admin(f'ERROR: in geo loc : {str(e55)}')
+
+                now_str = datetime.now().strftime('%Y-%m-%dT%H:%M:%S+00:00')
+                write_snapshot_to_cloud_storage('bucket_for_ad_hoc', now_str, 'geocode')
+
+                if search_location:
+                    latitude, longitude = search_location.latitude, search_location.longitude
+                    save_geolocation_in_psql(db, address_string, 'ok', latitude, longitude)
+                else:
+                    save_geolocation_in_psql(db, address_string, 'fail', None, None)
+            except Exception as e6:
+                logging.info(f'Error in func get_coordinates_from_address for address: {address_string}. Repr: ')
+                logging.exception(e6)
+                notify_admin('ERROR: get_coords_from_address failed.')
 
         return latitude, longitude
 
-    # TODO: needed debug?
     # DEBUG - function execution time counter
     func_start = datetime.now()
-    # DEBUG - function execution time counter
 
     url_beginning = 'https://lizaalert.org/forum/viewtopic.php?t='
     url_to_topic = url_beginning + str(search_num)
@@ -460,7 +445,6 @@ def parse_coordinates(search_num):
     lat = 0
     lon = 0
     coord_type = ''
-    r = None
     search_code_blocks = None
     title = None
 
@@ -486,9 +470,6 @@ def parse_coordinates(search_num):
     try:
         # make an independent variable
         a = copy.copy(search_code_blocks)
-
-        # extracting a text area where Coordinates are mentioned
-        # a = search_code_blocks.find(lambda tag: 'Коор' in tag.text or 'коор' in tag.text)
 
         # remove a text with strike-through
         b = a.find_all('span', {'style': 'text-decoration:line-through'})
@@ -538,7 +519,6 @@ def parse_coordinates(search_num):
         a = copy.copy(search_code_blocks)
 
         try:
-            # extracting a text area where Coordinates are mentioned
 
             # remove a text with strike-through
             b = a.find_all('span', {'style': 'text-decoration:line-through'})
@@ -589,8 +569,6 @@ def parse_coordinates(search_num):
         a = copy.copy(search_code_blocks)
 
         try:
-            # extracting a text area where Coordinates are mentioned
-
             # get a text with strike-through
             a = a.find_all('span', {'style': 'text-decoration:line-through'})
             if a:
@@ -621,8 +599,8 @@ def parse_coordinates(search_num):
         try:
             address = parse_address_from_title(title)
             if address:
-                save_place_in_psql(address)
-                lat, lon = get_coordinates_from_address(address)
+                save_place_in_psql(db, address)
+                lat, lon = get_coordinates_from_address(db, address)
                 if lat != 0:
                     coord_type = '4. coordinates by address'
             else:
@@ -631,23 +609,21 @@ def parse_coordinates(search_num):
             logging.info('DBG.P.42.EXC:')
             logging.exception(e5)
 
-    # TODO: needed debug?
     # DEBUG - function execution time counter
     func_finish = datetime.now()
     func_execution_time_ms = func_finish - func_start
     logging.info(f'DBG.P.5.parse_coordinates() exec time: {func_execution_time_ms}')
-    # DEBUG - function execution time counter
 
     return [lat, lon, coord_type]
 
 
-def update_coordinates(parsed_summary):
-    global db
+def update_coordinates(db, parsed_summary):
+    """Record search coordinates to PSQL"""
 
     for i in range(len(parsed_summary)):
         if parsed_summary[i][2] == 'Ищем':
             logging.info(f'search coordinates should be saved {parsed_summary[i][1]}')
-            coords = parse_coordinates(parsed_summary[i][1])
+            coords = parse_coordinates(db, parsed_summary[i][1])
 
             if coords[0] != 0 and coords[1] != 0:
                 with db.connect() as conn:
@@ -774,8 +750,6 @@ def get_secrets(secret_request):
 def update_checker(current_hash, folder_num):
     """compare prev snapshot and freshly-parsed snapshot, returns NO or YES and Previous hash"""
 
-    global db
-
     # pre-set default output from the function
     update_trigger = 'no'
 
@@ -792,15 +766,13 @@ def update_checker(current_hash, folder_num):
     return update_trigger, previous_hash
 
 
-def define_family_name_from_search_title_new(title, printit=False):
+def define_family_name_from_search_title_new(title):
     """Define the family name of the lost person out ot search title.
     It is very basic method which works in 99% of cases.
     Probably in the future more complicated model will be implemented"""
 
     global dict_status_words
     global dict_ignore
-
-    string_by_word = None
 
     # Can work with input as string or list
     if isinstance(title, str):
@@ -818,20 +790,11 @@ def define_family_name_from_search_title_new(title, printit=False):
     for word in string_by_word:
         if word.strip().lower() not in dict_status_words and word.strip().lower() not in dict_ignore:
             title_wo_status.append(word)
-    if printit:
-        logging.info(f'title wo status= {title_wo_status}')
 
     if title_wo_status[0].isnumeric():
         fam_name = title_wo_status[0] + ' ' + title_wo_status[1]
     else:
         fam_name = title_wo_status[0]
-    if printit:
-        logging.info(f'fam_nam= {fam_name}')
-
-    # TODO: is it still a relevant case?
-    # if by mistake the last symbol is "("
-    # if fam_name[-1] == '(':
-    #    fam_name = fam_name[0:-1]
 
     return fam_name
 
@@ -860,24 +823,12 @@ def define_age_from_search_title(search_title):
 def define_status_from_search_title(title):
     """define the status from search title"""
 
-    # TODO: change to regex and to result in two strings: status_original, status_classified
     search_status = title
 
     # Identify and delete the text of text for Training activities
     if search_status.lower().find('учебн') > -1:
-        # TODO: to change to regex
-        search_status = search_status.replace('Учебные сборы ', '')
-        search_status = search_status.replace('Учебный поиск ', '')
-        search_status = search_status.replace('Учебный выход', '')
-        search_status = search_status.replace('Учебный ', '')
-        search_status = search_status.replace('Учебная ', '')
-        search_status = search_status.replace('УЧЕБНАЯ. ', '')
-        search_status = search_status.replace('УЧЕБНАЯ: ', '')
-        search_status = search_status.replace('УЧЕБНАЯ ', '')
-        search_status = search_status.replace('УЧЕБНЫЙ. ', '')
-        search_status = search_status.replace('УЧЕБНЫЙ.', '')
-        search_status = search_status.replace('УЧЕБНЫЙ ', '')
-        search_status = search_status.replace('УЧЕБНЫЙ', '')
+        pattern = r'(?i)учебн(?:ый|ая|ые)(?:[\s]сбор[ы]?|[\s]поиск|[\s]выход)?(?:\s|.|:|,)[\s]?'
+        search_status = re.sub(pattern, '', search_status)
 
     if search_status[0:3].lower() == "жив":
         search_status = "НЖ"
@@ -917,24 +868,6 @@ def define_start_time_of_search(blocks):
     start_datetime = start_datetime_as_string.time['datetime']
 
     return start_datetime
-
-
-# TODO: Not in use now - TBD for future
-def define_last_post_parameters(blocks):
-    """WIP – trying to define the list of parameters of the last post for every search"""
-
-    try:
-        last_post_block = blocks.find_all('dd', 'lastpost')
-        # -- WIP -- Was trying to get the last post & author - still WIP
-        # last_post_author_block = str(last_post_block.find('a', 'username').text)
-        # last_post_time = str(last_post_block.find('time').text)
-        # last_post_plain_text = last_post_author_block + ', ' + last_post_time
-    except Exception as e:
-        logging.info('Exception happened 6')
-        logging.exception(e)
-        last_post_block = ''
-
-    return last_post_block
 
 
 def profile_get_type_of_activity(text_of_activity):
@@ -1011,14 +944,7 @@ def profile_get_type_of_activity(text_of_activity):
         activity_type.append('3 - hardware logistics')
     elif text_of_activity.lower().find('забрать комплект оборудования') > -1:
         activity_type.append('3 - hardware logistics')
-    # if text_of_activity.lower().find('ориентировки') > -1:
-    #    activity_type.append('4 - orientation logistics')
 
-    # if text_of_activity.lower().find('репост') > -1:
-    #    activity_type.append('8 - info')
-
-    # delete duplicates if any through conversion to set and back to list + sort
-    # activity_type = list(set(activity_type))
     activity_type.sort()
 
     return activity_type
@@ -1149,7 +1075,6 @@ def parse_search_profile(search_num):
 
     """DEBUG"""
     logging.info('DBG.Profile:' + left_text)
-    """DEBUG"""
 
     return left_text
 
@@ -1207,7 +1132,6 @@ def parse(folder_id):
             start_datetime = define_start_time_of_search(data_block)
             search_status_short = define_status_from_search_title(search_title)
 
-            # TODO: exclusion should be on another level (by user preferences)
             # exclude non-relevant searches
             if search_status_short != "не показываем":
                 search_summary = [current_datetime, search_id, search_status_short, search_title, search_cut_link,
@@ -1235,10 +1159,9 @@ def parse(folder_id):
     return [topics_summary_in_folder, topics_summary_in_folder_without_date]
 
 
-def parse_one_comment(search_num, comment_num):
+def parse_one_comment(db, search_num, comment_num):
     """parse all details on a specific comment in topic (by sequence number)"""
 
-    global db
     global requests_session
 
     url = 'https://lizaalert.org/forum/viewtopic.php?'
@@ -1301,35 +1224,24 @@ def parse_one_comment(search_num, comment_num):
 
         with db.connect() as conn:
 
-            # TODO remove doubling once it'll work correctly
-            try:
-                if comment_text:
-                    if not ignore:
-                        stmt = sqlalchemy.text(
-                            """INSERT INTO comments (comment_url, comment_text, comment_author_nickname, 
-                            comment_author_link, search_forum_num, comment_num, comment_global_num) 
-                            VALUES 
-                            (:a, :b, :c, :d, :e, :f, :g); """
-                        )
-                        conn.execute(stmt, a=comment_url, b=comment_text, c=comment_author_nickname,
-                                     d=comment_author_link, e=search_num, f=comment_num, g=comment_forum_global_id)
-                    else:
-                        stmt = sqlalchemy.text(
-                            """INSERT INTO comments (comment_url, comment_text, comment_author_nickname, 
-                            comment_author_link, search_forum_num, comment_num, notification_sent) 
-                            values (:a, :b, :c, :d, :e, :f, :g); """
-                        )
-                        conn.execute(stmt, a=comment_url, b=comment_text, c=comment_author_nickname,
-                                     d=comment_author_link, e=search_num, f=comment_num, g='n')
-
-            except Exception as e3:
-                logging.info('DBG.P.106.EXC:' + repr(e3))
-                stmt = sqlalchemy.text(
-                    """INSERT INTO comments (comment_url, comment_text, comment_author_nickname, comment_author_link, 
-                    search_forum_num, comment_num) values (:a, :b, :c, :d, :e, :f); """
-                )
-                conn.execute(stmt, a=comment_url, b=comment_text, c=comment_author_nickname, d=comment_author_link,
-                             e=search_num, f=comment_num)
+            if comment_text:
+                if not ignore:
+                    stmt = sqlalchemy.text(
+                        """INSERT INTO comments (comment_url, comment_text, comment_author_nickname, 
+                        comment_author_link, search_forum_num, comment_num, comment_global_num) 
+                        VALUES 
+                        (:a, :b, :c, :d, :e, :f, :g); """
+                    )
+                    conn.execute(stmt, a=comment_url, b=comment_text, c=comment_author_nickname,
+                                 d=comment_author_link, e=search_num, f=comment_num, g=comment_forum_global_id)
+                else:
+                    stmt = sqlalchemy.text(
+                        """INSERT INTO comments (comment_url, comment_text, comment_author_nickname, 
+                        comment_author_link, search_forum_num, comment_num, notification_sent) 
+                        values (:a, :b, :c, :d, :e, :f, :g); """
+                    )
+                    conn.execute(stmt, a=comment_url, b=comment_text, c=comment_author_nickname,
+                                 d=comment_author_link, e=search_num, f=comment_num, g='n')
 
             conn.close()
 
@@ -1339,14 +1251,11 @@ def parse_one_comment(search_num, comment_num):
     return there_are_inforg_comments
 
 
-def process_delta(folder_num):
+def process_delta(db, folder_num):
     """update of SQL tables 'searches' and 'change_log' on the changes vs previous parse"""
-
-    global db
 
     # DEBUG - function execution time counter
     func_start = datetime.now()
-    # DEBUG - function execution time counter
 
     with db.connect() as conn:
 
@@ -1377,7 +1286,7 @@ def process_delta(folder_num):
                     # in case of number of COMMENTS changes
                     if int(snpsht[6]) > int(srchs[6]):
                         for k in range(snpsht[6] - srchs[6]):
-                            flag_if_comment_was_from_inforg = parse_one_comment(snpsht[0], int(srchs[6]) + 1 + k)
+                            flag_if_comment_was_from_inforg = parse_one_comment(db, snpsht[0], int(srchs[6]) + 1 + k)
                             if flag_if_comment_was_from_inforg:
                                 there_are_inforg_comments = True
                         change_log_updates.append([snpsht[1], snpsht[0], 'replies_num_change', snpsht[6], '', 3])
@@ -1439,50 +1348,41 @@ def process_delta(folder_num):
                              g=new_searches_from_snapshot[i][6], h=new_searches_from_snapshot[i][7],
                              i=new_searches_from_snapshot[i][8], j=new_searches_from_snapshot[i][9])
 
-            # TODO testing of parsing all the parameters of the new searches
-            try:
-                for i in range(len(new_searches_from_snapshot)):
-                    search_num = new_searches_from_snapshot[i][0]
+                search_num = new_searches_from_snapshot[i][0]
 
-                    parsed_profile_text = parse_search_profile(search_num)
-                    search_activities = profile_get_type_of_activity(parsed_profile_text)
-                    """DBG"""
-                    logging.info('DBG.P.103:Search activities:' + str(search_activities))
-                    """DBG"""
+                parsed_profile_text = parse_search_profile(search_num)
+                search_activities = profile_get_type_of_activity(parsed_profile_text)
 
-                    # mark all old activities as deactivated
+                logging.info('DBG.P.103:Search activities:' + str(search_activities))
+
+                # mark all old activities as deactivated
+                sql_text = sqlalchemy.text(
+                    """UPDATE search_activities SET activity_status = 'deactivated' WHERE search_forum_num=:a; """
+                )
+                conn.execute(sql_text, a=search_num)
+
+                # add the latest activities for the search
+                for j in range(len(search_activities)):
                     sql_text = sqlalchemy.text(
-                        """UPDATE search_activities SET activity_status = 'deactivated' WHERE search_forum_num=:a; """
+                        """INSERT INTO search_activities (search_forum_num, activity_type, activity_status, 
+                        timestamp) values ( :a, :b, :c, :d); """
                     )
-                    conn.execute(sql_text, a=search_num)
+                    conn.execute(sql_text, a=search_num, b=search_activities[j], c='ongoing', d=datetime.now())
 
-                    # add the latest activities for the search
-                    for j in range(len(search_activities)):
+                # Define managers of the search
+                managers = profile_get_managers(parsed_profile_text)
+
+                logging.info('DBG.P.104:Managers:' + str(managers))
+
+                if managers:
+                    try:
                         sql_text = sqlalchemy.text(
-                            """INSERT INTO search_activities (search_forum_num, activity_type, activity_status, 
+                            """INSERT INTO search_attributes (search_forum_num, attribute_name, attribute_value, 
                             timestamp) values ( :a, :b, :c, :d); """
                         )
-                        conn.execute(sql_text, a=search_num, b=search_activities[j], c='ongoing', d=datetime.now())
-
-                    # Define managers of the search
-                    managers = profile_get_managers(parsed_profile_text)
-
-                    """DBG"""
-                    logging.info('DBG.P.104:Managers:' + str(managers))
-                    """DBG"""
-
-                    if managers:
-                        try:
-                            sql_text = sqlalchemy.text(
-                                """INSERT INTO search_attributes (search_forum_num, attribute_name, attribute_value, 
-                                timestamp) values ( :a, :b, :c, :d); """
-                            )
-                            conn.execute(sql_text, a=search_num, b='managers', c=str(managers), d=datetime.now())
-                        except Exception as e:
-                            logging.info('DBG.P.104:' + repr(e))
-
-            except Exception as e:
-                logging.info('DBG.P.52.EXC:' + repr(e))
+                        conn.execute(sql_text, a=search_num, b='managers', c=str(managers), d=datetime.now())
+                    except Exception as e:
+                        logging.info('DBG.P.104:' + repr(e))
 
         '''4 DEL UPD from Searches'''
         delete_lines_from_summary = []
@@ -1546,11 +1446,8 @@ def process_delta(folder_num):
     return None
 
 
-def rewrite_snapshot_in_sql(parsed_summary, folder_num):
+def rewrite_snapshot_in_sql(db, parsed_summary, folder_num):
     """rewrite the freshly-parsed snapshot into sql table 'forum_summary_snapshot'"""
-
-    global db
-    db = sql_connect()
 
     with db.connect() as conn:
         sql_text = sqlalchemy.text(
@@ -1574,10 +1471,8 @@ def rewrite_snapshot_in_sql(parsed_summary, folder_num):
     return None
 
 
-def process_one_folder(folder_to_parse):
+def process_one_folder(db, folder_to_parse):
     """processes on forum folder: check for updates, upload them into cloud sql"""
-
-    global db
 
     # parse a new version of summary page from the chosen folder
     parsed_summary = parse(folder_to_parse)
@@ -1607,14 +1502,14 @@ def process_one_folder(folder_to_parse):
         if update_trigger == "yes":
             debug_message = 'DBG.P.2.folder ' + str(folder_to_parse) + ' YES - UPDATE\n' + debug_message
 
-            rewrite_snapshot_in_sql(parsed_summary, folder_to_parse)
+            rewrite_snapshot_in_sql(db, parsed_summary, folder_to_parse)
 
             """DEBUG"""
             logging.info('starting "process_delta" for folder' + str(folder_to_parse))
             """DEBUG"""
 
-            process_delta(folder_to_parse)
-            update_coordinates(parsed_summary[0])
+            process_delta(db, folder_to_parse)
+            update_coordinates(db, parsed_summary[0])
 
         else:
             debug_message = 'DBG.P.2.folder ' + str(folder_to_parse) + ' NO - UPDATE\n' + debug_message
@@ -1623,11 +1518,9 @@ def process_one_folder(folder_to_parse):
     return update_trigger, debug_message
 
 
-def get_the_list_of_ignored_folders():
+def get_the_list_of_ignored_folders(db):
     """get the list of folders which does not contain searches – thus should be ignored"""
 
-    global db
-    db = sql_connect()
     conn = db.connect()
 
     sql_text = sqlalchemy.text(
@@ -1652,8 +1545,6 @@ def get_the_list_of_ignored_folders():
 def main(event, context):  # noqa
     """main function"""
 
-    # TODO: avoid globals
-    global db
     global requests_session
 
     folders_list = []
@@ -1664,7 +1555,8 @@ def main(event, context):  # noqa
     list_from_pubsub = ast.literal_eval(message_from_pubsub) if message_from_pubsub else None
     logging.info(f'received message from pubsub: {message_from_pubsub}')
 
-    list_of_ignored_folders = get_the_list_of_ignored_folders()
+    db = sql_connect()
+    list_of_ignored_folders = get_the_list_of_ignored_folders(db)
 
     if list_from_pubsub:
         folders_list = [line[0] for line in list_from_pubsub if line[0] not in list_of_ignored_folders]
@@ -1680,7 +1572,7 @@ def main(event, context):  # noqa
 
             logging.info(f'start checking if folder {folder} has any updates')
 
-            update_trigger, debug_message = process_one_folder(folder)
+            update_trigger, debug_message = process_one_folder(db, folder)
 
             if update_trigger == 'yes':
                 list_of_folders_with_updates.append(folder)
