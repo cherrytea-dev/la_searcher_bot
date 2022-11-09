@@ -703,6 +703,9 @@ def update_first_posts_and_statuses(percent_of_searches, weights):
 def main(event, context): # noqa
     """main function"""
 
+    global bad_gateway_counter
+    bad_gateway_counter = 0
+
     # BLOCK 1. for checking visibility (deleted or hidden) and status (Ищем, НЖ, НП) changes of active searches
     # A reason why this functionality – is in this script, is that it worth update the list of active searches first
     # and then check for first posts. Plus, once first posts checker finds something odd – it triggers a visibility
