@@ -311,20 +311,6 @@ def compose_full_message_on_list_of_searches(cur, list_type, user_id, region, re
     return msg
 
 
-# TODO: to be deleted
-def save_new_user(cur, user_id, input_username):
-    """save the new user in the user-related tables: users, user_preferences"""
-
-    # add the New User into table users
-    cur.execute("""INSERT INTO users (user_id, username_telegram, reg_date) values (%s, %s, %s);""",
-                (user_id, input_username, datetime.datetime.now()))
-
-    message_for_admin = 'New user, name: ' + str(input_username) + ' id: ' + str(user_id)
-    logging.info(message_for_admin)
-
-    return None
-
-
 def check_if_new_user(cur, user_id):
     """check if the user is new or not"""
 
@@ -1006,8 +992,7 @@ def main(request):
                     message_for_pubsub = {'action': status_dict[user_new_status], 'info': {'user': user_id}}
                     publish_to_pubsub('topic_for_user_management', message_for_pubsub)
 
-                    # TODO: experiment – if this causes problems with zero new users
-                    """if user_new_status == 'member':
+                    if user_new_status == 'member':
                         bot_message = 'С возвращением! Бот скучал:) Жаль, что вы долго не заходили. ' \
                                       'Мы постарались сохранить все ваши настройки с вашего прошлого визита. ' \
                                       'Если у вас есть трудности в работе бота или пожелания, как сделать бот ' \
@@ -1019,7 +1004,8 @@ def main(request):
                         reply_markup = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
 
                         bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
-                                        parse_mode='HTML', disable_web_page_preview=True)"""
+                                        parse_mode='HTML', disable_web_page_preview=True)
+                        notify_admin(f'temp message – there is a returning user {user_id}')
 
                 except Exception as e:
                     logging.info('Error in finding basic data for block/unblock user in Communicate script')
@@ -1065,9 +1051,6 @@ def main(request):
                     # initiate the manage_users script
                     message_for_pubsub = {'action': 'new', 'info': {'user': user_id, 'username': username}}
                     publish_to_pubsub('topic_for_user_management', message_for_pubsub)
-
-                    # TODO: to delete
-                    # save_new_user(cur, user_id, username)
 
                 # get user regional settings (which regions he/she is interested it)
                 user_regions = get_user_regional_preferences(cur, user_id)
