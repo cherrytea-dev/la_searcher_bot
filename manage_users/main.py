@@ -119,6 +119,27 @@ def save_updated_status_for_user(action, user_id):
     return None
 
 
+def save_new_user(user_id, username):
+    """if the user is new – save to users table"""
+
+    # set PSQL connection & cursor
+    conn = sql_connect_by_psycopg2()
+    cur = conn.cursor()
+
+    # add the New User into table users
+    cur.execute("""INSERT INTO users (user_id, username_telegram, reg_date) values (%s, %s, %s);""",
+                (user_id, username, datetime.datetime.now()))
+    conn.commit()
+
+    # close connection & cursor
+    cur.close()
+    conn.close()
+
+    logging.info(f'New user with id: {user_id}, username {username} saved.')
+
+    return None
+
+
 def save_default_notif_settings(user_id):
     """if the user is new – set the default notification categories in user_preferences table"""
 
@@ -164,6 +185,10 @@ def main(event, context): # noqa
 
                 if action == 'new':
 
+                    username = received_dict['info']['username']
+                    # save in table users
+                    save_new_user(curr_user_id, username)
+                    # save in table user_preferences
                     save_default_notif_settings(curr_user_id)
 
     except Exception as e:

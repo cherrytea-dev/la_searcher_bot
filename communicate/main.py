@@ -311,23 +311,13 @@ def compose_full_message_on_list_of_searches(cur, list_type, user_id, region, re
     return msg
 
 
+# TODO: to be deleted
 def save_new_user(cur, user_id, input_username):
     """save the new user in the user-related tables: users, user_preferences"""
 
     # add the New User into table users
     cur.execute("""INSERT INTO users (user_id, username_telegram, reg_date) values (%s, %s, %s);""",
                 (user_id, input_username, datetime.datetime.now()))
-
-    # add the New User into table user_preferences
-    # default setting is set as notifications on new searches & status changes
-    cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
-                (user_id, 'new_searches', 0))
-    
-    cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
-                (user_id, 'status_changes', 1))
-    
-    cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
-                (user_id, 'bot_news', 20))
 
     message_for_admin = 'New user, name: ' + str(input_username) + ' id: ' + str(user_id)
     logging.info(message_for_admin)
@@ -1064,6 +1054,7 @@ def main(request):
             # CASE 6 – when user mentions bot as @LizaAlert_Searcher_Bot in another telegram chat. Bot should do nothing
             elif inline_query:
                 notify_admin('[comm]: User mentioned bot in some chats')
+                # TODO: to send to admin what was mentioned – is available
 
             # CASE 7 – regular messaging with bot
             else:
@@ -1072,8 +1063,10 @@ def main(request):
                 user_is_new = check_if_new_user(cur, user_id)
                 if user_is_new:
                     # initiate the manage_users script
-                    message_for_pubsub = {'action': 'new', 'info': {'user': user_id}}
+                    message_for_pubsub = {'action': 'new', 'info': {'user': user_id, 'username': username}}
                     publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+
+                    # TODO: to delete
                     # save_new_user(cur, user_id, username)
 
                 # get user regional settings (which regions he/she is interested it)
