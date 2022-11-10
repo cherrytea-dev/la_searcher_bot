@@ -1016,7 +1016,8 @@ def main(request):
                     message_for_pubsub = {'action': status_dict[user_new_status], 'info': {'user': user_id}}
                     publish_to_pubsub('topic_for_user_management', message_for_pubsub)
 
-                    if user_new_status == 'member':
+                    # TODO: experiment – if this causes problems with zero new users
+                    """if user_new_status == 'member':
                         bot_message = 'С возвращением! Бот скучал:) Жаль, что вы долго не заходили. ' \
                                       'Мы постарались сохранить все ваши настройки с вашего прошлого визита. ' \
                                       'Если у вас есть трудности в работе бота или пожелания, как сделать бот ' \
@@ -1028,7 +1029,7 @@ def main(request):
                         reply_markup = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
 
                         bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
-                                        parse_mode='HTML', disable_web_page_preview=True)
+                                        parse_mode='HTML', disable_web_page_preview=True)"""
 
                 except Exception as e:
                     logging.info('Error in finding basic data for block/unblock user in Communicate script')
