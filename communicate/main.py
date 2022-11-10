@@ -1049,6 +1049,9 @@ def main(request):
                 user_is_new = check_if_new_user(cur, user_id)
                 if user_is_new:
                     # initiate the manage_users script
+                    if not username:
+                        username = 'unknown'
+
                     message_for_pubsub = {'action': 'new', 'info': {'user': user_id, 'username': username}}
                     publish_to_pubsub('topic_for_user_management', message_for_pubsub)
 

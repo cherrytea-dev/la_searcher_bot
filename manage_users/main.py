@@ -126,6 +126,9 @@ def save_new_user(user_id, username):
     conn = sql_connect_by_psycopg2()
     cur = conn.cursor()
 
+    if username == 'unknown':
+        username = None
+
     # add the New User into table users
     cur.execute("""INSERT INTO users (user_id, username_telegram, reg_date) values (%s, %s, %s);""",
                 (user_id, username, datetime.datetime.now()))
