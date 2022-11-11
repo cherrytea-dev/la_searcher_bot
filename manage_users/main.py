@@ -130,15 +130,25 @@ def save_new_user(user_id, username):
         username = None
 
     # add the New User into table users
-    cur.execute("""INSERT INTO users (user_id, username_telegram, reg_date) values (%s, %s, %s)
-                   ON CONFLICT user_id DO NOTHING;""",
+    cur.execute("""
+                    WITH rows AS
+                    (
+                        INSERT INTO users (user_id, username_telegram, reg_date) values (%s, %s, %s)
+                        ON CONFLICT user_id DO NOTHING
+                        RETURNING 1
+                    )
+                    SELECT count(*) FROM rows
+                    ;""",
                 (user_id, username, datetime.datetime.now()))
     conn.commit()
+    num_of_updates = cur.fetchone()
 
     # close connection & cursor
     cur.close()
     conn.close()
 
+    # TODO
+    print(num_of_updates)
     logging.info(f'New user with id: {user_id}, username {username} saved.')
 
     return None
