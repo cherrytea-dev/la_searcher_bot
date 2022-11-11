@@ -134,7 +134,7 @@ def save_new_user(user_id, username):
                     WITH rows AS
                     (
                         INSERT INTO users (user_id, username_telegram, reg_date) values (%s, %s, %s)
-                        ON CONFLICT user_id DO NOTHING
+                        ON CONFLICT (user_id) DO NOTHING
                         RETURNING 1
                     )
                     SELECT count(*) FROM rows
@@ -191,6 +191,7 @@ def main(event, context): # noqa
 
     try:
         received_dict = process_pubsub_message(event)
+        logging.info(f'received message {received_dict}')
         if received_dict:
 
             action = received_dict['action']
