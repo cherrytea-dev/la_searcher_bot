@@ -149,6 +149,7 @@ def save_new_user(user_id, username):
 
     # TODO
     print(num_of_updates)
+    print(type(num_of_updates))
     logging.info(f'New user with id: {user_id}, username {username} saved.')
 
     return None
@@ -161,27 +162,36 @@ def save_default_notif_settings(user_id):
     conn = sql_connect_by_psycopg2()
     cur = conn.cursor()
 
-    # default setting is set as notifications on new searches & status changes
-    cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s)
-                   ON CONFLICT (user_id, pref_id) DO NOTHING;""",
-                (user_id, 'new_searches', 0))
-    conn.commit()
+    num_of_updates = 0
 
-    cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s)
-                   ON CONFLICT (user_id, pref_id) DO NOTHING;""",
-                (user_id, 'status_changes', 1))
-    conn.commit()
+    # default notification settings
+    list_of_parameters = [
+        (user_id, 'new_searches', 0),
+        (user_id, 'status_changes', 1),
+        (user_id, 'bot_news', 20)
+    ]
 
-    cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s)
-                   ON CONFLICT (user_id, pref_id) DO NOTHING;""",
-                (user_id, 'bot_news', 20))
-    conn.commit()
+    # apply default notification settings – write to PSQL in not exist (due to repetitions of pub/sub messages)
+    for parameters in list_of_parameters:
+
+        cur.execute("""
+                        WITH rows AS
+                        (
+                            INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s)
+                            ON CONFLICT (user_id, pref_id) DO NOTHING
+                            RETURNING 1
+                        )
+                        SELECT count(*) FROM rows
+                        ;""",
+                    parameters)
+        conn.commit()
+        num_of_updates += int(cur.fetchone())
 
     # close connection & cursor
     cur.close()
     conn.close()
 
-    logging.info(f'New user with id: {user_id}, default notif categories are set.')
+    logging.info(f'New user with id: {user_id}, {num_of_updates} default notif categories were set.')
 
     return None
 
