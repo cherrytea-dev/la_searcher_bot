@@ -141,16 +141,17 @@ def save_new_user(user_id, username):
                     ;""",
                 (user_id, username, datetime.datetime.now()))
     conn.commit()
-    num_of_updates = cur.fetchone()
+    num_of_updates = cur.fetchone()[0]
 
     # close connection & cursor
     cur.close()
     conn.close()
 
-    # TODO
-    print(num_of_updates)
-    print(type(num_of_updates))
-    logging.info(f'New user with id: {user_id}, username {username} saved.')
+    if num_of_updates == 0:
+        logging.info(f'New user {user_id}, username {username} HAVE NOT BEEN SAVED '
+                     f'due to duplication of {num_of_updates} times')
+    else:
+        logging.info(f'New user with id: {user_id}, username {username} saved.')
 
     return None
 
@@ -185,7 +186,7 @@ def save_default_notif_settings(user_id):
                         ;""",
                     parameters)
         conn.commit()
-        num_of_updates += int(cur.fetchone())
+        num_of_updates += cur.fetchone()[0]
 
     # close connection & cursor
     cur.close()
