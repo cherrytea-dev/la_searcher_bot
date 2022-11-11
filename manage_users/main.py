@@ -130,7 +130,8 @@ def save_new_user(user_id, username):
         username = None
 
     # add the New User into table users
-    cur.execute("""INSERT INTO users (user_id, username_telegram, reg_date) values (%s, %s, %s);""",
+    cur.execute("""INSERT INTO users (user_id, username_telegram, reg_date) values (%s, %s, %s)
+                   ON CONFLICT user_id DO NOTHING;""",
                 (user_id, username, datetime.datetime.now()))
     conn.commit()
 
@@ -151,15 +152,18 @@ def save_default_notif_settings(user_id):
     cur = conn.cursor()
 
     # default setting is set as notifications on new searches & status changes
-    cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
+    cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s)
+                   ON CONFLICT (user_id, pref_id) DO NOTHING;""",
                 (user_id, 'new_searches', 0))
     conn.commit()
 
-    cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
+    cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s)
+                   ON CONFLICT (user_id, pref_id) DO NOTHING;""",
                 (user_id, 'status_changes', 1))
     conn.commit()
 
-    cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
+    cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s)
+                   ON CONFLICT (user_id, pref_id) DO NOTHING;""",
                 (user_id, 'bot_news', 20))
     conn.commit()
 
