@@ -878,7 +878,10 @@ def update_and_download_list_of_regions(cur, user_id, got_message, b_menu_set_re
     elif region_is_the_only:
         msg = 'Необходимо выбрать как минимум один регион. Сейчас выбран' + msg
     elif got_message in fed_okr_dict or got_message == b_fed_dist_pick_other:
-        msg = 'Текущий список ваших регионов:' + msg
+        if user_curr_regs_list:
+            msg = 'Текущий список ваших регионов:' + msg
+        else:
+            msg = 'Текущий список ваших регионов пуст. Выберите ФО, а затем регион.'
     else:
         msg = 'Записали. Обновленный список ваших регионов:' + msg
 
@@ -1436,7 +1439,7 @@ def main(request):
                                 logging.info('failed to update the last saved message from bot')
                                 logging.exception(e)
 
-                        elif not user_regions \
+                        """elif not user_regions \
                                 and not (got_message[5] in {'b_reg', 'b_fed'}
                                          or
                                          got_message in {b_menu_set_region, b_start, b_settings}):
@@ -1448,7 +1451,7 @@ def main(request):
                                           'Функционал бота не будет активирован, пока не выбран хотя бы один регион.'
 
                             keyboard_coordinates_admin = [[b_menu_set_region]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)"""
 
                         # Send summaries
                         elif got_message in {com_1, com_2}:
