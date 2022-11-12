@@ -1058,7 +1058,7 @@ def main(request):
 
                     message_for_pubsub = {'action': 'new',
                                           'info': {'user': user_id, 'username': username},
-                                          'time': datetime.datetime.now()}
+                                          'time': str(datetime.datetime.now())}
                     publish_to_pubsub('topic_for_user_management', message_for_pubsub)
 
                 # get user regional settings (which regions he/she is interested it)
@@ -1445,7 +1445,7 @@ def main(request):
                                          got_message in {b_menu_set_region, b_start, b_settings}):
 
                             bot_message = 'Для корректной работы бота, пожалуйста, задайте свой регион. Для этого ' \
-                                          'с помощью кнопок меню выберите сначала ФО (федеральный округ), а затем и' \
+                                          'с помощью кнопок меню выберите сначала ФО (федеральный округ), а затем и ' \
                                           'регион. Можно выбирать несколько регионов из разных ФО. Выбор региона ' \
                                           'также можно отменить, повторно нажав на кнопку с названием региона. ' \
                                           'Функционал бота не будет активирован, пока не выбран хотя бы один регион.'
