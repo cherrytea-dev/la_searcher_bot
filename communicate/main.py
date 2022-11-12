@@ -1453,6 +1453,8 @@ def main(request):
                             keyboard_coordinates_admin = [[b_menu_set_region]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
+                            logging.info(f'user {user_id} is forced to fill in the region')
+
                         # Send summaries
                         elif got_message in {com_1, com_2}:
 
