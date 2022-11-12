@@ -1439,7 +1439,7 @@ def main(request):
                                 logging.info('failed to update the last saved message from bot')
                                 logging.exception(e)
 
-                        """elif not user_regions \
+                        elif 1==0 and not user_regions \
                                 and not (got_message[5] in {'b_reg', 'b_fed'}
                                          or
                                          got_message in {b_menu_set_region, b_start, b_settings}):
@@ -1451,7 +1451,7 @@ def main(request):
                                           'Функционал бота не будет активирован, пока не выбран хотя бы один регион.'
 
                             keyboard_coordinates_admin = [[b_menu_set_region]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)"""
+                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
                         # Send summaries
                         elif got_message in {com_1, com_2}:
