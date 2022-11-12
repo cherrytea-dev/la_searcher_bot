@@ -1052,7 +1052,9 @@ def main(request):
                     if not username:
                         username = 'unknown'
 
-                    message_for_pubsub = {'action': 'new', 'info': {'user': user_id, 'username': username}}
+                    message_for_pubsub = {'action': 'new',
+                                          'info': {'user': user_id, 'username': username},
+                                          'time': datetime.datetime.now()}
                     publish_to_pubsub('topic_for_user_management', message_for_pubsub)
 
                 # get user regional settings (which regions he/she is interested it)

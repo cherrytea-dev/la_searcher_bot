@@ -87,7 +87,7 @@ def sql_connect_by_psycopg2():
     return conn_psy
 
 
-def save_updated_status_for_user(action, user_id):
+def save_updated_status_for_user(action, user_id, timestamp):
     """block, unblock or record as new user"""
 
     action_dict = {'block_user': 'blocked', 'unblock_user': 'unblocked', 'new': 'new', 'delete_user': 'deleted'}
@@ -101,14 +101,16 @@ def save_updated_status_for_user(action, user_id):
         # compose & execute the query for USERS table
         cur.execute(
             """UPDATE users SET status =%s, status_change_date=%s WHERE user_id=%s;""",
-            (action_to_write, datetime.datetime.now(), user_id)
+            (action_to_write, timestamp, user_id)
         )
         conn.commit()
 
     # compose & execute the query for USER_STATUSES_HISTORY table
     cur.execute(
-        """INSERT INTO user_statuses_history (status, date, user_id) VALUES (%s, %s, %s);""",
-        (action_to_write, datetime.datetime.now(), user_id)
+        """INSERT INTO user_statuses_history (status, date, user_id) VALUES (%s, %s, %s)
+        ON CONFLICT (user_id, date) DO NOTHING
+        ;""",
+        (action_to_write, timestamp, user_id)
     )
     conn.commit()
 
@@ -119,7 +121,7 @@ def save_updated_status_for_user(action, user_id):
     return None
 
 
-def save_new_user(user_id, username):
+def save_new_user(user_id, username, timestamp):
     """if the user is new – save to users table"""
 
     # set PSQL connection & cursor
@@ -139,7 +141,7 @@ def save_new_user(user_id, username):
                     )
                     SELECT count(*) FROM rows
                     ;""",
-                (user_id, username, datetime.datetime.now()))
+                (user_id, username, timestamp))
     conn.commit()
     num_of_updates = cur.fetchone()[0]
 
@@ -149,7 +151,7 @@ def save_new_user(user_id, username):
 
     if num_of_updates == 0:
         logging.info(f'New user {user_id}, username {username} HAVE NOT BEEN SAVED '
-                     f'due to duplication of {num_of_updates} times')
+                     f'due to duplication')
     else:
         logging.info(f'New user with id: {user_id}, username {username} saved.')
 
@@ -210,22 +212,23 @@ def main(event, context): # noqa
             if action in {'block_user', 'unblock_user', 'new', 'delete_user'}:
 
                 curr_user_id = received_dict['info']['user']
-                save_updated_status_for_user(action, curr_user_id)
+                try:
+                    timestamp = received_dict['time']
+                except: # noqa
+                    timestamp = datetime.datetime.now()
+                # save in table user_statuses_history and table users (for non-new users)
+                save_updated_status_for_user(action, curr_user_id, timestamp)
 
                 if action == 'new':
 
                     username = received_dict['info']['username']
                     # save in table users
-                    save_new_user(curr_user_id, username)
+                    save_new_user(curr_user_id, username, timestamp)
                     # save in table user_preferences
                     save_default_notif_settings(curr_user_id)
 
     except Exception as e:
         logging.error('User management script failed:' + repr(e))
         logging.exception(e)
-
-        # TODO: it's only debug
-        message_to_admin = 'ERROR in user_management: ' + repr(e)
-        notify_admin(message_to_admin)
 
     return None
