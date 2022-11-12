@@ -1047,6 +1047,7 @@ def main(request):
 
                 # check if user is new - and if so - saving him/her
                 user_is_new = check_if_new_user(cur, user_id)
+
                 if user_is_new:
                     # initiate the manage_users script
                     if not username:
@@ -1507,6 +1508,10 @@ def main(request):
                                                           [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
+                        # DEBUG: for debugging purposes only
+                        elif got_message.lower() == 'go':
+                            publish_to_pubsub('topic_notify_admin', 'test_admin_check')
+
                         # If user Region is Moscow or not
                         elif got_message == b_reg_moscow:
                             bot_message = 'Спасибо, бот запомнил этот выбор и теперь вы сможете получать ключевые ' \
@@ -1533,9 +1538,16 @@ def main(request):
                             keyboard = [[b_menu_set_region], [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-                        # DEBUG: for debugging purposes only
-                        elif got_message.lower() == 'go':
-                            publish_to_pubsub('topic_notify_admin', 'test_admin_check')
+                        elif not user_regions \
+                                and not (got_message[5] in {'b_reg', 'b_fed'}
+                                         or
+                                         got_message in {b_menu_set_region, b_start}):
+
+                            bot_message = 'Для корректной работы бота, пожалуйста, задайте свой регион. Для этого ' \
+                                          'с помощью кнопок меню выберите сначала ФО (федеральный округ), а затем и' \
+                                          'регион. Можно выбирать несколько регионов из разных ФО. Выбор региона ' \
+                                          'также можно отменить, повторно нажав на кнопку с названием региона. ' \
+                                          'Функционал бота не будет активирован, пока не выбран хотя бы один регион.'
 
                         elif got_message == b_other:
                             bot_message = 'Здесь можно посмотреть статистику по 20 последним поискам, перейти в ' \
