@@ -1086,9 +1086,9 @@ def main(request):
                 # Start & Main menu
                 b_start = '/start'
                 com_2 = 'посмотреть актуальные поиски'
-                com_27 = 'настроить бот'
+                b_settings = 'настроить бот'
                 b_other = 'другие возможности'
-                keyboard_main = [[com_2], [com_27], [b_other]]
+                keyboard_main = [[com_2], [b_settings], [b_other]]
                 reply_markup_main = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
 
                 # Settings menu
@@ -1436,6 +1436,20 @@ def main(request):
                                 logging.info('failed to update the last saved message from bot')
                                 logging.exception(e)
 
+                        elif not user_regions \
+                                and not (got_message[5] in {'b_reg', 'b_fed'}
+                                         or
+                                         got_message in {b_menu_set_region, b_start, b_settings}):
+
+                            bot_message = 'Для корректной работы бота, пожалуйста, задайте свой регион. Для этого ' \
+                                          'с помощью кнопок меню выберите сначала ФО (федеральный округ), а затем и' \
+                                          'регион. Можно выбирать несколько регионов из разных ФО. Выбор региона ' \
+                                          'также можно отменить, повторно нажав на кнопку с названием региона. ' \
+                                          'Функционал бота не будет активирован, пока не выбран хотя бы один регион.'
+
+                            keyboard_coordinates_admin = [[b_menu_set_region]]
+                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+
                         # Send summaries
                         elif got_message in {com_1, com_2}:
 
@@ -1538,17 +1552,6 @@ def main(request):
                             keyboard = [[b_menu_set_region], [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-                        elif not user_regions \
-                                and not (got_message[5] in {'b_reg', 'b_fed'}
-                                         or
-                                         got_message in {b_menu_set_region, b_start, com_27}):
-
-                            bot_message = 'Для корректной работы бота, пожалуйста, задайте свой регион. Для этого ' \
-                                          'с помощью кнопок меню выберите сначала ФО (федеральный округ), а затем и' \
-                                          'регион. Можно выбирать несколько регионов из разных ФО. Выбор региона ' \
-                                          'также можно отменить, повторно нажав на кнопку с названием региона. ' \
-                                          'Функционал бота не будет активирован, пока не выбран хотя бы один регион.'
-
                         elif got_message == b_other:
                             bot_message = 'Здесь можно посмотреть статистику по 20 последним поискам, перейти в ' \
                                           'канал Коммъюнити или Прочитать важную информацию для Новичка'
@@ -1586,7 +1589,7 @@ def main(request):
                                 break
                             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-                        elif got_message == com_27:
+                        elif got_message == b_settings:
                             bot_message = 'Это раздел с настройками. Здесь вы можете выбрать удобные для вас ' \
                                           'уведомления, а также ввести свои "домашние координаты", на основе которых ' \
                                           'будет рассчитываться расстояние и направление до места поиска. Вы в любой ' \
