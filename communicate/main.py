@@ -1439,9 +1439,9 @@ def main(request):
                                 logging.info('failed to update the last saved message from bot')
                                 logging.exception(e)
 
-                        elif 1==0 and not user_regions \
-                                and not (got_message[5] in {'b_reg', 'b_fed'}
-                                         or
+                        elif not user_regions \
+                                and not (got_message in full_dict_of_regions or
+                                         got_message in dict_of_fed_dist or
                                          got_message in {b_menu_set_region, b_start, b_settings}):
 
                             bot_message = 'Для корректной работы бота, пожалуйста, задайте свой регион. Для этого ' \
