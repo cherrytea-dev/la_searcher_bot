@@ -1541,7 +1541,7 @@ def main(request):
                         elif not user_regions \
                                 and not (got_message[5] in {'b_reg', 'b_fed'}
                                          or
-                                         got_message in {b_menu_set_region, b_start}):
+                                         got_message in {b_menu_set_region, b_start, com_27}):
 
                             bot_message = 'Для корректной работы бота, пожалуйста, задайте свой регион. Для этого ' \
                                           'с помощью кнопок меню выберите сначала ФО (федеральный округ), а затем и' \
