@@ -213,7 +213,8 @@ def main(event, context): # noqa
 
                 curr_user_id = received_dict['info']['user']
                 try:
-                    timestamp = received_dict['time']
+                    timestamp = datetime.datetime.strptime(received_dict['time'], '%Y-%m-%d %H:%M:%S.%f')
+
                 except: # noqa
                     timestamp = datetime.datetime.now()
                 # save in table user_statuses_history and table users (for non-new users)
