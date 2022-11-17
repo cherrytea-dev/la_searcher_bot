@@ -12,7 +12,6 @@ from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update
 
 from google.cloud import secretmanager, pubsub_v1
 
-
 publisher = pubsub_v1.PublisherClient()
 project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
@@ -233,7 +232,7 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
         WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') ORDER BY s2.search_start_time DESC;""",
         (region,)
     )
-    
+
     database = cur.fetchall()
 
     user_lat = None
@@ -276,7 +275,7 @@ def compose_full_message_on_list_of_searches(cur, list_type, user_id, region, re
     cur.execute(
         "SELECT latitude, longitude FROM user_coordinates WHERE user_id=%s LIMIT 1;", (user_id,)
     )
-    
+
     user_data = cur.fetchone()
 
     # combine the list of last 20 searches
@@ -315,7 +314,7 @@ def check_if_new_user(cur, user_id):
     """check if the user is new or not"""
 
     cur.execute("""SELECT user_id FROM users WHERE user_id=%s LIMIT 1;""", (user_id,))
-    
+
     info_on_user_from_users = str(cur.fetchone())
 
     if info_on_user_from_users == 'None':
@@ -330,7 +329,7 @@ def check_if_user_has_no_regions(cur, user_id):
     """check if the user has at least one region"""
 
     cur.execute("""SELECT user_id FROM user_regional_preferences WHERE user_id=%s LIMIT 1;""", (user_id,))
-    
+
     info_on_user_from_users = str(cur.fetchone())
 
     if info_on_user_from_users == 'None':
@@ -490,7 +489,7 @@ def save_preference(cur, user_id, preference):
 
         # Check if there's "ALL" preference
         cur.execute("SELECT id FROM user_preferences WHERE user_id=%s AND preference='all' LIMIT 1;", (user_id,))
-        
+
         user_had_all = str(cur.fetchone())
 
         #
@@ -565,7 +564,7 @@ def save_preference(cur, user_id, preference):
             """SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' OR
             preference='comments_changes' OR pref_id=30 OR pref_id=3) LIMIT 1;""",
             (user_id,))
-        
+
         info_on_user = str(cur.fetchone())
 
         # Add Inforg_comments ONLY in there's no ALL or Comments_changes
@@ -620,7 +619,7 @@ def save_preference(cur, user_id, preference):
         cur.execute(
             "SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' or pref_id=30) LIMIT 1;",
             (user_id,))
-        
+
         already_all = str(cur.fetchone())
 
         # Add new_filed_trips ONLY in there's no ALL
@@ -819,7 +818,7 @@ def update_and_download_list_of_regions(cur, user_id, got_message, b_menu_set_re
             cur.execute(
                 """SELECT forum_folder_num from user_regional_preferences WHERE user_id=%s;""", (user_id,)
             )
-            
+
             user_curr_regs_temp = cur.fetchall()
             user_curr_regs = [reg[0] for reg in user_curr_regs_temp]
 
@@ -859,7 +858,7 @@ def update_and_download_list_of_regions(cur, user_id, got_message, b_menu_set_re
     cur.execute(
         """SELECT forum_folder_num from user_regional_preferences WHERE user_id=%s;""", (user_id,)
     )
-    
+
     user_curr_regs = cur.fetchall()
     user_curr_regs_list = [reg[0] for reg in user_curr_regs]
 
@@ -895,7 +894,7 @@ def get_last_bot_msg(cur, user_id):
         """
         SELECT msg_type FROM msg_from_bot WHERE user_id=%s LIMIT 1;
         """, (user_id,))
-    
+
     extract = cur.fetchone()
     logging.info(f'get the last bot message to user to define if user is expected to give exact answer')
     logging.info(str(extract))
@@ -1044,6 +1043,7 @@ def main(request):
             elif inline_query:
                 notify_admin('[comm]: User mentioned bot in some chats')
                 # TODO: to send to admin what was mentioned – is available
+                notify_admin(update)
 
             # CASE 7 – regular messaging with bot
             else:
@@ -1088,6 +1088,12 @@ def main(request):
                 # Buttons & Keyboards
                 # Start & Main menu
                 b_start = '/start'
+
+                b_role_iam_la = 'я состою в ЛизаАлерт'
+                b_role_want_to_be_la = 'я хочу помогать ЛизаАлерт'
+                b_role_looking_for_person = 'я ищу человека'
+                b_role_other = 'другое / не хочу говорить'
+
                 com_2 = 'посмотреть актуальные поиски'
                 b_settings = 'настроить бот'
                 b_other = 'другие возможности'
@@ -1342,10 +1348,10 @@ def main(request):
                 b_menu_set_region = 'настроить регион поисков'
 
                 full_list_of_regions = keyboard_dal_vost_reg_choice[:-1] + keyboard_privolz_reg_choice[:-1] \
-                    + keyboard_sev_kav_reg_choice[:-1] + keyboard_sev_zap_reg_choice[:-1] \
-                    + keyboard_sibiria_reg_choice[:-1] + keyboard_urals_reg_choice[:-1] \
-                    + keyboard_central_reg_choice[:-1] + keyboard_yuzhniy_reg_choice[:-1] \
-                    + [[b_fed_dist_other_r]]
+                                       + keyboard_sev_kav_reg_choice[:-1] + keyboard_sev_zap_reg_choice[:-1] \
+                                       + keyboard_sibiria_reg_choice[:-1] + keyboard_urals_reg_choice[:-1] \
+                                       + keyboard_central_reg_choice[:-1] + keyboard_yuzhniy_reg_choice[:-1] \
+                                       + [[b_fed_dist_other_r]]
                 full_dict_of_regions = {word[0] for word in full_list_of_regions}
 
                 dict_of_fed_dist = {b_fed_dist_dal_vos: keyboard_dal_vost_reg_choice,
@@ -1439,6 +1445,36 @@ def main(request):
                                 logging.info('failed to update the last saved message from bot')
                                 logging.exception(e)
 
+                        elif got_message == b_start:
+
+                            if user_is_new:
+                                bot_message = 'Привет! Это Бот Поисковика ЛизаАлерт. Он помогает Поисковикам ' \
+                                              'оперативно получать информацию о новых поисках или об изменениях ' \
+                                              'в текущих поисках.' \
+                                              '\n\nБот управляется кнопками, которые заменяют обычную клавиатуру. ' \
+                                              'Если кнопки не отображаются, справа от поля ввода сообщения ' \
+                                              'есть специальный значок, чтобы отобразить кнопки управления ботом.' \
+                                              '\n\nДавайте настроим бот индивидуально под вас. Пожалуйста, ' \
+                                              'укажите вашу роль сейчас?'
+                                keyboard_role = [[b_role_iam_la], [b_role_want_to_be_la],
+                                                 [b_role_looking_for_person], [b_role_other]]
+                                reply_markup = ReplyKeyboardMarkup(keyboard_role, resize_keyboard=True)
+
+                            else:
+                                bot_message = 'Привет! Бот управляется кнопками, которые заменяют обычную клавиатуру.'
+                                reply_markup = reply_markup_main
+
+                        elif got_message in {b_role_iam_la, b_role_want_to_be_la,
+                                             b_role_looking_for_person, b_role_other}:
+
+                            logging.info(f'[comm]: user {user_id} selected role {got_message}')
+                            notify_admin(f'[comm]: user {user_id} selected role {got_message}')
+
+                            bot_message = 'Уточните пожалуйста, Москва и Московская Область – это ' \
+                                          'ваш основной регион?'
+                            keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
+                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+
                         elif not user_regions \
                                 and not (got_message in full_dict_of_regions or
                                          got_message in dict_of_fed_dist or
@@ -1467,7 +1503,7 @@ def main(request):
                                 select forum_folder_id, folder_description from regions_to_folders;
                                 """
                             )
-                            
+
                             regions_table = cur.fetchall()
 
                             region_name = ''
@@ -1644,19 +1680,6 @@ def main(request):
                             keyboard_coordinates_1 = [[b_coords_auto_def], [b_coords_man_def],
                                                       [b_coords_check], [b_coords_del], [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
-
-                        elif got_message == b_start:
-
-                            if user_is_new:
-                                bot_message = 'Привет! Бот управляется кнопками, которые заменяют обычную клавиатуру.' \
-                                              '\n\nУточните пожалуйста, Москва и Моск. Область – это ' \
-                                              'ваш основной регион поисков?'
-                                keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
-                                reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
-
-                            else:
-                                bot_message = 'Привет! Бот управляется кнопками, которые заменяют обычную клавиатуру.'
-                                reply_markup = reply_markup_main
 
                         elif got_message == b_back_to_start:
                             bot_message = 'возвращаемся в главное меню'
@@ -1867,7 +1890,7 @@ def main(request):
                                 INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
                                 """,
                                 (user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
-                            
+
                         except Exception as e:
                             logging.info(f'failed updates of table msg_from_bot for user={user_id}')
                             logging.exception(e)
