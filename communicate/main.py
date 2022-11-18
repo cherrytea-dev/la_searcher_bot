@@ -1093,7 +1093,11 @@ def main(request):
                 b_role_iam_la = 'я состою в ЛизаАлерт'
                 b_role_want_to_be_la = 'я хочу помогать ЛизаАлерт'
                 b_role_looking_for_person = 'я ищу человека'
-                b_role_other = 'другое / не хочу говорить'
+                b_role_other = 'у меня другая задача'
+                b_role_secret = 'не хочу говорить'
+
+                b_orders_done = 'да, заявки поданы'
+                b_orders_tbd = 'нет, но я хочу продолжить'
 
                 com_2 = 'посмотреть актуальные поиски'
                 b_settings = 'настроить бот'
@@ -1458,20 +1462,57 @@ def main(request):
                                               '\n\nДавайте настроим бот индивидуально под вас. Пожалуйста, ' \
                                               'укажите вашу роль сейчас?'
                                 keyboard_role = [[b_role_iam_la], [b_role_want_to_be_la],
-                                                 [b_role_looking_for_person], [b_role_other]]
+                                                 [b_role_looking_for_person], [b_role_other], [b_role_secret]]
                                 reply_markup = ReplyKeyboardMarkup(keyboard_role, resize_keyboard=True)
 
                             else:
                                 bot_message = 'Привет! Бот управляется кнопками, которые заменяют обычную клавиатуру.'
                                 reply_markup = reply_markup_main
 
-                        elif got_message in {b_role_iam_la, b_role_want_to_be_la,
-                                             b_role_looking_for_person, b_role_other}:
+                        elif got_message == b_role_looking_for_person:
 
                             logging.info(f'[comm]: user {user_id} selected role {got_message}')
                             notify_admin(f'[comm]: user {user_id} selected role {got_message}')
 
-                            bot_message = 'Уточните пожалуйста, Москва и Московская Область – это ' \
+                            bot_message = 'Тогда вам следует:\n\n' \
+                                          '1. Подайте заявку на поиск в ЛизаАлерт ОДНИМ ИЗ ДВУХ способов:\n' \
+                                          '  1.1. САМОЕ БЫСТРОЕ – звоните на 88007005452 (бесплатная горячая ' \
+                                          'линия ЛизаАлерт). Вам зададут ряд вопросов, который максимально ' \
+                                          'ускорит поиск, и посоветуют дальнейшие действия. \n' \
+                                          '  1.2. Заполните форму поиска https://lizaalert.org/zayavka-na-poisk/ \n' \
+                                          'После заполнения формы на сайте нужно ожидать звонка от ЛизаАлерт. На ' \
+                                          'обработку может потребоваться более часа. Если нет возможности ждать, ' \
+                                          'после заполнения заявки следует позвонить на горячую линию отряда ' \
+                                          '88007005452, сообщив, что вы уже оформили заявку на сайте.\n\n' \
+                                          '2. Подать заявление в Полицию. Если иное не посоветовали на горячей линии,' \
+                                          'заявка в Полицию – поможет ускорить и упростить поиск. Самый быстрый ' \
+                                          'способ – позвонить на 102.\n\n' \
+                                          '3. Отслеживайте ход поиска.\n' \
+                                          'Когда заявки в ЛизаАлерт и Полицию сделаны, отряд начнет первые ' \
+                                          'мероприятия для поиска человека – уточнение деталей, прозвоны ' \
+                                          'в госучреждения, формирование плана и команды поиска и т.п. Весь этот' \
+                                          'процесс вам не будет виден, но часто люди находятся именно на этой стадии' \
+                                          'поиска. Если первые меры не помогут и отряд примет решение проводить' \
+                                          'выезд "на место поиска" – тогда вы сможете отслеживать ход поиска ' \
+                                          'через данный Бот, для этого продолжите настройку бота: вам нужно будет' \
+                                          'указать ваш регион и выбрать какие уведомления от бота вы будете получать.' \
+                                          'Как альтернатива, вы можете зайти на форум https://lizaalert.org/forum/, ' \
+                                          'и отслеживать статус поиска там. Но бот, всё же, более удобен.\n' \
+                                          'Отряд сделает всё возможное, чтобы найти вашего близкого как можно ' \
+                                          'скорее.\n\n' \
+                                          'Сообщите, подали ли вы заявки в ЛизаАлерт и Полицию?'
+
+                            keyboard_orders = [[b_orders_done], [b_orders_tbd]]
+                            reply_markup = ReplyKeyboardMarkup(keyboard_orders, resize_keyboard=True)
+
+                        elif got_message in {b_role_iam_la, b_role_want_to_be_la,
+                                             b_role_other, b_role_secret,
+                                             b_orders_done, b_orders_tbd}:
+
+                            logging.info(f'[comm]: user {user_id} selected role {got_message}')
+                            notify_admin(f'[comm]: user {user_id} selected role {got_message}')
+
+                            bot_message = '{Спасибо. Теперь уточните, пожалуйста, Москва и Московская Область – это ' \
                                           'ваш основной регион?'
                             keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
