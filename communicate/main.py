@@ -1956,7 +1956,8 @@ def main(request):
 
                     # save bot's reply to incoming request
                     if bot_message:
-                        if bot_message[28] in {'Актуальные поиски за 60 дней', 'Последние 20 поисков в разде'}:
+                        if len(bot_message) > 27 and bot_message[28] in {'Актуальные поиски за 60 дней',
+                                                                         'Последние 20 поисков в разде'}:
                             bot_message = bot_message[28]
                         cur.execute(
                             """
