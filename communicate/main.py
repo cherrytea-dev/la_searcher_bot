@@ -1506,7 +1506,27 @@ def main(request):
                             keyboard_orders = [[b_orders_done], [b_orders_tbd]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_orders, resize_keyboard=True)
 
-                        elif got_message in {b_role_iam_la, b_role_want_to_be_la,
+                        elif got_message == b_role_want_to_be_la:
+
+                            bot_message = 'Супер! \n' \
+                                          'Знаете ли вы, как можно помогать ЛизаАлерт? Определились ли вы, как ' \
+                                          'вы готовы помочь? Если еще нет – не беда – рекомендуем ' \
+                                          'ознакомиться со статьёй: ' \
+                                          'https://takiedela.ru/news/2019/05/25/instrukciya-liza-alert/\n\n' \
+                                          'Задачи, которые можно выполнять даже без специальной подготовки, ' \
+                                          'выполняют Поисковики "на месте поиска". Этот Бот как раз старается ' \
+                                          'помогать именно Поисковикам.' \
+                                          'Есть хороший сайт, рассказывающий, как начать участвовать в поиске: ' \
+                                          'https://xn--b1afkdgwddgp9h.xn--p1ai/\n\n' \
+                                          'А если вы "из мира IT" и готовы помогать развитию этого Бота,' \
+                                          'пишите нам в специальный чат https://t.me/+2J-kV0GaCgwxY2Ni\n\n' \
+                                          'Надеемся, эта информацию оказалась полезной. ' \
+                                          'Если вы готовы продолжить настройку Бота, уточните, пожалуйста: ' \
+                                          'ваш основной регион – это Москва и Московская Область?'
+                            keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
+                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+
+                        elif got_message in {b_role_iam_la,
                                              b_role_other, b_role_secret,
                                              b_orders_done, b_orders_tbd}:
 
