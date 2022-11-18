@@ -1513,7 +1513,7 @@ def main(request):
                             logging.info(f'[comm]: user {user_id} selected role {got_message}')
                             notify_admin(f'[comm]: user {user_id} selected role {got_message}')
 
-                            bot_message = '{Спасибо. Теперь уточните, пожалуйста, ваш основной регион – это ' \
+                            bot_message = 'Спасибо. Теперь уточните, пожалуйста, ваш основной регион – это ' \
                                           'Москва и Московская Область?'
                             keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
@@ -1956,6 +1956,8 @@ def main(request):
 
                     # save bot's reply to incoming request
                     if bot_message:
+                        if bot_message[28] in {'Актуальные поиски за 60 дней', 'Последние 20 поисков в разде'}:
+                            bot_message = bot_message[28]
                         cur.execute(
                             """
                             INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);
