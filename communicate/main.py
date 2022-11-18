@@ -1489,15 +1489,16 @@ def main(request):
                                           'способ – позвонить на 102.\n\n' \
                                           '3. Отслеживайте ход поиска.\n' \
                                           'Когда заявки в ЛизаАлерт и Полицию сделаны, отряд начнет первые ' \
-                                          'мероприятия для поиска человека – уточнение деталей, прозвоны ' \
+                                          'мероприятия для поиска человека: уточнение деталей, прозвоны ' \
                                           'в госучреждения, формирование плана и команды поиска и т.п. Весь этот' \
                                           'процесс вам не будет виден, но часто люди находятся именно на этой стадии' \
                                           'поиска. Если первые меры не помогут и отряд примет решение проводить' \
                                           'выезд "на место поиска" – тогда вы сможете отслеживать ход поиска ' \
                                           'через данный Бот, для этого продолжите настройку бота: вам нужно будет' \
-                                          'указать ваш регион и выбрать какие уведомления от бота вы будете получать.' \
+                                          'указать ваш регион и выбрать, какие уведомления от бота вы будете ' \
+                                          'получать.' \
                                           'Как альтернатива, вы можете зайти на форум https://lizaalert.org/forum/, ' \
-                                          'и отслеживать статус поиска там. Но бот, всё же, более удобен.\n' \
+                                          'и отслеживать статус поиска там.\n' \
                                           'Отряд сделает всё возможное, чтобы найти вашего близкого как можно ' \
                                           'скорее.\n\n' \
                                           'Сообщите, подали ли вы заявки в ЛизаАлерт и Полицию?'
@@ -1512,8 +1513,8 @@ def main(request):
                             logging.info(f'[comm]: user {user_id} selected role {got_message}')
                             notify_admin(f'[comm]: user {user_id} selected role {got_message}')
 
-                            bot_message = '{Спасибо. Теперь уточните, пожалуйста, Москва и Московская Область – это ' \
-                                          'ваш основной регион?'
+                            bot_message = '{Спасибо. Теперь уточните, пожалуйста, ваш основной регион – это ' \
+                                          'Москва и Московская Область?'
                             keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
@@ -1944,6 +1945,22 @@ def main(request):
                                          f'got_message={got_message}, update={update}, ' \
                                          f'bot_request_bfr_usr_msg={bot_request_bfr_usr_msg}'
                         notify_admin(text_for_admin)
+
+                    # save the request incoming to bot
+                    if got_message:
+                        cur.execute(
+                            """
+                            INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);
+                            """,
+                            (user_id, 'user', datetime.datetime.now(), got_message))
+
+                    # save bot's reply to incoming request
+                    if bot_message:
+                        cur.execute(
+                            """
+                            INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);
+                            """,
+                            (user_id, 'bot', datetime.datetime.now(), bot_message))
 
                 except Exception as e:
                     logging.info('GENERAL COMM CRASH:')
