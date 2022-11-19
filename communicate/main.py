@@ -892,7 +892,7 @@ def update_and_download_list_of_regions(cur, user_id, got_message, b_menu_set_re
         if user_curr_regs_list:
             msg = 'Текущий список ваших регионов:' + msg
         else:
-            msg = 'Текущий список ваших регионов пуст. Выберите ФО, а затем регион.'
+            msg = 'Пока список выбранных регионов пуст. Выберите хотя бы один.'
     else:
         msg = 'Записали. Обновленный список ваших регионов:' + msg
 
@@ -1467,6 +1467,10 @@ def main(request):
                                            b_role_other, b_role_secret}:
                             save_user_role(cur, user_id, got_message)
 
+                        # TODO TEMP DEBUG 19.11.2022
+                        logging.info(f'FFF: pre-b_reg_moscow, got_message={got_message}')
+                        # TODO TEMP DEBUG 19.11.2022
+
                         # if pushed \start
                         if got_message == b_start:
 
@@ -1555,6 +1559,11 @@ def main(request):
 
                         # if user Region is Moscow
                         elif got_message == b_reg_moscow:
+
+                            # TODO TEMP DEBUG 19.11.2022
+                            logging.info(f'FFF: in-b_reg_moscow, got_message={got_message}')
+                            # TODO TEMP DEBUG 19.11.2022
+
                             bot_message = 'Спасибо, бот запомнил этот выбор и теперь вы сможете получать ключевые ' \
                                           'уведомления в регионе Москва и МО. Вы в любой момент сможете изменить ' \
                                           'список регионов через настройки бота.'
@@ -1571,6 +1580,10 @@ def main(request):
                                     """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
                                     (%s, %s);""",
                                     (user_id, 41))
+
+                                # TODO TEMP DEBUG 19.11.2022
+                                logging.info(f'FFF: in-if-b_reg_moscow, got_message={got_message}')
+                                # TODO TEMP DEBUG 19.11.2022
 
                         # if region is NOT Moscow
                         elif got_message == b_reg_not_moscow:
