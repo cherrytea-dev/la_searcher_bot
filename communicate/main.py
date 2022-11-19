@@ -340,8 +340,19 @@ def check_if_user_has_no_regions(cur, user_id):
     return no_regions
 
 
-def save_user_role(cur, user_id, role):
+def save_user_role(cur, user_id, role_desc):
     """save user role"""
+
+    role_dict = {'я состою в ЛизаАлерт': 'member',
+                 'я хочу помогать ЛизаАлерт': 'new_member',
+                 'я ищу человека': 'relative',
+                 'у меня другая задача': 'other',
+                 'не хочу говорить': 'no_answer'}
+
+    try:
+        role = role_dict[role_desc]
+    except: # noqa
+        role = 'inidentified' # noqa
 
     cur.execute("""UPDATE users SET role=%s where user_id=%s;""", (role, user_id))
 
