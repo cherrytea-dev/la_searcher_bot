@@ -8,7 +8,7 @@ import logging
 import math
 import psycopg2
 
-from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update
+from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove
 
 from google.cloud import secretmanager, pubsub_v1
 
@@ -1445,8 +1445,7 @@ def main(request):
                                        'населенного пункта, будет указываться направление и расстояние по ' \
                                        'прямой от ваших "домашних координат".'
 
-                        keyboard_settings = [[b_coords_auto_def], [b_coords_man_def], [b_coords_check],
-                                             [b_coords_del], [b_back_to_start]]
+                        keyboard_settings = [[b_coords_check], [b_coords_del], [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
 
                         bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
@@ -1743,12 +1742,14 @@ def main(request):
                             reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
 
                         elif got_message == b_settings_coords:
-                            bot_message = 'Нажмите на кнопку и разрешите определить вашу текущую геопозицию или ' \
-                                          'введите ее вручную, чтобы бот смог запомнить ее. Далее эти координаты ' \
-                                          'будут считаться вашим "домом", откуда будем рассчитывать расстояние и ' \
-                                          'направление до поисков. Автоматическое определение координат работает ' \
-                                          'только для носимых устройств с функцией GPS, для Настольных ПК ' \
-                                          'используйте, пожалуйста, ручной ввод.'
+                            bot_message = 'АВТОМАТИЧЕСКОЕ ОПРЕДЕЛЕНИЕ координат работает только для носимых устройств' \
+                                          ' (для настольных компьютеров – НЕ работает: используйте, пожалуйста, ' \
+                                          'кнопку ручного ввода координат). ' \
+                                          'При автоматическом определении координат – нажмите на кнопку и ' \
+                                          'разрешите определить вашу текущую геопозицию. ' \
+                                          'Координаты, загруженные вручную или автоматически, будут считаться ' \
+                                          'вашим "домом", откуда будут рассчитаны расстояние и ' \
+                                          'направление до поисков.'
                             keyboard_coordinates_1 = [[b_coords_auto_def], [b_coords_man_def], [b_coords_check],
                                                       [b_coords_del], [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
@@ -1756,20 +1757,22 @@ def main(request):
                         elif got_message == b_coords_del:
                             delete_user_coordinates(cur, user_id)
                             bot_message = 'Ваши "домашние координаты" удалены. Теперь расстояние и направление ' \
-                                          'до поисков не будет отображаться.'
+                                          'до поисков не будет отображаться.\n' \
+                                          'Вы в любой момент можете заново ввести новые "домашние координаты". ' \
+                                          'Функция Автоматического определения координат работает только для ' \
+                                          'носимых устройств, для настольного компьютера – воспользуйтесь ' \
+                                          'ручным вводом.'
                             keyboard_coordinates_1 = [[b_coords_auto_def], [b_coords_man_def], [b_coords_check],
-                                                      [b_coords_del], [b_back_to_start]]
+                                                      [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
 
                         elif got_message == b_coords_man_def:
                             bot_message = 'Введите координаты вашего дома вручную в теле сообщения и просто ' \
-                                          'отправьте. Формат: XX.XXX, XX.XXX, где количество цифр после точки ' \
-                                          'может быть различным. Широта (первое число) должна быть между 30.0 ' \
-                                          'и 80.0, Долгота (второе число) – между 10.0 и 190.0.'
+                                          'отправьте. Формат: XX.XXXХХ, XX.XXXХХ, где количество цифр после точки ' \
+                                          'может быть различным. Широта (первое число) должна быть между 30 ' \
+                                          'и 80, Долгота (второе число) – между 10 и 190.'
                             bot_request_aft_usr_msg = 'input_of_coords_man'
-                            keyboard_coordinates_1 = [[b_coords_auto_def], [b_coords_man_def], [b_coords_check],
-                                                      [b_coords_del], [b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
+                            reply_markup = ReplyKeyboardRemove()
 
                         elif got_message == b_coords_check:
 
