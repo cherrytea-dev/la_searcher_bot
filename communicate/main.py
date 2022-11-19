@@ -340,6 +340,17 @@ def check_if_user_has_no_regions(cur, user_id):
     return no_regions
 
 
+def save_user_role(cur, user_id, role):
+    """save user role"""
+
+    cur.execute("""UPDATE users SET role=%s where user_id=%s;""", (role, user_id))
+
+    logging.info(f'[comm]: user {user_id} selected role {role}')
+    notify_admin(f'[comm]: user {user_id} selected role {role}')
+
+    return None
+
+
 def save_user_coordinates(cur, user_id, input_latitude, input_longitude):
     """Save / update user "home" coordinates"""
 
@@ -1412,45 +1423,49 @@ def main(request):
                         except Exception:
                             pass
 
-                    # if there is any message text from user
-                    if user_latitude or got_message:
+                    # if there is any coordinates from user
+                    if user_latitude:
 
-                        # if there are user's coordinates in the message
-                        if user_latitude:
+                        save_user_coordinates(cur, user_id, user_latitude, user_longitude)
+                        bot_message = 'Ваши "домашние координаты" сохранены:\n'
+                        bot_message += generate_yandex_maps_place_link(user_latitude, user_longitude, 'coords')
+                        bot_message += '\nТеперь для всех поисков, где удастся распознать координаты штаба или ' \
+                                       'населенного пункта, будет указываться направление и расстояние по ' \
+                                       'прямой от ваших "домашних координат".'
 
-                            save_user_coordinates(cur, user_id, user_latitude, user_longitude)
-                            bot_message = 'Ваши "домашние координаты" сохранены:\n'
-                            bot_message += generate_yandex_maps_place_link(user_latitude, user_longitude, 'coords')
-                            bot_message += '\nТеперь для всех поисков, где удастся распознать координаты штаба или ' \
-                                           'населенного пункта, будет указываться направление и расстояние по ' \
-                                           'прямой от ваших "домашних координат".'
+                        keyboard_settings = [[b_coords_auto_def], [b_coords_man_def], [b_coords_check],
+                                             [b_coords_del], [b_back_to_start]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
 
-                            keyboard_settings = [[b_coords_auto_def], [b_coords_man_def], [b_coords_check],
-                                                 [b_coords_del], [b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
+                        bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
+                                        parse_mode='HTML', disable_web_page_preview=True)
+                        msg_sent_by_specific_code = True
 
-                            bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
-                                            parse_mode='HTML', disable_web_page_preview=True)
-                            msg_sent_by_specific_code = True
+                        # saving the last message from bot
+                        if not bot_request_aft_usr_msg:
+                            bot_request_aft_usr_msg = 'not_defined'
 
-                            # saving the last message from bot
-                            if not bot_request_aft_usr_msg:
-                                bot_request_aft_usr_msg = 'not_defined'
+                        try:
+                            cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
 
-                            try:
-                                cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
+                            cur.execute(
+                                """
+                                INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
+                                """,
+                                (user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
 
-                                cur.execute(
-                                    """
-                                    INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
-                                    """,
-                                    (user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
+                        except Exception as e:
+                            logging.info('failed to update the last saved message from bot')
+                            logging.exception(e)
 
-                            except Exception as e:
-                                logging.info('failed to update the last saved message from bot')
-                                logging.exception(e)
+                    # if there is a text message from user
+                    elif got_message:
 
-                        elif got_message == b_start:
+                        if got_message in {b_role_want_to_be_la, b_role_iam_la, b_role_looking_for_person,
+                                           b_role_other, b_role_secret}:
+                            save_user_role(cur, user_id, got_message)
+
+                        if got_message == b_start:
 
                             if user_is_new:
                                 bot_message = 'Привет! Это Бот Поисковика ЛизаАлерт. Он помогает Поисковикам ' \
@@ -1470,9 +1485,6 @@ def main(request):
                                 reply_markup = reply_markup_main
 
                         elif got_message == b_role_looking_for_person:
-
-                            logging.info(f'[comm]: user {user_id} selected role {got_message}')
-                            notify_admin(f'[comm]: user {user_id} selected role {got_message}')
 
                             bot_message = 'Тогда вам следует:\n\n' \
                                           '1. Подайте заявку на поиск в ЛизаАлерт ОДНИМ ИЗ ДВУХ способов:\n' \
@@ -1496,7 +1508,7 @@ def main(request):
                                           'выезд "на место поиска" – тогда вы сможете отслеживать ход поиска ' \
                                           'через данный Бот, для этого продолжите настройку бота: вам нужно будет' \
                                           'указать ваш регион и выбрать, какие уведомления от бота вы будете ' \
-                                          'получать.' \
+                                          'получать. ' \
                                           'Как альтернатива, вы можете зайти на форум https://lizaalert.org/forum/, ' \
                                           'и отслеживать статус поиска там.\n' \
                                           'Отряд сделает всё возможное, чтобы найти вашего близкого как можно ' \
@@ -1529,9 +1541,6 @@ def main(request):
                         elif got_message in {b_role_iam_la,
                                              b_role_other, b_role_secret,
                                              b_orders_done, b_orders_tbd}:
-
-                            logging.info(f'[comm]: user {user_id} selected role {got_message}')
-                            notify_admin(f'[comm]: user {user_id} selected role {got_message}')
 
                             bot_message = 'Спасибо. Теперь уточните, пожалуйста, ваш основной регион – это ' \
                                           'Москва и Московская Область?'
