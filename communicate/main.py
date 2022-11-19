@@ -881,7 +881,7 @@ def update_and_download_list_of_regions(cur, user_id, got_message, b_menu_set_re
     msg = msg[1:]
 
     if is_first_entry:
-        pre_msg = "Бот может показывать поиски в любом регионе работы ЛА, доступном на форуме.\n"
+        pre_msg = "Бот может показывать поиски в любом регионе работы ЛА.\n"
         pre_msg += "Вы можете подписаться на несколько регионов – просто кликните на соответствующие кнопки регионов." \
                    "\nЧтобы ОТПИСАТЬСЯ от ненужных регионов – нажмите на соответствующую кнопку региона еще раз.\n\n"
         pre_msg += "Текущий список ваших регионов:"
@@ -1427,6 +1427,7 @@ def main(request):
                     if user_latitude:
 
                         save_user_coordinates(cur, user_id, user_latitude, user_longitude)
+
                         bot_message = 'Ваши "домашние координаты" сохранены:\n'
                         bot_message += generate_yandex_maps_place_link(user_latitude, user_longitude, 'coords')
                         bot_message += '\nТеперь для всех поисков, где удастся распознать координаты штаба или ' \
@@ -1461,10 +1462,12 @@ def main(request):
                     # if there is a text message from user
                     elif got_message:
 
+                        # save user role
                         if got_message in {b_role_want_to_be_la, b_role_iam_la, b_role_looking_for_person,
                                            b_role_other, b_role_secret}:
                             save_user_role(cur, user_id, got_message)
 
+                        # if pushed \start
                         if got_message == b_start:
 
                             if user_is_new:
@@ -1484,6 +1487,7 @@ def main(request):
                                 bot_message = 'Привет! Бот управляется кнопками, которые заменяют обычную клавиатуру.'
                                 reply_markup = reply_markup_main
 
+                        # get user role = relatives looking for a person
                         elif got_message == b_role_looking_for_person:
 
                             bot_message = 'Тогда вам следует:\n\n' \
@@ -1518,6 +1522,7 @@ def main(request):
                             keyboard_orders = [[b_orders_done], [b_orders_tbd]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_orders, resize_keyboard=True)
 
+                        # get user role = potential LA volunteer
                         elif got_message == b_role_want_to_be_la:
 
                             bot_message = 'Супер! \n' \
@@ -1538,6 +1543,7 @@ def main(request):
                             keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
+                        # get user role = all others
                         elif got_message in {b_role_iam_la,
                                              b_role_other, b_role_secret,
                                              b_orders_done, b_orders_tbd}:
@@ -1547,6 +1553,34 @@ def main(request):
                             keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
+                        # if user Region is Moscow
+                        elif got_message == b_reg_moscow:
+                            bot_message = 'Спасибо, бот запомнил этот выбор и теперь вы сможете получать ключевые ' \
+                                          'уведомления в регионе Москва и МО. Вы в любой момент сможете изменить ' \
+                                          'список регионов через настройки бота.'
+                            reply_markup = reply_markup_main
+
+                            if check_if_user_has_no_regions(cur, user_id):
+                                # add the New User into table user_regional_preferences
+                                # region is Moscow for Active Searches & InfoPod
+                                cur.execute(
+                                    """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
+                                    (%s, %s);""",
+                                    (user_id, 276))
+                                cur.execute(
+                                    """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
+                                    (%s, %s);""",
+                                    (user_id, 41))
+
+                        # if region is NOT Moscow
+                        elif got_message == b_reg_not_moscow:
+                            bot_message = 'Спасибо, тогда, пожалуйста, выберите сначала Федеральный Округ,' \
+                                          'а затем хотя бы один Регион поисков, чтобы начать получать уведомления ' \
+                                          'по поискам в этом регионе. Вы в любой момент сможете изменить ' \
+                                          'список регионов через настройки бота.'
+                            reply_markup = ReplyKeyboardMarkup(keyboard_fed_dist_set, resize_keyboard=True)
+
+                        # force user to input a region
                         elif not user_regions \
                                 and not (got_message in full_dict_of_regions or
                                          got_message in dict_of_fed_dist or
@@ -1639,32 +1673,6 @@ def main(request):
                         elif got_message.lower() == 'go':
                             publish_to_pubsub('topic_notify_admin', 'test_admin_check')
 
-                        # If user Region is Moscow or not
-                        elif got_message == b_reg_moscow:
-                            bot_message = 'Спасибо, бот запомнил этот выбор и теперь вы сможете получать ключевые ' \
-                                          'уведомления в регионе Москва и МО. Вы в любой момент сможете изменить ' \
-                                          'список регионов через настройки бота.'
-                            reply_markup = reply_markup_main
-
-                            if check_if_user_has_no_regions(cur, user_id):
-                                # add the New User into table user_regional_preferences
-                                # region is Moscow for Active Searches & InfoPod
-                                cur.execute(
-                                    """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
-                                    (%s, %s);""",
-                                    (user_id, 276))
-                                cur.execute(
-                                    """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
-                                    (%s, %s);""",
-                                    (user_id, 41))
-
-                        elif got_message == b_reg_not_moscow:
-                            bot_message = 'Спасибо, тогда, пожалуйста, выберите хотя бы один регион поисков, ' \
-                                          'чтобы начать получать уведомления. Вы в любой момент сможете изменить ' \
-                                          'список регионов через настройки бота.'
-                            keyboard = [[b_menu_set_region], [b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
                         elif got_message == b_other:
                             bot_message = 'Здесь можно посмотреть статистику по 20 последним поискам, перейти в ' \
                                           'канал Коммъюнити или Прочитать важную информацию для Новичка'
@@ -1732,8 +1740,8 @@ def main(request):
                         elif got_message == b_coords_man_def:
                             bot_message = 'Введите координаты вашего дома вручную в теле сообщения и просто ' \
                                           'отправьте. Формат: XX.XXX, XX.XXX, где количество цифр после точки ' \
-                                          'может быть различным. Широта должна быть между 30.0 и 80.0 градусами, ' \
-                                          'Долгота – между 10.0 и 190.0 градусами.'
+                                          'может быть различным. Широта (первое число) должна быть между 30.0 ' \
+                                          'и 80.0, Долгота (второе число) – между 10.0 и 190.0.'
                             bot_request_aft_usr_msg = 'input_of_coords_man'
                             keyboard_coordinates_1 = [[b_coords_auto_def], [b_coords_man_def], [b_coords_check],
                                                       [b_coords_del], [b_back_to_start]]
@@ -1967,8 +1975,9 @@ def main(request):
                             logging.info(f'failed updates of table msg_from_bot for user={user_id}')
                             logging.exception(e)
 
+                    # all other cases when bot was not able to understand the message from user
                     else:
-                        logging.info('DBG.C.6. THERE IS a COMM SCRIPT INVOCATION w/O MESSAGE OR COORDINATES:')
+                        logging.info('DBG.C.6. THERE IS a COMM SCRIPT INVOCATION w/O MESSAGE:')
                         logging.info(str(update))
                         text_for_admin = f'[comm]: Empty message in Comm, user={user_id}, username={username}, ' \
                                          f'got_message={got_message}, update={update}, ' \
