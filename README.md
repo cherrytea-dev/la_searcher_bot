@@ -26,8 +26,8 @@ notification for every user.
 ## Technological stack
 
 * UI: Telegram (API)
-* Language: Python 3.7,  
-* Git: GitHub, 
+* Language: Python 3.7 
+* Git: GitHub
 * CI/CD: GitHub Actions
 * Infra: Google Cloud Platform
 * Executors: Google Cloud Functions
@@ -42,7 +42,7 @@ Cloud Functions and GitHub Actions Workflow files.
 
 ## Contribution
 
-See a dedicated page on LA Searcher Bot 
+See a dedicated LA Searcher Bot 
 [contribution page](https://github.com/Mikkdrasil/la_bot_monorep/blob/main/docs/contribution.md).
 
 TL;DR: 
