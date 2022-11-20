@@ -33,7 +33,7 @@ For contributions to services beyond the current repo (CI/CD, PSQL, GCP etc) -
 please turn directly to [project author](https://t.me/MikeMikeT) 
 or [community chat](https://t.me/+56GrL4LQ-og2NGEy).
 
-LizaAlert is a non-profit organization and you can [support it with 
+LizaAlert is a non-profit organization. You can [support it with 
 equipment](https://lizaalert.org/otryadnye-nuzhdy/).
 
 LA Searcher Bot is also non-profit initiative and funded by its author. 
