@@ -352,12 +352,11 @@ def save_user_role(cur, user_id, role_desc):
     try:
         role = role_dict[role_desc]
     except: # noqa
-        role = 'inidentified' # noqa
+        role = 'unidentified'
 
     cur.execute("""UPDATE users SET role=%s where user_id=%s;""", (role, user_id))
 
     logging.info(f'[comm]: user {user_id} selected role {role}')
-    notify_admin(f'[comm]: user {user_id} selected role {role}')
 
     return None
 
@@ -985,6 +984,8 @@ def main(request):
             user_new_status = get_param_if_exists(update, 'update.my_chat_member.new_chat_member.status')
             timer_changed = get_param_if_exists(update, 'update.message.message_auto_delete_timer_changed')
             photo = get_param_if_exists(update, 'update.message.photo')
+            document = get_param_if_exists(update, 'update.message.document')
+            voice = get_param_if_exists(update, 'update.message.voice')
             contact = get_param_if_exists(update, 'update.message.contact')
             inline_query = get_param_if_exists(update, 'update.inline_query')
 
@@ -1043,11 +1044,13 @@ def main(request):
             elif timer_changed:
                 logging.info('user changed auto-delete timer settings')
 
-            # CASE 3 – when user sends a PHOTO
-            elif photo:
+            # CASE 3 – when user sends a PHOTO or attached DOCUMENT or VOICE message
+            elif photo or document or voice:
                 logging.debug('user sends photos to bot')
-                bot.sendMessage(chat_id=user_id, text='Спасибо, интересное! Только бот не работает с изображениями '
-                                                      'и отвечает только на определенные текстовые команды.')
+                bot.sendMessage(chat_id=user_id, text='Спасибо, интересное! Однако, бот работает только '
+                                                      'с текстовыми командами. Пожалуйста, воспользуйтесь'
+                                                      'текстовыми кнопками бота, находящимися на месте обычной '
+                                                      'клавиатуры телеграм.')
 
             # CASE 4 – when some Channel writes to bot
             elif channel_type and user_id < 0:
@@ -1068,8 +1071,7 @@ def main(request):
             # CASE 6 – when user mentions bot as @LizaAlert_Searcher_Bot in another telegram chat. Bot should do nothing
             elif inline_query:
                 notify_admin('[comm]: User mentioned bot in some chats')
-                # TODO: to send to admin what was mentioned – is available
-                notify_admin(update)
+                logging.info(f'bot was mentioned in other chats: {update}')
 
             # CASE 7 – regular messaging with bot
             else:
@@ -1108,7 +1110,7 @@ def main(request):
                     logging.info('DBG.C.2.ERR: GENERAL COMM CRASH:')
                     logging.exception(e)
 
-                # to avoid errors
+                # placeholder for the New message from bot as reply to "update". Placed here – to avoid errors of GCF
                 bot_message = ''
 
                 # Buttons & Keyboards
@@ -1124,36 +1126,36 @@ def main(request):
                 b_orders_done = 'да, заявки поданы'
                 b_orders_tbd = 'нет, но я хочу продолжить'
 
-                com_2 = 'посмотреть актуальные поиски'
+                b_view_act_searches = 'посмотреть актуальные поиски'
                 b_settings = 'настроить бот'
                 b_other = 'другие возможности'
-                keyboard_main = [[com_2], [b_settings], [b_other]]
+                keyboard_main = [[b_view_act_searches], [b_settings], [b_other]]
                 reply_markup_main = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
 
                 # Settings menu
-                com_3 = 'настроить уведомления'
+                b_set_notifs_up = 'настроить уведомления'
                 b_settings_coords = 'настроить "домашние координаты"'
                 b_back_to_start = 'в начало'
 
                 # Settings - notifications
-                com_4 = 'включить: все уведомления'
-                com_5 = 'включить: о новых поисках'
-                com_6 = 'включить: об изменениях статусов'
-                com_7 = 'включить: о всех новых комментариях'
+                b_act_all = 'включить: все уведомления'
+                b_act_new_search = 'включить: о новых поисках'
+                b_act_stat_change = 'включить: об изменениях статусов'
+                b_act_all_comments = 'включить: о всех новых комментариях'
                 b_act_inforg_com = 'включить: о комментариях Инфорга'
                 b_act_field_trips_new = 'включить: о новых выездах'
                 b_act_field_trips_change = 'включить: об изменениях в выездах'
                 b_act_coords_change = 'включить: о смене места штаба'
-                com_9 = 'включить: о новых функциях бота'
-                com_15 = 'отключить и настроить более гибко'
-                com_16 = 'отключить: о новых поисках'
-                com_17 = 'отключить: об изменениях статусов'
-                com_18 = 'отключить: о всех новых комментариях'
+                b_act_bot_news = 'включить: о новых функциях бота'
+                b_deact_all = 'отключить и настроить более гибко'
+                b_deact_new_search = 'отключить: о новых поисках'
+                b_deact_stat_change = 'отключить: об изменениях статусов'
+                b_deact_all_comments = 'отключить: о всех новых комментариях'
                 b_deact_inforg_com = 'отключить: о комментариях Инфорга'
                 b_deact_field_trips_new = 'отключить: о новых выездах'
                 b_deact_field_trips_change = 'отключить: об изменениях в выездах'
                 b_deact_coords_change = 'отключить: о смене места штаба'
-                com_12 = 'отключить: о новых функциях бота'
+                b_deact_bot_news = 'отключить: о новых функциях бота'
 
                 # Settings - coordinates
                 b_coords_auto_def = KeyboardButton(text='автоматически определить "домашние координаты"',
@@ -1381,7 +1383,7 @@ def main(request):
                                        + keyboard_sev_kav_reg_choice[:-1] + keyboard_sev_zap_reg_choice[:-1] \
                                        + keyboard_sibiria_reg_choice[:-1] + keyboard_urals_reg_choice[:-1] \
                                        + keyboard_central_reg_choice[:-1] + keyboard_yuzhniy_reg_choice[:-1] \
-                                       + [[b_fed_dist_other_r]]
+                                       + [[b_fed_dist_other_r]] # noqa – for strange pycharm indent warning
                 full_dict_of_regions = {word[0] for word in full_list_of_regions}
 
                 dict_of_fed_dist = {b_fed_dist_dal_vos: keyboard_dal_vost_reg_choice,
@@ -1391,20 +1393,19 @@ def main(request):
                                     b_fed_dist_sibiria: keyboard_sibiria_reg_choice,
                                     b_fed_dist_uralsky: keyboard_urals_reg_choice,
                                     b_fed_dist_central: keyboard_central_reg_choice,
-                                    b_fed_dist_yuzhniy: keyboard_yuzhniy_reg_choice  # ,
-                                    # b_fed_dist_other_r: keyboard_fed_dist_set
+                                    b_fed_dist_yuzhniy: keyboard_yuzhniy_reg_choice
                                     }
 
                 # Other menu
-                com_1 = 'посмотреть последние поиски'
+                b_view_latest_searches = 'посмотреть последние поиски'
                 b_goto_community = 'написать разработчику бота'
                 b_goto_first_search = 'полезная информация для новичка'
-                keyboard_other = [[com_1], [b_goto_first_search],
+                keyboard_other = [[b_view_latest_searches], [b_goto_first_search],
                                   [b_goto_community], [b_back_to_start]]
 
                 # Admin - specially keep it for Admin, regular users unlikely will be interested in it
 
-                com_10 = 'названия'  # these are "Title update notification" button
+                b_act_titles = 'названия'  # these are "Title update notification" button
 
                 b_admin_menu = 'admin'
                 b_test_menu = 'test'
@@ -1425,8 +1426,6 @@ def main(request):
                     # get coordinates from the text
                     if bot_request_bfr_usr_msg == 'input_of_coords_man':
 
-                        # TODO: in case if user sends the Photo instead of coordinates – script is falling. can be
-                        #  assumed later
                         # Check if user input is in format of coordinates
                         # noinspection PyBroadException
                         try:
@@ -1453,7 +1452,7 @@ def main(request):
 
                         bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
                                         parse_mode='HTML', disable_web_page_preview=True)
-                        msg_sent_by_specific_code = True
+                        # msg_sent_by_specific_code = True
 
                         # saving the last message from bot
                         if not bot_request_aft_usr_msg:
@@ -1479,10 +1478,6 @@ def main(request):
                         if got_message in {b_role_want_to_be_la, b_role_iam_la, b_role_looking_for_person,
                                            b_role_other, b_role_secret}:
                             save_user_role(cur, user_id, got_message)
-
-                        # TODO TEMP DEBUG 19.11.2022
-                        logging.info(f'FFF: pre-b_reg_moscow, got_message={got_message}')
-                        # TODO TEMP DEBUG 19.11.2022
 
                         # if pushed \start
                         if got_message == b_start:
@@ -1573,10 +1568,6 @@ def main(request):
                         # if user Region is Moscow
                         elif got_message == b_reg_moscow:
 
-                            # TODO TEMP DEBUG 19.11.2022
-                            logging.info(f'FFF: in-b_reg_moscow, got_message={got_message}')
-                            # TODO TEMP DEBUG 19.11.2022
-
                             bot_message = 'Спасибо, бот запомнил этот выбор и теперь вы сможете получать ключевые ' \
                                           'уведомления в регионе Москва и МО. Вы в любой момент сможете изменить ' \
                                           'список регионов через настройки бота.'
@@ -1593,10 +1584,6 @@ def main(request):
                                     """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
                                     (%s, %s);""",
                                     (user_id, 41))
-
-                                # TODO TEMP DEBUG 19.11.2022
-                                logging.info(f'FFF: in-if-b_reg_moscow, got_message={got_message}')
-                                # TODO TEMP DEBUG 19.11.2022
 
                         # if region is NOT Moscow
                         elif got_message == b_reg_not_moscow:
@@ -1624,11 +1611,11 @@ def main(request):
                             logging.info(f'user {user_id} is forced to fill in the region')
 
                         # Send summaries
-                        elif got_message in {com_1, com_2}:
+                        elif got_message in {b_view_latest_searches, b_view_act_searches}:
 
                             msg_sent_by_specific_code = True
 
-                            temp_dict = {com_1: 'all', com_2: 'active'}
+                            temp_dict = {b_view_latest_searches: 'all', b_view_act_searches: 'active'}
 
                             cur.execute(
                                 """
@@ -1741,7 +1728,8 @@ def main(request):
                                           'уведомления, а также ввести свои "домашние координаты", на основе которых ' \
                                           'будет рассчитываться расстояние и направление до места поиска. Вы в любой ' \
                                           'момент сможете изменить эти настройки.'
-                            keyboard_settings = [[b_menu_set_region], [b_settings_coords], [com_3], [b_back_to_start]]
+                            keyboard_settings = [[b_menu_set_region], [b_settings_coords], [b_set_notifs_up],
+                                                 [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
 
                         elif got_message == b_settings_coords:
@@ -1796,21 +1784,22 @@ def main(request):
                             reply_markup = reply_markup_main
 
                         # save preference for -ALL
-                        elif got_message == com_15:
+                        elif got_message == b_deact_all:
                             bot_message = 'Уведомления отключены. Кстати, их можно настроить более гибко'
                             save_preference(cur, user_id, '-all')
-                            keyboard_notifications_all_quit = [[com_4], [com_5], [com_6], [com_7], [com_12],
+                            keyboard_notifications_all_quit = [[b_act_all], [b_act_new_search], [b_act_stat_change],
+                                                               [b_act_all_comments], [b_deact_bot_news],
                                                                [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_notifications_all_quit, resize_keyboard=True)
 
                         # save preference for +ALL
-                        elif got_message == com_4:
+                        elif got_message == b_act_all:
                             bot_message = 'Супер! теперь вы будете получать уведомления в телеграм в случаях: ' \
                                           'появление нового поиска, изменение статуса поиска (стоп, НЖ, НП), ' \
                                           'появление новых комментариев по всем поискам. Вы в любой момент можете ' \
                                           'изменить список уведомлений'
                             save_preference(cur, user_id, 'all')
-                            keyboard_notifications_all_quit = [[com_15], [b_back_to_start]]
+                            keyboard_notifications_all_quit = [[b_deact_all], [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_notifications_all_quit, resize_keyboard=True)
 
                         elif got_message == b_goto_community:
@@ -1818,7 +1807,8 @@ def main(request):
                                           '<a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">Специальном Чате ' \
                                           'в телеграм</a>. Там можно предложить свои идеи, указать на проблемы ' \
                                           'и получить быструю обратную связь от разработчика.'
-                            keyboard_other = [[com_1], [b_goto_community], [b_goto_first_search], [b_back_to_start]]
+                            keyboard_other = [[b_view_latest_searches], [b_goto_community], [b_goto_first_search],
+                                              [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
 
                         elif got_message == b_goto_first_search:
@@ -1828,66 +1818,69 @@ def main(request):
                                           'обученных волонтеров ЛА. Но если у вас еще не было возможности пройти ' \
                                           'официальное обучение, а вы уже готовы выехать на поиск – этот ресурс ' \
                                           'для вас.'
-                            keyboard_other = [[com_1], [b_goto_community], [b_goto_first_search], [b_back_to_start]]
+                            keyboard_other = [[b_view_latest_searches], [b_goto_community], [b_goto_first_search],
+                                              [b_back_to_start]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
 
                         # special block for flexible menu on notification preferences
-                        elif got_message in {com_5, com_6, com_10, com_7, com_3, com_17, com_18, com_16, com_9, com_12,
+                        elif got_message in {b_act_new_search, b_act_stat_change, b_act_titles, b_act_all_comments,
+                                             b_set_notifs_up, b_deact_stat_change, b_deact_all_comments,
+                                             b_deact_new_search, b_act_bot_news, b_deact_bot_news,
                                              b_act_inforg_com, b_deact_inforg_com,
                                              b_act_field_trips_new, b_deact_field_trips_new,
                                              b_act_field_trips_change, b_deact_field_trips_change,
                                              b_act_coords_change, b_deact_coords_change}:
 
                             # save preference for +NEW SEARCHES
-                            if got_message == com_5:
+                            if got_message == b_act_new_search:
                                 bot_message = 'Отлично! Теперь вы будете получать уведомления в телеграм при ' \
                                               'появлении нового поиска. Вы в любой момент можете изменить ' \
                                               'список уведомлений'
                                 save_preference(cur, user_id, 'new_searches')
 
                             # save preference for -NEW SEARCHES
-                            elif got_message == com_16:
+                            elif got_message == b_deact_new_search:
                                 bot_message = 'Записали'
                                 save_preference(cur, user_id, '-new_searches')
 
                             # save preference for +BotNews
-                            elif got_message == com_9:
+                            elif got_message == b_act_bot_news:
                                 bot_message = 'Теперь в случае появления нового функционала бота вы узнаете об ' \
                                               'этом в небольшом новостном сообщении'
                                 save_preference(cur, user_id, 'bot_news')
 
                             # save preference for -BotNews
-                            elif got_message == com_12:
+                            elif got_message == b_deact_bot_news:
                                 bot_message = 'Вы отписались от уведомлений по новому функционалу бота. Когда ' \
                                               'появится какая-либо новая функция - бот, к сожалению, не сможет вам ' \
                                               'об этом сообщить.'
                                 save_preference(cur, user_id, '-bot_news')
 
                             # save preference for +STATUS UPDATES
-                            elif got_message == com_6:
+                            elif got_message == b_act_stat_change:
                                 bot_message = 'Отлично! теперь вы будете получать уведомления в телеграм при ' \
                                               'изменении статуса поисков (НЖ, НП, СТОП и т.п.). Вы в любой момент ' \
                                               'можете изменить список уведомлений'
                                 save_preference(cur, user_id, 'status_changes')
 
                             # save preference for -STATUS UPDATES
-                            elif got_message == com_17:
+                            elif got_message == b_deact_stat_change:
                                 bot_message = 'Записали'
                                 save_preference(cur, user_id, '-status_changes')
 
                             # save preference for TITLE UPDATES
-                            elif got_message == com_10:
+                            elif got_message == b_act_titles:
                                 bot_message = 'Отлично!'
                                 save_preference(cur, user_id, 'title_changes')
 
                             # save preference for +COMMENTS
-                            elif got_message == com_7:
+                            elif got_message == b_act_all_comments:
                                 bot_message = 'Отлично! Теперь все новые комментарии будут у вас! Вы в любой момент ' \
                                               'можете изменить список уведомлений'
                                 save_preference(cur, user_id, 'comments_changes')
 
                             # save preference for -COMMENTS
-                            elif got_message == com_18:
+                            elif got_message == b_deact_all_comments:
                                 bot_message = 'Записали. Мы только оставили вам включенными уведомления о ' \
                                               'комментариях Инфорга. Их тоже можно отключить'
                                 save_preference(cur, user_id, '-comments_changes')
@@ -1942,7 +1935,7 @@ def main(request):
                                 save_preference(cur, user_id, '-coords_change')
 
                             # GET what are preferences
-                            elif got_message == com_3:
+                            elif got_message == b_set_notifs_up:
                                 prefs = compose_user_preferences_message(cur, user_id)
                                 if prefs[0] == 'пока нет включенных уведомлений' or prefs[0] == 'неизвестная настройка':
                                     bot_message = 'Выберите, какие уведомления вы бы хотели получать'
@@ -1955,25 +1948,25 @@ def main(request):
 
                             # getting the list of user notification preferences
                             prefs = compose_user_preferences_message(cur, user_id)
-                            keyboard_notifications_flexible = [[com_4], [com_5], [com_6], [com_7], [b_act_inforg_com],
-                                                               [com_9], [b_back_to_start]]
-                            # just a comparison with negative [[com_15],[com_16],[com_17],[com_18],[b_deact_inforg_com],
-                            #                                  [com_12],[b_back_to_start]]
+                            keyboard_notifications_flexible = [[b_act_all], [b_act_new_search], [b_act_stat_change],
+                                                               [b_act_all_comments], [b_act_inforg_com],
+                                                               [b_act_bot_news], [b_back_to_start]]
 
                             for line in prefs[1]:
                                 if line == 'all':
-                                    keyboard_notifications_flexible = [[com_15], [b_back_to_start]]
+                                    keyboard_notifications_flexible = [[b_deact_all], [b_back_to_start]]
                                 elif line == 'new_searches':
-                                    keyboard_notifications_flexible[1] = [com_16]
+                                    keyboard_notifications_flexible[1] = [b_deact_new_search]
                                 elif line == 'status_changes':
-                                    keyboard_notifications_flexible[2] = [com_17]
+                                    keyboard_notifications_flexible[2] = [b_deact_stat_change]
                                 elif line == 'comments_changes':
-                                    keyboard_notifications_flexible[3] = [com_18]
+                                    keyboard_notifications_flexible[3] = [b_deact_all_comments]
                                 elif line == 'inforg_comments':
                                     keyboard_notifications_flexible[4] = [b_deact_inforg_com]
                                 elif line == 'bot_news':
-                                    keyboard_notifications_flexible[5] = [com_12]
-                                # TODO: to be added coords_change and field_trip_changes
+                                    keyboard_notifications_flexible[5] = [b_deact_bot_news]
+                                # TODO: when functionality of notifications on "first post changes" will be ready
+                                #  for prod –to be added: coords_change and field_trip_changes
 
                             reply_markup = ReplyKeyboardMarkup(keyboard_notifications_flexible, resize_keyboard=True)
 
