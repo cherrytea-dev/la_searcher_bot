@@ -6,8 +6,8 @@ on:
   push:
     branches : [main]
     paths:
-      - 'check_first_posts_for_changes/main.py' # UPD HERE!
-      - 'check_first_posts_for_changes/requirements.txt' # UPD HERE!
+      - 'src/check_first_posts_for_changes/main.py' # UPD HERE!
+      - 'src/check_first_posts_for_changes/requirements.txt' # UPD HERE!
       - '.github/workflows/deploy_check_first_posts_for_changes.yml' # UPD HERE!
 
 jobs:
@@ -50,7 +50,7 @@ jobs:
         uses: google-github-actions/deploy-cloud-functions@v0.6.0
         with:
             source_dir: ${{ env.FILE_NAME }} # name of directory
-            name: ${{ env.FILE_NAME }} # name of deploying function
+            name: src/${{ env.FILE_NAME }} # name of deploying function
             runtime: python37
             entry_point: main # UPD HERE! main function
             region: europe-west3

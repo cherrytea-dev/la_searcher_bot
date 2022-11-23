@@ -6,8 +6,8 @@ on:
   push:
     branches : [main]
     paths:
-      - 'send_news/main.py' # UPD HERE!
-      - 'send_news/requirements.txt' # UPD HERE!
+      - 'src/send_news/main.py' # UPD HERE!
+      - 'src/send_news/requirements.txt' # UPD HERE!
       - '.github/workflows/deploy_send_news.yml' # UPD HERE!
 
 jobs:
@@ -27,7 +27,7 @@ jobs:
         id: deploy
         uses: google-github-actions/deploy-cloud-functions@v0.6.0
         with:
-            source_dir: ${{ env.FILE_NAME }} # name of directory
+            source_dir: src/${{ env.FILE_NAME }} # name of directory
             name: ${{ env.FILE_NAME }} # name of deploying function
             runtime: python37
             entry_point: main # UPD HERE! main function

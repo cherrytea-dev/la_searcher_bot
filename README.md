@@ -8,8 +8,8 @@ resque lost people across Russian Federation.
 LizaAlert volunteers work hard on daily basis to **save lives** by arranging and 
 speeding up lost-people searches.
 
-This repo covers [LA Searcher Bot](https://t.me/LizaAlert_Searcher_Bot) – 
-non-official LA bot, however it is developed from the scratch 
+This repo covers [LA Searcher Bot](https://t.me/LizaAlert_Searcher_Bot). The bot officially is 
+not a part of LA central IT solutions, however it is developed from the scratch 
 & maintained by [one of LA Searchers](https://t.me/MikeMikeT).
 
 Core audience of the Bot – are LA Searches, that participate in

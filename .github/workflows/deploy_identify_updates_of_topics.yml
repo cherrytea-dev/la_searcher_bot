@@ -4,8 +4,8 @@ on:
   push:
     branches : main
     paths:
-      - 'identify_updates_of_topics/main.py'
-      - 'identify_updates_of_topics/requirements.txt'
+      - 'src/identify_updates_of_topics/main.py'
+      - 'src/identify_updates_of_topics/requirements.txt'
       - '.github/workflows/deploy_identify_updates_of_topics.yml'
 
 jobs:
@@ -25,7 +25,7 @@ jobs:
         id: deploy
         uses: google-github-actions/deploy-cloud-functions@v0.6.0
         with:
-            source_dir: identify_updates_of_topics # name of directory
+            source_dir: src/identify_updates_of_topics # name of directory
             name: identify_updates_of_topics
             runtime: python37
             entry_point: main

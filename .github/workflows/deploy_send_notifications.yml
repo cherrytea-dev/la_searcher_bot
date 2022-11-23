@@ -4,8 +4,8 @@ on:
   push:
     branches : main
     paths:
-      - 'send_notifications/main.py'
-      - 'send_notifications/requirements.txt'
+      - 'src/send_notifications/main.py'
+      - 'src/send_notifications/requirements.txt'
       - '.github/workflows/deploy_send_notifications.yml'
 
 jobs:
@@ -25,7 +25,7 @@ jobs:
         id: deploy
         uses: google-github-actions/deploy-cloud-functions@v0.6.0
         with:
-            source_dir: send_notifications # name of directory
+            source_dir: src/send_notifications # name of directory
             name: send_notifications
             runtime: python37
             entry_point: main_func
