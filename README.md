@@ -62,7 +62,7 @@ Cloud Functions and GitHub Actions Workflow files.
 ## Contribution
 
 See a dedicated LA Searcher Bot 
-[contribution page](https://github.com/Mikkdrasil/la_bot_monorep/blob/main/docs/contribution.md).
+[contribution page](https://github.com/Mikkdrasil/la_bot_monorep/blob/main/doc/CONTRIBUTING.md).
 
 TL;DR: 
 * contributions to the current Python-based repo are welcome via pull requests
