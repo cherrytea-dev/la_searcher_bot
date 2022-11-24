@@ -58,6 +58,7 @@ notification for every user.
 
 This repository covers only python scripts, which are sent to Google 
 Cloud Functions and GitHub Actions Workflow files.
+[Architecture of Google Cloud Functions](https://htmlpreview.github.io/?https://github.com/Mikkdrasil/la_searcher_bot/blob/main/doc/cloud_functions_architecture.html)
 
 ## Contribution
 
