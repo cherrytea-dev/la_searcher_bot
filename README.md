@@ -35,7 +35,7 @@ There is the enthusiasts [Community](https://t.me/+56GrL4LQ-og2NGEy)
 for discussion of ideas and issues in the Bot.
 
 Bot was created in mid 2021.
-As per November 2022 bot has +4000 active users, DAU +2500 users,
+As of November 2022 bot has +4000 active users, DAU (daily active users) +2500,
 daily messages +20000. Annual Growth Rate is 3X.
 
 Bot is built as a parser of phpbb [LA Forum](https://lizaalert.org/forum/), 
