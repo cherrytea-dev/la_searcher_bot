@@ -847,13 +847,11 @@ def compose_com_msg_on_title_change(title, link, name, age, age_wording):
     """compose the common, user-independent message on search title change"""
 
     msg = title
-    msg += ' – обновление заголовка поиска по'
-    msg += ' <a href="' + link + '">'
-    msg += name
-    if name[0].isupper() and age and age != 0:
-        msg += ' '
-        msg += age_wording
-    msg += '</a>\n'
+    if msg:
+        msg += f' – обновление заголовка поиска по <a href="{link}">{name}'
+        if name[0].isupper() and age and age != 0:
+            msg += f' {age_wording}'
+        msg += '</a>\n'
 
     return msg
 
