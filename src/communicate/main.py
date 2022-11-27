@@ -165,8 +165,6 @@ def compose_user_preferences_message(cur, user_id):
                 prefs_wording += ' &#8226; о всех комментариях\n'
             elif user_pref_line[0] == 'inforg_comments':
                 prefs_wording += ' &#8226; о комментариях Инфорга\n'
-            elif user_pref_line[0] == 'bot_news':
-                prefs_wording += ' &#8226; о новых функциях бота\n'
             else:
                 prefs_wording += 'неизвестная настройка'
     else:
@@ -599,34 +597,6 @@ def save_preference(cur, user_id, preference):
 
         cur.execute("""DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'inforg_comments');""",
                     (user_id,))
-
-    # if user wants notifications ON BOT NEWS
-    elif preference == 'bot_news':
-
-        # Delete Start & Finish
-        cur.execute(
-            """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
-            preference='finish' OR preference='bot_news');""",
-            (user_id,))
-
-        # Check if ALL is in place
-        cur.execute(
-            "SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' OR pref_id=30) LIMIT 1;",
-            (user_id,))
-
-        already_all = str(cur.fetchone())
-
-        # Add Bot_News ONLY in there's no ALL
-        if already_all == 'None':
-            cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
-                        (user_id, preference, 20))
-
-    # if user DOESN'T want notifications ON BOT NEWS
-    elif preference == '-bot_news':
-
-        cur.execute(
-            """DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'bot_news' OR pref_id=20);""",
-            (user_id,))
 
     # if user wants notifications ON NEW FIELD TRIPS
     elif preference == 'field_trips_new':
@@ -1146,7 +1116,6 @@ def main(request):
                 b_act_field_trips_new = 'включить: о новых выездах'
                 b_act_field_trips_change = 'включить: об изменениях в выездах'
                 b_act_coords_change = 'включить: о смене места штаба'
-                b_act_bot_news = 'включить: о новых функциях бота'
                 b_deact_all = 'отключить и настроить более гибко'
                 b_deact_new_search = 'отключить: о новых поисках'
                 b_deact_stat_change = 'отключить: об изменениях статусов'
@@ -1155,7 +1124,6 @@ def main(request):
                 b_deact_field_trips_new = 'отключить: о новых выездах'
                 b_deact_field_trips_change = 'отключить: об изменениях в выездах'
                 b_deact_coords_change = 'отключить: о смене места штаба'
-                b_deact_bot_news = 'отключить: о новых функциях бота'
 
                 # Settings - coordinates
                 b_coords_auto_def = KeyboardButton(text='автоматически определить "домашние координаты"',
@@ -1783,25 +1751,6 @@ def main(request):
                             bot_message = 'возвращаемся в главное меню'
                             reply_markup = reply_markup_main
 
-                        # save preference for -ALL
-                        elif got_message == b_deact_all:
-                            bot_message = 'Уведомления отключены. Кстати, их можно настроить более гибко'
-                            save_preference(cur, user_id, '-all')
-                            keyboard_notifications_all_quit = [[b_act_all], [b_act_new_search], [b_act_stat_change],
-                                                               [b_act_all_comments], [b_deact_bot_news],
-                                                               [b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_notifications_all_quit, resize_keyboard=True)
-
-                        # save preference for +ALL
-                        elif got_message == b_act_all:
-                            bot_message = 'Супер! теперь вы будете получать уведомления в телеграм в случаях: ' \
-                                          'появление нового поиска, изменение статуса поиска (стоп, НЖ, НП), ' \
-                                          'появление новых комментариев по всем поискам. Вы в любой момент можете ' \
-                                          'изменить список уведомлений'
-                            save_preference(cur, user_id, 'all')
-                            keyboard_notifications_all_quit = [[b_deact_all], [b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_notifications_all_quit, resize_keyboard=True)
-
                         elif got_message == b_goto_community:
                             bot_message = 'Бот можно обсудить с соотрядниками в ' \
                                           '<a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">Специальном Чате ' \
@@ -1823,16 +1772,30 @@ def main(request):
                             reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
 
                         # special block for flexible menu on notification preferences
-                        elif got_message in {b_act_new_search, b_act_stat_change, b_act_titles, b_act_all_comments,
+                        elif got_message in {b_act_all, b_deact_all,
+                                             b_act_new_search, b_act_stat_change, b_act_titles, b_act_all_comments,
                                              b_set_notifs_up, b_deact_stat_change, b_deact_all_comments,
-                                             b_deact_new_search, b_act_bot_news, b_deact_bot_news,
+                                             b_deact_new_search,
                                              b_act_inforg_com, b_deact_inforg_com,
                                              b_act_field_trips_new, b_deact_field_trips_new,
                                              b_act_field_trips_change, b_deact_field_trips_change,
                                              b_act_coords_change, b_deact_coords_change}:
 
+                            # save preference for +ALL
+                            if got_message == b_act_all:
+                                bot_message = 'Супер! теперь вы будете получать уведомления в телеграм в случаях: ' \
+                                              'появление нового поиска, изменение статуса поиска (стоп, НЖ, НП), ' \
+                                              'появление новых комментариев по всем поискам. Вы в любой момент можете ' \
+                                              'изменить список уведомлений'
+                                save_preference(cur, user_id, 'all')
+
+                            # save preference for -ALL
+                            elif got_message == b_deact_all:
+                                bot_message = 'Уведомления отключены. Кстати, их можно настроить более гибко'
+                                save_preference(cur, user_id, '-all')
+
                             # save preference for +NEW SEARCHES
-                            if got_message == b_act_new_search:
+                            elif got_message == b_act_new_search:
                                 bot_message = 'Отлично! Теперь вы будете получать уведомления в телеграм при ' \
                                               'появлении нового поиска. Вы в любой момент можете изменить ' \
                                               'список уведомлений'
@@ -1842,19 +1805,6 @@ def main(request):
                             elif got_message == b_deact_new_search:
                                 bot_message = 'Записали'
                                 save_preference(cur, user_id, '-new_searches')
-
-                            # save preference for +BotNews
-                            elif got_message == b_act_bot_news:
-                                bot_message = 'Теперь в случае появления нового функционала бота вы узнаете об ' \
-                                              'этом в небольшом новостном сообщении'
-                                save_preference(cur, user_id, 'bot_news')
-
-                            # save preference for -BotNews
-                            elif got_message == b_deact_bot_news:
-                                bot_message = 'Вы отписались от уведомлений по новому функционалу бота. Когда ' \
-                                              'появится какая-либо новая функция - бот, к сожалению, не сможет вам ' \
-                                              'об этом сообщить.'
-                                save_preference(cur, user_id, '-bot_news')
 
                             # save preference for +STATUS UPDATES
                             elif got_message == b_act_stat_change:
@@ -1946,27 +1896,33 @@ def main(request):
                             else:
                                 bot_message = 'empty message'
 
-                            # getting the list of user notification preferences
-                            prefs = compose_user_preferences_message(cur, user_id)
-                            keyboard_notifications_flexible = [[b_act_all], [b_act_new_search], [b_act_stat_change],
-                                                               [b_act_all_comments], [b_act_inforg_com],
-                                                               [b_act_bot_news], [b_back_to_start]]
+                            if got_message == b_act_all:
+                                keyboard_notifications_flexible = [[b_deact_all], [b_back_to_start]]
+                            elif got_message == b_deact_all:
+                                keyboard_notifications_flexible = [[b_act_all], [b_act_new_search], [b_act_stat_change],
+                                                                   [b_act_all_comments],
+                                                                   [b_back_to_start]]
+                            else:
 
-                            for line in prefs[1]:
-                                if line == 'all':
-                                    keyboard_notifications_flexible = [[b_deact_all], [b_back_to_start]]
-                                elif line == 'new_searches':
-                                    keyboard_notifications_flexible[1] = [b_deact_new_search]
-                                elif line == 'status_changes':
-                                    keyboard_notifications_flexible[2] = [b_deact_stat_change]
-                                elif line == 'comments_changes':
-                                    keyboard_notifications_flexible[3] = [b_deact_all_comments]
-                                elif line == 'inforg_comments':
-                                    keyboard_notifications_flexible[4] = [b_deact_inforg_com]
-                                elif line == 'bot_news':
-                                    keyboard_notifications_flexible[5] = [b_deact_bot_news]
-                                # TODO: when functionality of notifications on "first post changes" will be ready
-                                #  for prod –to be added: coords_change and field_trip_changes
+                                # getting the list of user notification preferences
+                                prefs = compose_user_preferences_message(cur, user_id)
+                                keyboard_notifications_flexible = [[b_act_all], [b_act_new_search], [b_act_stat_change],
+                                                                   [b_act_all_comments], [b_act_inforg_com],
+                                                                [b_back_to_start]]
+
+                                for line in prefs[1]:
+                                    if line == 'all':
+                                        keyboard_notifications_flexible = [[b_deact_all], [b_back_to_start]]
+                                    elif line == 'new_searches':
+                                        keyboard_notifications_flexible[1] = [b_deact_new_search]
+                                    elif line == 'status_changes':
+                                        keyboard_notifications_flexible[2] = [b_deact_stat_change]
+                                    elif line == 'comments_changes':
+                                        keyboard_notifications_flexible[3] = [b_deact_all_comments]
+                                    elif line == 'inforg_comments':
+                                        keyboard_notifications_flexible[4] = [b_deact_inforg_com]
+                                    # TODO: when functionality of notifications on "first post changes" will be ready
+                                    #  for prod –to be added: coords_change and field_trip_changes
 
                             reply_markup = ReplyKeyboardMarkup(keyboard_notifications_flexible, resize_keyboard=True)
 
