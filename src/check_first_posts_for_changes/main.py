@@ -125,7 +125,9 @@ def check_topic_visibility(search_num):
         # FIXME – below is a check if content.find('502 Bad Gateway') is a right format for bad_gateway
         test_old__bad_gateway = True if content.find('Bad Gateway') > 0 else False
         if test_old__bad_gateway:
-            notify_admin(f'BadGateway for {search_num}, content[3000]:{content[3000]}')
+            if len(content) >= 3000:
+                content = content[3000]
+            notify_admin(f'BadGateway for {search_num}, content:{content}')
         # FIXME – end
 
         if not bad_gateway:
