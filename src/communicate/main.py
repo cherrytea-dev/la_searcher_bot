@@ -567,7 +567,7 @@ def save_preference(cur, user_id, preference):
                     (user_id,))
 
         cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s)
-                    ON DUPLICATE (user_id, pref_id) DO NOTHING;""",
+                    ON CONFLICT (user_id, pref_id) DO NOTHING;""",
                     (user_id, 'inforg_comments', 4))
 
     # if user wants notifications ON INFORG COMMENTS
