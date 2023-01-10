@@ -366,10 +366,134 @@ def iterate_over_notifications(bot, script_start_time):
     return None
 
 
+def check_and_save_event_id(context, event):
+    """TODO"""
+
+    def check_if_other_functions_are_working():
+        """check in PSQL in there's a function working in parallel"""
+
+        parallel_functions = False
+
+        # save to psql the analytics on sending speed
+        conn_psy = sql_connect_by_psycopg2()
+        cur = conn_psy.cursor()
+
+        try:
+            sql_text_psy = f"""
+                            SELECT 
+                                event_id 
+                            FROM
+                                notif_functions_registry
+                            WHERE
+                                time_start > NOW() - interval '9 minutes' AND
+                                time_finish IS NULL AND
+                                cloud_function_name  = 'send_notifications'
+                            ;
+                            /*action='check_if_there_is_parallel_notif_function' */
+                            ;"""
+
+            cur.execute(sql_text_psy)
+            lines = cur.fetchone()
+            print(f'TEMP: lines = {lines}')
+
+            parallel_functions = True if lines else False
+
+        except:  # noqa
+            pass
+
+        cur.close()
+        conn_psy.close()
+
+        return parallel_functions
+
+    def record_start_of_function(event_num):
+        """TODO"""
+
+        # save to psql the analytics on sending speed
+        conn_psy = sql_connect_by_psycopg2()
+        cur = conn_psy.cursor()
+
+        try:
+            sql_text_psy = f"""
+                            INSERT INTO 
+                                notif_functions_registry
+                            (event_id, time_start, cloud_function_name)
+                            VALUES
+                            (%s, %s, %s);
+                            /*action='save_start_of_notif_function' */
+                            ;"""
+
+            cur.execute(sql_text_psy, (event_id, datetime.datetime.now(), 'send_notifications'))
+            print(f'TEMP: we saved the event start = {event_num}')
+
+        except:  # noqa
+            pass
+
+        cur.close()
+        conn_psy.close()
+
+        return None
+
+    def record_finish_of_function(event_num):
+        """TODO"""
+
+        # save to psql the analytics on sending speed
+        conn_psy = sql_connect_by_psycopg2()
+        cur = conn_psy.cursor()
+
+        try:
+            sql_text_psy = f"""
+                            UPDATE 
+                                notif_functions_registry
+                            SET
+                                time_finish = %s
+                            WHERE
+                                event_id = %s
+                            ;
+                            /*action='save_finish_of_notif_function' */
+                            ;"""
+
+            cur.execute(sql_text_psy, (datetime.datetime.now(), event_id))
+            print(f'TEMP: we saved the event finish = {event_num}')
+
+        except:  # noqa
+            pass
+
+        cur.close()
+        conn_psy.close()
+
+        return None
+
+    if not context or not event:
+        return False
+
+    try:
+        event_id = context.event_id
+    except Exception as e:  # noqa
+        return False
+
+    # if this functions is triggered in the very beginning of the Google Cloud Function execution
+    if event == 'start':
+        if check_if_other_functions_are_working():
+            return True
+
+        record_start_of_function(event_id)
+        return False
+
+    # if this functions is triggered in the very end of the Google Cloud Function execution
+    elif event == 'finish':
+        record_finish_of_function(event_id)
+        return None
+
+
 def main_func(event, context):  # noqa
     """main function"""
 
     global analytics_notif_times
+
+    there_is_function_working_in_parallel = check_and_save_event_id(context, 'start')
+    if there_is_function_working_in_parallel:
+        print('TEMP: there is a function working in parallel')
 
     # timer is needed to finish the script if it's already close to timeout
     script_start_time = datetime.datetime.now()
@@ -414,6 +538,7 @@ def main_func(event, context):  # noqa
 
         analytics_notif_times = []
 
+    check_and_save_event_id(context, 'finish')
     logging.info('script finished')
 
     return None
