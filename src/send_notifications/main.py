@@ -1,4 +1,4 @@
-"""Send the prepared notifications to users (text and location)"""
+"""Send the prepared notifications to users (text and location) via Telegram"""
 
 import ast
 import time
@@ -19,7 +19,7 @@ client = secretmanager.SecretManagerServiceClient()
 publisher = pubsub_v1.PublisherClient()
 
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
-# Important – these are not errors, but jest informational warnings that there were retries, that's why we exclude them
+# Important – these are not errors, but just informational warnings that there were retries, that's why we exclude them
 logging.getLogger("telegram.vendor.ptb_urllib3.urllib3").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
@@ -367,10 +367,11 @@ def iterate_over_notifications(bot, script_start_time):
 
 
 def check_and_save_event_id(context, event):
-    """TODO"""
+    """Work with PSQL table notif_functions_registry. Goal of the table & function is to avoid parallel work of
+    two send_notifications functions. Executed in the beginning and in the end of send_notifications function"""
 
     def check_if_other_functions_are_working():
-        """check in PSQL in there's a function working in parallel"""
+        """Check in PSQL in there's a function working in parallel"""
 
         parallel_functions = False
 
@@ -385,7 +386,7 @@ def check_and_save_event_id(context, event):
                             FROM
                                 notif_functions_registry
                             WHERE
-                                time_start > NOW() - interval '9 minutes' AND
+                                time_start > NOW() - interval '130 seconds' AND
                                 time_finish IS NULL AND
                                 cloud_function_name  = 'send_notifications'
                             ;
@@ -394,6 +395,7 @@ def check_and_save_event_id(context, event):
 
             cur.execute(sql_text_psy)
             lines = cur.fetchone()
+            # TODO – to delete
             print(f'TEMP: lines = {lines}')
 
             parallel_functions = True if lines else False
@@ -407,7 +409,7 @@ def check_and_save_event_id(context, event):
         return parallel_functions
 
     def record_start_of_function(event_num):
-        """TODO"""
+        """Record into PSQL that this function started working (id = id of the respective pub/sub event)"""
 
         # save to psql the analytics on sending speed
         conn_psy = sql_connect_by_psycopg2()
@@ -424,6 +426,7 @@ def check_and_save_event_id(context, event):
                             ;"""
 
             cur.execute(sql_text_psy, (event_id, datetime.datetime.now(), 'send_notifications'))
+            # TODO - to delete
             print(f'TEMP: we saved the event start = {event_num}')
 
         except:  # noqa
@@ -435,7 +438,7 @@ def check_and_save_event_id(context, event):
         return None
 
     def record_finish_of_function(event_num):
-        """TODO"""
+        """Record into PSQL that this function finished working (id = id of the respective pub/sub event)"""
 
         # save to psql the analytics on sending speed
         conn_psy = sql_connect_by_psycopg2()
@@ -483,18 +486,59 @@ def check_and_save_event_id(context, event):
     # if this functions is triggered in the very end of the Google Cloud Function execution
     elif event == 'finish':
         record_finish_of_function(event_id)
+        return False
+
+
+def finish_time_analytics(notif_times):
+    """Make final steps for time analytics: inform admin, log, record statistics into PSQL"""
+
+    if not notif_times:
         return None
 
+    # send statistics on number of messages and sending speed
 
-def main_func(event, context):  # noqa
-    """main function"""
+    len_n = len(notif_times)
+    average = sum(notif_times) / len_n
+    ttl_time = round(sum(notif_times), 1)
+    message = f'[send_notifs] {len_n} x {round(average, 2)} = {ttl_time} sec'
+    if len_n >= 10 and average > 0.3:
+        notify_admin(message)
+    logging.info(message)
+
+    # save to psql the analytics on sending speed
+    conn_psy = sql_connect_by_psycopg2()
+    cur = conn_psy.cursor()
+
+    try:
+        sql_text_psy = f"""
+                        INSERT INTO notif_stat_sending_speed
+                        (timestamp, num_of_msgs, speed, ttl_time)
+                        VALUES
+                        (%s, %s, %s, %s);
+                        /*action='notif_stat_sending_speed' */
+                        ;"""
+
+        cur.execute(sql_text_psy, (datetime.datetime.now(), len_n, average, ttl_time))
+    except:  # noqa
+        pass
+
+    cur.close()
+    conn_psy.close()
+
+    return None
+
+
+def main_func(event, context):
+    """Main function that is triggered by pub/sub"""
 
     global analytics_notif_times
 
     there_is_function_working_in_parallel = check_and_save_event_id(context, 'start')
     if there_is_function_working_in_parallel:
-        print('TEMP: there is a function working in parallel')
-
+        logging.info(f'function execution stopped due to parallel run with another function')
+        logging.info('script finished')
+        return None
+        
     # timer is needed to finish the script if it's already close to timeout
     script_start_time = datetime.datetime.now()
 
@@ -506,37 +550,8 @@ def main_func(event, context):  # noqa
 
     iterate_over_notifications(bot, script_start_time)
 
-    # send statistics on number of messages and sending speed
-    if analytics_notif_times:
-        len_n = len(analytics_notif_times)
-        average = sum(analytics_notif_times) / len_n
-        ttl_time = round(sum(analytics_notif_times), 1)
-        message = f'[send_notifs] {len_n} x {round(average, 2)} = {ttl_time} sec'
-        if len_n >= 10 and average > 0.3:
-            notify_admin(message)
-        logging.info(message)
-
-        # save to psql the analytics on sending speed
-        conn_psy = sql_connect_by_psycopg2()
-        cur = conn_psy.cursor()
-
-        try:
-            sql_text_psy = f"""
-                            INSERT INTO notif_stat_sending_speed
-                            (timestamp, num_of_msgs, speed, ttl_time)
-                            VALUES
-                            (%s, %s, %s, %s);
-                            /*action='notif_stat_sending_speed' */
-                            ;"""
-
-            cur.execute(sql_text_psy, (datetime.datetime.now(), len_n, average, ttl_time))
-        except:  # noqa
-            pass
-
-        cur.close()
-        conn_psy.close()
-
-        analytics_notif_times = []
+    finish_time_analytics(analytics_notif_times)
+    analytics_notif_times = []  # needed for high-frequency function execution, otherwise google remembers prev value
 
     check_and_save_event_id(context, 'finish')
     logging.info('script finished')
