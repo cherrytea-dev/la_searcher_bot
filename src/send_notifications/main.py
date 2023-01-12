@@ -478,6 +478,8 @@ def check_and_save_event_id(context, event):
     # if this functions is triggered in the very beginning of the Google Cloud Function execution
     if event == 'start':
         if check_if_other_functions_are_working():
+            # TODO - temp debug
+            record_start_of_function(event_id)
             return True
 
         record_start_of_function(event_id)
@@ -536,9 +538,12 @@ def main_func(event, context):
     there_is_function_working_in_parallel = check_and_save_event_id(context, 'start')
     if there_is_function_working_in_parallel:
         logging.info(f'function execution stopped due to parallel run with another function')
+        # TODO – temp for debug
+        notify_admin(f'SEND_NOTIF – CANCELLED due to parallel execution')
+        check_and_save_event_id(context, 'finish')
         logging.info('script finished')
         return None
-        
+
     # timer is needed to finish the script if it's already close to timeout
     script_start_time = datetime.datetime.now()
 
