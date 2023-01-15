@@ -371,37 +371,28 @@ def check_and_save_event_id(context, event):
     two send_notifications functions. Executed in the beginning and in the end of send_notifications function"""
 
     def check_if_other_functions_are_working():
-        """Check in PSQL in there's a function working in parallel"""
+        """Check in PSQL in there's the same function 'send_notifications' working in parallel"""
 
-        parallel_functions = False
-
-        # save to psql the analytics on sending speed
         conn_psy = sql_connect_by_psycopg2()
         cur = conn_psy.cursor()
 
-        try:
-            sql_text_psy = f"""
-                            SELECT 
-                                event_id 
-                            FROM
-                                notif_functions_registry
-                            WHERE
-                                time_start > NOW() - interval '130 seconds' AND
-                                time_finish IS NULL AND
-                                cloud_function_name  = 'send_notifications'
-                            ;
-                            /*action='check_if_there_is_parallel_notif_function' */
-                            ;"""
+        sql_text_psy = f"""
+                        SELECT 
+                            event_id 
+                        FROM
+                            notif_functions_registry
+                        WHERE
+                            time_start > NOW() - interval '130 seconds' AND
+                            time_finish IS NULL AND
+                            cloud_function_name  = 'send_notifications'
+                        ;
+                        /*action='check_if_there_is_parallel_notif_function' */
+                        ;"""
 
-            cur.execute(sql_text_psy)
-            lines = cur.fetchone()
-            # TODO – to delete
-            print(f'TEMP: lines = {lines}')
+        cur.execute(sql_text_psy)
+        lines = cur.fetchone()
 
-            parallel_functions = True if lines else False
-
-        except:  # noqa
-            pass
+        parallel_functions = True if lines else False
 
         cur.close()
         conn_psy.close()
@@ -411,26 +402,20 @@ def check_and_save_event_id(context, event):
     def record_start_of_function(event_num):
         """Record into PSQL that this function started working (id = id of the respective pub/sub event)"""
 
-        # save to psql the analytics on sending speed
         conn_psy = sql_connect_by_psycopg2()
         cur = conn_psy.cursor()
 
-        try:
-            sql_text_psy = f"""
-                            INSERT INTO 
-                                notif_functions_registry
-                            (event_id, time_start, cloud_function_name)
-                            VALUES
-                            (%s, %s, %s);
-                            /*action='save_start_of_notif_function' */
-                            ;"""
+        sql_text_psy = f"""
+                        INSERT INTO 
+                            notif_functions_registry
+                        (event_id, time_start, cloud_function_name)
+                        VALUES
+                        (%s, %s, %s);
+                        /*action='save_start_of_notif_function' */
+                        ;"""
 
-            cur.execute(sql_text_psy, (event_id, datetime.datetime.now(), 'send_notifications'))
-            # TODO - to delete
-            print(f'TEMP: we saved the event start = {event_num}')
-
-        except:  # noqa
-            pass
+        cur.execute(sql_text_psy, (event_id, datetime.datetime.now(), 'send_notifications'))
+        logging.info(f'function was triggered by event {event_num}')
 
         cur.close()
         conn_psy.close()
@@ -440,27 +425,21 @@ def check_and_save_event_id(context, event):
     def record_finish_of_function(event_num):
         """Record into PSQL that this function finished working (id = id of the respective pub/sub event)"""
 
-        # save to psql the analytics on sending speed
         conn_psy = sql_connect_by_psycopg2()
         cur = conn_psy.cursor()
 
-        try:
-            sql_text_psy = f"""
-                            UPDATE 
-                                notif_functions_registry
-                            SET
-                                time_finish = %s
-                            WHERE
-                                event_id = %s
-                            ;
-                            /*action='save_finish_of_notif_function' */
-                            ;"""
+        sql_text_psy = f"""
+                        UPDATE 
+                            notif_functions_registry
+                        SET
+                            time_finish = %s
+                        WHERE
+                            event_id = %s
+                        ;
+                        /*action='save_finish_of_notif_function' */
+                        ;"""
 
-            cur.execute(sql_text_psy, (datetime.datetime.now(), event_id))
-            print(f'TEMP: we saved the event finish = {event_num}')
-
-        except:  # noqa
-            pass
+        cur.execute(sql_text_psy, (datetime.datetime.now(), event_num))
 
         cur.close()
         conn_psy.close()
@@ -478,7 +457,6 @@ def check_and_save_event_id(context, event):
     # if this functions is triggered in the very beginning of the Google Cloud Function execution
     if event == 'start':
         if check_if_other_functions_are_working():
-            # TODO - temp debug
             record_start_of_function(event_id)
             return True
 
@@ -538,8 +516,6 @@ def main_func(event, context):
     there_is_function_working_in_parallel = check_and_save_event_id(context, 'start')
     if there_is_function_working_in_parallel:
         logging.info(f'function execution stopped due to parallel run with another function')
-        # TODO – temp for debug
-        notify_admin(f'SEND_NOTIF – CANCELLED due to parallel execution')
         check_and_save_event_id(context, 'finish')
         logging.info('script finished')
         return None
