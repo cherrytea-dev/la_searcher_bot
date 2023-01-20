@@ -14,6 +14,8 @@ geopy==2.2.0  # geocoding / coordinates
 SQLAlchemy==1.4.11
 pg8000==1.19.4  # PSQL driver
 
+natasha==1.4.0  # recognition of person and location within text string
+
 google-cloud-secret-manager==2.4.0
 google-cloud-storage==1.40.0
 google-cloud-pubsub==2.6.0
