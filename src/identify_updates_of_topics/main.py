@@ -1144,12 +1144,12 @@ def recognize_title(line):
                      avia=None,
                      per_num=None,
                      per_list=None, # noqa
-                     loc_list=None, # noqa
-                     # TODO - to be removed in prod
-                     map_level_1=None,
-                     map_level_2=None,
-                     map_level_3=None,
-                     map_level_4=None
+                     loc_list=None # noqa
+                     # for local debug only - to be removed in prod
+                     # map_level_1=None,
+                     # map_level_2=None,
+                     # map_level_3=None,
+                     # map_level_4=None
                      ):
             blocks_of_pers_and_locs, groups_of_pers_and_locs, per_list, loc_list = [], [], [], []
 
@@ -1165,10 +1165,10 @@ def recognize_title(line):
             self.per_num = per_num
             self.per_list = per_list
             self.loc_list = loc_list
-            self.m1 = map_level_1
-            self.m2 = map_level_2
-            self.m3 = map_level_3
-            self.m4 = map_level_4
+            # self.m1 = map_level_1
+            # self.m2 = map_level_2
+            # self.m3 = map_level_3
+            # self.m4 = map_level_4
 
         def __str__(self):
             return str([self.init, str(self.blocks)])
@@ -1304,7 +1304,7 @@ def recognize_title(line):
                 r'А-108|'
                 r'гора|лес\W|в лесу|лесной массив|парк|нац(иональный)?\W{0,2}парк|охотоугодья).*',
                 r'\W[гдспхоу]\.($|(?!(р\.|р,|,|р\)|р\W\)|р\.\)|\Wр\.?\)?)).*)',
-                r'\W(?<!\Wг\.)р\.\W.*',
+                r'\W(?<!\Wг\.)(?<!\dг\.)р\.\W.*',
                 r'\sг\s.*'
             ]
 
@@ -1499,7 +1499,8 @@ def recognize_title(line):
                     recognition.blocks = update_full_blocks_with_new(non_reco_block.block_num, recognition,
                                                                      recognized_blocks)
                     if recognition.act and recognized_activity and recognition.act != recognized_activity:
-                        # TODO - placeholder for logging
+                        logging.error(f'RARE CASE! recognized activity does not match: '
+                                      f'{recognition.act} != {recognized_activity}')
                         pass
                     if recognized_activity and not recognition.act:
                         recognition.act = recognized_activity
@@ -1663,7 +1664,8 @@ def recognize_title(line):
                                 pass
 
                             else:
-                                pass  # TODO - placeholder for logging
+                                logging.info(f'NEW RECO was not able to split per and loc for {string_to_split}')
+                                pass
 
                 if marker_final:
                     recognition = update_reco_with_per_and_loc_blocks(recognition, string_to_split, block, marker_final)
@@ -2460,6 +2462,20 @@ def parse(folder_id):
             try:
                 title_reco_dict, title_reco_object = recognize_title(search_title)
                 logging.info(f'TEMP – title_reco_dict = {title_reco_dict}')
+
+                # TODO - check if old exclusions are not better than new ones
+                if search_status_short == "не показываем" and 'activity' in title_reco_dict.keys() and \
+                        title_reco_dict['activity'] == 'search':
+                    logging.info(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
+                                 f"NEW = {title_reco_dict['activity'] == 'search'}")
+                    logging.error('ALARM!')
+                elif search_status_short != "не показываем" and \
+                        ('activity' not in title_reco_dict.keys() or
+                         'activity' in title_reco_dict.keys() and title_reco_dict['activity'] != 'search'):
+                    logging.info(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
+                                 f"NEW = {title_reco_dict}")
+                    logging.error('ALARM!')
+
             except Exception as e:
                 logging.error(e)
 
