@@ -307,6 +307,7 @@ def iterate_over_notifications(bot, script_start_time):
 
                 else:
                     result = 'cancelled_due_to_doubling'
+                    analytics_pre_sending_msg = datetime.datetime.now()
 
                 analytics_save_sql_start = datetime.datetime.now()
 
