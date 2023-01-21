@@ -2421,8 +2421,12 @@ def parse_one_folder(folder_id):
         search_code_blocks = soup.find_all('dl', 'row-item')
         del soup  # trying to free up memory
 
-        for i, data_block in enumerate(search_code_blocks, start=1):
+        for i, data_block in enumerate(search_code_blocks):
 
+            # First block is always not one we want
+            if i ==0:
+                continue
+                
             # Current block which contains everything regarding certain search
             # In rare cases there are aliases from other folders, which have static titles – and we're avoiding them
             if str(data_block).find('<dl class="row-item topic_moved">') > -1:
@@ -2691,13 +2695,13 @@ def update_change_log_and_searches(db, folder_num):
                         # TODO - to be removed
                         change_log_updates.append([curr_snapshot.parsed_time, curr_snapshot.topic_id,
                                                    'status_change', curr_snapshot.status, '', 1])
-                        change_log_line = ChangeLogLine()
-                        change_log_line.parsed_time = curr_snapshot.parsed_time
-                        change_log_line.topic_id = curr_snapshot.topic_id
-                        change_log_line.changed_field = 'status_change'
-                        change_log_line.new_value = curr_snapshot.status
-                        change_log_line.parameters = ''
-                        change_log_line.change_type = 1
+
+                        change_log_line = ChangeLogLine(parsed_time=curr_snapshot.parsed_time,
+                                                        topic_id=curr_snapshot.topic_id,
+                                                        changed_field='status_change',
+                                                        new_value=curr_snapshot.status,
+                                                        parameters='',
+                                                        change_type=1)
 
                         change_log_updates_list.append(change_log_line)
 
@@ -2706,13 +2710,12 @@ def update_change_log_and_searches(db, folder_num):
                         # TODO - to be removed
                         change_log_updates.append([snpsht[1], snpsht[0], 'title_change', snpsht[3], '', 2])
 
-                        change_log_line = ChangeLogLine()
-                        change_log_line.parsed_time = curr_snapshot.parsed_time
-                        change_log_line.topic_id = curr_snapshot.topic_id
-                        change_log_line.changed_field = 'title_change'
-                        change_log_line.new_value = curr_snapshot.title
-                        change_log_line.parameters = ''
-                        change_log_line.change_type = 2
+                        change_log_line = ChangeLogLine(parsed_time=curr_snapshot.parsed_time,
+                                                        topic_id=curr_snapshot.topic_id,
+                                                        changed_field='title_change',
+                                                        new_value=curr_snapshot.title,
+                                                        parameters='',
+                                                        change_type=2)
 
                         change_log_updates_list.append(change_log_line)
 
@@ -2730,13 +2733,12 @@ def update_change_log_and_searches(db, folder_num):
                         # TODO - to be removed
                         change_log_updates.append([snpsht[1], snpsht[0], 'replies_num_change', snpsht[6], '', 3])
 
-                        change_log_line = ChangeLogLine()
-                        change_log_line.parsed_time = curr_snapshot.parsed_time
-                        change_log_line.topic_id = curr_snapshot.topic_id
-                        change_log_line.changed_field = 'replies_num_change'
-                        change_log_line.new_value = curr_snapshot.num_of_replies
-                        change_log_line.parameters = ''
-                        change_log_line.change_type = 3
+                        change_log_line = ChangeLogLine(parsed_time=curr_snapshot.parsed_time,
+                                                        topic_id=curr_snapshot.topic_id,
+                                                        changed_field='replies_num_change',
+                                                        new_value=curr_snapshot.num_of_replies,
+                                                        parameters='',
+                                                        change_type=3)
 
                         change_log_updates_list.append(change_log_line)
 
@@ -2744,13 +2746,12 @@ def update_change_log_and_searches(db, folder_num):
                             if there_are_inforg_comments:
                                 change_log_updates.append([snpsht[1], snpsht[0], 'inforg_replies', snpsht[6], '', 4])
 
-                                change_log_line = ChangeLogLine()
-                                change_log_line.parsed_time = curr_snapshot.parsed_time
-                                change_log_line.topic_id = curr_snapshot.topic_id
-                                change_log_line.changed_field = 'inforg_replies'
-                                change_log_line.new_value = curr_snapshot.num_of_replies
-                                change_log_line.parameters = ''
-                                change_log_line.change_type = 4
+                                change_log_line = ChangeLogLine(parsed_time=curr_snapshot.parsed_time,
+                                                                topic_id=curr_snapshot.topic_id,
+                                                                changed_field='inforg_replies',
+                                                                new_value=curr_snapshot.num_of_replies,
+                                                                parameters='',
+                                                                change_type=4)
 
                                 change_log_updates_list.append(change_log_line)
 
