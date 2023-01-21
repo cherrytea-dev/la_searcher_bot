@@ -21,7 +21,6 @@ from google.cloud import pubsub_v1
 
 from natasha import Segmenter, NewsEmbedding, NewsNERTagger, Doc
 
-
 project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
 publisher = pubsub_v1.PublisherClient()
@@ -1136,15 +1135,15 @@ def recognize_title(line):
                      initial_title=None,
                      prettified_title=None,
                      recognised_data=None,
-                     blocks_of_pers_and_locs=None, # noqa
-                     groups_of_pers_and_locs=None, # noqa
+                     blocks_of_pers_and_locs=None,  # noqa
+                     groups_of_pers_and_locs=None,  # noqa
                      status=None,
                      training=None,
                      activity=None,
                      avia=None,
                      per_num=None,
-                     per_list=None, # noqa
-                     loc_list=None # noqa
+                     per_list=None,  # noqa
+                     loc_list=None  # noqa
                      # for local debug only - to be removed in prod
                      # map_level_1=None,
                      # map_level_2=None,
@@ -1190,11 +1189,11 @@ def recognize_title(line):
                 [r'^(\s{1,3}|])', ''],  # removes all unnecessary symbols in the beginning of the string
                 [r'[\s\[/\\(]{1,3}$', ''],  # removes all unnecessary symbols in the end of the string
                 # noinspection PyUnresolvedReferences
-                [r'([.,;:!?\s])\1+', r'\1'], # noqa
+                [r'([.,;:!?\s])\1+', r'\1'],  # noqa
                 # removes all duplicates in blank spaces or punctuation marks
                 [r'(?<!\d)\B(?=\d)', ' '],  # when and con  sequent number age typed w/o a space, example: word49
                 [r'(\[/?b]|\[?size\W?=\W?140]|\[/size])', ''],  # rare case with php formatting
-                [r'(?i)((?<=\d\Wлет\W)|(?<=\d\Wлет\W\W)|(?<=\d\Wгод\W)|(?<=\d\Wгод\W\W)|' 
+                [r'(?i)((?<=\d\Wлет\W)|(?<=\d\Wлет\W\W)|(?<=\d\Wгод\W)|(?<=\d\Wгод\W\W)|'
                  r'(?<=\d\Wгода\W)|(?<=\d\Wгода\W\W))\d{1,2}(?=,)', ''],  # case when '80 лет 80,' – last num is wrong
                 [r'(?i)без вести\s', ' '],  # rare case of 'пропал без вести'
                 [r'(?i)^ропал', 'Пропал'],  # specific case for one search
@@ -1866,7 +1865,7 @@ def recognize_title(line):
             if dashes_in_names:
                 letter_to_up = dashes_in_names.span()[0] + 2
                 d = person_reco.display_name
-                person_reco.display_name = f'{d[:letter_to_up]}{d[letter_to_up].capitalize()}{d[letter_to_up+1:]}'
+                person_reco.display_name = f'{d[:letter_to_up]}{d[letter_to_up].capitalize()}{d[letter_to_up + 1:]}'
 
             return person_reco
 
@@ -2109,7 +2108,7 @@ def recognize_title(line):
                     if final_pseudonym in {'дети', 'люди', 'подростки'}:
                         final_pseudonym = f'{final_pseudonym}{final_age_words}'
                     elif num_of_per_blocks == 1 and num_of_per_groups == 1:
-                        if not block.reco.age:   # added due to 5052
+                        if not block.reco.age:  # added due to 5052
                             final_pseudonym = block.reco.name
                     else:
                         final_pseudonym = f'{final_pseudonym} + {final_num_of_pers - first_group_num_of_pers} ' \
@@ -2130,7 +2129,6 @@ def recognize_title(line):
         for location in curr_recognition.groups:
 
             if location.type and location.type[0] == 'L':
-
                 location.reco = location.init
                 location.reco = re.sub(r'[,!?\s\-–—]{1,5}$', '', location.reco)
 
@@ -2405,8 +2403,8 @@ def recognize_title(line):
     return final_recognition_dict, recognition_result
 
 
-def parse(folder_id):
-    """key function to parse forum folders with searches' summaries"""
+def parse_one_folder(folder_id):
+    """parse forum folder with searches' summaries"""
 
     global requests_session
 
@@ -2423,11 +2421,9 @@ def parse(folder_id):
         search_code_blocks = soup.find_all('dl', 'row-item')
         del soup  # trying to free up memory
 
-        for i in range(len(search_code_blocks) - 1):
+        for i, data_block in enumerate(search_code_blocks, start=1):
 
             # Current block which contains everything regarding certain search
-            data_block = search_code_blocks[i + 1]
-
             # In rare cases there are aliases from other folders, which have static titles – and we're avoiding them
             if str(data_block).find('<dl class="row-item topic_moved">') > -1:
                 continue
@@ -2598,8 +2594,60 @@ def parse_one_comment(db, search_num, comment_num):
     return there_are_inforg_comments
 
 
-def process_delta(db, folder_num):
+def update_change_log_and_searches(db, folder_num):
     """update of SQL tables 'searches' and 'change_log' on the changes vs previous parse"""
+
+    class ChangeLogLine:
+
+        def __init__(self,
+                     parsed_time=None,
+                     topic_id=None,
+                     changed_field=None,
+                     new_value=None,
+                     parameters=None,
+                     change_type=None
+                     ):
+            self.parsed_time = parsed_time
+            self.topic_id = topic_id
+            self.changed_field = changed_field
+            self.new_value = new_value
+            self.parameters = parameters
+            self.change_type = change_type
+
+    class SearchesTableLine:
+
+        def __init__(self,
+                     topic_id=None,
+                     parsed_time=None,
+                     status=None,
+                     title=None,
+                     link=None,
+                     start_time=None,
+                     num_of_replies=None,
+                     display_name=None,
+                     age=None,
+                     searches_table_id=None,
+                     folder_id=None,
+                     age_max=None,
+                     age_min=None,
+                     num_of_persons=None,
+                     full_dict=None
+                     ):
+            self.topic_id = topic_id
+            self.parsed_time = parsed_time
+            self.status = status
+            self.title = title
+            self.link = link
+            self.start_time = start_time
+            self.num_of_replies = num_of_replies
+            self.display_name = display_name
+            self.age = age
+            self.id = searches_table_id
+            self.folder_id = folder_id
+            self.age_max = age_max
+            self.age_min = age_min
+            self.num_of_persons = num_of_persons
+            self.full_dict = full_dict
 
     # DEBUG - function execution time counter
     func_start = datetime.now()
@@ -2620,37 +2668,125 @@ def process_delta(db, folder_num):
 
         '''1. move UPD to Change Log'''
         change_log_updates = []
+        change_log_updates_list = []
         there_are_inforg_comments = False
         for line in snapshot:
             snpsht = list(line)
-            for j in range(len(searches_full_list)):
-                srchs = list(searches_full_list[j])
-                if snpsht[0] == srchs[0]:
-                    if snpsht[2] != srchs[2]:
-                        change_log_updates.append([snpsht[1], snpsht[0], 'status_change', snpsht[2], '', 1])
-                    if snpsht[3] != srchs[3]:
+            curr_snapshot = SearchesTableLine()
+            curr_snapshot.topic_id, curr_snapshot.parsed_time, curr_snapshot.status, curr_snapshot.title, \
+                curr_snapshot.link, curr_snapshot.start_time, curr_snapshot.num_of_replies, \
+                curr_snapshot.display_name, curr_snapshot.age, curr_snapshot.id, curr_snapshot.folder_id = list(line)
+
+            for searches_line in searches_full_list:
+
+                srchs = list(searches_line)
+                search = SearchesTableLine()
+                search.topic_id, search.parsed_time, search.status, search.title, \
+                    search.link, search.start_time, search.num_of_replies, \
+                    search.display_name, search.age, search.id, search.folder_id = list(searches_line)
+
+                if curr_snapshot.topic_id == search.topic_id:
+                    if curr_snapshot.status != search.status:
+
+                        # TODO - to be removed
+                        change_log_updates.append([curr_snapshot.parsed_time, curr_snapshot.topic_id,
+                                                   'status_change', curr_snapshot.status, '', 1])
+                        change_log_line = ChangeLogLine()
+                        change_log_line.parsed_time = curr_snapshot.parsed_time
+                        change_log_line.topic_id = curr_snapshot.topic_id
+                        change_log_line.changed_field = 'status_change'
+                        change_log_line.new_value = curr_snapshot.status
+                        change_log_line.parameters = ''
+                        change_log_line.change_type = 1
+
+                        change_log_updates_list.append(change_log_line)
+
+                    if curr_snapshot.title != search.title:
+
+                        # TODO - to be removed
                         change_log_updates.append([snpsht[1], snpsht[0], 'title_change', snpsht[3], '', 2])
-                    # in case of number of COMMENTS changes
-                    if int(snpsht[6]) > int(srchs[6]):
+
+                        change_log_line = ChangeLogLine()
+                        change_log_line.parsed_time = curr_snapshot.parsed_time
+                        change_log_line.topic_id = curr_snapshot.topic_id
+                        change_log_line.changed_field = 'title_change'
+                        change_log_line.new_value = curr_snapshot.title
+                        change_log_line.parameters = ''
+                        change_log_line.change_type = 2
+
+                        change_log_updates_list.append(change_log_line)
+
+                    if int(curr_snapshot.num_of_replies) > int(search.num_of_replies):
+
+                        # FIXME – temp debug
+                        logging.info(f'TEMP - type of num_of_com {type(curr_snapshot.num_of_replies)}, '
+                                     f'{type(search.num_of_replies)}')
+
                         for k in range(snpsht[6] - srchs[6]):
                             flag_if_comment_was_from_inforg = parse_one_comment(db, snpsht[0], int(srchs[6]) + 1 + k)
                             if flag_if_comment_was_from_inforg:
                                 there_are_inforg_comments = True
+
+                        # TODO - to be removed
                         change_log_updates.append([snpsht[1], snpsht[0], 'replies_num_change', snpsht[6], '', 3])
+
+                        change_log_line = ChangeLogLine()
+                        change_log_line.parsed_time = curr_snapshot.parsed_time
+                        change_log_line.topic_id = curr_snapshot.topic_id
+                        change_log_line.changed_field = 'replies_num_change'
+                        change_log_line.new_value = curr_snapshot.num_of_replies
+                        change_log_line.parameters = ''
+                        change_log_line.change_type = 3
+
+                        change_log_updates_list.append(change_log_line)
 
                         try:
                             if there_are_inforg_comments:
                                 change_log_updates.append([snpsht[1], snpsht[0], 'inforg_replies', snpsht[6], '', 4])
+
+                                change_log_line = ChangeLogLine()
+                                change_log_line.parsed_time = curr_snapshot.parsed_time
+                                change_log_line.topic_id = curr_snapshot.topic_id
+                                change_log_line.changed_field = 'inforg_replies'
+                                change_log_line.new_value = curr_snapshot.num_of_replies
+                                change_log_line.parameters = ''
+                                change_log_line.change_type = 4
+
+                                change_log_updates_list.append(change_log_line)
+
                         except Exception as e:
                             logging.info('DBG.P.58:' + repr(e))
         if change_log_updates:
+
+            # FIXME – temp check
+            logging.info(f'length of old {len(change_log_updates)}, length on new {len(change_log_updates_list)}')
+            notify_admin(f'length of old {len(change_log_updates)}, length on new {len(change_log_updates_list)}')
+
+            try:
+                for m in range(len(change_log_updates)):
+                    if change_log_updates[m][2] == change_log_updates_list[m].changed_field and \
+                            change_log_updates[m][3] == change_log_updates_list[m].new_value:
+                        logging.info(f'TEMP - comp is OK!')
+                        notify_admin(f'TEMP - comp is OK!')
+                    else:
+                        logging.info(f'TEMP - NOK comp {change_log_updates[m][2]} and '
+                                     f'{change_log_updates_list[m].changed_field}')
+                        logging.info(
+                            f'TEMP - NOK comp {change_log_updates[m][3]} and {change_log_updates_list[m].new_value}')
+                        notify_admin(f'TEMP - comp is NOK!')
+            except Exception as e:
+                logging.error(e)
+            # FIXME – temp check ^^^
+
+
+
+
             stmt = sqlalchemy.text(
                 """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters, 
                 change_type) values (:a, :b, :c, :d, :e, :f); """
             )
-            for i in range(len(change_log_updates)):
-                conn.execute(stmt, a=change_log_updates[i][0], b=change_log_updates[i][1], c=change_log_updates[i][2],
-                             d=change_log_updates[i][3], e=change_log_updates[i][4], f=change_log_updates[i][5])
+            for line in change_log_updates:
+                conn.execute(stmt, a=line[0], b=line[1], c=line[2], d=line[3], e=line[4], f=line[5])
 
         '''2. move ADD to Change Log '''
         new_searches_from_snapshot = []
@@ -2819,50 +2955,44 @@ def rewrite_snapshot_in_sql(db, parsed_summary, folder_num):
 
 
 def process_one_folder(db, folder_to_parse):
-    """processes on forum folder: check for updates, upload them into cloud sql"""
+    """process one forum folder: check for updates, upload them into cloud sql"""
 
     # parse a new version of summary page from the chosen folder
-    parsed_summary = parse(folder_to_parse)
-    logging.info('parsing of ' + str(folder_to_parse))
-    logging.info(str(parsed_summary[0]))
+    parsed_folder_summary = parse_one_folder(folder_to_parse)
+    logging.info(f'folder {folder_to_parse} parse with summary: {parsed_folder_summary[0]}')
 
     update_trigger = ''
     debug_message = ''
 
     # make comparison, record it in PSQL
-    if parsed_summary[0]:
+    if parsed_folder_summary[0]:
 
         # transform the current snapshot into the string to be able to compare it: string vs string
-        prep_for_curr_snapshot_as_string = [y for x in parsed_summary[1] for y in x]
+        prep_for_curr_snapshot_as_string = [y for x in parsed_folder_summary[1] for y in x]
         curr_snapshot_as_string = ','.join(map(str, prep_for_curr_snapshot_as_string))
 
         # get the prev snapshot as string from cloud storage & get the trigger if there are updates at all
         update_trigger, prev_snapshot_as_string = update_checker(curr_snapshot_as_string, folder_to_parse)
 
-        try:
-            logging.info('update trigger: ' + str(update_trigger))
-            logging.info('prev snapshot: ' + str(prev_snapshot_as_string))
-        except:  # noqa
-            logging.info('we are printing an exception')
+        logging.info(f'update trigger: {update_trigger}')
+        logging.info(f'prev snapshot: {prev_snapshot_as_string}')
 
         # only for case when current snapshot differs from previous
         if update_trigger == "yes":
-            debug_message = 'DBG.P.2.folder ' + str(folder_to_parse) + ' YES - UPDATE\n' + debug_message
+            debug_message = f'there is an update in folder {folder_to_parse}\n{debug_message}'
 
-            rewrite_snapshot_in_sql(db, parsed_summary, folder_to_parse)
+            rewrite_snapshot_in_sql(db, parsed_folder_summary, folder_to_parse)
 
-            """DEBUG"""
-            logging.info('starting "process_delta" for folder' + str(folder_to_parse))
-            """DEBUG"""
+            logging.info(f'starting "process_delta" for folder {folder_to_parse}')
 
-            process_delta(db, folder_to_parse)
-            update_coordinates(db, parsed_summary[0])
+            update_change_log_and_searches(db, folder_to_parse)
+            update_coordinates(db, parsed_folder_summary[0])
 
         else:
-            debug_message = 'DBG.P.2.folder ' + str(folder_to_parse) + ' NO - UPDATE\n' + debug_message
+            debug_message = f'there is NO update in folder {folder_to_parse}\n{debug_message}'
     logging.info(debug_message)
 
-    return update_trigger, debug_message
+    return update_trigger
 
 
 def get_the_list_of_ignored_folders(db):
@@ -2919,7 +3049,7 @@ def main(event, context):  # noqa
 
             logging.info(f'start checking if folder {folder} has any updates')
 
-            update_trigger, debug_message = process_one_folder(db, folder)
+            update_trigger = process_one_folder(db, folder)
 
             if update_trigger == 'yes':
                 list_of_folders_with_updates.append(folder)
