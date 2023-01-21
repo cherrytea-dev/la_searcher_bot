@@ -2669,7 +2669,7 @@ def update_change_log_and_searches(db, folder_num):
             snapshot_line = SearchesTableLine()
             snapshot_line.topic_id, snapshot_line.parsed_time, snapshot_line.status, snapshot_line.title, \
                 snapshot_line.link, snapshot_line.start_time, snapshot_line.num_of_replies, \
-                snapshot_line.display_name, snapshot_line.age, snapshot_line.id, snapshot_line.folder_id = list(line)
+                snapshot_line.id, snapshot_line.age, snapshot_line.display_name, snapshot_line.folder_id = list(line)
             curr_snapshot_list.append(snapshot_line)
 
         # TODO - in future: should the number of searches be limited? Probably to JOIN change_log and WHERE folder=...
@@ -2730,8 +2730,6 @@ def update_change_log_and_searches(db, folder_num):
                         for k in range(snapshot_line.num_of_replies - searches_line.num_of_replies):
                             flag_if_comment_was_from_inforg = parse_one_comment(db, snapshot_line.topic_id,
                                                                                 searches_line.num_of_replies + 1 + k)
-                            # FIXME - to delete
-                            notify_admin(f'we passed this step successfully')
                             if flag_if_comment_was_from_inforg:
                                 there_are_inforg_comments = True
 
