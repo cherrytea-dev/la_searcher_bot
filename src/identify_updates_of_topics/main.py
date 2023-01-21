@@ -2730,6 +2730,8 @@ def update_change_log_and_searches(db, folder_num):
                         for k in range(snapshot_line.num_of_replies - searches_line.num_of_replies):
                             flag_if_comment_was_from_inforg = parse_one_comment(db, snapshot_line.num_of_replies,
                                                                                 int(searches_line.num_of_replies) + 1 + k)
+                            # FIXME - to delete
+                            notify_admin(f'we passed this step successfully')
                             if flag_if_comment_was_from_inforg:
                                 there_are_inforg_comments = True
 
