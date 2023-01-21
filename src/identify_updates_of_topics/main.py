@@ -2424,7 +2424,7 @@ def parse_one_folder(folder_id):
         for i, data_block in enumerate(search_code_blocks):
 
             # First block is always not one we want
-            if i ==0:
+            if i == 0:
                 continue
 
             # Current block which contains everything regarding certain search
@@ -2664,134 +2664,114 @@ def update_change_log_and_searches(db, folder_num):
             forum_folder_id = :a; """
         )
         snapshot = conn.execute(sql_text, a=folder_num).fetchall()
+        curr_snapshot_list = []
+        for line in snapshot:
+            snapshot_line = SearchesTableLine()
+            snapshot_line.topic_id, snapshot_line.parsed_time, snapshot_line.status, snapshot_line.title, \
+                snapshot_line.link, snapshot_line.start_time, snapshot_line.num_of_replies, \
+                snapshot_line.display_name, snapshot_line.age, snapshot_line.id, snapshot_line.folder_id = list(line)
+            curr_snapshot_list.append(snapshot_line)
 
+        # TODO - in future: should the number of searches be limited? Probably to JOIN change_log and WHERE folder=...
         searches_full_list = conn.execute(
             """SELECT search_forum_num, parsed_time, status_short, forum_search_title, cut_link, search_start_time, 
             num_of_replies, family_name, age, id, forum_folder_id FROM searches;"""
         ).fetchall()
+        prev_searches_list = []
+        for searches_line in searches_full_list:
+            search = SearchesTableLine()
+            search.topic_id, search.parsed_time, search.status, search.title, \
+                search.link, search.start_time, search.num_of_replies, \
+                search.display_name, search.age, search.id, search.folder_id = list(searches_line)
+            prev_searches_list.append(search)
 
         '''1. move UPD to Change Log'''
-        change_log_updates = []
+        # change_log_updates = []
         change_log_updates_list = []
         there_are_inforg_comments = False
-        for line in snapshot:
-            snpsht = list(line)
-            curr_snapshot = SearchesTableLine()
-            curr_snapshot.topic_id, curr_snapshot.parsed_time, curr_snapshot.status, curr_snapshot.title, \
-                curr_snapshot.link, curr_snapshot.start_time, curr_snapshot.num_of_replies, \
-                curr_snapshot.display_name, curr_snapshot.age, curr_snapshot.id, curr_snapshot.folder_id = list(line)
 
-            for searches_line in searches_full_list:
+        for snapshot_line in curr_snapshot_list:
+            for searches_line in prev_searches_list:
 
-                srchs = list(searches_line)
-                search = SearchesTableLine()
-                search.topic_id, search.parsed_time, search.status, search.title, \
-                    search.link, search.start_time, search.num_of_replies, \
-                    search.display_name, search.age, search.id, search.folder_id = list(searches_line)
+                if snapshot_line.topic_id == searches_line.topic_id:
+                    if snapshot_line.status != searches_line.status:
 
-                if curr_snapshot.topic_id == search.topic_id:
-                    if curr_snapshot.status != search.status:
-
-                        # TODO - to be removed
-                        change_log_updates.append([curr_snapshot.parsed_time, curr_snapshot.topic_id,
-                                                   'status_change', curr_snapshot.status, '', 1])
-
-                        change_log_line = ChangeLogLine(parsed_time=curr_snapshot.parsed_time,
-                                                        topic_id=curr_snapshot.topic_id,
+                        change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
+                                                        topic_id=snapshot_line.topic_id,
                                                         changed_field='status_change',
-                                                        new_value=curr_snapshot.status,
+                                                        new_value=snapshot_line.status,
                                                         parameters='',
                                                         change_type=1)
 
                         change_log_updates_list.append(change_log_line)
 
-                    if curr_snapshot.title != search.title:
+                    if snapshot_line.title != searches_line.title:
 
-                        # TODO - to be removed
-                        change_log_updates.append([snpsht[1], snpsht[0], 'title_change', snpsht[3], '', 2])
-
-                        change_log_line = ChangeLogLine(parsed_time=curr_snapshot.parsed_time,
-                                                        topic_id=curr_snapshot.topic_id,
+                        change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
+                                                        topic_id=snapshot_line.topic_id,
                                                         changed_field='title_change',
-                                                        new_value=curr_snapshot.title,
+                                                        new_value=snapshot_line.title,
                                                         parameters='',
                                                         change_type=2)
 
                         change_log_updates_list.append(change_log_line)
 
-                    if int(curr_snapshot.num_of_replies) > int(search.num_of_replies):
+                    if snapshot_line.num_of_replies > searches_line.num_of_replies:
 
-                        # FIXME – temp debug
-                        logging.info(f'TEMP - type of num_of_com {type(curr_snapshot.num_of_replies)}, '
-                                     f'{type(search.num_of_replies)}')
-
-                        for k in range(snpsht[6] - srchs[6]):
-                            flag_if_comment_was_from_inforg = parse_one_comment(db, snpsht[0], int(srchs[6]) + 1 + k)
-                            if flag_if_comment_was_from_inforg:
-                                there_are_inforg_comments = True
-
-                        # TODO - to be removed
-                        change_log_updates.append([snpsht[1], snpsht[0], 'replies_num_change', snpsht[6], '', 3])
-
-                        change_log_line = ChangeLogLine(parsed_time=curr_snapshot.parsed_time,
-                                                        topic_id=curr_snapshot.topic_id,
+                        change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
+                                                        topic_id=snapshot_line.topic_id,
                                                         changed_field='replies_num_change',
-                                                        new_value=curr_snapshot.num_of_replies,
+                                                        new_value=snapshot_line.num_of_replies,
                                                         parameters='',
                                                         change_type=3)
 
                         change_log_updates_list.append(change_log_line)
 
-                        try:
-                            if there_are_inforg_comments:
-                                change_log_updates.append([snpsht[1], snpsht[0], 'inforg_replies', snpsht[6], '', 4])
+                        for k in range(snapshot_line.num_of_replies - searches_line.num_of_replies):
+                            flag_if_comment_was_from_inforg = parse_one_comment(db, snapshot_line.topic_id,
+                                                                                searches_line.num_of_replies + 1 + k)
+                            # FIXME - to delete
+                            notify_admin(f'we passed this step successfully')
+                            if flag_if_comment_was_from_inforg:
+                                there_are_inforg_comments = True
 
-                                change_log_line = ChangeLogLine(parsed_time=curr_snapshot.parsed_time,
-                                                                topic_id=curr_snapshot.topic_id,
-                                                                changed_field='inforg_replies',
-                                                                new_value=curr_snapshot.num_of_replies,
-                                                                parameters='',
-                                                                change_type=4)
+                        if there_are_inforg_comments:
 
-                                change_log_updates_list.append(change_log_line)
+                            change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
+                                                            topic_id=snapshot_line.topic_id,
+                                                            changed_field='inforg_replies',
+                                                            new_value=snapshot_line.num_of_replies,
+                                                            parameters='',
+                                                            change_type=4)
 
-                        except Exception as e:
-                            logging.info('DBG.P.58:' + repr(e))
-        if change_log_updates:
+                            change_log_updates_list.append(change_log_line)
 
-            # FIXME – temp check
-            logging.info(f'length of old {len(change_log_updates)}, length on new {len(change_log_updates_list)}')
-            notify_admin(f'length of old {len(change_log_updates)}, length on new {len(change_log_updates_list)}')
-
-            try:
-                for m in range(len(change_log_updates)):
-                    if change_log_updates[m][2] == change_log_updates_list[m].changed_field and \
-                            change_log_updates[m][3] == change_log_updates_list[m].new_value:
-                        logging.info(f'TEMP - comp is OK!')
-                        notify_admin(f'TEMP - comp is OK!')
-                    else:
-                        logging.info(f'TEMP - NOK comp {change_log_updates[m][2]} and '
-                                     f'{change_log_updates_list[m].changed_field}')
-                        logging.info(
-                            f'TEMP - NOK comp {change_log_updates[m][3]} and {change_log_updates_list[m].new_value}')
-                        notify_admin(f'TEMP - comp is NOK!')
-            except Exception as e:
-                logging.error(e)
-            # FIXME – temp check ^^^
-
-
-
+        if change_log_updates_list:
 
             stmt = sqlalchemy.text(
                 """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters, 
                 change_type) values (:a, :b, :c, :d, :e, :f); """
             )
-            for line in change_log_updates:
-                conn.execute(stmt, a=line[0], b=line[1], c=line[2], d=line[3], e=line[4], f=line[5])
+
+            for l in change_log_updates_list:
+                conn.execute(stmt, a=l.parsed_time, b=l.topic_id, c=l.changed_field, d=l.new_value,
+                             e=l.parameters, f=l.change_type)
 
         '''2. move ADD to Change Log '''
-        new_searches_from_snapshot = []
-        for i in range(len(snapshot)):
+        # new_searches_from_snapshot = []
+        new_searches_from_snapshot_list = []
+
+        for snapshot_line in curr_snapshot_list:
+            new_search_flag = 1
+            for searches_line in prev_searches_list:
+                if snapshot_line.topic_id == searches_line.topic_id:
+                    new_search_flag = 0
+                    break
+
+            if new_search_flag == 1:
+                new_searches_from_snapshot_list.append(snapshot_line)
+
+        """for i in range(len(snapshot)):
             new_search_flag = 1
             for j in range(len(searches_full_list)):
                 if snapshot[i][0] == searches_full_list[j][0]:
@@ -2801,43 +2781,60 @@ def update_change_log_and_searches(db, folder_num):
             if new_search_flag == 1:
                 new_searches_from_snapshot.append(
                     [snapshot[i][0], snapshot[i][1], snapshot[i][2], snapshot[i][3], snapshot[i][4], snapshot[i][5],
-                     snapshot[i][6], snapshot[i][8], snapshot[i][9], snapshot[i][10]])
+                     snapshot[i][6], snapshot[i][8], snapshot[i][9], snapshot[i][10]])"""
 
-        change_log_new_searches = []
-        for i in range(len(new_searches_from_snapshot)):
-            change_log_new_searches.append(
-                [new_searches_from_snapshot[i][1], new_searches_from_snapshot[i][0],
-                 "new_search", new_searches_from_snapshot[i][3], 0])
-        if change_log_new_searches:
+        # change_log_new_searches = []
+        change_log_new_searches_list = []
+
+        for snapshot_line in new_searches_from_snapshot_list:
+            change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
+                                            topic_id=snapshot_line.topic_id,
+                                            changed_field='new_search',
+                                            new_value=snapshot_line.title,
+                                            parameters='',
+                                            change_type=0)
+            change_log_new_searches_list.append(change_log_line)
+
+        if change_log_new_searches_list:
             stmt = sqlalchemy.text(
                 """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type) 
                 values (:a, :b, :c, :d, :e);"""
             )
+            for l in change_log_new_searches_list:
+                conn.execute(stmt, a=l.parsed_time, b=l.topic_id, c=l.changed_field, d=l.new_value, e=l.change_type)
+
+        """for i in range(len(new_searches_from_snapshot)):
+            change_log_new_searches.append(
+                [new_searches_from_snapshot[i][1], new_searches_from_snapshot[i][0],
+                 "new_search", new_searches_from_snapshot[i][3], 0])
+            
+        if change_log_new_searches:
+            stmt = sqlalchemy.text(
+                INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type) 
+                values (:a, :b, :c, :d, :e);
+            )
             for i in range(len(change_log_new_searches)):
                 conn.execute(stmt, a=change_log_new_searches[i][0], b=change_log_new_searches[i][1],
                              c=change_log_new_searches[i][2], d=change_log_new_searches[i][3],
-                             e=change_log_new_searches[i][4])
+                             e=change_log_new_searches[i][4])"""
 
         '''3. ADD to Searches'''
-        if new_searches_from_snapshot:
+        if new_searches_from_snapshot_list:
             stmt = sqlalchemy.text(
                 """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, cut_link, 
                 search_start_time, num_of_replies, age, family_name, forum_folder_id) values (:a, :b, :c, :d, :e, :f, 
                 :g, :h, :i, :j); """
             )
-            for i in range(len(new_searches_from_snapshot)):
-                conn.execute(stmt, a=new_searches_from_snapshot[i][0], b=new_searches_from_snapshot[i][1],
-                             c=new_searches_from_snapshot[i][2], d=new_searches_from_snapshot[i][3],
-                             e=new_searches_from_snapshot[i][4], f=new_searches_from_snapshot[i][5],
-                             g=new_searches_from_snapshot[i][6], h=new_searches_from_snapshot[i][7],
-                             i=new_searches_from_snapshot[i][8], j=new_searches_from_snapshot[i][9])
+            for l in new_searches_from_snapshot_list:
+                conn.execute(stmt, a=l.topic_id, b=l.parsed_time, c=l.status, d=l.title, e=l.link, f=l.start_time,
+                             g=l.num_of_replies, h=l.age, i=l.display_name, j=l.folder_id)
 
-                search_num = new_searches_from_snapshot[i][0]
+                search_num = l.topic_id
 
                 parsed_profile_text = parse_search_profile(search_num)
                 search_activities = profile_get_type_of_activity(parsed_profile_text)
 
-                logging.info('DBG.P.103:Search activities:' + str(search_activities))
+                logging.info(f'DBG.P.103:Search activities: {search_activities}')
 
                 # mark all old activities as deactivated
                 sql_text = sqlalchemy.text(
@@ -2846,17 +2843,17 @@ def update_change_log_and_searches(db, folder_num):
                 conn.execute(sql_text, a=search_num)
 
                 # add the latest activities for the search
-                for j in range(len(search_activities)):
+                for activity_line in search_activities:
                     sql_text = sqlalchemy.text(
                         """INSERT INTO search_activities (search_forum_num, activity_type, activity_status, 
                         timestamp) values ( :a, :b, :c, :d); """
                     )
-                    conn.execute(sql_text, a=search_num, b=search_activities[j], c='ongoing', d=datetime.now())
+                    conn.execute(sql_text, a=search_num, b=activity_line, c='ongoing', d=datetime.now())
 
                 # Define managers of the search
                 managers = profile_get_managers(parsed_profile_text)
 
-                logging.info('DBG.P.104:Managers:' + str(managers))
+                logging.info(f'DBG.P.104:Managers: {managers}')
 
                 if managers:
                     try:
@@ -2866,12 +2863,30 @@ def update_change_log_and_searches(db, folder_num):
                         )
                         conn.execute(sql_text, a=search_num, b='managers', c=str(managers), d=datetime.now())
                     except Exception as e:
-                        logging.info('DBG.P.104:' + repr(e))
+                        logging.exception(e)
 
         '''4 DEL UPD from Searches'''
-        delete_lines_from_summary = []
+        # delete_lines_from_summary = []
+        delete_lines_from_summary_list = []
 
-        for i in range(len(snapshot)):
+        for snapshot_line in curr_snapshot_list:
+            for searches_line in prev_searches_list:
+                if snapshot_line.topic_id == searches_line.topic_id:
+                    # search_forum_num, parsed_time, status_short, forum_search_title, cut_link, search_start_time,
+                    #             num_of_replies, id, age, family_name, forum_folder_id
+                    if snapshot_line.status != searches_line.status or \
+                            snapshot_line.title != searches_line.title or \
+                            snapshot_line.num_of_replies != searches_line.num_of_replies:
+                        delete_lines_from_summary_list.append(snapshot_line)
+
+        if delete_lines_from_summary_list:
+            stmt = sqlalchemy.text(
+                """DELETE FROM searches WHERE search_forum_num=:a;"""
+            )
+            for l in delete_lines_from_summary_list:
+                conn.execute(stmt, a=int(l.topic_id))
+
+        """for i in range(len(snapshot)):
             snpsht = list(snapshot[i])
             for j in range(len(searches_full_list)):
                 srchs = list(searches_full_list[j])
@@ -2884,16 +2899,44 @@ def update_change_log_and_searches(db, folder_num):
                 "DELETE FROM searches WHERE search_forum_num=:a;"
             )
             for i in range(len(delete_lines_from_summary)):
-                conn.execute(stmt, a=int(delete_lines_from_summary[i]))
+                conn.execute(stmt, a=int(delete_lines_from_summary[i]))"""
 
         '''5. UPD added to Searches'''
         searches_full_list = conn.execute(
             """SELECT search_forum_num, parsed_time, status_short, forum_search_title, cut_link, search_start_time, 
             num_of_replies, family_name, age, id, forum_folder_id FROM searches;"""
         ).fetchall()
+        curr_searches_list = []
+        for searches_line in searches_full_list:
+            search = SearchesTableLine()
+            search.topic_id, search.parsed_time, search.status, search.title, \
+                search.link, search.start_time, search.num_of_replies, \
+                search.display_name, search.age, search.id, search.folder_id = list(searches_line)
+            curr_searches_list.append(search)
 
-        new_searches_from_snapshot = []
-        for i in range(len(snapshot)):
+        # new_searches_from_snapshot = []
+        new_searches_from_snapshot_list = []
+
+        for snapshot_line in curr_snapshot_list:
+            new_search_flag = 1
+            for searches_line in curr_searches_list:
+                if snapshot_line.topic_id == searches_line.topic_id:
+                    new_search_flag = 0
+                    break
+            if new_search_flag == 1:
+                new_searches_from_snapshot_list.append(snapshot_line)
+        if new_searches_from_snapshot_list:
+            stmt = sqlalchemy.text(
+                """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, cut_link, 
+                search_start_time, num_of_replies, age, family_name, forum_folder_id) values (:a, :b, :c, :d, :e, :f, 
+                :g, :h, :i, :j); """
+
+            )
+            for l in new_searches_from_snapshot_list:
+                conn.execute(stmt, a=l.topic_id, b=l.parsed_time, c=l.status, d=l.title, e=l.link, f=l.start_time,
+                             g=l.num_of_replies, h=l.age, i=l.display_name, j=l.folder_id)
+
+        """for i in range(len(snapshot)):
             snpsht = list(snapshot[i])
             new_search_flag = 1
             for j in range(len(searches_full_list)):
@@ -2907,9 +2950,9 @@ def update_change_log_and_searches(db, folder_num):
                      snpsht[10]])
         if new_searches_from_snapshot:
             stmt = sqlalchemy.text(
-                """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, cut_link, 
+                "INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, cut_link, 
                 search_start_time, num_of_replies, age, family_name, forum_folder_id) values (:a, :b, :c, :d, :e, :f, 
-                :g, :h, :i, :j); """
+                :g, :h, :i, :j); "
 
             )
             for i in range(len(new_searches_from_snapshot)):
@@ -2917,14 +2960,14 @@ def update_change_log_and_searches(db, folder_num):
                              c=new_searches_from_snapshot[i][2], d=new_searches_from_snapshot[i][3],
                              e=new_searches_from_snapshot[i][4], f=new_searches_from_snapshot[i][5],
                              g=new_searches_from_snapshot[i][6], h=new_searches_from_snapshot[i][7],
-                             i=new_searches_from_snapshot[i][8], j=new_searches_from_snapshot[i][9])
+                             i=new_searches_from_snapshot[i][8], j=new_searches_from_snapshot[i][9])"""
 
         conn.close()
 
     # DEBUG - function execution time counter
     func_finish = datetime.now()
     func_execution_time_ms = func_finish - func_start
-    logging.info('DBG.P.5.process_delta() exec time:' + str(func_execution_time_ms))
+    logging.info(f'DBG.P.5.process_delta() exec time: {func_execution_time_ms}')
     # DEBUG - function execution time counter
 
     return None
