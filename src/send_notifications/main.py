@@ -276,11 +276,11 @@ def iterate_over_notifications(bot, script_start_time):
 
             if message_to_send:
                 doubling_trigger = message_to_send[11]
+                message_id = message_to_send[0]
 
                 if doubling_trigger == 'no_doubling':
 
                     user_id = message_to_send[1]
-                    message_id = message_to_send[0]
                     message_type = message_to_send[6]
                     message_params = ast.literal_eval(message_to_send[7]) if message_to_send[7] else {}
 
