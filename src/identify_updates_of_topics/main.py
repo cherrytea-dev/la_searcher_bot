@@ -2544,6 +2544,7 @@ def parse_one_folder(folder_id):
                     try:
                         search_summary_object.topic_type = title_reco_dict['topic_type']
                         if 'persons' in title_reco_dict.keys():
+                            print(f"TEMP - {title_reco_dict['persons']}")
                             if 'total_display_name' in title_reco_dict['persons']:
                                 search_summary_object.display_name = title_reco_dict['persons']['total_display_name']
                             if 'total_age_min' in title_reco_dict['persons']:
@@ -2990,7 +2991,7 @@ def rewrite_snapshot_in_sql(db, parsed_summary, folder_num, new_folder_summary):
             # FIXME ^^^ change to real inputs for k,l,m,n"""
 
         for line in new_folder_summary:
-            conn.execute(sql_text, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title, e='',
+            conn.execute(sql_text, a=line.topic_id, b=line.time_now, c=line.status, d=line.title, e='',
                          f=line.start_time, g=line.num_of_replies, h=line.age, i=line.name, j=line.folder_id,
                          k=line.topic_type, l=line.display_name, m=line.age_min, n=line.age_max)
 
