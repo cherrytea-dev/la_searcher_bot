@@ -810,7 +810,9 @@ def update_checker(current_hash, folder_num):
 
         update_trigger = True
 
-    return update_trigger, previous_hash
+    logging.info(f'folder = {folder_num}, update trigger = {update_trigger}, prev snapshot as string = {previous_hash}')
+
+    return update_trigger
 
 
 def define_family_name_from_search_title_new(title):
@@ -2473,11 +2475,11 @@ def parse_one_folder(folder_id):
             if i == 0:
                 continue
 
-            # Current block which contains everything regarding certain search
             # In rare cases there are aliases from other folders, which have static titles – and we're avoiding them
             if str(data_block).find('<dl class="row-item topic_moved">') > -1:
                 continue
 
+            # Current block which contains everything regarding certain search
             search_title_block = data_block.find('a', 'topictitle')
             search_long_link = search_title_block['href'][1:]
 
@@ -2501,14 +2503,15 @@ def parse_one_folder(folder_id):
             print(f'TEMP - LONG_LINK = {search_long_link}')
             try:
                 # language=regexp
-                re_search_id = int(re.search(r'(?<=&t=)\d{2,8}', search_title_block).group())
+                re_search_id = int(re.search(r'(?<=&t=)\d{2,8}', search_long_link).group())
                 print(f'TEMP - ALT SEARCH ID = {re_search_id}, and search_id = {search_id}')
                 if search_id == re_search_id:
                     print(f'TEMP – THEY EQUAL')
                 else:
                     print(f'TEMP – THEY ARE NOT!')
-            except:  # noqa
+            except Exception as e:  # noqa
                 print(f'TEMP - OOOPSIE')
+                logging.exception(e)
             # FIXME ^^^
 
             search_replies_num = int(data_block.find('dd', 'posts').next_element)
@@ -2547,12 +2550,7 @@ def parse_one_folder(folder_id):
                                                           num_of_replies=search_replies_num, age=person_age,
                                                           name=person_fam_name, folder_id=folder_id)
 
-                    # TODO – here we are adding from dict_reco
-                    # total_persons = [1-9] / group / undefined
-                    # age_min = [0-199]
-                    # age_max = [0-199]
-                    # total_display_name = displayed name + age (age range)
-
+                    # FIXME – here we are adding from dict_reco
                     try:
                         search_summary_object.topic_type = title_reco_dict['topic_type']
                         if 'persons' in title_reco_dict.keys():
@@ -2560,13 +2558,13 @@ def parse_one_folder(folder_id):
                             if 'total_display_name' in title_reco_dict['persons']:
                                 search_summary_object.display_name = title_reco_dict['persons']['total_display_name']
                             if 'age_min' in title_reco_dict['persons']:
-                                search_summary_object.display_name = title_reco_dict['persons']['age_min']
+                                search_summary_object.age_min = title_reco_dict['persons']['age_min']
                             if 'age_max' in title_reco_dict['persons']:
-                                search_summary_object.display_name = title_reco_dict['persons']['age_max']
+                                search_summary_object.age_max = title_reco_dict['persons']['age_max']
                             print(f'TEMP - PERSONS FOUND IN RECO_DICT')
                     except Exception as e:  # noqa
                         print(f'TEMP - WE HAVE NOT FOUND PERSONS IN RECO_DICT')
-                    # TODO – ^^^
+                    # FIXME – ^^^
 
                     folder_summary.append(search_summary_object)
 
@@ -2590,18 +2588,14 @@ def parse_one_folder(folder_id):
         topics_summary_in_folder = []
         folder_summary = []
 
-    logging.info(f'Final Topics summary in Folder:\n{topics_summary_in_folder}')
+    logging.info(f'folder = {folder_id}, old_topics_summary = {topics_summary_in_folder}')
 
     # TODO - temp
-    try:
-        if len(folder_summary) > 0:
-            for i in folder_summary:
-                print(f'TEMP - line: {str(i)}')
-        else:
-            print('TEMP - folder summary is empty')
-    except Exception as e:
-        print('TEMP - exception')
-        logging.exception(e)
+    if len(folder_summary) > 0:
+        for i in folder_summary:
+            print(f'TEMP - line: {str(i)}')
+    else:
+        print(f'TEMP - folder summary is empty for folder {folder_id}')
     # TODO - temp ^^^
 
     return topics_summary_in_folder, titles_and_num_of_replies, folder_summary
@@ -2677,8 +2671,7 @@ def parse_one_comment(db, search_num, comment_num):
                     stmt = sqlalchemy.text(
                         """INSERT INTO comments (comment_url, comment_text, comment_author_nickname, 
                         comment_author_link, search_forum_num, comment_num, comment_global_num) 
-                        VALUES 
-                        (:a, :b, :c, :d, :e, :f, :g); """
+                        VALUES (:a, :b, :c, :d, :e, :f, :g); """
                     )
                     conn.execute(stmt, a=comment_url, b=comment_text, c=comment_author_nickname,
                                  d=comment_author_link, e=search_num, f=comment_num, g=comment_forum_global_id)
@@ -2686,7 +2679,7 @@ def parse_one_comment(db, search_num, comment_num):
                     stmt = sqlalchemy.text(
                         """INSERT INTO comments (comment_url, comment_text, comment_author_nickname, 
                         comment_author_link, search_forum_num, comment_num, notification_sent) 
-                        values (:a, :b, :c, :d, :e, :f, :g); """
+                        VALUES (:a, :b, :c, :d, :e, :f, :g); """
                     )
                     conn.execute(stmt, a=comment_url, b=comment_text, c=comment_author_nickname,
                                  d=comment_author_link, e=search_num, f=comment_num, g='n')
@@ -2740,10 +2733,6 @@ def update_change_log_and_searches(db, folder_num):
                 snapshot_line.topic_type, snapshot_line.display_name, snapshot_line.age_min, \
                 snapshot_line.age_max = list(line)
 
-            # TODO - here should be a block of adding info: topic_type, display_name, age_min, age_max
-            # TODO >>>
-            # TODO - here should be a block of adding info: topic_type, display_name, age_min, age_max
-
             curr_snapshot_list.append(snapshot_line)
 
         # TODO - in future: should the number of searches be limited? Probably to JOIN change_log and WHERE folder=...
@@ -2762,6 +2751,8 @@ def update_change_log_and_searches(db, folder_num):
 
         # FIXME – temp – just to check how many lines
         print(f'TEMP – len of prev_searches_list = {len(prev_searches_list)}')
+        if len(prev_searches_list) > 5000:
+            logging.warning(f'TEMP - you use too big table Searches, it should be optimized')
         # FIXME ^^^
 
         '''1. move UPD to Change Log'''
@@ -2978,7 +2969,7 @@ def update_change_log_and_searches(db, folder_num):
     return None
 
 
-def rewrite_snapshot_in_sql(db, parsed_summary, folder_num, new_folder_summary):
+def rewrite_snapshot_in_sql(db, folder_num, new_folder_summary):
     """rewrite the freshly-parsed snapshot into sql table 'forum_summary_snapshot'"""
 
     with db.connect() as conn:
@@ -2989,23 +2980,17 @@ def rewrite_snapshot_in_sql(db, parsed_summary, folder_num, new_folder_summary):
 
         sql_text = sqlalchemy.text(
             """INSERT INTO forum_summary_snapshot (search_forum_num, parsed_time, status_short, forum_search_title, 
-            search_start_time, num_of_replies, age, family_name, forum_folder_id,
-            topic_type, display_name, age_min, age_max) values (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j,
-            :k, :l, :m); """
+            search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, display_name, age_min, 
+            age_max) values (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m); """
         )
-        """for i in range(len(parsed_summary)):
-            line_of_pars_sum = list(parsed_summary[i])
-            conn.execute(sql_text, a=line_of_pars_sum[1], b=line_of_pars_sum[0], c=line_of_pars_sum[2],
-                         d=line_of_pars_sum[3], e='', f=line_of_pars_sum[5], g=line_of_pars_sum[6],
-                         h=line_of_pars_sum[7], i=line_of_pars_sum[8], j=line_of_pars_sum[9],
-                         k=None, l=None, m=None, n=None)
-            # FIXME ^^^ change to real inputs for k,l,m,n"""
-
         for line in new_folder_summary:
+
+            # FIXME – temp
+            print(f'TEMP – DISPLAY NAME FOR ADDINIG INTO F_S_S = {line.display_name}')
+
             conn.execute(sql_text, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
                          e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
                          j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max)
-
         conn.close()
 
     return None
@@ -3016,12 +3001,10 @@ def process_one_folder(db, folder_to_parse):
 
     # parse a new version of summary page from the chosen folder
     old_folder_summary_full, titles_and_num_of_replies, new_folder_summary = parse_one_folder(folder_to_parse)
-    logging.info(f'folder {folder_to_parse} parse with summary: {old_folder_summary_full}')
 
     update_trigger = False
-    debug_message = ''
+    debug_message = f'folder {folder_to_parse} has NO new updates'
 
-    # make comparison, record it in PSQL
     if old_folder_summary_full:
 
         # transform the current snapshot into the string to be able to compare it: string vs string
@@ -3029,24 +3012,19 @@ def process_one_folder(db, folder_to_parse):
         curr_snapshot_as_string = ','.join(map(str, curr_snapshot_as_one_dimensional_list))
 
         # get the prev snapshot as string from cloud storage & get the trigger if there are updates at all
-        update_trigger, prev_snapshot_as_string = update_checker(curr_snapshot_as_string, folder_to_parse)
-
-        logging.info(f'update trigger: {update_trigger}')
-        logging.info(f'prev snapshot: {prev_snapshot_as_string}')
+        update_trigger = update_checker(curr_snapshot_as_string, folder_to_parse)
 
         # only for case when current snapshot differs from previous
         if update_trigger:
-            debug_message = f'there is an update in folder {folder_to_parse}\n{debug_message}'
+            debug_message = f'folder {folder_to_parse} HAS an update'
 
-            rewrite_snapshot_in_sql(db, old_folder_summary_full, folder_to_parse, new_folder_summary)
+            rewrite_snapshot_in_sql(db, folder_to_parse, new_folder_summary)
 
-            logging.info(f'starting "process_delta" for folder {folder_to_parse}')
+            logging.info(f'starting updating change_log and searches tables for folder {folder_to_parse}')
 
             update_change_log_and_searches(db, folder_to_parse)
             update_coordinates(db, old_folder_summary_full)
 
-        else:
-            debug_message = f'there is NO update in folder {folder_to_parse}\n{debug_message}'
     logging.info(debug_message)
 
     return update_trigger
@@ -3058,14 +3036,7 @@ def get_the_list_of_ignored_folders(db):
     conn = db.connect()
 
     sql_text = sqlalchemy.text(
-        """
-        SELECT 
-            folder_id 
-        FROM
-            folders 
-        WHERE
-            folder_type != 'searches'
-        ;"""
+        """SELECT folder_id FROM folders WHERE folder_type != 'searches';"""
     )
     raw_list = conn.execute(sql_text).fetchall()
 
@@ -3077,7 +3048,7 @@ def get_the_list_of_ignored_folders(db):
 
 
 def main(event, context):  # noqa
-    """main function"""
+    """main function triggered by pub/sub"""
 
     global requests_session
 
@@ -3087,7 +3058,7 @@ def main(event, context):  # noqa
 
     message_from_pubsub = process_pubsub_message(event)
     list_from_pubsub = ast.literal_eval(message_from_pubsub) if message_from_pubsub else None
-    logging.info(f'received message from pubsub: {message_from_pubsub}')
+    logging.info(f'received message from pub/sub: {message_from_pubsub}')
 
     db = sql_connect()
     list_of_ignored_folders = get_the_list_of_ignored_folders(db)
@@ -3116,7 +3087,6 @@ def main(event, context):  # noqa
     if list_of_folders_with_updates:
         publish_to_pubsub('topic_for_notification', 'let\'s compose notifications')
 
-    # Close the open session
     requests_session.close()
     db.dispose()
 
