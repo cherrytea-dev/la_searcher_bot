@@ -23,7 +23,7 @@ jobs:
 
       - name: Deploy the CF
         id: deploy
-        uses: google-github-actions/deploy-cloud-functions@v0.6.0
+        uses: google-github-actions/deploy-cloud-functions@v1
         with:
             source_dir: src/identify_updates_of_topics # name of directory
             name: identify_updates_of_topics
