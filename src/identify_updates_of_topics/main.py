@@ -2525,14 +2525,14 @@ def parse_one_folder(folder_id):
                     notify_admin(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
                                  f"NEW = {title_reco_dict}")
 
-                    # NEW exclude non-relevant searches
-                    if title_reco_dict['activity'] == 'search':
-                        search_summary_object = SearchSummary(time_now=current_datetime, topic_id=search_id,
-                                                              status=search_status_short, title=search_title,
-                                                              link=search_cut_link, start_time=start_datetime,
-                                                              num_of_replies=search_replies_num, age=person_age,
-                                                              name=person_fam_name, folder_id=folder_id)
-                        folder_summary.append(search_summary_object)
+                # NEW exclude non-relevant searches
+                if title_reco_dict['activity'] == 'search':
+                    search_summary_object = SearchSummary(time_now=current_datetime, topic_id=search_id,
+                                                          status=search_status_short, title=search_title,
+                                                          link=search_cut_link, start_time=start_datetime,
+                                                          num_of_replies=search_replies_num, age=person_age,
+                                                          name=person_fam_name, folder_id=folder_id)
+                    folder_summary.append(search_summary_object)
 
             except Exception as e:
                 logging.error(e)
@@ -2558,8 +2558,11 @@ def parse_one_folder(folder_id):
 
     # TODO - temp
     try:
-        for i in folder_summary:
-            print(f'TEMP - line: {str(i)}')
+        if len(folder_summary) > 0:
+            for i in folder_summary:
+                print(f'TEMP - line: {str(i)}')
+        else:
+            print('TEMP - folder summary is empty')
     except Exception as e:
         print('TEMP - exception')
         logging.exception(e)
