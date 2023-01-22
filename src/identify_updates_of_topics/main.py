@@ -48,7 +48,6 @@ class SearchSummary:
 
     def __init__(self,
                  topic_type=None,
-                 time_now=None,
                  topic_id=None,
                  parsed_time=None,
                  status=None,
@@ -67,7 +66,6 @@ class SearchSummary:
                  full_dict=None
                  ):
         self.topic_type = topic_type
-        self.now = time_now
         self.topic_id = topic_id
         self.parsed_time = parsed_time
         self.status = status
@@ -86,8 +84,8 @@ class SearchSummary:
         self.full_dict = full_dict
 
     def __str__(self):
-        return f'{self.now} – {self.folder_id} / {self.topic_id} : {self.name} - {self.age} – {self.num_of_persons}' \
-               f' – {self.display_name} – {self.age_min} – {self.age_max} – {self.num_of_replies}'
+        return f'{self.parsed_time} – {self.folder_id} / {self.topic_id} : {self.name} - {self.age} – ' \
+               f'{self.num_of_replies}. NEW: {self.display_name} – {self.age_min} – {self.age_max} – {self.num_of_persons}'
 
 
 def set_cloud_storage(bucket_name, folder_num):
@@ -2529,7 +2527,7 @@ def parse_one_folder(folder_id):
 
                 # NEW exclude non-relevant searches
                 if title_reco_dict['topic_type'] == 'search':
-                    search_summary_object = SearchSummary(time_now=current_datetime, topic_id=search_id,
+                    search_summary_object = SearchSummary(parsed_time=current_datetime, topic_id=search_id,
                                                           status=search_status_short, title=search_title,
                                                           link=search_cut_link, start_time=start_datetime,
                                                           num_of_replies=search_replies_num, age=person_age,
@@ -2991,7 +2989,7 @@ def rewrite_snapshot_in_sql(db, parsed_summary, folder_num, new_folder_summary):
             # FIXME ^^^ change to real inputs for k,l,m,n"""
 
         for line in new_folder_summary:
-            conn.execute(sql_text, a=line.topic_id, b=line.time_now, c=line.status, d=line.title, e='',
+            conn.execute(sql_text, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title, e='',
                          f=line.start_time, g=line.num_of_replies, h=line.age, i=line.name, j=line.folder_id,
                          k=line.topic_type, l=line.display_name, m=line.age_min, n=line.age_max)
 
