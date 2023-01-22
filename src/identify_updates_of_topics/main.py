@@ -2307,8 +2307,8 @@ def recognize_title(line):
         [optional, only for search] persons =
             {   
             total_persons = [1-9] / group / undefined
-            total_age_min = [0-199]
-            total_age_max = [0-199]
+            age_min = [0-199]
+            age_max = [0-199]
             total_display_name = displayed name + age (age range)
             person =
                [
@@ -2535,8 +2535,8 @@ def parse_one_folder(folder_id):
 
                     # TODO – here we are adding from dict_reco
                     # total_persons = [1-9] / group / undefined
-                    # total_age_min = [0-199]
-                    # total_age_max = [0-199]
+                    # age_min = [0-199]
+                    # age_max = [0-199]
                     # total_display_name = displayed name + age (age range)
 
                     try:
@@ -2545,10 +2545,10 @@ def parse_one_folder(folder_id):
                             print(f"TEMP - {title_reco_dict['persons']}")
                             if 'total_display_name' in title_reco_dict['persons']:
                                 search_summary_object.display_name = title_reco_dict['persons']['total_display_name']
-                            if 'total_age_min' in title_reco_dict['persons']:
-                                search_summary_object.display_name = title_reco_dict['persons']['total_age_min']
-                            if 'total_age_max' in title_reco_dict['persons']:
-                                search_summary_object.display_name = title_reco_dict['persons']['total_age_max']
+                            if 'age_min' in title_reco_dict['persons']:
+                                search_summary_object.display_name = title_reco_dict['persons']['age_min']
+                            if 'age_max' in title_reco_dict['persons']:
+                                search_summary_object.display_name = title_reco_dict['persons']['age_max']
                             print(f'TEMP - PERSONS FOUND IN RECO_DICT')
                     except Exception as e:  # noqa
                         print(f'TEMP - WE HAVE NOT FOUND PERSONS IN RECO_DICT')
