@@ -2534,6 +2534,27 @@ def parse_one_folder(folder_id):
                                                           link=search_cut_link, start_time=start_datetime,
                                                           num_of_replies=search_replies_num, age=person_age,
                                                           name=person_fam_name, folder_id=folder_id)
+
+                    # TODO – here we are adding from dict_reco
+                    # total_persons = [1-9] / group / undefined
+                    # total_age_min = [0-199]
+                    # total_age_max = [0-199]
+                    # total_display_name = displayed name + age (age range)
+
+                    try:
+                        search_summary_object.topic_type = title_reco_dict['topic_type']
+                        if 'persons' in title_reco_dict.keys():
+                            if 'total_display_name' in title_reco_dict['persons']:
+                                search_summary_object.display_name = title_reco_dict['persons']['total_display_name']
+                            if 'total_age_min' in title_reco_dict['persons']:
+                                search_summary_object.display_name = title_reco_dict['persons']['total_age_min']
+                            if 'total_age_max' in title_reco_dict['persons']:
+                                search_summary_object.display_name = title_reco_dict['persons']['total_age_max']
+                            print(f'TEMP - PERSONS FOUND IN RECO_DICT')
+                    except Exception as e:  # noqa
+                        print(f'TEMP - WE HAVE NOT FOUND PERSONS IN RECO_DICT')
+                    # TODO – ^^^
+
                     folder_summary.append(search_summary_object)
 
             except Exception as e:
@@ -2692,7 +2713,8 @@ def update_change_log_and_searches(db, folder_num):
 
         sql_text = sqlalchemy.text(
             """SELECT search_forum_num, parsed_time, status_short, forum_search_title, cut_link, search_start_time, 
-            num_of_replies, family_name, age, id, forum_folder_id FROM forum_summary_snapshot WHERE 
+            num_of_replies, family_name, age, id, forum_folder_id, topic_type, display_name, age_min, age_max
+            FROM forum_summary_snapshot WHERE 
             forum_folder_id = :a; """
         )
         snapshot = conn.execute(sql_text, a=folder_num).fetchall()
@@ -2701,7 +2723,14 @@ def update_change_log_and_searches(db, folder_num):
             snapshot_line = SearchSummary()
             snapshot_line.topic_id, snapshot_line.parsed_time, snapshot_line.status, snapshot_line.title, \
                 snapshot_line.link, snapshot_line.start_time, snapshot_line.num_of_replies, \
-                snapshot_line.name, snapshot_line.age, snapshot_line.id, snapshot_line.folder_id = list(line)
+                snapshot_line.name, snapshot_line.age, snapshot_line.id, snapshot_line.folder_id, \
+                snapshot_line.topic_type, snapshot_line.display_name, snapshot_line.age_min, \
+                snapshot_line.age_max = list(line)
+
+            # TODO - here should be a block of adding info: topic_type, display_name, age_min, age_max
+            # TODO >>>
+            # TODO - here should be a block of adding info: topic_type, display_name, age_min, age_max
+
             curr_snapshot_list.append(snapshot_line)
 
         # TODO - in future: should the number of searches be limited? Probably to JOIN change_log and WHERE folder=...
@@ -2724,7 +2753,6 @@ def update_change_log_and_searches(db, folder_num):
         # FIXME ^^^
 
         '''1. move UPD to Change Log'''
-        # change_log_updates = []
         change_log_updates_list = []
         there_are_inforg_comments = False
 
@@ -2938,7 +2966,7 @@ def update_change_log_and_searches(db, folder_num):
     return None
 
 
-def rewrite_snapshot_in_sql(db, parsed_summary, folder_num):
+def rewrite_snapshot_in_sql(db, parsed_summary, folder_num, new_folder_summary):
     """rewrite the freshly-parsed snapshot into sql table 'forum_summary_snapshot'"""
 
     with db.connect() as conn:
@@ -2949,14 +2977,22 @@ def rewrite_snapshot_in_sql(db, parsed_summary, folder_num):
 
         sql_text = sqlalchemy.text(
             """INSERT INTO forum_summary_snapshot (search_forum_num, parsed_time, status_short, forum_search_title, 
-            cut_link, search_start_time, num_of_replies, age, family_name, forum_folder_id) values (:a, :b, 
-            :c, :d, :e, :f, :g, :h, :i, :j); """
+            cut_link, search_start_time, num_of_replies, age, family_name, forum_folder_id,
+            topic_type, display_name, age_min, age_max) values (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j,
+            :k, :l, :m, :n); """
         )
-        for i in range(len(parsed_summary)):
+        """for i in range(len(parsed_summary)):
             line_of_pars_sum = list(parsed_summary[i])
             conn.execute(sql_text, a=line_of_pars_sum[1], b=line_of_pars_sum[0], c=line_of_pars_sum[2],
                          d=line_of_pars_sum[3], e='', f=line_of_pars_sum[5], g=line_of_pars_sum[6],
-                         h=line_of_pars_sum[7], i=line_of_pars_sum[8], j=line_of_pars_sum[9])
+                         h=line_of_pars_sum[7], i=line_of_pars_sum[8], j=line_of_pars_sum[9],
+                         k=None, l=None, m=None, n=None)
+            # FIXME ^^^ change to real inputs for k,l,m,n"""
+
+        for line in new_folder_summary:
+            conn.execute(sql_text, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title, e='',
+                         f=line.start_time, g=line.num_of_replies, h=line.age, i=line.name, j=line.folder_id,
+                         k=line.topic_type, l=line.display_name, m=line.age_min, n=line.age_max)
 
         conn.close()
 
@@ -2990,7 +3026,7 @@ def process_one_folder(db, folder_to_parse):
         if update_trigger:
             debug_message = f'there is an update in folder {folder_to_parse}\n{debug_message}'
 
-            rewrite_snapshot_in_sql(db, old_folder_summary_full, folder_to_parse)
+            rewrite_snapshot_in_sql(db, old_folder_summary_full, folder_to_parse, new_folder_summary)
 
             logging.info(f'starting "process_delta" for folder {folder_to_parse}')
 
