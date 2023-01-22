@@ -2501,7 +2501,7 @@ def parse_one_folder(folder_id):
             print(f'TEMP - LONG_LINK = {search_long_link}')
             try:
                 # language=regexp
-                re_search_id = int(re.search(r'(?<=&t=)\d{2,8}', search_long_link).group())
+                re_search_id = int(re.search(r'(?<=&t=)\d{2,8}', search_title_block).group())
                 print(f'TEMP - ALT SEARCH ID = {re_search_id}, and search_id = {search_id}')
                 if search_id == re_search_id:
                     print(f'TEMP – THEY EQUAL')
@@ -2543,7 +2543,7 @@ def parse_one_folder(folder_id):
                 if title_reco_dict['topic_type'] == 'search':
                     search_summary_object = SearchSummary(parsed_time=current_datetime, topic_id=search_id,
                                                           status=search_status_short, title=search_title,
-                                                          link=search_cut_link, start_time=start_datetime,
+                                                          start_time=start_datetime,
                                                           num_of_replies=search_replies_num, age=person_age,
                                                           name=person_fam_name, folder_id=folder_id)
 
@@ -2725,7 +2725,7 @@ def update_change_log_and_searches(db, folder_num):
     with db.connect() as conn:
 
         sql_text = sqlalchemy.text(
-            """SELECT search_forum_num, parsed_time, status_short, forum_search_title, cut_link, search_start_time, 
+            """SELECT search_forum_num, parsed_time, status_short, forum_search_title, search_start_time, 
             num_of_replies, family_name, age, id, forum_folder_id, topic_type, display_name, age_min, age_max
             FROM forum_summary_snapshot WHERE 
             forum_folder_id = :a; """
@@ -2735,7 +2735,7 @@ def update_change_log_and_searches(db, folder_num):
         for line in snapshot:
             snapshot_line = SearchSummary()
             snapshot_line.topic_id, snapshot_line.parsed_time, snapshot_line.status, snapshot_line.title, \
-                snapshot_line.link, snapshot_line.start_time, snapshot_line.num_of_replies, \
+                snapshot_line.start_time, snapshot_line.num_of_replies, \
                 snapshot_line.name, snapshot_line.age, snapshot_line.id, snapshot_line.folder_id, \
                 snapshot_line.topic_type, snapshot_line.display_name, snapshot_line.age_min, \
                 snapshot_line.age_max = list(line)
@@ -2748,7 +2748,7 @@ def update_change_log_and_searches(db, folder_num):
 
         # TODO - in future: should the number of searches be limited? Probably to JOIN change_log and WHERE folder=...
         searches_full_list = conn.execute(
-            """SELECT search_forum_num, parsed_time, status_short, forum_search_title, cut_link, search_start_time, 
+            """SELECT search_forum_num, parsed_time, status_short, forum_search_title, search_start_time, 
             num_of_replies, family_name, age, id, forum_folder_id, 
             topic_type, display_name, age_min, age_max FROM searches;"""
         ).fetchall()
@@ -2756,8 +2756,7 @@ def update_change_log_and_searches(db, folder_num):
         for searches_line in searches_full_list:
             search = SearchSummary()
             search.topic_id, search.parsed_time, search.status, search.title, \
-                search.link, search.start_time, search.num_of_replies, \
-                search.name, search.age, search.id, search.folder_id, \
+                search.start_time, search.num_of_replies, search.name, search.age, search.id, search.folder_id, \
                 search.topic_type, search.display_name, search.age_min, search.age_max = list(searches_line)
             prev_searches_list.append(search)
 
@@ -2870,14 +2869,14 @@ def update_change_log_and_searches(db, folder_num):
         '''3. ADD to Searches'''
         if new_searches_from_snapshot_list:
             stmt = sqlalchemy.text(
-                """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, cut_link, 
+                """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, 
                 search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, 
-                display_name, age_min, age_max) values (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n); """
+                display_name, age_min, age_max) values (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m); """
             )
             for line in new_searches_from_snapshot_list:
-                conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title, e=line.link,
-                             f=line.start_time, g=line.num_of_replies, h=line.age, i=line.name, j=line.folder_id,
-                             k=line.topic_type, l=line.display_name, m=line.age_min, n=line.age_max)
+                conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
+                             e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
+                             j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max)
 
                 search_num = line.topic_id
 
@@ -2935,14 +2934,14 @@ def update_change_log_and_searches(db, folder_num):
 
         '''5. UPD added to Searches'''
         searches_full_list = conn.execute(
-            """SELECT search_forum_num, parsed_time, status_short, forum_search_title, cut_link, search_start_time, 
+            """SELECT search_forum_num, parsed_time, status_short, forum_search_title, search_start_time, 
             num_of_replies, family_name, age, id, forum_folder_id FROM searches;"""
         ).fetchall()
         curr_searches_list = []
         for searches_line in searches_full_list:
             search = SearchSummary()
             search.topic_id, search.parsed_time, search.status, search.title, \
-                search.link, search.start_time, search.num_of_replies, \
+                search.start_time, search.num_of_replies, \
                 search.name, search.age, search.id, search.folder_id = list(searches_line)
             curr_searches_list.append(search)
 
@@ -2958,15 +2957,15 @@ def update_change_log_and_searches(db, folder_num):
                 new_searches_from_snapshot_list.append(snapshot_line)
         if new_searches_from_snapshot_list:
             stmt = sqlalchemy.text(
-                """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, cut_link, 
+                """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, 
                 search_start_time, num_of_replies, age, family_name, forum_folder_id, 
                 topic_type, display_name, age_min, age_max) values (:a, :b, :c, :d, :e, :f, 
-                :g, :h, :i, :j, :k, :l, :m, :n); """
+                :g, :h, :i, :j, :k, :l, :m); """
             )
             for line in new_searches_from_snapshot_list:
-                conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title, e=line.link,
-                             f=line.start_time, g=line.num_of_replies, h=line.age, i=line.name, j=line.folder_id,
-                             k=line.topic_type, l=line.display_name, m=line.age_min, n=line.age_max)
+                conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
+                             e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
+                             j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max)
 
         conn.close()
 
@@ -2990,9 +2989,9 @@ def rewrite_snapshot_in_sql(db, parsed_summary, folder_num, new_folder_summary):
 
         sql_text = sqlalchemy.text(
             """INSERT INTO forum_summary_snapshot (search_forum_num, parsed_time, status_short, forum_search_title, 
-            cut_link, search_start_time, num_of_replies, age, family_name, forum_folder_id,
+            search_start_time, num_of_replies, age, family_name, forum_folder_id,
             topic_type, display_name, age_min, age_max) values (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j,
-            :k, :l, :m, :n); """
+            :k, :l, :m); """
         )
         """for i in range(len(parsed_summary)):
             line_of_pars_sum = list(parsed_summary[i])
@@ -3003,9 +3002,9 @@ def rewrite_snapshot_in_sql(db, parsed_summary, folder_num, new_folder_summary):
             # FIXME ^^^ change to real inputs for k,l,m,n"""
 
         for line in new_folder_summary:
-            conn.execute(sql_text, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title, e='',
-                         f=line.start_time, g=line.num_of_replies, h=line.age, i=line.name, j=line.folder_id,
-                         k=line.topic_type, l=line.display_name, m=line.age_min, n=line.age_max)
+            conn.execute(sql_text, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
+                         e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
+                         j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max)
 
         conn.close()
 
