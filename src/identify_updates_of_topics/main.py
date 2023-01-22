@@ -2497,6 +2497,20 @@ def parse_one_folder(folder_id):
                 search_cut_link = search_long_link[0:sid]
             search_id = search_cut_link[(search_cut_link.find('&t=') + 3):]
 
+            # FIXME = trying to get search_id in a shorter way
+            print(f'TEMP - LONG_LINK = {search_long_link}')
+            try:
+                # language=regexp
+                re_search_id = int(re.search(r'(?<=&t=)\d{2,8}', search_long_link).group())
+                print(f'TEMP - ALT SEARCH ID = {re_search_id}, and search_id = {search_id}')
+                if search_id == re_search_id:
+                    print(f'TEMP – THEY EQUAL')
+                else:
+                    print(f'TEMP – THEY ARE NOT!')
+            except:  # noqa
+                print(f'TEMP - OOOPSIE')
+            # FIXME ^^^
+
             search_replies_num = int(data_block.find('dd', 'posts').next_element)
 
             person_fam_name = define_family_name_from_search_title_new(search_title)
