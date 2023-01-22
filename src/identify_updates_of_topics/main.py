@@ -47,6 +47,7 @@ dict_ignore = {'', ':'}
 class SearchSummary:
 
     def __init__(self,
+                 topic_type=None,
                  time_now=None,
                  topic_id=None,
                  parsed_time=None,
@@ -65,6 +66,7 @@ class SearchSummary:
                  num_of_persons=None,
                  full_dict=None
                  ):
+        self.topic_type = topic_type
         self.now = time_now
         self.topic_id = topic_id
         self.parsed_time = parsed_time
@@ -2300,7 +2302,7 @@ def recognize_title(line):
 
         """
         SCHEMA:
-        {activity = search / search reverse / search patrol / event / info,
+        {topic_type = search / search reverse / search patrol / event / info,
         [optional, only for search] training_search = True / False,
         [optional, only for search] avia = True / False,
         [optional, only for search / search reverse] status,
@@ -2352,9 +2354,9 @@ def recognize_title(line):
             recognition.st = 'Ищем'
 
         if recognition.act:
-            final_dict['activity'] = recognition.act
+            final_dict['topic_type'] = recognition.act
         else:
-            final_dict['activity'] = 'UNRECOGNIZED'
+            final_dict['topic_type'] = 'UNRECOGNIZED'
 
         if recognition.tr:
             final_dict['training_search'] = True
@@ -2370,7 +2372,7 @@ def recognize_title(line):
         for block in recognition.groups:
 
             if block.type == 'ACT':
-                final_dict['activity'] = block.reco
+                final_dict['topic_type'] = block.reco
 
             elif block.type and block.type[0] == 'P':
                 individual_dict = {}
@@ -2420,7 +2422,7 @@ def recognize_title(line):
             final_dict['locations'] = locations
 
         # placeholders if no persons
-        if final_dict['activity'] == 'search' and 'persons' not in final_dict.keys():
+        if final_dict['topic_type'] == 'search' and 'persons' not in final_dict.keys():
             per_dict = {'total_persons': -1, 'total_display_name': 'Неизвестный'}
             final_dict['persons'] = per_dict
 
@@ -2511,22 +2513,22 @@ def parse_one_folder(folder_id):
                 logging.info(f'TEMP – title_reco_dict = {title_reco_dict}')
 
                 # TODO - check if old exclusions are not better than new ones
-                if search_status_short == "не показываем" and 'activity' in title_reco_dict.keys() and \
-                        title_reco_dict['activity'] == 'search':
+                if search_status_short == "не показываем" and 'topic_type' in title_reco_dict.keys() and \
+                        title_reco_dict['topic_type'] == 'search':
                     logging.info(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
-                                 f"NEW = {title_reco_dict['activity'] == 'search'}")
+                                 f"NEW = {title_reco_dict['topic_type'] == 'search'}")
                     notify_admin(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
-                                 f"NEW = {title_reco_dict['activity'] == 'search'}")
+                                 f"NEW = {title_reco_dict['topic_type'] == 'search'}")
                 elif search_status_short != "не показываем" and \
-                        ('activity' not in title_reco_dict.keys() or
-                         'activity' in title_reco_dict.keys() and title_reco_dict['activity'] != 'search'):
+                        ('topic_type' not in title_reco_dict.keys() or
+                         'topic_type' in title_reco_dict.keys() and title_reco_dict['topic_type'] != 'search'):
                     logging.info(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
                                  f"NEW = {title_reco_dict}")
                     notify_admin(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
                                  f"NEW = {title_reco_dict}")
 
                 # NEW exclude non-relevant searches
-                if title_reco_dict['activity'] == 'search':
+                if title_reco_dict['topic_type'] == 'search':
                     search_summary_object = SearchSummary(time_now=current_datetime, topic_id=search_id,
                                                           status=search_status_short, title=search_title,
                                                           link=search_cut_link, start_time=start_datetime,
@@ -2705,15 +2707,21 @@ def update_change_log_and_searches(db, folder_num):
         # TODO - in future: should the number of searches be limited? Probably to JOIN change_log and WHERE folder=...
         searches_full_list = conn.execute(
             """SELECT search_forum_num, parsed_time, status_short, forum_search_title, cut_link, search_start_time, 
-            num_of_replies, family_name, age, id, forum_folder_id FROM searches;"""
+            num_of_replies, family_name, age, id, forum_folder_id, 
+            topic_type, display_name, age_min, age_max FROM searches;"""
         ).fetchall()
         prev_searches_list = []
         for searches_line in searches_full_list:
             search = SearchSummary()
             search.topic_id, search.parsed_time, search.status, search.title, \
                 search.link, search.start_time, search.num_of_replies, \
-                search.name, search.age, search.id, search.folder_id = list(searches_line)
+                search.name, search.age, search.id, search.folder_id, \
+                search.topic_type, search.display_name, search.age_min, search.age_max = list(searches_line)
             prev_searches_list.append(search)
+
+        # FIXME – temp – just to check how many lines
+        print(f'TEMP – len of prev_searches_list = {len(prev_searches_list)}')
+        # FIXME ^^^
 
         '''1. move UPD to Change Log'''
         # change_log_updates = []
@@ -2822,13 +2830,13 @@ def update_change_log_and_searches(db, folder_num):
         if new_searches_from_snapshot_list:
             stmt = sqlalchemy.text(
                 """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, cut_link, 
-                search_start_time, num_of_replies, age, family_name, forum_folder_id) values (:a, :b, :c, :d, :e, :f, 
-                :g, :h, :i, :j); """
+                search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, 
+                display_name, age_min, age_max) values (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n); """
             )
             for line in new_searches_from_snapshot_list:
                 conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title, e=line.link,
-                             f=line.start_time, g=line.num_of_replies, h=line.age, i=line.name,
-                             j=line.folder_id)
+                             f=line.start_time, g=line.num_of_replies, h=line.age, i=line.name, j=line.folder_id,
+                             k=line.topic_type, l=line.display_name, m=line.age_min, n=line.age_max)
 
                 search_num = line.topic_id
 
@@ -2910,14 +2918,14 @@ def update_change_log_and_searches(db, folder_num):
         if new_searches_from_snapshot_list:
             stmt = sqlalchemy.text(
                 """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, cut_link, 
-                search_start_time, num_of_replies, age, family_name, forum_folder_id) values (:a, :b, :c, :d, :e, :f, 
-                :g, :h, :i, :j); """
-
+                search_start_time, num_of_replies, age, family_name, forum_folder_id, 
+                topic_type, display_name, age_min, age_max) values (:a, :b, :c, :d, :e, :f, 
+                :g, :h, :i, :j, :k, :l, :m, :n); """
             )
             for line in new_searches_from_snapshot_list:
                 conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title, e=line.link,
-                             f=line.start_time, g=line.num_of_replies, h=line.age, i=line.name,
-                             j=line.folder_id)
+                             f=line.start_time, g=line.num_of_replies, h=line.age, i=line.name, j=line.folder_id,
+                             k=line.topic_type, l=line.display_name, m=line.age_min, n=line.age_max)
 
         conn.close()
 
@@ -2961,8 +2969,6 @@ def process_one_folder(db, folder_to_parse):
     # parse a new version of summary page from the chosen folder
     old_folder_summary_full, titles_and_num_of_replies, new_folder_summary = parse_one_folder(folder_to_parse)
     logging.info(f'folder {folder_to_parse} parse with summary: {old_folder_summary_full}')
-    # TODO - temp debug
-    logging.info(f'TEMP - NEW folder summary: {str(new_folder_summary)}')
 
     update_trigger = False
     debug_message = ''
