@@ -1097,7 +1097,7 @@ def parse_search_profile(search_num):
         soup = BeautifulSoup(r.content, features="html.parser")
 
     except Exception as e:
-        logging.info(f'DBG.P.50.EXC: unable to parse a specific thread with address: {url_to_topic} error:')
+        logging.info(f'DBG.P.50.EXC: unable to parse a specific Topic with address: {url_to_topic} error:')
         logging.exception(e)
         soup = None
 
@@ -1985,6 +1985,7 @@ def recognize_title(line):
 
                 string_with_ages = name_string[re.search(case_2, name_string).span()[1]:]
                 ages_list = re.findall(r'1?\d?\d(?=\W)', string_with_ages)
+                ages_list = [int(x) for x in ages_list]
                 if ages_list:
                     ages_list.sort()
                     person_reco.age_min = int(ages_list[0])
@@ -2554,6 +2555,15 @@ def parse_one_folder(folder_id):
         folder_summary = []
 
     logging.info(f'Final Topics summary in Folder:\n{topics_summary_in_folder}')
+
+    # TODO - temp
+    try:
+        for i in folder_summary:
+            print(f'TEMP - line: {str(i)}')
+    except Exception as e:
+        print('TEMP - exception')
+        logging.exception(e)
+    # TODO - temp ^^^
 
     return topics_summary_in_folder, titles_and_num_of_replies, folder_summary
 
