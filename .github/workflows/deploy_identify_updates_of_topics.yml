@@ -15,9 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Authentificate in GCP
+      - name: Authenticate in GCP
         id: auth
-        uses: google-github-actions/auth@v0.4.0
+        uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.gcp_credentials }}
 
