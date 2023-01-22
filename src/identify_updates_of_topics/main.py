@@ -44,6 +44,50 @@ dict_status_words = {'жив': 'one', 'жива': 'one', 'живы': 'many',
 dict_ignore = {'', ':'}
 
 
+class SearchSummary:
+
+    def __init__(self,
+                 time_now=None,
+                 topic_id=None,
+                 parsed_time=None,
+                 status=None,
+                 title=None,
+                 link=None,
+                 start_time=None,
+                 num_of_replies=None,
+                 name=None,
+                 display_name=None,
+                 age=None,
+                 searches_table_id=None,
+                 folder_id=None,
+                 age_max=None,
+                 age_min=None,
+                 num_of_persons=None,
+                 full_dict=None
+                 ):
+        self.now = time_now
+        self.topic_id = topic_id
+        self.parsed_time = parsed_time
+        self.status = status
+        self.title = title
+        self.link = link
+        self.start_time = start_time
+        self.num_of_replies = num_of_replies
+        self.name = name
+        self.display_name = display_name
+        self.age = age
+        self.id = searches_table_id
+        self.folder_id = folder_id
+        self.age_max = age_max
+        self.age_min = age_min
+        self.num_of_persons = num_of_persons
+        self.full_dict = full_dict
+
+    def __str__(self):
+        return f'{self.now} – {self.folder_id} / {self.topic_id} : {self.name} - {self.age} – {self.num_of_persons}' \
+               f' – {self.display_name} – {self.age_min} – {self.age_max} – {self.num_of_replies}'
+
+
 def set_cloud_storage(bucket_name, folder_num):
     """sets the basic parameters for connection to txt file in cloud storage, which stores searches snapshots"""
 
@@ -754,7 +798,7 @@ def update_checker(current_hash, folder_num):
     """compare prev snapshot and freshly-parsed snapshot, returns NO or YES and Previous hash"""
 
     # pre-set default output from the function
-    update_trigger = 'no'
+    update_trigger = False
 
     # read the previous snapshot from Storage and save it as output[1]
     previous_hash = read_snapshot_from_cloud_storage('bucket_for_snapshot_storage', folder_num)
@@ -764,7 +808,7 @@ def update_checker(current_hash, folder_num):
         # update hash in Storage
         write_snapshot_to_cloud_storage('bucket_for_snapshot_storage', current_hash, folder_num)
 
-        update_trigger = 'yes'
+        update_trigger = True
 
     return update_trigger, previous_hash
 
@@ -2375,7 +2419,7 @@ def recognize_title(line):
             final_dict['locations'] = locations
 
         # placeholders if no persons
-        if 'persons' not in final_dict.keys():
+        if final_dict['activity'] == 'search' and 'persons' not in final_dict.keys():
             per_dict = {'total_persons': -1, 'total_display_name': 'Неизвестный'}
             final_dict['persons'] = per_dict
 
@@ -2409,7 +2453,8 @@ def parse_one_folder(folder_id):
     global requests_session
 
     topics_summary_in_folder = []
-    topics_summary_in_folder_without_date = []
+    titles_and_num_of_replies = []
+    folder_summary = []
     current_datetime = datetime.now()
     url = f'https://lizaalert.org/forum/viewforum.php?f={folder_id}'
     try:
@@ -2460,6 +2505,7 @@ def parse_one_folder(folder_id):
 
             # TODO - experiment of adding New Title Recognition
             try:
+                # FIXME – object to be deleted – no need in it
                 title_reco_dict, title_reco_object = recognize_title(search_title)
                 logging.info(f'TEMP – title_reco_dict = {title_reco_dict}')
 
@@ -2468,13 +2514,24 @@ def parse_one_folder(folder_id):
                         title_reco_dict['activity'] == 'search':
                     logging.info(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
                                  f"NEW = {title_reco_dict['activity'] == 'search'}")
-                    logging.error('ALARM!')
+                    notify_admin(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
+                                 f"NEW = {title_reco_dict['activity'] == 'search'}")
                 elif search_status_short != "не показываем" and \
                         ('activity' not in title_reco_dict.keys() or
                          'activity' in title_reco_dict.keys() and title_reco_dict['activity'] != 'search'):
                     logging.info(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
                                  f"NEW = {title_reco_dict}")
-                    logging.error('ALARM!')
+                    notify_admin(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
+                                 f"NEW = {title_reco_dict}")
+
+                    # NEW exclude non-relevant searches
+                    if title_reco_dict['activity'] == 'search':
+                        search_summary_object = SearchSummary(time_now=current_datetime, topic_id=search_id,
+                                                              status=search_status_short, title=search_title,
+                                                              link=search_cut_link, start_time=start_datetime,
+                                                              num_of_replies=search_replies_num, age=person_age,
+                                                              name=person_fam_name, folder_id=folder_id)
+                        folder_summary.append(search_summary_object)
 
             except Exception as e:
                 logging.error(e)
@@ -2486,24 +2543,19 @@ def parse_one_folder(folder_id):
                 topics_summary_in_folder.append(search_summary)
 
                 parsed_wo_date = [search_title, search_replies_num]
-                topics_summary_in_folder_without_date.append(parsed_wo_date)
+                titles_and_num_of_replies.append(parsed_wo_date)
 
         del search_code_blocks
 
     # To catch timeout once a day in the night
-    except requests.exceptions.Timeout as e:
+    except (requests.exceptions.Timeout, ConnectionResetError, Exception) as e:
         logging.exception(e)
         topics_summary_in_folder = []
-    except ConnectionResetError as e:
-        logging.exception(e)
-        topics_summary_in_folder = []
-    except Exception as e:
-        logging.exception(e)
-        topics_summary_in_folder = []
+        folder_summary = []
 
     logging.info(f'Final Topics summary in Folder:\n{topics_summary_in_folder}')
 
-    return [topics_summary_in_folder, topics_summary_in_folder_without_date]
+    return topics_summary_in_folder, titles_and_num_of_replies, folder_summary
 
 
 def parse_one_comment(db, search_num, comment_num):
@@ -2618,41 +2670,6 @@ def update_change_log_and_searches(db, folder_num):
             self.parameters = parameters
             self.change_type = change_type
 
-    class SearchesTableLine:
-
-        def __init__(self,
-                     topic_id=None,
-                     parsed_time=None,
-                     status=None,
-                     title=None,
-                     link=None,
-                     start_time=None,
-                     num_of_replies=None,
-                     display_name=None,
-                     age=None,
-                     searches_table_id=None,
-                     folder_id=None,
-                     age_max=None,
-                     age_min=None,
-                     num_of_persons=None,
-                     full_dict=None
-                     ):
-            self.topic_id = topic_id
-            self.parsed_time = parsed_time
-            self.status = status
-            self.title = title
-            self.link = link
-            self.start_time = start_time
-            self.num_of_replies = num_of_replies
-            self.display_name = display_name
-            self.age = age
-            self.id = searches_table_id
-            self.folder_id = folder_id
-            self.age_max = age_max
-            self.age_min = age_min
-            self.num_of_persons = num_of_persons
-            self.full_dict = full_dict
-
     # DEBUG - function execution time counter
     func_start = datetime.now()
 
@@ -2660,16 +2677,16 @@ def update_change_log_and_searches(db, folder_num):
 
         sql_text = sqlalchemy.text(
             """SELECT search_forum_num, parsed_time, status_short, forum_search_title, cut_link, search_start_time, 
-            num_of_replies, id, age, family_name, forum_folder_id FROM forum_summary_snapshot WHERE 
+            num_of_replies, family_name, age, id, forum_folder_id FROM forum_summary_snapshot WHERE 
             forum_folder_id = :a; """
         )
         snapshot = conn.execute(sql_text, a=folder_num).fetchall()
         curr_snapshot_list = []
         for line in snapshot:
-            snapshot_line = SearchesTableLine()
+            snapshot_line = SearchSummary()
             snapshot_line.topic_id, snapshot_line.parsed_time, snapshot_line.status, snapshot_line.title, \
                 snapshot_line.link, snapshot_line.start_time, snapshot_line.num_of_replies, \
-                snapshot_line.id, snapshot_line.age, snapshot_line.display_name, snapshot_line.folder_id = list(line)
+                snapshot_line.name, snapshot_line.age, snapshot_line.id, snapshot_line.folder_id = list(line)
             curr_snapshot_list.append(snapshot_line)
 
         # TODO - in future: should the number of searches be limited? Probably to JOIN change_log and WHERE folder=...
@@ -2679,10 +2696,10 @@ def update_change_log_and_searches(db, folder_num):
         ).fetchall()
         prev_searches_list = []
         for searches_line in searches_full_list:
-            search = SearchesTableLine()
+            search = SearchSummary()
             search.topic_id, search.parsed_time, search.status, search.title, \
                 search.link, search.start_time, search.num_of_replies, \
-                search.display_name, search.age, search.id, search.folder_id = list(searches_line)
+                search.name, search.age, search.id, search.folder_id = list(searches_line)
             prev_searches_list.append(search)
 
         '''1. move UPD to Change Log'''
@@ -2751,12 +2768,11 @@ def update_change_log_and_searches(db, folder_num):
                 change_type) values (:a, :b, :c, :d, :e, :f); """
             )
 
-            for l in change_log_updates_list:
-                conn.execute(stmt, a=l.parsed_time, b=l.topic_id, c=l.changed_field, d=l.new_value,
-                             e=l.parameters, f=l.change_type)
+            for line in change_log_updates_list:
+                conn.execute(stmt, a=line.parsed_time, b=line.topic_id, c=line.changed_field, d=line.new_value,
+                             e=line.parameters, f=line.change_type)
 
         '''2. move ADD to Change Log '''
-        # new_searches_from_snapshot = []
         new_searches_from_snapshot_list = []
 
         for snapshot_line in curr_snapshot_list:
@@ -2769,19 +2785,6 @@ def update_change_log_and_searches(db, folder_num):
             if new_search_flag == 1:
                 new_searches_from_snapshot_list.append(snapshot_line)
 
-        """for i in range(len(snapshot)):
-            new_search_flag = 1
-            for j in range(len(searches_full_list)):
-                if snapshot[i][0] == searches_full_list[j][0]:
-                    new_search_flag = 0
-                    break
-
-            if new_search_flag == 1:
-                new_searches_from_snapshot.append(
-                    [snapshot[i][0], snapshot[i][1], snapshot[i][2], snapshot[i][3], snapshot[i][4], snapshot[i][5],
-                     snapshot[i][6], snapshot[i][8], snapshot[i][9], snapshot[i][10]])"""
-
-        # change_log_new_searches = []
         change_log_new_searches_list = []
 
         for snapshot_line in new_searches_from_snapshot_list:
@@ -2798,23 +2801,9 @@ def update_change_log_and_searches(db, folder_num):
                 """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type) 
                 values (:a, :b, :c, :d, :e);"""
             )
-            for l in change_log_new_searches_list:
-                conn.execute(stmt, a=l.parsed_time, b=l.topic_id, c=l.changed_field, d=l.new_value, e=l.change_type)
-
-        """for i in range(len(new_searches_from_snapshot)):
-            change_log_new_searches.append(
-                [new_searches_from_snapshot[i][1], new_searches_from_snapshot[i][0],
-                 "new_search", new_searches_from_snapshot[i][3], 0])
-            
-        if change_log_new_searches:
-            stmt = sqlalchemy.text(
-                INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type) 
-                values (:a, :b, :c, :d, :e);
-            )
-            for i in range(len(change_log_new_searches)):
-                conn.execute(stmt, a=change_log_new_searches[i][0], b=change_log_new_searches[i][1],
-                             c=change_log_new_searches[i][2], d=change_log_new_searches[i][3],
-                             e=change_log_new_searches[i][4])"""
+            for line in change_log_new_searches_list:
+                conn.execute(stmt, a=line.parsed_time, b=line.topic_id, c=line.changed_field,
+                             d=line.new_value, e=line.change_type)
 
         '''3. ADD to Searches'''
         if new_searches_from_snapshot_list:
@@ -2823,11 +2812,12 @@ def update_change_log_and_searches(db, folder_num):
                 search_start_time, num_of_replies, age, family_name, forum_folder_id) values (:a, :b, :c, :d, :e, :f, 
                 :g, :h, :i, :j); """
             )
-            for l in new_searches_from_snapshot_list:
-                conn.execute(stmt, a=l.topic_id, b=l.parsed_time, c=l.status, d=l.title, e=l.link, f=l.start_time,
-                             g=l.num_of_replies, h=l.age, i=l.display_name, j=l.folder_id)
+            for line in new_searches_from_snapshot_list:
+                conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title, e=line.link,
+                             f=line.start_time, g=line.num_of_replies, h=line.age, i=line.name,
+                             j=line.folder_id)
 
-                search_num = l.topic_id
+                search_num = line.topic_id
 
                 parsed_profile_text = parse_search_profile(search_num)
                 search_activities = profile_get_type_of_activity(parsed_profile_text)
@@ -2864,14 +2854,11 @@ def update_change_log_and_searches(db, folder_num):
                         logging.exception(e)
 
         '''4 DEL UPD from Searches'''
-        # delete_lines_from_summary = []
         delete_lines_from_summary_list = []
 
         for snapshot_line in curr_snapshot_list:
             for searches_line in prev_searches_list:
                 if snapshot_line.topic_id == searches_line.topic_id:
-                    # search_forum_num, parsed_time, status_short, forum_search_title, cut_link, search_start_time,
-                    #             num_of_replies, id, age, family_name, forum_folder_id
                     if snapshot_line.status != searches_line.status or \
                             snapshot_line.title != searches_line.title or \
                             snapshot_line.num_of_replies != searches_line.num_of_replies:
@@ -2881,23 +2868,8 @@ def update_change_log_and_searches(db, folder_num):
             stmt = sqlalchemy.text(
                 """DELETE FROM searches WHERE search_forum_num=:a;"""
             )
-            for l in delete_lines_from_summary_list:
-                conn.execute(stmt, a=int(l.topic_id))
-
-        """for i in range(len(snapshot)):
-            snpsht = list(snapshot[i])
-            for j in range(len(searches_full_list)):
-                srchs = list(searches_full_list[j])
-                if snpsht[0] == srchs[0]:
-                    if snpsht[2] != srchs[2] or snpsht[3] != srchs[3] or snpsht[6] != srchs[6]:
-                        delete_lines_from_summary.append(snpsht[0])
-
-        if delete_lines_from_summary:
-            stmt = sqlalchemy.text(
-                "DELETE FROM searches WHERE search_forum_num=:a;"
-            )
-            for i in range(len(delete_lines_from_summary)):
-                conn.execute(stmt, a=int(delete_lines_from_summary[i]))"""
+            for line in delete_lines_from_summary_list:
+                conn.execute(stmt, a=int(line.topic_id))
 
         '''5. UPD added to Searches'''
         searches_full_list = conn.execute(
@@ -2906,13 +2878,12 @@ def update_change_log_and_searches(db, folder_num):
         ).fetchall()
         curr_searches_list = []
         for searches_line in searches_full_list:
-            search = SearchesTableLine()
+            search = SearchSummary()
             search.topic_id, search.parsed_time, search.status, search.title, \
                 search.link, search.start_time, search.num_of_replies, \
-                search.display_name, search.age, search.id, search.folder_id = list(searches_line)
+                search.name, search.age, search.id, search.folder_id = list(searches_line)
             curr_searches_list.append(search)
 
-        # new_searches_from_snapshot = []
         new_searches_from_snapshot_list = []
 
         for snapshot_line in curr_snapshot_list:
@@ -2930,35 +2901,10 @@ def update_change_log_and_searches(db, folder_num):
                 :g, :h, :i, :j); """
 
             )
-            for l in new_searches_from_snapshot_list:
-                conn.execute(stmt, a=l.topic_id, b=l.parsed_time, c=l.status, d=l.title, e=l.link, f=l.start_time,
-                             g=l.num_of_replies, h=l.age, i=l.display_name, j=l.folder_id)
-
-        """for i in range(len(snapshot)):
-            snpsht = list(snapshot[i])
-            new_search_flag = 1
-            for j in range(len(searches_full_list)):
-                srchs = list(searches_full_list[j])
-                if snpsht[0] == srchs[0]:
-                    new_search_flag = 0
-                    break
-            if new_search_flag == 1:
-                new_searches_from_snapshot.append(
-                    [snpsht[0], snpsht[1], snpsht[2], snpsht[3], snpsht[4], snpsht[5], snpsht[6], snpsht[8], snpsht[9],
-                     snpsht[10]])
-        if new_searches_from_snapshot:
-            stmt = sqlalchemy.text(
-                "INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, cut_link, 
-                search_start_time, num_of_replies, age, family_name, forum_folder_id) values (:a, :b, :c, :d, :e, :f, 
-                :g, :h, :i, :j); "
-
-            )
-            for i in range(len(new_searches_from_snapshot)):
-                conn.execute(stmt, a=new_searches_from_snapshot[i][0], b=new_searches_from_snapshot[i][1],
-                             c=new_searches_from_snapshot[i][2], d=new_searches_from_snapshot[i][3],
-                             e=new_searches_from_snapshot[i][4], f=new_searches_from_snapshot[i][5],
-                             g=new_searches_from_snapshot[i][6], h=new_searches_from_snapshot[i][7],
-                             i=new_searches_from_snapshot[i][8], j=new_searches_from_snapshot[i][9])"""
+            for line in new_searches_from_snapshot_list:
+                conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title, e=line.link,
+                             f=line.start_time, g=line.num_of_replies, h=line.age, i=line.name,
+                             j=line.folder_id)
 
         conn.close()
 
@@ -2985,8 +2931,8 @@ def rewrite_snapshot_in_sql(db, parsed_summary, folder_num):
             cut_link, search_start_time, num_of_replies, age, family_name, forum_folder_id) values (:a, :b, 
             :c, :d, :e, :f, :g, :h, :i, :j); """
         )
-        for i in range(len(parsed_summary[0])):
-            line_of_pars_sum = list(parsed_summary[0][i])
+        for i in range(len(parsed_summary)):
+            line_of_pars_sum = list(parsed_summary[i])
             conn.execute(sql_text, a=line_of_pars_sum[1], b=line_of_pars_sum[0], c=line_of_pars_sum[2],
                          d=line_of_pars_sum[3], e='', f=line_of_pars_sum[5], g=line_of_pars_sum[6],
                          h=line_of_pars_sum[7], i=line_of_pars_sum[8], j=line_of_pars_sum[9])
@@ -3000,18 +2946,20 @@ def process_one_folder(db, folder_to_parse):
     """process one forum folder: check for updates, upload them into cloud sql"""
 
     # parse a new version of summary page from the chosen folder
-    parsed_folder_summary = parse_one_folder(folder_to_parse)
-    logging.info(f'folder {folder_to_parse} parse with summary: {parsed_folder_summary[0]}')
+    old_folder_summary_full, titles_and_num_of_replies, new_folder_summary = parse_one_folder(folder_to_parse)
+    logging.info(f'folder {folder_to_parse} parse with summary: {old_folder_summary_full}')
+    # TODO - temp debug
+    logging.info(f'TEMP - NEW folder summary: {str(new_folder_summary)}')
 
-    update_trigger = ''
+    update_trigger = False
     debug_message = ''
 
     # make comparison, record it in PSQL
-    if parsed_folder_summary[0]:
+    if old_folder_summary_full:
 
         # transform the current snapshot into the string to be able to compare it: string vs string
-        prep_for_curr_snapshot_as_string = [y for x in parsed_folder_summary[1] for y in x]
-        curr_snapshot_as_string = ','.join(map(str, prep_for_curr_snapshot_as_string))
+        curr_snapshot_as_one_dimensional_list = [y for x in titles_and_num_of_replies for y in x]
+        curr_snapshot_as_string = ','.join(map(str, curr_snapshot_as_one_dimensional_list))
 
         # get the prev snapshot as string from cloud storage & get the trigger if there are updates at all
         update_trigger, prev_snapshot_as_string = update_checker(curr_snapshot_as_string, folder_to_parse)
@@ -3020,15 +2968,15 @@ def process_one_folder(db, folder_to_parse):
         logging.info(f'prev snapshot: {prev_snapshot_as_string}')
 
         # only for case when current snapshot differs from previous
-        if update_trigger == "yes":
+        if update_trigger:
             debug_message = f'there is an update in folder {folder_to_parse}\n{debug_message}'
 
-            rewrite_snapshot_in_sql(db, parsed_folder_summary, folder_to_parse)
+            rewrite_snapshot_in_sql(db, old_folder_summary_full, folder_to_parse)
 
             logging.info(f'starting "process_delta" for folder {folder_to_parse}')
 
             update_change_log_and_searches(db, folder_to_parse)
-            update_coordinates(db, parsed_folder_summary[0])
+            update_coordinates(db, old_folder_summary_full)
 
         else:
             debug_message = f'there is NO update in folder {folder_to_parse}\n{debug_message}'
@@ -3093,7 +3041,7 @@ def main(event, context):  # noqa
 
             update_trigger = process_one_folder(db, folder)
 
-            if update_trigger == 'yes':
+            if update_trigger:
                 list_of_folders_with_updates.append(folder)
 
     logging.info(f'Here\'s a list of folders with updates: {list_of_folders_with_updates}')
