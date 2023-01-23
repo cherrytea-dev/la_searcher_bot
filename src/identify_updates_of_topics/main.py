@@ -1267,7 +1267,8 @@ def recognize_title(line):
                 [r'р.п ', 'р.п. '],  # specific case for one search
                 [r'(?<=\d{4}\W)г\.?р?', 'г.р.'],  # rare case
                 [r'(?<!\d)\d{3}\Wг\.р\.', ''],  # specific case for one search
-                [r'(?<=\d{2}\Wгод\W{2}\d{4})\W{1,3}(?!г)', ' г.р. ']  # specific case for one search
+                [r'(?<=\d{2}\Wгод\W{2}\d{4})\W{1,3}(?!г)', ' г.р. '],  # specific case for one search
+                [r'лет\W{1,2}\(\d{1,2}\W{1,2}на м\.п\.\)', 'лет ']  # specific case for the search 18625
             ]
 
         elif pattern_type == 'AVIA':
@@ -1976,7 +1977,7 @@ def recognize_title(line):
                 return person_reco
 
             # CASE 2. When the whole person is defined as "+N age, age" only
-            case_2 = re.search(r'(?i)^\W{0,2}(\d|двое|трое)'
+            case_2 = re.search(r'(?i)^\W{0,2}(\d(?!\d)|двое|трое)'
                                r'(?=(\W{0,2}(человека|женщины?|мужчины?|девочки|мальчика|бабушки|дедушки))?)',
                                name_string)
             if case_2:
@@ -2503,15 +2504,15 @@ def parse_one_folder(folder_id):
             search_id = search_cut_link[(search_cut_link.find('&t=') + 3):]
 
             # FIXME = trying to get search_id in a shorter way
-            print(f'TEMP - LONG_LINK = {search_long_link}')
             try:
                 # language=regexp
-                re_search_id = int(re.search(r'(?<=&t=)\d{2,8}', search_long_link).group())
+                re_search_id = int(re.search(r'(?<=&t=)\d{2,8}', search_title_block['href']).group())
                 print(f'TEMP - ALT SEARCH ID = {re_search_id}, and search_id = {search_id}')
-                if search_id == re_search_id:
+                if int(search_id) == re_search_id:
                     print(f'TEMP – THEY EQUAL')
                 else:
                     print(f'TEMP – THEY ARE NOT!')
+                    notify_admin(f'THEY ARE NOT! {re_search_id} and {search_id}')
             except Exception as e:  # noqa
                 print(f'TEMP - OOOPSIE')
                 logging.exception(e)
@@ -2564,7 +2565,6 @@ def parse_one_folder(folder_id):
                                 search_summary_object.age_min = title_reco_dict['persons']['age_min']
                             if 'age_max' in title_reco_dict['persons']:
                                 search_summary_object.age_max = title_reco_dict['persons']['age_max']
-                            print(f'TEMP - PERSONS FOUND IN RECO_DICT')
                     except Exception as e:  # noqa
                         print(f'TEMP - WE HAVE NOT FOUND PERSONS IN RECO_DICT')
                     # FIXME – ^^^
@@ -2987,10 +2987,6 @@ def rewrite_snapshot_in_sql(db, folder_num, new_folder_summary):
             age_max) values (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m); """
         )
         for line in new_folder_summary:
-
-            # FIXME – temp
-            print(f'TEMP – DISPLAY NAME FOR ADDINIG INTO F_S_S = {line.display_name}')
-
             conn.execute(sql_text, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
                          e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
                          j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max)

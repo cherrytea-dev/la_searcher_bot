@@ -230,10 +230,10 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 def save_sending_status_to_notif_by_user(cur, message_id, result):
     """save the telegram sending status to sql table notif_by_user"""
 
-    if result[0:10] == 'cancelled':
-        result = result[0:10]
-    elif result[0:7] == 'failed':
-        result = result[0:7]
+    if result[0:9] == 'cancelled':
+        result = result[0:9]
+    elif result[0:6] == 'failed':
+        result = result[0:6]
 
     if result in {'completed', 'cancelled', 'failed'}:
 
