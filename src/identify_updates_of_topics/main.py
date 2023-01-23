@@ -506,6 +506,9 @@ def parse_coordinates(db, search_num):
         # open the first post
         search_code_blocks = soup.find('div', 'content')
 
+        if not search_code_blocks:
+            return [lat, lon, coord_type]
+
         # removing <br> tags
         for e in search_code_blocks.findAll('br'):
             e.extract()
@@ -2752,7 +2755,7 @@ def update_change_log_and_searches(db, folder_num):
         # FIXME – temp – just to check how many lines
         print(f'TEMP – len of prev_searches_list = {len(prev_searches_list)}')
         if len(prev_searches_list) > 5000:
-            logging.warning(f'TEMP - you use too big table Searches, it should be optimized')
+            logging.info(f'TEMP - you use too big table Searches, it should be optimized')
         # FIXME ^^^
 
         '''1. move UPD to Change Log'''
