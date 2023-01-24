@@ -1740,9 +1740,9 @@ def check_and_save_event_id(context, event, conn):
                         UPDATE 
                             notif_functions_registry
                         SET
-                            time_finish = %s
+                            time_finish = :a
                         WHERE
-                            event_id = %s
+                            event_id = :b
                         ;
                         /*action='save_finish_of_compose_function' */
                         ;""")
