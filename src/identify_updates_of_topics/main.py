@@ -1268,7 +1268,7 @@ def recognize_title(line):
                 [r'(?<=\d{4}\W)г\.?р?', 'г.р.'],  # rare case
                 [r'(?<!\d)\d{3}\Wг\.р\.', ''],  # specific case for one search
                 [r'(?<=\d{2}\Wгод\W{2}\d{4})\W{1,3}(?!г)', ' г.р. '],  # specific case for one search
-                [r'лет\W{1,2}\(\d{1,2}\W{1,2}на м\.п\.\)', 'лет ']  # specific case for the search 18625
+                [r'((?<=год)|(?<=года)|(?<=лет))\W{1,2}\(\d{1,2}\W{1,2}(года?|лет)?\W?на м\.п\.\)', ' ']  # rare case
             ]
 
         elif pattern_type == 'AVIA':
@@ -1331,8 +1331,8 @@ def recognize_title(line):
                 [r'(?i).*(новичк(и|ами?|овая|овый)|новеньки[ем]|знакомство с отрядом|для новичков)(\W.*|$)\n?',
                  'event', 'event'],
                 [r'(?i).*(вводная лекция)\W.*\n?', 'event', 'event'],
-                [r'(?i).*\W?(обучение|онлайн-лекция|лекция|школа волонт[её]ров|обучающее мероприятие|съезд).*\n?',
-                 'event', 'event'],
+                [r'(?i).*\W?(обучение|онлайн-лекция|лекция|школа волонт[её]ров|обучающее мероприятие|съезд|'
+                 r'семинар|собрание).*\n?', 'event', 'event'],
 
                 [r'(?i).*ID-\W?\d{1,7}.*\n?', 'info', 'info'],
                 [r'(?i)ночной патруль.*\n?', 'search patrol', 'search patrol']
@@ -3039,7 +3039,7 @@ def get_the_list_of_ignored_folders(db):
     )
     raw_list = conn.execute(sql_text).fetchall()
 
-    list_of_ignored_folders = [line[0] for line in raw_list]
+    list_of_ignored_folders = [int(line[0]) for line in raw_list]
 
     conn.close()
 
@@ -3063,7 +3063,7 @@ def main(event, context):  # noqa
     list_of_ignored_folders = get_the_list_of_ignored_folders(db)
 
     if list_from_pubsub:
-        folders_list = [line[0] for line in list_from_pubsub if line[0] not in list_of_ignored_folders]
+        folders_list = [int(line[0]) for line in list_from_pubsub if int(line[0]) not in list_of_ignored_folders]
         logging.info(f'list of folders, received from pubsub but filtered by ignored folders: {folders_list}')
 
     if not folders_list:
