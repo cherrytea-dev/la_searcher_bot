@@ -1690,6 +1690,90 @@ def mark_new_comments_as_processed(conn):
     return None
 
 
+def check_and_save_event_id(context, event, conn):
+    """Work with PSQL table notif_functions_registry. Goal of the table & function is to avoid parallel work of
+    two compose_notifications functions. Executed in the beginning and in the end of compose_notifications function"""
+
+    def check_if_other_functions_are_working():
+        """Check in PSQL in there's the same function 'compose_notifications' working in parallel"""
+
+        sql_text_psy = sqlalchemy.text("""
+                        SELECT 
+                            event_id 
+                        FROM
+                            notif_functions_registry
+                        WHERE
+                            time_start > NOW() - interval '130 seconds' AND
+                            time_finish IS NULL AND
+                            cloud_function_name  = 'compose_notifications'
+                        ;
+                        /*action='check_if_there_is_parallel_compose_function' */
+                        ;""")
+
+        lines = conn.execute(sql_text_psy).fetchone()
+
+        parallel_functions = True if lines else False
+
+        return parallel_functions
+
+    def record_start_of_function(event_num):
+        """Record into PSQL that this function started working (id = id of the respective pub/sub event)"""
+
+        sql_text_psy = sqlalchemy.text("""
+                        INSERT INTO 
+                            notif_functions_registry
+                        (event_id, time_start, cloud_function_name)
+                        VALUES
+                        (:a, :b, :c);
+                        /*action='save_start_of_compose_function' */
+                        ;""")
+
+        conn.execute(sql_text_psy, a=event_id, b=datetime.datetime.now(), c='compose_notifications')
+        logging.info(f'function was triggered by event {event_num}')
+
+        return None
+
+    def record_finish_of_function(event_num):
+        """Record into PSQL that this function finished working (id = id of the respective pub/sub event)"""
+
+        sql_text_psy = sqlalchemy.text("""
+                        UPDATE 
+                            notif_functions_registry
+                        SET
+                            time_finish = %s
+                        WHERE
+                            event_id = %s
+                        ;
+                        /*action='save_finish_of_compose_function' */
+                        ;""")
+
+        conn.execute(sql_text_psy, a=datetime.datetime.now(), b=event_num)
+
+        return None
+
+    if not context or not event:
+        return False
+
+    try:
+        event_id = context.event_id
+    except Exception as e:  # noqa
+        return False
+
+    # if this functions is triggered in the very beginning of the Google Cloud Function execution
+    if event == 'start':
+        if check_if_other_functions_are_working():
+            record_start_of_function(event_id)
+            return True
+
+        record_start_of_function(event_id)
+        return False
+
+    # if this functions is triggered in the very end of the Google Cloud Function execution
+    elif event == 'finish':
+        record_finish_of_function(event_id)
+        return False
+
+
 def main(event, context):  # noqa
     """key function which is initiated by Pub/Sub"""
 
@@ -1705,6 +1789,15 @@ def main(event, context):  # noqa
     # initiate SQL connection
     pool = sql_connect()
     with pool.connect() as conn:
+
+        there_is_function_working_in_parallel = check_and_save_event_id(context, 'start', conn)
+        if there_is_function_working_in_parallel:
+            logging.info(f'function execution stopped due to parallel run with another function')
+            check_and_save_event_id(context, 'finish', conn)
+            logging.info('script finished')
+            conn.close()
+            pool.dispose()
+            return None
 
         # compose New Records List: the delta from Change log
         compose_new_records_from_change_log(conn)
@@ -1745,12 +1838,14 @@ def main(event, context):  # noqa
             logging.info('we checked – there is still something to notify, so we re-initiated this function')
             publish_to_pubsub('topic_for_notification', 're-run from same script')
 
+        check_and_save_event_id(context, 'finish', conn)
+        publish_to_pubsub('topic_to_send_notifications', 'initiate notifs send out')
+        logging.info('script finished')
+
         conn.close()
     pool.dispose()
 
     del new_records_list
     del users_list
-
-    publish_to_pubsub('topic_to_send_notifications', 'initiate notifs send out')
 
     return None
