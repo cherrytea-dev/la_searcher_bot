@@ -151,10 +151,10 @@ def compose_user_preferences_message(cur, user_id):
             prefs_list.append(user_pref_line[0])
             if user_pref_line[0] == 'all':
                 prefs_wording += 'все сообщения'
-            elif user_pref_line[0] == 'start':
-                prefs_wording += 'пока нет включенных уведомлений'
-            elif user_pref_line[0] == 'finish':
-                prefs_wording += 'пока нет включенных уведомлений'
+            # elif user_pref_line[0] == 'start':
+            #     prefs_wording += 'пока нет включенных уведомлений'
+            # elif user_pref_line[0] == 'finish':
+            #     prefs_wording += 'пока нет включенных уведомлений'
             elif user_pref_line[0] == 'new_searches':
                 prefs_wording += ' &#8226; о новых поисках\n'
             elif user_pref_line[0] == 'status_changes':
@@ -476,211 +476,105 @@ def save_preference(cur, user_id, preference):
     """Save user preference on types of notifications to be sent by bot"""
 
     # the master-table is notif_mailing_types:
-    # type_id | type_name
-    # 0 | topic_new
-    # 1 | topic_status_change
-    # 2 | topic_title_change
-    # 3 | topic_comment_new
-    # 4 | topic_inforg_comment_new
-    # 5 | topic_field_trip_new
-    # 6 | topic_field_trip_change
-    # 7 | topic_coords_change
-    # 20 | bot_news
-    # 30 | all
-    # 99 | not_defined
 
-    # if user wants to have +ALL notifications
+    pref_dict = {'topic_new': 0,
+                 'topic_status_change': 1,
+                 'topic_title_change': 2,
+                 'topic_comment_new': 3,
+                 'topic_inforg_comment_new': 4,
+                 'topic_field_trip_new': 5,
+                 'topic_field_trip_change': 6,
+                 'topic_coords_change': 7,
+                 'bot_news': 20,
+                 'all': 30,
+                 'not_defined': 99,
+
+                 'new_searches': 0,
+                 'status_changes': 1,
+                 'title_changes': 2,
+                 'comments_changes': 3,
+                 'inforg_comments': 4,
+                 'field_trips_new': 5,
+                 'field_trips_change': 6,
+                 'coords_change': 7}
+
+    def execute_insert(user, preference_name):
+        """execute SQL INSERT command"""
+
+        preference_id = pref_dict[preference_name]
+        cur.execute("""INSERT INTO user_preferences 
+                        (user_id, preference, pref_id) 
+                        VALUES (%s, %s, %s) 
+                        ON CONFLICT DO NOTHING;""",
+                    (user, preference_name, preference_id))
+
+        return None
+
+    def execute_delete(user, list_of_prefs):
+        """execute SQL DELETE command"""
+
+        if list_of_prefs:
+            for line in list_of_prefs:
+                line_id = pref_dict[line]
+                cur.execute("""DELETE FROM user_preferences WHERE user_id=%s AND pref_id=%s;""", (user, line_id))
+        else:
+            cur.execute("""DELETE FROM user_preferences WHERE user_id=%s;""", (user,))
+
+        return None
+
+    def execute_check(user, pref_list):
+        """execute SQL SELECT command and returns TRUE / FALSE if something found"""
+
+        result = False
+
+        for line in pref_list:
+            cur.execute("""SELECT id FROM user_preferences WHERE user_id=%s AND preference=%s LIMIT 1;""",
+                        (user, line))
+
+            if str(cur.fetchone()) != 'None':
+                result = True
+                break
+
+        return result
+
     if preference == 'all':
-        cur.execute("""DELETE FROM user_preferences WHERE user_id=%s;""", (user_id,))
 
-        cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
-                    (user_id, preference, 30))
+        execute_delete(user_id, [])
+        execute_insert(user_id, preference)
 
-    # if user DOESN'T want to have -ALL notifications
-    elif preference == '-all':
-        cur.execute("""DELETE FROM user_preferences WHERE user_id=%s;""", (user_id,))
+    elif preference in {'new_searches', 'status_changes', 'title_changes', 'comments_changes'}:
 
-        cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
-                    (user_id, 'bot_news', 20))
+        if execute_check(user_id, ['all']):
+            execute_insert(user_id, 'bot_news')
+        execute_delete(user_id, ['all'])
 
-    # if user wants notifications on NEW SEARCHES or STATUS or TITLE updates
-    elif preference in {'new_searches', 'status_changes', 'title_changes'}:
+        execute_insert(user_id, preference)
 
-        # Check if there's "ALL" preference
-        cur.execute("SELECT id FROM user_preferences WHERE user_id=%s AND preference='all' LIMIT 1;", (user_id,))
+        if preference == 'comments_changes':
+            execute_delete(user_id, ['inforg_comments'])
 
-        user_had_all = str(cur.fetchone())
-
-        #
-        cur.execute(
-            """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR preference='finish' OR
-            preference='all' OR preference=%s);""",
-            (user_id, preference))
-
-        if preference == 'new_searches':
-            pref_id = 0
-        elif preference == 'status_changes':
-            pref_id = 1
-        elif preference == 'title_changes':
-            pref_id = 2
-        else:
-            # only for error cases
-            pref_id = 99
-
-        cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
-                    (user_id, preference, pref_id))
-
-        # Inforg updates handling
-        if user_had_all != 'None':
-            cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);""",
-                        (user_id, 'bot_news', 20))
-
-    # if user DOESN'T want notifications on SPECIFIC updates
-    elif preference in {'-new_searches', '-status_changes'}:  # or preference == '-title_changes'
-        preference = preference[1:]
-        if preference == 'new_searches':
-            pref_id = 0
-        elif preference == 'status_changes':
-            pref_id = 1
-        else:
-            pref_id = 99
-        cur.execute("""DELETE FROM user_preferences WHERE user_id = %s AND pref_id = %s;""",
-                    (user_id, pref_id))
-
-        cur.execute("SELECT id FROM user_preferences WHERE user_id=%s LIMIT 1;", (user_id,))
-
-    # if user wants notifications ON COMMENTS
-    elif preference == 'comments_changes':
-
-        cur.execute(
-            """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
-            preference='all' OR preference='finish' OR preference='inforg_comments');""",
-            (user_id,))
-
-        cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
-                    (user_id, preference, 3))
-
-    # if user DOESN'T want notifications on COMMENTS
-    elif preference == '-comments_changes':
-
-        cur.execute("""DELETE FROM user_preferences WHERE user_id = %s AND preference = 'comments_changes';""",
-                    (user_id,))
-
-        cur.execute("""INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s)
-                    ON CONFLICT (user_id, pref_id) DO NOTHING;""",
-                    (user_id, 'inforg_comments', 4))
-
-    # if user wants notifications ON INFORG COMMENTS
     elif preference == 'inforg_comments':
 
-        # Delete Start & Finish
-        cur.execute(
-            """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
-            preference='finish' OR preference='inforg_comments');""",
-            (user_id,))
+        if not execute_check(user_id, ['all', 'comments_changes']):
+            execute_insert(user_id, preference)
 
-        # Check if ALL of Comments_changes are in place
-        cur.execute(
-            """SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' OR
-            preference='comments_changes' OR pref_id=30 OR pref_id=3) LIMIT 1;""",
-            (user_id,))
+    elif preference in {'field_trips_new', 'field_trips_change', 'coords_change'}:
 
-        info_on_user = str(cur.fetchone())
+        # FIXME – temp deactivation unlit feature will be ready for prod
+        # FIXME – to be added to "new_searches" etc group
+        # if not execute_check(user_id, ['all']):
+        execute_insert(user_id, preference)
 
-        # Add Inforg_comments ONLY in there's no ALL or Comments_changes
-        if info_on_user == 'None':
-            cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
-                        (user_id, preference, 4))
+    elif preference in {'-new_searches', '-status_changes', '-inforg_comments', '-title_changes', '-all',
+                        '-field_trips_new', '-field_trips_change', '-coords_change'}:
 
-    # if user DOESN'T want notifications ON INFORG COMMENTS
-    elif preference == '-inforg_comments':
+        if preference == '-all':
+            execute_insert(user_id, 'bot_news')
+        elif preference == '-comments_changes':
+            execute_insert(user_id, 'inforg_comments')
 
-        cur.execute("""DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'inforg_comments');""",
-                    (user_id,))
-
-    # if user wants notifications ON NEW FIELD TRIPS
-    elif preference == 'field_trips_new':
-
-        # Delete Start & Finish
-        cur.execute(
-            """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
-            preference='finish' OR preference='field_trips_new' OR pref_id=5);""",
-            (user_id,))
-
-        # Check if ALL is in plac
-        cur.execute(
-            "SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' or pref_id=30) LIMIT 1;",
-            (user_id,))
-
-        already_all = str(cur.fetchone())
-
-        # Add new_filed_trips ONLY in there's no ALL
-        if already_all == 'None':
-            cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
-                        (user_id, preference, 5))
-
-    # if user DOESN'T want notifications ON FIELD TRIPS
-    elif preference == '-field_trips_new':
-
-        cur.execute(
-            """DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'field_trips_new' OR pref_id=5);""",
-            (user_id,))
-
-    # if user wants notifications ON NEW FIELD TRIPS
-    elif preference == 'field_trips_change':
-
-        # Delete Start & Finish
-        cur.execute(
-            """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
-            preference='finish' OR preference='field_trips_change' OR pref_id=6);""",
-            (user_id,))
-
-        # Check if ALL is in place
-        cur.execute(
-            "SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' or pref_id=30) LIMIT 1;",
-            (user_id,))
-
-        already_all = str(cur.fetchone())
-
-        # Add filed_trips_change ONLY in there's no ALL
-        if already_all == 'None':
-            cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
-                        (user_id, preference, 6))
-
-    # if user DOESN'T want notifications ON FIELD TRIPS CHANGES
-    elif preference == '-field_trips_change':
-
-        cur.execute(
-            """DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'field_trips_change' OR pref_id=6);""",
-            (user_id,))
-
-    # if user wants notifications ON COORDS CHANGE
-    elif preference == 'coords_change':
-
-        # Delete Start & Finish
-        cur.execute(
-            """DELETE FROM user_preferences WHERE user_id=%s AND (preference='start' OR
-            preference='finish' OR preference='coords_change' OR pref_id=7);""",
-            (user_id,))
-
-        # Check if ALL is in place
-        cur.execute(
-            "SELECT id FROM user_preferences WHERE user_id=%s AND (preference='all' OR pref_id=30) LIMIT 1;",
-            (user_id,))
-
-        already_all = str(cur.fetchone())
-
-        # Add new_filed_trips ONLY in there's no ALL
-        if already_all == 'None':
-            cur.execute("INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s);",
-                        (user_id, preference, 7))
-
-    # if user DOESN'T want notifications ON COORDS CHANGE
-    elif preference == '-coords_change':
-
-        cur.execute(
-            """DELETE FROM user_preferences WHERE user_id = %s AND (preference = 'coords_change' OR pref_id=7);""",
-            (user_id,))
+        preference = preference[1:]
+        execute_delete(user_id, [preference])
 
     return None
 
@@ -1785,8 +1679,8 @@ def main(request):
                             if got_message == b_act_all:
                                 bot_message = 'Супер! теперь вы будете получать уведомления в телеграм в случаях: ' \
                                               'появление нового поиска, изменение статуса поиска (стоп, НЖ, НП), ' \
-                                              'появление новых комментариев по всем поискам. Вы в любой момент можете ' \
-                                              'изменить список уведомлений'
+                                              'появление новых комментариев по всем поискам. Вы в любой момент ' \
+                                              'можете изменить список уведомлений'
                                 save_preference(cur, user_id, 'all')
 
                             # save preference for -ALL
@@ -1908,7 +1802,7 @@ def main(request):
                                 prefs = compose_user_preferences_message(cur, user_id)
                                 keyboard_notifications_flexible = [[b_act_all], [b_act_new_search], [b_act_stat_change],
                                                                    [b_act_all_comments], [b_act_inforg_com],
-                                                                [b_back_to_start]]
+                                                                   [b_back_to_start]]
 
                                 for line in prefs[1]:
                                     if line == 'all':
