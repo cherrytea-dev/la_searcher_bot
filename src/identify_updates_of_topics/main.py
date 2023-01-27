@@ -85,7 +85,8 @@ class SearchSummary:
 
     def __str__(self):
         return f'{self.parsed_time} – {self.folder_id} / {self.topic_id} : {self.name} - {self.age} – ' \
-               f'{self.num_of_replies}. NEW: {self.display_name} – {self.age_min} – {self.age_max} – {self.num_of_persons}'
+               f'{self.num_of_replies}. NEW: {self.display_name} – {self.age_min} – {self.age_max} – ' \
+               f'{self.num_of_persons}'
 
 
 def set_cloud_storage(bucket_name, folder_num):
@@ -516,133 +517,135 @@ def parse_coordinates(db, search_num):
     except Exception as e:
         logging.info(f'unable to parse a specific thread with address {url_to_topic} error is {repr(e)}')
 
-    # FIRST CASE = THERE ARE COORDINATES w/ a WORD Coordinates
-    try:
-        # make an independent variable
-        a = copy.copy(search_code_blocks)
+    if search_code_blocks:
 
-        # remove a text with strike-through
-        b = a.find_all('span', {'style': 'text-decoration:line-through'})
-        for i in range(len(b)):
-            b[i].decompose()
-
-        # preparing a list of 100-character strings which starts with Coord mentioning
-        e = []
-        i = 0
-        f = str(a).lower()
-
-        while i < len(f):
-            if f[i:].find('коорд') > 0:
-                d = i + f[i:].find('коорд')
-                e.append(f[d:(d + 100)])
-                if d == 0 or d == -1:
-                    i = len(f)
-                else:
-                    i = d + 1
-            else:
-                i = len(f)
-
-        # extract exact numbers & match if they look like coordinates
-        for i in range(len(e)):
-            g = [float(s) for s in re.findall(r'-?\d+\.?\d*', e[i])]
-            if len(g) > 1:
-                for j in range(len(g) - 1):
-                    try:
-                        # Majority of coords in RU: lat in [40-80], long in [20-180], expected minimal format = XX.XXX
-                        if 3 < (g[j] // 10) < 8 and len(str(g[j])) > 5 and 1 < (g[j + 1] // 10) < 19 and len(
-                                str(g[j + 1])) > 5:
-                            lat = g[j]
-                            lon = g[j + 1]
-                            coord_type = '1. coordinates w/ word coord'
-                    except Exception as e2:
-                        logging.info('DBG.P.36.EXC. Coords-1:')
-                        logging.exception(e2)
-
-    except Exception as e:
-        logging.info('Exception happened')
-        logging.exception(e)
-        pass
-
-    # SECOND CASE = THERE ARE COORDINATES w/o a WORD Coordinates
-    if lat == 0:
-        # make an independent variable
-        a = copy.copy(search_code_blocks)
-
+        # FIRST CASE = THERE ARE COORDINATES w/ a WORD Coordinates
         try:
+            # make an independent variable
+            a = copy.copy(search_code_blocks)
 
             # remove a text with strike-through
             b = a.find_all('span', {'style': 'text-decoration:line-through'})
             for i in range(len(b)):
                 b[i].decompose()
 
-            # removing <span> tags
-            for e in a.findAll('span'):
-                e.replace_with(e.text)
+            # preparing a list of 100-character strings which starts with Coord mentioning
+            e = []
+            i = 0
+            f = str(a).lower()
 
-            # removing <img> tags
-            for e in a.findAll('img'):
-                e.extract()
+            while i < len(f):
+                if f[i:].find('коорд') > 0:
+                    d = i + f[i:].find('коорд')
+                    e.append(f[d:(d + 100)])
+                    if d == 0 or d == -1:
+                        i = len(f)
+                    else:
+                        i = d + 1
+                else:
+                    i = len(f)
 
-            # removing <a> tags
-            for e in a.findAll('a'):
-                e.extract()
+            # extract exact numbers & match if they look like coordinates
+            for i in range(len(e)):
+                g = [float(s) for s in re.findall(r'-?\d+\.?\d*', e[i])]
+                if len(g) > 1:
+                    for j in range(len(g) - 1):
+                        try:
+                            # Majority of coords in RU: lat in [40-80], long in [20-180], expected min format = XX.XXX
+                            if 3 < (g[j] // 10) < 8 and len(str(g[j])) > 5 and 1 < (g[j + 1] // 10) < 19 and len(
+                                    str(g[j + 1])) > 5:
+                                lat = g[j]
+                                lon = g[j + 1]
+                                coord_type = '1. coordinates w/ word coord'
+                        except Exception as e2:
+                            logging.info('DBG.P.36.EXC. Coords-1:')
+                            logging.exception(e2)
 
-            # removing <strong> tags
-            for e in a.findAll('strong'):
-                e.replace_with(e.text)
-
-            # converting to string
-            b = re.sub(r'\n\s*\n', r' ', a.get_text().strip(), flags=re.M)
-            c = re.sub(r'\n', r' ', b)
-            g = [float(s) for s in re.findall(r'-?\d+\.?\d*', c)]
-            if len(g) > 1:
-                for j in range(len(g) - 1):
-                    try:
-                        # Majority of coords in RU: lat in [40-80], long in [20-180], expected minimal format = XX.XXX
-                        if 3 < (g[j] // 10) < 8 and len(str(g[j])) > 5 and 1 < (g[j + 1] // 10) < 19 and len(
-                                str(g[j + 1])) > 5:
-                            lat = g[j]
-                            lon = g[j + 1]
-                            coord_type = '2. coordinates w/o word coord'
-                    except Exception as e2:
-                        logging.info('DBG.P.36.EXC. Coords-2:')
-                        logging.exception(e2)
         except Exception as e:
-            logging.info('Exception 2')
+            logging.info('Exception happened')
             logging.exception(e)
             pass
 
-    # THIRD CASE = DELETED COORDINATES
-    if lat == 0:
+        # SECOND CASE = THERE ARE COORDINATES w/o a WORD Coordinates
+        if lat == 0:
+            # make an independent variable
+            a = copy.copy(search_code_blocks)
 
-        # make an independent variable
-        a = copy.copy(search_code_blocks)
+            try:
 
-        try:
-            # get a text with strike-through
-            a = a.find_all('span', {'style': 'text-decoration:line-through'})
-            if a:
-                for line in a:
-                    b = re.sub(r'\n\s*\n', r' ', line.get_text().strip(), flags=re.M)
-                    c = re.sub(r'\n', r' ', b)
-                    g = [float(s) for s in re.findall(r'-?\d+\.?\d*', c)]
-                    if len(g) > 1:
-                        for j in range(len(g) - 1):
-                            try:
-                                # Majority of coords in RU: lat in [40-80], long in [20-180],
-                                # expected minimal format = XX.XXX
-                                if 3 < (g[j] // 10) < 8 and len(str(g[j])) > 5 and 1 < (g[j + 1] // 10) < 19 and len(
-                                        str(g[j + 1])) > 5:
-                                    lat = g[j]
-                                    lon = g[j + 1]
-                                    coord_type = '3. deleted coord'
-                            except Exception as e2:
-                                logging.info('DBG.P.36.EXC. Coords-1:')
-                                logging.exception(e2)
-        except Exception as e:
-            logging.info('exception:')
-            logging.exception(e)
-            pass
+                # remove a text with strike-through
+                b = a.find_all('span', {'style': 'text-decoration:line-through'})
+                for i in range(len(b)):
+                    b[i].decompose()
+
+                # removing <span> tags
+                for e in a.findAll('span'):
+                    e.replace_with(e.text)
+
+                # removing <img> tags
+                for e in a.findAll('img'):
+                    e.extract()
+
+                # removing <a> tags
+                for e in a.findAll('a'):
+                    e.extract()
+
+                # removing <strong> tags
+                for e in a.findAll('strong'):
+                    e.replace_with(e.text)
+
+                # converting to string
+                b = re.sub(r'\n\s*\n', r' ', a.get_text().strip(), flags=re.M)
+                c = re.sub(r'\n', r' ', b)
+                g = [float(s) for s in re.findall(r'-?\d+\.?\d*', c)]
+                if len(g) > 1:
+                    for j in range(len(g) - 1):
+                        try:
+                            # Majority of coords in RU: lat in [40-80], long in [20-180], expected min format = XX.XXX
+                            if 3 < (g[j] // 10) < 8 and len(str(g[j])) > 5 and 1 < (g[j + 1] // 10) < 19 and len(
+                                    str(g[j + 1])) > 5:
+                                lat = g[j]
+                                lon = g[j + 1]
+                                coord_type = '2. coordinates w/o word coord'
+                        except Exception as e2:
+                            logging.info('DBG.P.36.EXC. Coords-2:')
+                            logging.exception(e2)
+            except Exception as e:
+                logging.info('Exception 2')
+                logging.exception(e)
+                pass
+
+        # THIRD CASE = DELETED COORDINATES
+        if lat == 0:
+
+            # make an independent variable
+            a = copy.copy(search_code_blocks)
+
+            try:
+                # get a text with strike-through
+                a = a.find_all('span', {'style': 'text-decoration:line-through'})
+                if a:
+                    for line in a:
+                        b = re.sub(r'\n\s*\n', r' ', line.get_text().strip(), flags=re.M)
+                        c = re.sub(r'\n', r' ', b)
+                        g = [float(s) for s in re.findall(r'-?\d+\.?\d*', c)]
+                        if len(g) > 1:
+                            for j in range(len(g) - 1):
+                                try:
+                                    # Majority of coords in RU: lat in [40-80], long in [20-180],
+                                    # expected minimal format = XX.XXX
+                                    if 3 < (g[j] // 10) < 8 and len(str(g[j])) > 5 and 1 < (g[j + 1] // 10) < 19 \
+                                            and len(str(g[j + 1])) > 5:
+                                        lat = g[j]
+                                        lon = g[j + 1]
+                                        coord_type = '3. deleted coord'
+                                except Exception as e2:
+                                    logging.info('DBG.P.36.EXC. Coords-1:')
+                                    logging.exception(e2)
+            except Exception as e:
+                logging.info('exception:')
+                logging.exception(e)
+                pass
 
     # FOURTH CASE = COORDINATES FROM ADDRESS
     if lat == 0:
