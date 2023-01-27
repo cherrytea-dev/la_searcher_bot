@@ -565,8 +565,8 @@ def save_preference(cur, user_id, preference):
         # if not execute_check(user_id, ['all']):
         execute_insert(user_id, preference)
 
-    elif preference in {'-new_searches', '-status_changes', '-inforg_comments', '-title_changes', '-all',
-                        '-field_trips_new', '-field_trips_change', '-coords_change'}:
+    elif preference in {'-new_searches', '-status_changes', '-comments_changes', '-inforg_comments',
+                        '-title_changes', '-all', '-field_trips_new', '-field_trips_change', '-coords_change'}:
 
         if preference == '-all':
             execute_insert(user_id, 'bot_news')
@@ -898,7 +898,6 @@ def main(request):
 
                         bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
                                         parse_mode='HTML', disable_web_page_preview=True)
-                        notify_admin(f'temp message – there is a returning user {user_id}')
 
                 except Exception as e:
                     logging.info('Error in finding basic data for block/unblock user in Communicate script')
