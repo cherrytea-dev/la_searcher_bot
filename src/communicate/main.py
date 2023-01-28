@@ -889,27 +889,42 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
                 else:
                     cur.execute(
                         """INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
-                        values (%s, %s, %s, %s, %s);""",
+                        values (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING;""",
                         (user_id, line.name, datetime.datetime.now(), line.min, line.max))
 
                 break
 
     list_of_buttons = []
     list_of_ages_checked = []
+
     cur.execute("""SELECT period_min, period_max FROM user_pref_age WHERE user_id=%s;""", (user_id,))
     raw_list_of_periods = cur.fetchall()
+
     if raw_list_of_periods and str(raw_list_of_periods) != 'None':
+        logging.info(f'TEMP - st1 - {raw_list_of_periods}')
         for line_raw in raw_list_of_periods:
+            logging.info(f'TEMP - st2 - {line_raw}')
             got_min, got_max = list(line_raw)[0], list(line_raw)[1]
+            logging.info(f'TEMP - st3 - {got_min} & {got_max}')
             for line_a in age_list:
                 if line_a.min == got_min and line_a.max == got_max:
+                    logging.info(f'TEMP - st4 – {line_a.desc}')
                     list_of_buttons.append([line_a.desc])
                     list_of_ages_checked.append(line_a.name)
                     break
-
-    for line_a in age_list:
-        if not line_a.now and line_a.name not in list_of_ages_checked:
-            list_of_buttons.append([line_a.desc])
+        for line_a in age_list:
+            logging.info(f'TEMP - st5 – {line_a.desc}')
+            if not line_a.now and line_a.name not in list_of_ages_checked:
+                logging.info(f'TEMP - st6 - {line_a.desc}')
+                list_of_buttons.append([line_a.desc])
+    # if user deactivated ALL Age Periods – all of them are turned active again
+    else:
+        for line in age_list:
+            if line.now:
+                cur.execute(
+                    """INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
+                    values (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING;""",
+                    (user_id, line.name, datetime.datetime.now(), line.min, line.max))
 
     return list_of_buttons
 
