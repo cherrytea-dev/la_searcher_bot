@@ -1845,6 +1845,7 @@ def recognize_title(line):
             date = None
             date_full = None
             date_short = None
+            number = None
 
             age_string_start = block.span()[1] if block else 0
 
@@ -1854,7 +1855,8 @@ def recognize_title(line):
                 [r'\d{2}.\d{2}\.\d{2}(?!\d)', 'date_short'],
                 [r'(?<!\d)\d{1,2}(?=\W{0,2}мес(\W|яц))', 'age_months'],
                 [r'(?<!\d)1?\d{1,2}(?!(\W{0,2}мес|\W{0,3}\d))', 'age'],
-                [r'(?<!\d)\d{4}', 'year']
+                [r'(?<!\d)\d{4}', 'year'],
+                [r'(?<!\d)\d{1,2}(?!\d)', 'number']
             ]
 
             for pattern in patterns:
@@ -1871,6 +1873,8 @@ def recognize_title(line):
                         age = block_2.group()
                     elif pattern[1] == 'year':
                         year = block_2.group()
+                    elif pattern[1] == 'number':
+                        number = block_2.group()
 
             if date_full or date_short:
                 if date_full:
@@ -1883,7 +1887,15 @@ def recognize_title(line):
 
             elif not age and year:
                 year_today = datetime.today().year
-                age = year_today - int(year)
+                age_from_year = year_today - int(year)
+                # if there's an indication of the age without explicit "years", but just a number, e.g. 57
+                if number:
+                    variation_of_ages = abs(int(number) - age_from_year)
+                    if variation_of_ages in {0, 1}:
+                        age = number
+                    else:
+                        age = age_from_year
+
             elif months and not age and not year:
                 age = round(int(months) / 12)
 
@@ -3070,7 +3082,7 @@ def main(event, context):  # noqa
         logging.info(f'list of folders, received from pubsub but filtered by ignored folders: {folders_list}')
 
     if not folders_list:
-        notify_admin('ERROR: parsing script received empty folders list')
+        notify_admin(f'NB! [Ide_topics] resulted in empty folders list. Initial, but filtered {list_from_pubsub}')
         folders_list = [276, 41]
 
     list_of_folders_with_updates = []
