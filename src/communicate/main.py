@@ -827,7 +827,7 @@ def get_param_if_exists(upd, func_input):
 
 
 def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
-    """TODO"""
+    """Save user Age preference and generate the list of updated Are preferences"""
 
     class AgePeriod:
 
@@ -875,6 +875,7 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
     # Block for Generating a list of Buttons
     cur.execute("""SELECT period_min, period_max FROM user_pref_age WHERE user_id=%s;""", (user_id,))
     raw_list_of_periods = cur.fetchall()
+    first_visit = False
 
     if raw_list_of_periods and str(raw_list_of_periods) != 'None':
         for line_raw in raw_list_of_periods:
@@ -882,6 +883,10 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
             for line_a in age_list_2:
                 if int(line_a.min) == got_min and int(line_a.max) == got_max:
                     line_a.now = True
+    else:
+        first_visit = True
+        for line_a in age_list_2:
+            line_a.now = True
 
     list_of_buttons = []
     for line in age_list_2:
@@ -890,7 +895,7 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
         else:
             list_of_buttons.append([f'Включить: {line.desc}'])
 
-    return list_of_buttons
+    return list_of_buttons, first_visit
 
 
 def main(request):
@@ -1635,25 +1640,25 @@ def main(request):
                                              b_pref_age_81_on_act, b_pref_age_81_on_deact} or \
                                 got_message.lower() == b_test_age:
 
-                            if got_message.lower() == b_test_age:
-                                bot_message = 'Вы вошли в специальный тестовый раздел, здесь доступны функции в стадии ' \
-                                              'отладки и тестирования. Представленный здесь функционал может не работать ' \
-                                              'на 100% корректно. Если заметите случаи некорректного выполнения ' \
-                                              'функционала из этого раздела – пишите, пожалуйста, в телеграм-чат ' \
-                                              'https://t.me/joinchat/2J-kV0GaCgwxY2Ni\n\n' \
-                                              'Чтобы включить или отключить уведомления по определенной возрастной ' \
-                                              'группе, нажмите на неё. Зелёный значок – вы будете получать уведомления,' \
-                                              'красный – нет. Настройку можно изменить в любой момент.'
-                            else:
-                                bot_message = 'Чтобы включить или отключить уведомления по определенной возрастной ' \
-                                              'группе, нажмите на неё. Зелёный значок – вы будете получать уведомления,' \
-                                              'красный – нет. Настройку можно изменить в любой момент.'
-
                             got_message = None if got_message == b_test_age else got_message
-                            keyboard = save_user_pref_age_and_return_curr_state(cur, user_id, got_message)
+                            keyboard, first_visit = save_user_pref_age_and_return_curr_state(cur, user_id, got_message)
                             keyboard.append([b_test_age])
                             keyboard.append([b_back_to_start])
                             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+                            if got_message.lower() == b_test_age:
+                                bot_message = 'Чтобы включить или отключить уведомления по определенной возрастной ' \
+                                              'группе, нажмите на неё. Настройку можно изменить в любой момент.'
+                                if first_visit:
+                                    bot_message = 'Вы вошли в специальный тестовый раздел, здесь доступны функции в ' \
+                                                  'стадии ' \
+                                                  'отладки и тестирования. Представленный здесь функционал может не ' \
+                                                  'работать ' \
+                                                  'на 100% корректно. Если заметите случаи некорректного выполнения ' \
+                                                  'функционала из этого раздела – пишите, пожалуйста, в телеграм-чат ' \
+                                                  'https://t.me/joinchat/2J-kV0GaCgwxY2Ni\n\n' + bot_message
+                            else:
+                                bot_message = 'Спасибо, записали.'
 
                         # DEBUG: for debugging purposes only
                         elif got_message.lower() == 'go':
