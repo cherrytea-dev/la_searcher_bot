@@ -836,33 +836,46 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
                      name=None,
                      current=None,
                      min_age=None,
-                     max_age=None
+                     max_age=None,
+                     order=None
                      ):
             self.desc = description
             self.name = name
             self.now = current
             self.min = min_age
             self.max = max_age
+            self.n = order
 
-    age_list = [AgePeriod(description='Отключить: Маленькие Дети 0-6 лет', name='0-6', current=True, min_age=0, max_age=6),
-                AgePeriod(description='Включить: Маленькие Дети 0-6 лет', name='0-6', current=False, min_age=0, max_age=6),
-                AgePeriod(description='Отключить: Подростки 7-13 лет', name='7-13', current=True, min_age=7, max_age=13),
-                AgePeriod(description='Включить: Подростки 7-13 лет', name='7-13', current=False, min_age=7, max_age=13),
+    age_list = [AgePeriod(description='Отключить: Маленькие Дети 0-6 лет', name='0-6',
+                          current=True, min_age=0, max_age=6, order=0),
+                AgePeriod(description='Включить: Маленькие Дети 0-6 лет', name='0-6',
+                          current=False, min_age=0, max_age=6, order=0),
+                AgePeriod(description='Отключить: Подростки 7-13 лет', name='7-13',
+                          current=True, min_age=7, max_age=13, order=1),
+                AgePeriod(description='Включить: Подростки 7-13 лет', name='7-13',
+                          current=False, min_age=7, max_age=13, order=1),
 
-                AgePeriod(description='Отключить: Молодежь 14-20 лет', name='14-20', current=True, min_age=14, max_age=20),
-                AgePeriod(description='Включить: Молодежь 14-20 лет', name='14-20', current=False, min_age=14, max_age=20),
-                AgePeriod(description='Отключить: Взрослые 21-50 лет', name='21-50', current=True, min_age=21, max_age=20),
-                AgePeriod(description='Включить: Взрослые 21-50 лет', name='21-50', current=False, min_age=21, max_age=20),
+                AgePeriod(description='Отключить: Молодежь 14-20 лет', name='14-20',
+                          current=True, min_age=14, max_age=20, order=2),
+                AgePeriod(description='Включить: Молодежь 14-20 лет', name='14-20',
+                          current=False, min_age=14, max_age=20, order=2),
+                AgePeriod(description='Отключить: Взрослые 21-50 лет', name='21-50',
+                          current=True, min_age=21, max_age=20, order=3),
+                AgePeriod(description='Включить: Взрослые 21-50 лет', name='21-50',
+                          current=False, min_age=21, max_age=20, order=3),
 
                 AgePeriod(description='Отключить: Старшее Поколение 51-80 лет', name='51-80',
-                          current=True, min_age=51, max_age=80),
+                          current=True, min_age=51, max_age=80, order=4),
                 AgePeriod(description='Включить: Старшее Поколение 51-80 лет', name='51-80',
-                          current=False, min_age=51, max_age=80),
-                AgePeriod(description='Отключить: Старцы более 80 лет', name='80-on', current=True, min_age=80, max_age=120),
-                AgePeriod(description='Включить: Старцы более 80 лет', name='80-on', current=False, min_age=80, max_age=120)
+                          current=False, min_age=51, max_age=80, order=4),
+                AgePeriod(description='Отключить: Старцы более 80 лет', name='80-on',
+                          current=True, min_age=80, max_age=120, order=5),
+                AgePeriod(description='Включить: Старцы более 80 лет', name='80-on',
+                          current=False, min_age=80, max_age=120, order=5)
                 ]
 
     list_of_desc = [x.desc for x in age_list]
+    max_order = int(max(x.order for x in age_list))
 
     if user_input and user_input in list_of_desc:
 
@@ -888,23 +901,16 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
     raw_list_of_periods = cur.fetchall()
 
     if raw_list_of_periods and str(raw_list_of_periods) != 'None':
-        logging.info(f'TEMP - st1 - {raw_list_of_periods}')
         for line_raw in raw_list_of_periods:
-            logging.info(f'TEMP - st2 - {line_raw}')
             got_min, got_max = int(list(line_raw)[0]), int(list(line_raw)[1])
-            logging.info(f'TEMP - st3 - {got_min} & {got_max} - {type(got_min)} - {type(got_max)}')
             for line_a in age_list:
-                logging.info(f'TEMP - st3.5 – {line_a.desc} – {line_a.min} – {line_a.max} – {type(line_a.min)} – {type(line_a.max)}')
                 if int(line_a.min) == got_min and int(line_a.max) == got_max:
-                    logging.info(f'TEMP - st4 – {line_a.desc}')
-                    list_of_buttons.append([line_a.desc])
+                    list_of_buttons.append(line_a.desc)
                     list_of_ages_checked.append(line_a.name)
                     break
         for line_a in age_list:
-            logging.info(f'TEMP - st5 – {line_a.desc}')
             if not line_a.now and line_a.name not in list_of_ages_checked:
-                logging.info(f'TEMP - st6 - {line_a.desc}')
-                list_of_buttons.append([line_a.desc])
+                list_of_buttons.append(line_a.desc)
     # if user deactivated ALL Age Periods – all of them are turned active again
     else:
         for line in age_list:
@@ -914,7 +920,19 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
                     values (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING;""",
                     (user_id, line.name, datetime.datetime.now(), line.min, line.max))
 
-    return list_of_buttons
+    # sort the list of buttons
+    output_list = []
+    for i in range(max_order):
+        for line in age_list:
+            if line.order == i and line.desc in list_of_buttons:
+                output_list.append([line.desc])
+            elif line.order == i and line.desc not in list_of_buttons:
+
+                for line_2 in age_list:
+                    if line_2 == i and line_2.now != line.new:
+                        output_list.append([line_2.desc])
+
+    return output_list
 
 
 def main(request):
