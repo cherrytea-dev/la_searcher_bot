@@ -570,6 +570,9 @@ def save_preference(cur, user_id, preference):
 
         if preference == '-all':
             execute_insert(user_id, 'bot_news')
+            execute_insert(user_id, 'new_searches')
+            execute_insert(user_id, 'status_changes')
+            execute_insert(user_id, 'inforg_comments')
         elif preference == '-comments_changes':
             execute_insert(user_id, 'inforg_comments')
 
@@ -853,6 +856,7 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
                   AgePeriod(description='Старшее Поколение 51-80 лет', name='51-80', min_age=51, max_age=80, order=4),
                   AgePeriod(description='Старцы более 80 лет', name='80-on', min_age=80, max_age=120, order=5)]
 
+    logging.info(f'TEMP - user_input = {user_input}')
     if user_input:
         user_want_activate = True if re.search(r'(?i)включить', user_input) else False
         user_new_setting = re.sub(r'.*чить: ', '', user_input)
@@ -862,6 +866,7 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
             if user_new_setting == line.desc:
                 chosen_setting = line
                 break
+        logging.info(f'TEMP - chosen_setting = {chosen_setting}')
 
         if user_want_activate:
             cur.execute("""INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
@@ -1081,7 +1086,7 @@ def main(request):
                 b_act_field_trips_new = 'включить: о новых выездах'
                 b_act_field_trips_change = 'включить: об изменениях в выездах'
                 b_act_coords_change = 'включить: о смене места штаба'
-                b_deact_all = 'отключить и настроить более гибко'
+                b_deact_all = 'настроить более гибко'
                 b_deact_new_search = 'отключить: о новых поисках'
                 b_deact_stat_change = 'отключить: об изменениях статусов'
                 b_deact_all_comments = 'отключить: о всех новых комментариях'
@@ -1640,7 +1645,9 @@ def main(request):
                                              b_pref_age_81_on_act, b_pref_age_81_on_deact} or \
                                 got_message.lower() == b_test_age:
 
+                            logging.info(f'TEMP - pre got mes = {got_message}')
                             got_message = None if got_message == b_test_age else got_message
+                            logging.info(f'TEMP - post got mes = {got_message}')
                             keyboard, first_visit = save_user_pref_age_and_return_curr_state(cur, user_id, got_message)
                             keyboard.append([b_test_age])
                             keyboard.append([b_back_to_start])
@@ -1801,7 +1808,7 @@ def main(request):
 
                             # save preference for -ALL
                             elif got_message == b_deact_all:
-                                bot_message = 'Уведомления отключены. Кстати, их можно настроить более гибко'
+                                bot_message = 'Вы можете настроить типы получаемых уведомлений более гибко'
                                 save_preference(cur, user_id, '-all')
 
                             # save preference for +NEW SEARCHES
