@@ -894,7 +894,7 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
             got_min, got_max = int(list(line_raw)[0]), int(list(line_raw)[1])
             logging.info(f'TEMP - st3 - {got_min} & {got_max} - {type(got_min)} - {type(got_max)}')
             for line_a in age_list:
-                logging.info(f'TEMP - st3.5 – {line_a.desc} – {line_a.min} – {line_a.max} – {type(line_a.min)} – {type(line_a.maх)}')
+                logging.info(f'TEMP - st3.5 – {line_a.desc} – {line_a.min} – {line_a.max} – {type(line_a.min)} – {type(line_a.max)}')
                 if int(line_a.min) == got_min and int(line_a.max) == got_max:
                     logging.info(f'TEMP - st4 – {line_a.desc}')
                     list_of_buttons.append([line_a.desc])
