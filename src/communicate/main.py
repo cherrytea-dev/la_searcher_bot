@@ -1646,7 +1646,7 @@ def main(request):
                                 got_message.lower() == b_test_age:
 
                             logging.info(f'TEMP - pre got mes = {got_message}')
-                            got_message = None if got_message == b_test_age else got_message
+                            got_message = None if got_message.lower() == b_test_age else got_message
                             logging.info(f'TEMP - post got mes = {got_message}')
                             keyboard, first_visit = save_user_pref_age_and_return_curr_state(cur, user_id, got_message)
                             keyboard.append([b_test_age])
@@ -1916,9 +1916,9 @@ def main(request):
                             if got_message == b_act_all:
                                 keyboard_notifications_flexible = [[b_deact_all], [b_back_to_start]]
                             elif got_message == b_deact_all:
-                                keyboard_notifications_flexible = [[b_act_all], [b_act_new_search], [b_act_stat_change],
-                                                                   [b_act_all_comments],
-                                                                   [b_back_to_start]]
+                                keyboard_notifications_flexible = [[b_act_all], [b_deact_new_search],
+                                                                   [b_deact_stat_change], [b_act_all_comments],
+                                                                   [b_deact_inforg_com], [b_back_to_start]]
                             else:
 
                                 # getting the list of user notification preferences
