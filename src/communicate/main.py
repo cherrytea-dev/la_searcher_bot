@@ -844,7 +844,7 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
             self.now = current
             self.min = min_age
             self.max = max_age
-            self.n = order
+            self.order = order
 
     age_list = [AgePeriod(description='Отключить: Маленькие Дети 0-6 лет', name='0-6',
                           current=True, min_age=0, max_age=6, order=0),
@@ -908,9 +908,9 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
                     list_of_buttons.append(line_a.desc)
                     list_of_ages_checked.append(line_a.name)
                     break
-        for line_a in age_list:
-            if not line_a.now and line_a.name not in list_of_ages_checked:
-                list_of_buttons.append(line_a.desc)
+        # for line_a in age_list:
+        #     if not line_a.now and line_a.name not in list_of_ages_checked:
+        #         list_of_buttons.append(line_a.desc)
     # if user deactivated ALL Age Periods – all of them are turned active again
     else:
         for line in age_list:
