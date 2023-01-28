@@ -877,7 +877,7 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
 
     list_of_desc = [x.desc for x in age_list]
 
-    if user_input in list_of_desc:
+    if user_input and user_input in list_of_desc:
 
         for line in age_list:
             if line.desc == user_input:
@@ -896,7 +896,7 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
 
     list_of_buttons = []
     list_of_ages_checked = []
-    cur.execute("""SELECT age_min, age_max FROM user_pref_age WHERE user_id=%s;""", (user_id,))
+    cur.execute("""SELECT period_min, period_max FROM user_pref_age WHERE user_id=%s;""", (user_id,))
     raw_list_of_periods = cur.fetchall()
     if raw_list_of_periods and str(raw_list_of_periods) != 'None':
         for line_raw in raw_list_of_periods:
@@ -1648,35 +1648,31 @@ def main(request):
                             reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
                         # FIXME - Test Mode for Age picker
-                        elif got_message.lower() == b_test_age:
-                            bot_message = 'Вы вошли в специальный тестовый раздел, здесь доступны функции в стадии ' \
-                                          'отладки и тестирования. Представленный здесь функционал может не работать ' \
-                                          'на 100% корректно. Если заметите случаи некорректного выполнения ' \
-                                          'функционала из этого раздела – пишите, пожалуйста, в телеграм-чат ' \
-                                          'https://t.me/joinchat/2J-kV0GaCgwxY2Ni\n\n' \
-                                          'Чтобы включить или отключить уведомления по определенной возрастной ' \
-                                          'группе, нажмите на неё. Зелёный значок – вы будете получать уведомления,' \
-                                          'красный – нет. Настройку можно изменить в любой момент.'
-                            keyboard = [[b_pref_age_0_6_act], [b_pref_age_7_13_act], [b_pref_age_14_20_act],
-                                        [b_pref_age_21_50_act], [b_pref_age_51_80_act], [b_pref_age_81_on_act],
-                                        [b_test_age], [b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
                         elif got_message in {b_pref_age_0_6_act, b_pref_age_0_6_deact,
                                              b_pref_age_7_13_act, b_pref_age_7_13_deact,
                                              b_pref_age_14_20_act, b_pref_age_14_20_deact,
                                              b_pref_age_21_50_act, b_pref_age_21_50_deact,
                                              b_pref_age_51_80_act, b_pref_age_51_80_deact,
-                                             b_pref_age_81_on_act, b_pref_age_81_on_deact}:
+                                             b_pref_age_81_on_act, b_pref_age_81_on_deact} or \
+                                got_message.lower() == b_test_age:
+
+                            if got_message.lower() == b_test_age:
+                                bot_message = 'Вы вошли в специальный тестовый раздел, здесь доступны функции в стадии ' \
+                                              'отладки и тестирования. Представленный здесь функционал может не работать ' \
+                                              'на 100% корректно. Если заметите случаи некорректного выполнения ' \
+                                              'функционала из этого раздела – пишите, пожалуйста, в телеграм-чат ' \
+                                              'https://t.me/joinchat/2J-kV0GaCgwxY2Ni\n\n' \
+                                              'Чтобы включить или отключить уведомления по определенной возрастной ' \
+                                              'группе, нажмите на неё. Зелёный значок – вы будете получать уведомления,' \
+                                              'красный – нет. Настройку можно изменить в любой момент.'
+                            else:
+                                bot_message = 'Чтобы включить или отключить уведомления по определенной возрастной ' \
+                                              'группе, нажмите на неё. Зелёный значок – вы будете получать уведомления,' \
+                                              'красный – нет. Настройку можно изменить в любой момент.'
 
                             keyboard = save_user_pref_age_and_return_curr_state(cur, user_id, got_message)
                             keyboard.append([b_test_age])
                             keyboard.append([b_back_to_start])
-
-                            bot_message = 'Чтобы включить или отключить уведомления по определенной возрастной ' \
-                                          'группе, нажмите на неё. Зелёный значок – вы будете получать уведомления,' \
-                                          'красный – нет. Настройку можно изменить в любой момент.'
-
                             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
                         # DEBUG: for debugging purposes only
