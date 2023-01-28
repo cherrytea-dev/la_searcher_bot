@@ -1646,9 +1646,9 @@ def main(request):
                                 got_message.lower() == b_test_age:
 
                             logging.info(f'TEMP - pre got mes = {got_message}')
-                            got_message = None if got_message.lower() == b_test_age else got_message
+                            input_data = None if got_message.lower() == b_test_age else got_message
                             logging.info(f'TEMP - post got mes = {got_message}')
-                            keyboard, first_visit = save_user_pref_age_and_return_curr_state(cur, user_id, got_message)
+                            keyboard, first_visit = save_user_pref_age_and_return_curr_state(cur, user_id, input_data)
                             keyboard.append([b_test_age])
                             keyboard.append([b_back_to_start])
                             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
