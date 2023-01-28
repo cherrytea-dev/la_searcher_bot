@@ -844,36 +844,23 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
             self.min = min_age,
             self.max = max_age
 
-    age_list = [AgePeriod(description='✅ Маленькие Дети 0-6 лет', name='0-6', current=True, min_age=0, max_age=6),
-                AgePeriod(description='❌ Маленькие Дети 0-6 лет', name='0-6', current=False, min_age=0, max_age=6),
-                AgePeriod(description='✅ Подростки 7-13 лет', name='7-13', current=True, min_age=7, max_age=13),
-                AgePeriod(description='❌ Подростки 7-13 лет', name='7-13', current=False, min_age=7, max_age=13),
+    age_list = [AgePeriod(description='Отключить: Маленькие Дети 0-6 лет', name='0-6', current=True, min_age=0, max_age=6),
+                AgePeriod(description='Включить: Маленькие Дети 0-6 лет', name='0-6', current=False, min_age=0, max_age=6),
+                AgePeriod(description='Отключить: Подростки 7-13 лет', name='7-13', current=True, min_age=7, max_age=13),
+                AgePeriod(description='Включить: Подростки 7-13 лет', name='7-13', current=False, min_age=7, max_age=13),
 
-                AgePeriod(description='✅ Молодежь 14-20 лет', name='14-20', current=True, min_age=14, max_age=20),
-                AgePeriod(description='❌ Молодежь 14-20 лет', name='14-20', current=False, min_age=14, max_age=20),
-                AgePeriod(description='✅ Взрослые 21-50 лет', name='21-50', current=True, min_age=21, max_age=20),
-                AgePeriod(description='❌ Взрослые 21-50 лет', name='21-50', current=False, min_age=21, max_age=20),
+                AgePeriod(description='Отключить: Молодежь 14-20 лет', name='14-20', current=True, min_age=14, max_age=20),
+                AgePeriod(description='Включить: Молодежь 14-20 лет', name='14-20', current=False, min_age=14, max_age=20),
+                AgePeriod(description='Отключить: Взрослые 21-50 лет', name='21-50', current=True, min_age=21, max_age=20),
+                AgePeriod(description='Включить:  Взрослые 21-50 лет', name='21-50', current=False, min_age=21, max_age=20),
 
-                AgePeriod(description='✅ Старшее Поколение 51-80 лет', name='51-80',
+                AgePeriod(description='Отключить: Старшее Поколение 51-80 лет', name='51-80',
                           current=True, min_age=51, max_age=80),
-                AgePeriod(description='❌ Старшее Поколение 51-80 лет', name='51-80',
+                AgePeriod(description='Включить: Старшее Поколение 51-80 лет', name='51-80',
                           current=False, min_age=51, max_age=80),
-                AgePeriod(description='✅ Старцы более 80 лет', name='80-on', current=True, min_age=80, max_age=120),
-                AgePeriod(description='❌ Старцы более 80 лет', name='80-on', current=False, min_age=80, max_age=120)
+                AgePeriod(description='Отключить: Старцы более 80 лет', name='80-on', current=True, min_age=80, max_age=120),
+                AgePeriod(description='Включить: Старцы более 80 лет', name='80-on', current=False, min_age=80, max_age=120)
                 ]
-
-    """age_dict = {'✅ Маленькие Дети 0-6 лет': [True, 0, 6],
-                '❌ Маленькие Дети 0-6 лет': [False, 0, 6],
-                '✅ Подростки 7-13 лет': [True, 7, 13],
-                '❌ Подростки 7-13 лет': [False, 7, 13],
-                '✅ Молодежь 14-20 лет': [True, 14, 20],
-                '❌ Молодежь 14-20 лет': [False, 14, 20],
-                '✅ Взрослые 21-50 лет': [True, 21, 50],
-                '❌ Взрослые 21-50 лет': [False, 21, 40],
-                '✅ Старшее Поколение 51-80 лет': [True, 51, 80],
-                '❌ Старшее Поколение 51-80 лет': [False, 51, 80],
-                '✅ Старцы более 80 лет': [True, 80, 120],
-                '❌ Старцы более 80 лет': [False, 80, 120]}"""
 
     list_of_desc = [x.desc for x in age_list]
 
@@ -889,7 +876,7 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
                 else:
                     cur.execute(
                         """INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
-                        values (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING;""",
+                        values (%s, %s, %s, %s, %s) ON CONFLICT (user_id, period_min, period_max) DO NOTHING;""",
                         (user_id, line.name, datetime.datetime.now(), line.min, line.max))
 
                 break
@@ -904,8 +891,8 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
         logging.info(f'TEMP - st1 - {raw_list_of_periods}')
         for line_raw in raw_list_of_periods:
             logging.info(f'TEMP - st2 - {line_raw}')
-            got_min, got_max = list(line_raw)[0], list(line_raw)[1]
-            logging.info(f'TEMP - st3 - {got_min} & {got_max}')
+            got_min, got_max = int(list(line_raw)[0]), int(list(line_raw)[1])
+            logging.info(f'TEMP - st3 - {got_min} & {got_max} - {type(got_min)} - {type(got_max)}')
             for line_a in age_list:
                 if line_a.min == got_min and line_a.max == got_max:
                     logging.info(f'TEMP - st4 – {line_a.desc}')
@@ -1376,18 +1363,18 @@ def main(request):
 
                 # FIXME
                 b_test_age = 'age'
-                b_pref_age_0_6_act = '✅ Маленькие Дети 0-6 лет'
-                b_pref_age_0_6_deact = '❌ Маленькие Дети 0-6 лет'
-                b_pref_age_7_13_act = '✅ Подростки 7-13 лет'
-                b_pref_age_7_13_deact = '❌ Подростки 7-13 лет'
-                b_pref_age_14_20_act = '✅ Молодежь 14-20 лет'
-                b_pref_age_14_20_deact = '❌ Молодежь 14-20 лет'
-                b_pref_age_21_50_act = '✅ Взрослые 21-50 лет'
-                b_pref_age_21_50_deact = '❌ Взрослые 21-50 лет'
-                b_pref_age_51_80_act = '✅ Старшее Поколение 51-80 лет'
-                b_pref_age_51_80_deact = '❌ Старшее Поколение 51-80 лет'
-                b_pref_age_81_on_act = '✅ Старцы более 80 лет'
-                b_pref_age_81_on_deact = '❌ Старцы более 80 лет'
+                b_pref_age_0_6_act = 'Отключить: Маленькие Дети 0-6 лет'
+                b_pref_age_0_6_deact = 'Включить: Маленькие Дети 0-6 лет'
+                b_pref_age_7_13_act = 'Отключить: Подростки 7-13 лет'
+                b_pref_age_7_13_deact = 'Включить: Подростки 7-13 лет'
+                b_pref_age_14_20_act = 'Отключить: Молодежь 14-20 лет'
+                b_pref_age_14_20_deact = 'Включить: Молодежь 14-20 лет'
+                b_pref_age_21_50_act = 'Отключить: Взрослые 21-50 лет'
+                b_pref_age_21_50_deact = 'Включить: Взрослые 21-50 лет'
+                b_pref_age_51_80_act = 'Отключить: Старшее Поколение 51-80 лет'
+                b_pref_age_51_80_deact = 'Включить: Старшее Поколение 51-80 лет'
+                b_pref_age_81_on_act = 'Отключить: Старцы более 80 лет'
+                b_pref_age_81_on_deact = 'Включить: Старцы более 80 лет'
                 # FIXME ^^^
 
                 # basic markup which will be substituted for all specific cases
