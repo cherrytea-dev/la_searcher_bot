@@ -846,93 +846,51 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
             self.max = max_age
             self.order = order
 
-    age_list = [AgePeriod(description='Отключить: Маленькие Дети 0-6 лет', name='0-6',
-                          current=True, min_age=0, max_age=6, order=0),
-                AgePeriod(description='Включить: Маленькие Дети 0-6 лет', name='0-6',
-                          current=False, min_age=0, max_age=6, order=0),
-                AgePeriod(description='Отключить: Подростки 7-13 лет', name='7-13',
-                          current=True, min_age=7, max_age=13, order=1),
-                AgePeriod(description='Включить: Подростки 7-13 лет', name='7-13',
-                          current=False, min_age=7, max_age=13, order=1),
+    age_list_2 = [AgePeriod(description='Маленькие Дети 0-6 лет', name='0-6', min_age=0, max_age=6, order=0),
+                  AgePeriod(description='Подростки 7-13 лет', name='7-13', min_age=7, max_age=13, order=1),
+                  AgePeriod(description='Молодежь 14-20 лет', name='14-20', min_age=14, max_age=20, order=2),
+                  AgePeriod(description='Взрослые 21-50 лет', name='21-50', min_age=21, max_age=20, order=3),
+                  AgePeriod(description='Старшее Поколение 51-80 лет', name='51-80', min_age=51, max_age=80, order=4),
+                  AgePeriod(description='Старцы более 80 лет', name='80-on', min_age=80, max_age=120, order=5)]
 
-                AgePeriod(description='Отключить: Молодежь 14-20 лет', name='14-20',
-                          current=True, min_age=14, max_age=20, order=2),
-                AgePeriod(description='Включить: Молодежь 14-20 лет', name='14-20',
-                          current=False, min_age=14, max_age=20, order=2),
-                AgePeriod(description='Отключить: Взрослые 21-50 лет', name='21-50',
-                          current=True, min_age=21, max_age=20, order=3),
-                AgePeriod(description='Включить: Взрослые 21-50 лет', name='21-50',
-                          current=False, min_age=21, max_age=20, order=3),
+    if user_input:
+        user_want_activate = True if re.search(r'(?i)включить', user_input) else False
+        user_new_setting = re.sub(r'.*чить: ', '', user_input)
 
-                AgePeriod(description='Отключить: Старшее Поколение 51-80 лет', name='51-80',
-                          current=True, min_age=51, max_age=80, order=4),
-                AgePeriod(description='Включить: Старшее Поколение 51-80 лет', name='51-80',
-                          current=False, min_age=51, max_age=80, order=4),
-                AgePeriod(description='Отключить: Старцы более 80 лет', name='80-on',
-                          current=True, min_age=80, max_age=120, order=5),
-                AgePeriod(description='Включить: Старцы более 80 лет', name='80-on',
-                          current=False, min_age=80, max_age=120, order=5)
-                ]
-
-    list_of_desc = [x.desc for x in age_list]
-    max_order = int(max(x.order for x in age_list))
-
-    if user_input and user_input in list_of_desc:
-
-        for line in age_list:
-            if line.desc == user_input:
-
-                if line.now:
-                    cur.execute(
-                        """DELETE FROM user_pref_age WHERE user_id=%s AND period_min=%s AND period_max=%s;""",
-                        (user_id, line.min, line.max))
-                else:
-                    cur.execute(
-                        """INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
-                        values (%s, %s, %s, %s, %s) ON CONFLICT (user_id, period_min, period_max) DO NOTHING;""",
-                        (user_id, line.name, datetime.datetime.now(), line.min, line.max))
-
+        chosen_setting = None
+        for line in age_list_2:
+            if user_new_setting == line.desc:
+                chosen_setting = line
                 break
 
-    list_of_buttons = []
-    list_of_ages_checked = []
+        if user_want_activate:
+            cur.execute("""INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
+                        values (%s, %s, %s, %s, %s) ON CONFLICT (user_id, period_min, period_max) DO NOTHING;""",
+                        (user_id, chosen_setting.name, datetime.datetime.now(), chosen_setting.min, chosen_setting.max))
+        else:
+            cur.execute(
+                """DELETE FROM user_pref_age WHERE user_id=%s AND period_min=%s AND period_max=%s;""",
+                (user_id, chosen_setting.min, chosen_setting.max))
 
+    # Block for Generating a list of Buttons
     cur.execute("""SELECT period_min, period_max FROM user_pref_age WHERE user_id=%s;""", (user_id,))
     raw_list_of_periods = cur.fetchall()
 
     if raw_list_of_periods and str(raw_list_of_periods) != 'None':
         for line_raw in raw_list_of_periods:
             got_min, got_max = int(list(line_raw)[0]), int(list(line_raw)[1])
-            for line_a in age_list:
+            for line_a in age_list_2:
                 if int(line_a.min) == got_min and int(line_a.max) == got_max:
-                    list_of_buttons.append(line_a.desc)
-                    list_of_ages_checked.append(line_a.name)
-                    break
-        # for line_a in age_list:
-        #     if not line_a.now and line_a.name not in list_of_ages_checked:
-        #         list_of_buttons.append(line_a.desc)
-    # if user deactivated ALL Age Periods – all of them are turned active again
-    else:
-        for line in age_list:
-            if line.now:
-                cur.execute(
-                    """INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
-                    values (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING;""",
-                    (user_id, line.name, datetime.datetime.now(), line.min, line.max))
+                    line_a.now = True
 
-    # sort the list of buttons
-    output_list = []
-    for i in range(max_order):
-        for line in age_list:
-            if line.order == i and line.desc in list_of_buttons:
-                output_list.append([line.desc])
-            elif line.order == i and line.desc not in list_of_buttons:
+    list_of_buttons = []
+    for line in age_list_2:
+        if line.now:
+            list_of_buttons.append([f'Отключить: {line.desc}'])
+        else:
+            list_of_buttons.append([f'Включить: {line.desc}'])
 
-                for line_2 in age_list:
-                    if line_2 == i and line_2.now != line.new:
-                        output_list.append([line_2.desc])
-
-    return output_list
+    return list_of_buttons
 
 
 def main(request):
