@@ -866,7 +866,7 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
             if user_new_setting == line.desc:
                 chosen_setting = line
                 break
-        logging.info(f'TEMP - chosen_setting = {chosen_setting}')
+        logging.info(f'TEMP - chosen_setting = {chosen_setting.desc}')
 
         if user_want_activate:
             cur.execute("""INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
@@ -892,6 +892,10 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
         first_visit = True
         for line_a in age_list_2:
             line_a.now = True
+        for line in age_list_2:
+            cur.execute("""INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
+                        values (%s, %s, %s, %s, %s) ON CONFLICT (user_id, period_min, period_max) DO NOTHING;""",
+                        (user_id, line.name, datetime.datetime.now(), line.min, line.max))
 
     list_of_buttons = []
     for line in age_list_2:
@@ -1645,9 +1649,7 @@ def main(request):
                                              b_pref_age_81_on_act, b_pref_age_81_on_deact} or \
                                 got_message.lower() == b_test_age:
 
-                            logging.info(f'TEMP - pre got mes = {got_message}')
                             input_data = None if got_message.lower() == b_test_age else got_message
-                            logging.info(f'TEMP - post got mes = {got_message}')
                             keyboard, first_visit = save_user_pref_age_and_return_curr_state(cur, user_id, input_data)
                             keyboard.append([b_test_age])
                             keyboard.append([b_back_to_start])
