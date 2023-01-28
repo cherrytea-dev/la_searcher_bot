@@ -1649,6 +1649,7 @@ def main(request):
                                               'группе, нажмите на неё. Зелёный значок – вы будете получать уведомления,' \
                                               'красный – нет. Настройку можно изменить в любой момент.'
 
+                            got_message = None if got_message == b_test_age else got_message
                             keyboard = save_user_pref_age_and_return_curr_state(cur, user_id, got_message)
                             keyboard.append([b_test_age])
                             keyboard.append([b_back_to_start])
