@@ -711,8 +711,8 @@ def publish_to_pubsub(topic_name, message):
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publishing succeeded
-        logging.info('DBG.P.3: Pub/sub message published')
-        logging.info('publish_future_.result(): ' + str(publish_future.result()))
+        logging.info(f'Pub/sub message published: {message_json}')
+        logging.info(f'Function triggered event_id = {publish_future.result()}')
 
     except Exception as e:
         logging.info('DBG.P.3.ERR: pub/sub NOT published')
@@ -1244,7 +1244,7 @@ def recognize_title(line):
                 [r'([.,;:!?\s])\1+', r'\1'],  # noqa
                 # removes all duplicates in blank spaces or punctuation marks
                 [r'(?<!\d)\B(?=\d)', ' '],  # when and con  sequent number age typed w/o a space, example: word49
-                [r'(\[/?b]|\[?size\W?=\W?140]|\[/size])', ''],  # rare case with php formatting
+                [r'(\[/?b]|\[?size\W?=\W?140]|\[/size]|\[/?color=.{0,8}])', ''],  # rare case of php formatting
                 [r'(?i)((?<=\d\Wлет\W)|(?<=\d\Wлет\W\W)|(?<=\d\Wгод\W)|(?<=\d\Wгод\W\W)|'
                  r'(?<=\d\Wгода\W)|(?<=\d\Wгода\W\W))\d{1,2}(?=,)', ''],  # case when '80 лет 80,' – last num is wrong
                 [r'(?i)без вести\s', ' '],  # rare case of 'пропал без вести'
@@ -2500,7 +2500,7 @@ def parse_one_folder(folder_id):
 
             # Current block which contains everything regarding certain search
             search_title_block = data_block.find('a', 'topictitle')
-            search_long_link = search_title_block['href'][1:]
+            # search_long_link = search_title_block['href'][1:]
 
             search_title = search_title_block.next_element
 
@@ -2511,27 +2511,13 @@ def parse_one_folder(folder_id):
             search_title = search_title.replace('[/size]', '', 1)
 
             # Some forum folders contain sid, some don't
-            sid = search_long_link.find('&sid')
-            if sid == -1:
-                search_cut_link = search_long_link
-            else:
-                search_cut_link = search_long_link[0:sid]
-            search_id = search_cut_link[(search_cut_link.find('&t=') + 3):]
-
-            # FIXME = trying to get search_id in a shorter way
-            try:
-                # language=regexp
-                re_search_id = int(re.search(r'(?<=&t=)\d{2,8}', search_title_block['href']).group())
-                print(f'TEMP - ALT SEARCH ID = {re_search_id}, and search_id = {search_id}')
-                if int(search_id) == re_search_id:
-                    print(f'TEMP – THEY EQUAL')
-                else:
-                    print(f'TEMP – THEY ARE NOT!')
-                    notify_admin(f'THEY ARE NOT! {re_search_id} and {search_id}')
-            except Exception as e:  # noqa
-                print(f'TEMP - OOOPSIE')
-                logging.exception(e)
-            # FIXME ^^^
+            # sid = search_long_link.find('&sid')
+            # if sid == -1:
+            #     search_cut_link = search_long_link
+            # else:
+            #     search_cut_link = search_long_link[0:sid]
+            # search_id = search_cut_link[(search_cut_link.find('&t=') + 3):]
+            search_id = int(re.search(r'(?<=&t=)\d{2,8}', search_title_block['href']).group())
 
             search_replies_num = int(data_block.find('dd', 'posts').next_element)
 
@@ -2591,7 +2577,7 @@ def parse_one_folder(folder_id):
 
             # exclude non-relevant searches
             if search_status_short != "не показываем":
-                search_summary = [current_datetime, search_id, search_status_short, search_title, search_cut_link,
+                search_summary = [current_datetime, search_id, search_status_short, search_title, '',
                                   start_datetime, search_replies_num, person_age, person_fam_name, folder_id]
                 topics_summary_in_folder.append(search_summary)
 
