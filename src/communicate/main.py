@@ -841,7 +841,7 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
             self.desc = description
             self.name = name
             self.now = current
-            self.min = min_age,
+            self.min = min_age
             self.max = max_age
 
     age_list = [AgePeriod(description='Отключить: Маленькие Дети 0-6 лет', name='0-6', current=True, min_age=0, max_age=6),
