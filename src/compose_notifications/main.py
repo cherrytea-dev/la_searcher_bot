@@ -238,7 +238,10 @@ class LineInChangeLog:
                  start_time=None,
                  ignore=None,
                  region=None,
-                 coords_change_type=None
+                 coords_change_type=None,
+                 display_name=None,
+                 age_min=None,
+                 age_max=None
                  ):
         self.forum_search_num = forum_search_num
         self.change_type = change_type
@@ -265,6 +268,9 @@ class LineInChangeLog:
         self.ignore = ignore
         self.region = region
         self.coords_change_type = coords_change_type
+        self.display_name = display_name
+        self.age_min = age_min
+        self.age_max = age_max
 
     def __str__(self):
         return str([self.forum_search_num, self.change_type, self.changed_field, self.new_value, self.change_id,
@@ -272,7 +278,7 @@ class LineInChangeLog:
                     self.status, self.n_of_replies, self.title, self.age, self.age_wording, self.forum_folder,
                     self.search_latitude, self.search_longitude, self.activities, self.comments, self.comments_inforg,
                     self.message, self.processed, self.managers, self.start_time, self.ignore, self.region,
-                    self.coords_change_type])
+                    self.coords_change_type, self.display_name, self.age_min, self.age_max])
 
 
 class User:
@@ -368,7 +374,8 @@ def enrich_new_records_from_searches(conn):
             """SELECT ns.*, rtf.folder_description FROM 
             (SELECT s.search_forum_num, s.status_short, s.forum_search_title,  
             s.num_of_replies, s.family_name, s.age, s.forum_folder_id, 
-            sa.latitude, sa.longitude, s.search_start_time FROM searches as s LEFT JOIN 
+            sa.latitude, sa.longitude, s.search_start_time, s.display_name, s.age_min, s.age_max 
+            FROM searches as s LEFT JOIN 
             search_coordinates as sa ON s.search_forum_num=sa.search_id) ns LEFT JOIN 
             regions_to_folders rtf ON ns.forum_folder_id = rtf.forum_folder_id 
             ORDER BY ns.search_forum_num DESC;"""
@@ -390,7 +397,10 @@ def enrich_new_records_from_searches(conn):
                     r_line.search_latitude = s_line[7]
                     r_line.search_longitude = s_line[8]
                     r_line.start_time = s_line[9]
-                    r_line.region = s_line[10]
+                    r_line.display_name = s_line[10]
+                    r_line.age_min = s_line[11]
+                    r_line.age_max = s_line[12]
+                    r_line.region = s_line[13]
 
                     print(f'TEMP – FORUM_FOLDER = {r_line.forum_folder}, while s_line = {str(s_line)}')
 
