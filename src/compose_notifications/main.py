@@ -1305,15 +1305,6 @@ def iterate_over_all_users_and_updates(conn):
         logging.info(f'User List crop due to region: {len(users_list_outcome)} --> {len(temp_user_list)}')
         users_list_outcome = temp_user_list
 
-        # FIXME - temp debug
-        print(f'TEMP – 5 regs from incoming list:')
-        for i in range(5):
-            print(f'TEMP - {users_list_incoming[i].user_regions}')
-        print(f'TEMP – 5 regs from outcome list:')
-        for i in range(5):
-            print(f'TEMP - {users_list_outcome[i].user_regions}')
-        # FIXME ^^^
-
         return users_list_outcome
 
     global new_records_list
