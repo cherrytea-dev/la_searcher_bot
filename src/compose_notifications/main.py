@@ -286,8 +286,11 @@ class User:
                  user_regions=None,
                  user_in_multi_regions=True,
                  user_corr_regions=None,
-                 user_new_search_notifs=None
+                 user_new_search_notifs=None,
+                 user_role=None,
+                 user_age_periods=None # noqa
                  ):
+        user_age_periods = []
         self.user_id = user_id
         self.username_telegram = username_telegram
         self.notification_preferences = notification_preferences
@@ -298,11 +301,13 @@ class User:
         self.user_in_multi_regions = user_in_multi_regions
         self.user_corr_regions = user_corr_regions
         self.user_new_search_notifs = user_new_search_notifs
+        self.role = user_role
+        self.age_periods = user_age_periods
 
     def __str__(self):
         return str([self.user_id, self.username_telegram, self.notification_preferences, self.notif_pref_ids_list,
                     self.user_latitude, self.user_longitude, self.user_regions, self.user_in_multi_regions,
-                    self.user_corr_regions, self.user_new_search_notifs])
+                    self.user_corr_regions, self.user_new_search_notifs, self.age_periods])
 
 
 def compose_new_records_from_change_log(conn):
@@ -953,7 +958,7 @@ def compose_users_list_from_users(conn):
     try:
         users = conn.execute(
             """SELECT ns.*, st.num_of_new_search_notifs FROM 
-            (SELECT u.user_id, u.username_telegram, uc.latitude, uc.longitude FROM users as u 
+            (SELECT u.user_id, u.username_telegram, uc.latitude, uc.longitude, u.role FROM users as u 
             LEFT JOIN 
             user_coordinates as uc ON u.user_id=uc.user_id 
             WHERE u.status = 'unblocked' or u.status is Null) ns 
@@ -962,15 +967,12 @@ def compose_users_list_from_users(conn):
         ).fetchall()
 
         for line in users:
-            new_line = User()
-            new_line.user_id = line[0]
-            new_line.username_telegram = line[1]
-            new_line.user_latitude = line[2]
-            new_line.user_longitude = line[3]
-            if line[4] == 'None' or line[4] is None:
+            new_line = User(user_id=line[0], username_telegram=line[1], user_latitude=line[2], user_longitude=line[3],
+                            user_role=line[4])
+            if line[5] == 'None' or line[5] is None:
                 new_line.user_new_search_notifs = 0
             else:
-                new_line.user_new_search_notifs = int(line[4])
+                new_line.user_new_search_notifs = int(line[5])
 
             users_list.append(new_line)
 
@@ -979,6 +981,40 @@ def compose_users_list_from_users(conn):
 
     except Exception as e:
         logging.error('Not able to compose Users List: ' + repr(e))
+        logging.exception(e)
+
+    return None
+
+
+def enrich_users_list_with_age_periods(conn):
+    """add the data on Lost people age notification preferences from user_pref_age into users List"""
+
+    global users_list
+
+    try:
+        notif_prefs = conn.execute("""SELECT user_id, period_min, period_max FROM user_pref_age;""").fetchall()
+
+        if not notif_prefs:
+            return None
+
+        # convert the received list into one list
+        for np_line in notif_prefs:
+            new_period = [np_line[1], np_line[2]]
+            for u_line in users_list:
+                if u_line.user_id == np_line[0]:
+                    u_line.user_age_periods.append(new_period)
+
+        # FIXME –temp debug
+        for u_line in users_list:
+            if u_line.user_age_periods:
+                print('TEMP - USER WITH AGE PERIODS')
+                print(str(u_line))
+        # FIXME ^^^
+
+        logging.info('Users List enriched with Age Prefs')
+
+    except Exception as e:
+        logging.info(f'Not able to enrich Users List with Age Prefs')
         logging.exception(e)
 
     return None

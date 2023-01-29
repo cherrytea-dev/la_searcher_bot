@@ -2103,8 +2103,8 @@ def recognize_title(line):
         """Define the Displayed Name (Pseudonym) and Age Range for the whole Persons Block"""
 
         # level of PERSON BLOCKS (likely to be only one for each title)
-        num_of_per_blocks = len([x for x in curr_recognition.blocks if x.type[0] == 'P'])
-        num_of_per_groups = len([x for x in curr_recognition.groups if x.type[0] == 'P'])
+        num_of_per_blocks = len([x for x in curr_recognition.blocks if x.type and x.type[0] == 'P'])
+        num_of_per_groups = len([x for x in curr_recognition.groups if x.type and x.type[0] == 'P'])
         for block in curr_recognition.blocks:
             if block.type and block.type[0] == 'P':
 
