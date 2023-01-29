@@ -1009,14 +1009,15 @@ def enrich_users_list_with_age_periods(conn):
         if not notif_prefs:
             return None
 
-        # convert the received list into one list
+        number_of_enrichments = 0
         for np_line in notif_prefs:
             new_period = [np_line[1], np_line[2]]
             for u_line in users_list:
                 if u_line.user_id == np_line[0]:
                     u_line.age_periods.append(new_period)
+                    number_of_enrichments += 1
 
-        logging.info('Users List enriched with Age Prefs')
+        logging.info(f'Users List enriched with Age Prefs, num of enrichments is {number_of_enrichments}')
 
     except Exception as e:
         logging.info(f'Not able to enrich Users List with Age Prefs')
@@ -1295,6 +1296,30 @@ def iterate_over_all_users_and_updates(conn):
 
         return users_should_not_be_informed, record_was_processed_already, mail_id
 
+    def check_if_age_requirements_met(search_ages, user_ages):
+        """check if user wants to receive notifications for such age"""
+
+        requirements_met = False
+
+        if not user_ages or not search_ages:
+            return True
+
+        for age_rage in user_ages:
+            user_age_range_start = age_rage[0]
+            user_age_range_finish = age_rage[1]
+
+            for i in range(user_age_range_start, user_age_range_finish + 1):
+                for j in range(search_ages[0], search_ages[1] + 1):
+                    if i == j:
+                        print(i)
+                        requirements_met = True
+                        break
+                else:
+                    continue
+                break
+
+        return requirements_met
+
     def crop_user_list(users_list_incoming, users_should_not_be_informed, record):
         """crop user_list to only affected users"""
 
@@ -1316,6 +1341,28 @@ def iterate_over_all_users_and_updates(conn):
                     temp_user_list.append(temp_user_line)
         logging.info(f'User List crop due to region: {len(users_list_outcome)} --> {len(temp_user_list)}')
         users_list_outcome = temp_user_list
+
+        # crop the list of users, excluding Users who does not want to receive notifications for such Ages
+        try:
+            temp_user_list = []
+            if not (record.age_min or record.age_max):
+                logging.info(f'User List crop due to ages: no changes, there were no age_min and max for search')
+                return users_list_outcome
+
+            search_age_range = [record.age_min, record.age_max]
+
+            for user_line in users_list_outcome:
+                user_age_ranges = user_line.user_age_periods
+                age_requirements_met = check_if_age_requirements_met(search_age_range, user_age_ranges)
+                if age_requirements_met:
+                    temp_user_line = user_line
+                    temp_user_list.append(temp_user_line)
+
+            logging.info(f'User List crop due to ages: {len(users_list_outcome)} --> {len(temp_user_list)}')
+            users_list_outcome = temp_user_list
+
+        except Exception as e:
+            logging.info(f'TEMP - exception: {repr(e)}')
 
         return users_list_outcome
 
