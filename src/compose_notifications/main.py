@@ -1342,7 +1342,7 @@ def iterate_over_all_users_and_updates(conn):
         logging.info(f'User List crop due to region: {len(users_list_outcome)} --> {len(temp_user_list)}')
         users_list_outcome = temp_user_list
 
-        # crop the list of users, excluding Users who does not want to receive notifications for such Ages
+        # crop the list of users, excluding Users who does not want to receive notifications for such Ages 
         try:
             temp_user_list = []
             if not (record.age_min or record.age_max):
