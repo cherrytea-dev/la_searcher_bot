@@ -1245,7 +1245,7 @@ def iterate_over_all_users_and_updates(conn):
         record_was_processed_already = conn.execute(sql_text, a=change_log_item).fetchone()[0]
 
         # TODO: DEBUG
-        if this_record_was_processed_already:
+        if record_was_processed_already:
             logging.info('[comp_notif]: 2 MAILINGS for 1 CHANGE LOG RECORD identified')
         # TODO: DEBUG
 
