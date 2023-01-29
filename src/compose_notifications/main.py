@@ -392,6 +392,8 @@ def enrich_new_records_from_searches(conn):
                     r_line.start_time = s_line[9]
                     r_line.region = s_line[10]
 
+                    print(f'TEMP – FORUM_FOLDER = {r_line.forum_folder}, while s_line = {str(s_line)}')
+
                     # case: when new search's status is already not "Ищем" – to be ignored
                     if r_line.status != 'Ищем' and r_line.change_type == 0:  # "new_search":
                         r_line.ignore = 'y'
@@ -1352,6 +1354,7 @@ def iterate_over_all_users_and_updates(conn):
                     # as user can have multi-reg preferences – check every region
                     for region in user_reg_prefs:
                         print(f'TEMP - we are in USERS / REGIONS, user = {user}, region = {region}')
+                        print(f'TEMP - new_record.forum_folder = {new_record.forum_folder}')
 
                         if str(region) == str(new_record.forum_folder):
                             print(f'TEMP - we are in USERS / REGIONS / REG MATCH, user = {user}, '
@@ -1379,7 +1382,7 @@ def iterate_over_all_users_and_updates(conn):
                                           f'user = {user}, '
                                           f'region = {region}, pref_id = {user_notif_pref_id}, '
                                           f'cl_pref = {change_type}')
-                                    
+
                                     # on this step - we're certain: user should receive the notification
                                     # compose the notification
                                     message = ''
