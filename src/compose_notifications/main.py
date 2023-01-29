@@ -1343,6 +1343,7 @@ def iterate_over_all_users_and_updates(conn):
                 # TODO ^^^
 
                 for user in users_list:
+                    print(f'TEMP - we are in USERS, user = {user}')
                     u_lat = user.user_latitude
                     u_lon = user.user_longitude
                     user_notif_pref_ids_list = user.notif_pref_ids_list
@@ -1350,160 +1351,170 @@ def iterate_over_all_users_and_updates(conn):
 
                     # as user can have multi-reg preferences – check every region
                     for region in user_reg_prefs:
+                        print(f'TEMP - we are in USERS / REGIONS, user = {user}, region = {region}')
 
-                        if str(region) != str(new_record.forum_folder):
-                            continue
+                        if str(region) == str(new_record.forum_folder):
+                            print(f'TEMP - we are in USERS / REGIONS / REG MATCH, user = {user}, '
+                                  f'region = {region}, cl_reg = {new_record.forum_folder}')
 
-                        region_to_show = None
-                        if user.user_in_multi_regions:
-                            region_to_show = new_record.region
+                            region_to_show = None
+                            if user.user_in_multi_regions:
+                                region_to_show = new_record.region
 
-                        # as user can have several notification preferences – check every preference
-                        # for notif_pref in user_notif_prefs:
-                        for user_notif_pref_id in user_notif_pref_ids_list:
+                            # as user can have several notification preferences – check every preference
+                            # for notif_pref in user_notif_prefs:
+                            for user_notif_pref_id in user_notif_pref_ids_list:
 
-                            # check if user wants to receive this kind of notifications
+                                print(f'TEMP - we are in USERS / REGIONS / REG MATCH / PREF, user = {user}, '
+                                      f'region = {region}, pref_id = {user_notif_pref_id}')
 
-                            # TODO: temp limitation for ones who have 5 or 6 or 7
-                            # if this is a mailing that users wants to receive
-                            if user_notif_pref_id == change_type or \
-                                    (user_notif_pref_id == 30 and change_type not in {5, 6, 7}):  # 30 = 'all'
+                                # check if user wants to receive this kind of notifications
 
-                                # on this step - we're certain: user should receive the notification
-                                # compose the notification
-                                message = ''
-                                number_of_situations_checked += 1
+                                # TODO: temp limitation for ones who have 5 or 6 or 7
+                                # if this is a mailing that users wants to receive
+                                if user_notif_pref_id == change_type or \
+                                        (user_notif_pref_id == 30 and change_type not in {5, 6, 7}):  # 30 = 'all'
 
-                                # start composing individual messages (specific user on specific situation)
-                                if change_type == 0:  # new_search
-                                    num_of_msgs_sent_already = user.user_new_search_notifs
-                                    message = compose_individual_message_on_new_search(new_record, s_lat, s_lon,
-                                                                                       u_lat, u_lon,
-                                                                                       region_to_show,
-                                                                                       num_of_msgs_sent_already)
-                                elif change_type == 1:  # status_change
-                                    message = new_record.message[0]
-                                    if user.user_in_multi_regions and new_record.message[1]:
-                                        message += new_record.message[1]
+                                    print(f'TEMP - we are in USERS / REGIONS / REG MATCH / PREF / PREF MATCH, '
+                                          f'user = {user}, '
+                                          f'region = {region}, pref_id = {user_notif_pref_id}, '
+                                          f'cl_pref = {change_type}')
+                                    
+                                    # on this step - we're certain: user should receive the notification
+                                    # compose the notification
+                                    message = ''
+                                    number_of_situations_checked += 1
 
-                                elif change_type == 2:  # 'title_change':
-                                    message = new_record.message
+                                    # start composing individual messages (specific user on specific situation)
+                                    if change_type == 0:  # new_search
+                                        num_of_msgs_sent_already = user.user_new_search_notifs
+                                        message = compose_individual_message_on_new_search(new_record, s_lat, s_lon,
+                                                                                           u_lat, u_lon,
+                                                                                           region_to_show,
+                                                                                           num_of_msgs_sent_already)
+                                    elif change_type == 1:  # status_change
+                                        message = new_record.message[0]
+                                        if user.user_in_multi_regions and new_record.message[1]:
+                                            message += new_record.message[1]
 
-                                elif change_type == 3:  # 'replies_num_change':
-                                    message = new_record.message[0]
+                                    elif change_type == 2:  # 'title_change':
+                                        message = new_record.message
 
-                                elif change_type == 4:  # 'inforg_replies':
-                                    message = new_record.message[0]
-                                    if user.user_in_multi_regions and new_record.message[1]:
-                                        message += new_record.message[1]
-                                    if new_record.message[2]:
-                                        message += new_record.message[2]
+                                    elif change_type == 3:  # 'replies_num_change':
+                                        message = new_record.message[0]
 
-                                elif change_type == 5:  # field_trips_new
+                                    elif change_type == 4:  # 'inforg_replies':
+                                        message = new_record.message[0]
+                                        if user.user_in_multi_regions and new_record.message[1]:
+                                            message += new_record.message[1]
+                                        if new_record.message[2]:
+                                            message += new_record.message[2]
 
-                                    # TODO: temp limitation for ADMIN
-                                    if user.user_id in admins_list:
-                                        message = compose_individual_msg_on_field_trip(new_record.message,
-                                                                                       s_lat, s_lon,
-                                                                                       u_lat, u_lon,
-                                                                                       region_to_show)
+                                    elif change_type == 5:  # field_trips_new
 
-                                elif change_type == 6:  # field_trips_change
+                                        # TODO: temp limitation for ADMIN
+                                        if user.user_id in admins_list:
+                                            message = compose_individual_msg_on_field_trip(new_record.message,
+                                                                                           s_lat, s_lon,
+                                                                                           u_lat, u_lon,
+                                                                                           region_to_show)
 
-                                    # TODO: temp limitation for ADMIN
-                                    if user.user_id in admins_list:
-                                        message = compose_individual_msg_on_field_trip(new_record.message,
-                                                                                       s_lat, s_lon,
-                                                                                       u_lat, u_lon,
-                                                                                       region_to_show)
+                                    elif change_type == 6:  # field_trips_change
 
-                                elif change_type == 7:  # coords_change
-                                    # TODO: temp debug
-                                    print(f'YYY: user_id={user.user_id}, user={user}, '
-                                          f'prefs={user_notif_pref_ids_list}')
-                                    # TODO: temp debug
+                                        # TODO: temp limitation for ADMIN
+                                        if user.user_id in admins_list:
+                                            message = compose_individual_msg_on_field_trip(new_record.message,
+                                                                                           s_lat, s_lon,
+                                                                                           u_lat, u_lon,
+                                                                                           region_to_show)
 
-                                    # TODO: temp limitation for ADMIN
-                                    if user.user_id in admins_list:
-                                        message = compose_individual_message_on_coords_change(new_record, s_lat,
-                                                                                              s_lon, u_lat,
-                                                                                              u_lon,
-                                                                                              region_to_show)
+                                    elif change_type == 7:  # coords_change
+                                        # TODO: temp debug
+                                        print(f'YYY: user_id={user.user_id}, user={user}, '
+                                              f'prefs={user_notif_pref_ids_list}')
+                                        # TODO: temp debug
 
-                                # TODO: to delete msg_group at all
-                                # messages followed by coordinates (sendMessage + sendLocation) have same group
-                                msg_group_id = get_the_new_group_id() if change_type in {0, 5, 6, 7} else None
-                                # not None for new_search, field_trips_new, field_trips_change,  coord_change
+                                        # TODO: temp limitation for ADMIN
+                                        if user.user_id in admins_list:
+                                            message = compose_individual_message_on_coords_change(new_record, s_lat,
+                                                                                                  s_lon, u_lat,
+                                                                                                  u_lon,
+                                                                                                  region_to_show)
 
-                                # define if user received this message already
-                                this_user_was_notified = False
-                                if this_record_was_processed_already:
-                                    this_user_was_notified = get_from_sql_if_was_notified_already(
-                                        user.user_id, 'text', new_record.change_id)
+                                    # TODO: to delete msg_group at all
+                                    # messages followed by coordinates (sendMessage + sendLocation) have same group
+                                    msg_group_id = get_the_new_group_id() if change_type in {0, 5, 6, 7} else None
+                                    # not None for new_search, field_trips_new, field_trips_change,  coord_change
 
-                                    # logging block
-                                    logging.info('this user was notified already {}, {}'.format(
-                                        user.user_id, this_user_was_notified))
-                                    if user.user_id in users_who_should_not_be_informed:
-                                        logging.info('this user is in the list of non-notifiers')
-                                    else:
-                                        logging.info('this user is NOT in the list of non-notifiers')
+                                    # define if user received this message already
+                                    this_user_was_notified = False
+                                    if this_record_was_processed_already:
+                                        this_user_was_notified = get_from_sql_if_was_notified_already(
+                                            user.user_id, 'text', new_record.change_id)
 
-                                if message and not this_user_was_notified:
+                                        # logging block
+                                        logging.info('this user was notified already {}, {}'.format(
+                                            user.user_id, this_user_was_notified))
+                                        if user.user_id in users_who_should_not_be_informed:
+                                            logging.info('this user is in the list of non-notifiers')
+                                        else:
+                                            logging.info('this user is NOT in the list of non-notifiers')
 
-                                    # TODO: make text more compact within 50 symbols
-                                    message_without_html = re.sub(cleaner, '', message)
+                                    if message and not this_user_was_notified:
 
-                                    message_params = {'parse_mode': 'HTML',
-                                                      'disable_web_page_preview': 'True'}
+                                        # TODO: make text more compact within 50 symbols
+                                        message_without_html = re.sub(cleaner, '', message)
 
-                                    # TODO: Debug only - to delete
-                                    print(f'what we are saving to SQL: {mailing_id}, {user.user_id}, '
-                                          f'{message_without_html}, {message_params}, {msg_group_id},'
-                                          f'{change_log_id}')
-                                    # TODO: Debug only - to delete
+                                        message_params = {'parse_mode': 'HTML',
+                                                          'disable_web_page_preview': 'True'}
 
-                                    # record into SQL table notif_by_user
-                                    save_to_sql_notif_by_user(mailing_id, user.user_id,
-                                                              message,
-                                                              message_without_html,
-                                                              'text',
-                                                              message_params, msg_group_id,
-                                                              change_log_id)
+                                        # TODO: Debug only - to delete
+                                        print(f'what we are saving to SQL: {mailing_id}, {user.user_id}, '
+                                              f'{message_without_html}, {message_params}, {msg_group_id},'
+                                              f'{change_log_id}')
+                                        # TODO: Debug only - to delete
 
-                                    # for user tips in "new search" notifs – to increase sent messages counter
-                                    if change_type == 0:  # 'new_search':
-                                        stat_list_of_recipients.append(user.user_id)
-
-                                    # save to SQL the sendLocation notification for "new search" & "field trips"
-                                    if change_type in {0, 5, 6} and s_lat and s_lon:
-                                        # 'new_search', field_trip_new, field_trip_change
-                                        message_params = {'latitude': s_lat,
-                                                          'longitude': s_lon}
-
-                                        # record into SQL table notif_by_user (not text, but coords only)
+                                        # record into SQL table notif_by_user
                                         save_to_sql_notif_by_user(mailing_id, user.user_id,
-                                                                  None,
-                                                                  None, 'coords',
-                                                                  message_params,
-                                                                  msg_group_id,
+                                                                  message,
+                                                                  message_without_html,
+                                                                  'text',
+                                                                  message_params, msg_group_id,
                                                                   change_log_id)
 
-                                    # save to SQL the sendLocation notification for "coords change"
-                                    if change_type == 7 and s_lat and s_lon \
-                                            and new_record.coords_change_type != 'drop' \
-                                            and user.user_id in admins_list:  # coords_change
-                                        message_params = {'latitude': s_lat,
-                                                          'longitude': s_lon}
+                                        # for user tips in "new search" notifs – to increase sent messages counter
+                                        if change_type == 0:  # 'new_search':
+                                            stat_list_of_recipients.append(user.user_id)
 
-                                        save_to_sql_notif_by_user(mailing_id, user.user_id,
-                                                                  None,
-                                                                  None, 'coords',
-                                                                  message_params,
-                                                                  msg_group_id,
-                                                                  change_log_id)
+                                        # save to SQL the sendLocation notification for "new search" & "field trips"
+                                        if change_type in {0, 5, 6} and s_lat and s_lon:
+                                            # 'new_search', field_trip_new, field_trip_change
+                                            message_params = {'latitude': s_lat,
+                                                              'longitude': s_lon}
 
-                                    number_of_messages_sent += 1
+                                            # record into SQL table notif_by_user (not text, but coords only)
+                                            save_to_sql_notif_by_user(mailing_id, user.user_id,
+                                                                      None,
+                                                                      None, 'coords',
+                                                                      message_params,
+                                                                      msg_group_id,
+                                                                      change_log_id)
+
+                                        # save to SQL the sendLocation notification for "coords change"
+                                        if change_type == 7 and s_lat and s_lon \
+                                                and new_record.coords_change_type != 'drop' \
+                                                and user.user_id in admins_list:  # coords_change
+                                            message_params = {'latitude': s_lat,
+                                                              'longitude': s_lon}
+
+                                            save_to_sql_notif_by_user(mailing_id, user.user_id,
+                                                                      None,
+                                                                      None, 'coords',
+                                                                      message_params,
+                                                                      msg_group_id,
+                                                                      change_log_id)
+
+                                        number_of_messages_sent += 1
 
                 # mark this line as all-processed
                 new_record.processed = 'yes'
