@@ -1352,7 +1352,7 @@ def iterate_over_all_users_and_updates(conn):
             search_age_range = [record.age_min, record.age_max]
 
             for user_line in users_list_outcome:
-                user_age_ranges = user_line.user_age_periods
+                user_age_ranges = user_line.age_periods
                 age_requirements_met = check_if_age_requirements_met(search_age_range, user_age_ranges)
                 if age_requirements_met:
                     temp_user_line = user_line
@@ -1362,7 +1362,24 @@ def iterate_over_all_users_and_updates(conn):
             users_list_outcome = temp_user_list
 
         except Exception as e:
-            logging.info(f'TEMP - exception: {repr(e)}')
+            logging.info(f'TEMP - exception ages: {repr(e)}')
+
+        # crop the list of users, excluding Users who does not want to receive notifications of such a kind
+        try:
+            temp_user_list = []
+            for user_line in users_list_outcome:
+                for user_notif_pref in user.notif_pref_ids_list:
+                    if user_notif_pref == record.change_type or \
+                            (user_notif_pref == 30 and record.change_type not in {5, 6, 7}):  # FIXME: 30 = 'all'
+                        temp_user_line = user_line
+                        temp_user_list.append(temp_user_line)
+                        break
+
+            logging.info(f'User List crop due to notif type: {len(users_list_outcome)} --> {len(temp_user_list)}')
+            users_list_outcome = temp_user_list
+
+        except Exception as e:
+            logging.info(f'TEMP - exception notif type: {repr(e)}')
 
         return users_list_outcome
 
