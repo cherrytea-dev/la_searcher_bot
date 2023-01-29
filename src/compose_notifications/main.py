@@ -1851,6 +1851,7 @@ def main(event, context):  # noqa
             # compose Users List: all the notifications recipients' details
             compose_users_list_from_users(conn)
             enrich_users_list_with_notification_preferences(conn)
+            enrich_users_list_with_age_periods(conn)
             enrich_users_list_with_user_regions(conn)
 
             # check the matrix: new update - user and initiate sending notifications
