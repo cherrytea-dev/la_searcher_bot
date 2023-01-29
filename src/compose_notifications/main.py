@@ -1002,11 +1002,11 @@ def enrich_users_list_with_age_periods(conn):
             new_period = [np_line[1], np_line[2]]
             for u_line in users_list:
                 if u_line.user_id == np_line[0]:
-                    u_line.user_age_periods.append(new_period)
+                    u_line.age_periods.append(new_period)
 
         # FIXME –temp debug
         for u_line in users_list:
-            if u_line.user_age_periods:
+            if u_line.age_periods:
                 print('TEMP - USER WITH AGE PERIODS')
                 print(str(u_line))
         # FIXME ^^^
