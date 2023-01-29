@@ -1302,7 +1302,7 @@ def iterate_over_all_users_and_updates(conn):
             for region_line in user_line.user_regions:
                 if str(region_line) == str(record.forum_folder):
                     temp_user_line = user_line
-                    temp_user_line.user_regions = str(region_line)
+                    # temp_user_line.user_regions = str(region_line)
                     temp_user_list.append(temp_user_line)
         logging.info(f'User List crop due to region: {len(users_list_outcome)} --> {len(temp_user_list)}')
         users_list_outcome = temp_user_list
