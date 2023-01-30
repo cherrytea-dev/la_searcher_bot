@@ -1357,6 +1357,11 @@ def iterate_over_all_users_and_updates(conn):
                 if age_requirements_met:
                     temp_user_line = user_line
                     temp_user_list.append(temp_user_line)
+                    print(f'TEMP - AGE CHECK for {user_line.user_id} is OK, record {search_age_range}, '
+                          f'user {user_age_ranges}. record {record.forum_search_num}')
+                else:
+                    print(f'TEMP - AGE CHECK for {user_line.user_id} is FAIL, record {search_age_range}, '
+                          f'user {user_age_ranges}. record {record.forum_search_num}')
 
             logging.info(f'User List crop due to ages: {len(users_list_outcome)} --> {len(temp_user_list)}')
             users_list_outcome = temp_user_list
