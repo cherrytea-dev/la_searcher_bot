@@ -1360,8 +1360,7 @@ def iterate_over_all_users_and_updates(conn):
         for user_line in users_list_outcome:
             for region_line in user_line.user_regions:
                 if str(region_line) == str(record.forum_folder):
-                    temp_user_line = user_line
-                    temp_user_list.append(temp_user_line)
+                    temp_user_list.append(user_line)
         logging.info(f'User List crop due to region: {len(users_list_outcome)} --> {len(temp_user_list)}')
         users_list_outcome = temp_user_list
 
@@ -1372,8 +1371,7 @@ def iterate_over_all_users_and_updates(conn):
                 for user_notif_pref in user_line.notif_pref_ids_list:
                     if user_notif_pref == record.change_type or \
                             (user_notif_pref == 30 and record.change_type not in {5, 6, 7}):  # FIXME: 30 = 'all'
-                        temp_user_line = user_line
-                        temp_user_list.append(temp_user_line)
+                        temp_user_list.append(user_line)
                         break
 
             logging.info(f'User List crop due to notif type: {len(users_list_outcome)} --> {len(temp_user_list)}')
@@ -1394,8 +1392,7 @@ def iterate_over_all_users_and_updates(conn):
             user_age_ranges = user_line.age_periods
             age_requirements_met = check_if_age_requirements_met(search_age_range, user_age_ranges)
             if age_requirements_met:
-                temp_user_line = user_line
-                temp_user_list.append(temp_user_line)
+                temp_user_list.append(user_line)
                 print(f'TEMP - AGE CHECK for {user_line.user_id} is OK, record {search_age_range}, '
                       f'user {user_age_ranges}. record {record.forum_search_num}')
             else:
@@ -1405,23 +1402,19 @@ def iterate_over_all_users_and_updates(conn):
         logging.info(f'User List crop due to ages: {len(users_list_outcome)} --> {len(temp_user_list)}')
         users_list_outcome = temp_user_list
 
-        # 4. DOUBLING. crop the list of users, excluding Users who were already notified on this change_log_id
-        temp_user_list = []
-        for user_line in users_list_outcome:
-            if user_line.user_id not in users_should_not_be_informed:
-                temp_user_list.append(user_line)
-        logging.info(f'User List crop due to doubling: {len(users_list_outcome)} --> {len(temp_user_list)}')
-        users_list_outcome = temp_user_list
-
-        # 5. RADIUS. crop the list of users, excluding Users who does want to receive notifications within the radius
+        # 4. RADIUS. crop the list of users, excluding Users who does want to receive notifications within the radius
         try:
             search_lat = record.search_latitude
             search_lon = record.search_longitude
             print(f'TEMP - LAT-LON: S_LAT = {search_lat}, S_LON = {search_lon}')
-            if search_lat and search_lon:
+            if not (search_lat and search_lon):
+                logging.info(f'User List crop due to radius: {len(users_list_outcome)} --> {len(users_list_outcome)}')
+
+            else:
                 temp_user_list = []
                 for user_line in users_list_outcome:
                     if not (user_line.radius and user_line.user_latitude and user_line.user_longitude):
+                        temp_user_list.append(user_line)
                         continue
                     user_lat = user_line.user_latitude
                     user_lon = user_line.user_longitude
@@ -1429,15 +1422,22 @@ def iterate_over_all_users_and_updates(conn):
                                                                                user_lat, user_lon)
                     print(f'TEMP - LAT-LON: U_LAT = {user_lat}, U_LON = {user_lon}')
                     if actual_distance <= user_line.radius:
-                        temp_user_line = user_line
-                        temp_user_list.append(temp_user_line)
+                        temp_user_list.append(user_line)
 
-            logging.info(f'User List crop due to radius: {len(users_list_outcome)} --> {len(temp_user_list)}')
-            users_list_outcome = temp_user_list
+                logging.info(f'User List crop due to radius: {len(users_list_outcome)} --> {len(temp_user_list)}')
+                users_list_outcome = temp_user_list
 
         except Exception as e:
             logging.info(f'TEMP - exception radius: {repr(e)}')
             logging.exception(e)
+
+        # 5. DOUBLING. crop the list of users, excluding Users who were already notified on this change_log_id
+        temp_user_list = []
+        for user_line in users_list_outcome:
+            if user_line.user_id not in users_should_not_be_informed:
+                temp_user_list.append(user_line)
+        logging.info(f'User List crop due to doubling: {len(users_list_outcome)} --> {len(temp_user_list)}')
+        users_list_outcome = temp_user_list
 
         return users_list_outcome
 
