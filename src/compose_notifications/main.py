@@ -1043,7 +1043,7 @@ def enrich_users_list_with_radius(conn):
         for np_line in notif_prefs:
             for u_line in users_list:
                 if u_line.user_id == np_line[0]:
-                    u_line.radius = int(np_line[1])
+                    u_line.radius = int(round(np_line[1], 0))
                     number_of_enrichments += 1
                     print(f'TEMP - RADIUS user_id = {u_line.user_id}, radius = {u_line.radius}')
 
