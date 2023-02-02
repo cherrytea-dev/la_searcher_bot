@@ -1323,53 +1323,19 @@ def iterate_over_all_users_and_updates(conn):
     def crop_user_list(users_list_incoming, users_should_not_be_informed, record):
         """crop user_list to only affected users"""
 
-        # crop the list of users, excluding Users who were already notified on this change_log_id
-        temp_user_list = []
-        for user_line in users_list_incoming:
-            if user_line.user_id not in users_should_not_be_informed:
-                temp_user_list.append(user_line)
-        logging.info(f'User List crop due to doubling: {len(users_list_incoming)} --> {len(temp_user_list)}')
-        users_list_outcome = temp_user_list
+        users_list_outcome = users_list_incoming
 
-        # crop the list of users, excluding Users from other regions
+        # 1. crop the list of users, excluding Users from other regions
         temp_user_list = []
         for user_line in users_list_outcome:
             for region_line in user_line.user_regions:
                 if str(region_line) == str(record.forum_folder):
                     temp_user_line = user_line
-                    # temp_user_line.user_regions = str(region_line)
                     temp_user_list.append(temp_user_line)
         logging.info(f'User List crop due to region: {len(users_list_outcome)} --> {len(temp_user_list)}')
         users_list_outcome = temp_user_list
 
-        # crop the list of users, excluding Users who does not want to receive notifications for such Ages
-        try:
-            temp_user_list = []
-            if not (record.age_min or record.age_max):
-                logging.info(f'User List crop due to ages: no changes, there were no age_min and max for search')
-                return users_list_outcome
-
-            search_age_range = [record.age_min, record.age_max]
-
-            for user_line in users_list_outcome:
-                user_age_ranges = user_line.age_periods
-                age_requirements_met = check_if_age_requirements_met(search_age_range, user_age_ranges)
-                if age_requirements_met:
-                    temp_user_line = user_line
-                    temp_user_list.append(temp_user_line)
-                    print(f'TEMP - AGE CHECK for {user_line.user_id} is OK, record {search_age_range}, '
-                          f'user {user_age_ranges}. record {record.forum_search_num}')
-                else:
-                    print(f'TEMP - AGE CHECK for {user_line.user_id} is FAIL, record {search_age_range}, '
-                          f'user {user_age_ranges}. record {record.forum_search_num}')
-
-            logging.info(f'User List crop due to ages: {len(users_list_outcome)} --> {len(temp_user_list)}')
-            users_list_outcome = temp_user_list
-
-        except Exception as e:
-            logging.info(f'TEMP - exception ages: {repr(e)}')
-
-        # crop the list of users, excluding Users who does not want to receive notifications of such a kind
+        # 2. crop the list of users, excluding Users who does not want to receive notifications of such a kind
         try:
             temp_user_list = []
             for user_line in users_list_outcome:
@@ -1385,6 +1351,37 @@ def iterate_over_all_users_and_updates(conn):
 
         except Exception as e:
             logging.info(f'TEMP - exception notif type: {repr(e)}')
+
+        # 3. crop the list of users, excluding Users who does not want to receive notifications for such Ages
+        temp_user_list = []
+        if not (record.age_min or record.age_max):
+            logging.info(f'User List crop due to ages: no changes, there were no age_min and max for search')
+            return users_list_outcome
+
+        search_age_range = [record.age_min, record.age_max]
+
+        for user_line in users_list_outcome:
+            user_age_ranges = user_line.age_periods
+            age_requirements_met = check_if_age_requirements_met(search_age_range, user_age_ranges)
+            if age_requirements_met:
+                temp_user_line = user_line
+                temp_user_list.append(temp_user_line)
+                print(f'TEMP - AGE CHECK for {user_line.user_id} is OK, record {search_age_range}, '
+                      f'user {user_age_ranges}. record {record.forum_search_num}')
+            else:
+                print(f'TEMP - AGE CHECK for {user_line.user_id} is FAIL, record {search_age_range}, '
+                      f'user {user_age_ranges}. record {record.forum_search_num}')
+
+        logging.info(f'User List crop due to ages: {len(users_list_outcome)} --> {len(temp_user_list)}')
+        users_list_outcome = temp_user_list
+
+        # 4. crop the list of users, excluding Users who were already notified on this change_log_id
+        temp_user_list = []
+        for user_line in users_list_outcome:
+            if user_line.user_id not in users_should_not_be_informed:
+                temp_user_list.append(user_line)
+        logging.info(f'User List crop due to doubling: {len(users_list_incoming)} --> {len(temp_user_list)}')
+        users_list_outcome = temp_user_list
 
         return users_list_outcome
 
