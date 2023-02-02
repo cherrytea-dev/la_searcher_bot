@@ -1421,7 +1421,7 @@ def iterate_over_all_users_and_updates(conn):
             if search_lat and search_lon:
                 temp_user_list = []
                 for user_line in users_list_outcome:
-                    if not user_line.radius:
+                    if not (user_line.radius and user_line.user_latitude and user_line.user_longitude):
                         continue
                     user_lat = user_line.user_latitude
                     user_lon = user_line.user_longitude
