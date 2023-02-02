@@ -1437,6 +1437,7 @@ def iterate_over_all_users_and_updates(conn):
 
         except Exception as e:
             logging.info(f'TEMP - exception radius: {repr(e)}')
+            logging.exception(e)
 
         return users_list_outcome
 
