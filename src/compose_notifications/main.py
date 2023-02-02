@@ -294,7 +294,8 @@ class User:
                  user_corr_regions=None,
                  user_new_search_notifs=None,
                  user_role=None,
-                 user_age_periods=None # noqa
+                 user_age_periods=None, # noqa
+                 radius=None
                  ):
         user_age_periods = []
         self.user_id = user_id
@@ -309,11 +310,12 @@ class User:
         self.user_new_search_notifs = user_new_search_notifs
         self.role = user_role
         self.age_periods = user_age_periods
+        self.radius = radius
 
     def __str__(self):
         return str([self.user_id, self.username_telegram, self.notification_preferences, self.notif_pref_ids_list,
                     self.user_latitude, self.user_longitude, self.user_regions, self.user_in_multi_regions,
-                    self.user_corr_regions, self.user_new_search_notifs, self.age_periods])
+                    self.user_corr_regions, self.user_new_search_notifs, self.age_periods, self.radius])
 
 
 def compose_new_records_from_change_log(conn):
@@ -1026,6 +1028,34 @@ def enrich_users_list_with_age_periods(conn):
     return None
 
 
+def enrich_users_list_with_radius(conn):
+    """add the data on distance notification preferences from user_pref_radius into users List"""
+
+    global users_list
+
+    try:
+        notif_prefs = conn.execute("""SELECT user_id, radius FROM user_pref_radius;""").fetchall()
+
+        if not notif_prefs:
+            return None
+
+        number_of_enrichments = 0
+        for np_line in notif_prefs:
+            for u_line in users_list:
+                if u_line.user_id == np_line[0]:
+                    u_line.radius.append(np_line[1])
+                    number_of_enrichments += 1
+                    print(f'TEMP - RADIUS user_id = {u_line.user_id}, radius = {u_line.radius}')
+
+        logging.info(f'Users List enriched with Radius, num of enrichments is {number_of_enrichments}')
+
+    except Exception as e:
+        logging.info(f'Not able to enrich Users List with Radius')
+        logging.exception(e)
+
+    return None
+
+
 def enrich_users_list_with_notification_preferences(conn):
     """add the additional data on notification preferences from User_preferences into Users List"""
 
@@ -1325,7 +1355,7 @@ def iterate_over_all_users_and_updates(conn):
 
         users_list_outcome = users_list_incoming
 
-        # 1. crop the list of users, excluding Users from other regions
+        # 1. REGIONS. crop the list of users, excluding Users from other regions
         temp_user_list = []
         for user_line in users_list_outcome:
             for region_line in user_line.user_regions:
@@ -1335,7 +1365,7 @@ def iterate_over_all_users_and_updates(conn):
         logging.info(f'User List crop due to region: {len(users_list_outcome)} --> {len(temp_user_list)}')
         users_list_outcome = temp_user_list
 
-        # 2. crop the list of users, excluding Users who does not want to receive notifications of such a kind
+        # 2. TYPE. crop the list of users, excluding Users who does not want to receive notifications of such a kind
         try:
             temp_user_list = []
             for user_line in users_list_outcome:
@@ -1352,7 +1382,7 @@ def iterate_over_all_users_and_updates(conn):
         except Exception as e:
             logging.info(f'TEMP - exception notif type: {repr(e)}')
 
-        # 3. crop the list of users, excluding Users who does not want to receive notifications for such Ages
+        # 3. AGES. crop the list of users, excluding Users who does not want to receive notifications for such Ages
         temp_user_list = []
         if not (record.age_min or record.age_max):
             logging.info(f'User List crop due to ages: no changes, there were no age_min and max for search')
@@ -1375,13 +1405,38 @@ def iterate_over_all_users_and_updates(conn):
         logging.info(f'User List crop due to ages: {len(users_list_outcome)} --> {len(temp_user_list)}')
         users_list_outcome = temp_user_list
 
-        # 4. crop the list of users, excluding Users who were already notified on this change_log_id
+        # 4. DOUBLING. crop the list of users, excluding Users who were already notified on this change_log_id
         temp_user_list = []
         for user_line in users_list_outcome:
             if user_line.user_id not in users_should_not_be_informed:
                 temp_user_list.append(user_line)
-        logging.info(f'User List crop due to doubling: {len(users_list_incoming)} --> {len(temp_user_list)}')
+        logging.info(f'User List crop due to doubling: {len(users_list_outcome)} --> {len(temp_user_list)}')
         users_list_outcome = temp_user_list
+
+        # 5. RADIUS. crop the list of users, excluding Users who does want to receive notifications within the radius
+        try:
+            search_lat = record.search_latitude
+            search_lon = record.search_longitude
+            print(f'TEMP - LAT-LON: S_LAT = {search_lat}, S_LON = {search_lon}')
+            if search_lat and search_lon:
+                temp_user_list = []
+                for user_line in users_list_outcome:
+                    if not user_line.radius:
+                        continue
+                    user_lat = user_line.user_latitude
+                    user_lon = user_line.user_longitude
+                    actual_distance, direction = define_dist_and_dir_to_search(search_lat, search_lon,
+                                                                               user_lat, user_lon)
+                    print(f'TEMP - LAT-LON: U_LAT = {user_lat}, U_LON = {user_lon}')
+                    if actual_distance <= user_line.radius:
+                        temp_user_line = user_line
+                        temp_user_list.append(temp_user_line)
+
+            logging.info(f'User List crop due to radius: {len(users_list_outcome)} --> {len(temp_user_list)}')
+            users_list_outcome = temp_user_list
+
+        except Exception as e:
+            logging.info(f'TEMP - exception radius: {repr(e)}')
 
         return users_list_outcome
 
@@ -1965,6 +2020,7 @@ def main(event, context):  # noqa
             compose_users_list_from_users(conn)
             enrich_users_list_with_notification_preferences(conn)
             enrich_users_list_with_age_periods(conn)
+            enrich_users_list_with_radius(conn)
             enrich_users_list_with_user_regions(conn)
 
             # check the matrix: new update - user and initiate sending notifications
