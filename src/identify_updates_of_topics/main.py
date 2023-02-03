@@ -63,6 +63,7 @@ class SearchSummary:
                  age_max=None,
                  age_min=None,
                  num_of_persons=None,
+                 locations=None,
                  full_dict=None
                  ):
         self.topic_type = topic_type
@@ -81,6 +82,7 @@ class SearchSummary:
         self.age_max = age_max
         self.age_min = age_min
         self.num_of_persons = num_of_persons
+        self.locations = locations
         self.full_dict = full_dict
 
     def __str__(self):
@@ -2321,8 +2323,7 @@ def recognize_title(line):
 
         """
         SCHEMA:
-        {topic_type = search / search reverse / search patrol / event / info,
-        [optional, only for search] training_search = True / False,
+        {topic_type = search / search reverse / search patrol / search training / event / info,
         [optional, only for search] avia = True / False,
         [optional, only for search / search reverse] status,
         [optional, only for search] persons =
@@ -2346,14 +2347,8 @@ def recognize_title(line):
             }
         [optional, only for search] locations =
             [
-            [optional] location = 
                 {
-                address = string,
-                geocoded = True / False
-                [optional] lat = Float,
-                [optional] lon = Float,
-                [optional] geocoder = OpenStreetMap / Yandex
-                [optional] id = Int
+                address = string
                 }
             ]
         }
@@ -2376,9 +2371,6 @@ def recognize_title(line):
             final_dict['topic_type'] = recognition.act
         else:
             final_dict['topic_type'] = 'UNRECOGNIZED'
-
-        if recognition.tr:
-            final_dict['training_search'] = True
 
         if recognition.avia:
             final_dict['avia'] = True
@@ -2416,6 +2408,9 @@ def recognize_title(line):
                     individual_dict['address'] = block.reco
                 if individual_dict:
                     locations.append(individual_dict)
+
+        if recognition.tr:
+            final_dict['topic_type'] = 'search training'
 
         if persons:
             summary = {}
@@ -2534,7 +2529,7 @@ def parse_one_folder(folder_id):
 
                 # TODO - check if old exclusions are not better than new ones
                 if search_status_short == "не показываем" and 'topic_type' in title_reco_dict.keys() and \
-                        title_reco_dict['topic_type'] == 'search':
+                        title_reco_dict['topic_type'] in {'search', 'search training'}:
                     logging.info(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
                                  f"NEW = {title_reco_dict['topic_type'] == 'search'}")
                     notify_admin(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
@@ -2548,26 +2543,32 @@ def parse_one_folder(folder_id):
                                  f"NEW = {title_reco_dict}")
 
                 # NEW exclude non-relevant searches
-                if title_reco_dict['topic_type'] == 'search':
+                if title_reco_dict['topic_type'] in {'search', 'search training'}:
                     search_summary_object = SearchSummary(parsed_time=current_datetime, topic_id=search_id,
                                                           status=search_status_short, title=search_title,
                                                           start_time=start_datetime,
                                                           num_of_replies=search_replies_num, age=person_age,
                                                           name=person_fam_name, folder_id=folder_id)
 
+                    search_summary_object.topic_type = title_reco_dict['topic_type']
+                    if 'persons' in title_reco_dict.keys():
+                        print(f"TEMP - {title_reco_dict['persons']}")
+                        if 'total_display_name' in title_reco_dict['persons']:
+                            search_summary_object.display_name = title_reco_dict['persons']['total_display_name']
+                        if 'age_min' in title_reco_dict['persons']:
+                            search_summary_object.age_min = title_reco_dict['persons']['age_min']
+                        if 'age_max' in title_reco_dict['persons']:
+                            search_summary_object.age_max = title_reco_dict['persons']['age_max']
+
                     # FIXME – here we are adding from dict_reco
                     try:
-                        search_summary_object.topic_type = title_reco_dict['topic_type']
-                        if 'persons' in title_reco_dict.keys():
-                            print(f"TEMP - {title_reco_dict['persons']}")
-                            if 'total_display_name' in title_reco_dict['persons']:
-                                search_summary_object.display_name = title_reco_dict['persons']['total_display_name']
-                            if 'age_min' in title_reco_dict['persons']:
-                                search_summary_object.age_min = title_reco_dict['persons']['age_min']
-                            if 'age_max' in title_reco_dict['persons']:
-                                search_summary_object.age_max = title_reco_dict['persons']['age_max']
+                        if 'locations' in title_reco_dict.keys():
+                            list_of_locations = [x['address'] for x in title_reco_dict['locations']]
+                            search_summary_object.locations = list_of_locations
+                            print(f'TEMP - LOC: {search_summary_object.locations}')
                     except Exception as e:  # noqa
-                        print(f'TEMP - WE HAVE NOT FOUND PERSONS IN RECO_DICT')
+                        print(f'TEMP - WE HAVE NOT FOUND LOCS IN RECO_DICT')
+                        logging.exception(e)
                     # FIXME – ^^^
 
                     folder_summary.append(search_summary_object)
