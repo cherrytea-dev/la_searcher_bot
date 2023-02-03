@@ -64,6 +64,7 @@ class SearchSummary:
                  age_min=None,
                  num_of_persons=None,
                  locations=None,
+                 new_status=None,
                  full_dict=None
                  ):
         self.topic_type = topic_type
@@ -83,6 +84,7 @@ class SearchSummary:
         self.age_min = age_min
         self.num_of_persons = num_of_persons
         self.locations = locations
+        self.new_status = new_status
         self.full_dict = full_dict
 
     def __str__(self):
@@ -672,27 +674,30 @@ def parse_coordinates(db, search_num):
     return [lat, lon, coord_type]
 
 
-def update_coordinates(db, parsed_summary):
+def update_coordinates(db, parsed_summary, list_of_search_objects):
     """Record search coordinates to PSQL"""
 
     for i in range(len(parsed_summary)):
-        if parsed_summary[i][2] == 'Ищем':
-            logging.info(f'search coordinates should be saved {parsed_summary[i][1]}')
-            coords = parse_coordinates(db, parsed_summary[i][1])
 
-            if coords[0] != 0 and coords[1] != 0:
-                with db.connect() as conn:
+        if parsed_summary[i][2] != 'Ищем':
+            continue
+
+        logging.info(f'search coordinates should be saved {parsed_summary[i][1]}')
+        coords = parse_coordinates(db, parsed_summary[i][1])
+
+        if coords[0] != 0 and coords[1] != 0:
+            with db.connect() as conn:
+                stmt = sqlalchemy.text(
+                    "SELECT search_id FROM search_coordinates WHERE search_id=:a LIMIT 1;"
+                )
+                if_is_in_db = conn.execute(stmt, a=parsed_summary[i][1]).fetchone()
+                if if_is_in_db is None:
                     stmt = sqlalchemy.text(
-                        "SELECT search_id FROM search_coordinates WHERE search_id=:a LIMIT 1;"
+                        """INSERT INTO search_coordinates (search_id, latitude, longitude, coord_type) VALUES (:a, 
+                        :b, :c, :d); """
                     )
-                    if_is_in_db = conn.execute(stmt, a=parsed_summary[i][1]).fetchone()
-                    if if_is_in_db is None:
-                        stmt = sqlalchemy.text(
-                            """INSERT INTO search_coordinates (search_id, latitude, longitude, coord_type) VALUES (:a, 
-                            :b, :c, :d); """
-                        )
-                        conn.execute(stmt, a=parsed_summary[i][1], b=coords[0], c=coords[1], d=coords[2])
-                conn.close()
+                    conn.execute(stmt, a=parsed_summary[i][1], b=coords[0], c=coords[1], d=coords[2])
+            conn.close()
 
     return None
 
@@ -1891,12 +1896,10 @@ def recognize_title(line):
                 year_today = datetime.today().year
                 age_from_year = year_today - int(year)
                 # if there's an indication of the age without explicit "years", but just a number, e.g. 57
-                if number:
-                    variation_of_ages = abs(int(number) - age_from_year)
-                    if variation_of_ages in {0, 1}:
-                        age = number
-                    else:
-                        age = age_from_year
+                if number and abs(int(number) - age_from_year) in {0, 1}:
+                    age = number
+                else:
+                    age = age_from_year
 
             elif months and not age and not year:
                 age = round(int(months) / 12)
@@ -2436,7 +2439,7 @@ def recognize_title(line):
             final_dict['locations'] = locations
 
         # placeholders if no persons
-        if final_dict['topic_type'] == 'search' and 'persons' not in final_dict.keys():
+        if final_dict['topic_type'] in {'search', 'search training'} and 'persons' not in final_dict.keys():
             per_dict = {'total_persons': -1, 'total_display_name': 'Неизвестный'}
             final_dict['persons'] = per_dict
 
@@ -2544,12 +2547,13 @@ def parse_one_folder(folder_id):
 
                 # NEW exclude non-relevant searches
                 if title_reco_dict['topic_type'] in {'search', 'search training'}:
+                    # FIXME – status and new_status yo be updates
                     search_summary_object = SearchSummary(parsed_time=current_datetime, topic_id=search_id,
                                                           status=search_status_short, title=search_title,
                                                           start_time=start_datetime,
                                                           num_of_replies=search_replies_num, age=person_age,
                                                           name=person_fam_name, folder_id=folder_id)
-
+                    # FIXME ^^^
                     search_summary_object.topic_type = title_reco_dict['topic_type']
                     if 'persons' in title_reco_dict.keys():
                         print(f"TEMP - {title_reco_dict['persons']}")
@@ -2566,8 +2570,12 @@ def parse_one_folder(folder_id):
                             list_of_locations = [x['address'] for x in title_reco_dict['locations']]
                             search_summary_object.locations = list_of_locations
                             print(f'TEMP - LOC: {search_summary_object.locations}')
+
+                        if 'status' in title_reco_dict.keys():
+                            search_summary_object.new_status = title_reco_dict['status']
+
                     except Exception as e:  # noqa
-                        print(f'TEMP - WE HAVE NOT FOUND LOCS IN RECO_DICT')
+                        print(f'TEMP - ERROR WHILE FINDING LOCS / STATUS IN RECO_DICT')
                         logging.exception(e)
                     # FIXME – ^^^
 
@@ -2594,14 +2602,6 @@ def parse_one_folder(folder_id):
         folder_summary = []
 
     logging.info(f'folder = {folder_id}, old_topics_summary = {topics_summary_in_folder}')
-
-    # TODO - temp
-    if len(folder_summary) > 0:
-        for i in folder_summary:
-            print(f'TEMP - line: {str(i)}')
-    else:
-        print(f'TEMP - folder summary is empty for folder {folder_id}')
-    # TODO - temp ^^^
 
     return topics_summary_in_folder, titles_and_num_of_replies, folder_summary
 
@@ -2724,7 +2724,8 @@ def update_change_log_and_searches(db, folder_num):
 
         sql_text = sqlalchemy.text(
             """SELECT search_forum_num, parsed_time, status_short, forum_search_title, search_start_time, 
-            num_of_replies, family_name, age, id, forum_folder_id, topic_type, display_name, age_min, age_max
+            num_of_replies, family_name, age, id, forum_folder_id, topic_type, display_name, age_min, age_max,
+            status, locations
             FROM forum_summary_snapshot WHERE 
             forum_folder_id = :a; """
         )
@@ -2736,7 +2737,7 @@ def update_change_log_and_searches(db, folder_num):
                 snapshot_line.start_time, snapshot_line.num_of_replies, \
                 snapshot_line.name, snapshot_line.age, snapshot_line.id, snapshot_line.folder_id, \
                 snapshot_line.topic_type, snapshot_line.display_name, snapshot_line.age_min, \
-                snapshot_line.age_max = list(line)
+                snapshot_line.age_max, snapshot_line.new_status, snapshot_line.locations = list(line)
 
             curr_snapshot_list.append(snapshot_line)
 
@@ -2767,56 +2768,58 @@ def update_change_log_and_searches(db, folder_num):
         for snapshot_line in curr_snapshot_list:
             for searches_line in prev_searches_list:
 
-                if snapshot_line.topic_id == searches_line.topic_id:
-                    if snapshot_line.status != searches_line.status:
+                if snapshot_line.topic_id != searches_line.topic_id:
+                    continue
+
+                if snapshot_line.status != searches_line.status:
+
+                    change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
+                                                    topic_id=snapshot_line.topic_id,
+                                                    changed_field='status_change',
+                                                    new_value=snapshot_line.status,
+                                                    parameters='',
+                                                    change_type=1)
+
+                    change_log_updates_list.append(change_log_line)
+
+                if snapshot_line.title != searches_line.title:
+
+                    change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
+                                                    topic_id=snapshot_line.topic_id,
+                                                    changed_field='title_change',
+                                                    new_value=snapshot_line.title,
+                                                    parameters='',
+                                                    change_type=2)
+
+                    change_log_updates_list.append(change_log_line)
+
+                if snapshot_line.num_of_replies > searches_line.num_of_replies:
+
+                    change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
+                                                    topic_id=snapshot_line.topic_id,
+                                                    changed_field='replies_num_change',
+                                                    new_value=snapshot_line.num_of_replies,
+                                                    parameters='',
+                                                    change_type=3)
+
+                    change_log_updates_list.append(change_log_line)
+
+                    for k in range(snapshot_line.num_of_replies - searches_line.num_of_replies):
+                        flag_if_comment_was_from_inforg = parse_one_comment(db, snapshot_line.topic_id,
+                                                                            searches_line.num_of_replies + 1 + k)
+                        if flag_if_comment_was_from_inforg:
+                            there_are_inforg_comments = True
+
+                    if there_are_inforg_comments:
 
                         change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
                                                         topic_id=snapshot_line.topic_id,
-                                                        changed_field='status_change',
-                                                        new_value=snapshot_line.status,
-                                                        parameters='',
-                                                        change_type=1)
-
-                        change_log_updates_list.append(change_log_line)
-
-                    if snapshot_line.title != searches_line.title:
-
-                        change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
-                                                        topic_id=snapshot_line.topic_id,
-                                                        changed_field='title_change',
-                                                        new_value=snapshot_line.title,
-                                                        parameters='',
-                                                        change_type=2)
-
-                        change_log_updates_list.append(change_log_line)
-
-                    if snapshot_line.num_of_replies > searches_line.num_of_replies:
-
-                        change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
-                                                        topic_id=snapshot_line.topic_id,
-                                                        changed_field='replies_num_change',
+                                                        changed_field='inforg_replies',
                                                         new_value=snapshot_line.num_of_replies,
                                                         parameters='',
-                                                        change_type=3)
+                                                        change_type=4)
 
                         change_log_updates_list.append(change_log_line)
-
-                        for k in range(snapshot_line.num_of_replies - searches_line.num_of_replies):
-                            flag_if_comment_was_from_inforg = parse_one_comment(db, snapshot_line.topic_id,
-                                                                                searches_line.num_of_replies + 1 + k)
-                            if flag_if_comment_was_from_inforg:
-                                there_are_inforg_comments = True
-
-                        if there_are_inforg_comments:
-
-                            change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
-                                                            topic_id=snapshot_line.topic_id,
-                                                            changed_field='inforg_replies',
-                                                            new_value=snapshot_line.num_of_replies,
-                                                            parameters='',
-                                                            change_type=4)
-
-                            change_log_updates_list.append(change_log_line)
 
         if change_log_updates_list:
 
@@ -2986,12 +2989,14 @@ def rewrite_snapshot_in_sql(db, folder_num, new_folder_summary):
         sql_text = sqlalchemy.text(
             """INSERT INTO forum_summary_snapshot (search_forum_num, parsed_time, status_short, forum_search_title, 
             search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, display_name, age_min, 
-            age_max) values (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m); """
+            age_max, status, locations) values (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o); """
         )
+        # FIXME – add status
         for line in new_folder_summary:
             conn.execute(sql_text, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
                          e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
-                         j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max)
+                         j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max, n=line.new_status,
+                         o=line.locations)
         conn.close()
 
     return None
@@ -3006,6 +3011,7 @@ def process_one_folder(db, folder_to_parse):
     update_trigger = False
     debug_message = f'folder {folder_to_parse} has NO new updates'
 
+    # TODO - to be switched to new_
     if old_folder_summary_full:
 
         # transform the current snapshot into the string to be able to compare it: string vs string
@@ -3024,7 +3030,7 @@ def process_one_folder(db, folder_to_parse):
             logging.info(f'starting updating change_log and searches tables for folder {folder_to_parse}')
 
             update_change_log_and_searches(db, folder_to_parse)
-            update_coordinates(db, old_folder_summary_full)
+            update_coordinates(db, old_folder_summary_full, new_folder_summary)
 
     logging.info(debug_message)
 
