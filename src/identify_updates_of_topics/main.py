@@ -2823,6 +2823,8 @@ def update_change_log_and_searches(db, folder_num):
                 snapshot_line.topic_type, snapshot_line.display_name, snapshot_line.age_min, \
                 snapshot_line.age_max, snapshot_line.new_status, snapshot_line.locations = list(line)
 
+            notify_admin(f'snp.loc {type(snapshot_line.locations)}, {snapshot_line.locations}')
+            # snapshot_line.locations = snapshot_line.locations
             curr_snapshot_list.append(snapshot_line)
 
         # TODO - in future: should the number of searches be limited? Probably to JOIN change_log and WHERE folder=...
