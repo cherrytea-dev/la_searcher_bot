@@ -1820,7 +1820,9 @@ def main(request):
                         if bot_request_bfr_usr_msg == 'radius_input' and \
                                 got_message not in {b_test_radius, b_pref_radius_act,
                                                     b_pref_radius_deact, b_pref_radius_change}:
-                            got_message = int(got_message)
+                            number = re.search(r'\d*', str(got_message))
+                            if number:
+                                got_message = int(number.group())
 
                         keyboard, saved_radius = save_user_pref_radius_and_return_curr_state(cur, user_id,
                                                                                              got_message,
