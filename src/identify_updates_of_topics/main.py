@@ -2665,7 +2665,7 @@ def parse_one_folder(db, folder_id):
                             list_of_location_cities = [x['address'] for x in title_reco_dict['locations']]
                             list_of_location_coords = [get_coordinates(db, x) for x in list_of_location_cities]
                             print(f'TEMP - LOC 1: {list_of_location_coords}')
-                            search_summary_object.location = str(list_of_location_coords)
+                            search_summary_object.locations = list_of_location_coords
                             print(f'TEMP - LOC 2: {search_summary_object.locations}')
 
                     except Exception as e:  # noqa
