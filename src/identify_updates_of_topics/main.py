@@ -2839,14 +2839,15 @@ def update_change_log_and_searches(db, folder_num):
         searches_full_list = conn.execute(
             """SELECT search_forum_num, parsed_time, status_short, forum_search_title, search_start_time, 
             num_of_replies, family_name, age, id, forum_folder_id, 
-            topic_type, display_name, age_min, age_max FROM searches;"""
+            topic_type, display_name, age_min, age_max, status, city_locations FROM searches;"""
         ).fetchall()
         prev_searches_list = []
         for searches_line in searches_full_list:
             search = SearchSummary()
             search.topic_id, search.parsed_time, search.status, search.title, \
                 search.start_time, search.num_of_replies, search.name, search.age, search.id, search.folder_id, \
-                search.topic_type, search.display_name, search.age_min, search.age_max = list(searches_line)
+                search.topic_type, search.display_name, search.age_min, search.age_max,\
+                search.new_status, search.locations = list(searches_line)
             prev_searches_list.append(search)
 
         # FIXME – temp – just to check how many lines
@@ -2964,12 +2965,14 @@ def update_change_log_and_searches(db, folder_num):
             stmt = sqlalchemy.text(
                 """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, 
                 search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, 
-                display_name, age_min, age_max) values (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m); """
+                display_name, age_min, age_max, status, city_locations) 
+                VALUES (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o); """
             )
             for line in new_searches_from_snapshot_list:
                 conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
                              e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
-                             j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max)
+                             j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max, n=line.new_status,
+                             o=line.locations)
 
                 search_num = line.topic_id
 
@@ -3107,7 +3110,8 @@ def process_one_folder(db, folder_to_parse):
             sql_text = sqlalchemy.text(
                 """INSERT INTO forum_summary_snapshot (search_forum_num, parsed_time, status_short, forum_search_title, 
                 search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, display_name, age_min, 
-                age_max, status, city_locations) values (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o); """
+                age_max, status, city_locations) 
+                VALUES (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o); """
             )
             # FIXME – add status
             for line in folder_summary:
