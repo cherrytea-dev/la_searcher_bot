@@ -1013,9 +1013,6 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
     notify_admin(f'EXP BFR {expect_before}')
 
     if user_input:
-        notify_admin(f'lower = {user_input.lower()}')
-        notify_admin(f'b_menu = {b_menu}')
-        notify_admin(f'{user_input.lower() == b_menu}')
 
         if user_input.lower() == b_menu:
             saved_radius = check_saved_radius(user_id)
@@ -1867,8 +1864,9 @@ def main(request):
                             bot_message = 'Спасибо, записали.'
                     # FIXME ^^^
 
-                    elif (got_message.lower() in {b_test_radius, b_pref_radius_act, b_pref_radius_deact,
-                                                  b_pref_radius_change}) or bot_request_bfr_usr_msg == 'radius_input':
+                    elif got_message.lower() == b_test_radius or got_message in \
+                            {b_pref_radius_act, b_pref_radius_deact, b_pref_radius_change} or \
+                            bot_request_bfr_usr_msg == 'radius_input':
 
                         notify_admin(f'here {bot_request_bfr_usr_msg}')
                         bot_message, reply_markup, bot_request_aft_usr_msg = \
