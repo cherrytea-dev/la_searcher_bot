@@ -1066,7 +1066,7 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
             number = re.search(r'\d*', str(user_input))
             if number:
                 number = int(number.group())
-            if number > 0:
+            if number and number > 0:
                 cur.execute("""INSERT INTO user_pref_radius (user_id, radius) 
                                VALUES (%s, %s) ON CONFLICT (user_id) DO
                                UPDATE SET radius=%s;""", (user_id, number, number))
