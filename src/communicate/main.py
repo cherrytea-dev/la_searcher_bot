@@ -992,6 +992,50 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
     return list_of_buttons, first_visit
 
 
+def save_user_pref_radius_and_return_curr_state(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_back):
+    """Save user Radius preference and generate the actual radius preference"""
+
+    def check_saved_radius(user):
+        """check if user already has a radius preference"""
+
+        saved_rad = None
+        # Block for Generating a list of Buttons
+        cur.execute("""SELECT radius FROM user_pref_radius WHERE user_id=%s;""", (user,))
+        raw_radius = cur.fetchone()
+        if raw_radius and str(raw_radius) != 'None':
+            saved_rad = int(raw_radius[0])
+        return saved_rad
+
+    saved_radius = None
+    list_of_buttons = []
+    logging.info(f'TEMP - RADIUS - user_input = {user_input}')
+    if user_input:
+
+        if user_input in {b_act, b_change}:
+            list_of_buttons = []
+
+        elif user_input == b_deact:
+            list_of_buttons = [[b_act]]
+            cur.execute("""DELETE FROM user_pref_radius WHERE user_id=%s;""", (user_id,))
+
+        elif isinstance(user_input, int):
+            list_of_buttons = [[b_change], [b_deact]]
+            cur.execute("""INSERT INTO user_pref_radius (user_id, radius) 
+                                    VALUES (%s, %s) ON CONFLICT (user_id) DO
+                                    UPDATE user_pref_radius SET radius=%s WHERE user_id=%s;""",
+                        (user_id, user_input, user_input, user_id))
+
+    if not saved_radius:
+        saved_radius = check_saved_radius(user_id)
+        if user_input == b_menu:
+            list_of_buttons = [[b_change], [b_deact]]
+
+    if not isinstance(user_input, int):
+        list_of_buttons += [[b_menu], [b_back]]
+
+    return list_of_buttons, saved_radius
+
+
 def main(request):
     """Main function to orchestrate the whole script"""
 
@@ -1454,6 +1498,12 @@ def main(request):
             b_pref_age_51_80_deact = 'Включить: Старшее Поколение 51-80 лет'
             b_pref_age_81_on_act = 'Отключить: Старцы более 80 лет'
             b_pref_age_81_on_deact = 'Включить: Старцы более 80 лет'
+
+            b_test_radius = 'radius'
+            b_pref_radius_act = 'Включить ограничение по расстоянию'
+            b_pref_radius_deact = 'Отключить ограничение по расстоянию'
+            b_pref_radius_change = 'Изменить ограничение по расстоянию'
+
             # FIXME ^^^
 
             # basic markup which will be substituted for all specific cases
@@ -1756,6 +1806,60 @@ def main(request):
                                               'https://t.me/joinchat/2J-kV0GaCgwxY2Ni\n\n' + bot_message
                         else:
                             bot_message = 'Спасибо, записали.'
+
+                    elif got_message in {b_test_radius, b_pref_radius_act, b_pref_radius_deact, b_pref_radius_change} \
+                            or bot_request_bfr_usr_msg == 'radius_input':
+
+                        keyboard, saved_radius = save_user_pref_radius_and_return_curr_state(cur, user_id,
+                                                                                             got_message,
+                                                                                             b_test_radius,
+                                                                                             b_pref_radius_act,
+                                                                                             b_pref_radius_deact,
+                                                                                             b_pref_radius_change,
+                                                                                             b_back_to_start)
+                        if got_message.lower() == b_test_radius:
+                            bot_message = 'Вы вошли в специальный тестовый раздел, здесь доступны функции в ' \
+                                              'стадии ' \
+                                              'отладки и тестирования. Представленный здесь функционал может не ' \
+                                              'работать ' \
+                                              'на 100% корректно. Если заметите случаи некорректного выполнения ' \
+                                              'функционала из этого раздела – пишите, пожалуйста, в телеграм-чат ' \
+                                              'https://t.me/joinchat/2J-kV0GaCgwxY2Ni\n\n' \
+                                          'Здесь вы можете ограничить ' \
+                                          'радиус, чтобы получать уведомления только по поискам внутри этого ' \
+                                          'круга на карте.\n\n' \
+                                          'ВАЖНО! Вы всё равно будете проинформированы по всем поискам, по которым' \
+                                          'бот не смог распознать никакие координаты.\n\n' \
+                                          'Также, бот в первую очередь ' \
+                                          'проверят расстояние от штаба а если он не указан, то до ближайшего ' \
+                                          'населенного пункта (или топонима), указанного в теме поискам. ' \
+                                          'Расстояние считается по прямой.'
+
+                        elif got_message in {b_pref_radius_act, b_pref_radius_change}:
+                            bot_request_aft_usr_msg = 'radius_input'
+                            if got_message == b_pref_radius_act:
+                                bot_message = 'Введите расстояние в километрах по прямой в формате простого числа ' \
+                                              '(например: 150) ' \
+                                          'и нажмите обычную кнопку отправки сообщения'
+                            else:
+                                bot_message = f'У вас установлено максимальное расстояние до поиска {saved_radius}.' \
+                                              f'\n\nВведите обновлённое расстояние в километрах по прямой ' \
+                                              f'в формате простого числа (например: 150) ' \
+                                              'и нажмите обычную кнопку отправки сообщения'
+
+                        elif bot_request_bfr_usr_msg == 'radius_input':
+                            bot_message = f'Сохранили! Теперь поиски, у которых расстояние до штаба, ' \
+                                          f'либо до ближайшего населенного пункта (топонима) превосходит ' \
+                                          f'{saved_radius}, не будут вас больше беспокоить. Настройку можно изменить' \
+                                          f'в любое время.'
+
+                        elif got_message == b_pref_radius_deact:
+                            bot_message = 'Ограничение на расстояние по поискам снято!'
+
+                        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+
+                    # FIXME ^^^
 
                     # DEBUG: for debugging purposes only
                     elif got_message.lower() == 'go':

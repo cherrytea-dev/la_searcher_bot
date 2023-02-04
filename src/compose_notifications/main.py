@@ -1417,8 +1417,8 @@ def iterate_over_all_users_and_updates(conn):
             search_lon = record.search_longitude
             print(f'TEMP - LAT-LON: S_LAT = {search_lat}, S_LON = {search_lon}')
             list_of_city_coords = None
-            if record.city_coodrdinates:
-                list_of_city_coords = [x for x in eval(record.city_coodrdinates) if isinstance(x, list)]
+            if record.city_locations:
+                list_of_city_coords = [x for x in eval(record.city_locations) if isinstance(x, list)]
             temp_user_list = []
 
             # CASE 4.1. When exact coordinates of Search Headquarters are indicated
@@ -1438,11 +1438,11 @@ def iterate_over_all_users_and_updates(conn):
                         # FIXME - temp debug
                         notify_admin(f'IN RADIUS – {user_line.user_id}: HQ: '
                                      f'{record.search_latitude}, {record.search_longitude}. '
-                                     f'CITY {record.city_coodrdinates}')
+                                     f'CITY {record.city_locations}')
                     else:
                         notify_admin(f'NOT IN RADIUS – {user_line.user_id}: HQ: '
                                      f'{record.search_latitude}, {record.search_longitude}. '
-                                     f'CITY {record.city_coodrdinates}')
+                                     f'CITY {record.city_locations}')
                         # FIXME ^^^
 
             # CASE 4.2. When exact coordinates of a Place are geolocated
@@ -1462,11 +1462,11 @@ def iterate_over_all_users_and_updates(conn):
                         if actual_distance <= user_line.radius:
                             temp_user_list.append(user_line)
                             # FIXME - temp debug
-                            notify_admin(f'IN RADIUS – {user_line.user_id}: CITY: {record.city_coodrdinates},'
+                            notify_admin(f'IN RADIUS – {user_line.user_id}: CITY: {record.city_locations},'
                                          f'HQ: {record.search_latitude}, {record.search_longitude}. ')
                             break
                         else:
-                            notify_admin(f'NOT IN RADIUS – {user_line.user_id}: CITY: {record.city_coodrdinates},'
+                            notify_admin(f'NOT IN RADIUS – {user_line.user_id}: CITY: {record.city_locations},'
                                          f'HQ: {record.search_latitude}, {record.search_longitude}. ')
                             # FIXME ^^^
 
