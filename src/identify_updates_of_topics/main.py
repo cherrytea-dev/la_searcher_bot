@@ -10,10 +10,12 @@ import time
 import logging
 from datetime import datetime, timedelta
 from dateutil import relativedelta
+import copy
 
 import requests
 import sqlalchemy
 from bs4 import BeautifulSoup, SoupStrainer  # noqa
+from geopy.geocoders import Nominatim
 
 from google.cloud import secretmanager
 from google.cloud import storage
@@ -143,11 +145,122 @@ def read_yaml_from_cloud_storage(bucket_to_read, folder_num):
     return contents
 
 
+def get_coordinates(db, address):
+    """convert address string into a pair of coordinates"""
+
+    def load_geolocation_form_psql(db2, address_string):
+        """get results of geocoding from psql"""
+
+        with db2.connect() as conn:
+            stmt = sqlalchemy.text(
+                """SELECT address, status, latitude, longitude from geocoding WHERE address=:a LIMIT 1; """
+            )
+            saved_result = conn.execute(stmt, a=address_string).fetchone()
+
+            conn.close()
+
+        return saved_result
+
+    def save_geolocation_in_psql(db2, address_string, status, latitude, longitude):
+        """save results of geocoding to avoid multiple requests to openstreetmap service"""
+
+        try:
+            with db2.connect() as conn:
+                stmt = sqlalchemy.text(
+                    """INSERT INTO geocoding (address, status, latitude, longitude) VALUES (:a, 
+                    :b, :c, :d); """
+                )
+                conn.execute(stmt, a=address_string, b=status, c=latitude, d=longitude)
+                conn.close()
+
+        except Exception as e7:
+            logging.info('DBG.P.EXC.109: ')
+            logging.exception(e7)
+            notify_admin('ERROR: saving geolocation to psql failed: ' + address_string + ', ' + status)
+
+        return None
+
+    def get_coordinates_from_address(db2, address_string):
+        """return coordinates on the request of address string"""
+        """NB! openstreetmap requirements: NO more than 1 request per 1 min, no doubling requests"""
+
+        latitude = 0
+        longitude = 0
+        status_in_psql = None
+
+        geolocator = Nominatim(user_agent="LizaAlertBot")
+
+        # first - check if this address was already geolocated and saved to psql
+        saved_loc_list = load_geolocation_form_psql(db2, address_string)
+
+        # there is a psql record on this address - no geocoding activities are required
+        if saved_loc_list:
+            if saved_loc_list[1] == 'ok':
+                latitude = saved_loc_list[2]
+                longitude = saved_loc_list[3]
+
+            elif saved_loc_list[1] == 'failed':
+                status_in_psql = 'failed'
+
+        # no psql record for this address found OR existing info is insufficient
+        if not latitude and not longitude and status_in_psql != 'failed':
+            try:
+                # second – check that next request won't be in less a minute from previous
+                prev_str_of_geocheck = read_snapshot_from_cloud_storage('bucket_for_ad_hoc', 'geocode')
+                logging.info(f'prev_str_of_geocheck: {prev_str_of_geocheck}')
+
+                if prev_str_of_geocheck:
+                    prev_time_of_geocheck = datetime.strptime(prev_str_of_geocheck, '%Y-%m-%dT%H:%M:%S+00:00')
+                    now = datetime.now()
+                    if prev_time_of_geocheck:
+                        time_delta_bw_now_and_next_request = prev_time_of_geocheck + timedelta(seconds=1) - now
+                    else:
+                        time_delta_bw_now_and_next_request = timedelta(seconds=0)
+                    if time_delta_bw_now_and_next_request.total_seconds() > 0:
+                        time.sleep(time_delta_bw_now_and_next_request.total_seconds())
+
+                try:
+                    search_location = geolocator.geocode(address_string, timeout=10000)
+                    logging.info(f'geo_location: {str(search_location)}')
+                except Exception as e55:
+                    search_location = None
+                    logging.info('ERROR: geo loc ')
+                    logging.exception(e55)
+                    notify_admin(f'ERROR: in geo loc : {str(e55)}')
+
+                now_str = datetime.now().strftime('%Y-%m-%dT%H:%M:%S+00:00')
+                write_snapshot_to_cloud_storage('bucket_for_ad_hoc', now_str, 'geocode')
+
+                if search_location:
+                    latitude, longitude = search_location.latitude, search_location.longitude
+                    save_geolocation_in_psql(db, address_string, 'ok', latitude, longitude)
+                else:
+                    save_geolocation_in_psql(db, address_string, 'fail', None, None)
+            except Exception as e6:
+                logging.info(f'Error in func get_coordinates_from_address for address: {address_string}. Repr: ')
+                logging.exception(e6)
+                notify_admin('ERROR: get_coords_from_address failed.')
+
+        return latitude, longitude
+
+    # FIXME - temp try
+    try:
+        lat, lon = get_coordinates_from_address(db, address)
+        if lat and lon:
+            logging.info(f'TEMP - LOC - NEW title loc for {address}: [{lat}, {lon}]')
+            return [lat, lon]
+        else:
+            return address
+    except Exception as e:
+        logging.info('TEMP - LOC - New getting coordinates from title failed')
+        logging.exception(e)
+    # FIXME ^^^
+
+    return address
+
+
 def parse_coordinates(db, search_num):
     """finds coordinates of the search"""
-
-    from geopy.geocoders import Nominatim
-    import copy
 
     global requests_session
 
@@ -2467,7 +2580,7 @@ def recognize_title(line):
     return final_recognition_dict, recognition_result
 
 
-def parse_one_folder(folder_id):
+def parse_one_folder(db, folder_id):
     """parse forum folder with searches' summaries"""
 
     global requests_session
@@ -2547,7 +2660,7 @@ def parse_one_folder(folder_id):
 
                 # NEW exclude non-relevant searches
                 if title_reco_dict['topic_type'] in {'search', 'search training'}:
-                    # FIXME – status and new_status yo be updates
+                    # FIXME – status and new_status to be updated
                     search_summary_object = SearchSummary(parsed_time=current_datetime, topic_id=search_id,
                                                           status=search_status_short, title=search_title,
                                                           start_time=start_datetime,
@@ -2564,15 +2677,17 @@ def parse_one_folder(folder_id):
                         if 'age_max' in title_reco_dict['persons']:
                             search_summary_object.age_max = title_reco_dict['persons']['age_max']
 
+                    if 'status' in title_reco_dict.keys():
+                        search_summary_object.new_status = title_reco_dict['status']
+
                     # FIXME – here we are adding from dict_reco
                     try:
                         if 'locations' in title_reco_dict.keys():
-                            list_of_locations = [x['address'] for x in title_reco_dict['locations']]
-                            search_summary_object.locations = list_of_locations
-                            print(f'TEMP - LOC: {search_summary_object.locations}')
+                            list_of_location_cities = [x['address'] for x in title_reco_dict['locations']]
+                            list_of_location_coords = [get_coordinates(db, x) for x in list_of_location_cities]
 
-                        if 'status' in title_reco_dict.keys():
-                            search_summary_object.new_status = title_reco_dict['status']
+                            search_summary_object.location = list_of_location_coords
+                            print(f'TEMP - LOC: {search_summary_object.locations}')
 
                     except Exception as e:  # noqa
                         print(f'TEMP - ERROR WHILE FINDING LOCS / STATUS IN RECO_DICT')
@@ -2989,7 +3104,7 @@ def rewrite_snapshot_in_sql(db, folder_num, new_folder_summary):
         sql_text = sqlalchemy.text(
             """INSERT INTO forum_summary_snapshot (search_forum_num, parsed_time, status_short, forum_search_title, 
             search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, display_name, age_min, 
-            age_max, status, locations) values (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o); """
+            age_max, status, city_locations) values (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o); """
         )
         # FIXME – add status
         for line in new_folder_summary:
@@ -3006,7 +3121,7 @@ def process_one_folder(db, folder_to_parse):
     """process one forum folder: check for updates, upload them into cloud sql"""
 
     # parse a new version of summary page from the chosen folder
-    old_folder_summary_full, titles_and_num_of_replies, new_folder_summary = parse_one_folder(folder_to_parse)
+    old_folder_summary_full, titles_and_num_of_replies, new_folder_summary = parse_one_folder(db, folder_to_parse)
 
     update_trigger = False
     debug_message = f'folder {folder_to_parse} has NO new updates'
