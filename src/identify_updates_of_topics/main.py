@@ -2631,7 +2631,8 @@ def parse_one_folder(db, folder_id):
                                  f"NEW = {title_reco_dict['topic_type'] == 'search'}")
                 elif search_status_short != "не показываем" and \
                         ('topic_type' not in title_reco_dict.keys() or
-                         'topic_type' in title_reco_dict.keys() and title_reco_dict['topic_type'] != 'search'):
+                         'topic_type' in title_reco_dict.keys() and title_reco_dict['topic_type']
+                         not in {'search', 'search training'}):
                     logging.info(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
                                  f"NEW = {title_reco_dict}")
                     notify_admin(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
@@ -2648,7 +2649,6 @@ def parse_one_folder(db, folder_id):
                     # FIXME ^^^
                     search_summary_object.topic_type = title_reco_dict['topic_type']
                     if 'persons' in title_reco_dict.keys():
-                        print(f"TEMP - {title_reco_dict['persons']}")
                         if 'total_display_name' in title_reco_dict['persons']:
                             search_summary_object.display_name = title_reco_dict['persons']['total_display_name']
                         if 'age_min' in title_reco_dict['persons']:
@@ -2664,9 +2664,7 @@ def parse_one_folder(db, folder_id):
                         if 'locations' in title_reco_dict.keys():
                             list_of_location_cities = [x['address'] for x in title_reco_dict['locations']]
                             list_of_location_coords = [get_coordinates(db, x) for x in list_of_location_cities]
-                            print(f'TEMP - LOC 1: {list_of_location_coords}')
                             search_summary_object.locations = list_of_location_coords
-                            print(f'TEMP - LOC 2: {search_summary_object.locations}')
 
                     except Exception as e:  # noqa
                         print(f'TEMP - ERROR WHILE FINDING LOCS / STATUS IN RECO_DICT')
@@ -3055,13 +3053,14 @@ def update_change_log_and_searches(db, folder_num):
             stmt = sqlalchemy.text(
                 """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, 
                 search_start_time, num_of_replies, age, family_name, forum_folder_id, 
-                topic_type, display_name, age_min, age_max) values (:a, :b, :c, :d, :e, :f, 
-                :g, :h, :i, :j, :k, :l, :m); """
+                topic_type, display_name, age_min, age_max, status, locations) values (:a, :b, :c, :d, :e, :f, 
+                :g, :h, :i, :j, :k, :l, :m, :n, :o); """
             )
             for line in new_searches_from_snapshot_list:
                 conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
                              e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
-                             j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max)
+                             j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max,
+                             n=line.new_status, o=line.locations)
 
         conn.close()
 
