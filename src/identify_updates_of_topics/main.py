@@ -3046,7 +3046,7 @@ def update_change_log_and_searches(db, folder_num):
             stmt = sqlalchemy.text(
                 """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, 
                 search_start_time, num_of_replies, age, family_name, forum_folder_id, 
-                topic_type, display_name, age_min, age_max, status, locations) values (:a, :b, :c, :d, :e, :f, 
+                topic_type, display_name, age_min, age_max, status, city_locations) values (:a, :b, :c, :d, :e, :f, 
                 :g, :h, :i, :j, :k, :l, :m, :n, :o); """
             )
             for line in new_searches_from_snapshot_list:
