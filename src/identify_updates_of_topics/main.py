@@ -82,7 +82,7 @@ class SearchSummary:
         self.age = age
         self.id = searches_table_id
         self.folder_id = folder_id
-        self.age_max = age_maxƒ
+        self.age_max = age_max
         self.age_min = age_min
         self.num_of_persons = num_of_persons
         self.locations = locations
