@@ -1051,13 +1051,12 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
             reply_markup_needed = False
             saved_radius = check_saved_radius(user_id)
             if saved_radius:
-                bot_message = 'Введите расстояние в километрах по прямой в формате простого числа ' \
-                              '(например: 150) и нажмите обычную кнопку отправки сообщения'
-            else:
-
                 bot_message = f'У вас установлено максимальное расстояние до поиска {saved_radius}.' \
                               f'\n\nВведите обновлённое расстояние в километрах по прямой в формате простого ' \
                               f'числа (например: 150) и нажмите обычную кнопку отправки сообщения'
+            else:
+                bot_message = 'Введите расстояние в километрах по прямой в формате простого числа ' \
+                              '(например: 150) и нажмите обычную кнопку отправки сообщения'
 
         elif user_input == b_deact:
             list_of_buttons = [[b_act], [b_menu], [b_back]]
@@ -2156,8 +2155,12 @@ def main(request):
                         reply_markup = reply_markup_main
 
                     if not msg_sent_by_specific_code:
-                        bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
-                                        parse_mode='HTML', disable_web_page_preview=True)
+                        if reply_markup:
+                            bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
+                                            parse_mode='HTML', disable_web_page_preview=True)
+                        else:
+                            bot.sendMessage(chat_id=user_id, text=bot_message,
+                                            parse_mode='HTML', disable_web_page_preview=True)
 
                     # saving the last message from bot
                     if not bot_request_aft_usr_msg:
