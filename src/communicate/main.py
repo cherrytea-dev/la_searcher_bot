@@ -1025,12 +1025,17 @@ def save_user_pref_radius_and_return_curr_state(cur, user_id, user_input, b_menu
                                     UPDATE user_pref_radius SET radius=%s WHERE user_id=%s;""",
                         (user_id, user_input, user_input, user_id))
 
+        elif user_input == b_menu:
+            saved_radius = check_saved_radius(user_id)
+            if saved_radius:
+                list_of_buttons = [[b_change], [b_deact]]
+            else:
+                list_of_buttons = [[b_act]]
+
     if not saved_radius:
         saved_radius = check_saved_radius(user_id)
-        if user_input == b_menu:
-            list_of_buttons = [[b_change], [b_deact]]
 
-    if not isinstance(user_input, int):
+    if not user_input == b_act:
         list_of_buttons += [[b_menu], [b_back]]
 
     return list_of_buttons, saved_radius
@@ -1810,6 +1815,9 @@ def main(request):
                     elif got_message in {b_test_radius, b_pref_radius_act, b_pref_radius_deact, b_pref_radius_change} \
                             or bot_request_bfr_usr_msg == 'radius_input':
 
+                        if bot_request_bfr_usr_msg == 'radius_input':
+                            got_message = int(got_message)
+
                         keyboard, saved_radius = save_user_pref_radius_and_return_curr_state(cur, user_id,
                                                                                              got_message,
                                                                                              b_test_radius,
@@ -1850,7 +1858,7 @@ def main(request):
                         elif bot_request_bfr_usr_msg == 'radius_input':
                             bot_message = f'Сохранили! Теперь поиски, у которых расстояние до штаба, ' \
                                           f'либо до ближайшего населенного пункта (топонима) превосходит ' \
-                                          f'{saved_radius}, не будут вас больше беспокоить. Настройку можно изменить' \
+                                          f'{saved_radius}, не будут вас больше беспокоить. Настройку можно изменить ' \
                                           f'в любое время.'
 
                         elif got_message == b_pref_radius_deact:
