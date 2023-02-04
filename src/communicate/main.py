@@ -1068,7 +1068,10 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
         elif expect_before == 'radius_input':
 
             number = re.search(r'\d*', str(user_input))
+            notify_admin(f'NUMBARR = {number}, {type(number)}')
             if number:
+                number = int(number.group())
+                notify_admin(f'NUMBARR2 = {number}, {type(number)}')
                 cur.execute("""INSERT INTO user_pref_radius (user_id, radius) 
                                VALUES (%s, %s) ON CONFLICT (user_id) DO
                                UPDATE SET radius=%s;""", (user_id, number, number))
@@ -1860,15 +1863,15 @@ def main(request):
                                               'https://t.me/joinchat/2J-kV0GaCgwxY2Ni\n\n' + bot_message
                         else:
                             bot_message = 'Спасибо, записали.'
+                    # FIXME ^^^
 
-                    elif got_message in {b_test_radius, b_pref_radius_act, b_pref_radius_deact, b_pref_radius_change} \
-                            or bot_request_bfr_usr_msg == 'radius_input':
+                    elif got_message.lower() in {b_test_radius, b_pref_radius_act, b_pref_radius_deact,
+                                                 b_pref_radius_change} or bot_request_bfr_usr_msg == 'radius_input':
 
                         bot_message, reply_markup, bot_request_aft_usr_msg = \
                             manage_radius(cur, user_id, got_message, b_test_radius, b_pref_radius_act,
                                           b_pref_radius_deact, b_pref_radius_change, b_back_to_start,
                                           bot_request_bfr_usr_msg)
-                    # FIXME ^^^
 
                     # DEBUG: for debugging purposes only
                     elif got_message.lower() == 'go':
