@@ -1060,17 +1060,13 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
         elif user_input == b_deact:
             list_of_buttons = [[b_act], [b_menu], [b_back]]
             cur.execute("""DELETE FROM user_pref_radius WHERE user_id=%s;""", (user_id,))
-            notify_admin('we are in deact')
             bot_message = 'Ограничение на расстояние по поискам снято!'
 
         elif expect_before == 'radius_input':
-
-            notify_admin(f'NUMBARR0 = {user_input}, {str(user_input)}')
             number = re.search(r'\d*', str(user_input))
-            notify_admin(f'NUMBARR1 = {number}, {type(number)}')
             if number:
                 number = int(number.group())
-                notify_admin(f'NUMBARR2 = {number}, {type(number)}')
+            if number > 0:
                 cur.execute("""INSERT INTO user_pref_radius (user_id, radius) 
                                VALUES (%s, %s) ON CONFLICT (user_id) DO
                                UPDATE SET radius=%s;""", (user_id, number, number))
