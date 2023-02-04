@@ -1013,17 +1013,19 @@ def save_user_pref_radius_and_return_curr_state(cur, user_id, user_input, b_menu
 
         if user_input in {b_act, b_change}:
             list_of_buttons = []
+            notify_admin('we are in act/change')
 
         elif user_input == b_deact:
             list_of_buttons = [[b_act]]
             cur.execute("""DELETE FROM user_pref_radius WHERE user_id=%s;""", (user_id,))
+            notify_admin('we are in deact')
 
         elif isinstance(user_input, int):
             list_of_buttons = [[b_change], [b_deact]]
             cur.execute("""INSERT INTO user_pref_radius (user_id, radius) 
-                                    VALUES (%s, %s) ON CONFLICT (user_id) DO
-                                    UPDATE user_pref_radius SET radius=%s WHERE user_id=%s;""",
-                        (user_id, user_input, user_input, user_id))
+                           VALUES (%s, %s) ON CONFLICT (user_id) DO
+                           UPDATE SET radius=%s;""", (user_id, user_input, user_input))
+            notify_admin('we are in number')
 
         elif user_input == b_menu:
             saved_radius = check_saved_radius(user_id)
