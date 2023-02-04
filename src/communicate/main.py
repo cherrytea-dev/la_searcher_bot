@@ -999,7 +999,6 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
         """check if user already has a radius preference"""
 
         saved_rad = None
-        # Block for Generating a list of Buttons
         cur.execute("""SELECT radius FROM user_pref_radius WHERE user_id=%s;""", (user,))
         raw_radius = cur.fetchone()
         if raw_radius and str(raw_radius) != 'None':
@@ -1013,6 +1012,9 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
     logging.info(f'TEMP - RADIUS - user_input = {user_input}')
 
     if user_input:
+        notify_admin(f'lower = {user_input.lower()}')
+        notify_admin(f'b_menu = {b_menu}')
+        notify_admin(f'{user_input.lower() == b_menu}')
 
         if user_input.lower() == b_menu:
             saved_radius = check_saved_radius(user_id)
@@ -1046,7 +1048,6 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
                               'Расстояние считается по прямой.'
 
         elif user_input in {b_act, b_change}:
-            notify_admin('we are in act/change')
             expect_after = 'radius_input'
             reply_markup_needed = False
             saved_radius = check_saved_radius(user_id)
@@ -1067,8 +1068,6 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
         elif expect_before == 'radius_input':
 
             number = re.search(r'\d*', str(user_input))
-            notify_admin(f'we are in number = {number}')
-
             if number:
                 cur.execute("""INSERT INTO user_pref_radius (user_id, radius) 
                                VALUES (%s, %s) ON CONFLICT (user_id) DO
