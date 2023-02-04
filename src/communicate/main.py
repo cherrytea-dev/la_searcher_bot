@@ -41,7 +41,8 @@ class SearchSummary:
                  age_max=None,
                  age_min=None,
                  num_of_persons=None,
-                 locations=None,
+                 city_locations=None,
+                 hq_locations=None,
                  new_status=None,
                  full_dict=None
                  ):
@@ -61,7 +62,8 @@ class SearchSummary:
         self.age_max = age_max
         self.age_min = age_min
         self.num_of_persons = num_of_persons
-        self.locations = locations
+        self.city_locations = city_locations  # city / town / place – approximate coordinates
+        self.hq_locations = hq_locations  # shtab –exact coordinates
         self.new_status = new_status
         self.full_dict = full_dict
 
@@ -134,7 +136,6 @@ def time_counter_since_search_start(start_time):
     now = datetime.datetime.now()
     diff = now - start_time - start_diff
 
-    # first_word_parameter = 'Ищем '
     first_word_parameter = ''
 
     # <20 minutes -> "Начинаем искать"
@@ -250,7 +251,7 @@ def compose_msg_on_all_last_searches(cur, region):
                 search.start_time, search.num_of_replies, search.name, search.age, search.id, \
                 search.folder_id = list(line)
 
-            if str(search.status)[0:4] == 'Ищем':
+            if search.status in {'Ищем', 'Возобновлен'}:
                 text += f'Ищем {time_counter_since_search_start(search.start_time)[0]}'
             else:
                 text += search.status

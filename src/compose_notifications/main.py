@@ -222,13 +222,12 @@ class LineInChangeLog:
                  name=None,
                  link=None,
                  status=None,
+                 new_status=None,
                  n_of_replies=None,
                  title=None,
                  age=None,
                  age_wording=None,
                  forum_folder=None,
-                 search_latitude=None,
-                 search_longitude=None,
                  activities=None,
                  comments=None,
                  comments_inforg=None,
@@ -238,7 +237,10 @@ class LineInChangeLog:
                  start_time=None,
                  ignore=None,
                  region=None,
+                 search_latitude=None,
+                 search_longitude=None,
                  coords_change_type=None,
+                 city_locations=None,
                  display_name=None,
                  age_min=None,
                  age_max=None
@@ -251,13 +253,12 @@ class LineInChangeLog:
         self.name = name
         self.link = link
         self.status = status
+        self.new_status = new_status
         self.n_of_replies = n_of_replies
         self.title = title
         self.age = age
         self.age_wording = age_wording
         self.forum_folder = forum_folder
-        self.search_latitude = search_latitude
-        self.search_longitude = search_longitude
         self.activities = activities
         self.comments = comments
         self.comments_inforg = comments_inforg
@@ -267,7 +268,10 @@ class LineInChangeLog:
         self.start_time = start_time
         self.ignore = ignore
         self.region = region
+        self.search_latitude = search_latitude
+        self.search_longitude = search_longitude
         self.coords_change_type = coords_change_type
+        self.city_locations = city_locations
         self.display_name = display_name
         self.age_min = age_min
         self.age_max = age_max
@@ -376,7 +380,8 @@ def enrich_new_records_from_searches(conn):
             """SELECT ns.*, rtf.folder_description FROM 
             (SELECT s.search_forum_num, s.status_short, s.forum_search_title,  
             s.num_of_replies, s.family_name, s.age, s.forum_folder_id, 
-            sa.latitude, sa.longitude, s.search_start_time, s.display_name, s.age_min, s.age_max 
+            sa.latitude, sa.longitude, s.search_start_time, s.display_name, s.age_min, s.age_max,
+            s.status, s.city_locations 
             FROM searches as s LEFT JOIN 
             search_coordinates as sa ON s.search_forum_num=sa.search_id) ns LEFT JOIN 
             regions_to_folders rtf ON ns.forum_folder_id = rtf.forum_folder_id 
@@ -402,9 +407,13 @@ def enrich_new_records_from_searches(conn):
                     r_line.display_name = s_line[10]
                     r_line.age_min = s_line[11]
                     r_line.age_max = s_line[12]
-                    r_line.region = s_line[13]
+                    r_line.new_status = s_line[13]
+                    r_line.city_locations = s_line[14]
+                    r_line.region = s_line[15]
 
                     print(f'TEMP – FORUM_FOLDER = {r_line.forum_folder}, while s_line = {str(s_line)}')
+                    print(f'TEMP – CITY LOCS = {r_line.city_locations}')
+                    print(f'TEMP – STATUS_OLD = {r_line.status}, STATUS_NEW = {r_line.new_status}')
 
                     # case: when new search's status is already not "Ищем" – to be ignored
                     if r_line.status != 'Ищем' and r_line.change_type == 0:  # "new_search":
@@ -1407,11 +1416,14 @@ def iterate_over_all_users_and_updates(conn):
             search_lat = record.search_latitude
             search_lon = record.search_longitude
             print(f'TEMP - LAT-LON: S_LAT = {search_lat}, S_LON = {search_lon}')
-            if not (search_lat and search_lon):
-                logging.info(f'User List crop due to radius: {len(users_list_outcome)} --> {len(users_list_outcome)}')
+            list_of_city_coords = None
+            if record.city_coodrdinates:
+                list_of_city_coords = [x for x in eval(record.city_coodrdinates) if isinstance(x, list)]
+            temp_user_list = []
 
-            else:
-                temp_user_list = []
+            # CASE 4.1. When exact coordinates of Search Headquarters are indicated
+            if search_lat and search_lon:
+
                 for user_line in users_list_outcome:
                     if not (user_line.radius and user_line.user_latitude and user_line.user_longitude):
                         temp_user_list.append(user_line)
@@ -1420,12 +1432,50 @@ def iterate_over_all_users_and_updates(conn):
                     user_lon = user_line.user_longitude
                     actual_distance, direction = define_dist_and_dir_to_search(search_lat, search_lon,
                                                                                user_lat, user_lon)
-                    print(f'TEMP - LAT-LON: U_LAT = {user_lat}, U_LON = {user_lon}')
+                    print(f'TEMP - LAT-LON HQ: U_LAT = {user_lat}, U_LON = {user_lon}')
                     if actual_distance <= user_line.radius:
                         temp_user_list.append(user_line)
+                        # FIXME - temp debug
+                        notify_admin(f'IN RADIUS – {user_line.user_id}: HQ: '
+                                     f'{record.search_latitude}, {record.search_longitude}. '
+                                     f'CITY {record.city_coodrdinates}')
+                    else:
+                        notify_admin(f'NOT IN RADIUS – {user_line.user_id}: HQ: '
+                                     f'{record.search_latitude}, {record.search_longitude}. '
+                                     f'CITY {record.city_coodrdinates}')
+                        # FIXME ^^^
 
-                logging.info(f'User List crop due to radius: {len(users_list_outcome)} --> {len(temp_user_list)}')
-                users_list_outcome = temp_user_list
+            # CASE 4.2. When exact coordinates of a Place are geolocated
+            elif list_of_city_coords:
+                for user_line in users_list_outcome:
+                    if not (user_line.radius and user_line.user_latitude and user_line.user_longitude):
+                        temp_user_list.append(user_line)
+                        continue
+                    user_lat = user_line.user_latitude
+                    user_lon = user_line.user_longitude
+
+                    for city_coords in list_of_city_coords:
+                        search_lat, search_lon = city_coords
+                        actual_distance, direction = define_dist_and_dir_to_search(search_lat, search_lon,
+                                                                                   user_lat, user_lon)
+                        print(f'TEMP - LAT-LON CITY: U_LAT = {user_lat}, U_LON = {user_lon}')
+                        if actual_distance <= user_line.radius:
+                            temp_user_list.append(user_line)
+                            # FIXME - temp debug
+                            notify_admin(f'IN RADIUS – {user_line.user_id}: CITY: {record.city_coodrdinates},'
+                                         f'HQ: {record.search_latitude}, {record.search_longitude}. ')
+                            break
+                        else:
+                            notify_admin(f'NOT IN RADIUS – {user_line.user_id}: CITY: {record.city_coodrdinates},'
+                                         f'HQ: {record.search_latitude}, {record.search_longitude}. ')
+                            # FIXME ^^^
+
+            # CASE 4.3. No coordinates available
+            else:
+                temp_user_list = users_list_outcome
+
+            logging.info(f'User List crop due to radius: {len(users_list_outcome)} --> {len(temp_user_list)}')
+            users_list_outcome = temp_user_list
 
         except Exception as e:
             logging.info(f'TEMP - exception radius: {repr(e)}')

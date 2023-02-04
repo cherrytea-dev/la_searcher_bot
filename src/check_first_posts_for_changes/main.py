@@ -590,7 +590,7 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
                     if missed:
                         status = 'Завершен'
 
-    if status in {'НЖ', 'НП', 'Завершен'}:
+    if status in {'НЖ', 'НП', 'Найден', 'Завершен'}:
         publish_to_pubsub('topic_for_topic_management', {'topic_id': topic_id, 'status': status})
         logging.info(f'pub/sub message for topic_management triggered: topic_id: {topic_id}, status: {status}')
 
