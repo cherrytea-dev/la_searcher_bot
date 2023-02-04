@@ -2809,7 +2809,7 @@ def update_change_log_and_searches(db, folder_num):
         sql_text = sqlalchemy.text(
             """SELECT search_forum_num, parsed_time, status_short, forum_search_title, search_start_time, 
             num_of_replies, family_name, age, id, forum_folder_id, topic_type, display_name, age_min, age_max,
-            status, locations
+            status, city_locations
             FROM forum_summary_snapshot WHERE 
             forum_folder_id = :a; """
         )
