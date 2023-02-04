@@ -289,7 +289,10 @@ def compose_msg_on_all_last_searches(cur, region):
         msg += '</a>\n'
 
     # FIXME - temp check – to be deleted
-    notify_admin(text)
+    notify_admin(f'text=msg: {text == msg}')
+    if text != msg:
+        notify_admin(text)
+        notify_admin(msg)
     # FIXME ^^^
 
     return msg
