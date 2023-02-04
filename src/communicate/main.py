@@ -1072,7 +1072,7 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
             if number:
                 cur.execute("""INSERT INTO user_pref_radius (user_id, radius) 
                                VALUES (%s, %s) ON CONFLICT (user_id) DO
-                               UPDATE SET radius=%s;""", (user_id, user_input, user_input))
+                               UPDATE SET radius=%s;""", (user_id, number, number))
                 saved_radius = check_saved_radius(user_id)
                 bot_message = f'Сохранили! Теперь поиски, у которых расстояние до штаба, ' \
                               f'либо до ближайшего населенного пункта (топонима) превосходит ' \
