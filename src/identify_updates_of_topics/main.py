@@ -2824,9 +2824,6 @@ def update_change_log_and_searches(db, folder_num):
                 snapshot_line.age_max, snapshot_line.new_status, snapshot_line.locations = list(line)
 
             notify_admin(f'snp.loc 1 {type(snapshot_line.locations)}, {snapshot_line.locations}')
-            if snapshot_line.locations:
-                snapshot_line.locations = json.loads(snapshot_line.locations)
-            notify_admin(f'snp.loc 2 {type(snapshot_line.locations)}, {snapshot_line.locations}')
             curr_snapshot_list.append(snapshot_line)
 
         # TODO - in future: should the number of searches be limited? Probably to JOIN change_log and WHERE folder=...
