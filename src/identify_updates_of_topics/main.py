@@ -920,27 +920,6 @@ def get_secrets(secret_request):
     return response.payload.data.decode("UTF-8")
 
 
-def update_checker(current_hash, folder_num):
-    """compare prev snapshot and freshly-parsed snapshot, returns NO or YES and Previous hash"""
-
-    # pre-set default output from the function
-    update_trigger = False
-
-    # read the previous snapshot from Storage and save it as output[1]
-    previous_hash = read_snapshot_from_cloud_storage('bucket_for_snapshot_storage', folder_num)
-
-    # if new snapshot differs from the old one – then let's update the old with the new one
-    if current_hash != previous_hash:
-        # update hash in Storage
-        write_snapshot_to_cloud_storage('bucket_for_snapshot_storage', current_hash, folder_num)
-
-        update_trigger = True
-
-    logging.info(f'folder = {folder_num}, update trigger = {update_trigger}, prev snapshot as string = {previous_hash}')
-
-    return update_trigger
-
-
 def define_family_name_from_search_title_new(title):
     """Define the family name of the lost person out ot search title.
     It is very basic method which works in 99% of cases.
@@ -2685,9 +2664,9 @@ def parse_one_folder(db, folder_id):
                         if 'locations' in title_reco_dict.keys():
                             list_of_location_cities = [x['address'] for x in title_reco_dict['locations']]
                             list_of_location_coords = [get_coordinates(db, x) for x in list_of_location_cities]
-
-                            search_summary_object.location = list_of_location_coords
-                            print(f'TEMP - LOC: {search_summary_object.locations}')
+                            print(f'TEMP - LOC 1: {list_of_location_coords}')
+                            search_summary_object.location = str(list_of_location_coords)
+                            print(f'TEMP - LOC 2: {search_summary_object.locations}')
 
                     except Exception as e:  # noqa
                         print(f'TEMP - ERROR WHILE FINDING LOCS / STATUS IN RECO_DICT')
@@ -3092,33 +3071,53 @@ def update_change_log_and_searches(db, folder_num):
     return None
 
 
-def rewrite_snapshot_in_sql(db, folder_num, new_folder_summary):
-    """rewrite the freshly-parsed snapshot into sql table 'forum_summary_snapshot'"""
-
-    with db.connect() as conn:
-        sql_text = sqlalchemy.text(
-            """DELETE FROM forum_summary_snapshot WHERE forum_folder_id = :a;"""
-        )
-        conn.execute(sql_text, a=folder_num)
-
-        sql_text = sqlalchemy.text(
-            """INSERT INTO forum_summary_snapshot (search_forum_num, parsed_time, status_short, forum_search_title, 
-            search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, display_name, age_min, 
-            age_max, status, city_locations) values (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o); """
-        )
-        # FIXME – add status
-        for line in new_folder_summary:
-            conn.execute(sql_text, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
-                         e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
-                         j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max, n=line.new_status,
-                         o=line.locations)
-        conn.close()
-
-    return None
-
-
 def process_one_folder(db, folder_to_parse):
     """process one forum folder: check for updates, upload them into cloud sql"""
+
+    def update_checker(current_hash, folder_num):
+        """compare prev snapshot and freshly-parsed snapshot, returns NO or YES and Previous hash"""
+
+        # pre-set default output from the function
+        upd_trigger = False
+
+        # read the previous snapshot from Storage and save it as output[1]
+        previous_hash = read_snapshot_from_cloud_storage('bucket_for_snapshot_storage', folder_num)
+
+        # if new snapshot differs from the old one – then let's update the old with the new one
+        if current_hash != previous_hash:
+            # update hash in Storage
+            write_snapshot_to_cloud_storage('bucket_for_snapshot_storage', current_hash, folder_num)
+
+            upd_trigger = True
+
+        logging.info(
+            f'folder = {folder_num}, update trigger = {upd_trigger}, prev snapshot as string = {previous_hash}')
+
+        return upd_trigger
+
+    def rewrite_snapshot_in_sql(db2, folder_num, folder_summary):
+        """rewrite the freshly-parsed snapshot into sql table 'forum_summary_snapshot'"""
+
+        with db2.connect() as conn:
+            sql_text = sqlalchemy.text(
+                """DELETE FROM forum_summary_snapshot WHERE forum_folder_id = :a;"""
+            )
+            conn.execute(sql_text, a=folder_num)
+
+            sql_text = sqlalchemy.text(
+                """INSERT INTO forum_summary_snapshot (search_forum_num, parsed_time, status_short, forum_search_title, 
+                search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, display_name, age_min, 
+                age_max, status, city_locations) values (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o); """
+            )
+            # FIXME – add status
+            for line in folder_summary:
+                conn.execute(sql_text, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
+                             e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
+                             j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max, n=line.new_status,
+                             o=line.locations)
+            conn.close()
+
+        return None
 
     # parse a new version of summary page from the chosen folder
     old_folder_summary_full, titles_and_num_of_replies, new_folder_summary = parse_one_folder(db, folder_to_parse)
@@ -3126,7 +3125,7 @@ def process_one_folder(db, folder_to_parse):
     update_trigger = False
     debug_message = f'folder {folder_to_parse} has NO new updates'
 
-    # TODO - to be switched to new_
+    # TODO - to be switched to new_ one
     if old_folder_summary_full:
 
         # transform the current snapshot into the string to be able to compare it: string vs string
