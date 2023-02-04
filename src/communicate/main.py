@@ -1010,6 +1010,7 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
     bot_message = None
     reply_markup_needed = True
     logging.info(f'TEMP - RADIUS - user_input = {user_input}')
+    notify_admin(f'EXP BFR {expect_before}')
 
     if user_input:
         notify_admin(f'lower = {user_input.lower()}')
@@ -1067,8 +1068,9 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
 
         elif expect_before == 'radius_input':
 
+            notify_admin(f'NUMBARR0 = {user_input}, {str(user_input)}')
             number = re.search(r'\d*', str(user_input))
-            notify_admin(f'NUMBARR = {number}, {type(number)}')
+            notify_admin(f'NUMBARR1 = {number}, {type(number)}')
             if number:
                 number = int(number.group())
                 notify_admin(f'NUMBARR2 = {number}, {type(number)}')
