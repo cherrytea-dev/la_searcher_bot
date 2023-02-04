@@ -2962,7 +2962,7 @@ def update_change_log_and_searches(db, folder_num):
                 conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
                              e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
                              j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max, n=line.new_status,
-                             o=line.locations)
+                             o=str(line.locations))
 
                 search_num = line.topic_id
 
@@ -3052,7 +3052,7 @@ def update_change_log_and_searches(db, folder_num):
                 conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
                              e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
                              j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max,
-                             n=line.new_status, o=line.locations)
+                             n=line.new_status, o=str(line.locations))
 
         conn.close()
 
@@ -3109,7 +3109,7 @@ def process_one_folder(db, folder_to_parse):
                 conn.execute(sql_text, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
                              e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
                              j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max, n=line.new_status,
-                             o=line.locations)
+                             o=str(line.locations))
             conn.close()
 
         return None
