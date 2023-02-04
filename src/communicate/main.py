@@ -22,6 +22,55 @@ logging.getLogger("telegram.vendor.ptb_urllib3.urllib3").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 
+class SearchSummary:
+
+    def __init__(self,
+                 topic_type=None,
+                 topic_id=None,
+                 parsed_time=None,
+                 status=None,
+                 title=None,
+                 link=None,
+                 start_time=None,
+                 num_of_replies=None,
+                 name=None,
+                 display_name=None,
+                 age=None,
+                 searches_table_id=None,
+                 folder_id=None,
+                 age_max=None,
+                 age_min=None,
+                 num_of_persons=None,
+                 locations=None,
+                 new_status=None,
+                 full_dict=None
+                 ):
+        self.topic_type = topic_type
+        self.topic_id = topic_id
+        self.parsed_time = parsed_time
+        self.status = status
+        self.title = title
+        self.link = link
+        self.start_time = start_time
+        self.num_of_replies = num_of_replies
+        self.name = name
+        self.display_name = display_name
+        self.age = age
+        self.id = searches_table_id
+        self.folder_id = folder_id
+        self.age_max = age_max
+        self.age_min = age_min
+        self.num_of_persons = num_of_persons
+        self.locations = locations
+        self.new_status = new_status
+        self.full_dict = full_dict
+
+    def __str__(self):
+        return f'{self.parsed_time} – {self.folder_id} / {self.topic_id} : {self.name} - {self.age} – ' \
+               f'{self.num_of_replies}. NEW: {self.display_name} – {self.age_min} – {self.age_max} – ' \
+               f'{self.num_of_persons}'
+
+
 def get_secrets(secret_request):
     """Get GCP secret"""
 
@@ -179,6 +228,7 @@ def compose_msg_on_all_last_searches(cur, region):
     """Compose a part of message on the list of recent searches in the given region with relation to user's coords"""
 
     msg = ''
+    text = ''
 
     # download the list from SEARCHES sql table
     cur.execute(
@@ -192,6 +242,33 @@ def compose_msg_on_all_last_searches(cur, region):
 
     database = cur.fetchall()
 
+    # FIXME - converting into list_of_objects
+    try:
+        for line in database:
+            search = SearchSummary()
+            search.topic_id, search.parsed_time, search.status, search.title, search.link, \
+                search.start_time, search.num_of_replies, search.name, search.age, search.id, \
+                search.folder_id = list(line)
+
+            if str(search.status)[0:4] == 'Ищем':
+                text += f'Ищем {time_counter_since_search_start(search.start_time)[0]}'
+            else:
+                text += search.status
+
+            text += f' <a href="https://lizaalert.org/forum/viewtopic.php?t={search.topic_id}">{search.name}'
+
+            # TODO - does it make sense now to check first letter?
+            first_letter = str(search.name)[0]
+            if first_letter.isupper() and search.age and search.age != 0:
+                text += f' {age_writer(search.age)}'
+            text += '</a>\n'
+
+
+    except Exception as e:  # noqa
+        logging.info(f'TEMP - exception in compose_msg_on_all_last_searches')
+        logging.exception(e)
+    # FIXME ^^^
+
     for db_line in database:
 
         if str(db_line[2])[0:4] == 'Ищем':
@@ -199,7 +276,7 @@ def compose_msg_on_all_last_searches(cur, region):
         else:
             msg += db_line[2]
 
-        msg += ' <a href="https://lizaalert.org/forum/viewtopic.php?t=' + str(db_line[0]) + '">'
+        msg += f' <a href="https://lizaalert.org/forum/viewtopic.php?t={db_line[0]}">'
 
         family_name = db_line[7]
 
@@ -210,6 +287,10 @@ def compose_msg_on_all_last_searches(cur, region):
             msg += ' '
             msg += age_writer(db_line[8])
         msg += '</a>\n'
+
+    # FIXME - temp check – to be deleted
+    notify_admin(text)
+    # FIXME ^^^
 
     return msg
 
@@ -349,7 +430,7 @@ def save_user_role(cur, user_id, role_desc):
 
     try:
         role = role_dict[role_desc]
-    except: # noqa
+    except:  # noqa
         role = 'unidentified'
 
     cur.execute("""UPDATE users SET role=%s where user_id=%s;""", (role, user_id))
@@ -1328,7 +1409,7 @@ def main(request):
                                    + keyboard_sev_kav_reg_choice[:-1] + keyboard_sev_zap_reg_choice[:-1] \
                                    + keyboard_sibiria_reg_choice[:-1] + keyboard_urals_reg_choice[:-1] \
                                    + keyboard_central_reg_choice[:-1] + keyboard_yuzhniy_reg_choice[:-1] \
-                                   + [[b_fed_dist_other_r]] # noqa – for strange pycharm indent warning
+                                   + [[b_fed_dist_other_r]]  # noqa – for strange pycharm indent warning
             full_dict_of_regions = {word[0] for word in full_list_of_regions}
 
             dict_of_fed_dist = {b_fed_dist_dal_vos: keyboard_dal_vost_reg_choice,

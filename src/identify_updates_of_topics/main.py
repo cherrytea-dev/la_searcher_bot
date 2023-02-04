@@ -82,7 +82,7 @@ class SearchSummary:
         self.age = age
         self.id = searches_table_id
         self.folder_id = folder_id
-        self.age_max = age_max
+        self.age_max = age_maxƒ
         self.age_min = age_min
         self.num_of_persons = num_of_persons
         self.locations = locations
@@ -2590,8 +2590,6 @@ def parse_one_folder(db, folder_id):
 
             # Current block which contains everything regarding certain search
             search_title_block = data_block.find('a', 'topictitle')
-            # search_long_link = search_title_block['href'][1:]
-
             search_title = search_title_block.next_element
 
             # rare case: cleaning [size][b]...[/b][/size] tags
@@ -2600,15 +2598,7 @@ def parse_one_folder(db, folder_id):
             search_title = search_title.replace('[size=140]', '', 1)
             search_title = search_title.replace('[/size]', '', 1)
 
-            # Some forum folders contain sid, some don't
-            # sid = search_long_link.find('&sid')
-            # if sid == -1:
-            #     search_cut_link = search_long_link
-            # else:
-            #     search_cut_link = search_long_link[0:sid]
-            # search_id = search_cut_link[(search_cut_link.find('&t=') + 3):]
             search_id = int(re.search(r'(?<=&t=)\d{2,8}', search_title_block['href']).group())
-
             search_replies_num = int(data_block.find('dd', 'posts').next_element)
 
             person_fam_name = define_family_name_from_search_title_new(search_title)
@@ -2674,6 +2664,8 @@ def parse_one_folder(db, folder_id):
                     folder_summary.append(search_summary_object)
 
             except Exception as e:
+                logging.info(f'TEMP - THIS BIG ERROR HAPPENED')
+                notify_admin(f'TEMP - THIS BIG ERROR HAPPENED')
                 logging.error(e)
 
             # exclude non-relevant searches
