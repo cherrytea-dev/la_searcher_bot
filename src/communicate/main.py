@@ -1086,7 +1086,7 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
     if reply_markup_needed:
         reply_markup = ReplyKeyboardMarkup(list_of_buttons, resize_keyboard=True)
     else:
-        reply_markup = None
+        reply_markup = ReplyKeyboardRemove()
 
     return bot_message, reply_markup, expect_after
 
@@ -2155,12 +2155,8 @@ def main(request):
                         reply_markup = reply_markup_main
 
                     if not msg_sent_by_specific_code:
-                        if reply_markup:
-                            bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
-                                            parse_mode='HTML', disable_web_page_preview=True)
-                        else:
-                            bot.sendMessage(chat_id=user_id, text=bot_message,
-                                            parse_mode='HTML', disable_web_page_preview=True)
+                        bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
+                                        parse_mode='HTML', disable_web_page_preview=True)
 
                     # saving the last message from bot
                     if not bot_request_aft_usr_msg:
