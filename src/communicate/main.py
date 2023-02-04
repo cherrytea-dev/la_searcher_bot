@@ -1867,13 +1867,17 @@ def main(request):
                             bot_message = 'Спасибо, записали.'
                     # FIXME ^^^
 
-                    elif got_message.lower() in {b_test_radius, b_pref_radius_act, b_pref_radius_deact,
-                                                 b_pref_radius_change} or bot_request_bfr_usr_msg == 'radius_input':
+                    elif (got_message.lower() in {b_test_radius, b_pref_radius_act, b_pref_radius_deact,
+                                                  b_pref_radius_change}) or bot_request_bfr_usr_msg == 'radius_input':
 
+                        notify_admin(f'here {bot_request_bfr_usr_msg}')
                         bot_message, reply_markup, bot_request_aft_usr_msg = \
                             manage_radius(cur, user_id, got_message, b_test_radius, b_pref_radius_act,
                                           b_pref_radius_deact, b_pref_radius_change, b_back_to_start,
                                           bot_request_bfr_usr_msg)
+
+                    elif bot_request_bfr_usr_msg == 'radius_input':
+                        notify_admin(f'NE POYMAL {bot_request_bfr_usr_msg}')
 
                     # DEBUG: for debugging purposes only
                     elif got_message.lower() == 'go':
