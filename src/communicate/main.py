@@ -1063,7 +1063,7 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
             bot_message = 'Ограничение на расстояние по поискам снято!'
 
         elif expect_before == 'radius_input':
-            number = re.search(r'\d*', str(user_input))
+            number = re.search(r'[0-9]{1,6}', str(user_input))
             if number:
                 number = int(number.group())
             if number and number > 0:
@@ -1869,9 +1869,6 @@ def main(request):
                             manage_radius(cur, user_id, got_message, b_test_radius, b_pref_radius_act,
                                           b_pref_radius_deact, b_pref_radius_change, b_back_to_start,
                                           bot_request_bfr_usr_msg)
-
-                    elif bot_request_bfr_usr_msg == 'radius_input':
-                        notify_admin(f'NE POYMAL {bot_request_bfr_usr_msg}')
 
                     # DEBUG: for debugging purposes only
                     elif got_message.lower() == 'go':

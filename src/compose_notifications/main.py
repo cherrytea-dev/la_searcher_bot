@@ -122,6 +122,26 @@ def define_family_name(title_string, predefined_fam_name):
 def define_dist_and_dir_to_search(search_lat, search_lon, user_let, user_lon):
     """define direction & distance from user's home coordinates to search coordinates"""
 
+    def calc_bearing(lat_2, lon_2, lat_1, lon_1):
+        d_lon_ = (lon_2 - lon_1)
+        x = math.cos(math.radians(lat_2)) * math.sin(math.radians(d_lon_))
+        y = math.cos(math.radians(lat_1)) * math.sin(math.radians(lat_2)) - math.sin(math.radians(lat_1)) * math.cos(
+            math.radians(lat_2)) * math.cos(math.radians(d_lon_))
+        bearing = math.atan2(x, y)  # used to determine the quadrant
+        bearing = math.degrees(bearing)
+
+        return bearing
+
+    def calc_direction(lat_1, lon_1, lat_2, lon_2):
+        points = ['&#8593;&#xFE0E;', '&#x2197;&#xFE0F;', '&#8594;&#xFE0E;', '&#8600;&#xFE0E;', '&#8595;&#xFE0E;',
+                  '&#8601;&#xFE0E;', '&#8592;&#xFE0E;', '&#8598;&#xFE0E;']
+        bearing = calc_bearing(lat_1, lon_1, lat_2, lon_2)
+        bearing += 22.5
+        bearing = bearing % 360
+        bearing = int(bearing / 45)  # values 0 to 7
+        nsew = points[bearing]
+
+        return nsew
     earth_radius = 6373.0  # radius of the Earth
 
     # coordinates in radians
@@ -143,28 +163,6 @@ def define_dist_and_dir_to_search(search_lat, search_lon, user_let, user_lon):
     dist = round(distance)
 
     # define direction
-
-    def calc_bearing(lat_2, lon_2, lat_1, lon_1):
-        d_lon_ = (lon_2 - lon_1)
-        x = math.cos(math.radians(lat_2)) * math.sin(math.radians(d_lon_))
-        y = math.cos(math.radians(lat_1)) * math.sin(math.radians(lat_2)) - math.sin(math.radians(lat_1)) * math.cos(
-            math.radians(lat_2)) * math.cos(math.radians(d_lon_))
-        bearing = math.atan2(x, y)  # used to determine the quadrant
-        bearing = math.degrees(bearing)
-
-        return bearing
-
-    def calc_direction(lat_1, lon_1, lat_2, lon_2):
-        points = ['&#8593;&#xFE0E;', '&#x2197;&#xFE0F;', '&#8594;&#xFE0E;', '&#8600;&#xFE0E;', '&#8595;&#xFE0E;',
-                  '&#8601;&#xFE0E;', '&#8592;&#xFE0E;', '&#8598;&#xFE0E;']
-        bearing = calc_bearing(lat_1, lon_1, lat_2, lon_2)
-        bearing += 22.5
-        bearing = bearing % 360
-        bearing = int(bearing / 45)  # values 0 to 7
-        nsew = points[bearing]
-
-        return nsew
-
     direction = calc_direction(lat1, lon1, lat2, lon2)
 
     return dist, direction
@@ -1418,7 +1416,9 @@ def iterate_over_all_users_and_updates(conn):
             print(f'TEMP - LAT-LON: S_LAT = {search_lat}, S_LON = {search_lon}')
             list_of_city_coords = None
             if record.city_locations:
-                list_of_city_coords = [x for x in eval(record.city_locations) if isinstance(x, list)]
+                non_geolocated = [x for x in eval(record.city_locations) if isinstance(x, str)]
+                list_of_city_coords = eval(record.city_locations) if not non_geolocated else None
+
             temp_user_list = []
 
             # CASE 4.1. When exact coordinates of Search Headquarters are indicated
