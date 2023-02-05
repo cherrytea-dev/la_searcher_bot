@@ -1522,9 +1522,7 @@ def iterate_over_all_users_and_updates(conn):
                 users_who_should_not_be_informed, this_record_was_processed_already, mailing_id = \
                     process_mailing_id(change_log_id)
 
-                # TODO – if works smoothly – to utilize it further
-                new_user_list = crop_user_list(users_list, users_who_should_not_be_informed, new_record)
-                # TODO ^^^
+                users_list = crop_user_list(users_list, users_who_should_not_be_informed, new_record)
 
                 for user in users_list:
                     print(f'TEMP - we are in USERS, user = {user}')
