@@ -934,24 +934,22 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
             self.max = max_age
             self.order = order
 
-    age_list_2 = [AgePeriod(description='Маленькие Дети 0-6 лет', name='0-6', min_age=0, max_age=6, order=0),
-                  AgePeriod(description='Подростки 7-13 лет', name='7-13', min_age=7, max_age=13, order=1),
-                  AgePeriod(description='Молодежь 14-20 лет', name='14-20', min_age=14, max_age=20, order=2),
-                  AgePeriod(description='Взрослые 21-50 лет', name='21-50', min_age=21, max_age=50, order=3),
-                  AgePeriod(description='Старшее Поколение 51-80 лет', name='51-80', min_age=51, max_age=80, order=4),
-                  AgePeriod(description='Старцы более 80 лет', name='80-on', min_age=80, max_age=120, order=5)]
+    age_list = [AgePeriod(description='Маленькие Дети 0-6 лет', name='0-6', min_age=0, max_age=6, order=0),
+                AgePeriod(description='Подростки 7-13 лет', name='7-13', min_age=7, max_age=13, order=1),
+                AgePeriod(description='Молодежь 14-20 лет', name='14-20', min_age=14, max_age=20, order=2),
+                AgePeriod(description='Взрослые 21-50 лет', name='21-50', min_age=21, max_age=50, order=3),
+                AgePeriod(description='Старшее Поколение 51-80 лет', name='51-80', min_age=51, max_age=80, order=4),
+                AgePeriod(description='Старцы более 80 лет', name='80-on', min_age=80, max_age=120, order=5)]
 
-    logging.info(f'TEMP - user_input = {user_input}')
     if user_input:
         user_want_activate = True if re.search(r'(?i)включить', user_input) else False
         user_new_setting = re.sub(r'.*чить: ', '', user_input)
 
         chosen_setting = None
-        for line in age_list_2:
+        for line in age_list:
             if user_new_setting == line.desc:
                 chosen_setting = line
                 break
-        logging.info(f'TEMP - chosen_setting = {chosen_setting.desc}')
 
         if user_want_activate:
             cur.execute("""INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
@@ -970,20 +968,20 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
     if raw_list_of_periods and str(raw_list_of_periods) != 'None':
         for line_raw in raw_list_of_periods:
             got_min, got_max = int(list(line_raw)[0]), int(list(line_raw)[1])
-            for line_a in age_list_2:
+            for line_a in age_list:
                 if int(line_a.min) == got_min and int(line_a.max) == got_max:
                     line_a.now = True
     else:
         first_visit = True
-        for line_a in age_list_2:
+        for line_a in age_list:
             line_a.now = True
-        for line in age_list_2:
+        for line in age_list:
             cur.execute("""INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
                         values (%s, %s, %s, %s, %s) ON CONFLICT (user_id, period_min, period_max) DO NOTHING;""",
                         (user_id, line.name, datetime.datetime.now(), line.min, line.max))
 
     list_of_buttons = []
-    for line in age_list_2:
+    for line in age_list:
         if line.now:
             list_of_buttons.append([f'Отключить: {line.desc}'])
         else:
@@ -1009,8 +1007,6 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
     expect_after = None
     bot_message = None
     reply_markup_needed = True
-    logging.info(f'TEMP - RADIUS - user_input = {user_input}')
-    notify_admin(f'EXP BFR {expect_before}')
 
     if user_input:
 
@@ -1864,7 +1860,6 @@ def main(request):
                             {b_pref_radius_act, b_pref_radius_deact, b_pref_radius_change} or \
                             bot_request_bfr_usr_msg == 'radius_input':
 
-                        notify_admin(f'here {bot_request_bfr_usr_msg}')
                         bot_message, reply_markup, bot_request_aft_usr_msg = \
                             manage_radius(cur, user_id, got_message, b_test_radius, b_pref_radius_act,
                                           b_pref_radius_deact, b_pref_radius_change, b_back_to_start,
