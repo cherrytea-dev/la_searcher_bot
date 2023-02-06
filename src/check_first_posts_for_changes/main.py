@@ -23,8 +23,7 @@ from google.cloud import pubsub_v1
 
 project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
-requests_session = requests.Session()
-publisher = pubsub_v1.PublisherClient()
+
 
 bad_gateway_counter = 0
 
@@ -64,7 +63,5 @@ def main(event, context): # noqa
     # if bad_gateway_counter > 3:
     #    publish_to_pubsub('topic_notify_admin', f'[che_posts]: Bad Gateway {bad_gateway_counter} times')
 
-    # Close the open session
-    requests_session.close()
 
     return None
