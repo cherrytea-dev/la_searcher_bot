@@ -339,14 +339,18 @@ def parse_first_post(search_num):
     not_found = True if cont and re.search(r'Запрошенной темы не существует', cont) else False
 
     if not cont or not_found:
+        notify_admin(f'we are in 342 line - escape')
         hash_num = None
-        site_unavailable = True
-        not_found = False
+        if not_found:
+            site_unavailable = True
+        else:
+            site_unavailable = False
         return hash_num, cont, site_unavailable, not_found
 
     # FIXME – deactivated on Feb 6 2023 because seems it's not correct that this script should check status
     # get_status_from_content_and_send_to_topic_management(search_num, content)
 
+    notify_admin(f'nice – we are in 353')
     cont = prettify_content(cont)
 
     # craft a hash for this content
@@ -703,6 +707,7 @@ def update_first_posts_and_statuses():
                     s4.forum_folder_id = f.folder_id
                 WHERE 
                     f.folder_type IS NULL OR f.folder_type = 'searches'
+                 ORDER BY 2 DESC
                 /*action='get_list_of_searches_for_first_post_and_status_update 2.0' */        
                 ;
                 """).fetchall()
