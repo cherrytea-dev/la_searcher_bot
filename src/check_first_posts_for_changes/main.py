@@ -712,13 +712,13 @@ def main(event, context): # noqa
     # A reason why this functionality – is in this script, is that it worth update the list of active searches first
     # and then check for first posts. Plus, once first posts checker finds something odd – it triggers a visibility
     # check for this search
-    number_of_checked_searches = 100
+    number_of_checked_searches = 20
     update_visibility_for_list_of_active_searches(number_of_checked_searches)
 
     # BLOCK 2. for checking if the first posts were changed
     # check is made for a certain % from the full list of active searches
     # below percent – is a matter of experiments: avoiding script timeout and minimize costs, but to get updates ASAP
-    percent_of_first_posts_to_check = 20
+    percent_of_first_posts_to_check = 5
     # the chosen number of searches, for which first posts will be checked:
     # [first_posts] = [all_act_searches] * [percent]
     # then the [first_posts] is split by 5 subcategories, which has different % (sum of % should be 100)
