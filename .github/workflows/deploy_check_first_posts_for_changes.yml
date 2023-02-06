@@ -54,7 +54,7 @@ jobs:
             runtime: python37
             entry_point: main # UPD HERE! main function
             region: europe-west3
-            timeout: 540 # UPD HERE!
+            timeout: 60 # UPD HERE!
             max_instances: 1 # UPD HERE!
             # memory_mb: 8192 # UPD HERE!
             event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
