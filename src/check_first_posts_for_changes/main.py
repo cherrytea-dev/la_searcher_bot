@@ -769,8 +769,8 @@ def update_first_posts_and_statuses():
         num_of_searches = len(list_of_s)
 
         for group_2 in list_of_groups:
-            group_2.sn = int((group.sp * num_of_searches / 100) // 1)
-            group_2.fn = min(int(((group.fp + 1) * num_of_searches / 100) // 1 - 1), len(list_of_s))
+            group_2.sn = int((group_2.sp * num_of_searches / 100) // 1)
+            group_2.fn = min(int(((group_2.fp + 1) * num_of_searches / 100) // 1 - 1), len(list_of_s))
 
         for j, search in enumerate(list_of_s):
             for group_2 in list_of_groups:
