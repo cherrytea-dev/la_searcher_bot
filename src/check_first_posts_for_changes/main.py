@@ -21,8 +21,6 @@ from google.cloud import secretmanager
 from google.cloud import pubsub_v1
 
 
-project_id = os.environ["GCP_PROJECT"]
-client = secretmanager.SecretManagerServiceClient()
 
 
 bad_gateway_counter = 0
