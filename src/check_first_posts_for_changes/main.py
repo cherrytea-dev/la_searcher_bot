@@ -933,7 +933,7 @@ def main(event, context): # noqa
     # 4. checks_made – will help to check only searches with fewer previous checks
     # 5. random – turned out a good solution to check other searches that don't fall into prev categories
     """weights = {"start_time": 20, "upd_time": 20, "folder_weight": 20, "checks_made": 20, "random": 20}"""
-    update_first_posts_and_statuses()
+    # update_first_posts_and_statuses()
 
     if bad_gateway_counter > 3:
         publish_to_pubsub('topic_notify_admin', f'[che_posts]: Bad Gateway {bad_gateway_counter} times')
