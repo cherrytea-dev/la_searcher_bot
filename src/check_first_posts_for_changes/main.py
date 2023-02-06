@@ -29,6 +29,46 @@ publisher = pubsub_v1.PublisherClient()
 bad_gateway_counter = 0
 
 
+class Search:
+
+    def __init__(self,
+                 topic_id=None,
+                 start_time=None,
+                 folder_id=None,
+                 upd_time=None,
+                 num_s_in_folder=None,
+                 num_of_checks=None):
+        self.topic_id = topic_id
+        self.start_time = start_time
+        self.folder_id = folder_id
+        self.upd_time = upd_time
+        self.num = num_s_in_folder
+        self.checks = num_of_checks
+
+
+class PercentGroup:
+
+    def __init__(self,
+                 n=None,
+                 start_percent=None,
+                 finish_percent=None,
+                 start_num=None,
+                 finish_num=None,
+                 frequency=None,
+                 first_delay=None,
+                 searches=None # noqa
+                 ):
+        searches = []
+        self.n = n
+        self.sp = start_percent
+        self.fp = finish_percent
+        self.sn = start_num
+        self.fn = finish_num
+        self.f = frequency
+        self.d = first_delay
+        self.s = searches
+
+
 def get_secrets(secret_request):
     """get GCP secret"""
 
@@ -595,46 +635,6 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
     return None
 
 
-class Search:
-
-    def __init__(self,
-                 topic_id=None,
-                 start_time=None,
-                 folder_id=None,
-                 upd_time=None,
-                 num_s_in_folder=None,
-                 num_of_checks=None):
-        self.topic_id = topic_id
-        self.start_time = start_time
-        self.folder_id = folder_id
-        self.upd_time = upd_time
-        self.num = num_s_in_folder
-        self.checks = num_of_checks
-
-
-class PercentGroup:
-
-    def __init__(self,
-                 n=None,
-                 start_percent=None,
-                 finish_percent=None,
-                 start_num=None,
-                 finish_num=None,
-                 frequency=None,
-                 first_delay=None,
-                 searches=None # noqa
-                 ):
-        searches = []
-        self.n = n
-        self.sp = start_percent
-        self.fp = finish_percent
-        self.sn = start_num
-        self.fn = finish_num
-        self.f = frequency
-        self.d = first_delay
-        self.s = searches
-
-
 def update_first_posts_and_statuses():
     """update first posts for searches"""
 
@@ -787,7 +787,7 @@ def update_first_posts_and_statuses():
     global bad_gateway_counter
     global requests_session
     counter = 0
-
+    notify_admin('line 290')
     list_of_searches_with_updated_first_posts = []
     list_of_searches = get_list_of_searches()
     groups_list_all = generate_list_of_search_groups()
@@ -910,6 +910,8 @@ def main(event, context): # noqa
     global bad_gateway_counter
     bad_gateway_counter = 0
 
+    notify_admin('913 line')
+    logging.info('914 line')
     """# BLOCK 1. for checking visibility (deleted or hidden) and status (Ищем, НЖ, НП) changes of active searches
     # A reason why this functionality – is in this script, is that it worth update the list of active searches first
     # and then check for first posts. Plus, once first posts checker finds something odd – it triggers a visibility
