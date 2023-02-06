@@ -126,7 +126,7 @@ def check_topic_visibility(search_num):
         test_old__bad_gateway = True if content.find('Bad Gateway') > 0 else False
         if test_old__bad_gateway:
             if len(content) >= 3000:
-                content = content[3000]
+                content = content[:3000]
             notify_admin(f'BadGateway for {search_num}, content:{content}')
         # FIXME – end
 
@@ -271,31 +271,20 @@ def parse_search(search_num):
 
     global requests_session
     global bad_gateway_counter
-    content = None
 
     try:
         url = f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
         r = requests_session.get(url, timeout=10)  # seconds – not sure if it is efficient in this case
         content = r.content.decode("utf-8")
+        content = None if content.find('502 Bad Gateway') > 0 else content
 
-    except requests.exceptions.ReadTimeout:
-        logging.info(f'[che_posts]: requests.exceptions.ReadTimeout')
-        notify_admin(f'[che_posts]: requests.exceptions.ReadTimeout')
+    except (requests.exceptions.ReadTimeout, Exception) as e:
+        logging.info(f'[che_posts]: {e.__class__.__name__}')
+        # FIXME - temp debug
+        notify_admin(f'[che_posts]: {e.__class__.__name__}')
         bad_gateway_counter += 1
-
-    except requests.exceptions.Timeout:
-        logging.info(f'[che_posts]: requests.exceptions.Timeout')
-        notify_admin(f'[che_posts]: requests.exceptions.Timeout')
-        bad_gateway_counter += 1
-
-    except ConnectionError:
-        logging.info(f'[che_posts]: CONNECTION ERROR OR TIMEOUT')
-        notify_admin(f'[che_posts]: CONNECTION ERROR OR TIMEOUT')
-        bad_gateway_counter += 1
-
-    except Exception as e:
-        logging.info('[che_posts]: Unknown exception')
-        logging.exception(e)
+        # FIXME ^^^
+        content = None
 
     return content
 
@@ -303,63 +292,68 @@ def parse_search(search_num):
 def parse_first_post(search_num):
     """parse the first post of search"""
 
-    hash_num = None
-    bad_gateway = False
-    not_found = False
+    def prettify_content(content):
+        """TODO"""
 
-    content = parse_search(search_num)
+        # cut the wording of the first post
+        start = content.find('<div class="content">')
+        content = content[(start + 21):]
 
-    if content:
+        # find the next block and limit the content till this block
+        next_block = content.find('<div class="back2top">')
+        content = content[:(next_block - 12)]
 
-        bad_gateway = True if content.find('502 Bad Gateway') > 0 else False
-        not_found = True if content.find('Запрошенной темы не существует') > 0 else False
+        # cut out div closure
+        fin_div = content.rfind('</div>')
+        content = content[:fin_div]
 
-        if not bad_gateway and not not_found:
+        # cut blank symbols in the end of code
+        finish = content.rfind('>')
+        content = content[:(finish + 1)]
 
-            get_status_from_content_and_send_to_topic_management(search_num, content)
+        # exclude dynamic info – views of the pictures
+        patterns = re.findall(r'\) \d+ просмотр(?:а|ов)?', content)
+        if patterns:
+            for word in patterns:
+                content = content.replace(word, ")")
 
-            # cut the wording of the first post
-            start = content.find('<div class="content">')
-            content = content[(start + 21):]
+        # exclude dynamic info - token / creation time / sid / etc / footer
+        patterns_list = [r'value="\S{10}"',
+                         r'value="\S{32}"',
+                         r'value="\S{40}"',
+                         r'sid=\S{32}&amp;',
+                         r'<span class="footer-info"><span title="SQL time:.{120,130}</span></span>'
+                         ]
 
-            # find the next block and limit the content till this block
-            next_block = content.find('<div class="back2top">')
-            content = content[:(next_block - 12)]
+        patterns = []
+        for pat in patterns_list:
+            patterns += re.findall(pat, content)
 
-            # cut out div closure
-            fin_div = content.rfind('</div>')
-            content = content[:fin_div]
+        if patterns:
+            for word in patterns:
+                content = content.replace(word, '')
 
-            # cut blank symbols in the end of code
-            finish = content.rfind('>')
-            content = content[:(finish + 1)]
+        return content
 
-            # exclude dynamic info – views of the pictures
-            patterns = re.findall(r'\) \d+ просмотр(?:а|ов)?', content)
-            if patterns:
-                for word in patterns:
-                    content = content.replace(word, ")")
+    cont = parse_search(search_num)
+    not_found = True if cont and re.search(r'Запрошенной темы не существует', cont) else False
 
-            # exclude dynamic info - token / creation time / sid / etc / footer
-            patterns_list = [r'value="\S{10}"',
-                             r'value="\S{32}"',
-                             r'value="\S{40}"',
-                             r'sid=\S{32}&amp;',
-                             r'<span class="footer-info"><span title="SQL time:.{120,130}</span></span>'
-                             ]
+    if not cont or not_found:
+        hash_num = None
+        site_unavailable = True
+        not_found = False
+        return hash_num, cont, site_unavailable, not_found
 
-            patterns = []
-            for pat in patterns_list:
-                patterns += re.findall(pat, content)
+    # FIXME – deactivated on Feb 6 2023 because seems it's not correct that this script should check status
+    # get_status_from_content_and_send_to_topic_management(search_num, content)
 
-            if patterns:
-                for word in patterns:
-                    content = content.replace(word, '')
+    cont = prettify_content(cont)
 
-            # craft a hash for this content
-            hash_num = hashlib.md5(content.encode()).hexdigest()
+    # craft a hash for this content
+    hash_num = hashlib.md5(cont.encode()).hexdigest()
+    site_unavailable = False
 
-    return hash_num, content, bad_gateway, not_found
+    return hash_num, cont, site_unavailable, not_found
 
 
 def get_list_of_searches_for_first_post_and_status_update(percent_of_searches, weights):
@@ -597,96 +591,293 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
     return None
 
 
-def update_first_posts_and_statuses(percent_of_searches, weights):
-    """periodically check if the first post of searches"""
+class Search:
+
+    def __init__(self,
+                 topic_id=None,
+                 start_time=None,
+                 folder_id=None,
+                 upd_time=None,
+                 num_s_in_folder=None,
+                 num_of_checks=None):
+        self.topic_id = topic_id
+        self.start_time = start_time
+        self.folder_id = folder_id
+        self.upd_time = upd_time
+        self.num = num_s_in_folder
+        self.checks = num_of_checks
+
+
+class PercentGroup:
+
+    def __init__(self,
+                 n=None,
+                 start_percent=None,
+                 finish_percent=None,
+                 start_num=None,
+                 finish_num=None,
+                 frequency=None,
+                 first_delay=None,
+                 searches=None # noqa
+                 ):
+        searches = []
+        self.n = n
+        self.sp = start_percent
+        self.fp = finish_percent
+        self.sn = start_num
+        self.fn = finish_num
+        self.f = frequency
+        self.d = first_delay
+        self.s = searches
+
+
+def update_first_posts_and_statuses():
+    """update first posts for searches"""
+
+    def get_list_of_searches():
+        """get best list of searches for which first posts should be checked"""
+
+        base_table = []
+        base_table_of_objects = []
+
+        pool_2 = sql_connect()
+        conn_2 = pool_2.connect()
+
+        try:
+            # get the data from sql with the structure:
+            # [topic_id, search_start_time, forum_folder_id, search_update_time, number_of_searches_in_folder]
+            # search_update_time – is a time of search's first post actualization in SQL
+            # number_of_searches_in_folder – is a historical number of searches in SQL assigned to each folder
+            raw_sql_extract = conn.execute("""
+                SELECT 
+                    s4.*, s5.count 
+                FROM (
+                    SELECT 
+                        s2.*, s3.timestamp, s3.num_of_checks
+                    FROM (
+                        SELECT 
+                            s0.search_forum_num, s0.search_start_time, s0.forum_folder_id 
+                        FROM (
+                            SELECT 
+                                search_forum_num, search_start_time, forum_folder_id
+                            FROM
+                                searches 
+                            WHERE
+                                status_short = 'Ищем'
+                        ) s0 
+                        LEFT JOIN 
+                            search_health_check s1 
+                        ON 
+                            s0.search_forum_num=s1.search_forum_num 
+                        WHERE
+                            (s1.status != 'deleted' AND s1.status != 'hidden') OR s1.status IS NULL
+                    ) s2 
+                    LEFT JOIN 
+                    (
+                    SELECT 
+                        search_id, timestamp, actual, content_hash, num_of_checks 
+                    FROM
+                        search_first_posts 
+                    WHERE
+                        actual=TRUE
+                    ) s3 
+                    ON
+                        s2.search_forum_num=s3.search_id
+                ) s4 
+                LEFT JOIN 
+                (
+                    SELECT
+                        count(*), forum_folder_id
+                    FROM
+                        searches
+                    GROUP BY
+                        forum_folder_id
+                    ORDER BY
+                        count(*) DESC
+                ) s5 
+                ON 
+                    s4.forum_folder_id=s5.forum_folder_id
+                LEFT JOIN
+                    folders AS f
+                ON
+                    s4.forum_folder_id = f.folder_id
+                WHERE 
+                    f.folder_type IS NULL OR f.folder_type = 'searches'
+                /*action='get_list_of_searches_for_first_post_and_status_update 2.0' */        
+                ;
+                """).fetchall()
+
+            # form the list-like table
+            if raw_sql_extract:
+                for line_2 in raw_sql_extract:
+                    new_line = [line_2[0], line_2[1], line_2[3], line_2[5], line_2[4]]
+                    new_object = Search(topic_id=line_2[0], start_time=line_2[1], folder_id=line_2[2],
+                                        upd_time=line_2[3], num_of_checks=line_2[4], num_s_in_folder=line_2[5])
+
+                    # for blank lines we paste the oldest date
+                    if not new_object.upd_time:
+                        new_object.upd_time = datetime.datetime(1, 1, 1, 0, 0)
+                    if not new_object.checks:
+                        new_object.checks = 1
+                    base_table.append(new_line)
+                    base_table_of_objects.append(new_object)
+
+        except Exception as e2:
+            logging.info('exception in get_list_of_searches_for_first_post_update')
+            logging.exception(e2)
+
+        conn_2.close()
+        pool_2.dispose()
+
+        return base_table_of_objects
+
+    def generate_list_of_search_groups():
+        """generate N search groups"""
+
+        percent_step = 7
+        list_of_groups = []
+        current_percent = 0
+
+        while current_percent < 100:
+            n = int(current_percent / percent_step)
+            new_group = PercentGroup(n=n,
+                                     start_percent=current_percent,
+                                     finish_percent=min(100, current_percent + percent_step - 1),
+                                     frequency=2 ** n,
+                                     first_delay=2 ** (n - 1) - 1 if n != 0 else 0)
+            list_of_groups.append(new_group)
+            current_percent += percent_step
+
+        return list_of_groups
+
+    def define_which_search_groups_to_be_checked(list_of_groups):
+        """gives an output of 2 groups that should be checked for this time"""
+
+        start_time = datetime.datetime(2023, 1, 1, 0, 0, 0)
+        curr_minute = int(((datetime.datetime.now() - start_time).total_seconds() / 60) // 1)
+
+        curr_minute_list = []
+        for group_2 in list_of_groups:
+            if not ((curr_minute - group_2.d) % group_2.f):
+                curr_minute_list.append(group_2)
+
+        return curr_minute_list
+
+    def enrich_groups_with_searches(list_of_groups, list_of_s):
+        """TODO"""
+
+        num_of_searches = len(list_of_s)
+
+        for group_2 in list_of_groups:
+            group_2.sn = int((group.sp * num_of_searches / 100) // 1)
+            group_2.fn = min(int(((group.fp + 1) * num_of_searches / 100) // 1 - 1), len(list_of_s))
+
+        for j, search in enumerate(list_of_s):
+            for group_2 in list_of_groups:
+                if group_2.sn <= j <= group_2.fn:
+                    group_2.s.append(search)
+
+        return list_of_groups
 
     global bad_gateway_counter
     global requests_session
+    counter = 0
 
     list_of_searches_with_updated_first_posts = []
-    list_of_searches = get_list_of_searches_for_first_post_and_status_update(percent_of_searches, weights)
+    list_of_searches = get_list_of_searches()
+    groups_list_all = generate_list_of_search_groups()
+    groups_list_now = define_which_search_groups_to_be_checked(groups_list_all)
+    groups_list_now = enrich_groups_with_searches(groups_list_now, list_of_searches)
 
-    if list_of_searches:
+    if groups_list_now:
 
         pool = sql_connect()
         conn = pool.connect()
 
         try:
-            for line in list_of_searches:
+            for group in groups_list_now:
+                for line in group.s:
 
-                search_id = line[0]
-                act_hash, act_content, bad_gateway_trigger, not_found_trigger = parse_first_post(search_id)
+                    counter += 1
+                    search_id = line.topic_id
+                    act_hash, act_content, site_unavailable, topic_not_found = parse_first_post(search_id)
 
-                if not bad_gateway_trigger and not not_found_trigger:
+                    if not site_unavailable and not topic_not_found:
 
-                    # check the latest hash
-                    stmt = sqlalchemy.text("""
-                    SELECT content_hash, num_of_checks, content from search_first_posts WHERE search_id=:a 
-                    AND actual = TRUE;
-                    """)
-                    raw_data = conn.execute(stmt, a=search_id).fetchone()
+                        # check the latest hash
+                        stmt = sqlalchemy.text("""
+                        SELECT content_hash, num_of_checks, content from search_first_posts WHERE search_id=:a 
+                        AND actual = TRUE;
+                        """)
+                        raw_data = conn.execute(stmt, a=search_id).fetchone()
 
-                    # if record for this search – exists
-                    if raw_data:
+                        # if record for this search – exists
+                        if raw_data:
 
-                        last_hash = raw_data[0]
-                        prev_number_of_checks = raw_data[1]
-                        # last_content = raw_data[2]
+                            last_hash = raw_data[0]
+                            prev_number_of_checks = raw_data[1]
+                            # last_content = raw_data[2]
 
-                        if not prev_number_of_checks:
-                            prev_number_of_checks = 1
+                            if not prev_number_of_checks:
+                                prev_number_of_checks = 1
 
-                        # if record for this search – outdated
-                        if act_hash != last_hash:
+                            # if record for this search – outdated
+                            if act_hash != last_hash:
 
-                            # set all prev records as Actual = False
-                            stmt = sqlalchemy.text("""
-                            UPDATE search_first_posts SET actual = FALSE WHERE search_id = :a;
-                            """)
-                            conn.execute(stmt, a=search_id)
+                                # set all prev records as Actual = False
+                                stmt = sqlalchemy.text("""
+                                UPDATE search_first_posts SET actual = FALSE WHERE search_id = :a;
+                                """)
+                                conn.execute(stmt, a=search_id)
 
-                            # add new record
-                            stmt = sqlalchemy.text("""
-                            INSERT INTO search_first_posts 
-                            (search_id, timestamp, actual, content_hash, content, num_of_checks) 
-                            VALUES (:a, :b, TRUE, :c, :d, :e);
-                            """)
-                            conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=act_hash,
-                                         d=act_content, e=1)
+                                # add new record
+                                stmt = sqlalchemy.text("""
+                                INSERT INTO search_first_posts 
+                                (search_id, timestamp, actual, content_hash, content, num_of_checks) 
+                                VALUES (:a, :b, TRUE, :c, :d, :e);
+                                """)
+                                conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=act_hash,
+                                             d=act_content, e=1)
 
-                            # add the search into the list of searches to be sent to pub/sub
-                            list_of_searches_with_updated_first_posts.append(search_id)
+                                # add the search into the list of searches to be sent to pub/sub
+                                list_of_searches_with_updated_first_posts.append(search_id)
 
-                        # if record for this search – actual
+                            # if record for this search – actual
+                            else:
+
+                                # update the number of checks for this search
+                                stmt = sqlalchemy.text("""
+                                                    UPDATE 
+                                                        search_first_posts 
+                                                    SET 
+                                                        num_of_checks = :a 
+                                                    WHERE 
+                                                        search_id = :b AND actual = True;
+                                                    """)
+                                conn.execute(stmt, a=(prev_number_of_checks + 1), b=search_id)
+
+                        # if record for this search – does not exist – add a new record
                         else:
 
-                            # update the number of checks for this search
                             stmt = sqlalchemy.text("""
-                                                UPDATE 
-                                                    search_first_posts 
-                                                SET 
-                                                    num_of_checks = :a 
-                                                WHERE 
-                                                    search_id = :b AND actual = True;
-                                                """)
-                            conn.execute(stmt, a=(prev_number_of_checks + 1), b=search_id)
+                                                    INSERT INTO search_first_posts 
+                                                    (search_id, timestamp, actual, content_hash, content, num_of_checks) 
+                                                    VALUES (:a, :b, TRUE, :c, :d, :e);
+                                                    """)
+                            conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=act_hash, d=act_content, e=1)
 
-                    # if record for this search – does not exist – add a new record
-                    else:
+                    elif site_unavailable:
+                        bad_gateway_counter += 1
+                        logging.info('forum unavailable'.format(search_id, bad_gateway_counter))
+                        if bad_gateway_counter > 3:
+                            break
 
-                        stmt = sqlalchemy.text("""
-                                                INSERT INTO search_first_posts 
-                                                (search_id, timestamp, actual, content_hash, content, num_of_checks) 
-                                                VALUES (:a, :b, TRUE, :c, :d, :e);
-                                                """)
-                        conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=act_hash, d=act_content, e=1)
+                    elif topic_not_found:
+                        update_one_topic_visibility(search_id)
 
-                elif bad_gateway_trigger:
-                    bad_gateway_counter += 1
-                    logging.info('502: {} - {}'.format(search_id, bad_gateway_counter))
-
-                elif not_found_trigger:
-                    update_one_topic_visibility(search_id)
+                else:
+                    notify_admin(f'were are here - new escape of site unavailability after {counter} ')
+                    break
 
         except Exception as e:
             logging.info('exception in update_first_posts_and_statuses')
@@ -694,6 +885,8 @@ def update_first_posts_and_statuses(percent_of_searches, weights):
 
         conn.close()
         pool.dispose()
+
+    logging.info(f'first posts checked for {counter} searches')
 
     if list_of_searches_with_updated_first_posts:
         # send pub/sub message on the updated first page
@@ -708,17 +901,17 @@ def main(event, context): # noqa
     global bad_gateway_counter
     bad_gateway_counter = 0
 
-    # BLOCK 1. for checking visibility (deleted or hidden) and status (Ищем, НЖ, НП) changes of active searches
+    """# BLOCK 1. for checking visibility (deleted or hidden) and status (Ищем, НЖ, НП) changes of active searches
     # A reason why this functionality – is in this script, is that it worth update the list of active searches first
     # and then check for first posts. Plus, once first posts checker finds something odd – it triggers a visibility
     # check for this search
     number_of_checked_searches = 100
-    update_visibility_for_list_of_active_searches(number_of_checked_searches)
+    update_visibility_for_list_of_active_searches(number_of_checked_searches)"""
 
     # BLOCK 2. for checking if the first posts were changed
     # check is made for a certain % from the full list of active searches
     # below percent – is a matter of experiments: avoiding script timeout and minimize costs, but to get updates ASAP
-    percent_of_first_posts_to_check = 20
+    # percent_of_first_posts_to_check = 20
     # the chosen number of searches, for which first posts will be checked:
     # [first_posts] = [all_act_searches] * [percent]
     # then the [first_posts] is split by 5 subcategories, which has different % (sum of % should be 100)
@@ -728,8 +921,8 @@ def main(event, context): # noqa
     # 3. folder_weight – will help to check only searches in the most popular regions
     # 4. checks_made – will help to check only searches with fewer previous checks
     # 5. random – turned out a good solution to check other searches that don't fall into prev categories
-    weights = {"start_time": 20, "upd_time": 20, "folder_weight": 20, "checks_made": 20, "random": 20}
-    update_first_posts_and_statuses(percent_of_first_posts_to_check, weights)
+    """weights = {"start_time": 20, "upd_time": 20, "folder_weight": 20, "checks_made": 20, "random": 20}"""
+    update_first_posts_and_statuses()
 
     if bad_gateway_counter > 3:
         publish_to_pubsub('topic_notify_admin', f'[che_posts]: Bad Gateway {bad_gateway_counter} times')
