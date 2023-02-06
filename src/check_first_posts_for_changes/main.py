@@ -408,7 +408,7 @@ def get_list_of_searches_for_first_post_and_status_update(percent_of_searches, w
                     ON 
                         s0.search_forum_num=s1.search_forum_num 
                     WHERE
-                        (s1.status != 'deleted' AND s1.status != 'hidden')
+                        (s1.status != 'deleted' AND s1.status != 'hidden') OR s1.status IS NULL
                 ) s2 
                 LEFT JOIN 
                 (
