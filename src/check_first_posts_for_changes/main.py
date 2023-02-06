@@ -648,7 +648,7 @@ def update_first_posts_and_statuses():
             # [topic_id, search_start_time, forum_folder_id, search_update_time, number_of_searches_in_folder]
             # search_update_time – is a time of search's first post actualization in SQL
             # number_of_searches_in_folder – is a historical number of searches in SQL assigned to each folder
-            raw_sql_extract = conn.execute("""
+            raw_sql_extract = conn_2.execute("""
                 SELECT 
                     s4.*, s5.count 
                 FROM (
@@ -764,7 +764,7 @@ def update_first_posts_and_statuses():
         return curr_minute_list
 
     def enrich_groups_with_searches(list_of_groups, list_of_s):
-        """TODO"""
+        """add searches to the chosen groups"""
 
         num_of_searches = len(list_of_s)
 
