@@ -796,8 +796,12 @@ def update_first_posts_and_statuses():
 
     if groups_list_now:
 
+        notify_admin(f'line 799 passed')
+
         pool = sql_connect()
+        notify_admin(f'line 802 passed')
         conn = pool.connect()
+        notify_admin(f'line 804 passed')
 
         try:
             for group in groups_list_now:
