@@ -14,7 +14,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set up Python 3.7
         uses: actions/setup-python@v1
         with:
@@ -37,20 +37,20 @@ jobs:
     if: needs.build.result == 'success'
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Authenticate in GCP
         id: auth
-        uses: google-github-actions/auth@v0.4.0
+        uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.gcp_credentials }}
 
       - name: Deploy the CF
         id: deploy
-        uses: google-github-actions/deploy-cloud-functions@v0.6.0
+        uses: google-github-actions/deploy-cloud-functions@v1
         with:
             source_dir: src/${{ env.FILE_NAME }} # name of directory
-            name: test_od_ch_f_posts # ${{ env.FILE_NAME }} # name of deploying function
+            name: ${{ env.FILE_NAME }} # name of deploying function
             runtime: python37
             entry_point: main # UPD HERE! main function
             region: europe-west3
