@@ -906,6 +906,10 @@ def update_first_posts_and_statuses():
 def main(event, context): # noqa
     """main function"""
 
+    # to avoid function invocation except when it was initiated by scheduler (and pub/sub message was not doubled)
+    if datetime.datetime.now().second > 5:
+        return None
+
     global bad_gateway_counter
     bad_gateway_counter = 0
 
