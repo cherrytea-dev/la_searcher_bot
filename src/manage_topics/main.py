@@ -117,7 +117,6 @@ def save_visibility_for_topic(topic_id, visibility):
             # 'hidden' – topic is hidden from public access, can become visible in the future
             # 'ok' – regular topics with public visibility
 
-            # FIXME – why it was deactivated? cannot remember
             if 1 == 0:
                 # clear the prev visibility status
                 stmt = sqlalchemy.text("""DELETE FROM search_health_check WHERE search_forum_num=:a;""")
@@ -129,6 +128,11 @@ def save_visibility_for_topic(topic_id, visibility):
                 conn.execute(stmt, a=topic_id, b=datetime.datetime.now(), c=visibility)
 
                 logging.info(f'Visibility is set={visibility} for topic_id={topic_id}')
+
+                # FIXME – to be added: INSERT INTO change_log
+                # it requires also right execution inside compose notifications
+
+
             else:
                 notify_admin(f'WE FAKED VISIBILITY UPDATE: topic_id={topic_id}, visibility={visibility}')
             conn.close()
@@ -168,6 +172,8 @@ def save_status_for_topic(topic_id, status):
             conn.close()
         pool.dispose()
 
+        logging.info(f'status {status} for topic {topic_id} has been saved in change_log and searches tables.')
+
     except Exception as e:
         logging.exception(e)
 
@@ -179,6 +185,8 @@ def main(event, context): # noqa
 
     try:
         received_dict = process_pubsub_message(event)
+        logging.info(f'Script received pub/sub message {received_dict} by event_id {event}')
+
         if received_dict and 'topic_id' in received_dict:
 
             topic_id = received_dict['topic_id']

@@ -604,8 +604,7 @@ def parse_coordinates(db, search_num):
     # DEBUG - function execution time counter
     func_start = datetime.now()
 
-    url_beginning = 'https://lizaalert.org/forum/viewtopic.php?t='
-    url_to_topic = url_beginning + str(search_num)
+    url_to_topic = f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
 
     lat = 0
     lon = 0
@@ -615,6 +614,9 @@ def parse_coordinates(db, search_num):
 
     try:
         r = requests_session.get(url_to_topic)  # noqa
+        if not visibility_check(r, search_num):
+            return [lat, lon, coord_type]
+
         soup = BeautifulSoup(r.content, features="html.parser")
 
         # parse title
@@ -831,11 +833,11 @@ def publish_to_pubsub(topic_name, message):
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publishing succeeded
-        logging.info(f'Pub/sub message published: {message_json}')
-        logging.info(f'Function triggered event_id = {publish_future.result()}')
+        logging.info(f'Pub/sub message to topic {topic_name} with event_id = {publish_future.result()} has '
+                     f'been triggered. Content: {message}')
 
     except Exception as e:
-        logging.info('DBG.P.3.ERR: pub/sub NOT published')
+        logging.info(f'Not able to send pub/sub message: {message}')
         logging.exception(e)
 
     return None
@@ -1201,6 +1203,9 @@ def parse_search_profile(search_num):
 
     try:
         r = requests_session.get(url_to_topic)  # noqa
+        if not visibility_check(r, search_num):
+            return None
+
         soup = BeautifulSoup(r.content, features="html.parser")
 
     except Exception as e:
@@ -2690,17 +2695,41 @@ def parse_one_folder(db, folder_id):
     return topics_summary_in_folder, titles_and_num_of_replies, folder_summary
 
 
+def visibility_check(r, topic_id):
+    """TODO"""
+
+    check_content = copy.copy(r.content)
+    check_content = check_content.decode("utf-8")
+    check_content = None if re.search(r'502 Bad Gateway', check_content) else check_content
+    site_unavailable = False if check_content else True
+    topic_deleted = True if check_content and re.search(r'Запрошенной темы не существует',
+                                                        check_content) else False
+    topic_hidden = True if check_content and re.search(r'Для просмотра этого форума вы должны быть авторизованы',
+                                                       check_content) else False
+    if site_unavailable:
+        return False
+    elif topic_deleted or topic_hidden:
+        visibility = 'deleted' if topic_deleted else 'hidden'
+        publish_to_pubsub('topic_for_topic_management', {'topic_id': topic_id, 'visibility': visibility})
+        return False
+
+    return True
+
+
 def parse_one_comment(db, search_num, comment_num):
     """parse all details on a specific comment in topic (by sequence number)"""
 
     global requests_session
 
-    url = 'https://lizaalert.org/forum/viewtopic.php?'
-    comment_url = url + '&t=' + str(search_num) + '&start=' + str(comment_num)
+    comment_url = f'https://lizaalert.org/forum/viewtopic.php?&t={search_num}&start={comment_num}'
     there_are_inforg_comments = False
 
     try:
         r = requests_session.get(comment_url)  # noqa
+
+        if not visibility_check(r, search_num):
+            return False
+
         soup = BeautifulSoup(r.content, features='lxml')
         search_code_blocks = soup.find('div', 'post')
 

@@ -1,6 +1,6 @@
 """Script does several things:
 1. checks if the first posts of the searches were changed
-2. checks active searches' status (Ищем, НЖ, НП, etc.)
+2. FIXME - checks active searches' status (Ищем, НЖ, НП, etc.)
 3. checks active searches' visibility (accessible for everyone, restricted to a certain group or permanently deleted).
 Updates are either saved in PSQL or send via pub/sub to other scripts"""
 
@@ -128,7 +128,8 @@ def publish_to_pubsub(topic_name, message):
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publishing succeeded
-        logging.info(f'Sent pub/sub message: {message}')
+        logging.info(f'Pub/sub message to topic {topic_name} with event_id = {publish_future.result()} has '
+                     f'been triggered. Content: {message}')
 
     except Exception as e:
         logging.info(f'Not able to send pub/sub message: {message}')
@@ -672,7 +673,7 @@ def update_first_posts_and_statuses():
         return base_table_of_objects
 
     def generate_list_of_search_groups():
-        """generate N search groups"""
+        """generate N search groups, groups needed to define which part of all searches will be checked now"""
 
         percent_step = 7
         list_of_groups = []
@@ -700,7 +701,7 @@ def update_first_posts_and_statuses():
         for group_2 in list_of_groups:
             if not ((curr_minute - group_2.d) % group_2.f):
                 curr_minute_list.append(group_2)
-                logging.info(f'this group is checked {group_2}')
+                logging.info(f'Group to be checked {group_2}')
 
         return curr_minute_list
 
@@ -721,47 +722,48 @@ def update_first_posts_and_statuses():
         return list_of_groups
 
     def prettify_content(content):
-            """TODO"""
+        """remove the irrelevant code from the first page content"""
 
-            # cut the wording of the first post
-            start = content.find('<div class="content">')
-            content = content[(start + 21):]
+        # TODO - seems can be much simplified with regex
+        # cut the wording of the first post
+        start = content.find('<div class="content">')
+        content = content[(start + 21):]
 
-            # find the next block and limit the content till this block
-            next_block = content.find('<div class="back2top">')
-            content = content[:(next_block - 12)]
+        # find the next block and limit the content till this block
+        next_block = content.find('<div class="back2top">')
+        content = content[:(next_block - 12)]
 
-            # cut out div closure
-            fin_div = content.rfind('</div>')
-            content = content[:fin_div]
+        # cut out div closure
+        fin_div = content.rfind('</div>')
+        content = content[:fin_div]
 
-            # cut blank symbols in the end of code
-            finish = content.rfind('>')
-            content = content[:(finish + 1)]
+        # cut blank symbols in the end of code
+        finish = content.rfind('>')
+        content = content[:(finish + 1)]
 
-            # exclude dynamic info – views of the pictures
-            patterns = re.findall(r'\) \d+ просмотр(?:а|ов)?', content)
-            if patterns:
-                for word in patterns:
-                    content = content.replace(word, ")")
+        # exclude dynamic info – views of the pictures
+        patterns = re.findall(r'\) \d+ просмотр(?:а|ов)?', content)
+        if patterns:
+            for word in patterns:
+                content = content.replace(word, ")")
 
-            # exclude dynamic info - token / creation time / sid / etc / footer
-            patterns_list = [r'value="\S{10}"',
-                             r'value="\S{32}"',
-                             r'value="\S{40}"',
-                             r'sid=\S{32}&amp;',
-                             r'<span class="footer-info"><span title="SQL time:.{120,130}</span></span>'
-                             ]
+        # exclude dynamic info - token / creation time / sid / etc / footer
+        patterns_list = [r'value="\S{10}"',
+                         r'value="\S{32}"',
+                         r'value="\S{40}"',
+                         r'sid=\S{32}&amp;',
+                         r'<span class="footer-info"><span title="SQL time:.{120,130}</span></span>'
+                         ]
 
-            patterns = []
-            for pat in patterns_list:
-                patterns += re.findall(pat, content)
+        patterns = []
+        for pat in patterns_list:
+            patterns += re.findall(pat, content)
 
-            if patterns:
-                for word in patterns:
-                    content = content.replace(word, '')
+        if patterns:
+            for word in patterns:
+                content = content.replace(word, '')
 
-            return content
+        return content
 
     def get_first_post(search_num):
         """parse the first post of search"""
@@ -921,19 +923,6 @@ def main(event, context): # noqa
     update_visibility_for_list_of_active_searches(number_of_checked_searches)"""
 
     # BLOCK 2. for checking if the first posts were changed
-    # check is made for a certain % from the full list of active searches
-    # below percent – is a matter of experiments: avoiding script timeout and minimize costs, but to get updates ASAP
-    # percent_of_first_posts_to_check = 20
-    # the chosen number of searches, for which first posts will be checked:
-    # [first_posts] = [all_act_searches] * [percent]
-    # then the [first_posts] is split by 5 subcategories, which has different % (sum of % should be 100)
-    # so the check for first posts updates is happening
-    # 1. start_time – will help to check only the latest searches with "freshest" starting time
-    # 2. upd_time – will help to check only searches with the oldest previous update time
-    # 3. folder_weight – will help to check only searches in the most popular regions
-    # 4. checks_made – will help to check only searches with fewer previous checks
-    # 5. random – turned out a good solution to check other searches that don't fall into prev categories
-    """weights = {"start_time": 20, "upd_time": 20, "folder_weight": 20, "checks_made": 20, "random": 20}"""
     update_first_posts_and_statuses()
 
     if bad_gateway_counter > 3:

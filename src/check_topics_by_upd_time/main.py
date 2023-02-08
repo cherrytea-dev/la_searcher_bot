@@ -49,25 +49,12 @@ def check_updates_in_folder_with_folders(start_folder_num):
                 # final list is: 1st, 2nd and pre-last blocks
                 search_code_blocks.append(temp_block)
 
-    except requests.exceptions.ReadTimeout:
-        logging.info(f'[che_topics]: requests.exceptions.ReadTimeout')
-        notify_admin(f'[che_topics]: requests.exceptions.ReadTimeout')
-
-    except requests.exceptions.Timeout:
-        logging.info(f'[che_topics]: requests.exceptions.Timeout')
-        notify_admin(f'[che_topics]: requests.exceptions.Timeout')
-
-    except requests.exceptions.ProxyError:
-        logging.info(f'[che_topics]: requests.exceptions.ProxyError')
-        notify_admin(f'[che_topics]: requests.exceptions.ProxyError')
-
-    except ConnectionError:
-        logging.info(f'[che_topics]: CONNECTION ERROR OR TIMEOUT')
-        notify_admin(f'[che_topics]: CONNECTION ERROR OR TIMEOUT')
-
-    except Exception as e:
-        logging.info(f'[che_posts]: Unknown exception in folder {start_folder_num}')
-        logging.exception(e)
+    except (requests.exceptions.ReadTimeout, requests.exceptions.Timeout, requests.exceptions.ProxyError,
+            ConnectionError, Exception) as e:
+        logging.info(f'[che_topics]: site unavailable: {e.__class__.__name__}')
+        notify_admin(f'[che_topics]: site unavailable: {e.__class__.__name__}')
+        if e.__class__.__name__ == Exception:
+            logging.exception(e)
 
     if search_code_blocks:
         for block in search_code_blocks:
@@ -133,7 +120,8 @@ def publish_to_pubsub(topic_name, message):
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publishing succeeded
-        logging.info(f'Sent pub/sub message: {message}')
+        logging.info(f'Pub/sub message to topic {topic_name} with event_id = {publish_future.result()} has '
+                     f'been triggered. Content: {message}')
 
     except Exception as e:
         logging.info(f'Not able to send pub/sub message: {message}')
