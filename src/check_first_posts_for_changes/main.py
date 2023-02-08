@@ -68,6 +68,11 @@ class PercentGroup:
         self.d = first_delay
         self.s = searches
 
+    def __str__(self):
+        days = f' or {int(self.f // 1440)} day(s)' if self.f >= 1440 else f''
+        return f'N{self.n: <2}: {self.sp}%–{self.fp}%. Updated every {self.f} minute(s){days}. ' \
+               f'First delay = {self.d} minutes. nums {self.sn}-{self.fn}. num of searches {len(self.s)}'
+
 
 def get_secrets(secret_request):
     """get GCP secret"""
@@ -695,6 +700,7 @@ def update_first_posts_and_statuses():
         for group_2 in list_of_groups:
             if not ((curr_minute - group_2.d) % group_2.f):
                 curr_minute_list.append(group_2)
+                logging.info(f'this group is checked {group_2}')
 
         return curr_minute_list
 
