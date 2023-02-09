@@ -459,10 +459,9 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
         return None
 
     # language=regexp
-    patterns = [[r'(?i).{0,10}пропал.*', 'Ищем'],
-                [r'(?i).{0,10}(?:найден|).{0,5}жив', 'НЖ'],
+    patterns = [[r'(?i).{0,10}(?:найден|).{0,5}жив', 'НЖ'],
                 [r'(?i).{0,10}(?:найден|).{0,5}пог', 'НП'],
-                [r'(?i).{0,10}заверш.н', 'Завершен']]
+                [r'(?i).{0,10}заверш.н', 'Завершен']]  # [r'(?i).{0,10}пропал.*', 'Ищем'],
 
     status = None
     for pattern in patterns:
