@@ -10,7 +10,6 @@ import datetime
 import re
 import json
 import logging
-import difflib
 import hashlib
 import random
 
@@ -149,160 +148,87 @@ def notify_admin(message):
 def update_one_topic_visibility(search_id):
     """update the status of one search: if it is ok or was deleted or hidden"""
 
-    global bad_gateway_counter
-    global requests_session
-
     def check_topic_visibility(search_num):
         """check is the existing search was deleted or hidden"""
 
-        global bad_gateway_counter
-
-        deleted_trigger = None
-        hidden_trigger = None
         topic_visibility = 'regular'
         bad_gateway = False
 
         content, site_unavailable = parse_search(search_num)
 
-        if content:
+        if site_unavailable:
+            return None, None, None, None
 
-            # TODO: temp check, if this "patch" can help to remove timeouts
-            bad_gateway = True if content.find('') > 0 else False
+        if content.find('Запрошенной темы не существует.') > -1:
+            deleted_trigger = True
+            topic_visibility = 'deleted'
+        else:
+            deleted_trigger = False
 
-            # FIXME – below is a check if content.find('') > 0 is not always True
-            if content.find('') > 0:
-                notify_admin(f'content.find() > 0 is True for {search_num}. BadGateway = {bad_gateway}')
-            # FIXME – end
+        if content.find('Для просмотра этого форума вы должны быть авторизованы') > -1:
+            hidden_trigger = True
+            topic_visibility = 'hidden'
+        else:
+            hidden_trigger = False
 
-            # FIXME – below is a check if content.find('502 Bad Gateway') is a right format for bad_gateway
-            test_old__bad_gateway = True if content.find('Bad Gateway') > 0 else False
-            if test_old__bad_gateway:
-                if len(content) >= 3000:
-                    content = content[:3000]
-                notify_admin(f'BadGateway for {search_num}, content:{content}')
-            # FIXME – end
-
-            if not bad_gateway:
-
-                if content.find('Запрошенной темы не существует.') > -1:
-                    deleted_trigger = True
-                    topic_visibility = 'deleted'
-
-                else:
-                    deleted_trigger = False
-
-                if content.find('Для просмотра этого форума вы должны быть авторизованы') > -1:
-                    hidden_trigger = True
-                    topic_visibility = 'hidden'
-                else:
-                    hidden_trigger = False
-
-                logging.info(f'search {search_num} is {topic_visibility}')
+        logging.info(f'search {search_num} is {topic_visibility}')
 
         return deleted_trigger, hidden_trigger, bad_gateway, topic_visibility
 
-    del_trig, hid_trig, bad_gateway_trigger, visibility = check_topic_visibility(search_id)
+    del_trig, hid_trig, forum_unavailable, visibility = check_topic_visibility(search_id)
+    logging.info(f'Visibility checked for {search_id}: visibility = {visibility}')
 
-    logging.info(f'Visibility checked for topic {search_id}: visibility = {visibility}')
+    if forum_unavailable:
+        return None
 
-    if not bad_gateway_trigger:
+    pool = sql_connect()
+    with pool.connect() as conn:
 
-        pool = sql_connect()
-        with pool.connect() as conn:
+        try:
+            stmt = sqlalchemy.text("""DELETE FROM search_health_check WHERE search_forum_num=:a;""")
+            conn.execute(stmt, a=search_id)
 
-            try:
-                stmt = sqlalchemy.text("""DELETE FROM search_health_check WHERE search_forum_num=:a;""")
-                conn.execute(stmt, a=search_id)
+            stmt = sqlalchemy.text("""INSERT INTO search_health_check (search_forum_num, timestamp, status) 
+                                      VALUES (:a, :b, :c);""")
+            conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=visibility)
 
-                stmt = sqlalchemy.text("""INSERT INTO search_health_check (search_forum_num, timestamp, status) 
-                                    VALUES (:a, :b, :c);""")
-                conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=visibility)
+            logging.info(f'Visibility updated for {search_id} and set as {visibility}')
+            logging.info('---------------')
 
-                logging.info('psql updated for {} status is set {}'.format(search_id, visibility))
-                logging.info('---------------')
+        except Exception as e:
+            logging.info('exception in update_one_topic_visibility')
+            logging.exception(e)
 
-            except Exception as e:
-                logging.info('exception in update_one_topic_visibility')
-                logging.exception(e)
-
-            conn.close()
-        pool.dispose()
-
-    else:
-        bad_gateway_counter += 1
-        logging.info('502: {} - {}'.format(str(search_id), bad_gateway_counter))
+        conn.close()
+    pool.dispose()
 
     return None
 
 
-def update_visibility_for_list_of_active_searches(number_of_searches):
-    """update the status of all active searches if it was deleted of hidden"""
+def update_visibility_for_one_hidden_topic():
+    """check if the hidden search was unhidden"""
 
-    global bad_gateway_counter
     global requests_session
 
     pool = sql_connect()
     conn = pool.connect()
 
     try:
-        full_list_of_active_searches = conn.execute("""
-            SELECT 
-                s3.* 
-            FROM (
-                SELECT
-                    s1.status_short, s1.search_forum_num, s1.forum_search_title, s2.status, s2.timestamp, 
-                    s1.forum_folder_id 
-                FROM
-                    searches s1 
-                LEFT JOIN 
-                    search_health_check s2 
-                ON
-                    s1.search_forum_num = s2.search_forum_num 
-                WHERE 
-                    s1.status_short = 'Ищем' 
-                    AND s2.status != 'deleted'
-            ) s3 
-            LEFT JOIN 
-                folders f 
-            ON 
-                s3.forum_folder_id=f.folder_id 
-            WHERE 
-                f.folder_type IS NULL 
-                OR f.folder_type = 'searches' 
-            ORDER BY s3.timestamp 
-            /*action='get_full_list_of_active_searches 2.0' */
-            ;
-            """).fetchall()
+        hidden_topic = conn.execute("""
+            SELECT h.search_forum_num, s.status_short, s.status 
+            FROM search_health_check AS h LEFT JOIN searches AS s 
+            ON h.search_forum_num=s.search_forum_num 
+            WHERE h.status = 'hidden' ORDER BY RANDOM() LIMIT 1; 
+            /*action='get_one_hidden_topic' */;""").fetchone()
 
-        cleared_list_of_active_searches = []
-
-        # first we add new lines to the list
-        for line in full_list_of_active_searches:
-            search = list(line)
-            if not search[3]:
-                cleared_list_of_active_searches.append(search)
-
-        # then we add not-new lines that are not deleted
-        for line in full_list_of_active_searches:
-            search = list(line)
-            if search[3] and search[3] != 'deleted':
-                cleared_list_of_active_searches.append(search)
-                if len(cleared_list_of_active_searches) >= number_of_searches:
-                    break
-
-        if cleared_list_of_active_searches:
-            logging.info(f'length of cleared list of active searches is {len(cleared_list_of_active_searches)}')
-            logging.info(f'cleared list of active searches: {cleared_list_of_active_searches}')
-
-            for search in cleared_list_of_active_searches:
-
-                update_one_topic_visibility(search[1])
-
-                if bad_gateway_counter > 3:
-                    break
+        hidden_topic_id = int(hidden_topic[0])
+        current_status = hidden_topic[1]
+        if current_status in {'Ищем', 'Возобновлен'}:
+            logging.info(f'we start checking visibility for topic {hidden_topic_id}')
+            update_one_topic_visibility(hidden_topic_id)
 
     except Exception as e:
-        logging.info('exception in get_and_update_list_of_active_searches')
+        logging.info('exception in update_visibility_for_one_hidden_topic')
         logging.exception(e)
 
     conn.close()
@@ -326,10 +252,6 @@ def parse_search(search_num):
 
     except (requests.exceptions.ReadTimeout, Exception) as e:
         logging.info(f'[che_posts]: site unavailable: {e.__class__.__name__}')
-        # FIXME - temp debug
-        notify_admin(f'[che_posts]: site unavailable: {e.__class__.__name__}')
-        bad_gateway_counter += 1
-        # FIXME ^^^
         content = None
         site_unavailable = True
 
@@ -524,20 +446,6 @@ def get_list_of_searches_for_first_post_and_status_update(percent_of_searches, w
     return outcome_list
 
 
-def get_the_diff_between_strings(string_1, string_2):
-    """get the text-message with the difference of two strings"""
-
-    comparison = list(difflib.Differ().compare(string_1.splitlines(), string_2.splitlines()))
-
-    output_message = ''
-
-    for line in comparison:
-        if line[0] in {'+', '-'}:
-            output_message += line + '\n'
-
-    return output_message
-
-
 def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
     """block to check if Status of the search has changed – if so send a pub/sub to topic_management"""
 
@@ -546,27 +454,27 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
     pre_title = pre_title.group() if pre_title else None
     pre_title = re.search(r'">.{1,500}</a>', pre_title[32:]) if pre_title else None
     title = pre_title.group()[2:-4] if pre_title else None
-    status = None
-    if title:
-        missed = re.search(r'(?i).{0,10}пропал.*', title) if title else None
-        if missed:
-            status = 'Ищем'
-        else:
-            missed = re.search(r'(?i).{0,10}(?:найден|).{0,5}жив', title)
-            if missed:
-                status = 'НЖ'
-            else:
-                missed = re.search(r'(?i).{0,10}(?:найден|).{0,5}пог', title)
-                if missed:
-                    status = 'НП'
-                else:
-                    missed = re.search(r'(?i).{0,10}заверш.н', title)
-                    if missed:
-                        status = 'Завершен'
 
-    if status in {'НЖ', 'НП', 'Найден', 'Завершен'}:
-        publish_to_pubsub('topic_for_topic_management', {'topic_id': topic_id, 'status': status})
-        logging.info(f'pub/sub message for topic_management triggered: topic_id: {topic_id}, status: {status}')
+    if not title:
+        return None
+
+    # language=regexp
+    patterns = [[r'(?i).{0,10}пропал.*', 'Ищем'],
+                [r'(?i).{0,10}(?:найден|).{0,5}жив', 'НЖ'],
+                [r'(?i).{0,10}(?:найден|).{0,5}пог', 'НП'],
+                [r'(?i).{0,10}заверш.н', 'Завершен']]
+
+    status = None
+    for pattern in patterns:
+        if re.search(pattern[0], title):
+            status = pattern[1]
+            break
+
+    if not status:
+        return None
+
+    publish_to_pubsub('topic_for_topic_management', {'topic_id': topic_id, 'status': status})
+    logging.info(f'pub/sub message for topic_management triggered: topic_id: {topic_id}, status: {status}')
 
     return None
 
@@ -843,22 +751,15 @@ def update_first_posts_and_statuses():
                         else:
 
                             # update the number of checks for this search
-                            stmt = sqlalchemy.text("""
-                                                        UPDATE 
-                                                            search_first_posts 
-                                                        SET 
-                                                            num_of_checks = :a 
-                                                        WHERE 
-                                                            search_id = :b AND actual = True;
-                                                        """)
+                            stmt = sqlalchemy.text("""UPDATE search_first_posts SET num_of_checks = :a 
+                                                      WHERE search_id = :b AND actual = True;""")
                             conn.execute(stmt, a=(prev_number_of_checks + 1), b=search_id)
 
                     # if record for this search – does not exist – add a new record
                     else:
                         stmt = sqlalchemy.text("""INSERT INTO search_first_posts 
                                                   (search_id, timestamp, actual, content_hash, content, num_of_checks) 
-                                                  VALUES (:a, :b, TRUE, :c, :d, :e);
-                                                  """)
+                                                  VALUES (:a, :b, TRUE, :c, :d, :e);""")
                         conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=act_hash, d=act_content, e=1)
 
                 elif site_unavailable:
@@ -915,15 +816,12 @@ def main(event, context): # noqa
     global bad_gateway_counter
     bad_gateway_counter = 0
 
-    """# BLOCK 1. for checking visibility (deleted or hidden) and status (Ищем, НЖ, НП) changes of active searches
-    # A reason why this functionality – is in this script, is that it worth update the list of active searches first
-    # and then check for first posts. Plus, once first posts checker finds something odd – it triggers a visibility
-    # check for this search
-    number_of_checked_searches = 100
-    update_visibility_for_list_of_active_searches(number_of_checked_searches)"""
-
-    # BLOCK 2. for checking if the first posts were changed
+    # BLOCK 1. for checking if the first posts were changed
     update_first_posts_and_statuses()
+
+    # BLOCK 2. small bonus: check one of topics, which has visibility='hidden' to check if it was not unhidden later.
+    # It is done in this script only because there's no better place. Ant these are circa 40 hidden topics at all.
+    update_visibility_for_one_hidden_topic()
 
     if bad_gateway_counter > 3:
         publish_to_pubsub('topic_notify_admin', f'[che_posts]: Bad Gateway {bad_gateway_counter} times')

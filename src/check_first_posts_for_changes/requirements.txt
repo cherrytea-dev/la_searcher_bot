@@ -5,7 +5,3 @@ pg8000==1.19.4
 
 google-cloud-secret-manager==2.4.0
 google-cloud-pubsub==2.6.0
-
-# attempt of temp fix for the issue https://issuetracker.google.com/issues/268071358
-# grpcio==1.50.0
-# grpcio-status==1.50.0
