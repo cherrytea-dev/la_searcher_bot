@@ -2644,11 +2644,11 @@ def parse_one_folder(db, folder_id):
                     # FIXME ^^^
                     search_summary_object.topic_type = title_reco_dict['topic_type']
                     if 'persons' in title_reco_dict.keys():
-                        if 'total_display_name' in title_reco_dict['persons']:
+                        if 'total_display_name' in title_reco_dict['persons'].keys():
                             search_summary_object.display_name = title_reco_dict['persons']['total_display_name']
-                        if 'age_min' in title_reco_dict['persons']:
+                        if 'age_min' in title_reco_dict['persons'].keys():
                             search_summary_object.age_min = title_reco_dict['persons']['age_min']
-                        if 'age_max' in title_reco_dict['persons']:
+                        if 'age_max' in title_reco_dict['persons'].keys():
                             search_summary_object.age_max = title_reco_dict['persons']['age_max']
 
                     if 'status' in title_reco_dict.keys():
@@ -2672,6 +2672,7 @@ def parse_one_folder(db, folder_id):
                 logging.info(f'TEMP - THIS BIG ERROR HAPPENED')
                 notify_admin(f'TEMP - THIS BIG ERROR HAPPENED')
                 logging.error(e)
+                logging.exception(e)
 
             # exclude non-relevant searches
             if search_status_short != "не показываем":
