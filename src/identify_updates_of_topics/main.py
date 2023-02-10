@@ -2560,7 +2560,7 @@ def recognize_title(line):
 
     final_recognition_dict = generate_final_reco_dict(recognition_result)
 
-    return final_recognition_dict, recognition_result
+    return final_recognition_dict
 
 
 def parse_one_folder(db, folder_id):
@@ -2594,26 +2594,20 @@ def parse_one_folder(db, folder_id):
 
             # Current block which contains everything regarding certain search
             search_title_block = data_block.find('a', 'topictitle')
-            search_title = search_title_block.next_element
-
             # rare case: cleaning [size][b]...[/b][/size] tags
-            search_title = search_title.replace('[b]', '', 1)
-            search_title = search_title.replace('[/b]', '', 1)
-            search_title = search_title.replace('[size=140]', '', 1)
-            search_title = search_title.replace('[/size]', '', 1)
-
+            search_title = re.sub(r'\[/?(b|size.{0,6}|color.{0,10})]', '', search_title_block.next_element)
             search_id = int(re.search(r'(?<=&t=)\d{2,8}', search_title_block['href']).group())
             search_replies_num = int(data_block.find('dd', 'posts').next_element)
 
+            # FIXME - to be removed after final feature parity
             person_fam_name = define_family_name_from_search_title_new(search_title)
             person_age = define_age_from_search_title(search_title)
             start_datetime = define_start_time_of_search(data_block)
             search_status_short = define_status_from_search_title(search_title)
+            # FIXME ^^^
 
-            # TODO - experiment of adding New Title Recognition
             try:
-                # FIXME – object to be deleted – no need in it
-                title_reco_dict, title_reco_object = recognize_title(search_title)
+                title_reco_dict = recognize_title(search_title)
                 logging.info(f'TEMP – title_reco_dict = {title_reco_dict}')
 
                 # TODO - check if old exclusions are not better than new ones
@@ -2653,17 +2647,10 @@ def parse_one_folder(db, folder_id):
                     if 'status' in title_reco_dict.keys():
                         search_summary_object.new_status = title_reco_dict['status']
 
-                    # FIXME – here we are adding from dict_reco
-                    try:
-                        if 'locations' in title_reco_dict.keys():
-                            list_of_location_cities = [x['address'] for x in title_reco_dict['locations']]
-                            list_of_location_coords = [get_coordinates(db, x) for x in list_of_location_cities]
-                            search_summary_object.locations = list_of_location_coords
-
-                    except Exception as e:  # noqa
-                        print(f'TEMP - ERROR WHILE FINDING LOCS / STATUS IN RECO_DICT')
-                        logging.exception(e)
-                    # FIXME – ^^^
+                    if 'locations' in title_reco_dict.keys():
+                        list_of_location_cities = [x['address'] for x in title_reco_dict['locations']]
+                        list_of_location_coords = [get_coordinates(db, x) for x in list_of_location_cities]
+                        search_summary_object.locations = list_of_location_coords
 
                     folder_summary.append(search_summary_object)
 
