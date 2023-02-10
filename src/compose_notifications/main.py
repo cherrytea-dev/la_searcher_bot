@@ -1413,7 +1413,7 @@ def iterate_over_all_users_and_updates(conn):
             search_lat = record.search_latitude
             search_lon = record.search_longitude
             list_of_city_coords = None
-            if record.city_locations:
+            if record.city_locations and record.city_locations != 'None':
                 non_geolocated = [x for x in eval(record.city_locations) if isinstance(x, str)]
                 list_of_city_coords = eval(record.city_locations) if not non_geolocated else None
 
