@@ -2540,9 +2540,8 @@ def recognize_title(line):
             per_dict = {'total_persons': -1, 'total_display_name': 'Неизвестный'}
             final_dict['persons'] = per_dict
 
-        if 'total_persons' in final_dict['persons'].keys() and \
-                final_dict['persons']['total_persons'] == -1 and \
-                recognition_result.per_num == 1:
+        if 'persons' in final_dict.keys() and 'total_persons' in final_dict['persons'].keys() and \
+                final_dict['persons']['total_persons'] == -1 and recognition_result.per_num == 1:
             final_dict['persons']['total_persons'] = 1
 
         return final_dict
