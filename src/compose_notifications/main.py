@@ -1390,7 +1390,7 @@ def iterate_over_all_users_and_updates(conn):
                 else:
                     # FIXME - temp
                     logging.info(f'5-6-7 CHECK for {user_line.user_id} is FAILED, record {record.change_type}, '
-                                 f'user {user.user_id}. record {record.forum_search_num}')
+                                 f'user {user_line.user_id}. record {record.forum_search_num}')
                     # FIXME ^^^
 
             logging.info(f'User List crop due to 5-6-7: {len(users_list_outcome)} --> {len(temp_user_list)}')
