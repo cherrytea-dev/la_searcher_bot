@@ -1566,6 +1566,7 @@ def iterate_over_all_users_and_updates(conn, admins_list):
                     elif change_type == 5:  # field_trips_new
 
                         # FIXME – temp limitation for ADMIN
+                        notify_admin('QQQ: step 0')
                         if user.user_id in admins_list:
                             message = compose_individual_msg_on_field_trip(new_record.message, s_lat, s_lon, u_lat,
                                                                            u_lon, region_to_show)
@@ -1575,6 +1576,7 @@ def iterate_over_all_users_and_updates(conn, admins_list):
                     elif change_type == 6:  # field_trips_change
 
                         # FIXME – temp limitation for ADMIN
+                        notify_admin('QQQ: step 0')
                         if user.user_id in admins_list:
                             message = compose_individual_msg_on_field_trip(new_record.message, s_lat, s_lon, u_lat,
                                                                            u_lon, region_to_show)
@@ -1583,6 +1585,7 @@ def iterate_over_all_users_and_updates(conn, admins_list):
 
                     elif change_type == 7:  # coords_change
                         # FIXME – temp debug
+                        notify_admin('QQQ: step 0')
                         print(f'YYY: user_id={user.user_id}, user={user}, prefs={user.notif_pref_ids_list}')
                         # FIXME ^^^
 
@@ -1600,9 +1603,17 @@ def iterate_over_all_users_and_updates(conn, admins_list):
 
                     # define if user received this message already
                     this_user_was_notified = False
+                    # FIXME - temp debug
+                    if change_type in {5, 6, 7}:
+                        notify_admin('QQQ: step 2')
+                    # FIXME ^^^
                     if this_record_was_processed_already:
                         this_user_was_notified = get_from_sql_if_was_notified_already(user.user_id, 'text',
                                                                                       new_record.change_id)
+                        # FIXME - temp debug
+                        if change_type in {5, 6, 7}:
+                            notify_admin(f'QQQ: step 3: {this_user_was_notified}')
+                        # FIXME ^^^
                         logging.info(f'this user was notified already {user.user_id}, {this_user_was_notified}')
                         if user.user_id in users_who_should_not_be_informed:
                             logging.info('this user is in the list of non-notifiers')
