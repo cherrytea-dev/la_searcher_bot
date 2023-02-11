@@ -1366,15 +1366,11 @@ def iterate_over_all_users_and_updates(conn, admins_list):
             for user_line in users_list_outcome:
                 if not (record.change_type in {5, 6, 7} and user_line.user_id not in admins_list):
                     temp_user_list.append(user_line)
-                    # FIXME - temp
                     logging.info(f'5-6-7 CHECK for {user_line.user_id} is OK, record {record.change_type}, '
                                  f'user {user_line.user_id}. record {record.forum_search_num}')
-                    # FIXME ^^^
                 else:
-                    # FIXME - temp
                     logging.info(f'5-6-7 CHECK for {user_line.user_id} is FAILED, record {record.change_type}, '
                                  f'user {user_line.user_id}. record {record.forum_search_num}')
-                    # FIXME ^^^
 
             logging.info(f'User List crop due to 5-6-7: {len(users_list_outcome)} --> {len(temp_user_list)}')
             users_list_outcome = temp_user_list
@@ -1562,56 +1558,29 @@ def iterate_over_all_users_and_updates(conn, admins_list):
                             message += new_record.message[2]
 
                     elif change_type == 5:  # field_trips_new
-
-                        # FIXME – temp limitation for ADMIN
-                        notify_admin('QQQ: step 0')
-                        if user.user_id in admins_list:
-                            message = compose_individual_msg_on_field_trip(new_record.message, s_lat, s_lon, u_lat,
-                                                                           u_lon, region_to_show)
-                        notify_admin('QQQ: step 1')
-                        # FIXME ^^^
+                        message = compose_individual_msg_on_field_trip(new_record.message, s_lat, s_lon, u_lat,
+                                                                       u_lon, region_to_show)
 
                     elif change_type == 6:  # field_trips_change
-
-                        # FIXME – temp limitation for ADMIN
-                        notify_admin('QQQ: step 0')
-                        if user.user_id in admins_list:
-                            message = compose_individual_msg_on_field_trip(new_record.message, s_lat, s_lon, u_lat,
-                                                                           u_lon, region_to_show)
-                            notify_admin('QQQ: step 1')
-                        # FIXME ^^^
+                        message = compose_individual_msg_on_field_trip(new_record.message, s_lat, s_lon, u_lat,
+                                                                       u_lon, region_to_show)
 
                     elif change_type == 7:  # coords_change
-                        # FIXME – temp debug
-                        notify_admin('QQQ: step 0')
-                        print(f'YYY: user_id={user.user_id}, user={user}, prefs={user.notif_pref_ids_list}')
-                        # FIXME ^^^
+                        message = compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat,
+                                                                              u_lon, region_to_show)
 
-                        # FIXME – temp limitation for ADMIN
-                        if user.user_id in admins_list:
-                            message = compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat,
-                                                                                  u_lon, region_to_show)
-                            notify_admin('QQQ: step 1')
-                        # FIXME ^^^
-
-                    # TODO: to delete msg_group at all
+                    # TODO: to delete msg_group at all ?
                     # messages followed by coordinates (sendMessage + sendLocation) have same group
                     msg_group_id = get_the_new_group_id() if change_type in {0, 5, 6, 7} else None
                     # not None for new_search, field_trips_new, field_trips_change,  coord_change
 
                     # define if user received this message already
                     this_user_was_notified = False
-                    # FIXME - temp debug
-                    if change_type in {5, 6, 7}:
-                        notify_admin('QQQ: step 2')
-                    # FIXME ^^^
+
                     if this_record_was_processed_already:
                         this_user_was_notified = get_from_sql_if_was_notified_already(user.user_id, 'text',
                                                                                       new_record.change_id)
-                        # FIXME - temp debug
-                        if change_type in {5, 6, 7}:
-                            notify_admin(f'QQQ: step 3: {this_user_was_notified}')
-                        # FIXME ^^^
+
                         logging.info(f'this user was notified already {user.user_id}, {this_user_was_notified}')
                         if user.user_id in users_who_should_not_be_informed:
                             logging.info('this user is in the list of non-notifiers')
