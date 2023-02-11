@@ -1360,7 +1360,7 @@ def iterate_over_all_users_and_updates(conn, admins_list):
         logging.info(f'User List crop due to region: {len(users_list_outcome)} --> {len(temp_user_list)}')
         users_list_outcome = temp_user_list
 
-        # FIXME 2.5 TYPE 5 6 7
+        # FIXME -------- TYPE 5 6 7 -------------
         try:
             temp_user_list = []
             for user_line in users_list_outcome:
@@ -1377,19 +1377,18 @@ def iterate_over_all_users_and_updates(conn, admins_list):
                     # FIXME ^^^
 
             logging.info(f'User List crop due to 5-6-7: {len(users_list_outcome)} --> {len(temp_user_list)}')
-            # users_list_outcome = temp_user_list
+            users_list_outcome = temp_user_list
 
         except Exception as e:
             logging.info(f'TEMP - exception CROP 5 6 7: {repr(e)}')
-        # FIXME ^^^
-        
+        # FIXME ^^^ ----------------------
+
         # 2. TYPE. crop the list of users, excluding Users who does not want to receive notifications of such a kind
         try:
             temp_user_list = []
             for user_line in users_list_outcome:
                 for user_notif_pref in user_line.notif_pref_ids_list:
-                    if user_notif_pref == record.change_type or \
-                            (user_notif_pref == 30 and record.change_type not in {5, 6, 7}):  # FIXME: 30 = 'all'
+                    if user_notif_pref == record.change_type or user_notif_pref == 30:  # MEMO: 30 = 'all'
                         temp_user_list.append(user_line)
                         break
 
