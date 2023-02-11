@@ -321,7 +321,7 @@ def update_first_posts_and_statuses():
     def generate_list_of_search_groups():
         """generate N search groups, groups needed to define which part of all searches will be checked now"""
 
-        percent_step = 7
+        percent_step = 5
         list_of_groups = []
         current_percent = 0
 
