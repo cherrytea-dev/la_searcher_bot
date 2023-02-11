@@ -1386,7 +1386,6 @@ def iterate_over_all_users_and_updates(conn, admins_list):
                     logging.info(f'5-6-7 CHECK for {user_line.user_id} is OK, record {record.change_type}, '
                                  f'user {user_line.user_id}. record {record.forum_search_num}')
                     # FIXME ^^^
-                    break
                 else:
                     # FIXME - temp
                     logging.info(f'5-6-7 CHECK for {user_line.user_id} is FAILED, record {record.change_type}, '
