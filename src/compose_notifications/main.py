@@ -1983,6 +1983,14 @@ def main(event, context):  # noqa
             enrich_new_records_from_searches(conn)
             enrich_new_records_with_search_activities(conn)
             enrich_new_records_with_managers(conn)
+
+            # FIXME - temp debug
+            try:
+                logging.info(f'TEMP - pre-comments print of the search info: {new_records_list[0]}')
+            except: # noqa
+                pass
+            # FIXME ^^^
+
             enrich_new_records_with_comments(conn, 'all')
             enrich_new_records_with_comments(conn, 'inforg')
             enrich_new_records_with_com_message_texts()
