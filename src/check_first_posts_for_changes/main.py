@@ -11,10 +11,8 @@ import re
 import json
 import logging
 import hashlib
-import random
 
-import sqlalchemy
-# idea for optimization – to move to psycopg2
+import sqlalchemy  # idea for optimization – to move to psycopg2
 
 from google.cloud import secretmanager
 from google.cloud import pubsub_v1
@@ -31,18 +29,8 @@ bad_gateway_counter = 0
 class Search:
 
     def __init__(self,
-                 topic_id=None,
-                 start_time=None,
-                 folder_id=None,
-                 upd_time=None,
-                 num_s_in_folder=None,
-                 num_of_checks=None):
+                 topic_id=None):
         self.topic_id = topic_id
-        self.start_time = start_time
-        self.folder_id = folder_id
-        self.upd_time = upd_time
-        self.num = num_s_in_folder
-        self.checks = num_of_checks
 
 
 class PercentGroup:
@@ -152,8 +140,6 @@ def update_one_topic_visibility(search_id):
         """check is the existing search was deleted or hidden"""
 
         topic_visibility = 'regular'
-        bad_gateway = False
-
         content, site_unavailable = parse_search(search_num)
 
         if site_unavailable:
@@ -173,12 +159,12 @@ def update_one_topic_visibility(search_id):
 
         logging.info(f'search {search_num} is {topic_visibility}')
 
-        return deleted_trigger, hidden_trigger, bad_gateway, topic_visibility
+        return deleted_trigger, hidden_trigger, site_unavailable, topic_visibility
 
     del_trig, hid_trig, forum_unavailable, visibility = check_topic_visibility(search_id)
     logging.info(f'Visibility checked for {search_id}: visibility = {visibility}')
 
-    if forum_unavailable:
+    if forum_unavailable or not visibility:
         return None
 
     pool = sql_connect()
@@ -295,90 +281,32 @@ def update_first_posts_and_statuses():
     def get_list_of_searches():
         """get best list of searches for which first posts should be checked"""
 
-        base_table = []
         base_table_of_objects = []
 
         pool_2 = sql_connect()
         conn_2 = pool_2.connect()
 
         try:
-            # get the data from sql with the structure:
-            # [topic_id, search_start_time, forum_folder_id, search_update_time, number_of_searches_in_folder]
-            # search_update_time – is a time of search's first post actualization in SQL
-            # number_of_searches_in_folder – is a historical number of searches in SQL assigned to each folder
-            raw_sql_extract = conn_2.execute("""
-                SELECT 
-                    s4.*, s5.count 
-                FROM (
-                    SELECT 
-                        s2.*, s3.timestamp, s3.num_of_checks
-                    FROM (
-                        SELECT 
-                            s0.search_forum_num, s0.search_start_time, s0.forum_folder_id 
-                        FROM (
-                            SELECT 
-                                search_forum_num, search_start_time, forum_folder_id
-                            FROM
-                                searches 
-                            WHERE
-                                status_short = 'Ищем'
-                        ) s0 
-                        LEFT JOIN 
-                            search_health_check s1 
-                        ON 
-                            s0.search_forum_num=s1.search_forum_num 
-                        WHERE
-                            (s1.status != 'deleted' AND s1.status != 'hidden') OR s1.status IS NULL
-                    ) s2 
-                    LEFT JOIN 
-                    (
-                    SELECT 
-                        search_id, timestamp, actual, content_hash, num_of_checks 
-                    FROM
-                        search_first_posts 
-                    WHERE
-                        actual=TRUE
-                    ) s3 
-                    ON
-                        s2.search_forum_num=s3.search_id
-                ) s4 
-                LEFT JOIN 
-                (
-                    SELECT
-                        count(*), forum_folder_id
-                    FROM
-                        searches
-                    GROUP BY
-                        forum_folder_id
-                    ORDER BY
-                        count(*) DESC
-                ) s5 
-                ON 
-                    s4.forum_folder_id=s5.forum_folder_id
-                LEFT JOIN
-                    folders AS f
-                ON
-                    s4.forum_folder_id = f.folder_id
-                WHERE 
-                    f.folder_type IS NULL OR f.folder_type = 'searches'
-                 ORDER BY 2 DESC
-                /*action='get_list_of_searches_for_first_post_and_status_update 2.0' */        
-                ;
-                """).fetchall()
+            raw_sql_extract = conn_2.execute("""   
+                WITH 
+                s AS (SELECT search_forum_num, search_start_time, forum_folder_id FROM searches 
+                    WHERE status_short = 'Ищем'),
+                h AS (SELECT search_forum_num, status FROM search_health_check),
+                f AS (SELECT folder_id, folder_type FROM folders 
+                    WHERE folder_type IS NULL OR folder_type = 'searches')
+                
+                SELECT s.search_forum_num, s.search_start_time FROM s 
+                LEFT JOIN h ON s.search_forum_num=h.search_forum_num 
+                JOIN f ON s.forum_folder_id=f.folder_id 
+                WHERE (h.status != 'deleted' AND h.status != 'hidden') or h.status IS NULL
+                ORDER BY 2 DESC
+                /*action='get_list_of_searches_for_first_post_and_status_update 3.0' */        
+                ;""").fetchall()
 
             # form the list-like table
             if raw_sql_extract:
                 for line_2 in raw_sql_extract:
-                    new_line = [line_2[0], line_2[1], line_2[3], line_2[5], line_2[4]]
-                    new_object = Search(topic_id=line_2[0], start_time=line_2[1], folder_id=line_2[2],
-                                        upd_time=line_2[3], num_of_checks=line_2[4], num_s_in_folder=line_2[5])
-
-                    # for blank lines we paste the oldest date
-                    if not new_object.upd_time:
-                        new_object.upd_time = datetime.datetime(1, 1, 1, 0, 0)
-                    if not new_object.checks:
-                        new_object.checks = 1
-                    base_table.append(new_line)
+                    new_object = Search(topic_id=line_2[0])
                     base_table_of_objects.append(new_object)
 
         except Exception as e2:
@@ -531,11 +459,11 @@ def update_first_posts_and_statuses():
                     if raw_data:
 
                         last_hash = raw_data[0]
-                        prev_number_of_checks = raw_data[1]
+                        # prev_number_of_checks = raw_data[1]
                         # last_content = raw_data[2]
 
-                        if not prev_number_of_checks:
-                            prev_number_of_checks = 1
+                        # if not prev_number_of_checks:
+                        #     prev_number_of_checks = 1
 
                         # if record for this search – outdated
                         if act_hash != last_hash:
