@@ -1386,6 +1386,22 @@ def iterate_over_all_users_and_updates(conn):
         except Exception as e:
             logging.info(f'TEMP - exception notif type: {repr(e)}')
 
+        # FIXME 2.5 TYPE 5 6 7
+        try:
+            temp_user_list = []
+            for user_line in users_list_outcome:
+                if not (record.change_type in {5, 6, 7} or user_line.user_id in admins_list) \
+                        or user_line.user_id in admins_list:
+                    temp_user_list.append(user_line)
+                    break
+
+            logging.info(f'User List crop due to 5-6-7: {len(users_list_outcome)} --> {len(temp_user_list)}')
+            # users_list_outcome = temp_user_list
+
+        except Exception as e:
+            logging.info(f'TEMP - exception CROP 5 6 7: {repr(e)}')
+        # FIXME ^^^
+
         # 3. AGES. crop the list of users, excluding Users who does not want to receive notifications for such Ages
         temp_user_list = []
         if not (record.age_min or record.age_max):
