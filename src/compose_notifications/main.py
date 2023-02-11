@@ -187,27 +187,27 @@ def process_pubsub_message(event):
 
 class Comment:
     def __init__(self,
-                 comment_url=None,
-                 comment_text=None,
-                 comment_author_nickname=None,
-                 comment_author_link=None,
-                 search_forum_num=None,
-                 comment_num=None,
-                 comment_forum_global_id=None,
+                 url=None,
+                 text=None,
+                 author_nickname=None,
+                 author_link=None,
+                 topic_id=None,
+                 num=None,
+                 forum_global_id=None,
                  ignore=None
                  ):
-        self.comment_url = comment_url
-        self.comment_text = comment_text
-        self.comment_author_nickname = comment_author_nickname
-        self.comment_author_link = comment_author_link
-        self.search_forum_num = search_forum_num
-        self.comment_num = comment_num
-        self.comment_forum_global_id = comment_forum_global_id
+        self.url = url
+        self.text = text
+        self.author_nickname = author_nickname
+        self.author_link = author_link
+        self.search_forum_num = topic_id
+        self.num = num
+        self.forum_global_id = forum_global_id
         self.ignore = ignore
 
     def __str__(self):
-        return str([self.comment_url, self.comment_text, self.comment_author_nickname, self.comment_author_link,
-                    self.search_forum_num, self.comment_num, self.comment_forum_global_id, self.ignore])
+        return str([self.url, self.text, self.author_nickname, self.author_link,
+                    self.search_forum_num, self.num, self.forum_global_id, self.ignore])
 
 
 class LineInChangeLog:
@@ -509,28 +509,17 @@ def enrich_new_records_with_comments(conn, type_of_comments):
 
     try:
         if type_of_comments == 'all':
-            comments = conn.execute("""
-                                    SELECT 
-                                        comment_url, comment_text, comment_author_nickname, comment_author_link, 
-                                        search_forum_num, comment_num, comment_global_num
-                                    FROM 
-                                        comments
-                                    WHERE
-                                        notification_sent IS NULL
-                                    ;""").fetchall()
+            comments = conn.execute("""SELECT 
+                                          comment_url, comment_text, comment_author_nickname, comment_author_link, 
+                                          search_forum_num, comment_num, comment_global_num
+                                       FROM comments WHERE notification_sent IS NULL;""").fetchall()
 
         elif type_of_comments == 'inforg':
-            comments = conn.execute("""
-                                    SELECT
+            comments = conn.execute("""SELECT
                                         comment_url, comment_text, comment_author_nickname, comment_author_link,
                                         search_forum_num, comment_num, comment_global_num
-                                    FROM
-                                        comments 
-                                    WHERE 
-                                        notif_sent_inforg IS NULL 
-                                        AND LOWER(LEFT(comment_author_nickname,6))='инфорг'
-                                    ;""").fetchall()
-
+                                    FROM comments WHERE notif_sent_inforg IS NULL 
+                                    AND LOWER(LEFT(comment_author_nickname,6))='инфорг';""").fetchall()
         else:
             comments = None
 
@@ -545,23 +534,23 @@ def enrich_new_records_with_comments(conn, type_of_comments):
                         if c_line[1] and c_line[1][0:6].lower() != 'резерв':
 
                             comment = Comment()
-                            comment.comment_url = c_line[0]
-                            comment.comment_text = c_line[1]
+                            comment.url = c_line[0]
+                            comment.text = c_line[1]
 
                             # limitation for extra long messages
-                            if len(comment.comment_text) > 3500:
-                                comment.comment_text = comment.comment_text[:2000] + '...'
+                            if len(comment.text) > 3500:
+                                comment.text = comment.text[:2000] + '...'
 
-                            comment.comment_author_link = c_line[3]
+                            comment.author_link = c_line[3]
                             comment.search_forum_num = c_line[4]
-                            comment.comment_num = c_line[5]
+                            comment.num = c_line[5]
 
                             # some nicknames can be like >>Белый<< which crashes html markup -> we delete symbols
-                            comment.comment_author_nickname = c_line[2]
-                            if comment.comment_author_nickname.find('>') > -1:
-                                comment.comment_author_nickname = comment.comment_author_nickname.replace('>', '')
-                            if comment.comment_author_nickname.find('<') > -1:
-                                comment.comment_author_nickname = comment.comment_author_nickname.replace('<', '')
+                            comment.author_nickname = c_line[2]
+                            if comment.author_nickname.find('>') > -1:
+                                comment.author_nickname = comment.author_nickname.replace('>', '')
+                            if comment.author_nickname.find('<') > -1:
+                                comment.author_nickname = comment.author_nickname.replace('<', '')
 
                             temp_list_of_comments.append(comment)
 
@@ -586,7 +575,7 @@ def compose_com_msg_on_new_search(link, name, age, age_wording, activities, mana
     msg_1 = ''
     if activities:
         for line in activities:
-            msg_1 += line + '\n'
+            msg_1 += f'{line}\n'
 
     # 2. Person
     age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
@@ -601,7 +590,7 @@ def compose_com_msg_on_new_search(link, name, age, age_wording, activities, mana
             msg_3 += 'Ответственные:'
             for manager in managers_list:
                 line = add_tel_link(manager)
-                msg_3 += '\n &#8226; ' + str(line)
+                msg_3 += f'\n &#8226; {line}'
 
         except Exception as e:
             logging.error('Not able to compose New Search Message text with Managers: ' + str(e))
@@ -819,18 +808,15 @@ def compose_com_msg_on_new_comments(link, name, age, age_wording, comments):
     # compose a message Body with all the comments
     msg = ''
     for comment in comments:
-        if comment.comment_text:
-            msg += ' &#8226; <a href="https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u='
-            msg += str(comment.comment_author_link)
-            msg += '">'
-            msg += comment.comment_author_nickname
-            msg += '</a>: <i>«<a href="'
-            msg += comment.comment_url
-            msg += '">'
-            if len(comment.comment_text) > 1000:
-                msg += comment.comment_text[:1000]
+        if comment.text:
+            msg += f' &#8226; <a href="https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u=' \
+                   f'{comment.author_link}">{comment.author_nickname}</a>: ' \
+                   f'<i>«<a href="{comment.url}">'
+
+            if len(comment.text) > 1000:
+                msg += comment.text[:1000]
             else:
-                msg += comment.comment_text
+                msg += comment.text
             msg += '</a>»</i>\n'
 
     if msg:
@@ -849,21 +835,21 @@ def compose_com_msg_on_inforg_comments(link, name, age, age_wording, comments, r
     if comments:
         author = None
         for comment in comments:
-            if comment.comment_text:
-                author = '<a href="https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u={}">{}</a>'.format(
-                    str(comment.comment_author_link), comment.comment_author_nickname)
-                msg_3 += '<i>«<a href="{}">{}</a>»</i>\n'.format(comment.comment_url, comment.comment_text)
+            if comment.text:
+                author = f'<a href="https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u=' \
+                         f'{comment.author_link}">{comment.author_nickname}</a>'
+                msg_3 += f'<i>«<a href="{comment.url}">{comment.text}</a>»</i>\n'
 
         if name[0].isupper() and age and age != 0:
-            person = name + ' ' + age_wording
+            person = f'{name} {age_wording}'
         else:
             person = name
 
-        msg_3 = ':\n' + msg_3
+        msg_3 = f':\n{msg_3}'
 
-        msg_1 = 'Сообщение от {} по <a href="{}">{}</a>'.format(author, link, person)
+        msg_1 = f'Сообщение от {author} по <a href="{link}">{person}</a>'
         if region:
-            msg_2 = ' (' + region + ')'
+            msg_2 = f' ({region})'
 
     return msg_1, msg_2, msg_3
 
@@ -1379,6 +1365,28 @@ def iterate_over_all_users_and_updates(conn, admins_list):
             logging.info(f'TEMP - exception CROP 5 6 7: {repr(e)}')
         # FIXME ^^^ ----------------------
 
+        # FIXME -------- INFORG 2x -------------
+        try:
+            temp_user_list = []
+            for user_line in users_list_outcome:
+                # if this record is about inforg_comments and user already subscribed to all comments
+                if not (record.change_type == 4 and 30 in user_line.notif_pref_ids_list):
+                    temp_user_list.append(user_line)
+                    logging.info(f'Inforg 2x CHECK for {user_line.user_id} is OK, record {record.change_type}, '
+                                 f'user {user_line.user_id} {user_line.notif_pref_ids_list}. '
+                                 f'record {record.forum_search_num}')
+                else:
+                    logging.info(f'Inforg 2x CHECK for {user_line.user_id} is FAILED, record {record.change_type}, '
+                                 f'user {user_line.user_id} {user_line.notif_pref_ids_list}. '
+                                 f'record {record.forum_search_num}')
+
+            logging.info(f'User List crop due to Inforg 2x [DEMO]: {len(users_list_outcome)} --> {len(temp_user_list)}')
+            # users_list_outcome = temp_user_list
+
+        except Exception as e:
+            logging.info(f'TEMP - exception CROP Inforg 2X: {repr(e)}')
+        # FIXME ^^^ ----------------------
+
         # 2. TYPE. crop the list of users, excluding Users who does not want to receive notifications of such a kind
         try:
             temp_user_list = []
@@ -1857,10 +1865,9 @@ def mark_new_comments_as_processed(conn):
     except Exception as e:
 
         sql_text = sqlalchemy.text("""UPDATE comments SET notification_sent = 'y' WHERE notification_sent is Null 
-                                        OR notification_sent = 's';""")
+                                      OR notification_sent = 's';""")
         conn.execute(sql_text)
-        sql_text = sqlalchemy.text("""UPDATE comments SET notif_sent_inforg = 'y' WHERE notif_sent_inforg is Null 
-                                        ;""")
+        sql_text = sqlalchemy.text("""UPDATE comments SET notif_sent_inforg = 'y' WHERE notif_sent_inforg is Null;""")
         conn.execute(sql_text)
 
         logging.info('Not able to mark Comments as Processed:')
@@ -1879,17 +1886,13 @@ def check_and_save_event_id(context, event, conn):
         """Check in PSQL in there's the same function 'compose_notifications' working in parallel"""
 
         sql_text_psy = sqlalchemy.text("""
-                        SELECT 
-                            event_id 
-                        FROM
-                            notif_functions_registry
+                        SELECT event_id 
+                        FROM notif_functions_registry
                         WHERE
                             time_start > NOW() - interval '130 seconds' AND
                             time_finish IS NULL AND
                             cloud_function_name  = 'compose_notifications'
-                        ;
-                        /*action='check_if_there_is_parallel_compose_function' */
-                        ;""")
+                        /*action='check_if_there_is_parallel_compose_function' */;""")
 
         lines = conn.execute(sql_text_psy).fetchone()
 
@@ -1900,14 +1903,10 @@ def check_and_save_event_id(context, event, conn):
     def record_start_of_function(event_num):
         """Record into PSQL that this function started working (id = id of the respective pub/sub event)"""
 
-        sql_text_psy = sqlalchemy.text("""
-                        INSERT INTO 
-                            notif_functions_registry
-                        (event_id, time_start, cloud_function_name)
-                        VALUES
-                        (:a, :b, :c);
-                        /*action='save_start_of_compose_function' */
-                        ;""")
+        sql_text_psy = sqlalchemy.text("""INSERT INTO notif_functions_registry
+                                          (event_id, time_start, cloud_function_name)
+                                          VALUES (:a, :b, :c)
+                                          /*action='save_start_of_compose_function' */;""")
 
         conn.execute(sql_text_psy, a=event_id, b=datetime.datetime.now(), c='compose_notifications')
         logging.info(f'function was triggered by event {event_num}')
@@ -1917,16 +1916,8 @@ def check_and_save_event_id(context, event, conn):
     def record_finish_of_function(event_num):
         """Record into PSQL that this function finished working (id = id of the respective pub/sub event)"""
 
-        sql_text_psy = sqlalchemy.text("""
-                        UPDATE 
-                            notif_functions_registry
-                        SET
-                            time_finish = :a
-                        WHERE
-                            event_id = :b
-                        ;
-                        /*action='save_finish_of_compose_function' */
-                        ;""")
+        sql_text_psy = sqlalchemy.text("""UPDATE notif_functions_registry SET time_finish = :a WHERE event_id = :b
+                                          /*action='save_finish_of_compose_function' */;""")
 
         conn.execute(sql_text_psy, a=datetime.datetime.now(), b=event_num)
 
@@ -2013,12 +2004,9 @@ def main(event, context):  # noqa
             record_notification_statistics(conn)
 
         # check if there are any notifications remained to be composed
-        check = conn.execute(
-            """
-            SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log 
-            WHERE notification_sent is NULL 
-            OR notification_sent='s' LIMIT 1; """
-        ).fetchall()
+        check = conn.execute("""SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log 
+                                WHERE notification_sent is NULL 
+                                OR notification_sent='s' LIMIT 1; """).fetchall()
         if check:
             logging.info('we checked – there is still something to notify, so we re-initiated this function')
             publish_to_pubsub('topic_for_notification', 're-run from same script')
