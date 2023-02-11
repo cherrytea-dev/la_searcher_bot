@@ -1171,7 +1171,7 @@ def record_notification_statistics(conn):
     return None
 
 
-def iterate_over_all_users_and_updates(conn):
+def iterate_over_all_users_and_updates(conn, admins_list):
     """initiates a full cycle for all messages send to all the users"""
 
     def save_to_sql_notif_by_user(mailing_id_, user_id_, message_, message_without_html_,
@@ -1384,7 +1384,7 @@ def iterate_over_all_users_and_updates(conn):
                     temp_user_list.append(user_line)
                     # FIXME - temp
                     logging.info(f'5-6-7 CHECK for {user_line.user_id} is OK, record {record.change_type}, '
-                                 f'user {user.user_id}. record {record.forum_search_num}')
+                                 f'user {user_line.user_id}. record {record.forum_search_num}')
                     # FIXME ^^^
                     break
                 else:
@@ -1522,10 +1522,6 @@ def iterate_over_all_users_and_updates(conn):
             # skip ignored lines which don't require a notification
             if new_record.ignore != 'y':
 
-                # TODO: temp debug
-                admins_list, testers_list = get_list_of_admins_and_testers(conn)
-                # TODO: temp debug
-
                 s_lat = new_record.search_latitude
                 s_lon = new_record.search_longitude
                 topic_id = new_record.forum_search_num
@@ -1573,6 +1569,7 @@ def iterate_over_all_users_and_updates(conn):
                         if user.user_id in admins_list:
                             message = compose_individual_msg_on_field_trip(new_record.message, s_lat, s_lon, u_lat,
                                                                            u_lon, region_to_show)
+                        notify_admin('QQQ: step 1')
                         # FIXME ^^^
 
                     elif change_type == 6:  # field_trips_change
@@ -1581,6 +1578,7 @@ def iterate_over_all_users_and_updates(conn):
                         if user.user_id in admins_list:
                             message = compose_individual_msg_on_field_trip(new_record.message, s_lat, s_lon, u_lat,
                                                                            u_lon, region_to_show)
+                            notify_admin('QQQ: step 1')
                         # FIXME ^^^
 
                     elif change_type == 7:  # coords_change
@@ -1592,6 +1590,7 @@ def iterate_over_all_users_and_updates(conn):
                         if user.user_id in admins_list:
                             message = compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat,
                                                                                   u_lon, region_to_show)
+                            notify_admin('QQQ: step 1')
                         # FIXME ^^^
 
                     # TODO: to delete msg_group at all
@@ -2008,6 +2007,7 @@ def main(event, context):  # noqa
 
         # only if there are updates in Change Log
         if new_records_list:
+
             # enrich New Records List with all the updates that should be in notifications
             enrich_new_records_from_searches(conn)
             enrich_new_records_with_search_activities(conn)
@@ -2017,6 +2017,7 @@ def main(event, context):  # noqa
             enrich_new_records_with_com_message_texts()
 
             # compose Users List: all the notifications recipients' details
+            admins_list, testers_list = get_list_of_admins_and_testers(conn)  # for debug purposes
             compose_users_list_from_users(conn)
             enrich_users_list_with_notification_preferences(conn)
             enrich_users_list_with_age_periods(conn)
@@ -2024,7 +2025,7 @@ def main(event, context):  # noqa
             enrich_users_list_with_user_regions(conn)
 
             # check the matrix: new update - user and initiate sending notifications
-            iterate_over_all_users_and_updates(conn)
+            iterate_over_all_users_and_updates(conn, admins_list)
 
             # mark all the "new" lines in tables Change Log & Comments as "old"
             mark_new_records_as_processed(conn)
