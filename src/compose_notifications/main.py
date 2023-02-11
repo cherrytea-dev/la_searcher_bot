@@ -781,9 +781,8 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
     notify_admin(f'Field Trips / Common Message: {msg}')
     # DEBUG
 
-    # Clean the message from excessive line breaks, like \n\n\n. tree repetitions covers majority of cases
-    # TODO: to make it more pythonic. it does its' job, but looks ugly
-    msg = msg.replace('\n\n\n', '\n\n').replace('\n\n\n', '\n\n').replace('\n\n\n', '\n\n')
+    # Clean the message from excessive line breaks, like \n\n\n. tree repetitions covers the majority of cases
+    msg = re.sub(r'\n{3,10}', '\n\n', msg)
 
     return msg, lat, lon
 
@@ -921,8 +920,8 @@ def enrich_new_records_with_com_message_texts():
                 start = line.start_time
                 now = datetime.datetime.now()
                 days_since_search_start = (now - start).days
-                # if "old" search - no need to compose & send message
-                if days_since_search_start < 2:
+
+                if days_since_search_start < 2:  # we do not notify users on "new" searches appeared >=2 days ago
                     line.message = compose_com_msg_on_new_search(line.link, line.name, line.age, line.age_wording,
                                                                  line.activities, line.managers)
                 else:
@@ -940,23 +939,14 @@ def enrich_new_records_with_com_message_texts():
             elif line.change_type == 4:  # 'inforg_replies':
                 line.message = compose_com_msg_on_inforg_comments(line.link, line.name, line.age, line.age_wording,
                                                                   line.comments_inforg, line.region)
-
             elif line.change_type == 5:  # topic_field_trip_new
-                # TODO temp debug
-                print(f'ZZZ: 1 line.message={line.message}')
-                # TODO temp debug
                 line.message, line.search_latitude, line.search_longitude = \
                     compose_com_msg_on_field_trip(line.link, line.name, line.age, line.age_wording, line.new_value)
-
-                # TODO temp debug
-                print(f'ZZZ: 2 line.message={line.message}')
-                # TODO temp debug
 
             elif line.change_type == 6:  # topic_field_trip_change
                 line.message, line.search_latitude, line.search_longitude = \
                     compose_com_msg_on_field_trip(line.link, line.name, line.age, line.age_wording, line.new_value)
 
-            # TODO: temp
             elif line.change_type == 7:  # coords_change
                 line.message, line.search_latitude, line.search_longitude, line.coords_change_type = \
                     compose_com_msg_on_coords_change(line.link, line.name, line.age, line.age_wording, line.new_value)
@@ -1390,10 +1380,18 @@ def iterate_over_all_users_and_updates(conn):
         try:
             temp_user_list = []
             for user_line in users_list_outcome:
-                if not (record.change_type in {5, 6, 7} or user_line.user_id in admins_list) \
-                        or user_line.user_id in admins_list:
+                if not (record.change_type in {5, 6, 7} and user_line.user_id not in admins_list):
                     temp_user_list.append(user_line)
+                    # FIXME - temp
+                    logging.info(f'5-6-7 CHECK for {user_line.user_id} is OK, record {record.change_type}, '
+                                 f'user {user.user_id}. record {record.forum_search_num}')
+                    # FIXME ^^^
                     break
+                else:
+                    # FIXME - temp
+                    logging.info(f'5-6-7 CHECK for {user_line.user_id} is FAILED, record {record.change_type}, '
+                                 f'user {user.user_id}. record {record.forum_search_num}')
+                    # FIXME ^^^
 
             logging.info(f'User List crop due to 5-6-7: {len(users_list_outcome)} --> {len(temp_user_list)}')
             # users_list_outcome = temp_user_list
