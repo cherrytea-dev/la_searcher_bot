@@ -293,7 +293,7 @@ class User:
                  user_longitude=None,
                  user_regions=None,
                  user_in_multi_regions=True,
-                 user_corr_regions=None,
+                 user_corr_regions=None,  # FIXME - seems it's not needed anymore
                  user_new_search_notifs=None,
                  user_role=None,
                  user_age_periods=None, # noqa
@@ -568,7 +568,7 @@ def enrich_new_records_with_comments(conn, type_of_comments):
     return None
 
 
-def compose_com_msg_on_new_search(link, name, age, age_wording, activities, managers):
+def compose_com_msg_on_new_search(link, name, age, age_wording, activities, managers, display_name):
     """compose the common, user-independent message on new search"""
 
     # 1. List of activities – user-independent
@@ -578,8 +578,10 @@ def compose_com_msg_on_new_search(link, name, age, age_wording, activities, mana
             msg_1 += f'{line}\n'
 
     # 2. Person
-    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
+    if display_name:
+        notify_admin(f'we want to keep display_name: <a href="{link}">{display_name}</a>')
 
+    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
     msg_2 = f'<a href="{link}">{name}{age_info}</a>'
 
     # 3. List of managers – user-independent
@@ -598,7 +600,7 @@ def compose_com_msg_on_new_search(link, name, age, age_wording, activities, mana
 
     logging.info('msg 2 + msg 1 + msg 3: ' + str(msg_2) + ' // ' + str(msg_1) + ' // ' + str(msg_3))
 
-    return [msg_2, msg_1, msg_3]  # 1 - general, 2 - activities, 3 - managers
+    return [msg_2, msg_1, msg_3]  # 1 - person, 2 - activities, 3 - managers
 
 
 def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
@@ -909,7 +911,7 @@ def enrich_new_records_with_com_message_texts():
 
                 if days_since_search_start < 2:  # we do not notify users on "new" searches appeared >=2 days ago
                     line.message = compose_com_msg_on_new_search(line.link, line.name, line.age, line.age_wording,
-                                                                 line.activities, line.managers)
+                                                                 line.activities, line.managers, line.display_name)
                 else:
                     line.ignore = 'y'
 
