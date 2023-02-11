@@ -459,11 +459,6 @@ def update_first_posts_and_statuses():
                     if raw_data:
 
                         last_hash = raw_data[0]
-                        # prev_number_of_checks = raw_data[1]
-                        # last_content = raw_data[2]
-
-                        # if not prev_number_of_checks:
-                        #     prev_number_of_checks = 1
 
                         # if record for this search – outdated
                         if act_hash != last_hash:
@@ -485,15 +480,6 @@ def update_first_posts_and_statuses():
 
                             list_of_searches_with_updated_f_posts.append(search_id)
 
-                        # if record for this search – actual
-                        # FIXME – a theory that num_of_checks is not needed anymore
-                        """else:
-                            # update the number of checks for this search
-                            stmt = sqlalchemy.text(""UPDATE search_first_posts SET num_of_checks = :a 
-                                                      WHERE search_id = :b AND actual = True;"")
-                            conn.execute(stmt, a=(prev_number_of_checks + 1), b=search_id)"""
-                        # FIXME ^^^
-
                     # if record for this search – does not exist – add a new record
                     else:
                         stmt = sqlalchemy.text("""INSERT INTO search_first_posts 
@@ -503,10 +489,9 @@ def update_first_posts_and_statuses():
 
                 elif site_unavailable:
                     num_of_site_errors_counter += 1
-                    logging.info('forum unavailable'.format(search_id, bad_gateway_counter))
+                    logging.info(f'forum unavailable for search {search_id}')
                     if num_of_site_errors_counter > 3:
-                        notify_admin(f'were are here - new escape of site unavailability after '
-                                     f'{num_of_site_errors_counter} attempts.')
+                        notify_admin(f'LA FORUM UNAVAILABLE, che_posts tried {num_of_site_errors_counter} times.')
                         break
 
                 elif topic_not_found:
@@ -532,7 +517,7 @@ def update_first_posts_and_statuses():
     groups_list_now = enrich_groups_with_searches(groups_list_now, list_of_searches)
     searches_list_now = [line for group in groups_list_now for line in group.s]
 
-    if not groups_list_now:
+    if not searches_list_now:
         return None
 
     list_of_searches_with_updated_first_posts = update_first_posts_in_sql(searches_list_now)
