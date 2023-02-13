@@ -26,6 +26,176 @@ stat_list_of_recipients = []  # list of users who received notification on new s
 fib_list = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987]
 
 
+class Comment:
+    def __init__(self,
+                 url=None,
+                 text=None,
+                 author_nickname=None,
+                 author_link=None,
+                 topic_id=None,
+                 num=None,
+                 forum_global_id=None,
+                 ignore=None
+                 ):
+        self.url = url
+        self.text = text
+        self.author_nickname = author_nickname
+        self.author_link = author_link
+        self.search_forum_num = topic_id
+        self.num = num
+        self.forum_global_id = forum_global_id
+        self.ignore = ignore
+
+    def __str__(self):
+        return str([self.url, self.text, self.author_nickname, self.author_link,
+                    self.search_forum_num, self.num, self.forum_global_id, self.ignore])
+
+
+class LineInChangeLog:
+    def __init__(self,
+                 forum_search_num=None,
+                 change_type=None,  # it is int from 0 to 99 which represents "change_type" column in change_log
+                 changed_field=None,
+                 change_id=None,  # means change_log_id
+                 new_value=None,
+                 name=None,
+                 link=None,
+                 status=None,
+                 new_status=None,
+                 n_of_replies=None,
+                 title=None,
+                 age=None,
+                 age_wording=None,
+                 forum_folder=None,
+                 activities=None,
+                 comments=None,
+                 comments_inforg=None,
+                 message=None,
+                 message_object=None,  # FIXME
+                 processed=None,
+                 managers=None,
+                 start_time=None,
+                 ignore=None,
+                 region=None,
+                 search_latitude=None,
+                 search_longitude=None,
+                 coords_change_type=None,
+                 city_locations=None,
+                 display_name=None,
+                 age_min=None,
+                 age_max=None
+                 ):
+        self.forum_search_num = forum_search_num
+        self.change_type = change_type
+        self.changed_field = changed_field
+        self.change_id = change_id
+        self.new_value = new_value
+        self.name = name
+        self.link = link
+        self.status = status
+        self.new_status = new_status
+        self.n_of_replies = n_of_replies
+        self.title = title
+        self.age = age
+        self.age_wording = age_wording
+        self.forum_folder = forum_folder
+        self.activities = activities
+        self.comments = comments
+        self.comments_inforg = comments_inforg
+        self.message = message
+        self.message_object = message_object
+        self.processed = processed
+        self.managers = managers
+        self.start_time = start_time
+        self.ignore = ignore
+        self.region = region
+        self.search_latitude = search_latitude
+        self.search_longitude = search_longitude
+        self.coords_change_type = coords_change_type
+        self.city_locations = city_locations
+        self.display_name = display_name
+        self.age_min = age_min
+        self.age_max = age_max
+
+    def __str__(self):
+        return str([self.forum_search_num, self.change_type, self.changed_field, self.new_value, self.change_id,
+                    self.name, self.link,
+                    self.status, self.n_of_replies, self.title, self.age, self.age_wording, self.forum_folder,
+                    self.search_latitude, self.search_longitude, self.activities, self.comments, self.comments_inforg,
+                    self.message, self.processed, self.managers, self.start_time, self.ignore, self.region,
+                    self.coords_change_type, self.display_name, self.age_min, self.age_max])
+
+
+class User:
+    def __init__(self,
+                 user_id=None,
+                 username_telegram=None,
+                 notification_preferences=None,
+                 notif_pref_ids_list=None,
+                 user_latitude=None,
+                 user_longitude=None,
+                 user_regions=None,
+                 user_in_multi_regions=True,
+                 user_corr_regions=None,  # FIXME - seems it's not needed anymore
+                 user_new_search_notifs=None,
+                 user_role=None,
+                 user_age_periods=None, # noqa
+                 radius=None
+                 ):
+        user_age_periods = []
+        self.user_id = user_id
+        self.username_telegram = username_telegram
+        self.notification_preferences = notification_preferences
+        self.notif_pref_ids_list = notif_pref_ids_list
+        self.user_latitude = user_latitude
+        self.user_longitude = user_longitude
+        self.user_regions = user_regions
+        self.user_in_multi_regions = user_in_multi_regions
+        self.user_corr_regions = user_corr_regions
+        self.user_new_search_notifs = user_new_search_notifs
+        self.role = user_role
+        self.age_periods = user_age_periods
+        self.radius = radius
+
+    def __str__(self):
+        return str([self.user_id, self.username_telegram, self.notification_preferences, self.notif_pref_ids_list,
+                    self.user_latitude, self.user_longitude, self.user_regions, self.user_in_multi_regions,
+                    self.user_corr_regions, self.user_new_search_notifs, self.age_periods, self.radius])
+
+
+class Message:
+
+    def __init__(self,
+                 name=None,
+                 age=None,
+                 display_name=None,
+                 clickable_name=None
+                 ):
+        self.name = name
+        self.age = age
+        self.display_name = display_name
+        self.clickable_name = clickable_name
+
+
+class MessageNewSearch(Message):
+
+    def __init__(self,
+                 city_coords=None,
+                 hq_coords=None,
+                 activities=None,
+                 managers=None,
+                 hint_on_coords=None,
+                 hint_on_something=None  # FIXME
+                 ):
+        super().__init__()
+        self.city_coords = city_coords
+        self.hq_coords = hq_coords
+        self.activities = activities
+        self.managers = managers
+        self.hint_on_coords = hint_on_coords
+        self.hint_on_something = hint_on_something  # FIXME
+
+
 def sql_connect():
     """connect to google cloud sql"""
 
@@ -183,141 +353,6 @@ def process_pubsub_message(event):
     logging.info('LOGGING-INFO: incoming Pub/Sub message: ' + str(message_in_ascii))
 
     return message_in_ascii
-
-
-class Comment:
-    def __init__(self,
-                 url=None,
-                 text=None,
-                 author_nickname=None,
-                 author_link=None,
-                 topic_id=None,
-                 num=None,
-                 forum_global_id=None,
-                 ignore=None
-                 ):
-        self.url = url
-        self.text = text
-        self.author_nickname = author_nickname
-        self.author_link = author_link
-        self.search_forum_num = topic_id
-        self.num = num
-        self.forum_global_id = forum_global_id
-        self.ignore = ignore
-
-    def __str__(self):
-        return str([self.url, self.text, self.author_nickname, self.author_link,
-                    self.search_forum_num, self.num, self.forum_global_id, self.ignore])
-
-
-class LineInChangeLog:
-    def __init__(self,
-                 forum_search_num=None,
-                 change_type=None,  # it is int from 0 to 99 which represents "change_type" column in change_log
-                 changed_field=None,
-                 change_id=None,  # means change_log_id
-                 new_value=None,
-                 name=None,
-                 link=None,
-                 status=None,
-                 new_status=None,
-                 n_of_replies=None,
-                 title=None,
-                 age=None,
-                 age_wording=None,
-                 forum_folder=None,
-                 activities=None,
-                 comments=None,
-                 comments_inforg=None,
-                 message=None,
-                 processed=None,
-                 managers=None,
-                 start_time=None,
-                 ignore=None,
-                 region=None,
-                 search_latitude=None,
-                 search_longitude=None,
-                 coords_change_type=None,
-                 city_locations=None,
-                 display_name=None,
-                 age_min=None,
-                 age_max=None
-                 ):
-        self.forum_search_num = forum_search_num
-        self.change_type = change_type
-        self.changed_field = changed_field
-        self.change_id = change_id
-        self.new_value = new_value
-        self.name = name
-        self.link = link
-        self.status = status
-        self.new_status = new_status
-        self.n_of_replies = n_of_replies
-        self.title = title
-        self.age = age
-        self.age_wording = age_wording
-        self.forum_folder = forum_folder
-        self.activities = activities
-        self.comments = comments
-        self.comments_inforg = comments_inforg
-        self.message = message
-        self.processed = processed
-        self.managers = managers
-        self.start_time = start_time
-        self.ignore = ignore
-        self.region = region
-        self.search_latitude = search_latitude
-        self.search_longitude = search_longitude
-        self.coords_change_type = coords_change_type
-        self.city_locations = city_locations
-        self.display_name = display_name
-        self.age_min = age_min
-        self.age_max = age_max
-
-    def __str__(self):
-        return str([self.forum_search_num, self.change_type, self.changed_field, self.new_value, self.change_id,
-                    self.name, self.link,
-                    self.status, self.n_of_replies, self.title, self.age, self.age_wording, self.forum_folder,
-                    self.search_latitude, self.search_longitude, self.activities, self.comments, self.comments_inforg,
-                    self.message, self.processed, self.managers, self.start_time, self.ignore, self.region,
-                    self.coords_change_type, self.display_name, self.age_min, self.age_max])
-
-
-class User:
-    def __init__(self,
-                 user_id=None,
-                 username_telegram=None,
-                 notification_preferences=None,
-                 notif_pref_ids_list=None,
-                 user_latitude=None,
-                 user_longitude=None,
-                 user_regions=None,
-                 user_in_multi_regions=True,
-                 user_corr_regions=None,  # FIXME - seems it's not needed anymore
-                 user_new_search_notifs=None,
-                 user_role=None,
-                 user_age_periods=None, # noqa
-                 radius=None
-                 ):
-        user_age_periods = []
-        self.user_id = user_id
-        self.username_telegram = username_telegram
-        self.notification_preferences = notification_preferences
-        self.notif_pref_ids_list = notif_pref_ids_list
-        self.user_latitude = user_latitude
-        self.user_longitude = user_longitude
-        self.user_regions = user_regions
-        self.user_in_multi_regions = user_in_multi_regions
-        self.user_corr_regions = user_corr_regions
-        self.user_new_search_notifs = user_new_search_notifs
-        self.role = user_role
-        self.age_periods = user_age_periods
-        self.radius = radius
-
-    def __str__(self):
-        return str([self.user_id, self.username_telegram, self.notification_preferences, self.notif_pref_ids_list,
-                    self.user_latitude, self.user_longitude, self.user_regions, self.user_in_multi_regions,
-                    self.user_corr_regions, self.user_new_search_notifs, self.age_periods, self.radius])
 
 
 def compose_new_records_from_change_log(conn):
@@ -568,21 +603,24 @@ def enrich_new_records_with_comments(conn, type_of_comments):
     return None
 
 
-def compose_com_msg_on_new_search(link, name, age, age_wording, activities, managers, display_name):
+def compose_com_msg_on_new_search(link, name, age, age_wording, activities, managers, clickable_name):
     """compose the common, user-independent message on new search"""
+
+    message = MessageNewSearch()
 
     # 1. List of activities – user-independent
     msg_1 = ''
     if activities:
         for line in activities:
             msg_1 += f'{line}\n'
+    message.activities = msg_1
 
     # 2. Person
-    if display_name:
-        notify_admin(f'we want to keep display_name: <a href="{link}">{display_name}</a>')
-
     age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
     msg_2 = f'<a href="{link}">{name}{age_info}</a>'
+
+    if clickable_name:
+        message.clickable_name = clickable_name
 
     # 3. List of managers – user-independent
     msg_3 = ''
@@ -598,9 +636,11 @@ def compose_com_msg_on_new_search(link, name, age, age_wording, activities, mana
             logging.error('Not able to compose New Search Message text with Managers: ' + str(e))
             logging.exception(e)
 
+        message.managers = msg_3
+
     logging.info('msg 2 + msg 1 + msg 3: ' + str(msg_2) + ' // ' + str(msg_1) + ' // ' + str(msg_3))
 
-    return [msg_2, msg_1, msg_3]  # 1 - person, 2 - activities, 3 - managers
+    return [msg_2, msg_1, msg_3], message  # 1 - person, 2 - activities, 3 - managers
 
 
 def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
@@ -903,6 +943,14 @@ def enrich_new_records_with_com_message_texts():
         for line in new_records_list:
             last_line = line
 
+            if line.display_name:
+                clickable_name = f'<a href="{line.link}">{line.display_name}</a>'
+                notify_admin(f'CLICKABLE NAME from disp_n = {clickable_name}')
+            else:
+                age_info = f' {line.age_wording}' if (line.name[0].isupper() and line.age and line.age != 0) else ''
+                clickable_name = f'<a href="{line.link}">{line.name}{age_info}</a>'
+                notify_admin(f'CLICKABLE NAME from n+age = {clickable_name}')
+
             if line.change_type == 0:  # 'new_search':
 
                 start = line.start_time
@@ -910,8 +958,10 @@ def enrich_new_records_with_com_message_texts():
                 days_since_search_start = (now - start).days
 
                 if days_since_search_start < 2:  # we do not notify users on "new" searches appeared >=2 days ago
-                    line.message = compose_com_msg_on_new_search(line.link, line.name, line.age, line.age_wording,
-                                                                 line.activities, line.managers, line.display_name)
+                    line.message, line.message_object = compose_com_msg_on_new_search(line.link, line.name, line.age,
+                                                                                      line.age_wording,
+                                                                                      line.activities,
+                                                                                      line.managers, clickable_name)
                 else:
                     line.ignore = 'y'
 
@@ -1678,6 +1728,7 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
     message += '\n' + new_record.message[0]
 
     # 3. Dist & Dir – individual part for every user
+    dist_and_dir_from_you = ''
     if s_lat and s_lon and u_lat and u_lon:
         try:
             dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
@@ -1686,15 +1737,20 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
             message += generate_yandex_maps_place_link2(s_lat, s_lon, direction)
             message += f'\n<code>{coordinates_format.format(float(s_lat))}, ' \
                        f'{coordinates_format.format(float(s_lon))}</code>'
+            dist_and_dir_from_you = f'{generate_yandex_maps_place_link2(s_lat, s_lon, direction)}\n' \
+                                    f'<code>{coordinates_format.format(float(s_lat))}, ' \
+                                    f'{coordinates_format.format(float(s_lon))}</code>'
 
         except Exception as e:
             logging.info(f'Not able to compose individual msg with distance & direction, params: '
                          f'[{new_record}, {s_lat}, {s_lon}, {u_lat}, {u_lon}]')
             logging.exception(e)
 
+    place_coordinates = ''
     if s_lat and s_lon and not u_lat and not u_lon:
         try:
             message += '\n\n' + generate_yandex_maps_place_link2(s_lat, s_lon, 'map')
+            place_coordinates = '\n\n' + generate_yandex_maps_place_link2(s_lat, s_lon, 'map')
 
         except Exception as e:
             logging.info(f'Not able to compose message with Yandex Map Link, params: '
@@ -1708,15 +1764,42 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
     message += '\n\n'
 
     # 5. Tips and Suggestions
+    tip_on_click_to_copy = ''
+    tip_on_home_coords = ''
     if not num_of_sent or num_of_sent in fib_list:
         if s_lat and s_lon:
-            message += '<i>Совет: Координаты и телефоны можно скопировать, ' \
-                       'нажав на них.</i>\n'
+            message += '<i>Совет: Координаты и телефоны можно скопировать, нажав на них.</i>\n'
+            tip_on_click_to_copy = '\n\n<i>Совет: Координаты и телефоны можно скопировать, нажав на них.</i>'
 
         if s_lat and s_lon and not u_lat and not u_lon:
-            message += '<i>Совет: Чтобы Бот показывал Направление и Расстояние' \
-                       ' до поиска – просто укажите ваши "Домашние координаты" ' \
-                       'в Настройках Бота.</i>'
+            message += '<i>Совет: Чтобы Бот показывал Направление и Расстояние до поиска – просто укажите ваши ' \
+                       '"Домашние координаты" в Настройках Бота.</i>'
+            tip_on_home_coords = '\n\n<i>Совет: Чтобы Бот показывал Направление и Расстояние до поиска – просто ' \
+                                 'укажите ваши "Домашние координаты" в Настройках Бота.</i>'
+
+    # FIXME - temp try
+    try:
+        obj = new_record.message_object
+        final_message = f"""Новый поиск{region_wording}!
+                            \n
+                            {obj.activities}
+                            \n\n
+                            {obj.clickable_name}
+                            \n\n
+                            {dist_and_dir_from_you}
+                            {place_coordinates}
+                            \n\n
+                            {obj.managers}
+                            \n\n
+                            {tip_on_click_to_copy}
+                            \n\n
+                            {tip_on_home_coords}"""
+
+        final_message = re.sub(r'\n{3,}', '\n\n', final_message)
+        print(f'TEMP - FINAL NEW MESSAGE FOR NEW SEARCH {final_message}')
+    except: # noqa
+        pass
+    # FIXME ^^^
 
     return message
 
