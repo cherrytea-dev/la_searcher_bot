@@ -21,7 +21,7 @@ client = secretmanager.SecretManagerServiceClient()
 publisher = pubsub_v1.PublisherClient()
 new_records_list = []
 users_list = []
-coordinates_format = "{0:.5f}"
+coord_format = "{0:.5f}"
 stat_list_of_recipients = []  # list of users who received notification on new search
 fib_list = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987]
 
@@ -603,7 +603,7 @@ def enrich_new_records_with_comments(conn, type_of_comments):
     return None
 
 
-def compose_com_msg_on_new_search(link, name, age, age_wording, activities, managers, clickable_name):
+def compose_com_msg_on_new_search(activities, managers, clickable_name):
     """compose the common, user-independent message on new search"""
 
     message = MessageNewSearch()
@@ -616,8 +616,7 @@ def compose_com_msg_on_new_search(link, name, age, age_wording, activities, mana
     message.activities = msg_1
 
     # 2. Person
-    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
-    msg_2 = f'<a href="{link}">{name}{age_info}</a>'
+    msg_2 = clickable_name
 
     if clickable_name:
         message.clickable_name = clickable_name
@@ -643,11 +642,9 @@ def compose_com_msg_on_new_search(link, name, age, age_wording, activities, mana
     return [msg_2, msg_1, msg_3], message  # 1 - person, 2 - activities, 3 - managers
 
 
-def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
+def compose_com_msg_on_coords_change(new_value, clickable_name):
     """compose the common, user-independent message on coordinates change"""
 
-    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
-    # msg = f'Поиск <a href="{link}">{name}{age_info}</a>:\n'
     msg = ''
     lat, lon = None, None
     link_text = '{link_text}'
@@ -682,7 +679,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
     try:
         # CASE 1. Change of coordinates: A -> B
         if verdict['change']:
-            msg += f'🧭 Смена координат по <a href="{link}">{name}{age_info}</a> ({region}):\n\nСтарые: '
+            msg += f'🧭 Смена координат по {clickable_name} ({region}):\n\nСтарые: '
             for line in list_of_coords_changes:
                 if line[2] in {1, 2} and line[3] in {0, 3, 4}:
                     msg += f'{line[0]}, {line[1]}\n'
@@ -701,7 +698,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
 
         # CASE 2. Re-opening of closed coordinates: A -> not-A -> A
         elif verdict['again']:
-            msg += f'🧭 Прежние координаты вновь актуальны по <a href="{link}">{name}{age_info}</a> ({region}):\n\n'
+            msg += f'🧭 Прежние координаты вновь актуальны по {clickable_name} ({region}):\n\n'
             for line in list_of_coords_changes:
                 if line[2] in {3, 4} and line[3] in {1, 2}:
                     clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
@@ -713,7 +710,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
 
         # CASE 3. Announcement of new coordinates: not-A -> A
         elif verdict['add']:
-            msg += f'🧭 Объявлены координаты сбора <a href="{link}">{name}{age_info}</a> ({region}):\n'
+            msg += f'🧭 Объявлены координаты сбора {clickable_name} ({region}):\n'
             for line in list_of_coords_changes:
                 if line[2] == 0 and line[3] in {1, 2}:
                     clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
@@ -725,7 +722,7 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
 
         # CASE 4. Cancellation of announced coordinates: A -> not-A
         elif verdict['drop']:
-            msg += f'🧭 Координаты по <a href="{link}">{name}{age_info}</a> ({region}):\n'
+            msg += f'🧭 Координаты по {clickable_name} ({region}):\n'
             for line in list_of_coords_changes:
                 if line[2] in {1, 2} and line[3] in {0, 3, 4}:
                     # clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
@@ -740,12 +737,11 @@ def compose_com_msg_on_coords_change(link, name, age, age_wording, new_value):
     return msg, lat, lon, scenario
 
 
-def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
+def compose_com_msg_on_field_trip(parameters, clickable_name):
     """compose the common, user-independent message on field trips: new, change"""
 
     parameters = ast.literal_eval(parameters) if parameters else {}
 
-    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
     region = '{region}'  # will be added on level of individual user (some of them see region, some don't)
     direction_and_distance = '{direction_and_distance}'  # will be added on level of individual user (user-specific)
 
@@ -765,44 +761,40 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
     coords_list_prev = parameters["coords_prev"] if 'coords_prev' in parameters else None
 
     if coords_list_curr:
-        lat = coordinates_format.format(float(coords_list_curr[0]))
-        lon = coordinates_format.format(float(coords_list_curr[1]))
+        lat = coord_format.format(float(coords_list_curr[0]))
+        lon = coord_format.format(float(coords_list_curr[1]))
         coords_curr = f'\n<code>{lat}, {lon}</code>'
     else:
         lat, lon = None, None
         coords_curr = ''
 
     if coords_list_prev:
-        lat_prev = coordinates_format.format(float(coords_list_prev[0]))
-        lon_prev = coordinates_format.format(float(coords_list_prev[1]))
+        lat_prev = coord_format.format(float(coords_list_prev[0]))
+        lon_prev = coord_format.format(float(coords_list_prev[1]))
         coords_prev = f'\n{lat_prev}, {lon_prev}'
     else:
         coords_prev = ''
 
     if case == 'add':
-
         msg = f'🚨 Внимание,{urgent}{planned}{secondary} выезд!\n{region}\n\n' \
-              f'<a href="{link}">{name}{age_info}</a>\n\n' \
+              f'{clickable_name}\n\n' \
               f'{date_and_time_curr}' \
               f'{address_curr}' \
               f'\n{direction_and_distance}' \
               f'{coords_curr}'
 
     elif case == 'change':
-
-        msg = f'🚨 Изменения по выезду <a href="{link}">{name}{age_info}</a>\n{region}:\n' \
+        msg = f'🚨 Изменения по выезду {clickable_name}\n{region}:\n' \
               f'<del>{date_and_time_prev}' \
               f'{address_prev}' \
               f'{coords_prev}</del>\n' \
               f'{date_and_time_curr}' \
-              f'{address_curr}' \
-              f'\n{direction_and_distance}' \
+              f'{address_curr}\n' \
+              f'{direction_and_distance}' \
               f'{coords_curr}'
 
     elif case == 'drop':
-
-        msg = f'🚨 Штаб свёрнут – <a href="{link}">{name}{age_info}</a>\n' \
-              f'{region}.'
+        msg = f'🚨 Штаб свёрнут – {clickable_name}\n{region}.'
 
     else:
         msg = None
@@ -812,13 +804,12 @@ def compose_com_msg_on_field_trip(link, name, age, age_wording, parameters):
     notify_admin(f'Field Trips / Common Message: {msg}')
     # DEBUG
 
-    # Clean the message from excessive line breaks, like \n\n\n. tree repetitions covers the majority of cases
-    msg = re.sub(r'\n{3,10}', '\n\n', msg)
+    msg = re.sub(r'\s{3,}', '\n\n', msg)  # Clean the message from excessive line breaks, like \n\n\n
 
     return msg, lat, lon
 
 
-def compose_com_msg_on_status_change(status, link, name, age, age_wording, region):
+def compose_com_msg_on_status_change(status, region, clickable_name):
     """compose the common, user-independent message on search status change"""
 
     if status == 'Ищем':
@@ -828,49 +819,35 @@ def compose_com_msg_on_status_change(status, link, name, age, age_wording, regio
     else:
         status_info = status
 
-    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
-
-    msg_1 = f'{status_info} – изменение статуса по <a href="{link}">{name}{age_info}</a>'
+    msg_1 = f'{status_info} – изменение статуса по {clickable_name}'
 
     msg_2 = f' ({region})' if region else None
 
     return msg_1, msg_2
 
 
-def compose_com_msg_on_new_comments(link, name, age, age_wording, comments):
+def compose_com_msg_on_new_comments(comments, clickable_name):
     """compose the common, user-independent message on ALL search comments change"""
 
-    global new_records_list
+    url_prefix = 'https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u='
 
-    # compose message Header
-    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
-
-    prefix_msg = f'Новые комментарии по поиску <a href="{link}">{name}{age_info}</a>:\n'
-
-    # compose a message Body with all the comments
     msg = ''
     for comment in comments:
         if comment.text:
-            msg += f' &#8226; <a href="https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u=' \
-                   f'{comment.author_link}">{comment.author_nickname}</a>: ' \
-                   f'<i>«<a href="{comment.url}">'
+            comment_text = f'{comment.text[:500]}...' if len(comment.text) > 500 else comment.text
+            msg += f' &#8226; <a href="{url_prefix}{comment.author_link}">{comment.author_nickname}</a>: ' \
+                   f'<i>«<a href="{comment.url}">{comment_text}</a>»</i>\n'
 
-            if len(comment.text) > 1000:
-                msg += comment.text[:1000]
-            else:
-                msg += comment.text
-            msg += '</a>»</i>\n'
-
-    if msg:
-        msg = prefix_msg + msg
+    msg = f'Новые комментарии по поиску {clickable_name}:\n{msg}' if msg else ''
 
     return msg, None
 
 
-def compose_com_msg_on_inforg_comments(link, name, age, age_wording, comments, region):
+def compose_com_msg_on_inforg_comments(comments, region, clickable_name):
     """compose the common, user-independent message on INFORG search comments change"""
 
-    global new_records_list
+    # region_to_show = f' ({region})' if region else ''
+    url_prefix = 'https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u='
 
     msg_1, msg_2 = None, None
     msg_3 = ''
@@ -878,33 +855,22 @@ def compose_com_msg_on_inforg_comments(link, name, age, age_wording, comments, r
         author = None
         for comment in comments:
             if comment.text:
-                author = f'<a href="https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u=' \
-                         f'{comment.author_link}">{comment.author_nickname}</a>'
+                author = f'<a href="{url_prefix}{comment.author_link}">{comment.author_nickname}</a>'
                 msg_3 += f'<i>«<a href="{comment.url}">{comment.text}</a>»</i>\n'
-
-        if name[0].isupper() and age and age != 0:
-            person = f'{name} {age_wording}'
-        else:
-            person = name
 
         msg_3 = f':\n{msg_3}'
 
-        msg_1 = f'Сообщение от {author} по <a href="{link}">{person}</a>'
+        msg_1 = f'Сообщение от {author} по {clickable_name}'
         if region:
             msg_2 = f' ({region})'
 
     return msg_1, msg_2, msg_3
 
 
-def compose_com_msg_on_title_change(title, link, name, age, age_wording):
+def compose_com_msg_on_title_change(title, clickable_name):
     """compose the common, user-independent message on search title change"""
 
-    msg = title
-    if msg:
-        msg += f' – обновление заголовка поиска по <a href="{link}">{name}'
-        if name[0].isupper() and age and age != 0:
-            msg += f' {age_wording}'
-        msg += '</a>\n'
+    msg = f'{title} – обновление заголовка поиска по {clickable_name}'
 
     return msg
 
@@ -945,11 +911,9 @@ def enrich_new_records_with_com_message_texts():
 
             if line.display_name:
                 clickable_name = f'<a href="{line.link}">{line.display_name}</a>'
-                notify_admin(f'CLICKABLE NAME from disp_n = {clickable_name}')
             else:
                 age_info = f' {line.age_wording}' if (line.name[0].isupper() and line.age and line.age != 0) else ''
                 clickable_name = f'<a href="{line.link}">{line.name}{age_info}</a>'
-                notify_admin(f'CLICKABLE NAME from n+age = {clickable_name}')
 
             if line.change_type == 0:  # 'new_search':
 
@@ -958,36 +922,25 @@ def enrich_new_records_with_com_message_texts():
                 days_since_search_start = (now - start).days
 
                 if days_since_search_start < 2:  # we do not notify users on "new" searches appeared >=2 days ago
-                    line.message, line.message_object = compose_com_msg_on_new_search(line.link, line.name, line.age,
-                                                                                      line.age_wording,
-                                                                                      line.activities,
+                    line.message, line.message_object = compose_com_msg_on_new_search(line.activities,
                                                                                       line.managers, clickable_name)
                 else:
                     line.ignore = 'y'
 
             elif line.change_type == 1:  # 'status_change':
-                line.message = compose_com_msg_on_status_change(line.status, line.link, line.name, line.age,
-                                                                line.age_wording, line.region)
+                line.message = compose_com_msg_on_status_change(line.status, line.region, clickable_name)
             elif line.change_type == 2:  # 'title_change':
-                line.message = compose_com_msg_on_title_change(line.title, line.link, line.name, line.age,
-                                                               line.age_wording)
+                line.message = compose_com_msg_on_title_change(line.title, clickable_name)
             elif line.change_type == 3:  # 'replies_num_change':
-                line.message = compose_com_msg_on_new_comments(line.link, line.name, line.age, line.age_wording,
-                                                               line.comments)
+                line.message = compose_com_msg_on_new_comments(line.comments, clickable_name)
             elif line.change_type == 4:  # 'inforg_replies':
-                line.message = compose_com_msg_on_inforg_comments(line.link, line.name, line.age, line.age_wording,
-                                                                  line.comments_inforg, line.region)
-            elif line.change_type == 5:  # topic_field_trip_new
+                line.message = compose_com_msg_on_inforg_comments(line.comments_inforg, line.region, clickable_name)
+            elif line.change_type in {5, 6}:  # topic_field_trip_new & topic_field_trip_change
                 line.message, line.search_latitude, line.search_longitude = \
-                    compose_com_msg_on_field_trip(line.link, line.name, line.age, line.age_wording, line.new_value)
-
-            elif line.change_type == 6:  # topic_field_trip_change
-                line.message, line.search_latitude, line.search_longitude = \
-                    compose_com_msg_on_field_trip(line.link, line.name, line.age, line.age_wording, line.new_value)
-
+                    compose_com_msg_on_field_trip(line.new_value, clickable_name)
             elif line.change_type == 7:  # coords_change
                 line.message, line.search_latitude, line.search_longitude, line.coords_change_type = \
-                    compose_com_msg_on_coords_change(line.link, line.name, line.age, line.age_wording, line.new_value)
+                    compose_com_msg_on_coords_change(line.new_value, clickable_name)
 
         logging.info('New Records enriched with common Message Texts')
 
@@ -1561,7 +1514,7 @@ def iterate_over_all_users_and_updates(conn, admins_list):
 
     global new_records_list
     global users_list
-    global coordinates_format
+    global coord_format
     global stat_list_of_recipients
 
     stat_list_of_recipients = []  # still not clear why w/o it – saves data from prev iterations
@@ -1715,9 +1668,14 @@ def generate_yandex_maps_place_link2(lat, lon, param):
 def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_lon, region_to_show, num_of_sent):
     """compose individual message for notification of every user on new search"""
 
-    # 0. Heading and Region clause if user is 'multi-regional'
+    place_link = ''
+    clickable_coords = ''
+    tip_on_click_to_copy = ''
+    tip_on_home_coords = ''
 
     region_wording = f' в регионе {region_to_show}' if region_to_show else ''
+
+    # 0. Heading and Region clause if user is 'multi-regional'
     message = f'Новый поиск{region_wording}!\n'
 
     # 1. Search important attributes - common part (e.g. 'Внимание, выезд!)
@@ -1728,29 +1686,23 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
     message += '\n' + new_record.message[0]
 
     # 3. Dist & Dir – individual part for every user
-    dist_and_dir_from_you = ''
     if s_lat and s_lon and u_lat and u_lon:
         try:
             dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
             direction = f'\n\nОт вас ~{dist} км {direct}'
 
             message += generate_yandex_maps_place_link2(s_lat, s_lon, direction)
-            message += f'\n<code>{coordinates_format.format(float(s_lat))}, ' \
-                       f'{coordinates_format.format(float(s_lon))}</code>'
-            dist_and_dir_from_you = f'{generate_yandex_maps_place_link2(s_lat, s_lon, direction)}\n' \
-                                    f'<code>{coordinates_format.format(float(s_lat))}, ' \
-                                    f'{coordinates_format.format(float(s_lon))}</code>'
+            message += f'\n<code>{coord_format.format(float(s_lat))}, ' \
+                       f'{coord_format.format(float(s_lon))}</code>'
 
         except Exception as e:
             logging.info(f'Not able to compose individual msg with distance & direction, params: '
                          f'[{new_record}, {s_lat}, {s_lon}, {u_lat}, {u_lon}]')
             logging.exception(e)
 
-    place_coordinates = ''
     if s_lat and s_lon and not u_lat and not u_lon:
         try:
             message += '\n\n' + generate_yandex_maps_place_link2(s_lat, s_lon, 'map')
-            place_coordinates = '\n\n' + generate_yandex_maps_place_link2(s_lat, s_lon, 'map')
 
         except Exception as e:
             logging.info(f'Not able to compose message with Yandex Map Link, params: '
@@ -1764,38 +1716,44 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
     message += '\n\n'
 
     # 5. Tips and Suggestions
-    tip_on_click_to_copy = ''
-    tip_on_home_coords = ''
     if not num_of_sent or num_of_sent in fib_list:
         if s_lat and s_lon:
             message += '<i>Совет: Координаты и телефоны можно скопировать, нажав на них.</i>\n'
-            tip_on_click_to_copy = '\n\n<i>Совет: Координаты и телефоны можно скопировать, нажав на них.</i>'
 
         if s_lat and s_lon and not u_lat and not u_lon:
             message += '<i>Совет: Чтобы Бот показывал Направление и Расстояние до поиска – просто укажите ваши ' \
                        '"Домашние координаты" в Настройках Бота.</i>'
-            tip_on_home_coords = '\n\n<i>Совет: Чтобы Бот показывал Направление и Расстояние до поиска – просто ' \
-                                 'укажите ваши "Домашние координаты" в Настройках Бота.</i>'
 
-    # FIXME - temp try
+    # FIXME - NEW
     try:
+
+        if s_lat and s_lon:
+            clickable_coords = f'<code>{coord_format.format(float(s_lat))}, {coord_format.format(float(s_lon))}</code>'
+            if u_lat and u_lon:
+                dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
+                place = f'От вас ~{dist} км {direct}'
+            else:
+                place = 'Карта'
+            place_link = f'<a href="https://yandex.ru/maps/?pt={s_lon},{s_lat}&z=11&l=map">{place}</a>'
+
+            if not num_of_sent or num_of_sent in fib_list:
+                tip_on_click_to_copy = '<i>Совет: Координаты и телефоны можно скопировать, нажав на них.</i>'
+                if not u_lat and not u_lon:
+                    tip_on_home_coords = '<i>Совет: Чтобы Бот показывал Направление и Расстояние до поиска – просто ' \
+                                         'укажите ваши "Домашние координаты" в Настройках Бота.</i>'
+
         obj = new_record.message_object
-        final_message = f"""Новый поиск{region_wording}!
-                            \n
-                            {obj.activities}
-                            \n\n
-                            {obj.clickable_name}
-                            \n\n
-                            {dist_and_dir_from_you}
-                            {place_coordinates}
-                            \n\n
-                            {obj.managers}
-                            \n\n
-                            {tip_on_click_to_copy}
-                            \n\n
+        final_message = f"""Новый поиск{region_wording}!\n
+                            {obj.activities}\n\n
+                            {obj.clickable_name}\n\n
+                            {place_link}\n
+                            {clickable_coords}\n\n
+                            {obj.managers}\n\n
+                            {tip_on_click_to_copy}\n\n
                             {tip_on_home_coords}"""
 
-        final_message = re.sub(r'\n{3,}', '\n\n', final_message)
+        final_message = re.sub(r'\s{3,}', '\n\n', final_message)  # clean excessive blank lines
+        final_message = re.sub(r'\s*$', '', final_message)  # clean blank symbols in the end of file
         print(f'TEMP - FINAL NEW MESSAGE FOR NEW SEARCH {final_message}')
     except: # noqa
         pass
