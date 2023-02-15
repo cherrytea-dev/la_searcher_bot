@@ -1013,7 +1013,7 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
         if user_input.lower() == b_menu:
             saved_radius = check_saved_radius(user_id)
             if saved_radius:
-                list_of_buttons = [[b_change], [b_deact], [b_home_coord], [b_menu], [b_back]]
+                list_of_buttons = [[b_change], [b_deact], [b_home_coord], [b_back]]
                 bot_message = f'Сейчас вами установлено ограничение радиуса {saved_radius} км. ' \
                               f'Вы в любой момент можете изменить или снять это ограничение.\n\n' \
                               'ВАЖНО! Вы всё равно будете проинформированы по всем поискам, по которым ' \
@@ -1023,7 +1023,7 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
                               'населенного пункта (или топонима), указанного в теме поиска. ' \
                               'Расстояние считается по прямой.'
             else:
-                list_of_buttons = [[b_act], [b_home_coord], [b_menu], [b_back]]
+                list_of_buttons = [[b_act], [b_home_coord], [b_back]]
                 bot_message = 'Данная настройка позволяет вам ограничить уведомления от бота только теми поисками, ' \
                               'для которых расстояние от ваших "домашних координат" до штаба/города ' \
                               'не превышает указанного вами Радиуса.\n\n' \
