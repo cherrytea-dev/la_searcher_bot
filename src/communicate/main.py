@@ -990,7 +990,7 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
     return list_of_buttons, first_visit
 
 
-def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_back, expect_before):
+def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_back, b_home_coord, expect_before):
     """Save user Radius preference and generate the actual radius preference"""
 
     def check_saved_radius(user):
@@ -1013,7 +1013,7 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
         if user_input.lower() == b_menu:
             saved_radius = check_saved_radius(user_id)
             if saved_radius:
-                list_of_buttons = [[b_change], [b_deact], [b_menu], [b_back]]
+                list_of_buttons = [[b_change], [b_deact], [b_home_coord], [b_menu], [b_back]]
                 bot_message = f'Сейчас вами установлено ограничение радиуса {saved_radius} км. ' \
                               f'Вы в любой момент можете изменить или снять это ограничение.\n\n' \
                               'ВАЖНО! Вы всё равно будете проинформированы по всем поискам, по которым ' \
@@ -1023,17 +1023,10 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
                               'населенного пункта (или топонима), указанного в теме поиска. ' \
                               'Расстояние считается по прямой.'
             else:
-                list_of_buttons = [[b_act], [b_menu], [b_back]]
-                bot_message = 'Вы вошли в специальный тестовый раздел, здесь доступны функции в ' \
-                              'стадии ' \
-                              'отладки и тестирования. Представленный здесь функционал может не ' \
-                              'работать ' \
-                              'на 100% корректно. Если заметите случаи некорректного выполнения ' \
-                              'функционала из этого раздела – пишите, пожалуйста, в телеграм-чат ' \
-                              'https://t.me/joinchat/2J-kV0GaCgwxY2Ni\n\n' \
-                              'Здесь вы можете ограничить ' \
-                              'радиус, чтобы получать уведомления только по поискам внутри этого ' \
-                              'круга на карте.\n\n' \
+                list_of_buttons = [[b_act], [b_home_coord], [b_menu], [b_back]]
+                bot_message = 'Данная настройка позволяет вам ограничить уведомления от бота только теми поисками, ' \
+                              'для которых расстояние от ваших "домашних координат" до штаба/города ' \
+                              'не превышает указанного вами Радиуса.\n\n' \
                               'ВАЖНО! Вы всё равно будете проинформированы по всем поискам, по которым ' \
                               'Бот не смог распознать никакие координаты.\n\n' \
                               'Также, Бот в первую очередь ' \
@@ -1257,8 +1250,10 @@ def main(request):
             reply_markup_main = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
 
             # Settings menu
-            b_set_notifs_up = 'настроить уведомления'
+            b_set_notifs_up = 'настроить виды уведомлений'
             b_settings_coords = 'настроить "домашние координаты"'
+            b_set_radius = 'настроить максимальный радиус'
+            b_set_age = 'настроить возрастные группы БВП'
             b_back_to_start = 'в начало'
 
             # Settings - notifications
@@ -1532,8 +1527,6 @@ def main(request):
             b_admin_menu = 'admin'
             b_test_menu = 'test'
 
-            # FIXME
-            b_test_age = 'age'
             b_pref_age_0_6_act = 'Отключить: Маленькие Дети 0-6 лет'
             b_pref_age_0_6_deact = 'Включить: Маленькие Дети 0-6 лет'
             b_pref_age_7_13_act = 'Отключить: Подростки 7-13 лет'
@@ -1547,12 +1540,9 @@ def main(request):
             b_pref_age_81_on_act = 'Отключить: Старцы более 80 лет'
             b_pref_age_81_on_deact = 'Включить: Старцы более 80 лет'
 
-            b_test_radius = 'radius'
             b_pref_radius_act = 'Включить ограничение по расстоянию'
             b_pref_radius_deact = 'Отключить ограничение по расстоянию'
             b_pref_radius_change = 'Изменить ограничение по расстоянию'
-
-            # FIXME ^^^
 
             # basic markup which will be substituted for all specific cases
             reply_markup = reply_markup_main
@@ -1813,7 +1803,7 @@ def main(request):
                         keyboard_coordinates_admin = [[b_back_to_start], [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
-                    # FIXME – Test mode
+                    # FIXME - WIP
                     elif got_message.lower() == b_test_menu:
                         bot_message = 'Вы вошли в специальный тестовый раздел, здесь доступны функции в стадии ' \
                                       'отладки и тестирования. Представленный здесь функционал может не работать ' \
@@ -1825,45 +1815,39 @@ def main(request):
                                                       [b_act_coords_change], [b_deact_coords_change],
                                                       [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+                    # FIXME ^^^
 
-                    # FIXME - Test Mode for Age picker
-                    elif got_message in {b_pref_age_0_6_act, b_pref_age_0_6_deact,
-                                         b_pref_age_7_13_act, b_pref_age_7_13_deact,
-                                         b_pref_age_14_20_act, b_pref_age_14_20_deact,
-                                         b_pref_age_21_50_act, b_pref_age_21_50_deact,
-                                         b_pref_age_51_80_act, b_pref_age_51_80_deact,
-                                         b_pref_age_81_on_act, b_pref_age_81_on_deact} or \
-                            got_message.lower() == b_test_age:
+                    elif got_message in {b_set_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
+                                         b_pref_age_7_13_deact, b_pref_age_14_20_act, b_pref_age_14_20_deact,
+                                         b_pref_age_21_50_act, b_pref_age_21_50_deact, b_pref_age_51_80_act,
+                                         b_pref_age_51_80_deact, b_pref_age_81_on_act, b_pref_age_81_on_deact}:
 
-                        input_data = None if got_message.lower() == b_test_age else got_message
+                        input_data = None if got_message == b_set_age else got_message
                         keyboard, first_visit = save_user_pref_age_and_return_curr_state(cur, user_id, input_data)
-                        keyboard.append([b_test_age])
+                        keyboard.append([b_settings])
                         keyboard.append([b_back_to_start])
                         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-                        if got_message.lower() == b_test_age:
+                        if got_message.lower() == b_set_age:
                             bot_message = 'Чтобы включить или отключить уведомления по определенной возрастной ' \
                                           'группе, нажмите на неё. Настройку можно изменить в любой момент.'
                             if first_visit:
-                                bot_message = 'Вы вошли в специальный тестовый раздел, здесь доступны функции в ' \
-                                              'стадии ' \
-                                              'отладки и тестирования. Представленный здесь функционал может не ' \
-                                              'работать ' \
-                                              'на 100% корректно. Если заметите случаи некорректного выполнения ' \
-                                              'функционала из этого раздела – пишите, пожалуйста, в телеграм-чат ' \
-                                              'https://t.me/joinchat/2J-kV0GaCgwxY2Ni\n\n' + bot_message
+                                bot_message = 'Данное меню позволяет выбрать возрастные категории БВП ' \
+                                              '(без вести пропавших), по которым вы хотели бы получать уведомления. ' \
+                                              'Важно, что если бот не сможет распознать возраст БВП, тогда вы ' \
+                                              'всё равно получите уведомление.\nТакже данная настройка не влияет на ' \
+                                              'разделы Актуальные Поиски и Последние Поиски – в них вы всё также ' \
+                                              'сможете увидеть полный список поисков.\n\n' + bot_message
                         else:
                             bot_message = 'Спасибо, записали.'
-                    # FIXME ^^^
 
-                    elif got_message.lower() == b_test_radius or got_message in \
-                            {b_pref_radius_act, b_pref_radius_deact, b_pref_radius_change} or \
-                            bot_request_bfr_usr_msg == 'radius_input':
+                    elif got_message in {b_set_radius, b_pref_radius_act, b_pref_radius_deact,
+                                         b_pref_radius_change} or bot_request_bfr_usr_msg == 'radius_input':
 
                         bot_message, reply_markup, bot_request_aft_usr_msg = \
-                            manage_radius(cur, user_id, got_message, b_test_radius, b_pref_radius_act,
+                            manage_radius(cur, user_id, got_message, b_set_radius, b_pref_radius_act,
                                           b_pref_radius_deact, b_pref_radius_change, b_back_to_start,
-                                          bot_request_bfr_usr_msg)
+                                          b_settings_coords, bot_request_bfr_usr_msg)
 
                     # DEBUG: for debugging purposes only
                     elif got_message.lower() == 'go':
