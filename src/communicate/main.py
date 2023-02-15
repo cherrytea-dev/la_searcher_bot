@@ -983,9 +983,9 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
     list_of_buttons = []
     for line in age_list:
         if line.now:
-            list_of_buttons.append([f'Отключить: {line.desc}'])
+            list_of_buttons.append([f'отключить: {line.desc}'])
         else:
-            list_of_buttons.append([f'Включить: {line.desc}'])
+            list_of_buttons.append([f'включить: {line.desc}'])
 
     return list_of_buttons, first_visit
 
@@ -1527,22 +1527,22 @@ def main(request):
             b_admin_menu = 'admin'
             b_test_menu = 'test'
 
-            b_pref_age_0_6_act = 'Отключить: Маленькие Дети 0-6 лет'
-            b_pref_age_0_6_deact = 'Включить: Маленькие Дети 0-6 лет'
-            b_pref_age_7_13_act = 'Отключить: Подростки 7-13 лет'
-            b_pref_age_7_13_deact = 'Включить: Подростки 7-13 лет'
-            b_pref_age_14_20_act = 'Отключить: Молодежь 14-20 лет'
-            b_pref_age_14_20_deact = 'Включить: Молодежь 14-20 лет'
-            b_pref_age_21_50_act = 'Отключить: Взрослые 21-50 лет'
-            b_pref_age_21_50_deact = 'Включить: Взрослые 21-50 лет'
-            b_pref_age_51_80_act = 'Отключить: Старшее Поколение 51-80 лет'
-            b_pref_age_51_80_deact = 'Включить: Старшее Поколение 51-80 лет'
-            b_pref_age_81_on_act = 'Отключить: Старцы более 80 лет'
-            b_pref_age_81_on_deact = 'Включить: Старцы более 80 лет'
+            b_pref_age_0_6_act = 'отключить: Маленькие Дети 0-6 лет'
+            b_pref_age_0_6_deact = 'включить: Маленькие Дети 0-6 лет'
+            b_pref_age_7_13_act = 'отключить: Подростки 7-13 лет'
+            b_pref_age_7_13_deact = 'включить: Подростки 7-13 лет'
+            b_pref_age_14_20_act = 'отключить: Молодежь 14-20 лет'
+            b_pref_age_14_20_deact = 'включить: Молодежь 14-20 лет'
+            b_pref_age_21_50_act = 'отключить: Взрослые 21-50 лет'
+            b_pref_age_21_50_deact = 'включить: Взрослые 21-50 лет'
+            b_pref_age_51_80_act = 'отключить: Старшее Поколение 51-80 лет'
+            b_pref_age_51_80_deact = 'включить: Старшее Поколение 51-80 лет'
+            b_pref_age_81_on_act = 'отключить: Старцы более 80 лет'
+            b_pref_age_81_on_deact = 'включить: Старцы более 80 лет'
 
-            b_pref_radius_act = 'Включить ограничение по расстоянию'
-            b_pref_radius_deact = 'Отключить ограничение по расстоянию'
-            b_pref_radius_change = 'Изменить ограничение по расстоянию'
+            b_pref_radius_act = 'включить ограничение по расстоянию'
+            b_pref_radius_deact = 'отключить ограничение по расстоянию'
+            b_pref_radius_change = 'изменить ограничение по расстоянию'
 
             # basic markup which will be substituted for all specific cases
             reply_markup = reply_markup_main
@@ -1824,7 +1824,6 @@ def main(request):
 
                         input_data = None if got_message == b_set_age else got_message
                         keyboard, first_visit = save_user_pref_age_and_return_curr_state(cur, user_id, input_data)
-                        keyboard.append([b_settings])
                         keyboard.append([b_back_to_start])
                         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
