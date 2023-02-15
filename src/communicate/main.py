@@ -1894,8 +1894,9 @@ def main(request):
                                       'уведомления, а также ввести свои "домашние координаты", на основе которых ' \
                                       'будет рассчитываться расстояние и направление до места поиска. Вы в любой ' \
                                       'момент сможете изменить эти настройки.'
-                        keyboard_settings = [[b_set_notifs_up], [b_menu_set_region], [b_settings_coords],
-                                             [b_set_radius], [b_set_age], [b_back_to_start]]
+                        keyboard_settings = [[b_set_radius], [b_set_age],
+                                             [b_set_notifs_up], [b_menu_set_region], [b_settings_coords],
+                                             [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
 
                     elif got_message == b_settings_coords:
