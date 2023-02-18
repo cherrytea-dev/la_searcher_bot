@@ -13,17 +13,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-      - name: Authentificate in GCP
+      - name: Authenticate in GCP
         id: auth
-        uses: google-github-actions/auth@v0.4.0
+        uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.gcp_credentials }}
 
       - name: Deploy the CF
         id: deploy
-        uses: google-github-actions/deploy-cloud-functions@v0.6.0
+        uses: google-github-actions/deploy-cloud-functions@v1
         with:
             source_dir: src/send_notifications # name of directory
             name: send_notifications
@@ -32,6 +32,6 @@ jobs:
             region: europe-west3
             timeout: 540
             max_instances: 1
-            memory_mb: 256
+            # memory_mb: 256
             event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
             event_trigger_resource: projects/lizaalert-bot-01/topics/topic_to_send_notifications
