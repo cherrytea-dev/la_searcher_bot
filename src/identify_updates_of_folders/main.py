@@ -101,11 +101,6 @@ def compare_old_and_new_folder_hash_and_give_list_of_upd_folders(new_str, old_st
 
     # if these are updates (new and old str are not equal) - combine a list of updates
     elif new_str != old_str:
-
-        # FIXME - temp
-        publish_to_pubsub('topic_notify_admin', f'HERE - NEW: {new_str}, OLD: {old_str}')
-        # FIXME ^^^
-
         new_list = ast.literal_eval(new_str)
         old_list = ast.literal_eval(old_str)
 
