@@ -74,9 +74,8 @@ def check_updates_in_folder_with_folders(start_folder_num):
                 try:
                     folder_time_str = folder.find('time')['datetime']
                     folder_time = datetime.datetime.strptime(folder_time_str, '%Y-%m-%dT%H:%M:%S+00:00')
-                except Exception as e:
-                    notify_admin(f'HERE: start_folder {start_folder_num}, curr_folder {folder_num} --> {folder}')
-                    folder_time_str = datetime.datetime.now()
+                except Exception:  # noqa
+                    folder_time_str = datetime.datetime(2023, 1, 1, 0, 0, 0)
                     folder_time = folder_time_str
 
                 # remove useless folders: Справочники, Снаряжение, Постскриптум and all from Обучение и Тренировки
