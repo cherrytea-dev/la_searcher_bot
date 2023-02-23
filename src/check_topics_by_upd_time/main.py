@@ -76,7 +76,7 @@ def check_updates_in_folder_with_folders(start_folder_num):
                     folder_time = datetime.datetime.strptime(folder_time_str, '%Y-%m-%dT%H:%M:%S+00:00')
                 except Exception:  # noqa
                     folder_time_str = str(datetime.datetime(2023, 1, 1, 0, 0, 0))
-                    folder_time = datetime.datetime.strptime(folder_time_str, '%Y-%m-%dT%H:%M:%S+00:00')
+                    folder_time = datetime.datetime(2023, 1, 1, 0, 0, 0)
 
                 # remove useless folders: Справочники, Снаряжение, Постскриптум and all from Обучение и Тренировки
                 # MEMO: this limitation is just a pre-check. The final check to be done by other scripts basing on psql
