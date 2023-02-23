@@ -34,6 +34,6 @@ jobs:
             region: europe-west3
             timeout: 540 # UPD HERE!
             max_instances: 1 # UPD HERE!
-            # memory_mb: 8192 # UPD HERE!
+            memory_mb: 512 # 8192 # UPD HERE!
             event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
             event_trigger_resource: projects/lizaalert-bot-01/topics/topic_update_identified # UPD HERE! topic
