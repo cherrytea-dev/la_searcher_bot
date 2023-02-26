@@ -331,7 +331,6 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
     except Exception as e:
         logging.info('TEMP - EXCEPTION')
         logging.exception(e)
-    notify_admin(text)
     # FIXME ^^^
 
     for db_line in database_old:
@@ -355,6 +354,8 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
                 msg += ' '
                 msg += age_writer(db_line[8])
             msg += '</a>\n'
+
+    notify_admin(f'{msg==text}')
 
     return msg
 
@@ -1095,7 +1096,7 @@ def main(request):
 
         return None
     # FIXME ^^^
-    
+
     # Set basic params
     bot_token = get_secrets("bot_api_token__prod")
 
