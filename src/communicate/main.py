@@ -234,12 +234,12 @@ def compose_msg_on_all_last_searches(cur, region):
     # download the list from SEARCHES sql table
     cur.execute(
         """SELECT s2.* FROM 
-        (SELECT search_forum_num, search_start_time, display_name, status, status_short, family_name, age 
-        FROM searches 
-        WHERE forum_folder_id=%s 
-        ORDER BY search_start_time DESC 
-        LIMIT 20) s2 
-        LEFT JOIN  search_health_check shc 
+            (SELECT search_forum_num, search_start_time, display_name, status, status_short, family_name, age 
+            FROM searches 
+            WHERE forum_folder_id=%s 
+            ORDER BY search_start_time DESC 
+            LIMIT 20) s2 
+        LEFT JOIN search_health_check shc 
         ON s2.search_forum_num=shc.search_forum_num 
         WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
         ORDER BY s2.search_start_time DESC;""", (region,))
@@ -251,13 +251,12 @@ def compose_msg_on_all_last_searches(cur, region):
         search.topic_id, search.start_time, search.display_name, search.new_status, \
             search.status, search.name, search.age = list(line)
 
-        if not search.display_name: # or search.display_name == 'None':
+        if not search.display_name:
             age_string = f' {age_writer(search.age)}' if search.age != 0 else ''
             search.display_name = f'{search.name}{age_string}'
 
         if not search.new_status:
             search.new_status = search.status
-            notify_admin(f'new status was absent: new = {search.new_status}, old = {search.status}')
 
         if search.new_status in {'Ищем', 'Возобновлен'}:
             search.new_status = f'Ищем {time_counter_since_search_start(search.start_time)[0]}'
@@ -272,9 +271,8 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
 
     msg = ''
 
-    # download the list from SEARCHES sql table
     cur.execute(
-        """select s2.* from (SELECT s.search_forum_num, s.parsed_time, s.status_short, s.forum_search_title, s.cut_link,
+        """SELECT s2.* from (SELECT s.search_forum_num, s.parsed_time, s.status_short, s.forum_search_title, s.cut_link,
         s.search_start_time, s.num_of_replies, s.family_name, s.age, s.id, sa.id, sa.search_id,
         sa.activity_type, sa.latitude, sa.longitude, sa.upd_time, sa.coord_type, s.forum_folder_id FROM
         searches s LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id WHERE
@@ -283,8 +281,19 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
         WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') ORDER BY s2.search_start_time DESC;""",
         (region,)
     )
+    database_old = cur.fetchall()
 
-    database = cur.fetchall()
+    searches_list = cur.execute(
+        """SELECT s2.* FROM 
+            (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
+            s.topic_type, s.family_name, s.age 
+            FROM searches s 
+            LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
+            WHERE (s.status='Ищем' OR s.status='Возобновлен' OR (s.status IS NULL AND s.status_short='Ищем')) 
+                AND s.forum_folder_id=%s ORDER BY s.search_start_time DESC) s2 
+        LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
+        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+        ORDER BY s2.search_start_time DESC;""", (region,)).fetchall()
 
     user_lat = None
     user_lon = None
@@ -293,7 +302,14 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
         user_lat = user_data[0]
         user_lon = user_data[1]
 
-    for db_line in database:
+    # FIXME - WIP
+    for line in searches_list:
+        search = SearchSummary()
+        search.topic_id, search.start_time, search.display_name, search_lat, search_lon, \
+            search.topic_type,  search.name, search.age = list(line)
+    # FIXME ^^^
+
+    for db_line in database_old:
 
         if time_counter_since_search_start(db_line[5])[1] < 60:
 
