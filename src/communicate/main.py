@@ -269,7 +269,9 @@ def compose_msg_on_all_last_searches(cur, region):
 def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
     """Compose a part of message on the list of active searches in the given region with relation to user's coords"""
 
+    pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='
     msg = ''
+    text = ''
 
     cur.execute(
         """SELECT s2.* from (SELECT s.search_forum_num, s.parsed_time, s.status_short, s.forum_search_title, s.cut_link,
@@ -279,21 +281,21 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
         s.status_short='Ищем' AND s.forum_folder_id=%s ORDER BY s.search_start_time DESC) s2 LEFT JOIN
         search_health_check shc ON s2.search_forum_num=shc.search_forum_num
         WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') ORDER BY s2.search_start_time DESC;""",
-        (region,)
-    )
+        (region,))
     database_old = cur.fetchall()
 
-    searches_list = None # cur.execute(
-    """SELECT s2.* FROM 
-        (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
-        s.topic_type, s.family_name, s.age 
-        FROM searches s 
-        LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
-        WHERE (s.status='Ищем' OR s.status='Возобновлен' OR (s.status IS NULL AND s.status_short='Ищем')) 
-            AND s.forum_folder_id=%s ORDER BY s.search_start_time DESC) s2 
-    LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
-    WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
-    ORDER BY s2.search_start_time DESC;""" #, (region,)).fetchall()
+    cur.execute(
+        """SELECT s2.* FROM 
+            (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
+            s.topic_type, s.family_name, s.age 
+            FROM searches s 
+            LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
+            WHERE (s.status='Ищем' OR s.status='Возобновлен' OR (s.status IS NULL AND s.status_short='Ищем')) 
+                AND s.forum_folder_id=%s ORDER BY s.search_start_time DESC) s2 
+        LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
+        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+        ORDER BY s2.search_start_time DESC;""", (region,))
+    searches_list = cur.fetchall()
 
     user_lat = None
     user_lon = None
@@ -303,10 +305,33 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
         user_lon = user_data[1]
 
     # FIXME - WIP
-    """for line in searches_list:
-        search = SearchSummary()
-        search.topic_id, search.start_time, search.display_name, search_lat, search_lon, \
-            search.topic_type,  search.name, search.age = list(line)"""
+    try:
+        for line in searches_list:
+            search = SearchSummary()
+            search.topic_id, search.start_time, search.display_name, search_lat, search_lon, \
+                search.topic_type,  search.name, search.age = list(line)
+
+            if time_counter_since_search_start(search.start_time)[1] >= 60:
+                continue
+
+            time_since_start = time_counter_since_search_start(search.start_time)[0]
+
+            if user_lat and search_lat:
+                dist = distance_to_search(search_lat, search_lon, user_lat, user_lon)
+                dist_and_dir = f' {dist[1]} {dist[0]} км'
+            else:
+                dist_and_dir = ''
+
+            if not search.display_name:
+                age_string = f' {age_writer(search.age)}' if search.age != 0 else ''
+                search.display_name = f'{search.name}{age_string}'
+
+            text += f'{time_since_start}{dist_and_dir} <a href="{pre_url}{search.topic_id}">{search.display_name}</a>\n'
+
+    except Exception as e:
+        logging.info('TEMP - EXCEPTION')
+        logging.exception(e)
+    notify_admin(text)
     # FIXME ^^^
 
     for db_line in database_old:
@@ -1064,13 +1089,13 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
 def main(request):
     """Main function to orchestrate the whole script"""
 
+    # FIXME - WIP
     def send_message():
         """send the message to bot"""
 
-
-
         return None
-
+    # FIXME ^^^
+    
     # Set basic params
     bot_token = get_secrets("bot_api_token__prod")
 
