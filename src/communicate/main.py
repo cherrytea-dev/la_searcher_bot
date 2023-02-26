@@ -270,19 +270,7 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
     """Compose a part of message on the list of active searches in the given region with relation to user's coords"""
 
     pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='
-    msg = ''
     text = ''
-
-    cur.execute(
-        """SELECT s2.* from (SELECT s.search_forum_num, s.parsed_time, s.status_short, s.forum_search_title, s.cut_link,
-        s.search_start_time, s.num_of_replies, s.family_name, s.age, s.id, sa.id, sa.search_id,
-        sa.activity_type, sa.latitude, sa.longitude, sa.upd_time, sa.coord_type, s.forum_folder_id FROM
-        searches s LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id WHERE
-        s.status_short='Ищем' AND s.forum_folder_id=%s ORDER BY s.search_start_time DESC) s2 LEFT JOIN
-        search_health_check shc ON s2.search_forum_num=shc.search_forum_num
-        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') ORDER BY s2.search_start_time DESC;""",
-        (region,))
-    database_old = cur.fetchall()
 
     cur.execute(
         """SELECT s2.* FROM 
@@ -304,57 +292,27 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
         user_lat = user_data[0]
         user_lon = user_data[1]
 
-    # FIXME - WIP
-    try:
-        for line in searches_list:
-            search = SearchSummary()
-            search.topic_id, search.start_time, search.display_name, search_lat, search_lon, \
-                search.topic_type,  search.name, search.age = list(line)
+    for line in searches_list:
+        search = SearchSummary()
+        search.topic_id, search.start_time, search.display_name, search_lat, search_lon, \
+            search.topic_type,  search.name, search.age = list(line)
 
-            if time_counter_since_search_start(search.start_time)[1] >= 60:
-                continue
+        if time_counter_since_search_start(search.start_time)[1] >= 60:
+            continue
 
-            time_since_start = time_counter_since_search_start(search.start_time)[0]
+        time_since_start = time_counter_since_search_start(search.start_time)[0]
 
-            if user_lat and search_lat:
-                dist = distance_to_search(search_lat, search_lon, user_lat, user_lon)
-                dist_and_dir = f' {dist[1]} {dist[0]} км'
-            else:
-                dist_and_dir = ''
+        if user_lat and search_lat:
+            dist = distance_to_search(search_lat, search_lon, user_lat, user_lon)
+            dist_and_dir = f' {dist[1]} {dist[0]} км'
+        else:
+            dist_and_dir = ''
 
-            if not search.display_name:
-                age_string = f' {age_writer(search.age)}' if search.age != 0 else ''
-                search.display_name = f'{search.name}{age_string}'
+        if not search.display_name:
+            age_string = f' {age_writer(search.age)}' if search.age != 0 else ''
+            search.display_name = f'{search.name}{age_string}'
 
-            text += f'{time_since_start}{dist_and_dir} <a href="{pre_url}{search.topic_id}">{search.display_name}</a>\n'
-
-    except Exception as e:
-        logging.info('TEMP - EXCEPTION')
-        notify_admin('ERRORA')
-        logging.exception(e)
-    # FIXME ^^^
-
-    for db_line in database_old:
-
-        if time_counter_since_search_start(db_line[5])[1] < 60:
-
-            # time since search start
-            msg += time_counter_since_search_start(db_line[5])[0]
-
-            # distance & direction
-            if user_lat is not None:
-                if db_line[13] is not None:
-                    dist = distance_to_search(db_line[13], db_line[14], user_lat, user_lon)
-                    msg += ' ' + dist[1] + ' ' + str(dist[0]) + ' км'
-            msg += ' <a href="https://lizaalert.org/forum/viewtopic.php?t=' + str(db_line[0]) + '">'
-
-            family_name = db_line[7]
-            msg += family_name
-            first_letter = str(family_name)[0]
-            if first_letter.isupper() and db_line[8] and db_line[8] != 0:
-                msg += ' '
-                msg += age_writer(db_line[8])
-            msg += '</a>\n'
+        text += f'{time_since_start}{dist_and_dir} <a href="{pre_url}{search.topic_id}">{search.display_name}</a>\n'
 
     return text
 
