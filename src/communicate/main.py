@@ -283,17 +283,17 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
     )
     database_old = cur.fetchall()
 
-    searches_list = cur.execute(
-        """SELECT s2.* FROM 
-            (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
-            s.topic_type, s.family_name, s.age 
-            FROM searches s 
-            LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
-            WHERE (s.status='Ищем' OR s.status='Возобновлен' OR (s.status IS NULL AND s.status_short='Ищем')) 
-                AND s.forum_folder_id=%s ORDER BY s.search_start_time DESC) s2 
-        LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
-        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
-        ORDER BY s2.search_start_time DESC;""", (region,)).fetchall()
+    searches_list = None # cur.execute(
+    """SELECT s2.* FROM 
+        (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
+        s.topic_type, s.family_name, s.age 
+        FROM searches s 
+        LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
+        WHERE (s.status='Ищем' OR s.status='Возобновлен' OR (s.status IS NULL AND s.status_short='Ищем')) 
+            AND s.forum_folder_id=%s ORDER BY s.search_start_time DESC) s2 
+    LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
+    WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+    ORDER BY s2.search_start_time DESC;""" #, (region,)).fetchall()
 
     user_lat = None
     user_lon = None
@@ -303,10 +303,10 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
         user_lon = user_data[1]
 
     # FIXME - WIP
-    for line in searches_list:
+    """for line in searches_list:
         search = SearchSummary()
         search.topic_id, search.start_time, search.display_name, search_lat, search_lon, \
-            search.topic_type,  search.name, search.age = list(line)
+            search.topic_type,  search.name, search.age = list(line)"""
     # FIXME ^^^
 
     for db_line in database_old:
