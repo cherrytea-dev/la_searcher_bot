@@ -254,9 +254,9 @@ def compose_msg_on_all_last_searches(cur, region):
         if not search.display_name or search.display_name == 'None':
             search.display_name = f'{search.name} {age_writer(search.age)}'
 
-        if search.new_status in {'Ищем', 'Возобновлен'}:
+        if search.new_status and search.new_status in {'Ищем', 'Возобновлен'}:
             search.new_status = f'Ищем {time_counter_since_search_start(search.start_time)[0]}'
-        else
+        else:
             search.new_status = search.status
 
         text += f'{search.new_status} <a href="{pre_url}{search.topic_id}">{search.display_name}</a>\n'
