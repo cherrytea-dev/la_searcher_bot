@@ -251,7 +251,7 @@ def compose_msg_on_all_last_searches(cur, region):
         search.topic_id, search.start_time, search.display_name, search.new_status, \
             search.status, search.name, search.age = list(line)
 
-        if not search.display_name:
+        if not search.display_name or search.display_name == 'None':
             search.display_name = f'{search.name} {age_writer(search.age)}'
 
         if search.new_status in {'Ищем', 'Возобновлен'}:
