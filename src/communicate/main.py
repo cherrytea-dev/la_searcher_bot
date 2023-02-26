@@ -251,13 +251,16 @@ def compose_msg_on_all_last_searches(cur, region):
         search.topic_id, search.start_time, search.display_name, search.new_status, \
             search.status, search.name, search.age = list(line)
 
-        if not search.display_name or search.display_name == 'None':
-            search.display_name = f'{search.name} {age_writer(search.age)}'
+        if not search.display_name: # or search.display_name == 'None':
+            age_string = f' {age_writer(search.age)}' if search.age != 0 else ''
+            search.display_name = f'{search.name}{age_string}'
 
-        if search.new_status and search.new_status in {'Ищем', 'Возобновлен'}:
-            search.new_status = f'Ищем {time_counter_since_search_start(search.start_time)[0]}'
-        else:
+        if not search.new_status:
             search.new_status = search.status
+            notify_admin(f'new status was absent: new = {search.new_status}, old = {search.status}')
+
+        if search.new_status in {'Ищем', 'Возобновлен'}:
+            search.new_status = f'Ищем {time_counter_since_search_start(search.start_time)[0]}'
 
         text += f'{search.new_status} <a href="{pre_url}{search.topic_id}">{search.display_name}</a>\n'
 
