@@ -226,77 +226,40 @@ def compose_user_preferences_message(cur, user_id):
 
 
 def compose_msg_on_all_last_searches(cur, region):
-    """Compose a part of message on the list of recent searches in the given region with relation to user's coords"""
+    """Compose a part of message on the list of recent searches"""
 
-    msg = ''
+    pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='
     text = ''
 
     # download the list from SEARCHES sql table
     cur.execute(
-        """select s2.* from (SELECT search_forum_num, parsed_time, status_short, forum_search_title, cut_link,
-        search_start_time, num_of_replies, family_name, age, id, forum_folder_id FROM searches WHERE
-        forum_folder_id=%s ORDER BY search_start_time DESC LIMIT 20) s2 LEFT JOIN
-        search_health_check shc ON s2.search_forum_num=shc.search_forum_num
-        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular')
-        ORDER BY s2.search_start_time DESC;""", (region,)
-    )
+        """SELECT s2.* FROM 
+        (SELECT search_forum_num, search_start_time, display_name, status, status_short, family_name, age 
+        FROM searches 
+        WHERE forum_folder_id=%s 
+        ORDER BY search_start_time DESC 
+        LIMIT 20) s2 
+        LEFT JOIN  search_health_check shc 
+        ON s2.search_forum_num=shc.search_forum_num 
+        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+        ORDER BY s2.search_start_time DESC;""", (region,))
 
     database = cur.fetchall()
 
-    # FIXME - converting into list_of_objects
-    try:
-        for line in database:
-            search = SearchSummary()
-            search.topic_id, search.parsed_time, search.status, search.title, search.link, \
-                search.start_time, search.num_of_replies, search.name, search.age, search.id, \
-                search.folder_id = list(line)
+    for line in database:
+        search = SearchSummary()
+        search.topic_id, search.start_time, search.display_name, search.new_status, \
+            search.status, search.name, search.age = list(line)
 
-            if search.status in {'Ищем', 'Возобновлен'}:
-                text += f'Ищем {time_counter_since_search_start(search.start_time)[0]}'
-            else:
-                text += search.status
+        if not search.display_name:
+            search.display_name = f'{search.name} {age_writer(search.age)}'
 
-            text += f' <a href="https://lizaalert.org/forum/viewtopic.php?t={search.topic_id}">{search.name}'
+        if search.new_status in {'Ищем', 'Возобновлен'}:
+            search.new_status = f'Ищем {time_counter_since_search_start(search.start_time)[0]}'
 
-            # TODO - does it make sense now to check first letter?
-            first_letter = str(search.name)[0]
-            if first_letter.isupper() and search.age and search.age != 0:
-                text += f' {age_writer(search.age)}'
-            text += '</a>\n'
+        text += f'{search.new_status} <a href="{pre_url}{search.topic_id}">{search.display_name}</a>\n'
 
-
-    except Exception as e:  # noqa
-        logging.info(f'TEMP - exception in compose_msg_on_all_last_searches')
-        logging.exception(e)
-    # FIXME ^^^
-
-    for db_line in database:
-
-        if str(db_line[2])[0:4] == 'Ищем':
-            msg += 'Ищем ' + time_counter_since_search_start(db_line[5])[0]
-        else:
-            msg += db_line[2]
-
-        msg += f' <a href="https://lizaalert.org/forum/viewtopic.php?t={db_line[0]}">'
-
-        family_name = db_line[7]
-
-        msg += family_name
-
-        first_letter = str(family_name)[0]
-        if first_letter.isupper() and db_line[8] and db_line[8] != 0:
-            msg += ' '
-            msg += age_writer(db_line[8])
-        msg += '</a>\n'
-
-    # FIXME - temp check – to be deleted
-    notify_admin(f'text=msg: {text == msg}')
-    if text != msg:
-        notify_admin(text)
-        notify_admin(msg)
-    # FIXME ^^^
-
-    return msg
+    return text
 
 
 def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
@@ -1079,6 +1042,13 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
 
 def main(request):
     """Main function to orchestrate the whole script"""
+
+    def send_message():
+        """send the message to bot"""
+
+
+
+        return None
 
     # Set basic params
     bot_token = get_secrets("bot_api_token__prod")
