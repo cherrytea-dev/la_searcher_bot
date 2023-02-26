@@ -330,6 +330,7 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
 
     except Exception as e:
         logging.info('TEMP - EXCEPTION')
+        notify_admin('ERRORA')
         logging.exception(e)
     # FIXME ^^^
 
@@ -355,9 +356,7 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
                 msg += age_writer(db_line[8])
             msg += '</a>\n'
 
-    notify_admin(f'{msg==text}')
-
-    return msg
+    return text
 
 
 def compose_full_message_on_list_of_searches(cur, list_type, user_id, region, region_name):
