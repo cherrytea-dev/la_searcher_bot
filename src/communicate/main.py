@@ -1490,8 +1490,8 @@ def main(request):
             # Other menu
             b_view_latest_searches = 'посмотреть последние поиски'
             b_goto_community = 'написать разработчику бота'
-            b_goto_first_search = 'полезная информация для новичка'
-            b_goto_photos = 'красивые фото с поисков'
+            b_goto_first_search = 'ознакомиться с полезной информацией для новичка'
+            b_goto_photos = 'посмотреть красивые фото с поисков'
             keyboard_other = [[b_view_latest_searches], [b_goto_first_search],
                               [b_goto_community], [b_goto_photos], [b_back_to_start]]
 
