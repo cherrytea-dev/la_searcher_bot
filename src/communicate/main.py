@@ -1490,7 +1490,7 @@ def main(request):
             # Other menu
             b_view_latest_searches = 'посмотреть последние поиски'
             b_goto_community = 'написать разработчику бота'
-            b_goto_first_search = 'ознакомиться с полезной информацией для новичка'
+            b_goto_first_search = 'ознакомиться с информацией для новичка'
             b_goto_photos = 'посмотреть красивые фото с поисков'
             keyboard_other = [[b_view_latest_searches], [b_goto_first_search],
                               [b_goto_community], [b_goto_photos], [b_back_to_start]]
@@ -1952,7 +1952,7 @@ def main(request):
 
                     elif got_message == b_goto_photos:
                         bot_message = 'Если вам хочется окунуться в атмосферу ПСР, приглашаем в замечательный ' \
-                                      '<a href="https://t.me/psr_media">телеграм-канал с красивыми фото с поисков' \
+                                      '<a href="https://t.me/+6LYNNEy8BeI1NGUy">телеграм-канал с красивыми фото с поисков' \
                                       '</a>. Все фото – сделаны поисковиками во время настоящих ПСР.'
                         keyboard_other = [[b_view_latest_searches], [b_goto_community], [b_goto_first_search],
                                           [b_back_to_start]]
