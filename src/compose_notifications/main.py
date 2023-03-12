@@ -603,43 +603,52 @@ def enrich_new_records_with_comments(conn, type_of_comments):
     return None
 
 
-def compose_com_msg_on_new_search(activities, managers, clickable_name):
+def compose_com_msg_on_new_search(start, activities, managers, clickable_name):
     """compose the common, user-independent message on new search"""
 
-    message = MessageNewSearch()
+    line_ignore = None
+    now = datetime.datetime.now()
+    days_since_search_start = (now - start).days
 
-    # 1. List of activities – user-independent
-    msg_1 = ''
-    if activities:
-        for line in activities:
-            msg_1 += f'{line}\n'
-    message.activities = msg_1
+    if days_since_search_start < 2:  # we do not notify users on "new" searches appeared >=2 days ago
+        message = MessageNewSearch()
 
-    # 2. Person
-    msg_2 = clickable_name
+        # 1. List of activities – user-independent
+        msg_1 = ''
+        if activities:
+            for line in activities:
+                msg_1 += f'{line}\n'
+        message.activities = msg_1
 
-    if clickable_name:
-        message.clickable_name = clickable_name
+        # 2. Person
+        msg_2 = clickable_name
 
-    # 3. List of managers – user-independent
-    msg_3 = ''
-    if managers:
-        try:
-            managers_list = ast.literal_eval(managers)
-            msg_3 += 'Ответственные:'
-            for manager in managers_list:
-                line = add_tel_link(manager)
-                msg_3 += f'\n &#8226; {line}'
+        if clickable_name:
+            message.clickable_name = clickable_name
 
-        except Exception as e:
-            logging.error('Not able to compose New Search Message text with Managers: ' + str(e))
-            logging.exception(e)
+        # 3. List of managers – user-independent
+        msg_3 = ''
+        if managers:
+            try:
+                managers_list = ast.literal_eval(managers)
+                msg_3 += 'Ответственные:'
+                for manager in managers_list:
+                    line = add_tel_link(manager)
+                    msg_3 += f'\n &#8226; {line}'
 
-        message.managers = msg_3
+            except Exception as e:
+                logging.error('Not able to compose New Search Message text with Managers: ' + str(e))
+                logging.exception(e)
 
-    logging.info('msg 2 + msg 1 + msg 3: ' + str(msg_2) + ' // ' + str(msg_1) + ' // ' + str(msg_3))
+            message.managers = msg_3
 
-    return [msg_2, msg_1, msg_3], message  # 1 - person, 2 - activities, 3 - managers
+        logging.info('msg 2 + msg 1 + msg 3: ' + str(msg_2) + ' // ' + str(msg_1) + ' // ' + str(msg_3))
+
+    else:
+        line_ignore = 'y'
+        msg_1, msg_2, msg_3, message = None, None, None, None
+
+    return [msg_2, msg_1, msg_3], message, line_ignore  # 1 - person, 2 - activities, 3 - managers
 
 
 def compose_com_msg_on_coords_change(new_value, clickable_name):
@@ -912,21 +921,18 @@ def enrich_new_records_with_com_message_texts():
             if line.display_name:
                 clickable_name = f'<a href="{line.link}">{line.display_name}</a>'
             else:
-                age_info = f' {line.age_wording}' if (line.name[0].isupper() and line.age and line.age != 0) else ''
-                clickable_name = f'<a href="{line.link}">{line.name}{age_info}</a>'
+                if line.name:
+                    name = line.name
+                else:
+                    name = 'БВП'
+                age_info = f' {line.age_wording}' if (name[0].isupper() and line.age and line.age != 0) else ''
+                clickable_name = f'<a href="{line.link}">{name}{age_info}</a>'
 
             if line.change_type == 0:  # 'new_search':
-
-                start = line.start_time
-                now = datetime.datetime.now()
-                days_since_search_start = (now - start).days
-
-                if days_since_search_start < 2:  # we do not notify users on "new" searches appeared >=2 days ago
-                    line.message, line.message_object = compose_com_msg_on_new_search(line.activities,
-                                                                                      line.managers, clickable_name)
-                else:
-                    line.ignore = 'y'
-
+                line.message, line.message_object, line.ignore = compose_com_msg_on_new_search(line.start_time,
+                                                                                               line.activities,
+                                                                                               line.managers,
+                                                                                               clickable_name)
             elif line.change_type == 1:  # 'status_change':
                 line.message = compose_com_msg_on_status_change(line.status, line.region, clickable_name)
             elif line.change_type == 2:  # 'title_change':
@@ -1453,17 +1459,6 @@ def iterate_over_all_users_and_updates(conn, admins_list):
                                                                                user_lat, user_lon)
                     if actual_distance <= user_line.radius:
                         temp_user_list.append(user_line)
-                        # FIXME - temp debug
-                        if user_line.user_id not in admins_list:
-                            notify_admin(f'IN RADIUS – {user_line.user_id}: HQ: '
-                                         f'{record.search_latitude}, {record.search_longitude}. '
-                                         f'CITY {record.city_locations}')
-                    else:
-                        if user_line.user_id not in admins_list:
-                            notify_admin(f'NOT IN RADIUS – {user_line.user_id}: HQ: '
-                                         f'{record.search_latitude}, {record.search_longitude}. '
-                                         f'CITY {record.city_locations}')
-                        # FIXME ^^^
 
             # CASE 4.2. When exact coordinates of a Place are geolocated
             elif list_of_city_coords:
@@ -1755,8 +1750,10 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
         final_message = re.sub(r'\s{3,}', '\n\n', final_message)  # clean excessive blank lines
         final_message = re.sub(r'\s*$', '', final_message)  # clean blank symbols in the end of file
         print(f'TEMP - FINAL NEW MESSAGE FOR NEW SEARCH {final_message}')
-    except: # noqa
-        pass
+    except Exception as e: # noqa
+        notify_admin('ERROR IN COMPOSE INDIVIDUAL MSG')
+        logging.error(e)
+        logging.exception(e)
     # FIXME ^^^
 
     return message
