@@ -1491,8 +1491,9 @@ def main(request):
             b_view_latest_searches = 'посмотреть последние поиски'
             b_goto_community = 'написать разработчику бота'
             b_goto_first_search = 'полезная информация для новичка'
+            b_goto_photos = 'красивые фото с поисков'
             keyboard_other = [[b_view_latest_searches], [b_goto_first_search],
-                              [b_goto_community], [b_back_to_start]]
+                              [b_goto_community], [b_goto_photos], [b_back_to_start]]
 
             # Admin - specially keep it for Admin, regular users unlikely will be interested in it
 
@@ -1828,7 +1829,8 @@ def main(request):
 
                     elif got_message == b_other:
                         bot_message = 'Здесь можно посмотреть статистику по 20 последним поискам, перейти в ' \
-                                      'канал Коммъюнити или Прочитать важную информацию для Новичка'
+                                      'канал Коммъюнити или Прочитать важную информацию для Новичка и посмотреть ' \
+                                      'душевные фото с поисков'
                         reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
 
                     elif got_message in {b_menu_set_region, b_fed_dist_pick_other}:
@@ -1929,17 +1931,29 @@ def main(request):
                                       '<a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">Специальном Чате ' \
                                       'в телеграм</a>. Там можно предложить свои идеи, указать на проблемы ' \
                                       'и получить быструю обратную связь от разработчика.'
-                        keyboard_other = [[b_view_latest_searches], [b_goto_community], [b_goto_first_search],
-                                          [b_back_to_start]]
+                        keyboard_other = [[b_view_latest_searches], [b_goto_first_search],
+                                          [b_goto_photos], [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
 
                     elif got_message == b_goto_first_search:
-                        bot_message = 'Если вы новичок и у вас за плечами не так много поисков – приглашаем ' \
+                        bot_message = 'Если вы хотите стать добровольцем ДПСО «ЛизаАлерт», пожалуйста, ' \
+                                      '<a href="https://lizaalert.org/forum/viewtopic.php?t=56934">' \
+                                      'посетите страницу форума</a>, там можно ознакомиться с базовой информацией ' \
+                                      'для новичков и задать свои вопросы.' \
+                                      'Если вы готовитесь к своему первому поиску – приглашаем ' \
                                       '<a href="https://xn--b1afkdgwddgp9h.xn--p1ai/">ознакомиться с основами ' \
                                       'работы ЛА</a>. Всю теорию работы ЛА необходимо получать от специально ' \
                                       'обученных волонтеров ЛА. Но если у вас еще не было возможности пройти ' \
                                       'официальное обучение, а вы уже готовы выехать на поиск – этот ресурс ' \
                                       'для вас.'
+                        keyboard_other = [[b_view_latest_searches], [b_goto_community],
+                                          [b_goto_photos], [b_back_to_start]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
+
+                    elif got_message == b_goto_photos:
+                        bot_message = 'Если вам хочется окунуться в атмосферу ПСР, приглашаем в замечательный ' \
+                                      '<a href="https://t.me/psr_media">телеграм-канал с красивыми фото с поисков' \
+                                      '</a>. Все фото – сделаны поисковиками во время настоящих ПСР.'
                         keyboard_other = [[b_view_latest_searches], [b_goto_community], [b_goto_first_search],
                                           [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
