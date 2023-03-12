@@ -275,115 +275,151 @@ def process_coords_comparison(conn, search_id, first_page_content_curr, first_pa
 def process_field_trips_comparison(conn, search_id, first_page_content_prev, first_page_content_curr):
     """compare first post content to identify diff in field trips"""
 
-    field_trips_dict = {'case': None}
+    class Content:
+
+        def __init__(self,
+                     init=None,
+                     deleted=None,
+                     nondeleted=None
+                     ):
+            self.init = init
+            self.deleted = deleted
+            self.nondel = nondeleted
+
+    class Summary:
+
+        def __init__(self,
+                     case=None,
+                     curr_content_original=Content(),
+                     prev_content_original=Content()
+                     ):
+            self.case = case
+            self.curr = curr_content_original
+            self.prev = prev_content_original
 
     # check the latest status on this search
-    sql_text = sqlalchemy.text("""SELECT family_name, age, status_short FROM searches WHERE search_forum_num=:a;""")
-    name, age, status_short = conn.execute(sql_text, a=search_id).fetchone()
+    sql_text = sqlalchemy.text("""SELECT display_name, status, family_name, age, status_short 
+                                  FROM searches WHERE search_forum_num=:a;""")
+    # FIXME - incorporate new status and display name
+    display_name, status, name, age, status_old = conn.execute(sql_text, a=search_id).fetchone()
+    # FIXME ^^^
+
+    # TODO: this block is only for DEBUG - to be deleted
+    link = f'https://lizaalert.org/forum/viewtopic.php?t={search_id}'
+    age_wording = age_writer(age) if age else None
+    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
+    msg_2 = f'{name}{age_info}, {search_id}, {link}'
+    # publish_to_pubsub('topic_notify_admin', f'[ide_post]: testing: {msg_2}')
+    # TODO: this block is only for DEBUG - to be deleted
+
+    obj = Summary()
+    obj.curr.init = first_page_content_curr
+    obj.prev.init = first_page_content_prev
+
+    field_trips_dict = {'case': None}
 
     # updated are made only for non-finished searches
-    if status_short == 'Ищем':
+    # FIXME - to be changed to status from status_old
+    if status_old != 'Ищем':
+        return field_trips_dict, obj
 
-        # TODO: this block is only for DEBUG - to be deleted
-        link = f'https://lizaalert.org/forum/viewtopic.php?t={search_id}'
-        age_wording = age_writer(age) if age else None
-        age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
-        msg_2 = f'{name}{age_info}, {search_id}, {link}'
-        # publish_to_pubsub('topic_notify_admin', f'[ide_post]: testing: {msg_2}')
-        # TODO: this block is only for DEBUG - to be deleted
+    # split the texts of the first posts into deleted and regular blocks
+    text_prev_del, text_prev_reg = split_text_to_deleted_and_regular_parts(first_page_content_prev)
+    text_curr_del, text_curr_reg = split_text_to_deleted_and_regular_parts(first_page_content_curr)
 
-        # split the texts of the first posts into deleted and regular blocks
-        text_prev_del, text_prev_reg = split_text_to_deleted_and_regular_parts(first_page_content_prev)
-        text_curr_del, text_curr_reg = split_text_to_deleted_and_regular_parts(first_page_content_curr)
+    obj.prev.deleted, obj.prev.nondel = split_text_to_deleted_and_regular_parts(obj.prev.init)
+    obj.curr.deleted, obj.curr.nondel = split_text_to_deleted_and_regular_parts(obj.curr.init)
 
-        # get field_trip-related context from texts
-        # format:
-        # context_prev_del = check_changes_of_field_trip(text_prev_del)
-        context_prev_reg = get_field_trip_details_from_text(text_prev_reg)
-        context_curr_del = get_field_trip_details_from_text(text_curr_del)
-        context_curr_reg = get_field_trip_details_from_text(text_curr_reg)
 
-        field_trips_dict = {'case': None}
 
-        if 'urgent' in context_curr_reg:
-            field_trips_dict['urgent'] = context_curr_reg['urgent']
-        if 'planned' in context_curr_reg:
-            field_trips_dict['planned'] = context_curr_reg['planned']
-        if 'secondary' in context_curr_reg:
-            field_trips_dict['secondary'] = context_curr_reg['secondary']
+    # get field_trip-related context from texts
+    # format:
+    # context_prev_del = check_changes_of_field_trip(text_prev_del)
+    context_prev_reg = get_field_trip_details_from_text(text_prev_reg)
+    context_curr_del = get_field_trip_details_from_text(text_curr_del)
+    context_curr_reg = get_field_trip_details_from_text(text_curr_reg)
 
-        if 'date_and_time' in context_curr_reg:
-            field_trips_dict['date_and_time_curr'] = context_curr_reg['date_and_time']
-        if 'address' in context_curr_reg:
-            field_trips_dict['address_curr'] = context_curr_reg['address']
-        if 'coords' in context_curr_reg:
-            field_trips_dict['coords_curr'] = context_curr_reg['coords']
+    field_trips_dict = {'case': None}
 
-        # TODO: temp debug
-        print(f"context_prev_reg={context_prev_reg}")
-        print(f"context_curr_del={context_curr_del}")
-        print(f"context_curr_reg={context_curr_reg}")
-        # TODO: temp debug
+    if 'urgent' in context_curr_reg:
+        field_trips_dict['urgent'] = context_curr_reg['urgent']
+    if 'planned' in context_curr_reg:
+        field_trips_dict['planned'] = context_curr_reg['planned']
+    if 'secondary' in context_curr_reg:
+        field_trips_dict['secondary'] = context_curr_reg['secondary']
 
-        # define the CASE (None / add / drop / change)
-        # CASE 1 "add"
-        if context_curr_reg['vyezd'] and not context_prev_reg['vyezd']:
+    if 'date_and_time' in context_curr_reg:
+        field_trips_dict['date_and_time_curr'] = context_curr_reg['date_and_time']
+    if 'address' in context_curr_reg:
+        field_trips_dict['address_curr'] = context_curr_reg['address']
+    if 'coords' in context_curr_reg:
+        field_trips_dict['coords_curr'] = context_curr_reg['coords']
 
-            field_trips_dict['case'] = 'add'
+    # TODO: temp debug
+    print(f"context_prev_reg={context_prev_reg}")
+    print(f"context_curr_del={context_curr_del}")
+    print(f"context_curr_reg={context_curr_reg}")
+    # TODO: temp debug
 
-        # CASE 2 "drop"
-        if not context_curr_reg['vyezd'] and context_prev_reg['vyezd']:
+    # define the CASE (None / add / drop / change)
+    # CASE 1 "add"
+    if context_curr_reg['vyezd'] and not context_prev_reg['vyezd']:
 
-            field_trips_dict['case'] = 'drop'
+        field_trips_dict['case'] = 'add'
 
-        # CASE 3 "change"
-        # CASE 3.1 "was nothing in prev and here's already cancelled one and regular one in curr"
-        if context_curr_reg['vyezd'] and not context_prev_reg['vyezd'] and context_curr_del['vyezd']:
+    # CASE 2 "drop"
+    if not context_curr_reg['vyezd'] and context_prev_reg['vyezd']:
 
-            field_trips_dict['case'] = 'change'
+        field_trips_dict['case'] = 'drop'
 
-            time_and_date_curr = context_curr_reg['date_and_time'] if 'time_and_date' in context_curr_reg else ''
-            time_and_date_prev = context_curr_del['date_and_time'] if 'time_and_date' in context_curr_del else ''
-            if time_and_date_curr != time_and_date_prev and 'time_and_date' in context_curr_del:
-                field_trips_dict['date_and_time_prev'] = context_curr_del['date_and_time']
+    # CASE 3 "change"
+    # CASE 3.1 "was nothing in prev and here's already cancelled one and regular one in curr"
+    if context_curr_reg['vyezd'] and not context_prev_reg['vyezd'] and context_curr_del['vyezd']:
 
-            address_curr = context_curr_reg['address'] if 'address' in context_curr_reg else ''
-            address_prev = context_curr_del['address'] if 'address' in context_curr_del else ''
-            if address_curr != address_prev and 'address' in context_curr_del:
-                field_trips_dict['address_prev'] = context_curr_del['address']
+        field_trips_dict['case'] = 'change'
 
-            coords_curr = context_curr_reg['coords'] if 'coords' in context_curr_reg else ''
-            coords_prev = context_curr_del['coords'] if 'coords' in context_curr_del else ''
-            if coords_curr != coords_prev and 'coords' in context_curr_del:
-                field_trips_dict['coords_prev'] = context_curr_del['coords']
+        time_and_date_curr = context_curr_reg['date_and_time'] if 'time_and_date' in context_curr_reg else ''
+        time_and_date_prev = context_curr_del['date_and_time'] if 'time_and_date' in context_curr_del else ''
+        if time_and_date_curr != time_and_date_prev and 'time_and_date' in context_curr_del:
+            field_trips_dict['date_and_time_prev'] = context_curr_del['date_and_time']
 
-        # CASE 3.2 "there was something which differs in prev and curr"
-        if context_curr_reg['vyezd'] and context_prev_reg['vyezd'] and (context_curr_reg != context_prev_reg):
+        address_curr = context_curr_reg['address'] if 'address' in context_curr_reg else ''
+        address_prev = context_curr_del['address'] if 'address' in context_curr_del else ''
+        if address_curr != address_prev and 'address' in context_curr_del:
+            field_trips_dict['address_prev'] = context_curr_del['address']
 
-            field_trips_dict['case'] = 'change'
+        coords_curr = context_curr_reg['coords'] if 'coords' in context_curr_reg else ''
+        coords_prev = context_curr_del['coords'] if 'coords' in context_curr_del else ''
+        if coords_curr != coords_prev and 'coords' in context_curr_del:
+            field_trips_dict['coords_prev'] = context_curr_del['coords']
 
-            time_and_date_curr = context_curr_reg['date_and_time'] if 'time_and_date' in context_curr_reg else ''
-            time_and_date_prev = context_prev_reg['date_and_time'] if 'time_and_date' in context_prev_reg else ''
-            if time_and_date_curr != time_and_date_prev and 'time_and_date' in context_prev_reg:
-                field_trips_dict['date_and_time_prev'] = context_prev_reg['date_and_time']
+    # CASE 3.2 "there was something which differs in prev and curr"
+    if context_curr_reg['vyezd'] and context_prev_reg['vyezd'] and (context_curr_reg != context_prev_reg):
 
-            address_curr = context_curr_reg['address'] if 'address' in context_curr_reg else ''
-            address_prev = context_prev_reg['address'] if 'address' in context_prev_reg else ''
-            if address_curr != address_prev and 'address' in context_prev_reg:
-                field_trips_dict['address_prev'] = context_prev_reg['address']
+        field_trips_dict['case'] = 'change'
 
-            coords_curr = context_curr_reg['coords'] if 'coords' in context_curr_reg else ''
-            coords_prev = context_prev_reg['coords'] if 'coords' in context_prev_reg else ''
-            if coords_curr != coords_prev and 'coords' in context_prev_reg:
-                field_trips_dict['coords_prev'] = context_prev_reg['coords']
+        time_and_date_curr = context_curr_reg['date_and_time'] if 'time_and_date' in context_curr_reg else ''
+        time_and_date_prev = context_prev_reg['date_and_time'] if 'time_and_date' in context_prev_reg else ''
+        if time_and_date_curr != time_and_date_prev and 'time_and_date' in context_prev_reg:
+            field_trips_dict['date_and_time_prev'] = context_prev_reg['date_and_time']
 
-        # TODO: temp debug
-        if 'case' in field_trips_dict and field_trips_dict['case'] not in {'None', None}:
-            notify_admin(f'[ide_posts]:{msg_2}\n\n{field_trips_dict}')
-        logging.info(f'{msg_2}\n\n{field_trips_dict}')
-        # TODO: temp debug
+        address_curr = context_curr_reg['address'] if 'address' in context_curr_reg else ''
+        address_prev = context_prev_reg['address'] if 'address' in context_prev_reg else ''
+        if address_curr != address_prev and 'address' in context_prev_reg:
+            field_trips_dict['address_prev'] = context_prev_reg['address']
 
-    return field_trips_dict
+        coords_curr = context_curr_reg['coords'] if 'coords' in context_curr_reg else ''
+        coords_prev = context_prev_reg['coords'] if 'coords' in context_prev_reg else ''
+        if coords_curr != coords_prev and 'coords' in context_prev_reg:
+            field_trips_dict['coords_prev'] = context_prev_reg['coords']
+
+    # TODO: temp debug
+    if 'case' in field_trips_dict and field_trips_dict['case'] not in {'None', None}:
+        notify_admin(f'[ide_posts]:{msg_2}\n\n{field_trips_dict}')
+    logging.info(f'{msg_2}\n\n{field_trips_dict}')
+    # TODO: temp debug
+
+    return field_trips_dict, obj
 
 
 def save_new_record_into_change_log(conn, search_id, coords_change_list, changed_field, change_type):
@@ -546,6 +582,59 @@ def split_text_to_deleted_and_regular_parts(text):
 def get_field_trip_details_from_text(text):
     """return the dict with 'filed trip' parameters for the search's text"""
 
+    """resulting_field_trip_dict = {'vyezd': False,  # True for vyezd
+                                     'sbor': False,  # True for sbor
+
+                                     'now': True,  # True for now of and False for future
+                                     'urgent': False,  # True for urgent
+                                     'secondary': False,  # True for secondary
+
+                                     'coords': None,  # [lat, lon] for the most relevant pair of coords
+
+                                     'date_and_time': None,  # time of filed trip
+                                     'address': None,  # place of filed trip (not coords)
+                                     }"""
+
+    class FieldTrip:
+
+        def __init__(self,
+                     field_trip=False,
+                     camp=False,
+                     now=False,
+                     urgent=False,
+                     repeat=False,
+                     coordinates=None,
+                     date_and_time=None,
+                     place=None,
+                     blocks=None
+                     ):
+            coordinates = []
+            blocks = []
+            self.trip = field_trip
+            self.camp = camp
+            self.now = now
+            self.urgent = urgent
+            self.repeat = repeat
+            self.coords = coordinates
+            self.time = date_and_time
+            self.place = place
+            self.b = blocks
+
+    class Block:
+
+        def __init__(self,
+                     type=None,
+                     title=None,
+                     time=None,
+                     place=None,
+                     coords=None
+                     ):
+            self.type = type
+            self.title = title
+            self.time = time
+            self.place = place
+            self.coords = coords
+
     field_trip_vyezd = re.findall(r'(?i)(?:внимание.{0,3}|)'
                                   r'(?:скоро.{0,3}|срочно.{0,3}|)'
                                   r'(?:планируется.{0,3}|ожидается.{0,3}|готовится.{0,3}|запланирован.{0,3}|)'
@@ -564,28 +653,20 @@ def get_field_trip_details_from_text(text):
 
     resulting_field_trip_dict = {'vyezd': False}
 
-    """resulting_field_trip_dict = {'vyezd': False,  # True for vyezd
-                                 'sbor': False,  # True for sbor
 
-                                 'now': True,  # True for now of and False for future
-                                 'urgent': False,  # True for urgent
-                                 'secondary': False,  # True for secondary
-
-                                 'coords': None,  # [lat, lon] for the most relevant pair of coords
-
-                                 'date_and_time': None,  # time of filed trip
-                                 'address': None,  # place of filed trip (not coords)
-                                 }"""
+    trip = FieldTrip()
 
     # Update the parameters of the output_dict
     # vyezd
     if field_trip_vyezd:
         resulting_field_trip_dict['vyezd'] = True
+        trip.trip = True
 
     # TODO: to delete
     # sbor
     if field_trip_sbor:
         resulting_field_trip_dict['sbor'] = True
+        trip.camp = True
 
     # now / urgent / secondary
     for phrase in field_trip_vyezd:
@@ -675,14 +756,11 @@ def main(event, context):  # noqa
     message_from_pubsub = process_pubsub_message(event)
     list_of_updated_searches = ast.literal_eval(message_from_pubsub)
 
-    list_of_folders_with_upd_searches = []
-
     if list_of_updated_searches:
-
         pool = sql_connect()
         with pool.connect() as conn:
-
             try:
+                list_of_folders_with_upd_searches = []
 
                 for search_id in list_of_updated_searches:
 
@@ -723,7 +801,8 @@ def main(event, context):  # noqa
                         if first_page_content_curr and first_page_content_prev:
 
                             # get the final list of parameters on field trip (new, change or drop)
-                            field_trips_dict = process_field_trips_comparison(conn, search_id, first_page_content_prev,
+                            field_trips_dict, filed_trips_obj = process_field_trips_comparison(conn, search_id,
+                                                                                               first_page_content_prev,
                                                                               first_page_content_curr)
 
                             # Save Field Trip (incl potential Coords change) into Change_log
