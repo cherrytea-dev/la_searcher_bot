@@ -1074,9 +1074,7 @@ async def prepare_message_for_async(user_id, data):
 
 
 def process_sending_message_async(user_id, data) -> None:
-    print(f'PRINT 9')
     asyncio.run(prepare_message_for_async(user_id, data))
-    print(f'PRINT 10')
 
     return None
 
@@ -1088,1148 +1086,1135 @@ def main(request):
     bot_token = get_secrets("bot_api_token__prod")
     bot = Bot(token=bot_token)
 
-    try:
-        with sql_connect_by_psycopg2() as conn_psy, conn_psy.cursor() as cur:
+    with sql_connect_by_psycopg2() as conn_psy, conn_psy.cursor() as cur:
 
-            bot_request_aft_usr_msg = ''
-            msg_sent_by_specific_code = False
+        bot_request_aft_usr_msg = ''
+        msg_sent_by_specific_code = False
 
-            if request.method != "POST":
-                conn_psy.close()
-                return None
+        if request.method != "POST":
+            conn_psy.close()
+            return None
+
+        try:
+            update = Update.de_json(request.get_json(force=True), bot)
+        except Exception as e:
+            logging.exception(e)
+            logging.error('custom error')
+            update = None
+
+        logging.info('update: ' + str(update))
+
+        user_new_status = get_param_if_exists(update, 'update.my_chat_member.new_chat_member.status')
+        timer_changed = get_param_if_exists(update, 'update.message.message_auto_delete_timer_changed')
+        photo = get_param_if_exists(update, 'update.message.photo')
+        document = get_param_if_exists(update, 'update.message.document')
+        voice = get_param_if_exists(update, 'update.message.voice')
+        contact = get_param_if_exists(update, 'update.message.contact')
+        inline_query = get_param_if_exists(update, 'update.inline_query')
+        sticker = get_param_if_exists(update, 'update.message.sticker.file_id')
+
+        channel_type = get_param_if_exists(update, 'update.edited_channel_post.chat.type')
+        if not channel_type:
+            channel_type = get_param_if_exists(update, 'update.channel_post.chat.type')
+        if not channel_type:
+            channel_type = get_param_if_exists(update, 'update.my_chat_member.chat.type')
+
+        username = get_param_if_exists(update, 'update.effective_message.from_user.username')
+
+        # the purpose of this bot - sending messages to unique users, this way
+        # chat_id is treated as user_id and vice versa (which is not true in general)
+
+        user_id = get_param_if_exists(update, 'update.effective_message.from_user.id')
+        if not user_id:
+            user_id = get_param_if_exists(update, 'update.effective_message.chat.id')
+        if not user_id:
+            user_id = get_param_if_exists(update, 'update.edited_channel_post.chat.id')
+        if not user_id:
+            user_id = get_param_if_exists(update, 'update.my_chat_member.chat.id')
+        if not user_id:
+            user_id = get_param_if_exists(update, 'update.inline_query.from.id')
+        if not user_id:
+            logging.info('failed to define user_id')
+
+        # CASE 1 – when user blocked / unblocked the bot
+        if user_new_status in {'kicked', 'member'}:
+            try:
+                status_dict = {'kicked': 'block_user', 'member': 'unblock_user'}
+
+                # mark user as blocked / unblocked in psql
+                message_for_pubsub = {'action': status_dict[user_new_status], 'info': {'user': user_id}}
+                publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+
+                if user_new_status == 'member':
+                    bot_message = 'С возвращением! Бот скучал:) Жаль, что вы долго не заходили. ' \
+                                  'Мы постарались сохранить все ваши настройки с вашего прошлого визита. ' \
+                                  'Если у вас есть трудности в работе бота или пожелания, как сделать бот ' \
+                                  'удобнее – напишите, пожалуйста, свои мысли в' \
+                                  '<a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">Специальный Чат' \
+                                  'в телеграм</a>. Спасибо:)'
+
+                    keyboard_main = [['посмотреть актуальные поиски'], ['настроить бот'], ['другие возможности']]
+                    reply_markup = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
+
+                    data = {'text': bot_message, 'reply_markup': reply_markup,
+                            'parse_mode': 'HTML', 'disable_web_page_preview': True}
+                    process_sending_message_async(user_id=user_id, data=data)
+
+            except Exception as e:
+                logging.info('Error in finding basic data for block/unblock user in Communicate script')
+                logging.exception(e)
+
+        # CASE 2 – when user changed auto-delete setting in the bot
+        elif timer_changed:
+            logging.info('user changed auto-delete timer settings')
+
+        # CASE 3 – when user sends a PHOTO or attached DOCUMENT or VOICE message
+        elif photo or document or voice or sticker:
+            logging.debug('user sends photos to bot')
+
+            bot_message = 'Спасибо, интересное! Однако, бот работает только с текстовыми командами. ' \
+                          'Пожалуйста, воспользуйтесь текстовыми кнопками бота, находящимися на ' \
+                          'месте обычной клавиатуры телеграм.'
+            data = {'text': bot_message}
+            process_sending_message_async(user_id=user_id, data=data)
+
+        # CASE 4 – when some Channel writes to bot
+        elif channel_type and user_id < 0:
+            notify_admin('[comm]: INFO: CHANNEL sends messages to bot!')
 
             try:
-                update = Update.de_json(request.get_json(force=True), bot)
+                # TODO: should be refactored for PTB 20.2
+                # bot.leaveChat(user_id)
+                notify_admin('[comm]: INFO: we EMULATED that we left the CHANNEL! BUT WE HAVE NOT')
+
             except Exception as e:
+                logging.error('[comm]: Leaving channel was not successful:' + repr(e))
+
+        # CASE 5 – when user sends Contact
+        elif contact:
+
+            bot_message = 'Спасибо, буду знать. Вот только бот не работает с контактами и отвечает ' \
+                          'только на определенные текстовые команды.'
+            data = {'text': bot_message}
+            process_sending_message_async(user_id=user_id, data=data)
+
+        # CASE 6 – when user mentions bot as @LizaAlert_Searcher_Bot in another telegram chat. Bot should do nothing
+        elif inline_query:
+            notify_admin('[comm]: User mentioned bot in some chats')
+            logging.info(f'bot was mentioned in other chats: {update}')
+
+        # CASE 7 – regular messaging with bot
+        else:
+            # check if user is new - and if so - saving him/her
+            user_is_new = check_if_new_user(cur, user_id)
+
+            if user_is_new:
+                # initiate the manage_users script
+                if not username:
+                    username = 'unknown'
+
+                message_for_pubsub = {'action': 'new',
+                                      'info': {'user': user_id, 'username': username},
+                                      'time': str(datetime.datetime.now())}
+                publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+
+            # get user regional settings (which regions he/she is interested it)
+            user_regions = get_user_regional_preferences(cur, user_id)
+
+            # getting message parameters if user send a REPLY to bot message
+            user_latitude = None
+            user_longitude = None
+            got_message = None
+            print(f'STEP 8')
+            try:
+
+                if update.effective_message.location is not None:
+                    user_latitude = update.effective_message.location.latitude
+                    user_longitude = update.effective_message.location.longitude
+
+                if update.effective_message.text is not None:
+                    got_message = update.effective_message.text
+
+            except Exception as e:
+                logging.info('DBG.C.2.ERR: GENERAL COMM CRASH:')
                 logging.exception(e)
-                logging.error('custom error')
-                update = None
 
-            logging.info('update: ' + str(update))
+            # placeholder for the New message from bot as reply to "update". Placed here – to avoid errors of GCF
+            bot_message = ''
 
-            user_new_status = get_param_if_exists(update, 'update.my_chat_member.new_chat_member.status')
-            timer_changed = get_param_if_exists(update, 'update.message.message_auto_delete_timer_changed')
-            photo = get_param_if_exists(update, 'update.message.photo')
-            document = get_param_if_exists(update, 'update.message.document')
-            voice = get_param_if_exists(update, 'update.message.voice')
-            contact = get_param_if_exists(update, 'update.message.contact')
-            inline_query = get_param_if_exists(update, 'update.inline_query')
-            sticker = get_param_if_exists(update, 'update.message.sticker.file_id')
+            # Buttons & Keyboards
+            # Start & Main menu
+            b_start = '/start'
 
-            channel_type = get_param_if_exists(update, 'update.edited_channel_post.chat.type')
-            if not channel_type:
-                channel_type = get_param_if_exists(update, 'update.channel_post.chat.type')
-            if not channel_type:
-                channel_type = get_param_if_exists(update, 'update.my_chat_member.chat.type')
+            b_role_iam_la = 'я состою в ЛизаАлерт'
+            b_role_want_to_be_la = 'я хочу помогать ЛизаАлерт'
+            b_role_looking_for_person = 'я ищу человека'
+            b_role_other = 'у меня другая задача'
+            b_role_secret = 'не хочу говорить'
 
-            username = get_param_if_exists(update, 'update.effective_message.from_user.username')
+            b_orders_done = 'да, заявки поданы'
+            b_orders_tbd = 'нет, но я хочу продолжить'
 
-            # the purpose of this bot - sending messages to unique users, this way
-            # chat_id is treated as user_id and vice versa (which is not true in general)
+            b_view_act_searches = 'посмотреть актуальные поиски'
+            b_settings = 'настроить бот'
+            b_other = 'другие возможности'
+            keyboard_main = [[b_view_act_searches], [b_settings], [b_other]]
+            reply_markup_main = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
 
-            user_id = get_param_if_exists(update, 'update.effective_message.from_user.id')
-            if not user_id:
-                user_id = get_param_if_exists(update, 'update.effective_message.chat.id')
-            if not user_id:
-                user_id = get_param_if_exists(update, 'update.edited_channel_post.chat.id')
-            if not user_id:
-                user_id = get_param_if_exists(update, 'update.my_chat_member.chat.id')
-            if not user_id:
-                user_id = get_param_if_exists(update, 'update.inline_query.from.id')
-            if not user_id:
-                logging.info('failed to define user_id')
+            # Settings menu
+            b_set_notifs_up = 'настроить виды уведомлений'
+            b_settings_coords = 'настроить "домашние координаты"'
+            b_set_radius = 'настроить максимальный радиус'
+            b_set_age = 'настроить возрастные группы БВП'
+            b_back_to_start = 'в начало'
 
-            # CASE 1 – when user blocked / unblocked the bot
-            if user_new_status in {'kicked', 'member'}:
-                try:
-                    status_dict = {'kicked': 'block_user', 'member': 'unblock_user'}
+            # Settings - notifications
+            b_act_all = 'включить: все уведомления'
+            b_act_new_search = 'включить: о новых поисках'
+            b_act_stat_change = 'включить: об изменениях статусов'
+            b_act_all_comments = 'включить: о всех новых комментариях'
+            b_act_inforg_com = 'включить: о комментариях Инфорга'
+            b_act_field_trips_new = 'включить: о новых выездах'
+            b_act_field_trips_change = 'включить: об изменениях в выездах'
+            b_act_coords_change = 'включить: о смене места штаба'
+            b_deact_all = 'настроить более гибко'
+            b_deact_new_search = 'отключить: о новых поисках'
+            b_deact_stat_change = 'отключить: об изменениях статусов'
+            b_deact_all_comments = 'отключить: о всех новых комментариях'
+            b_deact_inforg_com = 'отключить: о комментариях Инфорга'
+            b_deact_field_trips_new = 'отключить: о новых выездах'
+            b_deact_field_trips_change = 'отключить: об изменениях в выездах'
+            b_deact_coords_change = 'отключить: о смене места штаба'
 
-                    # mark user as blocked / unblocked in psql
-                    message_for_pubsub = {'action': status_dict[user_new_status], 'info': {'user': user_id}}
-                    publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+            # Settings - coordinates
+            b_coords_auto_def = KeyboardButton(text='автоматически определить "домашние координаты"',
+                                               request_location=True)
+            b_coords_man_def = 'ввести "домашние координаты" вручную'
+            b_coords_check = 'посмотреть сохраненные "домашние координаты"'
+            b_coords_del = 'удалить "домашние координаты"'
 
-                    if user_new_status == 'member':
-                        bot_message = 'С возвращением! Бот скучал:) Жаль, что вы долго не заходили. ' \
-                                      'Мы постарались сохранить все ваши настройки с вашего прошлого визита. ' \
-                                      'Если у вас есть трудности в работе бота или пожелания, как сделать бот ' \
-                                      'удобнее – напишите, пожалуйста, свои мысли в' \
-                                      '<a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">Специальный Чат' \
-                                      'в телеграм</a>. Спасибо:)'
+            # Dialogue if Region – is Moscow
+            b_reg_moscow = 'да, Москва – мой регион'
+            b_reg_not_moscow = 'нет, я из другого региона'
 
-                        keyboard_main = [['посмотреть актуальные поиски'], ['настроить бот'], ['другие возможности']]
-                        reply_markup = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
+            # Settings - Federal Districts
+            b_fed_dist_dal_vos = 'Дальневосточный ФО'
+            b_fed_dist_privolz = 'Приволжский ФО'
+            b_fed_dist_sev_kaz = 'Северо-Кавказский ФО'
+            b_fed_dist_sev_zap = 'Северо-Западный ФО'
+            b_fed_dist_sibiria = 'Сибирский ФО'
+            b_fed_dist_uralsky = 'Уральский ФО'
+            b_fed_dist_central = 'Центральный ФО'
+            b_fed_dist_yuzhniy = 'Южный ФО'
+            b_fed_dist_other_r = 'Прочие поиски по РФ'
+            b_fed_dist_pick_other = 'выбрать другой Федеральный Округ'
+            keyboard_fed_dist_set = [[b_fed_dist_dal_vos],
+                                     [b_fed_dist_privolz],
+                                     [b_fed_dist_sev_kaz],
+                                     [b_fed_dist_sev_zap],
+                                     [b_fed_dist_sibiria],
+                                     [b_fed_dist_uralsky],
+                                     [b_fed_dist_central],
+                                     [b_fed_dist_yuzhniy],
+                                     [b_fed_dist_other_r],
+                                     [b_back_to_start]]
 
-                        data = {'text': bot_message, 'reply_markup': reply_markup,
-                                'parse_mode': 'HTML', 'disable_web_page_preview': True}
-                        process_sending_message_async(user_id=user_id, data=data)
+            # Settings - Dalnevostochniy Fed Dist - Regions
+            b_reg_buryatiya = 'Бурятия'
+            b_reg_prim_kray = 'Приморский край'
+            b_reg_habarovsk = 'Хабаровский край'
+            b_reg_amur = 'Амурская обл.'
+            b_reg_dal_vost_other = 'Прочие поиски по ДФО'
+            keyboard_dal_vost_reg_choice = [[b_reg_buryatiya],
+                                            [b_reg_prim_kray],
+                                            [b_reg_habarovsk],
+                                            [b_reg_amur],
+                                            [b_reg_dal_vost_other],
+                                            [b_fed_dist_pick_other],
+                                            [b_back_to_start]]
 
-                except Exception as e:
-                    logging.info('Error in finding basic data for block/unblock user in Communicate script')
-                    logging.exception(e)
+            # Settings - Privolzhskiy Fed Dist - Regions
+            b_reg_bashkorkostan = 'Башкортостан'
+            b_reg_kirov = 'Кировская обл.'
+            b_reg_mariy_el = 'Марий Эл'
+            b_reg_mordovia = 'Мордовия'
+            b_reg_nizhniy = 'Нижегородская обл.'
+            b_reg_orenburg = 'Оренбургская обл.'
+            b_reg_penza = 'Пензенская обл.'
+            b_reg_perm = 'Пермский край'
+            b_reg_samara = 'Самарская обл.'
+            b_reg_saratov = 'Саратовская обл.'
+            b_reg_tatarstan = 'Татарстан'
+            b_reg_udmurtiya = 'Удмуртия'
+            b_reg_ulyanovsk = 'Ульяновская обл.'
+            b_reg_chuvashiya = 'Чувашия'
+            b_reg_privolz_other = 'Прочие поиски по ПФО'
+            keyboard_privolz_reg_choice = [[b_reg_bashkorkostan],
+                                           [b_reg_kirov],
+                                           [b_reg_mariy_el],
+                                           [b_reg_mordovia],
+                                           [b_reg_nizhniy],
+                                           [b_reg_orenburg],
+                                           [b_reg_penza],
+                                           [b_reg_perm],
+                                           [b_reg_samara],
+                                           [b_reg_saratov],
+                                           [b_reg_tatarstan],
+                                           [b_reg_udmurtiya],
+                                           [b_reg_ulyanovsk],
+                                           [b_reg_chuvashiya],
+                                           [b_reg_privolz_other],
+                                           [b_fed_dist_pick_other],
+                                           [b_back_to_start]]
 
-            # CASE 2 – when user changed auto-delete setting in the bot
-            elif timer_changed:
-                logging.info('user changed auto-delete timer settings')
+            # Settings - Severo-Kavkazskiy Fed Dist - Regions
+            b_reg_dagestan = 'Дагестан'
+            b_reg_stavropol = 'Ставропольский край'
+            b_reg_chechnya = 'Чечня'
+            b_reg_kabarda = 'Кабардино-Балкария'
+            b_reg_ingushetia = 'Ингушетия'
+            b_reg_sev_osetia = 'Северная Осетия'
+            b_reg_sev_kav_other = 'Прочие поиски по СКФО'
+            keyboard_sev_kav_reg_choice = [[b_reg_dagestan],
+                                           [b_reg_stavropol],
+                                           [b_reg_chechnya],
+                                           [b_reg_kabarda],
+                                           [b_reg_ingushetia],
+                                           [b_reg_sev_osetia],
+                                           [b_reg_sev_kav_other],
+                                           [b_fed_dist_pick_other],
+                                           [b_back_to_start]]
 
-            # CASE 3 – when user sends a PHOTO or attached DOCUMENT or VOICE message
-            elif photo or document or voice or sticker:
-                logging.debug('user sends photos to bot')
+            # Settings - Severo-Zapadniy Fed Dist - Regions
+            b_reg_vologda = 'Вологодская обл.'
+            b_reg_karelia = 'Карелия'
+            b_reg_komi = 'Коми'
+            b_reg_piter = 'Ленинградская обл.'
+            b_reg_murmansk = 'Мурманская обл.'
+            b_reg_pskov = 'Псковская обл.'
+            b_reg_archangelsk = 'Архангельская обл.'
+            b_reg_sev_zap_other = 'Прочие поиски по СЗФО'
+            keyboard_sev_zap_reg_choice = [[b_reg_vologda],
+                                           [b_reg_komi],
+                                           [b_reg_karelia],
+                                           [b_reg_piter],
+                                           [b_reg_murmansk],
+                                           [b_reg_pskov],
+                                           [b_reg_archangelsk],
+                                           [b_reg_sev_zap_other],
+                                           [b_fed_dist_pick_other],
+                                           [b_back_to_start]]
 
-                bot_message = 'Спасибо, интересное! Однако, бот работает только с текстовыми командами. ' \
-                              'Пожалуйста, воспользуйтесь текстовыми кнопками бота, находящимися на ' \
-                              'месте обычной клавиатуры телеграм.'
-                data = {'text': bot_message}
-                process_sending_message_async(user_id=user_id, data=data)
+            # Settings - Sibirskiy Fed Dist - Regions
+            b_reg_altay = 'Алтайский край'
+            b_reg_irkutsk = 'Иркутская обл.'
+            b_reg_kemerovo = 'Кемеровская обл.'
+            b_reg_krasnoyarsk = 'Красноярский край'
+            b_reg_novosib = 'Новосибирская обл.'
+            b_reg_omsk = 'Омская обл.'
+            b_reg_tomsk = 'Томская обл.'
+            b_reg_hakasiya = 'Хакасия'
+            b_reg_sibiria_reg_other = 'Прочие поиски по СФО'
+            keyboard_sibiria_reg_choice = [[b_reg_altay],
+                                           [b_reg_irkutsk],
+                                           [b_reg_kemerovo],
+                                           [b_reg_krasnoyarsk],
+                                           [b_reg_novosib],
+                                           [b_reg_omsk],
+                                           [b_reg_tomsk],
+                                           [b_reg_hakasiya],
+                                           [b_reg_sibiria_reg_other],
+                                           [b_fed_dist_pick_other],
+                                           [b_back_to_start]]
 
-            # CASE 4 – when some Channel writes to bot
-            elif channel_type and user_id < 0:
-                notify_admin('[comm]: INFO: CHANNEL sends messages to bot!')
-
-                try:
-                    # TODO: should be refactored for PTB 20.2
-                    # bot.leaveChat(user_id)
-                    notify_admin('[comm]: INFO: we EMULATED that we left the CHANNEL! BUT WE HAVE NOT')
-
-                except Exception as e:
-                    logging.error('[comm]: Leaving channel was not successful:' + repr(e))
-
-            # CASE 5 – when user sends Contact
-            elif contact:
-
-                bot_message = 'Спасибо, буду знать. Вот только бот не работает с контактами и отвечает ' \
-                              'только на определенные текстовые команды.'
-                data = {'text': bot_message}
-                process_sending_message_async(user_id=user_id, data=data)
-
-            # CASE 6 – when user mentions bot as @LizaAlert_Searcher_Bot in another telegram chat. Bot should do nothing
-            elif inline_query:
-                notify_admin('[comm]: User mentioned bot in some chats')
-                logging.info(f'bot was mentioned in other chats: {update}')
-
-            # CASE 7 – regular messaging with bot
-            else:
-                # check if user is new - and if so - saving him/her
-                user_is_new = check_if_new_user(cur, user_id)
-
-                if user_is_new:
-                    # initiate the manage_users script
-                    if not username:
-                        username = 'unknown'
-
-                    message_for_pubsub = {'action': 'new',
-                                          'info': {'user': user_id, 'username': username},
-                                          'time': str(datetime.datetime.now())}
-                    publish_to_pubsub('topic_for_user_management', message_for_pubsub)
-
-                # get user regional settings (which regions he/she is interested it)
-                user_regions = get_user_regional_preferences(cur, user_id)
-
-                # getting message parameters if user send a REPLY to bot message
-                user_latitude = None
-                user_longitude = None
-                got_message = None
-                print(f'STEP 8')
-                try:
-
-                    if update.effective_message.location is not None:
-                        user_latitude = update.effective_message.location.latitude
-                        user_longitude = update.effective_message.location.longitude
-
-                    if update.effective_message.text is not None:
-                        got_message = update.effective_message.text
-
-                except Exception as e:
-                    logging.info('DBG.C.2.ERR: GENERAL COMM CRASH:')
-                    logging.exception(e)
-
-                # placeholder for the New message from bot as reply to "update". Placed here – to avoid errors of GCF
-                bot_message = ''
-
-                # Buttons & Keyboards
-                # Start & Main menu
-                b_start = '/start'
-
-                b_role_iam_la = 'я состою в ЛизаАлерт'
-                b_role_want_to_be_la = 'я хочу помогать ЛизаАлерт'
-                b_role_looking_for_person = 'я ищу человека'
-                b_role_other = 'у меня другая задача'
-                b_role_secret = 'не хочу говорить'
-
-                b_orders_done = 'да, заявки поданы'
-                b_orders_tbd = 'нет, но я хочу продолжить'
-
-                b_view_act_searches = 'посмотреть актуальные поиски'
-                b_settings = 'настроить бот'
-                b_other = 'другие возможности'
-                keyboard_main = [[b_view_act_searches], [b_settings], [b_other]]
-                reply_markup_main = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
-
-                # Settings menu
-                b_set_notifs_up = 'настроить виды уведомлений'
-                b_settings_coords = 'настроить "домашние координаты"'
-                b_set_radius = 'настроить максимальный радиус'
-                b_set_age = 'настроить возрастные группы БВП'
-                b_back_to_start = 'в начало'
-
-                # Settings - notifications
-                b_act_all = 'включить: все уведомления'
-                b_act_new_search = 'включить: о новых поисках'
-                b_act_stat_change = 'включить: об изменениях статусов'
-                b_act_all_comments = 'включить: о всех новых комментариях'
-                b_act_inforg_com = 'включить: о комментариях Инфорга'
-                b_act_field_trips_new = 'включить: о новых выездах'
-                b_act_field_trips_change = 'включить: об изменениях в выездах'
-                b_act_coords_change = 'включить: о смене места штаба'
-                b_deact_all = 'настроить более гибко'
-                b_deact_new_search = 'отключить: о новых поисках'
-                b_deact_stat_change = 'отключить: об изменениях статусов'
-                b_deact_all_comments = 'отключить: о всех новых комментариях'
-                b_deact_inforg_com = 'отключить: о комментариях Инфорга'
-                b_deact_field_trips_new = 'отключить: о новых выездах'
-                b_deact_field_trips_change = 'отключить: об изменениях в выездах'
-                b_deact_coords_change = 'отключить: о смене места штаба'
-
-                # Settings - coordinates
-                b_coords_auto_def = KeyboardButton(text='автоматически определить "домашние координаты"',
-                                                   request_location=True)
-                b_coords_man_def = 'ввести "домашние координаты" вручную'
-                b_coords_check = 'посмотреть сохраненные "домашние координаты"'
-                b_coords_del = 'удалить "домашние координаты"'
-
-                # Dialogue if Region – is Moscow
-                b_reg_moscow = 'да, Москва – мой регион'
-                b_reg_not_moscow = 'нет, я из другого региона'
-
-                # Settings - Federal Districts
-                b_fed_dist_dal_vos = 'Дальневосточный ФО'
-                b_fed_dist_privolz = 'Приволжский ФО'
-                b_fed_dist_sev_kaz = 'Северо-Кавказский ФО'
-                b_fed_dist_sev_zap = 'Северо-Западный ФО'
-                b_fed_dist_sibiria = 'Сибирский ФО'
-                b_fed_dist_uralsky = 'Уральский ФО'
-                b_fed_dist_central = 'Центральный ФО'
-                b_fed_dist_yuzhniy = 'Южный ФО'
-                b_fed_dist_other_r = 'Прочие поиски по РФ'
-                b_fed_dist_pick_other = 'выбрать другой Федеральный Округ'
-                keyboard_fed_dist_set = [[b_fed_dist_dal_vos],
-                                         [b_fed_dist_privolz],
-                                         [b_fed_dist_sev_kaz],
-                                         [b_fed_dist_sev_zap],
-                                         [b_fed_dist_sibiria],
-                                         [b_fed_dist_uralsky],
-                                         [b_fed_dist_central],
-                                         [b_fed_dist_yuzhniy],
-                                         [b_fed_dist_other_r],
+            # Settings - Uralskiy Fed Dist - Regions
+            b_reg_ekat = 'Свердловская обл.'
+            b_reg_kurgan = 'Курганская обл.'
+            b_reg_tyumen = 'Тюменская обл.'
+            b_reg_hanty_mansi = 'Ханты-Мансийский АО'
+            b_reg_chelyabinks = 'Челябинская обл.'
+            b_reg_yamal = 'Ямало-Ненецкий АО'
+            b_reg_urals_reg_other = 'Прочие поиски по УФО'
+            keyboard_urals_reg_choice = [[b_reg_ekat],
+                                         [b_reg_kurgan],
+                                         [b_reg_tyumen],
+                                         [b_reg_hanty_mansi],
+                                         [b_reg_chelyabinks],
+                                         [b_reg_yamal],
+                                         [b_reg_urals_reg_other],
+                                         [b_fed_dist_pick_other],
                                          [b_back_to_start]]
 
-                # Settings - Dalnevostochniy Fed Dist - Regions
-                b_reg_buryatiya = 'Бурятия'
-                b_reg_prim_kray = 'Приморский край'
-                b_reg_habarovsk = 'Хабаровский край'
-                b_reg_amur = 'Амурская обл.'
-                b_reg_dal_vost_other = 'Прочие поиски по ДФО'
-                keyboard_dal_vost_reg_choice = [[b_reg_buryatiya],
-                                                [b_reg_prim_kray],
-                                                [b_reg_habarovsk],
-                                                [b_reg_amur],
-                                                [b_reg_dal_vost_other],
-                                                [b_fed_dist_pick_other],
-                                                [b_back_to_start]]
+            # Settings - Central Fed Dist - Regions
+            b_reg_belogorod = 'Белгородская обл.'
+            b_reg_bryansk = 'Брянская обл.'
+            b_reg_vladimir = 'Владимирская обл.'
+            b_reg_voronezh = 'Воронежская обл.'
+            b_reg_ivanovo = 'Ивановская обл.'
+            b_reg_kaluga = 'Калужская обл.'
+            b_reg_kostroma = 'Костромская обл.'
+            b_reg_kursk = 'Курская обл.'
+            b_reg_lipetsk = 'Липецкая обл.'
+            b_reg_msk_act = 'Москва и МО: Активные Поиски'
+            b_reg_msk_inf = 'Москва и МО: Инфо Поддержка'
+            b_reg_orel = 'Орловская обл.'
+            b_reg_ryazan = 'Рязанская обл.'
+            b_reg_smolensk = 'Смоленская обл.'
+            b_reg_tambov = 'Тамбовская обл.'
+            b_reg_tver = 'Тверская обл.'
+            b_reg_tula = 'Тульская обл.'
+            b_reg_yaroslavl = 'Ярославская обл.'
+            b_reg_central_reg_other = 'Прочие поиски по ЦФО'
+            keyboard_central_reg_choice = [[b_reg_belogorod],
+                                           [b_reg_bryansk],
+                                           [b_reg_vladimir],
+                                           [b_reg_voronezh],
+                                           [b_reg_ivanovo],
+                                           [b_reg_kaluga],
+                                           [b_reg_kostroma],
+                                           [b_reg_kursk],
+                                           [b_reg_lipetsk],
+                                           [b_reg_msk_act],
+                                           [b_reg_msk_inf],
+                                           [b_reg_orel],
+                                           [b_reg_ryazan],
+                                           [b_reg_smolensk],
+                                           [b_reg_tambov],
+                                           [b_reg_tver],
+                                           [b_reg_tula],
+                                           [b_reg_yaroslavl],
+                                           [b_reg_central_reg_other],
+                                           [b_fed_dist_pick_other],
+                                           [b_back_to_start]]
 
-                # Settings - Privolzhskiy Fed Dist - Regions
-                b_reg_bashkorkostan = 'Башкортостан'
-                b_reg_kirov = 'Кировская обл.'
-                b_reg_mariy_el = 'Марий Эл'
-                b_reg_mordovia = 'Мордовия'
-                b_reg_nizhniy = 'Нижегородская обл.'
-                b_reg_orenburg = 'Оренбургская обл.'
-                b_reg_penza = 'Пензенская обл.'
-                b_reg_perm = 'Пермский край'
-                b_reg_samara = 'Самарская обл.'
-                b_reg_saratov = 'Саратовская обл.'
-                b_reg_tatarstan = 'Татарстан'
-                b_reg_udmurtiya = 'Удмуртия'
-                b_reg_ulyanovsk = 'Ульяновская обл.'
-                b_reg_chuvashiya = 'Чувашия'
-                b_reg_privolz_other = 'Прочие поиски по ПФО'
-                keyboard_privolz_reg_choice = [[b_reg_bashkorkostan],
-                                               [b_reg_kirov],
-                                               [b_reg_mariy_el],
-                                               [b_reg_mordovia],
-                                               [b_reg_nizhniy],
-                                               [b_reg_orenburg],
-                                               [b_reg_penza],
-                                               [b_reg_perm],
-                                               [b_reg_samara],
-                                               [b_reg_saratov],
-                                               [b_reg_tatarstan],
-                                               [b_reg_udmurtiya],
-                                               [b_reg_ulyanovsk],
-                                               [b_reg_chuvashiya],
-                                               [b_reg_privolz_other],
-                                               [b_fed_dist_pick_other],
-                                               [b_back_to_start]]
+            # Settings - Yuzhniy Fed Dist - Regions
+            b_reg_adygeya = 'Адыгея'
+            b_reg_astrahan = 'Астраханская обл.'
+            b_reg_volgograd = 'Волгоградская обл.'
+            b_reg_krasnodar = 'Краснодарский край'
+            b_reg_krym = 'Крым'
+            b_reg_rostov = 'Ростовская обл.'
+            b_reg_yuzhniy_reg_other = 'Прочие поиски по ЮФО'
+            keyboard_yuzhniy_reg_choice = [[b_reg_adygeya],
+                                           [b_reg_astrahan],
+                                           [b_reg_volgograd],
+                                           [b_reg_krasnodar],
+                                           [b_reg_krym],
+                                           [b_reg_rostov],
+                                           [b_reg_yuzhniy_reg_other],
+                                           [b_fed_dist_pick_other],
+                                           [b_back_to_start]]
 
-                # Settings - Severo-Kavkazskiy Fed Dist - Regions
-                b_reg_dagestan = 'Дагестан'
-                b_reg_stavropol = 'Ставропольский край'
-                b_reg_chechnya = 'Чечня'
-                b_reg_kabarda = 'Кабардино-Балкария'
-                b_reg_ingushetia = 'Ингушетия'
-                b_reg_sev_osetia = 'Северная Осетия'
-                b_reg_sev_kav_other = 'Прочие поиски по СКФО'
-                keyboard_sev_kav_reg_choice = [[b_reg_dagestan],
-                                               [b_reg_stavropol],
-                                               [b_reg_chechnya],
-                                               [b_reg_kabarda],
-                                               [b_reg_ingushetia],
-                                               [b_reg_sev_osetia],
-                                               [b_reg_sev_kav_other],
-                                               [b_fed_dist_pick_other],
-                                               [b_back_to_start]]
+            # Settings - Fed Dist - Regions
+            b_menu_set_region = 'настроить регион поисков'
 
-                # Settings - Severo-Zapadniy Fed Dist - Regions
-                b_reg_vologda = 'Вологодская обл.'
-                b_reg_karelia = 'Карелия'
-                b_reg_komi = 'Коми'
-                b_reg_piter = 'Ленинградская обл.'
-                b_reg_murmansk = 'Мурманская обл.'
-                b_reg_pskov = 'Псковская обл.'
-                b_reg_archangelsk = 'Архангельская обл.'
-                b_reg_sev_zap_other = 'Прочие поиски по СЗФО'
-                keyboard_sev_zap_reg_choice = [[b_reg_vologda],
-                                               [b_reg_komi],
-                                               [b_reg_karelia],
-                                               [b_reg_piter],
-                                               [b_reg_murmansk],
-                                               [b_reg_pskov],
-                                               [b_reg_archangelsk],
-                                               [b_reg_sev_zap_other],
-                                               [b_fed_dist_pick_other],
-                                               [b_back_to_start]]
+            full_list_of_regions = keyboard_dal_vost_reg_choice[:-1] + keyboard_privolz_reg_choice[:-1] \
+                                   + keyboard_sev_kav_reg_choice[:-1] + keyboard_sev_zap_reg_choice[:-1] \
+                                   + keyboard_sibiria_reg_choice[:-1] + keyboard_urals_reg_choice[:-1] \
+                                   + keyboard_central_reg_choice[:-1] + keyboard_yuzhniy_reg_choice[:-1] \
+                                   + [[b_fed_dist_other_r]]  # noqa – for strange pycharm indent warning
+            full_dict_of_regions = {word[0] for word in full_list_of_regions}
 
-                # Settings - Sibirskiy Fed Dist - Regions
-                b_reg_altay = 'Алтайский край'
-                b_reg_irkutsk = 'Иркутская обл.'
-                b_reg_kemerovo = 'Кемеровская обл.'
-                b_reg_krasnoyarsk = 'Красноярский край'
-                b_reg_novosib = 'Новосибирская обл.'
-                b_reg_omsk = 'Омская обл.'
-                b_reg_tomsk = 'Томская обл.'
-                b_reg_hakasiya = 'Хакасия'
-                b_reg_sibiria_reg_other = 'Прочие поиски по СФО'
-                keyboard_sibiria_reg_choice = [[b_reg_altay],
-                                               [b_reg_irkutsk],
-                                               [b_reg_kemerovo],
-                                               [b_reg_krasnoyarsk],
-                                               [b_reg_novosib],
-                                               [b_reg_omsk],
-                                               [b_reg_tomsk],
-                                               [b_reg_hakasiya],
-                                               [b_reg_sibiria_reg_other],
-                                               [b_fed_dist_pick_other],
-                                               [b_back_to_start]]
+            dict_of_fed_dist = {b_fed_dist_dal_vos: keyboard_dal_vost_reg_choice,
+                                b_fed_dist_privolz: keyboard_privolz_reg_choice,
+                                b_fed_dist_sev_kaz: keyboard_sev_kav_reg_choice,
+                                b_fed_dist_sev_zap: keyboard_sev_zap_reg_choice,
+                                b_fed_dist_sibiria: keyboard_sibiria_reg_choice,
+                                b_fed_dist_uralsky: keyboard_urals_reg_choice,
+                                b_fed_dist_central: keyboard_central_reg_choice,
+                                b_fed_dist_yuzhniy: keyboard_yuzhniy_reg_choice
+                                }
 
-                # Settings - Uralskiy Fed Dist - Regions
-                b_reg_ekat = 'Свердловская обл.'
-                b_reg_kurgan = 'Курганская обл.'
-                b_reg_tyumen = 'Тюменская обл.'
-                b_reg_hanty_mansi = 'Ханты-Мансийский АО'
-                b_reg_chelyabinks = 'Челябинская обл.'
-                b_reg_yamal = 'Ямало-Ненецкий АО'
-                b_reg_urals_reg_other = 'Прочие поиски по УФО'
-                keyboard_urals_reg_choice = [[b_reg_ekat],
-                                             [b_reg_kurgan],
-                                             [b_reg_tyumen],
-                                             [b_reg_hanty_mansi],
-                                             [b_reg_chelyabinks],
-                                             [b_reg_yamal],
-                                             [b_reg_urals_reg_other],
-                                             [b_fed_dist_pick_other],
-                                             [b_back_to_start]]
+            # Other menu
+            b_view_latest_searches = 'посмотреть последние поиски'
+            b_goto_community = 'написать разработчику бота'
+            b_goto_first_search = 'ознакомиться с информацией для новичка'
+            b_goto_photos = 'посмотреть красивые фото с поисков'
+            keyboard_other = [[b_view_latest_searches], [b_goto_first_search],
+                              [b_goto_community], [b_goto_photos], [b_back_to_start]]
 
-                # Settings - Central Fed Dist - Regions
-                b_reg_belogorod = 'Белгородская обл.'
-                b_reg_bryansk = 'Брянская обл.'
-                b_reg_vladimir = 'Владимирская обл.'
-                b_reg_voronezh = 'Воронежская обл.'
-                b_reg_ivanovo = 'Ивановская обл.'
-                b_reg_kaluga = 'Калужская обл.'
-                b_reg_kostroma = 'Костромская обл.'
-                b_reg_kursk = 'Курская обл.'
-                b_reg_lipetsk = 'Липецкая обл.'
-                b_reg_msk_act = 'Москва и МО: Активные Поиски'
-                b_reg_msk_inf = 'Москва и МО: Инфо Поддержка'
-                b_reg_orel = 'Орловская обл.'
-                b_reg_ryazan = 'Рязанская обл.'
-                b_reg_smolensk = 'Смоленская обл.'
-                b_reg_tambov = 'Тамбовская обл.'
-                b_reg_tver = 'Тверская обл.'
-                b_reg_tula = 'Тульская обл.'
-                b_reg_yaroslavl = 'Ярославская обл.'
-                b_reg_central_reg_other = 'Прочие поиски по ЦФО'
-                keyboard_central_reg_choice = [[b_reg_belogorod],
-                                               [b_reg_bryansk],
-                                               [b_reg_vladimir],
-                                               [b_reg_voronezh],
-                                               [b_reg_ivanovo],
-                                               [b_reg_kaluga],
-                                               [b_reg_kostroma],
-                                               [b_reg_kursk],
-                                               [b_reg_lipetsk],
-                                               [b_reg_msk_act],
-                                               [b_reg_msk_inf],
-                                               [b_reg_orel],
-                                               [b_reg_ryazan],
-                                               [b_reg_smolensk],
-                                               [b_reg_tambov],
-                                               [b_reg_tver],
-                                               [b_reg_tula],
-                                               [b_reg_yaroslavl],
-                                               [b_reg_central_reg_other],
-                                               [b_fed_dist_pick_other],
-                                               [b_back_to_start]]
+            # Admin - specially keep it for Admin, regular users unlikely will be interested in it
 
-                # Settings - Yuzhniy Fed Dist - Regions
-                b_reg_adygeya = 'Адыгея'
-                b_reg_astrahan = 'Астраханская обл.'
-                b_reg_volgograd = 'Волгоградская обл.'
-                b_reg_krasnodar = 'Краснодарский край'
-                b_reg_krym = 'Крым'
-                b_reg_rostov = 'Ростовская обл.'
-                b_reg_yuzhniy_reg_other = 'Прочие поиски по ЮФО'
-                keyboard_yuzhniy_reg_choice = [[b_reg_adygeya],
-                                               [b_reg_astrahan],
-                                               [b_reg_volgograd],
-                                               [b_reg_krasnodar],
-                                               [b_reg_krym],
-                                               [b_reg_rostov],
-                                               [b_reg_yuzhniy_reg_other],
-                                               [b_fed_dist_pick_other],
-                                               [b_back_to_start]]
+            b_act_titles = 'названия'  # these are "Title update notification" button
 
-                # Settings - Fed Dist - Regions
-                b_menu_set_region = 'настроить регион поисков'
+            b_admin_menu = 'admin'
+            b_test_menu = 'test'
 
-                full_list_of_regions = keyboard_dal_vost_reg_choice[:-1] + keyboard_privolz_reg_choice[:-1] \
-                                       + keyboard_sev_kav_reg_choice[:-1] + keyboard_sev_zap_reg_choice[:-1] \
-                                       + keyboard_sibiria_reg_choice[:-1] + keyboard_urals_reg_choice[:-1] \
-                                       + keyboard_central_reg_choice[:-1] + keyboard_yuzhniy_reg_choice[:-1] \
-                                       + [[b_fed_dist_other_r]]  # noqa – for strange pycharm indent warning
-                full_dict_of_regions = {word[0] for word in full_list_of_regions}
+            b_pref_age_0_6_act = 'отключить: Маленькие Дети 0-6 лет'
+            b_pref_age_0_6_deact = 'включить: Маленькие Дети 0-6 лет'
+            b_pref_age_7_13_act = 'отключить: Подростки 7-13 лет'
+            b_pref_age_7_13_deact = 'включить: Подростки 7-13 лет'
+            b_pref_age_14_20_act = 'отключить: Молодежь 14-20 лет'
+            b_pref_age_14_20_deact = 'включить: Молодежь 14-20 лет'
+            b_pref_age_21_50_act = 'отключить: Взрослые 21-50 лет'
+            b_pref_age_21_50_deact = 'включить: Взрослые 21-50 лет'
+            b_pref_age_51_80_act = 'отключить: Старшее Поколение 51-80 лет'
+            b_pref_age_51_80_deact = 'включить: Старшее Поколение 51-80 лет'
+            b_pref_age_81_on_act = 'отключить: Старцы более 80 лет'
+            b_pref_age_81_on_deact = 'включить: Старцы более 80 лет'
 
-                dict_of_fed_dist = {b_fed_dist_dal_vos: keyboard_dal_vost_reg_choice,
-                                    b_fed_dist_privolz: keyboard_privolz_reg_choice,
-                                    b_fed_dist_sev_kaz: keyboard_sev_kav_reg_choice,
-                                    b_fed_dist_sev_zap: keyboard_sev_zap_reg_choice,
-                                    b_fed_dist_sibiria: keyboard_sibiria_reg_choice,
-                                    b_fed_dist_uralsky: keyboard_urals_reg_choice,
-                                    b_fed_dist_central: keyboard_central_reg_choice,
-                                    b_fed_dist_yuzhniy: keyboard_yuzhniy_reg_choice
-                                    }
+            b_pref_radius_act = 'включить ограничение по расстоянию'
+            b_pref_radius_deact = 'отключить ограничение по расстоянию'
+            b_pref_radius_change = 'изменить ограничение по расстоянию'
 
-                # Other menu
-                b_view_latest_searches = 'посмотреть последние поиски'
-                b_goto_community = 'написать разработчику бота'
-                b_goto_first_search = 'ознакомиться с информацией для новичка'
-                b_goto_photos = 'посмотреть красивые фото с поисков'
-                keyboard_other = [[b_view_latest_searches], [b_goto_first_search],
-                                  [b_goto_community], [b_goto_photos], [b_back_to_start]]
+            # basic markup which will be substituted for all specific cases
+            reply_markup = reply_markup_main
 
-                # Admin - specially keep it for Admin, regular users unlikely will be interested in it
+            # Check what was last request from bot and if bot is expecting user's input
+            bot_request_bfr_usr_msg = get_last_bot_msg(cur, user_id)
 
-                b_act_titles = 'названия'  # these are "Title update notification" button
+            if bot_request_bfr_usr_msg:
+                logging.info(f'before this message bot was waiting for {bot_request_bfr_usr_msg} '
+                             f'from user {user_id}')
+            else:
+                logging.info(f'before this message bot was NOT waiting anything from user {user_id}')
 
-                b_admin_menu = 'admin'
-                b_test_menu = 'test'
+            try:
+                # get coordinates from the text
+                if bot_request_bfr_usr_msg == 'input_of_coords_man':
 
-                b_pref_age_0_6_act = 'отключить: Маленькие Дети 0-6 лет'
-                b_pref_age_0_6_deact = 'включить: Маленькие Дети 0-6 лет'
-                b_pref_age_7_13_act = 'отключить: Подростки 7-13 лет'
-                b_pref_age_7_13_deact = 'включить: Подростки 7-13 лет'
-                b_pref_age_14_20_act = 'отключить: Молодежь 14-20 лет'
-                b_pref_age_14_20_deact = 'включить: Молодежь 14-20 лет'
-                b_pref_age_21_50_act = 'отключить: Взрослые 21-50 лет'
-                b_pref_age_21_50_deact = 'включить: Взрослые 21-50 лет'
-                b_pref_age_51_80_act = 'отключить: Старшее Поколение 51-80 лет'
-                b_pref_age_51_80_deact = 'включить: Старшее Поколение 51-80 лет'
-                b_pref_age_81_on_act = 'отключить: Старцы более 80 лет'
-                b_pref_age_81_on_deact = 'включить: Старцы более 80 лет'
+                    # Check if user input is in format of coordinates
+                    # noinspection PyBroadException
+                    try:
+                        numbers = [float(s) for s in re.findall(r'-?\d+\.?\d*', got_message)]
+                        if numbers and len(numbers) > 1 and 30 < numbers[0] < 80 and 10 < numbers[1] < 190:
+                            user_latitude = numbers[0]
+                            user_longitude = numbers[1]
+                    except Exception:
+                        pass
 
-                b_pref_radius_act = 'включить ограничение по расстоянию'
-                b_pref_radius_deact = 'отключить ограничение по расстоянию'
-                b_pref_radius_change = 'изменить ограничение по расстоянию'
+                # if there is any coordinates from user
+                if user_latitude:
 
-                # basic markup which will be substituted for all specific cases
-                reply_markup = reply_markup_main
+                    save_user_coordinates(cur, user_id, user_latitude, user_longitude)
 
-                # Check what was last request from bot and if bot is expecting user's input
-                bot_request_bfr_usr_msg = get_last_bot_msg(cur, user_id)
+                    bot_message = 'Ваши "домашние координаты" сохранены:\n'
+                    bot_message += generate_yandex_maps_place_link(user_latitude, user_longitude, 'coords')
+                    bot_message += '\nТеперь для всех поисков, где удастся распознать координаты штаба или ' \
+                                   'населенного пункта, будет указываться направление и расстояние по ' \
+                                   'прямой от ваших "домашних координат".'
 
-                if bot_request_bfr_usr_msg:
-                    logging.info(f'before this message bot was waiting for {bot_request_bfr_usr_msg} '
-                                 f'from user {user_id}')
-                else:
-                    logging.info(f'before this message bot was NOT waiting anything from user {user_id}')
+                    keyboard_settings = [[b_coords_check], [b_coords_del], [b_back_to_start]]
+                    reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
 
-                try:
-                    # get coordinates from the text
-                    if bot_request_bfr_usr_msg == 'input_of_coords_man':
+                    data = {'text': bot_message, 'reply_markup': reply_markup,
+                            'parse_mode': 'HTML', 'disable_web_page_preview': True}
+                    process_sending_message_async(user_id=user_id, data=data)
+                    # msg_sent_by_specific_code = True
 
-                        # Check if user input is in format of coordinates
-                        # noinspection PyBroadException
-                        try:
-                            numbers = [float(s) for s in re.findall(r'-?\d+\.?\d*', got_message)]
-                            if numbers and len(numbers) > 1 and 30 < numbers[0] < 80 and 10 < numbers[1] < 190:
-                                user_latitude = numbers[0]
-                                user_longitude = numbers[1]
-                        except Exception:
-                            pass
+                    # saving the last message from bot
+                    if not bot_request_aft_usr_msg:
+                        bot_request_aft_usr_msg = 'not_defined'
 
-                    # if there is any coordinates from user
-                    if user_latitude:
+                    try:
+                        cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
 
-                        save_user_coordinates(cur, user_id, user_latitude, user_longitude)
+                        cur.execute(
+                            """
+                            INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
+                            """,
+                            (user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
 
-                        bot_message = 'Ваши "домашние координаты" сохранены:\n'
-                        bot_message += generate_yandex_maps_place_link(user_latitude, user_longitude, 'coords')
-                        bot_message += '\nТеперь для всех поисков, где удастся распознать координаты штаба или ' \
-                                       'населенного пункта, будет указываться направление и расстояние по ' \
-                                       'прямой от ваших "домашних координат".'
+                    except Exception as e:
+                        logging.info('failed to update the last saved message from bot')
+                        logging.exception(e)
 
-                        keyboard_settings = [[b_coords_check], [b_coords_del], [b_back_to_start]]
-                        reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
+                # if there is a text message from user
+                elif got_message:
 
-                        data = {'text': bot_message, 'reply_markup': reply_markup,
-                                'parse_mode': 'HTML', 'disable_web_page_preview': True}
-                        process_sending_message_async(user_id=user_id, data=data)
-                        # msg_sent_by_specific_code = True
+                    # save user role
+                    if got_message in {b_role_want_to_be_la, b_role_iam_la, b_role_looking_for_person,
+                                       b_role_other, b_role_secret}:
+                        save_user_role(cur, user_id, got_message)
 
-                        # saving the last message from bot
-                        if not bot_request_aft_usr_msg:
-                            bot_request_aft_usr_msg = 'not_defined'
+                    # if pushed \start
+                    if got_message == b_start:
 
-                        try:
-                            cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
+                        if user_is_new:
+                            bot_message = 'Привет! Это Бот Поисковика ЛизаАлерт. Он помогает Поисковикам ' \
+                                          'оперативно получать информацию о новых поисках или об изменениях ' \
+                                          'в текущих поисках.' \
+                                          '\n\nБот управляется кнопками, которые заменяют обычную клавиатуру. ' \
+                                          'Если кнопки не отображаются, справа от поля ввода сообщения ' \
+                                          'есть специальный значок, чтобы отобразить кнопки управления ботом.' \
+                                          '\n\nДавайте настроим бот индивидуально под вас. Пожалуйста, ' \
+                                          'укажите вашу роль сейчас?'
+                            keyboard_role = [[b_role_iam_la], [b_role_want_to_be_la],
+                                             [b_role_looking_for_person], [b_role_other], [b_role_secret]]
+                            reply_markup = ReplyKeyboardMarkup(keyboard_role, resize_keyboard=True)
 
-                            cur.execute(
-                                """
-                                INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
-                                """,
-                                (user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
-
-                        except Exception as e:
-                            logging.info('failed to update the last saved message from bot')
-                            logging.exception(e)
-
-                    # if there is a text message from user
-                    elif got_message:
-
-                        # save user role
-                        if got_message in {b_role_want_to_be_la, b_role_iam_la, b_role_looking_for_person,
-                                           b_role_other, b_role_secret}:
-                            save_user_role(cur, user_id, got_message)
-
-                        # if pushed \start
-                        if got_message == b_start:
-
-                            if user_is_new:
-                                bot_message = 'Привет! Это Бот Поисковика ЛизаАлерт. Он помогает Поисковикам ' \
-                                              'оперативно получать информацию о новых поисках или об изменениях ' \
-                                              'в текущих поисках.' \
-                                              '\n\nБот управляется кнопками, которые заменяют обычную клавиатуру. ' \
-                                              'Если кнопки не отображаются, справа от поля ввода сообщения ' \
-                                              'есть специальный значок, чтобы отобразить кнопки управления ботом.' \
-                                              '\n\nДавайте настроим бот индивидуально под вас. Пожалуйста, ' \
-                                              'укажите вашу роль сейчас?'
-                                keyboard_role = [[b_role_iam_la], [b_role_want_to_be_la],
-                                                 [b_role_looking_for_person], [b_role_other], [b_role_secret]]
-                                reply_markup = ReplyKeyboardMarkup(keyboard_role, resize_keyboard=True)
-
-                            else:
-                                bot_message = 'Привет! Бот управляется кнопками, которые заменяют обычную клавиатуру.'
-                                reply_markup = reply_markup_main
-
-                        # get user role = relatives looking for a person
-                        elif got_message == b_role_looking_for_person:
-
-                            bot_message = 'Тогда вам следует:\n\n' \
-                                          '1. Подайте заявку на поиск в ЛизаАлерт ОДНИМ ИЗ ДВУХ способов:\n' \
-                                          '  1.1. САМОЕ БЫСТРОЕ – звоните на 88007005452 (бесплатная горячая ' \
-                                          'линия ЛизаАлерт). Вам зададут ряд вопросов, который максимально ' \
-                                          'ускорит поиск, и посоветуют дальнейшие действия. \n' \
-                                          '  1.2. Заполните форму поиска https://lizaalert.org/zayavka-na-poisk/ \n' \
-                                          'После заполнения формы на сайте нужно ожидать звонка от ЛизаАлерт. На ' \
-                                          'обработку может потребоваться более часа. Если нет возможности ждать, ' \
-                                          'после заполнения заявки следует позвонить на горячую линию отряда ' \
-                                          '88007005452, сообщив, что вы уже оформили заявку на сайте.\n\n' \
-                                          '2. Подать заявление в Полицию. Если иное не посоветовали на горячей линии,' \
-                                          'заявка в Полицию – поможет ускорить и упростить поиск. Самый быстрый ' \
-                                          'способ – позвонить на 102.\n\n' \
-                                          '3. Отслеживайте ход поиска.\n' \
-                                          'Когда заявки в ЛизаАлерт и Полицию сделаны, отряд начнет первые ' \
-                                          'мероприятия для поиска человека: уточнение деталей, прозвоны ' \
-                                          'в госучреждения, формирование плана и команды поиска и т.п. Весь этот' \
-                                          'процесс вам не будет виден, но часто люди находятся именно на этой стадии' \
-                                          'поиска. Если первые меры не помогут и отряд примет решение проводить' \
-                                          'выезд "на место поиска" – тогда вы сможете отслеживать ход поиска ' \
-                                          'через данный Бот, для этого продолжите настройку бота: вам нужно будет' \
-                                          'указать ваш регион и выбрать, какие уведомления от бота вы будете ' \
-                                          'получать. ' \
-                                          'Как альтернатива, вы можете зайти на форум https://lizaalert.org/forum/, ' \
-                                          'и отслеживать статус поиска там.\n' \
-                                          'Отряд сделает всё возможное, чтобы найти вашего близкого как можно ' \
-                                          'скорее.\n\n' \
-                                          'Сообщите, подали ли вы заявки в ЛизаАлерт и Полицию?'
-
-                            keyboard_orders = [[b_orders_done], [b_orders_tbd]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_orders, resize_keyboard=True)
-
-                        # get user role = potential LA volunteer
-                        elif got_message == b_role_want_to_be_la:
-
-                            bot_message = 'Супер! \n' \
-                                          'Знаете ли вы, как можно помогать ЛизаАлерт? Определились ли вы, как ' \
-                                          'вы готовы помочь? Если еще нет – не беда – рекомендуем ' \
-                                          'ознакомиться со статьёй: ' \
-                                          'https://takiedela.ru/news/2019/05/25/instrukciya-liza-alert/\n\n' \
-                                          'Задачи, которые можно выполнять даже без специальной подготовки, ' \
-                                          'выполняют Поисковики "на месте поиска". Этот Бот как раз старается ' \
-                                          'помогать именно Поисковикам.' \
-                                          'Есть хороший сайт, рассказывающий, как начать участвовать в поиске: ' \
-                                          'https://xn--b1afkdgwddgp9h.xn--p1ai/\n\n' \
-                                          'А если вы "из мира IT" и готовы помогать развитию этого Бота,' \
-                                          'пишите нам в специальный чат https://t.me/+2J-kV0GaCgwxY2Ni\n\n' \
-                                          'Надеемся, эта информацию оказалась полезной. ' \
-                                          'Если вы готовы продолжить настройку Бота, уточните, пожалуйста: ' \
-                                          'ваш основной регион – это Москва и Московская Область?'
-                            keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
-
-                        # get user role = all others
-                        elif got_message in {b_role_iam_la,
-                                             b_role_other, b_role_secret,
-                                             b_orders_done, b_orders_tbd}:
-
-                            bot_message = 'Спасибо. Теперь уточните, пожалуйста, ваш основной регион – это ' \
-                                          'Москва и Московская Область?'
-                            keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
-
-                        # if user Region is Moscow
-                        elif got_message == b_reg_moscow:
-
-                            bot_message = 'Спасибо, бот запомнил этот выбор и теперь вы сможете получать ключевые ' \
-                                          'уведомления в регионе Москва и МО. Вы в любой момент сможете изменить ' \
-                                          'список регионов через настройки бота.'
+                        else:
+                            bot_message = 'Привет! Бот управляется кнопками, которые заменяют обычную клавиатуру.'
                             reply_markup = reply_markup_main
 
-                            if check_if_user_has_no_regions(cur, user_id):
-                                # add the New User into table user_regional_preferences
-                                # region is Moscow for Active Searches & InfoPod
-                                cur.execute(
-                                    """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
-                                    (%s, %s);""",
-                                    (user_id, 276))
-                                cur.execute(
-                                    """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
-                                    (%s, %s);""",
-                                    (user_id, 41))
+                    # get user role = relatives looking for a person
+                    elif got_message == b_role_looking_for_person:
 
-                        # if region is NOT Moscow
-                        elif got_message == b_reg_not_moscow:
-                            bot_message = 'Спасибо, тогда, пожалуйста, выберите сначала Федеральный Округ,' \
-                                          'а затем хотя бы один Регион поисков, чтобы начать получать уведомления ' \
-                                          'по поискам в этом регионе. Вы в любой момент сможете изменить ' \
-                                          'список регионов через настройки бота.'
-                            reply_markup = ReplyKeyboardMarkup(keyboard_fed_dist_set, resize_keyboard=True)
+                        bot_message = 'Тогда вам следует:\n\n' \
+                                      '1. Подайте заявку на поиск в ЛизаАлерт ОДНИМ ИЗ ДВУХ способов:\n' \
+                                      '  1.1. САМОЕ БЫСТРОЕ – звоните на 88007005452 (бесплатная горячая ' \
+                                      'линия ЛизаАлерт). Вам зададут ряд вопросов, который максимально ' \
+                                      'ускорит поиск, и посоветуют дальнейшие действия. \n' \
+                                      '  1.2. Заполните форму поиска https://lizaalert.org/zayavka-na-poisk/ \n' \
+                                      'После заполнения формы на сайте нужно ожидать звонка от ЛизаАлерт. На ' \
+                                      'обработку может потребоваться более часа. Если нет возможности ждать, ' \
+                                      'после заполнения заявки следует позвонить на горячую линию отряда ' \
+                                      '88007005452, сообщив, что вы уже оформили заявку на сайте.\n\n' \
+                                      '2. Подать заявление в Полицию. Если иное не посоветовали на горячей линии,' \
+                                      'заявка в Полицию – поможет ускорить и упростить поиск. Самый быстрый ' \
+                                      'способ – позвонить на 102.\n\n' \
+                                      '3. Отслеживайте ход поиска.\n' \
+                                      'Когда заявки в ЛизаАлерт и Полицию сделаны, отряд начнет первые ' \
+                                      'мероприятия для поиска человека: уточнение деталей, прозвоны ' \
+                                      'в госучреждения, формирование плана и команды поиска и т.п. Весь этот' \
+                                      'процесс вам не будет виден, но часто люди находятся именно на этой стадии' \
+                                      'поиска. Если первые меры не помогут и отряд примет решение проводить' \
+                                      'выезд "на место поиска" – тогда вы сможете отслеживать ход поиска ' \
+                                      'через данный Бот, для этого продолжите настройку бота: вам нужно будет' \
+                                      'указать ваш регион и выбрать, какие уведомления от бота вы будете ' \
+                                      'получать. ' \
+                                      'Как альтернатива, вы можете зайти на форум https://lizaalert.org/forum/, ' \
+                                      'и отслеживать статус поиска там.\n' \
+                                      'Отряд сделает всё возможное, чтобы найти вашего близкого как можно ' \
+                                      'скорее.\n\n' \
+                                      'Сообщите, подали ли вы заявки в ЛизаАлерт и Полицию?'
 
-                        # force user to input a region
-                        elif not user_regions \
-                                and not (got_message in full_dict_of_regions or
-                                         got_message in dict_of_fed_dist or
-                                         got_message in {b_menu_set_region, b_start, b_settings}):
+                        keyboard_orders = [[b_orders_done], [b_orders_tbd]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard_orders, resize_keyboard=True)
 
-                            bot_message = 'Для корректной работы бота, пожалуйста, задайте свой регион. Для этого ' \
-                                          'с помощью кнопок меню выберите сначала ФО (федеральный округ), а затем и ' \
-                                          'регион. Можно выбирать несколько регионов из разных ФО. Выбор региона ' \
-                                          'также можно отменить, повторно нажав на кнопку с названием региона. ' \
-                                          'Функционал бота не будет активирован, пока не выбран хотя бы один регион.'
+                    # get user role = potential LA volunteer
+                    elif got_message == b_role_want_to_be_la:
 
-                            keyboard_coordinates_admin = [[b_menu_set_region]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+                        bot_message = 'Супер! \n' \
+                                      'Знаете ли вы, как можно помогать ЛизаАлерт? Определились ли вы, как ' \
+                                      'вы готовы помочь? Если еще нет – не беда – рекомендуем ' \
+                                      'ознакомиться со статьёй: ' \
+                                      'https://takiedela.ru/news/2019/05/25/instrukciya-liza-alert/\n\n' \
+                                      'Задачи, которые можно выполнять даже без специальной подготовки, ' \
+                                      'выполняют Поисковики "на месте поиска". Этот Бот как раз старается ' \
+                                      'помогать именно Поисковикам.' \
+                                      'Есть хороший сайт, рассказывающий, как начать участвовать в поиске: ' \
+                                      'https://xn--b1afkdgwddgp9h.xn--p1ai/\n\n' \
+                                      'А если вы "из мира IT" и готовы помогать развитию этого Бота,' \
+                                      'пишите нам в специальный чат https://t.me/+2J-kV0GaCgwxY2Ni\n\n' \
+                                      'Надеемся, эта информацию оказалась полезной. ' \
+                                      'Если вы готовы продолжить настройку Бота, уточните, пожалуйста: ' \
+                                      'ваш основной регион – это Москва и Московская Область?'
+                        keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
-                            logging.info(f'user {user_id} is forced to fill in the region')
+                    # get user role = all others
+                    elif got_message in {b_role_iam_la,
+                                         b_role_other, b_role_secret,
+                                         b_orders_done, b_orders_tbd}:
 
-                        # Send summaries
-                        elif got_message in {b_view_latest_searches, b_view_act_searches}:
+                        bot_message = 'Спасибо. Теперь уточните, пожалуйста, ваш основной регион – это ' \
+                                      'Москва и Московская Область?'
+                        keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
-                            msg_sent_by_specific_code = True
+                    # if user Region is Moscow
+                    elif got_message == b_reg_moscow:
 
-                            temp_dict = {b_view_latest_searches: 'all', b_view_act_searches: 'active'}
+                        bot_message = 'Спасибо, бот запомнил этот выбор и теперь вы сможете получать ключевые ' \
+                                      'уведомления в регионе Москва и МО. Вы в любой момент сможете изменить ' \
+                                      'список регионов через настройки бота.'
+                        reply_markup = reply_markup_main
 
+                        if check_if_user_has_no_regions(cur, user_id):
+                            # add the New User into table user_regional_preferences
+                            # region is Moscow for Active Searches & InfoPod
                             cur.execute(
-                                """
-                                select forum_folder_id, folder_description from regions_to_folders;
-                                """
-                            )
+                                """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
+                                (%s, %s);""",
+                                (user_id, 276))
+                            cur.execute(
+                                """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
+                                (%s, %s);""",
+                                (user_id, 41))
 
-                            regions_table = cur.fetchall()
+                    # if region is NOT Moscow
+                    elif got_message == b_reg_not_moscow:
+                        bot_message = 'Спасибо, тогда, пожалуйста, выберите сначала Федеральный Округ,' \
+                                      'а затем хотя бы один Регион поисков, чтобы начать получать уведомления ' \
+                                      'по поискам в этом регионе. Вы в любой момент сможете изменить ' \
+                                      'список регионов через настройки бота.'
+                        reply_markup = ReplyKeyboardMarkup(keyboard_fed_dist_set, resize_keyboard=True)
 
-                            region_name = ''
-                            for region in user_regions:
-                                for line in regions_table:
+                    # force user to input a region
+                    elif not user_regions \
+                            and not (got_message in full_dict_of_regions or
+                                     got_message in dict_of_fed_dist or
+                                     got_message in {b_menu_set_region, b_start, b_settings}):
 
-                                    if line[0] == region:
-                                        region_name = line[1]
-                                        break
+                        bot_message = 'Для корректной работы бота, пожалуйста, задайте свой регион. Для этого ' \
+                                      'с помощью кнопок меню выберите сначала ФО (федеральный округ), а затем и ' \
+                                      'регион. Можно выбирать несколько регионов из разных ФО. Выбор региона ' \
+                                      'также можно отменить, повторно нажав на кнопку с названием региона. ' \
+                                      'Функционал бота не будет активирован, пока не выбран хотя бы один регион.'
 
-                                # check if region – is an archive folder: if so – it can be sent only to 'all'
-                                if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
+                        keyboard_coordinates_admin = [[b_menu_set_region]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
-                                    bot_message = compose_full_message_on_list_of_searches(cur,
-                                                                                           temp_dict[got_message],
-                                                                                           user_id,
-                                                                                           region, region_name)
-                                    reply_markup = reply_markup_main
+                        logging.info(f'user {user_id} is forced to fill in the region')
 
-                                    data = {'text': bot_message, 'reply_markup': reply_markup,
-                                            'parse_mode': 'HTML', 'disable_web_page_preview': True}
-                                    process_sending_message_async(user_id=user_id, data=data)
+                    # Send summaries
+                    elif got_message in {b_view_latest_searches, b_view_act_searches}:
 
-                                    # saving the last message from bot
-                                    try:
-                                        cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
+                        msg_sent_by_specific_code = True
 
-                                        cur.execute(
-                                            """
-                                            INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
-                                            """,
-                                            (user_id, datetime.datetime.now(), 'report'))
+                        temp_dict = {b_view_latest_searches: 'all', b_view_act_searches: 'active'}
 
-                                    except Exception as e:
-                                        logging.info('failed to save the last message from bot')
-                                        logging.exception(e)
+                        cur.execute(
+                            """
+                            select forum_folder_id, folder_description from regions_to_folders;
+                            """
+                        )
 
-                        # Perform individual replies
+                        regions_table = cur.fetchall()
 
-                        # Admin mode
-                        elif got_message.lower() == b_admin_menu:
-                            bot_message = "Вы вошли в специальный тестовый админ-раздел"
+                        region_name = ''
+                        for region in user_regions:
+                            for line in regions_table:
 
-                            # keyboard for Home Coordinates sharing
-                            keyboard_coordinates_admin = [[b_back_to_start], [b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+                                if line[0] == region:
+                                    region_name = line[1]
+                                    break
 
-                        # FIXME - WIP
-                        elif got_message.lower() == b_test_menu:
-                            bot_message = 'Вы вошли в специальный тестовый раздел, здесь доступны функции в стадии ' \
-                                          'отладки и тестирования. Представленный здесь функционал может не работать ' \
-                                          'на 100% корректно. Если заметите случаи некорректного выполнения ' \
-                                          'функционала из этого раздела – пишите, пожалуйста, в телеграм-чат ' \
-                                          'https://t.me/joinchat/2J-kV0GaCgwxY2Ni'
-                            keyboard_coordinates_admin = [[b_act_field_trips_new], [b_deact_field_trips_new],
-                                                          [b_act_field_trips_change], [b_deact_field_trips_change],
-                                                          [b_act_coords_change], [b_deact_coords_change],
-                                                          [b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
-                        # FIXME ^^^
+                            # check if region – is an archive folder: if so – it can be sent only to 'all'
+                            if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
 
-                        elif got_message in {b_set_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
-                                             b_pref_age_7_13_deact, b_pref_age_14_20_act, b_pref_age_14_20_deact,
-                                             b_pref_age_21_50_act, b_pref_age_21_50_deact, b_pref_age_51_80_act,
-                                             b_pref_age_51_80_deact, b_pref_age_81_on_act, b_pref_age_81_on_deact}:
+                                bot_message = compose_full_message_on_list_of_searches(cur,
+                                                                                       temp_dict[got_message],
+                                                                                       user_id,
+                                                                                       region, region_name)
+                                reply_markup = reply_markup_main
 
-                            input_data = None if got_message == b_set_age else got_message
-                            keyboard, first_visit = save_user_pref_age_and_return_curr_state(cur, user_id, input_data)
-                            keyboard.append([b_back_to_start])
-                            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+                                data = {'text': bot_message, 'reply_markup': reply_markup,
+                                        'parse_mode': 'HTML', 'disable_web_page_preview': True}
+                                process_sending_message_async(user_id=user_id, data=data)
 
-                            if got_message.lower() == b_set_age:
-                                bot_message = 'Чтобы включить или отключить уведомления по определенной возрастной ' \
-                                              'группе, нажмите на неё. Настройку можно изменить в любой момент.'
-                                if first_visit:
-                                    bot_message = 'Данное меню позволяет выбрать возрастные категории БВП ' \
-                                                  '(без вести пропавших), по которым вы хотели бы получать уведомления. ' \
-                                                  'Важно, что если бот не сможет распознать возраст БВП, тогда вы ' \
-                                                  'всё равно получите уведомление.\nТакже данная настройка не влияет на ' \
-                                                  'разделы Актуальные Поиски и Последние Поиски – в них вы всё также ' \
-                                                  'сможете увидеть полный список поисков.\n\n' + bot_message
-                            else:
-                                bot_message = 'Спасибо, записали.'
+                                # saving the last message from bot
+                                try:
+                                    cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
 
-                        elif got_message in {b_set_radius, b_pref_radius_act, b_pref_radius_deact,
-                                             b_pref_radius_change} or bot_request_bfr_usr_msg == 'radius_input':
+                                    cur.execute(
+                                        """
+                                        INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
+                                        """,
+                                        (user_id, datetime.datetime.now(), 'report'))
 
-                            bot_message, reply_markup, bot_request_aft_usr_msg = \
-                                manage_radius(cur, user_id, got_message, b_set_radius, b_pref_radius_act,
-                                              b_pref_radius_deact, b_pref_radius_change, b_back_to_start,
-                                              b_settings_coords, bot_request_bfr_usr_msg)
+                                except Exception as e:
+                                    logging.info('failed to save the last message from bot')
+                                    logging.exception(e)
 
-                        # DEBUG: for debugging purposes only
-                        elif got_message.lower() == 'go':
-                            publish_to_pubsub('topic_notify_admin', 'test_admin_check')
+                    # Perform individual replies
 
-                        elif got_message == b_other:
-                            bot_message = 'Здесь можно посмотреть статистику по 20 последним поискам, перейти в ' \
-                                          'канал Коммъюнити или Прочитать важную информацию для Новичка и посмотреть ' \
-                                          'душевные фото с поисков'
-                            reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
+                    # Admin mode
+                    elif got_message.lower() == b_admin_menu:
+                        bot_message = "Вы вошли в специальный тестовый админ-раздел"
 
-                        elif got_message in {b_menu_set_region, b_fed_dist_pick_other}:
-                            bot_message = update_and_download_list_of_regions(cur,
+                        # keyboard for Home Coordinates sharing
+                        keyboard_coordinates_admin = [[b_back_to_start], [b_back_to_start]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+
+                    # FIXME - WIP
+                    elif got_message.lower() == b_test_menu:
+                        bot_message = 'Вы вошли в специальный тестовый раздел, здесь доступны функции в стадии ' \
+                                      'отладки и тестирования. Представленный здесь функционал может не работать ' \
+                                      'на 100% корректно. Если заметите случаи некорректного выполнения ' \
+                                      'функционала из этого раздела – пишите, пожалуйста, в телеграм-чат ' \
+                                      'https://t.me/joinchat/2J-kV0GaCgwxY2Ni'
+                        keyboard_coordinates_admin = [[b_act_field_trips_new], [b_deact_field_trips_new],
+                                                      [b_act_field_trips_change], [b_deact_field_trips_change],
+                                                      [b_act_coords_change], [b_deact_coords_change],
+                                                      [b_back_to_start]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+                    # FIXME ^^^
+
+                    elif got_message in {b_set_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
+                                         b_pref_age_7_13_deact, b_pref_age_14_20_act, b_pref_age_14_20_deact,
+                                         b_pref_age_21_50_act, b_pref_age_21_50_deact, b_pref_age_51_80_act,
+                                         b_pref_age_51_80_deact, b_pref_age_81_on_act, b_pref_age_81_on_deact}:
+
+                        input_data = None if got_message == b_set_age else got_message
+                        keyboard, first_visit = save_user_pref_age_and_return_curr_state(cur, user_id, input_data)
+                        keyboard.append([b_back_to_start])
+                        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+                        if got_message.lower() == b_set_age:
+                            bot_message = 'Чтобы включить или отключить уведомления по определенной возрастной ' \
+                                          'группе, нажмите на неё. Настройку можно изменить в любой момент.'
+                            if first_visit:
+                                bot_message = 'Данное меню позволяет выбрать возрастные категории БВП ' \
+                                              '(без вести пропавших), по которым вы хотели бы получать уведомления. ' \
+                                              'Важно, что если бот не сможет распознать возраст БВП, тогда вы ' \
+                                              'всё равно получите уведомление.\nТакже данная настройка не влияет на ' \
+                                              'разделы Актуальные Поиски и Последние Поиски – в них вы всё также ' \
+                                              'сможете увидеть полный список поисков.\n\n' + bot_message
+                        else:
+                            bot_message = 'Спасибо, записали.'
+
+                    elif got_message in {b_set_radius, b_pref_radius_act, b_pref_radius_deact,
+                                         b_pref_radius_change} or bot_request_bfr_usr_msg == 'radius_input':
+
+                        bot_message, reply_markup, bot_request_aft_usr_msg = \
+                            manage_radius(cur, user_id, got_message, b_set_radius, b_pref_radius_act,
+                                          b_pref_radius_deact, b_pref_radius_change, b_back_to_start,
+                                          b_settings_coords, bot_request_bfr_usr_msg)
+
+                    # DEBUG: for debugging purposes only
+                    elif got_message.lower() == 'go':
+                        publish_to_pubsub('topic_notify_admin', 'test_admin_check')
+
+                    elif got_message == b_other:
+                        bot_message = 'Здесь можно посмотреть статистику по 20 последним поискам, перейти в ' \
+                                      'канал Коммъюнити или Прочитать важную информацию для Новичка и посмотреть ' \
+                                      'душевные фото с поисков'
+                        reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
+
+                    elif got_message in {b_menu_set_region, b_fed_dist_pick_other}:
+                        bot_message = update_and_download_list_of_regions(cur,
+                                                                          user_id, got_message,
+                                                                          b_menu_set_region,
+                                                                          b_fed_dist_pick_other)
+                        reply_markup = ReplyKeyboardMarkup(keyboard_fed_dist_set, resize_keyboard=True)
+
+                    elif got_message in dict_of_fed_dist:
+                        updated_regions = update_and_download_list_of_regions(cur,
                                                                               user_id, got_message,
                                                                               b_menu_set_region,
                                                                               b_fed_dist_pick_other)
-                            reply_markup = ReplyKeyboardMarkup(keyboard_fed_dist_set, resize_keyboard=True)
+                        bot_message = updated_regions
+                        reply_markup = ReplyKeyboardMarkup(dict_of_fed_dist[got_message], resize_keyboard=True)
 
-                        elif got_message in dict_of_fed_dist:
-                            updated_regions = update_and_download_list_of_regions(cur,
-                                                                                  user_id, got_message,
-                                                                                  b_menu_set_region,
-                                                                                  b_fed_dist_pick_other)
-                            bot_message = updated_regions
-                            reply_markup = ReplyKeyboardMarkup(dict_of_fed_dist[got_message], resize_keyboard=True)
-
-                        elif got_message in full_dict_of_regions:
-                            updated_regions = update_and_download_list_of_regions(cur,
-                                                                                  user_id, got_message,
-                                                                                  b_menu_set_region,
-                                                                                  b_fed_dist_pick_other)
-                            bot_message = updated_regions
-                            keyboard = keyboard_fed_dist_set
-                            for fed_dist in dict_of_fed_dist:
-                                for region in dict_of_fed_dist[fed_dist]:
-                                    if region[0] == got_message:
-                                        keyboard = dict_of_fed_dist[fed_dist]
-                                        break
-                                else:
-                                    continue
-                                break
-                            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-                        elif got_message == b_settings:
-                            bot_message = 'Это раздел с настройками. Здесь вы можете выбрать удобные для вас ' \
-                                          'уведомления, а также ввести свои "домашние координаты", на основе которых ' \
-                                          'будет рассчитываться расстояние и направление до места поиска. Вы в любой ' \
-                                          'момент сможете изменить эти настройки.'
-                            keyboard_settings = [[b_set_radius], [b_set_age],
-                                                 [b_set_notifs_up], [b_menu_set_region], [b_settings_coords],
-                                                 [b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
-
-                        elif got_message == b_settings_coords:
-                            bot_message = 'АВТОМАТИЧЕСКОЕ ОПРЕДЕЛЕНИЕ координат работает только для носимых устройств' \
-                                          ' (для настольных компьютеров – НЕ работает: используйте, пожалуйста, ' \
-                                          'кнопку ручного ввода координат). ' \
-                                          'При автоматическом определении координат – нажмите на кнопку и ' \
-                                          'разрешите определить вашу текущую геопозицию. ' \
-                                          'Координаты, загруженные вручную или автоматически, будут считаться ' \
-                                          'вашим "домом", откуда будут рассчитаны расстояние и ' \
-                                          'направление до поисков.'
-                            keyboard_coordinates_1 = [[b_coords_auto_def], [b_coords_man_def], [b_coords_check],
-                                                      [b_coords_del], [b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
-
-                        elif got_message == b_coords_del:
-                            delete_user_coordinates(cur, user_id)
-                            bot_message = 'Ваши "домашние координаты" удалены. Теперь расстояние и направление ' \
-                                          'до поисков не будет отображаться.\n' \
-                                          'Вы в любой момент можете заново ввести новые "домашние координаты". ' \
-                                          'Функция Автоматического определения координат работает только для ' \
-                                          'носимых устройств, для настольного компьютера – воспользуйтесь ' \
-                                          'ручным вводом.'
-                            keyboard_coordinates_1 = [[b_coords_auto_def], [b_coords_man_def], [b_coords_check],
-                                                      [b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
-
-                        elif got_message == b_coords_man_def:
-                            bot_message = 'Введите координаты вашего дома вручную в теле сообщения и просто ' \
-                                          'отправьте. Формат: XX.XXXХХ, XX.XXXХХ, где количество цифр после точки ' \
-                                          'может быть различным. Широта (первое число) должна быть между 30 ' \
-                                          'и 80, Долгота (второе число) – между 10 и 190.'
-                            bot_request_aft_usr_msg = 'input_of_coords_man'
-                            reply_markup = ReplyKeyboardRemove()
-
-                        elif got_message == b_coords_check:
-
-                            lat, lon = show_user_coordinates(cur, user_id)
-                            if lat and lon:
-                                bot_message = 'Ваши "домашние координаты" '
-                                bot_message += generate_yandex_maps_place_link(lat, lon, 'coords')
-
+                    elif got_message in full_dict_of_regions:
+                        updated_regions = update_and_download_list_of_regions(cur,
+                                                                              user_id, got_message,
+                                                                              b_menu_set_region,
+                                                                              b_fed_dist_pick_other)
+                        bot_message = updated_regions
+                        keyboard = keyboard_fed_dist_set
+                        for fed_dist in dict_of_fed_dist:
+                            for region in dict_of_fed_dist[fed_dist]:
+                                if region[0] == got_message:
+                                    keyboard = dict_of_fed_dist[fed_dist]
+                                    break
                             else:
-                                bot_message = 'Ваши координаты пока не сохранены. Введите их автоматически или вручную.'
+                                continue
+                            break
+                        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-                            keyboard_coordinates_1 = [[b_coords_auto_def], [b_coords_man_def],
-                                                      [b_coords_check], [b_coords_del], [b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
+                    elif got_message == b_settings:
+                        bot_message = 'Это раздел с настройками. Здесь вы можете выбрать удобные для вас ' \
+                                      'уведомления, а также ввести свои "домашние координаты", на основе которых ' \
+                                      'будет рассчитываться расстояние и направление до места поиска. Вы в любой ' \
+                                      'момент сможете изменить эти настройки.'
+                        keyboard_settings = [[b_set_radius], [b_set_age],
+                                             [b_set_notifs_up], [b_menu_set_region], [b_settings_coords],
+                                             [b_back_to_start]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
 
-                        elif got_message == b_back_to_start:
-                            bot_message = 'возвращаемся в главное меню'
-                            reply_markup = reply_markup_main
+                    elif got_message == b_settings_coords:
+                        bot_message = 'АВТОМАТИЧЕСКОЕ ОПРЕДЕЛЕНИЕ координат работает только для носимых устройств' \
+                                      ' (для настольных компьютеров – НЕ работает: используйте, пожалуйста, ' \
+                                      'кнопку ручного ввода координат). ' \
+                                      'При автоматическом определении координат – нажмите на кнопку и ' \
+                                      'разрешите определить вашу текущую геопозицию. ' \
+                                      'Координаты, загруженные вручную или автоматически, будут считаться ' \
+                                      'вашим "домом", откуда будут рассчитаны расстояние и ' \
+                                      'направление до поисков.'
+                        keyboard_coordinates_1 = [[b_coords_auto_def], [b_coords_man_def], [b_coords_check],
+                                                  [b_coords_del], [b_back_to_start]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
 
-                        elif got_message == b_goto_community:
-                            bot_message = 'Бот можно обсудить с соотрядниками в ' \
-                                          '<a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">Специальном Чате ' \
-                                          'в телеграм</a>. Там можно предложить свои идеи, указать на проблемы ' \
-                                          'и получить быструю обратную связь от разработчика.'
-                            keyboard_other = [[b_view_latest_searches], [b_goto_first_search],
-                                              [b_goto_photos], [b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
+                    elif got_message == b_coords_del:
+                        delete_user_coordinates(cur, user_id)
+                        bot_message = 'Ваши "домашние координаты" удалены. Теперь расстояние и направление ' \
+                                      'до поисков не будет отображаться.\n' \
+                                      'Вы в любой момент можете заново ввести новые "домашние координаты". ' \
+                                      'Функция Автоматического определения координат работает только для ' \
+                                      'носимых устройств, для настольного компьютера – воспользуйтесь ' \
+                                      'ручным вводом.'
+                        keyboard_coordinates_1 = [[b_coords_auto_def], [b_coords_man_def], [b_coords_check],
+                                                  [b_back_to_start]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
 
-                        elif got_message == b_goto_first_search:
-                            bot_message = 'Если вы хотите стать добровольцем ДПСО «ЛизаАлерт», пожалуйста, ' \
-                                          '<a href="https://lizaalert.org/forum/viewtopic.php?t=56934">' \
-                                          'посетите страницу форума</a>, там можно ознакомиться с базовой информацией ' \
-                                          'для новичков и задать свои вопросы.' \
-                                          'Если вы готовитесь к своему первому поиску – приглашаем ' \
-                                          '<a href="https://xn--b1afkdgwddgp9h.xn--p1ai/">ознакомиться с основами ' \
-                                          'работы ЛА</a>. Всю теорию работы ЛА необходимо получать от специально ' \
-                                          'обученных волонтеров ЛА. Но если у вас еще не было возможности пройти ' \
-                                          'официальное обучение, а вы уже готовы выехать на поиск – этот ресурс ' \
-                                          'для вас.'
-                            keyboard_other = [[b_view_latest_searches], [b_goto_community],
-                                              [b_goto_photos], [b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
+                    elif got_message == b_coords_man_def:
+                        bot_message = 'Введите координаты вашего дома вручную в теле сообщения и просто ' \
+                                      'отправьте. Формат: XX.XXXХХ, XX.XXXХХ, где количество цифр после точки ' \
+                                      'может быть различным. Широта (первое число) должна быть между 30 ' \
+                                      'и 80, Долгота (второе число) – между 10 и 190.'
+                        bot_request_aft_usr_msg = 'input_of_coords_man'
+                        reply_markup = ReplyKeyboardRemove()
 
-                        elif got_message == b_goto_photos:
-                            bot_message = 'Если вам хочется окунуться в атмосферу ПСР, приглашаем в замечательный ' \
-                                          '<a href="https://t.me/+6LYNNEy8BeI1NGUy">телеграм-канал с красивыми фото с ' \
-                                          'поисков</a>. Все фото – сделаны поисковиками во время настоящих ПСР.'
-                            keyboard_other = [[b_view_latest_searches], [b_goto_community], [b_goto_first_search],
-                                              [b_back_to_start]]
-                            reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
+                    elif got_message == b_coords_check:
 
-                        # special block for flexible menu on notification preferences
-                        elif got_message in {b_act_all, b_deact_all,
-                                             b_act_new_search, b_act_stat_change, b_act_titles, b_act_all_comments,
-                                             b_set_notifs_up, b_deact_stat_change, b_deact_all_comments,
-                                             b_deact_new_search,
-                                             b_act_inforg_com, b_deact_inforg_com,
-                                             b_act_field_trips_new, b_deact_field_trips_new,
-                                             b_act_field_trips_change, b_deact_field_trips_change,
-                                             b_act_coords_change, b_deact_coords_change}:
+                        lat, lon = show_user_coordinates(cur, user_id)
+                        if lat and lon:
+                            bot_message = 'Ваши "домашние координаты" '
+                            bot_message += generate_yandex_maps_place_link(lat, lon, 'coords')
 
-                            # save preference for +ALL
-                            if got_message == b_act_all:
-                                bot_message = 'Супер! теперь вы будете получать уведомления в телеграм в случаях: ' \
-                                              'появление нового поиска, изменение статуса поиска (стоп, НЖ, НП), ' \
-                                              'появление новых комментариев по всем поискам. Вы в любой момент ' \
-                                              'можете изменить список уведомлений'
-                                save_preference(cur, user_id, 'all')
-
-                            # save preference for -ALL
-                            elif got_message == b_deact_all:
-                                bot_message = 'Вы можете настроить типы получаемых уведомлений более гибко'
-                                save_preference(cur, user_id, '-all')
-
-                            # save preference for +NEW SEARCHES
-                            elif got_message == b_act_new_search:
-                                bot_message = 'Отлично! Теперь вы будете получать уведомления в телеграм при ' \
-                                              'появлении нового поиска. Вы в любой момент можете изменить ' \
-                                              'список уведомлений'
-                                save_preference(cur, user_id, 'new_searches')
-
-                            # save preference for -NEW SEARCHES
-                            elif got_message == b_deact_new_search:
-                                bot_message = 'Записали'
-                                save_preference(cur, user_id, '-new_searches')
-
-                            # save preference for +STATUS UPDATES
-                            elif got_message == b_act_stat_change:
-                                bot_message = 'Отлично! теперь вы будете получать уведомления в телеграм при ' \
-                                              'изменении статуса поисков (НЖ, НП, СТОП и т.п.). Вы в любой момент ' \
-                                              'можете изменить список уведомлений'
-                                save_preference(cur, user_id, 'status_changes')
-
-                            # save preference for -STATUS UPDATES
-                            elif got_message == b_deact_stat_change:
-                                bot_message = 'Записали'
-                                save_preference(cur, user_id, '-status_changes')
-
-                            # save preference for TITLE UPDATES
-                            elif got_message == b_act_titles:
-                                bot_message = 'Отлично!'
-                                save_preference(cur, user_id, 'title_changes')
-
-                            # save preference for +COMMENTS
-                            elif got_message == b_act_all_comments:
-                                bot_message = 'Отлично! Теперь все новые комментарии будут у вас! Вы в любой момент ' \
-                                              'можете изменить список уведомлений'
-                                save_preference(cur, user_id, 'comments_changes')
-
-                            # save preference for -COMMENTS
-                            elif got_message == b_deact_all_comments:
-                                bot_message = 'Записали. Мы только оставили вам включенными уведомления о ' \
-                                              'комментариях Инфорга. Их тоже можно отключить'
-                                save_preference(cur, user_id, '-comments_changes')
-
-                            # save preference for +InforgComments
-                            elif got_message == b_act_inforg_com:
-                                bot_message = 'Если вы не подписаны на уведомления по всем комментариям, то теперь ' \
-                                              'вы будете получать уведомления о комментариях от Инфорга. Если же вы ' \
-                                              'уже подписаны на все комментарии – то всё остаётся без изменений: бот ' \
-                                              'уведомит вас по всем комментариям, включая от Инфорга'
-                                save_preference(cur, user_id, 'inforg_comments')
-
-                            # save preference for -InforgComments
-                            elif got_message == b_deact_inforg_com:
-                                bot_message = 'Вы отписались от уведомлений по новым комментариям от Инфорга'
-                                save_preference(cur, user_id, '-inforg_comments')
-
-                            # save preference for +FieldTripsNew
-                            elif got_message == b_act_field_trips_new:
-                                bot_message = 'Теперь вы будете получать уведомления о новых выездах по уже идущим ' \
-                                              'поискам. Обратите внимание, что это не рассылка по новым темам на ' \
-                                              'форуме, а именно о том, что в существующей теме в ПЕРВОМ посте ' \
-                                              'появилась информация о новом выезде'
-                                save_preference(cur, user_id, 'field_trips_new')
-
-                            # save preference for -FieldTripsNew
-                            elif got_message == b_deact_field_trips_new:
-                                bot_message = 'Вы отписались от уведомлений по новым выездам'
-                                save_preference(cur, user_id, '-field_trips_new')
-
-                            # save preference for +FieldTripsChange
-                            elif got_message == b_act_field_trips_change:
-                                bot_message = 'Теперь вы будете получать уведомления о ключевых изменениях при ' \
-                                              'выездах, в т.ч. изменение или завершение выезда. Обратите внимание, ' \
-                                              'что эта рассылка отражает изменения только в ПЕРВОМ посте поиска.'
-                                save_preference(cur, user_id, 'field_trips_change')
-
-                            # save preference for -FieldTripsChange
-                            elif got_message == b_deact_field_trips_change:
-                                bot_message = 'Вы отписались от уведомлений по изменениям выездов'
-                                save_preference(cur, user_id, '-field_trips_change')
-
-                            # save preference for +CoordsChange
-                            elif got_message == b_act_coords_change:
-                                bot_message = 'Если у штаба поменяются координаты (и об этом будет написано в первом ' \
-                                              'посте на форуме) – бот уведомит вас об этом'
-                                save_preference(cur, user_id, 'coords_change')
-
-                            # save preference for -CoordsChange
-                            elif got_message == b_deact_coords_change:
-                                bot_message = 'Вы отписались от уведомлений о смене места (координат) штаба'
-                                save_preference(cur, user_id, '-coords_change')
-
-                            # GET what are preferences
-                            elif got_message == b_set_notifs_up:
-                                prefs = compose_user_preferences_message(cur, user_id)
-                                if prefs[0] == 'пока нет включенных уведомлений' or prefs[0] == 'неизвестная настройка':
-                                    bot_message = 'Выберите, какие уведомления вы бы хотели получать'
-                                else:
-                                    bot_message = 'Сейчас у вас включены следующие виды уведомлений:\n'
-                                    bot_message += prefs[0]
-
-                            else:
-                                bot_message = 'empty message'
-
-                            if got_message == b_act_all:
-                                keyboard_notifications_flexible = [[b_deact_all], [b_back_to_start]]
-                            elif got_message == b_deact_all:
-                                keyboard_notifications_flexible = [[b_act_all], [b_deact_new_search],
-                                                                   [b_deact_stat_change], [b_act_all_comments],
-                                                                   [b_deact_inforg_com], [b_back_to_start]]
-                            else:
-
-                                # getting the list of user notification preferences
-                                prefs = compose_user_preferences_message(cur, user_id)
-                                keyboard_notifications_flexible = [[b_act_all], [b_act_new_search], [b_act_stat_change],
-                                                                   [b_act_all_comments], [b_act_inforg_com],
-                                                                   [b_back_to_start]]
-
-                                for line in prefs[1]:
-                                    if line == 'all':
-                                        keyboard_notifications_flexible = [[b_deact_all], [b_back_to_start]]
-                                    elif line == 'new_searches':
-                                        keyboard_notifications_flexible[1] = [b_deact_new_search]
-                                    elif line == 'status_changes':
-                                        keyboard_notifications_flexible[2] = [b_deact_stat_change]
-                                    elif line == 'comments_changes':
-                                        keyboard_notifications_flexible[3] = [b_deact_all_comments]
-                                    elif line == 'inforg_comments':
-                                        keyboard_notifications_flexible[4] = [b_deact_inforg_com]
-                                    # TODO: when functionality of notifications on "first post changes" will be ready
-                                    #  for prod –to be added: coords_change and field_trip_changes
-
-                            reply_markup = ReplyKeyboardMarkup(keyboard_notifications_flexible, resize_keyboard=True)
-
-                        # in case of other user messages:
                         else:
-                            # If command in unknown
-                            bot_message = 'не понимаю такой команды, пожалуйста, используйте кнопки со стандартными ' \
-                                          'командами ниже'
-                            reply_markup = reply_markup_main
+                            bot_message = 'Ваши координаты пока не сохранены. Введите их автоматически или вручную.'
 
-                        if not msg_sent_by_specific_code:
-                            data = {'text': bot_message, 'reply_markup': reply_markup,
-                                    'parse_mode': 'HTML', 'disable_web_page_preview': True}
-                            process_sending_message_async(user_id=user_id, data=data)
-                            print('PRINT 11')
+                        keyboard_coordinates_1 = [[b_coords_auto_def], [b_coords_man_def],
+                                                  [b_coords_check], [b_coords_del], [b_back_to_start]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
 
-                        # saving the last message from bot
-                        if not bot_request_aft_usr_msg:
-                            bot_request_aft_usr_msg = 'not_defined'
-                        print('PRINT 12')
+                    elif got_message == b_back_to_start:
+                        bot_message = 'возвращаемся в главное меню'
+                        reply_markup = reply_markup_main
 
-                        try:
-                            cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
+                    elif got_message == b_goto_community:
+                        bot_message = 'Бот можно обсудить с соотрядниками в ' \
+                                      '<a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">Специальном Чате ' \
+                                      'в телеграм</a>. Там можно предложить свои идеи, указать на проблемы ' \
+                                      'и получить быструю обратную связь от разработчика.'
+                        keyboard_other = [[b_view_latest_searches], [b_goto_first_search],
+                                          [b_goto_photos], [b_back_to_start]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
 
-                            cur.execute(
-                                """
-                                INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
-                                """,
-                                (user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
+                    elif got_message == b_goto_first_search:
+                        bot_message = 'Если вы хотите стать добровольцем ДПСО «ЛизаАлерт», пожалуйста, ' \
+                                      '<a href="https://lizaalert.org/forum/viewtopic.php?t=56934">' \
+                                      'посетите страницу форума</a>, там можно ознакомиться с базовой информацией ' \
+                                      'для новичков и задать свои вопросы.' \
+                                      'Если вы готовитесь к своему первому поиску – приглашаем ' \
+                                      '<a href="https://xn--b1afkdgwddgp9h.xn--p1ai/">ознакомиться с основами ' \
+                                      'работы ЛА</a>. Всю теорию работы ЛА необходимо получать от специально ' \
+                                      'обученных волонтеров ЛА. Но если у вас еще не было возможности пройти ' \
+                                      'официальное обучение, а вы уже готовы выехать на поиск – этот ресурс ' \
+                                      'для вас.'
+                        keyboard_other = [[b_view_latest_searches], [b_goto_community],
+                                          [b_goto_photos], [b_back_to_start]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
 
-                        except Exception as e:
-                            logging.info(f'failed updates of table msg_from_bot for user={user_id}')
-                            logging.exception(e)
+                    elif got_message == b_goto_photos:
+                        bot_message = 'Если вам хочется окунуться в атмосферу ПСР, приглашаем в замечательный ' \
+                                      '<a href="https://t.me/+6LYNNEy8BeI1NGUy">телеграм-канал с красивыми фото с ' \
+                                      'поисков</a>. Все фото – сделаны поисковиками во время настоящих ПСР.'
+                        keyboard_other = [[b_view_latest_searches], [b_goto_community], [b_goto_first_search],
+                                          [b_back_to_start]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
 
-                        print('PRINT 13')
+                    # special block for flexible menu on notification preferences
+                    elif got_message in {b_act_all, b_deact_all,
+                                         b_act_new_search, b_act_stat_change, b_act_titles, b_act_all_comments,
+                                         b_set_notifs_up, b_deact_stat_change, b_deact_all_comments,
+                                         b_deact_new_search,
+                                         b_act_inforg_com, b_deact_inforg_com,
+                                         b_act_field_trips_new, b_deact_field_trips_new,
+                                         b_act_field_trips_change, b_deact_field_trips_change,
+                                         b_act_coords_change, b_deact_coords_change}:
 
-                    # all other cases when bot was not able to understand the message from user
+                        # save preference for +ALL
+                        if got_message == b_act_all:
+                            bot_message = 'Супер! теперь вы будете получать уведомления в телеграм в случаях: ' \
+                                          'появление нового поиска, изменение статуса поиска (стоп, НЖ, НП), ' \
+                                          'появление новых комментариев по всем поискам. Вы в любой момент ' \
+                                          'можете изменить список уведомлений'
+                            save_preference(cur, user_id, 'all')
+
+                        # save preference for -ALL
+                        elif got_message == b_deact_all:
+                            bot_message = 'Вы можете настроить типы получаемых уведомлений более гибко'
+                            save_preference(cur, user_id, '-all')
+
+                        # save preference for +NEW SEARCHES
+                        elif got_message == b_act_new_search:
+                            bot_message = 'Отлично! Теперь вы будете получать уведомления в телеграм при ' \
+                                          'появлении нового поиска. Вы в любой момент можете изменить ' \
+                                          'список уведомлений'
+                            save_preference(cur, user_id, 'new_searches')
+
+                        # save preference for -NEW SEARCHES
+                        elif got_message == b_deact_new_search:
+                            bot_message = 'Записали'
+                            save_preference(cur, user_id, '-new_searches')
+
+                        # save preference for +STATUS UPDATES
+                        elif got_message == b_act_stat_change:
+                            bot_message = 'Отлично! теперь вы будете получать уведомления в телеграм при ' \
+                                          'изменении статуса поисков (НЖ, НП, СТОП и т.п.). Вы в любой момент ' \
+                                          'можете изменить список уведомлений'
+                            save_preference(cur, user_id, 'status_changes')
+
+                        # save preference for -STATUS UPDATES
+                        elif got_message == b_deact_stat_change:
+                            bot_message = 'Записали'
+                            save_preference(cur, user_id, '-status_changes')
+
+                        # save preference for TITLE UPDATES
+                        elif got_message == b_act_titles:
+                            bot_message = 'Отлично!'
+                            save_preference(cur, user_id, 'title_changes')
+
+                        # save preference for +COMMENTS
+                        elif got_message == b_act_all_comments:
+                            bot_message = 'Отлично! Теперь все новые комментарии будут у вас! Вы в любой момент ' \
+                                          'можете изменить список уведомлений'
+                            save_preference(cur, user_id, 'comments_changes')
+
+                        # save preference for -COMMENTS
+                        elif got_message == b_deact_all_comments:
+                            bot_message = 'Записали. Мы только оставили вам включенными уведомления о ' \
+                                          'комментариях Инфорга. Их тоже можно отключить'
+                            save_preference(cur, user_id, '-comments_changes')
+
+                        # save preference for +InforgComments
+                        elif got_message == b_act_inforg_com:
+                            bot_message = 'Если вы не подписаны на уведомления по всем комментариям, то теперь ' \
+                                          'вы будете получать уведомления о комментариях от Инфорга. Если же вы ' \
+                                          'уже подписаны на все комментарии – то всё остаётся без изменений: бот ' \
+                                          'уведомит вас по всем комментариям, включая от Инфорга'
+                            save_preference(cur, user_id, 'inforg_comments')
+
+                        # save preference for -InforgComments
+                        elif got_message == b_deact_inforg_com:
+                            bot_message = 'Вы отписались от уведомлений по новым комментариям от Инфорга'
+                            save_preference(cur, user_id, '-inforg_comments')
+
+                        # save preference for +FieldTripsNew
+                        elif got_message == b_act_field_trips_new:
+                            bot_message = 'Теперь вы будете получать уведомления о новых выездах по уже идущим ' \
+                                          'поискам. Обратите внимание, что это не рассылка по новым темам на ' \
+                                          'форуме, а именно о том, что в существующей теме в ПЕРВОМ посте ' \
+                                          'появилась информация о новом выезде'
+                            save_preference(cur, user_id, 'field_trips_new')
+
+                        # save preference for -FieldTripsNew
+                        elif got_message == b_deact_field_trips_new:
+                            bot_message = 'Вы отписались от уведомлений по новым выездам'
+                            save_preference(cur, user_id, '-field_trips_new')
+
+                        # save preference for +FieldTripsChange
+                        elif got_message == b_act_field_trips_change:
+                            bot_message = 'Теперь вы будете получать уведомления о ключевых изменениях при ' \
+                                          'выездах, в т.ч. изменение или завершение выезда. Обратите внимание, ' \
+                                          'что эта рассылка отражает изменения только в ПЕРВОМ посте поиска.'
+                            save_preference(cur, user_id, 'field_trips_change')
+
+                        # save preference for -FieldTripsChange
+                        elif got_message == b_deact_field_trips_change:
+                            bot_message = 'Вы отписались от уведомлений по изменениям выездов'
+                            save_preference(cur, user_id, '-field_trips_change')
+
+                        # save preference for +CoordsChange
+                        elif got_message == b_act_coords_change:
+                            bot_message = 'Если у штаба поменяются координаты (и об этом будет написано в первом ' \
+                                          'посте на форуме) – бот уведомит вас об этом'
+                            save_preference(cur, user_id, 'coords_change')
+
+                        # save preference for -CoordsChange
+                        elif got_message == b_deact_coords_change:
+                            bot_message = 'Вы отписались от уведомлений о смене места (координат) штаба'
+                            save_preference(cur, user_id, '-coords_change')
+
+                        # GET what are preferences
+                        elif got_message == b_set_notifs_up:
+                            prefs = compose_user_preferences_message(cur, user_id)
+                            if prefs[0] == 'пока нет включенных уведомлений' or prefs[0] == 'неизвестная настройка':
+                                bot_message = 'Выберите, какие уведомления вы бы хотели получать'
+                            else:
+                                bot_message = 'Сейчас у вас включены следующие виды уведомлений:\n'
+                                bot_message += prefs[0]
+
+                        else:
+                            bot_message = 'empty message'
+
+                        if got_message == b_act_all:
+                            keyboard_notifications_flexible = [[b_deact_all], [b_back_to_start]]
+                        elif got_message == b_deact_all:
+                            keyboard_notifications_flexible = [[b_act_all], [b_deact_new_search],
+                                                               [b_deact_stat_change], [b_act_all_comments],
+                                                               [b_deact_inforg_com], [b_back_to_start]]
+                        else:
+
+                            # getting the list of user notification preferences
+                            prefs = compose_user_preferences_message(cur, user_id)
+                            keyboard_notifications_flexible = [[b_act_all], [b_act_new_search], [b_act_stat_change],
+                                                               [b_act_all_comments], [b_act_inforg_com],
+                                                               [b_back_to_start]]
+
+                            for line in prefs[1]:
+                                if line == 'all':
+                                    keyboard_notifications_flexible = [[b_deact_all], [b_back_to_start]]
+                                elif line == 'new_searches':
+                                    keyboard_notifications_flexible[1] = [b_deact_new_search]
+                                elif line == 'status_changes':
+                                    keyboard_notifications_flexible[2] = [b_deact_stat_change]
+                                elif line == 'comments_changes':
+                                    keyboard_notifications_flexible[3] = [b_deact_all_comments]
+                                elif line == 'inforg_comments':
+                                    keyboard_notifications_flexible[4] = [b_deact_inforg_com]
+                                # TODO: when functionality of notifications on "first post changes" will be ready
+                                #  for prod –to be added: coords_change and field_trip_changes
+
+                        reply_markup = ReplyKeyboardMarkup(keyboard_notifications_flexible, resize_keyboard=True)
+
+                    # in case of other user messages:
                     else:
-                        logging.info('DBG.C.6. THERE IS a COMM SCRIPT INVOCATION w/O MESSAGE:')
-                        logging.info(str(update))
-                        text_for_admin = f'[comm]: Empty message in Comm, user={user_id}, username={username}, ' \
-                                         f'got_message={got_message}, update={update}, ' \
-                                         f'bot_request_bfr_usr_msg={bot_request_bfr_usr_msg}'
-                        notify_admin(text_for_admin)
+                        # If command in unknown
+                        bot_message = 'не понимаю такой команды, пожалуйста, используйте кнопки со стандартными ' \
+                                      'командами ниже'
+                        reply_markup = reply_markup_main
 
-                    print('PRINT 14')
-                    # save the request incoming to bot
-                    if got_message:
+                    if not msg_sent_by_specific_code:
+                        data = {'text': bot_message, 'reply_markup': reply_markup,
+                                'parse_mode': 'HTML', 'disable_web_page_preview': True}
+                        process_sending_message_async(user_id=user_id, data=data)
+
+                    # saving the last message from bot
+                    if not bot_request_aft_usr_msg:
+                        bot_request_aft_usr_msg = 'not_defined'
+
+                    try:
+                        cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
+
                         cur.execute(
                             """
-                            INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);
+                            INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
                             """,
-                            (user_id, 'user', datetime.datetime.now(), got_message))
+                            (user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
 
-                    print('PRINT 15')
-                    # save bot's reply to incoming request
-                    if bot_message:
-                        if len(bot_message) > 27 and bot_message[28] in {'Актуальные поиски за 60 дней',
-                                                                         'Последние 20 поисков в разде'}:
-                            bot_message = bot_message[28]
-                        cur.execute(
-                            """
-                            INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);
-                            """,
-                            (user_id, 'bot', datetime.datetime.now(), bot_message))
+                    except Exception as e:
+                        logging.info(f'failed updates of table msg_from_bot for user={user_id}')
+                        logging.exception(e)
 
-                except Exception as e:
-                    logging.info('GENERAL COMM CRASH:')
-                    logging.exception(e)
-                    notify_admin('[comm] general script fail')
+                # all other cases when bot was not able to understand the message from user
+                else:
+                    logging.info('DBG.C.6. THERE IS a COMM SCRIPT INVOCATION w/O MESSAGE:')
+                    logging.info(str(update))
+                    text_for_admin = f'[comm]: Empty message in Comm, user={user_id}, username={username}, ' \
+                                     f'got_message={got_message}, update={update}, ' \
+                                     f'bot_request_bfr_usr_msg={bot_request_bfr_usr_msg}'
+                    notify_admin(text_for_admin)
 
-    except Exception as eee:
-        print('EXCEPTION FOLLOWS')
-        logging.exception(eee)
+                # save the request incoming to bot
+                if got_message:
+                    cur.execute(
+                        """
+                        INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);
+                        """,
+                        (user_id, 'user', datetime.datetime.now(), got_message))
 
-    print('PRINT 16')
+                # save bot's reply to incoming request
+                if bot_message:
+                    if len(bot_message) > 27 and bot_message[28] in {'Актуальные поиски за 60 дней',
+                                                                     'Последние 20 поисков в разде'}:
+                        bot_message = bot_message[28]
+                    cur.execute(
+                        """
+                        INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);
+                        """,
+                        (user_id, 'bot', datetime.datetime.now(), bot_message))
+
+            except Exception as e:
+                logging.info('GENERAL COMM CRASH:')
+                logging.exception(e)
+                notify_admin('[comm] general script fail')
+
     conn_psy.close()
-    print('PRINT 17')
 
     return 'ok'

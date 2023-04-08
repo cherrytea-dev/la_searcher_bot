@@ -7,4 +7,4 @@ httpx==0.23.3
 google-cloud-pubsub==2.16.0
 google-cloud-secret-manager==2.16.0
 
-Flask==2.0.0  # try to freeze flask version
+# Flask==2.0.0  # try to freeze flask version
