@@ -2167,10 +2167,12 @@ def main(request):
                             data = {'text': bot_message, 'reply_markup': reply_markup,
                                     'parse_mode': 'HTML', 'disable_web_page_preview': True}
                             process_sending_message_async(user_id=user_id, data=data)
+                            print('PRINT 11')
 
                         # saving the last message from bot
                         if not bot_request_aft_usr_msg:
                             bot_request_aft_usr_msg = 'not_defined'
+                        print('PRINT 12')
 
                         try:
                             cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
@@ -2185,6 +2187,8 @@ def main(request):
                             logging.info(f'failed updates of table msg_from_bot for user={user_id}')
                             logging.exception(e)
 
+                        print('PRINT 13')
+
                     # all other cases when bot was not able to understand the message from user
                     else:
                         logging.info('DBG.C.6. THERE IS a COMM SCRIPT INVOCATION w/O MESSAGE:')
@@ -2194,6 +2198,7 @@ def main(request):
                                          f'bot_request_bfr_usr_msg={bot_request_bfr_usr_msg}'
                         notify_admin(text_for_admin)
 
+                    print('PRINT 14')
                     # save the request incoming to bot
                     if got_message:
                         cur.execute(
@@ -2202,6 +2207,7 @@ def main(request):
                             """,
                             (user_id, 'user', datetime.datetime.now(), got_message))
 
+                    print('PRINT 15')
                     # save bot's reply to incoming request
                     if bot_message:
                         if len(bot_message) > 27 and bot_message[28] in {'Актуальные поиски за 60 дней',
@@ -2222,6 +2228,8 @@ def main(request):
         print('EXCEPTION FOLLOWS')
         logging.exception(eee)
 
+    print('PRINT 16')
     conn_psy.close()
+    print('PRINT 17')
 
-    return None
+    return 'ok'
