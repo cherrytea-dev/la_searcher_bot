@@ -12,6 +12,11 @@ from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyb
 
 from google.cloud import secretmanager, pubsub_v1
 
+
+import asyncio
+from telegram.ext import ContextTypes, Application
+
+
 publisher = pubsub_v1.PublisherClient()
 project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
@@ -1047,9 +1052,33 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
 def sync_send_message(bot, user_id, data):
     """temp function for migration to python-telegram-bot 20.2"""
 
-    bot.send_message(chat_id=user_id, **data)
+    # bot.send_message(chat_id=user_id, **data)
+    async_send_message(user_id, data)
 
     return None
+
+
+async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
+
+
+async def prepare_message_for_async(user_id, data) -> None:
+
+    bot_token = get_secrets("bot_api_token__prod")
+    application = Application.builder().token(bot_token).build()
+    job_queue = application.job_queue
+    job = job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
+
+    async with application:
+        await application.initialize()
+        await application.start()
+        await application.stop()
+        await application.shutdown()
+
+
+def async_send_message(user_id, data) -> None:
+    asyncio.run(prepare_message_for_async(user_id, data))
+
 
 
 def main(request):
@@ -1057,7 +1086,6 @@ def main(request):
 
     # Set basic params
     bot_token = get_secrets("bot_api_token__prod")
-
     bot = Bot(token=bot_token)
 
     with sql_connect_by_psycopg2() as conn_psy, conn_psy.cursor() as cur:
@@ -1125,9 +1153,6 @@ def main(request):
                     keyboard_main = [['посмотреть актуальные поиски'], ['настроить бот'], ['другие возможности']]
                     reply_markup = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
 
-                    # bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
-                    #                parse_mode='HTML', disable_web_page_preview=True)
-
                     data = {'text': bot_message, 'reply_markup': reply_markup,
                             'parse_mode': 'HTML', 'disable_web_page_preview': True}
                     sync_send_message(bot=bot, user_id=user_id, data=data)
@@ -1143,10 +1168,7 @@ def main(request):
         # CASE 3 – when user sends a PHOTO or attached DOCUMENT or VOICE message
         elif photo or document or voice or sticker:
             logging.debug('user sends photos to bot')
-            # bot.sendMessage(chat_id=user_id, text='Спасибо, интересное! Однако, бот работает только '
-            #                                       'с текстовыми командами. Пожалуйста, воспользуйтесь'
-            #                                       'текстовыми кнопками бота, находящимися на месте обычной '
-            #                                       'клавиатуры телеграм.')
+
             bot_message = 'Спасибо, интересное! Однако, бот работает только с текстовыми командами. ' \
                           'Пожалуйста, воспользуйтесь текстовыми кнопками бота, находящимися на ' \
                           'месте обычной клавиатуры телеграм.'
@@ -1159,16 +1181,15 @@ def main(request):
 
             try:
                 # TODO: should be refactored for PTB 20.2
-                bot.leaveChat(user_id)
-                notify_admin('[comm]: INFO: we have left the CHANNEL!')
+                # bot.leaveChat(user_id)
+                notify_admin('[comm]: INFO: we EMULATED that we left the CHANNEL! BUT WE HAVE NOT')
 
             except Exception as e:
                 logging.error('[comm]: Leaving channel was not successful:' + repr(e))
 
         # CASE 5 – when user sends Contact
         elif contact:
-            # bot.sendMessage(chat_id=user_id, text='Спасибо, буду знать. Вот только бот не работает с контактами '
-            #                                       'и отвечает только на определенные текстовые команды.')
+
             bot_message = 'Спасибо, буду знать. Вот только бот не работает с контактами и отвечает ' \
                           'только на определенные текстовые команды.'
             data = {'text': bot_message}
@@ -1574,8 +1595,6 @@ def main(request):
                     keyboard_settings = [[b_coords_check], [b_coords_del], [b_back_to_start]]
                     reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
 
-                    # bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
-                    #                parse_mode='HTML', disable_web_page_preview=True)
                     data = {'text': bot_message, 'reply_markup': reply_markup,
                             'parse_mode': 'HTML', 'disable_web_page_preview': True}
                     sync_send_message(bot=bot, user_id=user_id, data=data)
@@ -1769,8 +1788,6 @@ def main(request):
                                                                                        region, region_name)
                                 reply_markup = reply_markup_main
 
-                                # bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
-                                #                parse_mode='HTML', disable_web_page_preview=True)
                                 data = {'text': bot_message, 'reply_markup': reply_markup,
                                         'parse_mode': 'HTML', 'disable_web_page_preview': True}
                                 sync_send_message(bot=bot, user_id=user_id, data=data)
@@ -2142,8 +2159,6 @@ def main(request):
                         reply_markup = reply_markup_main
 
                     if not msg_sent_by_specific_code:
-                        # bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
-                        #                parse_mode='HTML', disable_web_page_preview=True)
                         data = {'text': bot_message, 'reply_markup': reply_markup,
                                 'parse_mode': 'HTML', 'disable_web_page_preview': True}
                         sync_send_message(bot=bot, user_id=user_id, data=data)
