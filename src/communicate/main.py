@@ -1052,6 +1052,7 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
 
 async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
+    return None
 
 
 async def prepare_message_for_async(user_id, data) -> None:
