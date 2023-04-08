@@ -1044,15 +1044,16 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
     return bot_message, reply_markup, expect_after
 
 
+def sync_send_message(bot, user_id, data):
+    """temp function for migration to python-telegram-bot 20.2"""
+
+    bot.send_message(chat_id=user_id, **data)
+
+    return None
+
+
 def main(request):
     """Main function to orchestrate the whole script"""
-
-    # FIXME - WIP
-    def send_message():
-        """send the message to bot"""
-
-        return None
-    # FIXME ^^^
 
     # Set basic params
     bot_token = get_secrets("bot_api_token__prod")
@@ -1124,8 +1125,12 @@ def main(request):
                     keyboard_main = [['посмотреть актуальные поиски'], ['настроить бот'], ['другие возможности']]
                     reply_markup = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
 
-                    bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
-                                    parse_mode='HTML', disable_web_page_preview=True)
+                    # bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
+                    #                parse_mode='HTML', disable_web_page_preview=True)
+
+                    data = {'text': bot_message, 'reply_markup': reply_markup,
+                            'parse_mode': 'HTML', 'disable_web_page_preview': True}
+                    sync_send_message(bot=bot, user_id=user_id, data=data)
 
             except Exception as e:
                 logging.info('Error in finding basic data for block/unblock user in Communicate script')
@@ -1138,16 +1143,22 @@ def main(request):
         # CASE 3 – when user sends a PHOTO or attached DOCUMENT or VOICE message
         elif photo or document or voice or sticker:
             logging.debug('user sends photos to bot')
-            bot.sendMessage(chat_id=user_id, text='Спасибо, интересное! Однако, бот работает только '
-                                                  'с текстовыми командами. Пожалуйста, воспользуйтесь'
-                                                  'текстовыми кнопками бота, находящимися на месте обычной '
-                                                  'клавиатуры телеграм.')
+            # bot.sendMessage(chat_id=user_id, text='Спасибо, интересное! Однако, бот работает только '
+            #                                       'с текстовыми командами. Пожалуйста, воспользуйтесь'
+            #                                       'текстовыми кнопками бота, находящимися на месте обычной '
+            #                                       'клавиатуры телеграм.')
+            bot_message = 'Спасибо, интересное! Однако, бот работает только с текстовыми командами. ' \
+                          'Пожалуйста, воспользуйтесь текстовыми кнопками бота, находящимися на ' \
+                          'месте обычной клавиатуры телеграм.'
+            data = {'text': bot_message}
+            sync_send_message(bot=bot, user_id=user_id, data=data)
 
         # CASE 4 – when some Channel writes to bot
         elif channel_type and user_id < 0:
             notify_admin('[comm]: INFO: CHANNEL sends messages to bot!')
 
             try:
+                # TODO: should be refactored for PTB 20.2
                 bot.leaveChat(user_id)
                 notify_admin('[comm]: INFO: we have left the CHANNEL!')
 
@@ -1156,8 +1167,12 @@ def main(request):
 
         # CASE 5 – when user sends Contact
         elif contact:
-            bot.sendMessage(chat_id=user_id, text='Спасибо, буду знать. Вот только бот не работает с контактами '
-                                                  'и отвечает только на определенные текстовые команды.')
+            # bot.sendMessage(chat_id=user_id, text='Спасибо, буду знать. Вот только бот не работает с контактами '
+            #                                       'и отвечает только на определенные текстовые команды.')
+            bot_message = 'Спасибо, буду знать. Вот только бот не работает с контактами и отвечает ' \
+                          'только на определенные текстовые команды.'
+            data = {'text': bot_message}
+            sync_send_message(bot=bot, user_id=user_id, data=data)
 
         # CASE 6 – when user mentions bot as @LizaAlert_Searcher_Bot in another telegram chat. Bot should do nothing
         elif inline_query:
@@ -1559,8 +1574,11 @@ def main(request):
                     keyboard_settings = [[b_coords_check], [b_coords_del], [b_back_to_start]]
                     reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
 
-                    bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
-                                    parse_mode='HTML', disable_web_page_preview=True)
+                    # bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
+                    #                parse_mode='HTML', disable_web_page_preview=True)
+                    data = {'text': bot_message, 'reply_markup': reply_markup,
+                            'parse_mode': 'HTML', 'disable_web_page_preview': True}
+                    sync_send_message(bot=bot, user_id=user_id, data=data)
                     # msg_sent_by_specific_code = True
 
                     # saving the last message from bot
@@ -1751,8 +1769,11 @@ def main(request):
                                                                                        region, region_name)
                                 reply_markup = reply_markup_main
 
-                                bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
-                                                parse_mode='HTML', disable_web_page_preview=True)
+                                # bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
+                                #                parse_mode='HTML', disable_web_page_preview=True)
+                                data = {'text': bot_message, 'reply_markup': reply_markup,
+                                        'parse_mode': 'HTML', 'disable_web_page_preview': True}
+                                sync_send_message(bot=bot, user_id=user_id, data=data)
 
                                 # saving the last message from bot
                                 try:
@@ -1952,8 +1973,8 @@ def main(request):
 
                     elif got_message == b_goto_photos:
                         bot_message = 'Если вам хочется окунуться в атмосферу ПСР, приглашаем в замечательный ' \
-                                      '<a href="https://t.me/+6LYNNEy8BeI1NGUy">телеграм-канал с красивыми фото с поисков' \
-                                      '</a>. Все фото – сделаны поисковиками во время настоящих ПСР.'
+                                      '<a href="https://t.me/+6LYNNEy8BeI1NGUy">телеграм-канал с красивыми фото с ' \
+                                      'поисков</a>. Все фото – сделаны поисковиками во время настоящих ПСР.'
                         keyboard_other = [[b_view_latest_searches], [b_goto_community], [b_goto_first_search],
                                           [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
@@ -2121,8 +2142,11 @@ def main(request):
                         reply_markup = reply_markup_main
 
                     if not msg_sent_by_specific_code:
-                        bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
-                                        parse_mode='HTML', disable_web_page_preview=True)
+                        # bot.sendMessage(chat_id=user_id, text=bot_message, reply_markup=reply_markup,
+                        #                parse_mode='HTML', disable_web_page_preview=True)
+                        data = {'text': bot_message, 'reply_markup': reply_markup,
+                                'parse_mode': 'HTML', 'disable_web_page_preview': True}
+                        sync_send_message(bot=bot, user_id=user_id, data=data)
 
                     # saving the last message from bot
                     if not bot_request_aft_usr_msg:
