@@ -14,13 +14,14 @@ import asyncio
 from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove
 from telegram.ext import ContextTypes, Application
 
-
+print(f'STEP -2')
 publisher = pubsub_v1.PublisherClient()
 url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
 req = urllib.request.Request(url)
 req.add_header("Metadata-Flavor", "Google")
 project_id = urllib.request.urlopen(req).read().decode()
 client = secretmanager.SecretManagerServiceClient()
+print(f'STEP -1')
 
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
 # Important – these are not errors, but jest informational warnings that there were retries, that's why we exclude them
@@ -1081,18 +1082,24 @@ def process_sending_message_async(user_id, data) -> None:
 def main(request):
     """Main function to orchestrate the whole script"""
 
+    print(f'STEP 0')
     # Set basic params
     bot_token = get_secrets("bot_api_token__prod")
+    print(f'STEP 1')
     bot = Bot(token=bot_token)
+    print(f'STEP 3')
+
 
     with sql_connect_by_psycopg2() as conn_psy, conn_psy.cursor() as cur:
 
+        print(f'STEP 4')
         bot_request_aft_usr_msg = ''
         msg_sent_by_specific_code = False
 
         if request.method != "POST":
             conn_psy.close()
             return None
+        print(f'STEP 5')
 
         try:
             update = Update.de_json(request.get_json(force=True), bot)
@@ -1100,7 +1107,7 @@ def main(request):
             logging.exception(e)
             logging.error('custom error')
             update = None
-
+        print(f'STEP 6')
         logging.info('update: ' + str(update))
 
         user_new_status = get_param_if_exists(update, 'update.my_chat_member.new_chat_member.status')
