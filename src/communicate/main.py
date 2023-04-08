@@ -1094,7 +1094,12 @@ def main(request):
             conn_psy.close()
             return None
 
-        update = Update.de_json(request.get_json(force=True), bot)
+        try:
+            update = Update.de_json(request.get_json(force=True), bot)
+        except Exception as e:
+            logging.exception(e)
+            logging.error('custom error')
+            update = None
 
         logging.info('update: ' + str(update))
 
