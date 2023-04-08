@@ -1,24 +1,27 @@
-"""receive telegram messages from users to bot, act accordingly and send back the reply"""
+"""receives telegram messages from users, acts accordingly and sends back the reply"""
 
-import os
+# import os
 import datetime
 import re
 import json
 import logging
 import math
 import psycopg2
-
-from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove
+import urllib.request
 
 from google.cloud import secretmanager, pubsub_v1
 
-
 import asyncio
+from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove
 from telegram.ext import ContextTypes, Application
 
 
 publisher = pubsub_v1.PublisherClient()
-project_id = os.environ["GCP_PROJECT"]
+url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+req = urllib.request.Request(url)
+req.add_header("Metadata-Flavor", "Google")
+project_id = urllib.request.urlopen(req).read().decode()
+# project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
 
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
@@ -1049,15 +1052,6 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
     return bot_message, reply_markup, expect_after
 
 
-def sync_send_message(bot, user_id, data):
-    """temp function for migration to python-telegram-bot 20.2"""
-
-    # bot.send_message(chat_id=user_id, **data)
-    async_send_message(user_id, data)
-
-    return None
-
-
 async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
 
@@ -1076,9 +1070,8 @@ async def prepare_message_for_async(user_id, data) -> None:
         await application.shutdown()
 
 
-def async_send_message(user_id, data) -> None:
+def process_sending_message_async(user_id, data) -> None:
     asyncio.run(prepare_message_for_async(user_id, data))
-
 
 
 def main(request):
@@ -1155,7 +1148,7 @@ def main(request):
 
                     data = {'text': bot_message, 'reply_markup': reply_markup,
                             'parse_mode': 'HTML', 'disable_web_page_preview': True}
-                    sync_send_message(bot=bot, user_id=user_id, data=data)
+                    process_sending_message_async(user_id=user_id, data=data)
 
             except Exception as e:
                 logging.info('Error in finding basic data for block/unblock user in Communicate script')
@@ -1173,7 +1166,7 @@ def main(request):
                           'Пожалуйста, воспользуйтесь текстовыми кнопками бота, находящимися на ' \
                           'месте обычной клавиатуры телеграм.'
             data = {'text': bot_message}
-            sync_send_message(bot=bot, user_id=user_id, data=data)
+            process_sending_message_async(user_id=user_id, data=data)
 
         # CASE 4 – when some Channel writes to bot
         elif channel_type and user_id < 0:
@@ -1193,7 +1186,7 @@ def main(request):
             bot_message = 'Спасибо, буду знать. Вот только бот не работает с контактами и отвечает ' \
                           'только на определенные текстовые команды.'
             data = {'text': bot_message}
-            sync_send_message(bot=bot, user_id=user_id, data=data)
+            process_sending_message_async(user_id=user_id, data=data)
 
         # CASE 6 – when user mentions bot as @LizaAlert_Searcher_Bot in another telegram chat. Bot should do nothing
         elif inline_query:
@@ -1597,7 +1590,7 @@ def main(request):
 
                     data = {'text': bot_message, 'reply_markup': reply_markup,
                             'parse_mode': 'HTML', 'disable_web_page_preview': True}
-                    sync_send_message(bot=bot, user_id=user_id, data=data)
+                    process_sending_message_async(user_id=user_id, data=data)
                     # msg_sent_by_specific_code = True
 
                     # saving the last message from bot
@@ -1790,7 +1783,7 @@ def main(request):
 
                                 data = {'text': bot_message, 'reply_markup': reply_markup,
                                         'parse_mode': 'HTML', 'disable_web_page_preview': True}
-                                sync_send_message(bot=bot, user_id=user_id, data=data)
+                                process_sending_message_async(user_id=user_id, data=data)
 
                                 # saving the last message from bot
                                 try:
@@ -2161,7 +2154,7 @@ def main(request):
                     if not msg_sent_by_specific_code:
                         data = {'text': bot_message, 'reply_markup': reply_markup,
                                 'parse_mode': 'HTML', 'disable_web_page_preview': True}
-                        sync_send_message(bot=bot, user_id=user_id, data=data)
+                        process_sending_message_async(user_id=user_id, data=data)
 
                     # saving the last message from bot
                     if not bot_request_aft_usr_msg:

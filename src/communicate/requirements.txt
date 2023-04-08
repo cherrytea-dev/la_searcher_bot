@@ -1,9 +1,6 @@
-# markdownify==0.9.4  # suppose we don't need it? or we do?
-
 SQLAlchemy==1.4.11
 psycopg2==2.8.6
 
-# python-telegram-bot==13.4.1
 python-telegram-bot[rate-limiter, job-queue]==20.2
 httpx==0.23.3
 asyncio  # <-- test if it's needed to be indicated at all
