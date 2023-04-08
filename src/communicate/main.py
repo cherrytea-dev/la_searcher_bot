@@ -1057,7 +1057,7 @@ async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
     return None
 
 
-async def prepare_message_for_async(user_id, data) -> None:
+async def prepare_message_for_async(user_id, data):
 
     bot_token = get_secrets("bot_api_token__prod")
     application = Application.builder().token(bot_token).build()
@@ -1070,11 +1070,13 @@ async def prepare_message_for_async(user_id, data) -> None:
         await application.stop()
         await application.shutdown()
 
-    return None
+    return 'ok'
 
 
 def process_sending_message_async(user_id, data) -> None:
+    print(f'PRINT 9')
     asyncio.run(prepare_message_for_async(user_id, data))
+    print(f'PRINT 10')
 
     return None
 
@@ -1102,7 +1104,7 @@ def main(request):
                 logging.exception(e)
                 logging.error('custom error')
                 update = None
-            print(f'STEP 6')
+
             logging.info('update: ' + str(update))
 
             user_new_status = get_param_if_exists(update, 'update.my_chat_member.new_chat_member.status')
@@ -1206,7 +1208,6 @@ def main(request):
 
             # CASE 7 – regular messaging with bot
             else:
-                print(f'STEP 7')
                 # check if user is new - and if so - saving him/her
                 user_is_new = check_if_new_user(cur, user_id)
 
