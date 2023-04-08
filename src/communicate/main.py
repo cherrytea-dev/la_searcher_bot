@@ -14,14 +14,12 @@ import asyncio
 from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove
 from telegram.ext import ContextTypes, Application
 
-print(f'STEP -2')
 publisher = pubsub_v1.PublisherClient()
 url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
 req = urllib.request.Request(url)
 req.add_header("Metadata-Flavor", "Google")
 project_id = urllib.request.urlopen(req).read().decode()
 client = secretmanager.SecretManagerServiceClient()
-print(f'STEP -1')
 
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
 # Important – these are not errors, but jest informational warnings that there were retries, that's why we exclude them
@@ -1225,7 +1223,6 @@ def main(request):
             user_latitude = None
             user_longitude = None
             got_message = None
-            print(f'STEP 8')
             try:
 
                 if update.effective_message.location is not None:
