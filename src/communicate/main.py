@@ -1,6 +1,5 @@
 """receives telegram messages from users, acts accordingly and sends back the reply"""
 
-# import os
 import datetime
 import re
 import json
@@ -21,7 +20,6 @@ url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
 req = urllib.request.Request(url)
 req.add_header("Metadata-Flavor", "Google")
 project_id = urllib.request.urlopen(req).read().decode()
-# project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
 
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
