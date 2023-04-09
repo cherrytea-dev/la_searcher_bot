@@ -884,6 +884,15 @@ def compose_com_msg_on_title_change(title, clickable_name):
     return msg
 
 
+def compose_com_msg_on_first_post_change(message, clickable_name):
+    """compose the common, user-independent message on search' first post change"""
+
+    msg_1 = 'Появились изменения в первом посте по {clickable_name}{region}:\n\n' \
+            '{message}'.format(clickable_name=clickable_name, message=message, region='{region}')
+
+    return msg_1
+
+
 def add_tel_link(incoming_text, modifier='all'):
     """check is text contains phone number and replaces it with clickable version, also removes [tel] tags"""
 
@@ -947,6 +956,8 @@ def enrich_new_records_with_com_message_texts():
             elif line.change_type == 7:  # coords_change
                 line.message, line.search_latitude, line.search_longitude, line.coords_change_type = \
                     compose_com_msg_on_coords_change(line.new_value, clickable_name)
+            elif line.change_type == 8:  # first_post_change
+                line.message = compose_com_msg_on_first_post_change(line.new_value, clickable_name)
 
         logging.info('New Records enriched with common Message Texts')
 
@@ -1361,7 +1372,7 @@ def iterate_over_all_users_and_updates(conn, admins_list):
         try:
             temp_user_list = []
             for user_line in users_list_outcome:
-                if not (record.change_type in {5, 6, 7} and user_line.user_id not in admins_list):
+                if not (record.change_type in {5, 6, 7, 8} and user_line.user_id not in admins_list):
                     temp_user_list.append(user_line)
                     logging.info(f'5-6-7 CHECK for {user_line.user_id} is OK, record {record.change_type}, '
                                  f'user {user_line.user_id}. record {record.forum_search_num}')
@@ -1576,10 +1587,12 @@ def iterate_over_all_users_and_updates(conn, admins_list):
                     elif change_type == 7:  # coords_change
                         message = compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat,
                                                                               u_lon, region_to_show)
+                    elif change_type == 8:  # first_post_change
+                        message = compose_individual_message_on_first_post_change(new_record, region_to_show)
 
                     # TODO: to delete msg_group at all ?
                     # messages followed by coordinates (sendMessage + sendLocation) have same group
-                    msg_group_id = get_the_new_group_id() if change_type in {0, 5, 6, 7} else None
+                    msg_group_id = get_the_new_group_id() if change_type in {0, 5, 6, 7, 8} else None
                     # not None for new_search, field_trips_new, field_trips_change,  coord_change
 
                     # define if user received this message already
@@ -1804,6 +1817,15 @@ def compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat,
 
     return msg
 
+
+def compose_individual_message_on_first_post_change(new_record, region_to_show):
+    """compose individual message for notification of every user on change of first post"""
+
+    message = new_record.message
+    region = f'({region_to_show})' if region_to_show else ''
+    message = message.format(region=region)
+
+    return message
 
 def publish_to_pubsub(topic_name, message):
     """publish a new message to pub/sub"""
