@@ -2,7 +2,6 @@
 Result to be recorded into Change_log and triggered another script identify_updates_of_folders."""
 
 import datetime
-import os
 import base64
 import json
 import logging
@@ -10,16 +9,23 @@ import ast
 import re
 import copy
 import requests
+import urllib.request
+import difflib
 
 import sqlalchemy
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 
 from google.cloud import pubsub_v1
 from google.cloud import secretmanager
 
-project_id = os.environ["GCP_PROJECT"]
-client = secretmanager.SecretManagerServiceClient()
+url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+req = urllib.request.Request(url)
+req.add_header("Metadata-Flavor", "Google")
+project_id = urllib.request.urlopen(req).read().decode()
+
 publisher = pubsub_v1.PublisherClient()
+client = secretmanager.SecretManagerServiceClient()
+
 requests_session = requests.Session()
 
 
@@ -430,6 +436,258 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
     return field_trips_dict, obj
 
 
+def clean_up_content(init_content):
+
+    def cook_soup(content):
+
+        content = BeautifulSoup(content, 'lxml')
+
+        return content
+
+    def prettify_soup(content):
+
+        for s in content.find_all('strong', {'class': 'text-strong'}):
+            s.unwrap()
+
+        for s in content.find_all('span'):
+            try:
+                if s.attrs['style'] and s['style'] and len(s['style']) > 5 and s['style'][0:5] == 'color':
+                    s.unwrap()
+            except Exception as e:
+                print(repr(e))
+                continue
+
+        deleted_text = content.find_all('span', {'style': 'text-decoration:line-through'})
+        for case in deleted_text:
+            case.decompose()
+
+        for dd in content.find_all('dd', style='display:none'):
+            del dd['style']
+
+        return content
+
+    def remove_links(content):
+
+        for tag in content.find_all('a'):
+            if tag.name == 'a' and not re.search(r'\[[+−]]', tag.text):
+                tag.unwrap()
+
+        return content
+
+    def delete_sorted_out_tag(content, tag):
+
+        # language=regexp
+        patterns = [
+
+
+            [r'(?i)Всем выезжающим иметь СИЗ', 'sort_out'],
+
+            # INFO SUPPORT
+            [r'(?i)ТРЕБУЕТСЯ ПОМОЩЬ В РАСПРОСТРАНЕНИИ ИНФОРМАЦИИ ПО СЕТИ', 'sort_out'],
+            [r'(?i)Задача на поиске,? с которой может помочь каждый', 'sort_out'],
+            [r'(?i)Помочь может каждый из вас', 'sort_out'],
+            [r'(?i)таблица прозвона', 'sort_out'],
+
+            # PERSON – REASON
+            [r'(?i)(местонахождение неизвестно|не выходит на связь)', 'sort_out'],
+            [r'(?i)[^\n]{0,1000}(вы|у)ш(ла|[её]л).{1,200}не вернул(ся|ась)', 'sort_out'],
+            [r'(?i)(пропал[аи]? во время|не вернул(ся|[аи]сь) с) прогулки', 'sort_out'],
+            [r'не дошел до школы', 'sort_out'],
+            [r'уш(ёл|ел|ла|ли) (из дома )?в неизвестном направлении', 'sort_out'],
+            [r'(вы|у)ш(ёл|ел|ла|ли) (из дома )?(и пропал[аи]?|и не вернул(ся|ась)|в неизвестном направлении)', 'sort_out'],
+            [r'уш(ёл|ел|ла|ли) из медицинского учреждения', 'sort_out'],
+
+            # PERSON – DETAILS
+            [r'(?i)МОЖЕТ НАХОДИТЬСЯ В ВАШЕМ (РАЙОНЕ|городе)', 'sort_out'],
+            [r'(?i)((НУЖДАЕТСЯ|МОЖЕТ НУЖДАТЬСЯ) В МЕДИЦИНСКОЙ ПОМОЩИ|Отставание в развити|потеря памяти)', 'sort_out'],
+            [r'(?i)(приметы|был[аи]? одет[аы]?|рост\W|телосложени|цвет глаз|'
+             r'(^|\W)(куртка|шапка|сумка|волосы|глаза)($|\W))', 'sort_out'],
+            [r'(?i)(^|\W)оджеда(?!.{1,3}(лес|город))', 'sort_out'],
+
+            # GENERAL PHRASES
+            [r'(?i)С признаками ОРВИ оставайтесь дома', 'sort_out'],
+            [r'(?i)Берегите себя и своих близких', 'sort_out'],
+            [r'(?i)ориентировка на ', 'sort_out'],
+            [r'(?i)(^|\n)[-_]{2,}(\n|$)', 'sort_out'],
+            [r'(?i)подпишитесь на бесплатную SMS-рассыл', 'sort_out'],
+            [r'(?i)выражаем .{0,20}благодарность за', 'sort_out'],
+            [r'(?i)Все фото/видео с поиска просьба отправлять', 'sort_out'],
+            [r'(?i)Предоставлять комментарии по поиску для СМИ могут только', 'sort_out'],
+            [r'Если же представитель СМИ хочет', 'sort_out'],
+            [r'8\(800\)700-?54-?52', 'sort_out'],
+            [r'smi@lizaalert.org', 'sort_out'],
+            [r'https://la-org.ru/images/', 'sort_out'],
+            [r'(?i)Запрос на согласование фото- и видеосъемки', 'sort_out'],
+            [r'(?i)тема в соц сетях', 'sort_out'],
+            [r'(?i)Всё, что нужно знать, собираясь на свой первый поиск', 'sort_out'],
+            [r'(?i)тема в вк', 'sort_out'],
+            [r'(?i)Следите за темой', 'sort_out'],
+            [r'(?i)внимание!$', 'sort_out'],
+            [r'(?i)Огромная благодарность всем кто откликнулся', 'sort_out'],
+            [r'(?i)Канал оповещения об активных выездах и автономных задачах', 'sort_out'],
+            [r'(?i)Как стать добровольцем отряда «ЛизаАлерт»?', 'sort_out'],
+            [r'(?i)Уважаемые заявители', 'sort_out'],
+            [r'(?i)привет.{1,4}Я mikhel', 'sort_out'],
+            [r'(?i)Новичковая отряда', 'sort_out'],
+            [r'(?i)Горячая линия', 'sort_out'],
+            [r'(?i)Анкета добровольца', 'sort_out'],
+            [r'(?i)Бесплатная SMS-рассылка', 'sort_out'],
+            [r'(?i)Рассылка Вконтакте', 'sort_out'],
+            [r'(?i)Телеграм-канал ПСО', 'sort_out'],
+            [r'(?i)Рекомендуемый список оборудования', 'sort_out'],
+
+            # MANAGERS
+            [r'(?i)(инфорги?( поиска| выезда)?:|снм\W|^ОД\W|^ДИ\W|Старш(ая|ий) на месте)', 'sort_out'],
+            [r'(?i)Коорд(инатор)?([-\s]консультант)?(?!инат)', 'sort_out'],
+            [r'(?i)написать .{0,50}в (телеграм|telegram)', 'sort_out'],
+
+            [r'(?i)Лимура \(Наталья\)', 'sort_out'],
+            [r'(?i)Тутси \(Светлана\)', 'sort_out'],
+            [r'(?i)(Герда Ольга|Ольга Герда)', 'sort_out'],
+            [r'(?i)Ксен \( ?Ксения\)', 'sort_out'],
+            [r'(?i)Сплин \(Наталья\)', 'sort_out'],
+            [r'(?i)Марва Валерия', 'sort_out'],
+            [r'(?i)Валькирия \(Лилия\)', 'sort_out'],
+            [r'(?i)Старовер \( ?Александр\)', 'sort_out'],
+            [r'(?i)Верба \(Ольга\)', 'sort_out'],
+            [r'(?i)Миледи Елена', 'sort_out'],
+            [r'(?i)Красикова Людмила', 'sort_out'],
+            [r'(?i)написать .{0,25}в Тг', 'sort_out'],
+            [r'(?i)Мария \(Марёна\)', 'sort_out'],
+            [r'(?i)Михалыч \(Александр\)', 'sort_out'],
+            [r'(?i)https://telegram.im/@buklya_LA71', 'sort_out'],
+            [r'(?i)Наталья \(Чента\)', 'sort_out'],
+            [r'(?i)XXX', 'sort_out'],
+            [r'(?i)XXX', 'sort_out'],
+            [r'(?i)XXX', 'sort_out'],
+            [r'(?i)XXX', 'sort_out'],
+            [r'(?i)XXX', 'sort_out'],
+
+            # EXCEPTIONS
+            [r'(?i)автономн.{2,4} округ', 'sort_out'],
+            [r'(?i)ид[ёе]т сбор информации', 'sort_out'],
+            [r'(?i)телефон неактивен', 'sort_out'],
+            [r'(?i)проявля.{1,4} активность', 'sort_out'],
+            [r'(?i)XXX', 'sort_out'],
+            [r'(?i)XXX', 'sort_out'],
+            [r'(?i)XXX', 'sort_out'],
+            [r'(?i)XXX', 'sort_out'],
+
+            [r'(?i)XXX', 'sort_out'],
+            [r'(?i)XXX', 'sort_out']
+        ]
+
+        for pattern in patterns:
+            if re.search(pattern[0], tag.text):
+                if isinstance(tag, NavigableString):
+                    tag.extract()
+                else:
+                    tag.decompose()
+            if tag and not isinstance(tag, NavigableString):
+                if tag.name == 'span' and tag.attrs in [{"style": "font-size:140%;line-height:116%"},
+                                                        {"style": "font-size: 140%;line-height:116%"},
+                                                        {"style": "font-size: 140%;line-height: 116%"}] \
+                        or tag.name == 'img':
+                    tag.decompose()
+
+        return content
+
+    def mark_up_soup(content):
+
+        elements = content.body
+        for tag in elements:
+            content = delete_sorted_out_tag(content, tag)
+
+        return content
+
+    if not init_content or re.search(r'Для просмотра этого форума вы должны быть авторизованы', init_content):
+        return None
+
+    reco_content = cook_soup(init_content)
+    reco_content = prettify_soup(reco_content)
+    reco_content = remove_links(reco_content)
+    reco_content = mark_up_soup(reco_content)
+
+    # reco_content = reco_content.prettify()
+    reco_content = reco_content.text
+    reco_content = re.sub(r'\n{2,}', '\n', reco_content)
+    if not re.search(r'\w', reco_content):
+        return None
+
+    reco_content = reco_content.split('\n')
+
+    return reco_content
+
+
+def compose_diff_message(curr_list, prev_list):
+
+    message = ''
+
+    if not curr_list or not prev_list:
+        return message
+
+    diff = difflib.unified_diff(prev_list, curr_list, lineterm='')
+
+    list_of_deletions = []
+    list_of_additions = []
+
+    for line in diff:
+        if line[0] == '-':
+            addition = re.sub(r'^[\s+-]+', '', line)
+            if addition:
+                list_of_deletions.append(addition)
+        elif line[0] == '+':
+            addition = re.sub(r'^[\s+-]+', '', line)
+            if addition:
+                list_of_additions.append(line[1:])
+
+    if list_of_deletions:
+        message += 'Удалена информация:\n<s>'
+        for line in list_of_deletions:
+            message += f'{line}\n'
+        message += '</s>'
+
+    if list_of_additions:
+        if message:
+            message += '\n'
+        message += 'Добавлена информация:\n'
+        for line in list_of_additions:
+            message += f'{line}\n'
+
+    return message
+
+
+def process_first_page_comparison(conn, search_id, first_page_content_prev, first_page_content_curr):
+    """compare first post content to identify any diffs"""
+
+    # check the latest status on this search
+    sql_text = sqlalchemy.text("""SELECT display_name, status, family_name, age, status_short 
+                                      FROM searches WHERE search_forum_num=:a;""")
+
+    # FIXME - incorporate new status and display name
+    what_is_saved_in_psql = conn.execute(sql_text, a=search_id)
+    if not what_is_saved_in_psql:
+        logging.info(f'field trips comparison failed on stage of downloading the search from psql')
+        logging.info(f'what was saved in psql for topic_id={search_id}: {what_is_saved_in_psql}')
+        logging.info(f'same for topic_id={search_id} with .fetchone: {what_is_saved_in_psql.fetchone()}')
+        logging.exception(f'exception set just for alarming')
+        return None
+    display_name, status, name, age, status_old = what_is_saved_in_psql.fetchone()
+    # FIXME ^^^
+
+    # updates are made only for non-finished searches
+    # FIXME - to be changed to status from status_old
+    if status_old != 'Ищем':
+        return None
+
+    prev_clean_content = clean_up_content(first_page_content_prev)
+    curr_clean_content = clean_up_content(first_page_content_curr)
+
+    message = compose_diff_message(curr_clean_content, prev_clean_content)
+
+    return message
+
+
 def save_new_record_into_change_log(conn, search_id, coords_change_list, changed_field, change_type):
     """save the coordinates change into change_log"""
 
@@ -799,19 +1057,26 @@ def main(event, context):  # noqa
                                    """)
                     first_page_content_prev = conn.execute(sql_text, a=search_id).fetchone()[0]
 
-                    # TODO: temp debug
+                    logging.info(f'topic id {search_id} has an update of first post:')
                     logging.info(f'first page content prev: {first_page_content_prev}')
                     logging.info(f'first page content curr: {first_page_content_curr}')
-                    # TODO: temp debug
 
                     # TODO: DEBUG try
                     try:
                         if first_page_content_curr and first_page_content_prev:
 
+                            # check the difference b/w first posts for current and previous version
+                            message_on_first_posts_diff = process_first_page_comparison(conn, search_id,
+                                                                                        first_page_content_prev,
+                                                                                        first_page_content_curr)
+                            if message_on_first_posts_diff:
+                                save_new_record_into_change_log(conn, search_id, message_on_first_posts_diff,
+                                                                'topic_first_post_change', 8)
+
                             # get the final list of parameters on field trip (new, change or drop)
                             field_trips_dict, filed_trips_obj = process_field_trips_comparison(conn, search_id,
                                                                                                first_page_content_prev,
-                                                                              first_page_content_curr)
+                                                                                               first_page_content_curr)
 
                             # Save Field Trip (incl potential Coords change) into Change_log
                             if field_trips_dict['case'] == 'add':
@@ -864,4 +1129,4 @@ def main(event, context):  # noqa
         pool.dispose()
     requests_session.close()
 
-    return None
+    return 'ok'
