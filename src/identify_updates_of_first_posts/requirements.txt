@@ -5,6 +5,7 @@ SQLAlchemy==1.4.11  # <-- ex
 pg8000==1.19.4  # <-- do we need to update it?
 
 beautifulsoup4==4.9.3  # do we need to update it?
+lxml==4.6.3 # do we need to update it?
 
 google-cloud-pubsub==2.16.0  # ok
 google-cloud-secret-manager==2.16.0  # ok
