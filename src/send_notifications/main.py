@@ -3,18 +3,22 @@
 import ast
 import time
 import datetime
-import os
 import base64
 import logging
 import json
 import psycopg2
+import urllib.request
 
 from telegram import Bot, error
 
 from google.cloud import secretmanager
 from google.cloud import pubsub_v1
 
-project_id = os.environ["GCP_PROJECT"]
+url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+req = urllib.request.Request(url)
+req.add_header("Metadata-Flavor", "Google")
+project_id = urllib.request.urlopen(req).read().decode()
+
 client = secretmanager.SecretManagerServiceClient()
 publisher = pubsub_v1.PublisherClient()
 
@@ -295,7 +299,7 @@ def iterate_over_notifications(bot, script_start_time):
                     change_type = message_to_send[14]
 
                     # if notif is about field trips or coords change and search is inactive – no need to send it
-                    if change_type in {5, 6, 7} and status != 'Ищем':
+                    if change_type in {5, 6, 7, 8} and status != 'Ищем':
                         result = 'cancelled'
                     else:
                         result = send_single_message(bot, user_id, message_content, message_params, message_type)
@@ -539,4 +543,4 @@ def main_func(event, context):
     check_and_save_event_id(context, 'finish')
     logging.info('script finished')
 
-    return None
+    return 'ok'

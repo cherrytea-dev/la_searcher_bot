@@ -577,18 +577,21 @@ def clean_up_content(init_content):
             [r'(?i)XXX', 'sort_out']
         ]
 
+        if not tag:
+            return content
+
         for pattern in patterns:
-            if re.search(pattern[0], tag.text):
-                if isinstance(tag, NavigableString):
-                    tag.extract()
-                else:
-                    tag.decompose()
-            if tag and not isinstance(tag, NavigableString):
-                if tag.name == 'span' and tag.attrs in [{"style": "font-size:140%;line-height:116%"},
-                                                        {"style": "font-size: 140%;line-height:116%"},
-                                                        {"style": "font-size: 140%;line-height: 116%"}] \
-                        or tag.name == 'img':
-                    tag.decompose()
+            if isinstance(tag, NavigableString) and re.search(pattern[0], tag):
+                tag.extract()
+            elif not isinstance(tag, NavigableString) and re.search(pattern[0], tag.text):
+                tag.decompose()
+
+        if not isinstance(tag, NavigableString):
+            if tag.name == 'span' and tag.attrs in [{"style": "font-size:140%;line-height:116%"},
+                                                    {"style": "font-size: 140%;line-height:116%"},
+                                                    {"style": "font-size: 140%;line-height: 116%"}] \
+                    or tag.name == 'img':
+                tag.decompose()
 
         return content
 
