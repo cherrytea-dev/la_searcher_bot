@@ -655,7 +655,7 @@ def compose_diff_message(curr_list, prev_list):
                 list_of_additions.append(line[1:])
 
     if list_of_deletions:
-        message += 'Удалена информация:\n<s>'
+        message += '➖Удалено:\n<s>'
         for line in list_of_deletions:
             message += f'{line}\n'
         message += '</s>'
@@ -663,7 +663,7 @@ def compose_diff_message(curr_list, prev_list):
     if list_of_additions:
         if message:
             message += '\n'
-        message += 'Добавлена информация:\n'
+        message += '➕Добавлено:\n'
         for line in list_of_additions:
             message += f'{line}\n'
 
