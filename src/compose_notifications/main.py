@@ -887,7 +887,7 @@ def compose_com_msg_on_title_change(title, clickable_name):
 def compose_com_msg_on_first_post_change(message, clickable_name):
     """compose the common, user-independent message on search' first post change"""
 
-    msg_1 = 'Появились изменения в первом посте по {clickable_name}{region}:\n\n' \
+    msg_1 = '🔀Изменения в первом посте по {clickable_name}{region}:\n\n' \
             '{message}'.format(clickable_name=clickable_name, message=message, region='{region}')
 
     return msg_1
@@ -1822,10 +1822,11 @@ def compose_individual_message_on_first_post_change(new_record, region_to_show):
     """compose individual message for notification of every user on change of first post"""
 
     message = new_record.message
-    region = f'({region_to_show})' if region_to_show else ''
+    region = f' ({region_to_show})' if region_to_show else ''
     message = message.format(region=region)
 
     return message
+
 
 def publish_to_pubsub(topic_name, message):
     """publish a new message to pub/sub"""
