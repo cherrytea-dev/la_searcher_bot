@@ -635,6 +635,7 @@ def save_preference(cur, user_id, preference):
             execute_insert(user_id, 'new_searches')
             execute_insert(user_id, 'status_changes')
             execute_insert(user_id, 'inforg_comments')
+            execute_insert(user_id, 'first_post_changes')
         elif preference == '-comments_changes':
             execute_insert(user_id, 'inforg_comments')
 
@@ -1279,7 +1280,7 @@ def main(request):
             b_act_field_trips_new = 'включить: о новых выездах'
             b_act_field_trips_change = 'включить: об изменениях в выездах'
             b_act_coords_change = 'включить: о смене места штаба'
-            b_act_first_post_change = 'включить: об изменениях в первом сообщении'
+            b_act_first_post_change = 'включить: об изменениях в первом посте'
             b_deact_all = 'настроить более гибко'
             b_deact_new_search = 'отключить: о новых поисках'
             b_deact_stat_change = 'отключить: об изменениях статусов'
@@ -1288,7 +1289,7 @@ def main(request):
             b_deact_field_trips_new = 'отключить: о новых выездах'
             b_deact_field_trips_change = 'отключить: об изменениях в выездах'
             b_deact_coords_change = 'отключить: о смене места штаба'
-            b_deact_first_post_change = 'отключить: об изменениях в первом сообщении'
+            b_deact_first_post_change = 'отключить: об изменениях в первом посте'
 
 
 
@@ -2147,7 +2148,8 @@ def main(request):
                         elif got_message == b_deact_all:
                             keyboard_notifications_flexible = [[b_act_all], [b_deact_new_search],
                                                                [b_deact_stat_change], [b_act_all_comments],
-                                                               [b_deact_inforg_com], [b_back_to_start]]
+                                                               [b_deact_inforg_com], [b_deact_first_post_change],
+                                                               [b_back_to_start]]
                         else:
 
                             # getting the list of user notification preferences
