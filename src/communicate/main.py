@@ -220,6 +220,8 @@ def compose_user_preferences_message(cur, user_id):
                 prefs_wording += ' &#8226; о всех комментариях\n'
             elif user_pref_line[0] == 'inforg_comments':
                 prefs_wording += ' &#8226; о комментариях Инфорга\n'
+            elif user_pref_line[0] == 'first_post_changes':
+                prefs_wording += ' &#8226; об изменениях в первом посте\n'
             else:
                 prefs_wording += 'неизвестная настройка'
     else:
@@ -542,6 +544,7 @@ def save_preference(cur, user_id, preference):
                  'topic_field_trip_new': 5,
                  'topic_field_trip_change': 6,
                  'topic_coords_change': 7,
+                 'topic_first_post_change': 8,
                  'bot_news': 20,
                  'all': 30,
                  'not_defined': 99,
@@ -553,7 +556,8 @@ def save_preference(cur, user_id, preference):
                  'inforg_comments': 4,
                  'field_trips_new': 5,
                  'field_trips_change': 6,
-                 'coords_change': 7}
+                 'coords_change': 7,
+                 'first_post_changes': 8}
 
     def execute_insert(user, preference_name):
         """execute SQL INSERT command"""
@@ -599,7 +603,7 @@ def save_preference(cur, user_id, preference):
         execute_delete(user_id, [])
         execute_insert(user_id, preference)
 
-    elif preference in {'new_searches', 'status_changes', 'title_changes', 'comments_changes'}:
+    elif preference in {'new_searches', 'status_changes', 'title_changes', 'comments_changes', 'first_post_changes'}:
 
         if execute_check(user_id, ['all']):
             execute_insert(user_id, 'bot_news')
@@ -623,7 +627,8 @@ def save_preference(cur, user_id, preference):
         execute_insert(user_id, preference)
 
     elif preference in {'-new_searches', '-status_changes', '-comments_changes', '-inforg_comments',
-                        '-title_changes', '-all', '-field_trips_new', '-field_trips_change', '-coords_change'}:
+                        '-title_changes', '-all', '-field_trips_new', '-field_trips_change', '-coords_change',
+                        '-first_post_changes'}:
 
         if preference == '-all':
             execute_insert(user_id, 'bot_news')
@@ -1274,6 +1279,7 @@ def main(request):
             b_act_field_trips_new = 'включить: о новых выездах'
             b_act_field_trips_change = 'включить: об изменениях в выездах'
             b_act_coords_change = 'включить: о смене места штаба'
+            b_act_first_post_change = 'включить: об изменениях в первом сообщении'
             b_deact_all = 'настроить более гибко'
             b_deact_new_search = 'отключить: о новых поисках'
             b_deact_stat_change = 'отключить: об изменениях статусов'
@@ -1282,6 +1288,9 @@ def main(request):
             b_deact_field_trips_new = 'отключить: о новых выездах'
             b_deact_field_trips_change = 'отключить: об изменениях в выездах'
             b_deact_coords_change = 'отключить: о смене места штаба'
+            b_deact_first_post_change = 'отключить: об изменениях в первом сообщении'
+
+
 
             # Settings - coordinates
             b_coords_auto_def = KeyboardButton(text='автоматически определить "домашние координаты"',
@@ -2003,7 +2012,8 @@ def main(request):
                                          b_act_inforg_com, b_deact_inforg_com,
                                          b_act_field_trips_new, b_deact_field_trips_new,
                                          b_act_field_trips_change, b_deact_field_trips_change,
-                                         b_act_coords_change, b_deact_coords_change}:
+                                         b_act_coords_change, b_deact_coords_change,
+                                         b_act_first_post_change, b_deact_first_post_change}:
 
                         # save preference for +ALL
                         if got_message == b_act_all:
@@ -2108,6 +2118,18 @@ def main(request):
                             bot_message = 'Вы отписались от уведомлений о смене места (координат) штаба'
                             save_preference(cur, user_id, '-coords_change')
 
+                        # save preference for -FirstPostChanges
+                        elif got_message == b_act_first_post_change:
+                            bot_message = 'Теперь вы будете получать уведомления о важных изменениях в Первом Посте' \
+                                          ' Инфорга, где обозначено описание каждого поиска'
+                            save_preference(cur, user_id, 'first_post_changes')
+
+                        # save preference for -FirstPostChanges
+                        elif got_message == b_deact_first_post_change:
+                            bot_message = 'Вы отписались от уведомлений о важных изменениях в Первом Посте' \
+                                          ' Инфорга c описанием каждого поиска'
+                            save_preference(cur, user_id, '-first_post_changes')
+
                         # GET what are preferences
                         elif got_message == b_set_notifs_up:
                             prefs = compose_user_preferences_message(cur, user_id)
@@ -2132,6 +2154,7 @@ def main(request):
                             prefs = compose_user_preferences_message(cur, user_id)
                             keyboard_notifications_flexible = [[b_act_all], [b_act_new_search], [b_act_stat_change],
                                                                [b_act_all_comments], [b_act_inforg_com],
+                                                               [b_act_first_post_change]
                                                                [b_back_to_start]]
 
                             for line in prefs[1]:
@@ -2145,6 +2168,8 @@ def main(request):
                                     keyboard_notifications_flexible[3] = [b_deact_all_comments]
                                 elif line == 'inforg_comments':
                                     keyboard_notifications_flexible[4] = [b_deact_inforg_com]
+                                elif line == 'first_post_changes':
+                                    keyboard_notifications_flexible[5] = [b_deact_first_post_change]
                                 # TODO: when functionality of notifications on "first post changes" will be ready
                                 #  for prod –to be added: coords_change and field_trip_changes
 
