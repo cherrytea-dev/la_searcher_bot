@@ -474,7 +474,7 @@ def clean_up_content(init_content):
 
         return content
 
-    def delete_sorted_out_tag(content, tag):
+    def delete_sorted_out_one_tag(content, tag):
 
         # language=regexp
         patterns = [
@@ -595,11 +595,11 @@ def clean_up_content(init_content):
 
         return content
 
-    def mark_up_soup(content):
+    def delete_sorted_out_all_tags(content):
 
         elements = content.body
         for tag in elements:
-            content = delete_sorted_out_tag(content, tag)
+            content = delete_sorted_out_one_tag(content, tag)
 
         return content
 
@@ -609,15 +609,25 @@ def clean_up_content(init_content):
     reco_content = cook_soup(init_content)
     reco_content = prettify_soup(reco_content)
     reco_content = remove_links(reco_content)
-    reco_content = mark_up_soup(reco_content)
+    reco_content = delete_sorted_out_all_tags(reco_content)
 
     # reco_content = reco_content.prettify()
     reco_content = reco_content.text
     reco_content = re.sub(r'\n{2,}', '\n', reco_content)
+
     if not re.search(r'\w', reco_content):
         return None
 
     reco_content = reco_content.split('\n')
+
+    # language=regexp
+    patterns = [r'(\[/?[biu]]|\[/?color.{0,8}]|\[/?quote])',
+                r'(?i)послдений раз редактировалось',
+                r'^\s+'
+                ]
+
+    for pattern in patterns:
+        reco_content = [re.sub(pattern, '', line) for line in reco_content]
 
     return reco_content
 
@@ -1076,35 +1086,41 @@ def main(event, context):  # noqa
                                 save_new_record_into_change_log(conn, search_id, message_on_first_posts_diff,
                                                                 'topic_first_post_change', 8)
 
-                            # get the final list of parameters on field trip (new, change or drop)
-                            field_trips_dict, filed_trips_obj = process_field_trips_comparison(conn, search_id,
-                                                                                               first_page_content_prev,
-                                                                                               first_page_content_curr)
+                            # TODO: the below is deactivated because updates 5, 6 and 7 – were not tuned well to cover
+                            #  all 100% of cases (specifically – bad work for search with SEVERAL field trips,
+                            #  or for distinguishing field trips and autonoms)
+                            #  Code itself works well – but "logic" should be updated
+                            if 1 == 0:
 
-                            # Save Field Trip (incl potential Coords change) into Change_log
-                            if field_trips_dict['case'] == 'add':
-                                save_new_record_into_change_log(conn, search_id,
-                                                                str(field_trips_dict), 'field_trip_new', 5)
+                                # get the final list of parameters on field trip (new, change or drop)
+                                field_trips_dict, filed_trips_obj = process_field_trips_comparison(conn, search_id,
+                                                                                                   first_page_content_prev,
+                                                                                                   first_page_content_curr)
 
-                            elif field_trips_dict['case'] in {'drop', 'change'}:
-
-                                # Check if coords changed as well during Field Trip
-                                # structure: lat, lon, prev_desc, curr_desc
-                                coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
-                                                                               first_page_content_prev)
-                                field_trips_dict['coords'] = str(coords_change_list)
-
-                                save_new_record_into_change_log(conn, search_id,
-                                                                str(field_trips_dict), 'field_trip_change', 6)
-
-                            else:
-
-                                # structure_list: lat, lon, prev_desc, curr_desc
-                                coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
-                                                                               first_page_content_prev)
-                                if coords_change_list:
+                                # Save Field Trip (incl potential Coords change) into Change_log
+                                if field_trips_dict['case'] == 'add':
                                     save_new_record_into_change_log(conn, search_id,
-                                                                    coords_change_list, 'coords_change', 7)
+                                                                    str(field_trips_dict), 'field_trip_new', 5)
+
+                                elif field_trips_dict['case'] in {'drop', 'change'}:
+
+                                    # Check if coords changed as well during Field Trip
+                                    # structure: lat, lon, prev_desc, curr_desc
+                                    coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
+                                                                                   first_page_content_prev)
+                                    field_trips_dict['coords'] = str(coords_change_list)
+
+                                    save_new_record_into_change_log(conn, search_id,
+                                                                    str(field_trips_dict), 'field_trip_change', 6)
+
+                                else:
+
+                                    # structure_list: lat, lon, prev_desc, curr_desc
+                                    coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
+                                                                                   first_page_content_prev)
+                                    if coords_change_list:
+                                        save_new_record_into_change_log(conn, search_id,
+                                                                        coords_change_list, 'coords_change', 7)
 
                     except Exception as e:
                         logging.info('[ide_posts]: Error fired during output_dict creation.')
