@@ -2154,7 +2154,7 @@ def main(request):
                             prefs = compose_user_preferences_message(cur, user_id)
                             keyboard_notifications_flexible = [[b_act_all], [b_act_new_search], [b_act_stat_change],
                                                                [b_act_all_comments], [b_act_inforg_com],
-                                                               [b_act_first_post_change]
+                                                               [b_act_first_post_change],
                                                                [b_back_to_start]]
 
                             for line in prefs[1]:
