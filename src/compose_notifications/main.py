@@ -885,7 +885,7 @@ def compose_com_msg_on_title_change(title, clickable_name):
 
 
 def compose_com_msg_on_first_post_change(message, clickable_name):
-    """compose the common, user-independent message on search' first post change"""
+    """compose the common, user-independent message on search first post change"""
 
     region = '{region}'  # to be filled in on a stage of Individual Message preparation
     resulting_message = f'🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}'
@@ -1592,7 +1592,7 @@ def iterate_over_all_users_and_updates(conn, admins_list):
 
                     # TODO: to delete msg_group at all ?
                     # messages followed by coordinates (sendMessage + sendLocation) have same group
-                    msg_group_id = get_the_new_group_id() if change_type in {0, 5, 6, 7} else None
+                    msg_group_id = get_the_new_group_id() if change_type in {0, 5, 6, 7, 8} else None
                     # not None for new_search, field_trips_new, field_trips_change,  coord_change
 
                     # define if user received this message already
@@ -1637,6 +1637,24 @@ def iterate_over_all_users_and_updates(conn, admins_list):
                             # record into SQL table notif_by_user (not text, but coords only)
                             save_to_sql_notif_by_user(mailing_id, user.user_id, None, None, 'coords', message_params,
                                                       msg_group_id, change_log_id)
+                        if change_type == 8:
+
+                            try:
+                                list_of_coords = re.findall(r'<code>', message)
+                                if list_of_coords and len(list_of_coords) == 1:
+                                    # that would mean that there's only 1 set of new coordinates and hence we can
+                                    # send the dedicated sendLocation message
+                                    both_coordinates = re.search(r'(?<=<code>).{5,100}(?=</code>)', message).group()
+                                    if both_coordinates:
+                                        new_lat = re.search(r'^[\d.]{2,12}(?=\D)', both_coordinates).group()
+                                        new_lon = re.search(r'(?<=\D)[\d.]{2,12}$', both_coordinates).group()
+                                        message_params = {'latitude': new_lat, 'longitude': new_lon}
+                                        save_to_sql_notif_by_user(mailing_id, user.user_id, None, None, 'coords',
+                                                                  message_params,
+                                                                  msg_group_id, change_log_id)
+                            except Exception as ee:
+                                logging.info('exception happened')
+                                logging.exception(ee)
 
                         # save to SQL the sendLocation notification for "coords change"
                         if change_type == 7 and s_lat and s_lon and new_record.coords_change_type != 'drop' \
