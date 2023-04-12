@@ -1085,6 +1085,7 @@ def main(event, context):  # noqa
                                                                                         first_page_content_prev,
                                                                                         first_page_content_curr)
                             if message_on_first_posts_diff:
+                                message_on_first_posts_diff = str({'message': message_on_first_posts_diff})
                                 save_new_record_into_change_log(conn, search_id, message_on_first_posts_diff,
                                                                 'topic_first_post_change', 8)
 

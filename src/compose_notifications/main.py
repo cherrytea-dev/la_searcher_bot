@@ -894,7 +894,7 @@ def compose_com_msg_on_first_post_change(message, clickable_name):
         message_dict = ast.literal_eval(message) if message else {}
         message = message_dict['message']
     # FIXME ^^^
-    
+
     resulting_message = f'🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}'
 
     return resulting_message
