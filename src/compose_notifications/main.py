@@ -888,6 +888,13 @@ def compose_com_msg_on_first_post_change(message, clickable_name):
     """compose the common, user-independent message on search first post change"""
 
     region = '{region}'  # to be filled in on a stage of Individual Message preparation
+
+    # FIXME – temp:
+    if message and message[0] == '{':
+        message_dict = ast.literal_eval(message) if message else {}
+        message = message_dict['message']
+    # FIXME ^^^
+    
     resulting_message = f'🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}'
 
     return resulting_message
