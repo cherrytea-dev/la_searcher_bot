@@ -1,5 +1,6 @@
-pg8000==1.19.4
-psycopg2==2.8.6
+# pg8000==1.19.4  <-- old, not needed anymore
+# psycopg2==2.8.6  <-- old version
+psycopg2-binary==2.9.5  # <-- actual ver
 
-google-cloud-pubsub==2.6.0
-google-cloud-secret-manager==2.4.0
+google-cloud-pubsub==2.16.0  # ok
+google-cloud-secret-manager==2.16.0  # ok

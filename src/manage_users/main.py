@@ -1,9 +1,9 @@
-import os
 import base64
 
 import json
 import datetime
 import logging
+import urllib.request
 
 import psycopg2
 
@@ -11,7 +11,11 @@ from google.cloud import pubsub_v1
 from google.cloud import secretmanager
 
 
-project_id = os.environ["GCP_PROJECT"]
+url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+req = urllib.request.Request(url)
+req.add_header("Metadata-Flavor", "Google")
+project_id = urllib.request.urlopen(req).read().decode()
+
 publisher = pubsub_v1.PublisherClient()
 
 
@@ -171,6 +175,8 @@ def save_default_notif_settings(user_id):
     list_of_parameters = [
         (user_id, 'new_searches', 0),
         (user_id, 'status_changes', 1),
+        (user_id, 'inforg_comments', 4),
+        (user_id, 'first_post_changes', 8),
         (user_id, 'bot_news', 20)
     ]
 
@@ -232,4 +238,4 @@ def main(event, context): # noqa
         logging.error('User management script failed:' + repr(e))
         logging.exception(e)
 
-    return None
+    return 'ok'
