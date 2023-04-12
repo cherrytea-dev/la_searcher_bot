@@ -1,9 +1,9 @@
-import os
 import base64
 
 import json
 import datetime
 import logging
+import urllib.request
 
 import sqlalchemy
 
@@ -11,7 +11,11 @@ from google.cloud import pubsub_v1
 from google.cloud import secretmanager
 
 
-project_id = os.environ["GCP_PROJECT"]
+url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+req = urllib.request.Request(url)
+req.add_header("Metadata-Flavor", "Google")
+project_id = urllib.request.urlopen(req).read().decode()
+
 publisher = pubsub_v1.PublisherClient()
 
 
@@ -132,7 +136,6 @@ def save_visibility_for_topic(topic_id, visibility):
                 # FIXME – to be added: INSERT INTO change_log
                 # it requires also right execution inside compose notifications
 
-
             else:
                 notify_admin(f'WE FAKED VISIBILITY UPDATE: topic_id={topic_id}, visibility={visibility}')
             conn.close()
@@ -164,8 +167,8 @@ def save_status_for_topic(topic_id, status):
             conn.execute(stmt, a=datetime.datetime.now(), b=topic_id, c='status_change', d=status, e='', f=1)
 
             # update status in searches table
-            stmt = sqlalchemy.text("""UPDATE searches SET status_short=:a WHERE search_forum_num=:b;""")
-            conn.execute(stmt, a=status, b=topic_id)
+            stmt = sqlalchemy.text("""UPDATE searches SET status_short=:a, status=:b WHERE search_forum_num=:c;""")
+            conn.execute(stmt, a=status, b=status, c=topic_id)
 
             logging.info(f'Status is set={status} for topic_id={topic_id}')
 
@@ -208,4 +211,4 @@ def main(event, context): # noqa
         # alarm admin
         notify_admin('ERROR in manage_topics: ' + repr(e))
 
-    return None
+    return 'ok'
