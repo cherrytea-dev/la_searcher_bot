@@ -1278,6 +1278,33 @@ def iterate_over_all_users_and_updates(conn, admins_list):
 
         return users_who_were_notified
 
+    def get_from_sql_list_of_users_with_prepared_message(change_log_id_):
+        """check what is the list of users for whom we already composed messages for the given change_log record"""
+
+        sql_text_ = sqlalchemy.text("""
+            SELECT 
+                user_id 
+            FROM 
+                notif_by_user 
+            WHERE 
+                created IS NOT NULL AND
+                change_log_id=:a
+
+            /*action='get_from_sql_list_of_users_with_already_composed_messages 2.0'*/
+            ;
+            """)
+
+        raw_data_ = conn.execute(sql_text_, a=change_log_id_).fetchall()
+        # TODO: to delete
+        logging.info("list of user with composed messages:")
+        logging.info(raw_data_)
+
+        users_who_were_composed = []
+        for line in raw_data_:
+            users_who_were_composed.append(line[0])
+
+        return users_who_were_composed
+
     def get_the_new_group_id():
         """define the max message_group_id in notif_by_user and add +1"""
 
@@ -1320,7 +1347,7 @@ def iterate_over_all_users_and_updates(conn, admins_list):
         mail_id = raw_data[0]
         logging.info(f'mailing_id = {mail_id}')
 
-        users_should_not_be_informed = get_from_sql_list_of_already_notified_users(change_log_item)
+        users_should_not_be_informed = get_from_sql_list_of_users_with_prepared_message(change_log_item)
         logging.info('users_who_should_not_be_informed:')
         logging.info(users_should_not_be_informed)
         logging.info('in total ' + str(len(users_should_not_be_informed)))
