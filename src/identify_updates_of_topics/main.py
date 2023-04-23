@@ -1371,6 +1371,7 @@ def recognize_title(line):
                 [r'Стоп(?=[А-Я])', 'Стоп '],  # specific case for one search
                 [r'Жив(?=[А-Я])', 'Жив '],  # specific case for one search
                 [r'Жмва ', 'Жива '],  # specific case for one search
+                [r'Жиаа ', 'Жива '],  # specific case for one search
                 [r'(?i)погию\s', 'погиб '],  # specific case for one search
                 [r'р.п ', 'р.п. '],  # specific case for one search
                 [r'(?<=\d{4}\W)г\.?р?', 'г.р.'],  # rare case

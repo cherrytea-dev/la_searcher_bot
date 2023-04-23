@@ -892,7 +892,27 @@ def compose_com_msg_on_first_post_change(message, clickable_name):
     # FIXME – temp:
     if message and message[0] == '{':
         message_dict = ast.literal_eval(message) if message else {}
-        message = message_dict['message']
+
+        if 'del' in message_dict.keys() and 'add' in message_dict.keys():
+            message = ''
+            list_of_deletions = message_dict['del']
+            if list_of_deletions:
+                message += '➖Удалено:\n<s>'
+                for line in list_of_deletions:
+                    message += f'{line}\n'
+                message += '</s>'
+
+            list_of_additions = message_dict['add']
+            if list_of_additions:
+                if message:
+                    message += '\n'
+                message += '➕Добавлено:\n'
+                for line in list_of_additions:
+                    # majority of coords in RU: lat in [30-80], long in [20-180]
+                    updated_line = re.sub(r'0?[3-8]\d\.\d{1,10}.{0,3}[2-8]\d\.\d{1,10}', '<code>\g<0></code>', line)
+                    message += f'{updated_line}\n'
+        else:
+            message = message_dict['message']
     # FIXME ^^^
 
     resulting_message = f'🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}'

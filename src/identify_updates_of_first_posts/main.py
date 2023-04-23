@@ -344,8 +344,6 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
     obj.prev.deleted, obj.prev.nondel = split_text_to_deleted_and_regular_parts(obj.prev.init)
     obj.curr.deleted, obj.curr.nondel = split_text_to_deleted_and_regular_parts(obj.curr.init)
 
-
-
     # get field_trip-related context from texts
     # format:
     # context_prev_del = check_changes_of_field_trip(text_prev_del)
@@ -378,12 +376,10 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
     # define the CASE (None / add / drop / change)
     # CASE 1 "add"
     if context_curr_reg['vyezd'] and not context_prev_reg['vyezd']:
-
         field_trips_dict['case'] = 'add'
 
     # CASE 2 "drop"
     if not context_curr_reg['vyezd'] and context_prev_reg['vyezd']:
-
         field_trips_dict['case'] = 'drop'
 
     # CASE 3 "change"
@@ -437,7 +433,6 @@ def process_field_trips_comparison(conn, search_id, first_page_content_prev, fir
 
 
 def clean_up_content(init_content):
-
     def cook_soup(content):
 
         content = BeautifulSoup(content, 'lxml')
@@ -479,7 +474,6 @@ def clean_up_content(init_content):
         # language=regexp
         patterns = [
 
-
             [r'(?i)Всем выезжающим иметь СИЗ', 'sort_out'],
 
             # INFO SUPPORT
@@ -494,7 +488,8 @@ def clean_up_content(init_content):
             [r'(?i)(пропал[аи]? во время|не вернул(ся|[аи]сь) с) прогулки', 'sort_out'],
             [r'не дошел до школы', 'sort_out'],
             [r'уш(ёл|ел|ла|ли) (из дома )?в неизвестном направлении', 'sort_out'],
-            [r'(вы|у)ш(ёл|ел|ла|ли) (из дома )?(и пропал[аи]?|и не вернул(ся|ась)|в неизвестном направлении)', 'sort_out'],
+            [r'(вы|у)ш(ёл|ел|ла|ли) (из дома )?(и пропал[аи]?|и не вернул(ся|ась)|в неизвестном направлении)',
+             'sort_out'],
             [r'уш(ёл|ел|ла|ли) из медицинского учреждения', 'sort_out'],
 
             # PERSON – DETAILS
@@ -621,19 +616,20 @@ def clean_up_content(init_content):
     reco_content = reco_content.split('\n')
 
     # language=regexp
-    patterns = [r'(\[/?[biu]]|\[/?color.{0,8}]|\[/?quote])',
-                r'(?i)послдений раз редактировалось',
+    patterns = [r'(\[/?[biu]]|\[/?color.{0,8}]|\[/?quote]|\[/?size.{0,8}]|\[/?spoiler=?]?)',
+                r'(?i)последний раз редактировалось',
                 r'^\s+'
                 ]
 
     for pattern in patterns:
         reco_content = [re.sub(pattern, '', line) for line in reco_content]
 
+    reco_content = [re.sub('ё', 'е', line) for line in reco_content]
+
     return reco_content
 
 
 def compose_diff_message(curr_list, prev_list):
-
     message = ''
 
     if not curr_list or not prev_list:
@@ -652,10 +648,10 @@ def compose_diff_message(curr_list, prev_list):
         elif line[0] == '+':
             addition = re.sub(r'^[\s+-]+', '', line)
             if addition:
-                list_of_additions.append(line[1:])
+                list_of_additions.append(addition)
 
     if list_of_deletions:
-        message += '➖Удалено:\n<s>'
+        message += 'Удалено:\n<s>'
         for line in list_of_deletions:
             message += f'{line}\n'
         message += '</s>'
@@ -663,13 +659,13 @@ def compose_diff_message(curr_list, prev_list):
     if list_of_additions:
         if message:
             message += '\n'
-        message += '➕Добавлено:\n'
+        message += 'Добавлено:\n'
         for line in list_of_additions:
             # majority of coords in RU: lat in [30-80], long in [20-180]
             updated_line = re.sub(r'0?[3-8]\d\.\d{1,10}.{0,3}[2-8]\d\.\d{1,10}', '<code>\g<0></code>', line)
             message += f'{updated_line}\n'
 
-    return message
+    return message, list_of_deletions, list_of_additions
 
 
 def process_first_page_comparison(conn, search_id, first_page_content_prev, first_page_content_curr):
@@ -698,9 +694,23 @@ def process_first_page_comparison(conn, search_id, first_page_content_prev, firs
     prev_clean_content = clean_up_content(first_page_content_prev)
     curr_clean_content = clean_up_content(first_page_content_curr)
 
-    message = compose_diff_message(curr_clean_content, prev_clean_content)
+    message, list_of_del, list_of_add = compose_diff_message(curr_clean_content, prev_clean_content)
 
-    return message
+    # case when there is only 1 line changed and the change is in one blank space or letter – we don't notify abt it
+    if list_of_del and list_of_add and len(list_of_del) == 1 and len(list_of_add) == 1:
+        diff = difflib.ndiff(list_of_del[0], list_of_add[0])
+        changes = ''
+        for line in diff:
+            if line[0] in {'-', '+'}:
+                changes += line[1:]
+        changes = re.sub(r'\s', '', changes)  # changes in blank lines are irrelevant
+        changes = re.sub(r'\D', '', changes, count=1)  # changes for only one letter – irrelevant (but not for digit)
+        if not changes:
+            return '', None
+
+    message_dict = {'del': list_of_del, 'add': list_of_add, 'message': message}
+
+    return message, message_dict
 
 
 def save_new_record_into_change_log(conn, search_id, coords_change_list, changed_field, change_type):
@@ -934,7 +944,6 @@ def get_field_trip_details_from_text(text):
 
     resulting_field_trip_dict = {'vyezd': False}
 
-
     trip = FieldTrip()
 
     # Update the parameters of the output_dict
@@ -1081,11 +1090,11 @@ def main(event, context):  # noqa
                         if first_page_content_curr and first_page_content_prev:
 
                             # check the difference b/w first posts for current and previous version
-                            message_on_first_posts_diff = process_first_page_comparison(conn, search_id,
-                                                                                        first_page_content_prev,
-                                                                                        first_page_content_curr)
+                            message_on_first_posts_diff, diff_dict = \
+                                process_first_page_comparison(conn, search_id,
+                                                              first_page_content_prev, first_page_content_curr)
                             if message_on_first_posts_diff:
-                                message_on_first_posts_diff = str({'message': message_on_first_posts_diff})
+                                message_on_first_posts_diff = str(diff_dict)
                                 save_new_record_into_change_log(conn, search_id, message_on_first_posts_diff,
                                                                 'topic_first_post_change', 8)
 
@@ -1109,7 +1118,8 @@ def main(event, context):  # noqa
 
                                     # Check if coords changed as well during Field Trip
                                     # structure: lat, lon, prev_desc, curr_desc
-                                    coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
+                                    coords_change_list = process_coords_comparison(conn, search_id,
+                                                                                   first_page_content_curr,
                                                                                    first_page_content_prev)
                                     field_trips_dict['coords'] = str(coords_change_list)
 
@@ -1119,7 +1129,8 @@ def main(event, context):  # noqa
                                 else:
 
                                     # structure_list: lat, lon, prev_desc, curr_desc
-                                    coords_change_list = process_coords_comparison(conn, search_id, first_page_content_curr,
+                                    coords_change_list = process_coords_comparison(conn, search_id,
+                                                                                   first_page_content_curr,
                                                                                    first_page_content_prev)
                                     if coords_change_list:
                                         save_new_record_into_change_log(conn, search_id,
