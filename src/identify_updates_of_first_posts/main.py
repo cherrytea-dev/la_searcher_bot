@@ -706,6 +706,11 @@ def process_first_page_comparison(conn, search_id, first_page_content_prev, firs
         changes = re.sub(r'\s', '', changes)  # changes in blank lines are irrelevant
         changes = re.sub(r'\D', '', changes, count=1)  # changes for only one letter – irrelevant (but not for digit)
         if not changes:
+            try:
+                notify_admin(f'[ide_posts]: IGNORED MINOR CHANGE: \ninit message: {message}'
+                             f'\ndel: {list_of_del}\nadd: {list_of_add}')
+            except:
+                notify_admin(f'THIS ERROR')
             return '', None
 
     message_dict = {'del': list_of_del, 'add': list_of_add, 'message': message}
