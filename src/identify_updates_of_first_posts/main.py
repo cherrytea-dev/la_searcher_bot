@@ -633,7 +633,7 @@ def compose_diff_message(curr_list, prev_list):
     message = ''
 
     if not curr_list or not prev_list:
-        return message
+        return message, [], []
 
     diff = difflib.unified_diff(prev_list, curr_list, lineterm='')
 
@@ -682,14 +682,14 @@ def process_first_page_comparison(conn, search_id, first_page_content_prev, firs
         logging.info(f'what was saved in psql for topic_id={search_id}: {what_is_saved_in_psql}')
         logging.info(f'same for topic_id={search_id} with .fetchone: {what_is_saved_in_psql.fetchone()}')
         logging.exception(f'exception set just for alarming')
-        return None
+        return None, None
     display_name, status, name, age, status_old = what_is_saved_in_psql.fetchone()
     # FIXME ^^^
 
     # updates are made only for non-finished searches
     # FIXME - to be changed to status from status_old
     if status_old != 'Ищем':
-        return None
+        return None, None
 
     prev_clean_content = clean_up_content(first_page_content_prev)
     curr_clean_content = clean_up_content(first_page_content_curr)
