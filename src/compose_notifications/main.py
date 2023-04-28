@@ -970,7 +970,7 @@ def compose_com_msg_on_first_post_change(message, clickable_name, old_lat, old_l
         logging.exception(e)
     # TODO ^^^
 
-    resulting_message = f'🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}'
+    resulting_message = f'🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}{coord_change_phrase}'
     if coord_change_phrase:
         notify_admin(f'{resulting_message}{coord_change_phrase}')
 
