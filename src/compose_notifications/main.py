@@ -24,7 +24,7 @@ users_list = []
 coord_format = "{0:.5f}"
 stat_list_of_recipients = []  # list of users who received notification on new search
 fib_list = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987]
-
+coord_pattern = r'0?[3-8]\d\.\d{1,10}.{0,3}[2-8]\d\.\d{1,10}'
 
 class Comment:
     def __init__(self,
@@ -884,10 +884,38 @@ def compose_com_msg_on_title_change(title, clickable_name):
     return msg
 
 
-def compose_com_msg_on_first_post_change(message, clickable_name):
+def get_coords_from_list(input_list):
+    """TODO"""
+
+    coords_in_text = []
+
+    for line in input_list:
+        coords_in_text += re.findall(coord_pattern, line)
+
+    if not (coords_in_text and len(coords_in_text) == 1):
+        return None, None
+
+    coords_as_text = coords_in_text[0]
+    coords_as_list = re.split(r'(?<=\d)\D{2,}(?=\d)', coords_as_text)
+
+    if len(coords_as_list) != 2:
+        return None, None
+
+    try:
+        got_lat = coord_format.format(float(coords_as_list[0]))
+        got_lon = coord_format.format(float(coords_as_list[1]))
+        return got_lat, got_lon
+
+    except:  # noqa
+        return None, None
+
+
+def compose_com_msg_on_first_post_change(message, clickable_name, old_lat, old_lon):
     """compose the common, user-independent message on search first post change"""
 
     region = '{region}'  # to be filled in on a stage of Individual Message preparation
+    list_of_additions = None
+    list_of_deletions = None
 
     # FIXME – temp:
     if message and message[0] == '{':
@@ -909,13 +937,42 @@ def compose_com_msg_on_first_post_change(message, clickable_name):
                 message += '➕Добавлено:\n'
                 for line in list_of_additions:
                     # majority of coords in RU: lat in [30-80], long in [20-180]
-                    updated_line = re.sub(r'0?[3-8]\d\.\d{1,10}.{0,3}[2-8]\d\.\d{1,10}', '<code>\g<0></code>', line)
+                    updated_line = re.sub(coord_pattern, '<code>\g<0></code>', line)
                     message += f'{updated_line}\n'
         else:
             message = message_dict['message']
     # FIXME ^^^
 
+    # TODO: adding Variance of Coordinates:
+    coord_change_phrase = ''
+    try:
+
+        add_lat, add_lon = get_coords_from_list(list_of_additions)
+        del_lat, del_lon = get_coords_from_list(list_of_deletions)
+
+        if old_lat and old_lon:
+            old_lat = coord_format.format(float(old_lat))
+            old_lon = coord_format.format(float(old_lon))
+
+        if add_lat and add_lon and del_lat and del_lon and (add_lat != del_lat or add_lon != del_lon):
+            distance, direction = define_dist_and_dir_to_search(del_lat, del_lon, add_lat, add_lon)
+        elif add_lat and add_lon and old_lat and old_lon and (add_lat != old_lat or add_lon != old_lon):
+            distance, direction = define_dist_and_dir_to_search(old_lat, old_lon, add_lat, add_lon)
+        else:
+            distance, direction = None, None
+
+        if distance and direction:
+            coord_change_phrase = f'\n\nКоординаты сместились на ~{distance} км {direction}'
+            notify_admin(f'HOORAY {clickable_name}, msg {message}, addl_msg {coord_change_phrase}')
+
+    except Exception as e:
+        notify_admin(f'HEY! something was broken in this new process! {message}')
+        logging.exception(e)
+    # TODO ^^^
+
     resulting_message = f'🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}'
+    if coord_change_phrase:
+        notify_admin(f'{resulting_message}{coord_change_phrase}')
 
     return resulting_message
 
@@ -984,7 +1041,8 @@ def enrich_new_records_with_com_message_texts():
                 line.message, line.search_latitude, line.search_longitude, line.coords_change_type = \
                     compose_com_msg_on_coords_change(line.new_value, clickable_name)
             elif line.change_type == 8:  # first_post_change
-                line.message = compose_com_msg_on_first_post_change(line.new_value, clickable_name)
+                line.message = compose_com_msg_on_first_post_change(line.new_value, clickable_name,
+                                                                    line.search_latitude, line.search_longitude)
 
         logging.info('New Records enriched with common Message Texts')
 
