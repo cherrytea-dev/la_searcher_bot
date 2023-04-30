@@ -893,20 +893,33 @@ def get_coords_from_list(input_list):
         coords_in_text += re.findall(coord_pattern, line)
 
     if not (coords_in_text and len(coords_in_text) == 1):
+        # FIXME - temp print
+        print(f'COORDS NOT RECO 1: {coords_in_text}')
+        # FIXME ^^^
         return None, None
 
     coords_as_text = coords_in_text[0]
     coords_as_list = re.split(r'(?<=\d)\D{2,}(?=\d)', coords_as_text)
 
     if len(coords_as_list) != 2:
+        # FIXME - temp print
+        print(f'COORDS NOT RECO 2: {coords_in_text}')
+        # FIXME ^^^
         return None, None
 
     try:
         got_lat = coord_format.format(float(coords_as_list[0]))
         got_lon = coord_format.format(float(coords_as_list[1]))
+        # FIXME - temp print
+        print(f'COORDS NOT RECO 3: {coords_in_text}')
+        # FIXME ^^^
         return got_lat, got_lon
 
-    except:  # noqa
+    except Exception as e:  # noqa
+        # FIXME - temp print
+        print(f'COORDS NOT RECO 4: {coords_in_text}')
+        logging.exception(e)
+        # FIXME ^^^
         return None, None
 
 
