@@ -885,7 +885,7 @@ def compose_com_msg_on_title_change(title, clickable_name):
 
 
 def get_coords_from_list(input_list):
-    """TODO"""
+    """get the list of coords [lat, lon] for the input list of strings"""
 
     coords_in_text = []
 
@@ -899,7 +899,7 @@ def get_coords_from_list(input_list):
         return None, None
 
     coords_as_text = coords_in_text[0]
-    coords_as_list = re.split(r'(?<=\d)\D{2,}(?=\d)', coords_as_text)
+    coords_as_list = re.split(r'(?<=\d)[\s,]+(?=\d)', coords_as_text)
 
     if len(coords_as_list) != 2:
         # FIXME - temp print
@@ -911,7 +911,7 @@ def get_coords_from_list(input_list):
         got_lat = coord_format.format(float(coords_as_list[0]))
         got_lon = coord_format.format(float(coords_as_list[1]))
         # FIXME - temp print
-        print(f'COORDS NOT RECO 3: {coords_in_text}')
+        print(f'COORDS RECO 3: {coords_in_text}')
         # FIXME ^^^
         return got_lat, got_lon
 
