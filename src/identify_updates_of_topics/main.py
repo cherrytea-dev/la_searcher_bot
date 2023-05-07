@@ -50,6 +50,7 @@ class SearchSummary:
 
     def __init__(self,
                  topic_type=None,
+                 topic_type_id=None,
                  topic_id=None,
                  parsed_time=None,
                  status=None,
@@ -70,6 +71,7 @@ class SearchSummary:
                  full_dict=None
                  ):
         self.topic_type = topic_type
+        self.topic_type_id = topic_type_id
         self.topic_id = topic_id
         self.parsed_time = parsed_time
         self.status = status
@@ -2638,6 +2640,17 @@ def parse_one_folder(db, folder_id):
                                                           name=person_fam_name, folder_id=folder_id)
                     # FIXME ^^^
                     search_summary_object.topic_type = title_reco_dict['topic_type']
+
+                    # FIXME - remove try
+                    topic_type_dict = {'search': 0, 'search training': 3}
+                    try:
+                        search_summary_object.topic_type_id = topic_type_dict[search_summary_object.topic_type]
+                    except Exception as e:
+                        logging.exception(e)
+                        notify_admin('[ide_topics]: error in topic_type_id identification')
+                        logging.info('[ide_topics]: error in topic_type_id identification')
+                    # FIXME ^^^
+
                     if 'persons' in title_reco_dict.keys():
                         if 'total_display_name' in title_reco_dict['persons'].keys():
                             search_summary_object.display_name = title_reco_dict['persons']['total_display_name']
@@ -2827,7 +2840,7 @@ def update_change_log_and_searches(db, folder_num):
         sql_text = sqlalchemy.text(
             """SELECT search_forum_num, parsed_time, status_short, forum_search_title, search_start_time, 
             num_of_replies, family_name, age, id, forum_folder_id, topic_type, display_name, age_min, age_max,
-            status, city_locations
+            status, city_locations, topic_type_id
             FROM forum_summary_snapshot WHERE 
             forum_folder_id = :a; """
         )
@@ -2839,7 +2852,8 @@ def update_change_log_and_searches(db, folder_num):
                 snapshot_line.start_time, snapshot_line.num_of_replies, \
                 snapshot_line.name, snapshot_line.age, snapshot_line.id, snapshot_line.folder_id, \
                 snapshot_line.topic_type, snapshot_line.display_name, snapshot_line.age_min, \
-                snapshot_line.age_max, snapshot_line.new_status, snapshot_line.locations = list(line)
+                snapshot_line.age_max, snapshot_line.new_status, snapshot_line.locations, snapshot_line.topic_type_id \
+                = list(line)
 
             curr_snapshot_list.append(snapshot_line)
 
@@ -2847,7 +2861,7 @@ def update_change_log_and_searches(db, folder_num):
         searches_full_list = conn.execute(
             """SELECT search_forum_num, parsed_time, status_short, forum_search_title, search_start_time, 
             num_of_replies, family_name, age, id, forum_folder_id, 
-            topic_type, display_name, age_min, age_max, status, city_locations FROM searches;"""
+            topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id FROM searches;"""
         ).fetchall()
         prev_searches_list = []
         for searches_line in searches_full_list:
@@ -2855,7 +2869,7 @@ def update_change_log_and_searches(db, folder_num):
             search.topic_id, search.parsed_time, search.status, search.title, \
                 search.start_time, search.num_of_replies, search.name, search.age, search.id, search.folder_id, \
                 search.topic_type, search.display_name, search.age_min, search.age_max,\
-                search.new_status, search.locations = list(searches_line)
+                search.new_status, search.locations, search.topic_type_id = list(searches_line)
             prev_searches_list.append(search)
 
         # FIXME – temp – just to check how many lines
@@ -2973,14 +2987,14 @@ def update_change_log_and_searches(db, folder_num):
             stmt = sqlalchemy.text(
                 """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, 
                 search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, 
-                display_name, age_min, age_max, status, city_locations) 
-                VALUES (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o); """
+                display_name, age_min, age_max, status, city_locations, topic_type_id) 
+                VALUES (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
             )
             for line in new_searches_from_snapshot_list:
                 conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
                              e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
                              j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max, n=line.new_status,
-                             o=str(line.locations))
+                             o=str(line.locations), p=line.topic_type_id)
 
                 search_num = line.topic_id
 
@@ -3063,14 +3077,14 @@ def update_change_log_and_searches(db, folder_num):
             stmt = sqlalchemy.text(
                 """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, 
                 search_start_time, num_of_replies, age, family_name, forum_folder_id, 
-                topic_type, display_name, age_min, age_max, status, city_locations) values (:a, :b, :c, :d, :e, :f, 
-                :g, :h, :i, :j, :k, :l, :m, :n, :o); """
+                topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id) values 
+                (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
             )
             for line in new_searches_from_snapshot_list:
                 conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
                              e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
                              j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max,
-                             n=line.new_status, o=str(line.locations))
+                             n=line.new_status, o=str(line.locations), p=line.topic_type_id)
 
         conn.close()
 
@@ -3119,15 +3133,15 @@ def process_one_folder(db, folder_to_parse):
             sql_text = sqlalchemy.text(
                 """INSERT INTO forum_summary_snapshot (search_forum_num, parsed_time, status_short, forum_search_title, 
                 search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, display_name, age_min, 
-                age_max, status, city_locations) 
-                VALUES (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o); """
+                age_max, status, city_locations, topic_type_id) 
+                VALUES (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
             )
             # FIXME – add status
             for line in folder_summary:
                 conn.execute(sql_text, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
                              e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
                              j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max, n=line.new_status,
-                             o=str(line.locations))
+                             o=str(line.locations), p=line.topic_type_id)
             conn.close()
 
         return None
