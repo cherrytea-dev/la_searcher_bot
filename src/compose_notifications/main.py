@@ -26,6 +26,7 @@ stat_list_of_recipients = []  # list of users who received notification on new s
 fib_list = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987]
 coord_pattern = r'0?[3-8]\d\.\d{1,10}.{0,3}[2-8]\d\.\d{1,10}'
 
+
 class Comment:
     def __init__(self,
                  url=None,
@@ -54,6 +55,7 @@ class Comment:
 class LineInChangeLog:
     def __init__(self,
                  forum_search_num=None,
+                 topic_type_id=None,
                  change_type=None,  # it is int from 0 to 99 which represents "change_type" column in change_log
                  changed_field=None,
                  change_id=None,  # means change_log_id
@@ -86,6 +88,7 @@ class LineInChangeLog:
                  age_max=None
                  ):
         self.forum_search_num = forum_search_num
+        self.topic_type_id = topic_type_id
         self.change_type = change_type
         self.changed_field = changed_field
         self.change_id = change_id
@@ -123,7 +126,7 @@ class LineInChangeLog:
                     self.status, self.n_of_replies, self.title, self.age, self.age_wording, self.forum_folder,
                     self.search_latitude, self.search_longitude, self.activities, self.comments, self.comments_inforg,
                     self.message, self.processed, self.managers, self.start_time, self.ignore, self.region,
-                    self.coords_change_type, self.display_name, self.age_min, self.age_max])
+                    self.coords_change_type, self.display_name, self.age_min, self.age_max, self.topic_type_id])
 
 
 class User:
@@ -132,6 +135,7 @@ class User:
                  username_telegram=None,
                  notification_preferences=None,
                  notif_pref_ids_list=None,
+                 topic_type_pref_ids_list=None,
                  user_latitude=None,
                  user_longitude=None,
                  user_regions=None,
@@ -147,6 +151,7 @@ class User:
         self.username_telegram = username_telegram
         self.notification_preferences = notification_preferences
         self.notif_pref_ids_list = notif_pref_ids_list
+        self.topic_type_pref_ids_list = topic_type_pref_ids_list
         self.user_latitude = user_latitude
         self.user_longitude = user_longitude
         self.user_regions = user_regions
@@ -160,7 +165,8 @@ class User:
     def __str__(self):
         return str([self.user_id, self.username_telegram, self.notification_preferences, self.notif_pref_ids_list,
                     self.user_latitude, self.user_longitude, self.user_regions, self.user_in_multi_regions,
-                    self.user_corr_regions, self.user_new_search_notifs, self.age_periods, self.radius])
+                    self.user_corr_regions, self.user_new_search_notifs, self.age_periods, self.radius,
+                    self.topic_type_pref_ids_list])
 
 
 class Message:
@@ -414,7 +420,7 @@ def enrich_new_records_from_searches(conn):
             (SELECT s.search_forum_num, s.status_short, s.forum_search_title,  
             s.num_of_replies, s.family_name, s.age, s.forum_folder_id, 
             sa.latitude, sa.longitude, s.search_start_time, s.display_name, s.age_min, s.age_max,
-            s.status, s.city_locations 
+            s.status, s.city_locations, s.topic_type_id 
             FROM searches as s LEFT JOIN 
             search_coordinates as sa ON s.search_forum_num=sa.search_id) ns LEFT JOIN 
             regions_to_folders rtf ON ns.forum_folder_id = rtf.forum_folder_id 
@@ -442,7 +448,8 @@ def enrich_new_records_from_searches(conn):
                     r_line.age_max = s_line[12]
                     r_line.new_status = s_line[13]
                     r_line.city_locations = s_line[14]
-                    r_line.region = s_line[15]
+                    r_line.topic_type_id = s_line[15]
+                    r_line.region = s_line[16]
 
                     print(f'TEMP – FORUM_FOLDER = {r_line.forum_folder}, while s_line = {str(s_line)}')
                     print(f'TEMP – CITY LOCS = {r_line.city_locations}')
@@ -1223,6 +1230,35 @@ def enrich_users_list_with_user_regions(conn):
     return None
 
 
+def enrich_users_list_with_topic_type_preferences(conn):
+    """add the additional data on topic type preferences (reverse search, training, event) into Users List"""
+
+    global users_list
+
+    try:
+        notif_prefs = conn.execute(
+            """SELECT user_id, topic_type_id FROM user_pref_topic_type;"""
+        ).fetchall()
+
+        # look for matching User_ID in Users List & Notification Preferences
+        for u_line in users_list:
+            user_pref_ids_list = []
+            for np_line in notif_prefs:
+                # when match is found
+                if u_line.user_id == np_line[0]:
+                    user_pref_ids_list.append(np_line[1])
+            u_line.topic_type_pref_ids_list = user_pref_ids_list
+
+        logging.info('Users List enriched with Topic Type Prefs')
+
+    except Exception as e:
+        logging.error('Not able to enrich Users List with Topic Type Prefs: ' + str(e))
+        logging.exception(e)
+        notify_admin(f'Not able to enrich Users List with Topic Type Prefs')
+
+    return None
+
+
 def get_list_of_admins_and_testers(conn):
     """get the list of users with admin & testers roles from PSQL"""
 
@@ -1532,6 +1568,32 @@ def iterate_over_all_users_and_updates(conn, admins_list):
 
         except Exception as e:
             logging.info(f'TEMP - exception CROP Inforg 2X: {repr(e)}')
+        # FIXME ^^^ ----------------------
+
+        # FIXME -------- TOPIC TYPE -------------
+        try:
+            temp_user_list = []
+            for user_line in users_list_outcome:
+                # if this record is for specific Topic Type and user wants to get it
+                if not record.topic_type_id or record.topic_type_id == 0 or \
+                        (record.topic_type_id in user_line.topic_type_pref_ids_list):
+                    temp_user_list.append(user_line)
+                    logging.info(f'Topic Type CHECK for {user_line.user_id} is OK, record {record.topic_type_id}, '
+                                 f'user {user_line.user_id} {user_line.topic_type_pref_ids_list}. '
+                                 f'record {record.forum_search_num}')
+                else:
+                    logging.info(f'Topic Type CHECK for {user_line.user_id} is FAILED, record {record.topic_type_id}, '
+                                 f'user {user_line.user_id} {user_line.topic_type_pref_ids_list}. '
+                                 f'record {record.forum_search_num}')
+
+            logging.info(
+                f'User List crop due to Topic Type [DEMO]: delta={len(users_list_outcome)-len(temp_user_list)}: '
+                f'{len(users_list_outcome)} --> {len(temp_user_list)}')
+            # users_list_outcome = temp_user_list
+
+        except Exception as e:
+            logging.info(f'TEMP - exception CROP Topic Type: {repr(e)}')
+            notify_admin(f'TEMP - exception CROP Topic Type: {repr(e)}')
         # FIXME ^^^ ----------------------
 
         # 2. TYPE. crop the list of users, excluding Users who does not want to receive notifications of such a kind
@@ -2206,6 +2268,7 @@ def main(event, context):  # noqa
             enrich_users_list_with_age_periods(conn)
             enrich_users_list_with_radius(conn)
             enrich_users_list_with_user_regions(conn)
+            enrich_users_list_with_topic_type_preferences(conn)
 
             # check the matrix: new update - user and initiate sending notifications
             iterate_over_all_users_and_updates(conn, admins_list)
