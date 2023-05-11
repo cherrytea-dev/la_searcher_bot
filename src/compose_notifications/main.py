@@ -2011,12 +2011,6 @@ def compose_individual_message_on_first_post_change(new_record, region_to_show):
 
     message = new_record.message
     region = f' ({region_to_show})' if region_to_show else ''
-
-    # FIXME
-    notify_admin(f'region_to_show = {region_to_show}')
-    notify_admin(f'region = {region}')
-    # FIXME ^^^
-    
     message = message.format(region=region)
 
     return message
