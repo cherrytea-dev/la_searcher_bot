@@ -1529,25 +1529,6 @@ def iterate_over_all_users_and_updates(conn, admins_list):
         logging.info(f'User List crop due to region: {len(users_list_outcome)} --> {len(temp_user_list)}')
         users_list_outcome = temp_user_list
 
-        # FIXME -------- TYPE 5 6 7 -------------
-        try:
-            temp_user_list = []
-            for user_line in users_list_outcome:
-                if not (record.change_type in {5, 6, 7} and user_line.user_id not in admins_list):
-                    temp_user_list.append(user_line)
-                    logging.info(f'5-6-7 CHECK for {user_line.user_id} is OK, record {record.change_type}, '
-                                 f'user {user_line.user_id}. record {record.forum_search_num}')
-                else:
-                    logging.info(f'5-6-7 CHECK for {user_line.user_id} is FAILED, record {record.change_type}, '
-                                 f'user {user_line.user_id}. record {record.forum_search_num}')
-
-            logging.info(f'User List crop due to 5-6-7: {len(users_list_outcome)} --> {len(temp_user_list)}')
-            users_list_outcome = temp_user_list
-
-        except Exception as e:
-            logging.info(f'TEMP - exception CROP 5 6 7: {repr(e)}')
-        # FIXME ^^^ ----------------------
-
         # FIXME -------- INFORG 2x -------------
         try:
             temp_user_list = []
@@ -1571,11 +1552,13 @@ def iterate_over_all_users_and_updates(conn, admins_list):
         # FIXME ^^^ ----------------------
 
         # FIXME -------- TOPIC TYPE -------------
+        default_types = [0, 1, 2, 3, 4, 5]
+
         try:
             temp_user_list = []
             for user_line in users_list_outcome:
                 # if this record is for specific Topic Type and user wants to get it
-                if not record.topic_type_id or record.topic_type_id == 0 or \
+                if not record.topic_type_id or record.topic_type_id in default_types or \
                         (record.topic_type_id in user_line.topic_type_pref_ids_list):
                     temp_user_list.append(user_line)
                     logging.info(f'Topic Type CHECK for {user_line.user_id} is OK, record {record.topic_type_id}, '
@@ -2028,6 +2011,12 @@ def compose_individual_message_on_first_post_change(new_record, region_to_show):
 
     message = new_record.message
     region = f' ({region_to_show})' if region_to_show else ''
+
+    # FIXME
+    notify_admin(f'region_to_show = {region_to_show}')
+    notify_admin(f'region = {region}')
+    # FIXME ^^^
+    
     message = message.format(region=region)
 
     return message
