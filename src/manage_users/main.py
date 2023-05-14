@@ -28,9 +28,14 @@ def process_pubsub_message(event):
     # receiving message text from pub/sub
     if 'data' in event:
         received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
-        encoded_to_ascii = eval(received_message_from_pubsub)
-        data_in_ascii = encoded_to_ascii['data']
-        message_in_ascii = data_in_ascii['message']
+        print(f'DECODED DATA from EVENT {received_message_from_pubsub}')
+        try:
+            encoded_to_ascii = eval(received_message_from_pubsub)
+            data_in_ascii = encoded_to_ascii['data']
+            message_in_ascii = data_in_ascii['message']
+        except Exception as e:
+            logging.exception(e)
+            message_in_ascii = None
 
     else:
         received_message_from_pubsub = 'I cannot read message from pub/sub'
