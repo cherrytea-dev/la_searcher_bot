@@ -983,7 +983,6 @@ def compose_com_msg_on_first_post_change(message, clickable_name, old_lat, old_l
 
         if distance and direction:
             coord_change_phrase = f'\n\nКоординаты сместились на ~{distance} км {direction}'
-            notify_admin(f'HOORAY {clickable_name}, msg {message}, addl_msg {coord_change_phrase}')
 
     except Exception as e:
         notify_admin(f'HEY! something was broken in this new process! {message}')
@@ -991,8 +990,6 @@ def compose_com_msg_on_first_post_change(message, clickable_name, old_lat, old_l
     # TODO ^^^
 
     resulting_message = f'🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}{coord_change_phrase}'
-    if coord_change_phrase:
-        notify_admin(f'{resulting_message}{coord_change_phrase}')
 
     return resulting_message
 
