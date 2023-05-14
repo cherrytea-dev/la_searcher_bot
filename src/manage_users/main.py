@@ -197,6 +197,7 @@ def save_new_user(user_id, username, timestamp):
     # save onboarding start
     cur.execute("""INSERT INTO user_onboarding (user_id, step_id, step_name, timestamp) VALUES (%s, %s, %s, %s);""",
                 (user_id, 0, 'start', datetime.datetime.now()))
+    conn.commit()
 
     # close connection & cursor
     cur.close()
