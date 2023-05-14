@@ -1079,36 +1079,50 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
 
     return bot_message, reply_markup, expect_after
 
-# FIXME - this functionality is not in use – will be used only for latest Onboarding Step check
-def manage_onboarding(cur, user_id, action, step_name):
-    """save parameters of user's onboarding into psql"""
 
-    dict_steps = {'start': 0,
-                  'role_set': 10,
-                  'moscow_replied': 20,
-                  'urgency_set': 30,
-                  'finished': 80,
-                  'unrecognized': 99}
+def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_not_moscow,
+                     reply_markup_main, keyboard_fed_dist_set):
+    """act if user replied either user from Moscow region or from another one"""
 
-    if action == 'save':
-        try:
-            step_id = dict_steps[step_name]
-        except:  # noqa
-            step_id = 99
-        cur.execute("""INSERT INTO user_onboarding (user_id, step_id, step_name, timestamp) VALUES (%s, %s, %s, %s);""",
-                    (user_id, step_id, step_name, datetime.datetime.now()))
-        return None
+    # if user Region is Moscow
+    if got_message == b_reg_moscow:
 
-    elif action == 'get_last':
-        cur.execute("""SELECT step_id, step_name, timestamp FROM user_onboarding 
-                       WHERE user_id=%s ORDER BY step_id DESC;""",
-                    (user_id,))
-        raw_data = cur.fetchone()
-        step_id, step_name, time = list(raw_data)
-        return step_name
+        save_onboarding_step(user_id, username, 'moscow_replied')
+        save_onboarding_step(user_id, username, 'region_set')
+
+        bot_message = 'Спасибо, бот запомнил этот выбор и теперь вы сможете получать ключевые ' \
+                      'уведомления в регионе Москва и МО. Вы в любой момент сможете изменить ' \
+                      'список регионов через настройки бота.'
+        reply_markup = reply_markup_main
+
+        if check_if_user_has_no_regions(cur, user_id):
+            # add the New User into table user_regional_preferences
+            # region is Moscow for Active Searches & InfoPod
+            cur.execute(
+                """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
+                (%s, %s);""",
+                (user_id, 276))
+            cur.execute(
+                """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
+                (%s, %s);""",
+                (user_id, 41))
+
+    # if region is NOT Moscow
+    elif got_message == b_reg_not_moscow:
+
+        save_onboarding_step(user_id, username, 'moscow_replied')
+
+        bot_message = 'Спасибо, тогда, пожалуйста, выберите сначала Федеральный Округ,' \
+                      'а затем хотя бы один Регион поисков, чтобы начать получать уведомления ' \
+                      'по поискам в этом регионе. Вы в любой момент сможете изменить ' \
+                      'список регионов через настройки бота.'
+        reply_markup = ReplyKeyboardMarkup(keyboard_fed_dist_set, resize_keyboard=True)
 
     else:
-        return None
+        bot_message = None
+        reply_markup = None
+
+    return bot_message, reply_markup
 
 
 def manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_to_start,
@@ -1150,6 +1164,39 @@ def manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_
         bot_request_aft_usr_msg = 'input_of_forum_username'
 
     return bot_message, reply_markup, bot_request_aft_usr_msg
+
+
+def save_onboarding_step(user_id, username, step):
+    """save the certain step in onboarding"""
+
+    # to avoid eval errors in recipient script
+    if not username:
+        username = 'unknown'
+
+    message_for_pubsub = {'action': 'update_onboarding',
+                          'info': {'user': user_id, 'username': username},
+                          'time': str(datetime.datetime.now()),
+                          'step': step}
+    publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+
+    return None
+
+
+def check_onboarding_step(cur, user_id):
+    """checks the latest step of onboarding"""
+
+    try:
+        cur.execute("""SELECT step_id, step_name, timestamp FROM user_onboarding 
+                               WHERE user_id=%s ORDER BY step_id DESC;""",
+                    (user_id,))
+        raw_data = cur.fetchone()
+        step_id, step_name, time = list(raw_data)
+
+    except Exception as e:
+        logging.exception(e)
+        step_id, step_name = None, None
+
+    return step_id, step_name
 
 
 async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
@@ -1321,6 +1368,10 @@ def main(request):
                 # FIXME
                 print(f'WE SENT PUBSUB MSG: {message_for_pubsub}')
                 # FIXME ^^^
+                onboarding_step_id, onboarding_step_name = 0, 'start'
+
+            else:
+                onboarding_step_id, onboarding_step_name = check_onboarding_step(cur, user_id)
 
             # get user regional settings (which regions he/she is interested it)
             user_regions = get_user_regional_preferences(cur, user_id)
@@ -1381,7 +1432,7 @@ def main(request):
             b_settings_coords = 'настроить "домашние координаты"'
             b_set_pref_radius = 'настроить максимальный радиус'
             b_set_pref_age = 'настроить возрастные группы БВП'
-            b_set_pref_urgency = 'настроить скорость уведомлений'  # <-- TODO
+            b_set_pref_urgency = 'настроить скорость уведомлений'
             b_set_pref_role = 'настроить вашу роль'  # <-- TODO
             b_set_forum_nick = 'связать аккаунты бота и форума'
 
@@ -1707,6 +1758,11 @@ def main(request):
                     except Exception:
                         pass
 
+                if onboarding_step_id == 21:  # region_set
+                    # mark that onboarding is finished
+                    if got_message in {b_back_to_start, b_view_act_searches, b_view_latest_searches}:
+                        save_onboarding_step(user_id, username, 'finished')
+
                 # if there is any coordinates from user
                 if user_latitude:
 
@@ -1773,12 +1829,7 @@ def main(request):
                         if got_message in {b_role_want_to_be_la, b_role_iam_la, b_role_looking_for_person,
                                            b_role_other, b_role_secret}:
                             save_user_pref_role(cur, user_id, got_message)
-
-                            message_for_pubsub = {'action': 'update_onboarding',
-                                                  'info': {'user': user_id, 'username': username},
-                                                  'time': str(datetime.datetime.now()),
-                                                  'step': 'role_set'}
-                            publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+                            save_onboarding_step(user_id, username, 'role_set')
 
                         # get user role = relatives looking for a person
                         if got_message == b_role_looking_for_person:
@@ -1844,33 +1895,10 @@ def main(request):
                             keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
-                    # if user Region is Moscow
-                    elif got_message == b_reg_moscow:
-
-                        bot_message = 'Спасибо, бот запомнил этот выбор и теперь вы сможете получать ключевые ' \
-                                      'уведомления в регионе Москва и МО. Вы в любой момент сможете изменить ' \
-                                      'список регионов через настройки бота.'
-                        reply_markup = reply_markup_main
-
-                        if check_if_user_has_no_regions(cur, user_id):
-                            # add the New User into table user_regional_preferences
-                            # region is Moscow for Active Searches & InfoPod
-                            cur.execute(
-                                """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
-                                (%s, %s);""",
-                                (user_id, 276))
-                            cur.execute(
-                                """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
-                                (%s, %s);""",
-                                (user_id, 41))
-
-                    # if region is NOT Moscow
-                    elif got_message == b_reg_not_moscow:
-                        bot_message = 'Спасибо, тогда, пожалуйста, выберите сначала Федеральный Округ,' \
-                                      'а затем хотя бы один Регион поисков, чтобы начать получать уведомления ' \
-                                      'по поискам в этом регионе. Вы в любой момент сможете изменить ' \
-                                      'список регионов через настройки бота.'
-                        reply_markup = ReplyKeyboardMarkup(keyboard_fed_dist_set, resize_keyboard=True)
+                    elif got_message in {b_reg_moscow, b_reg_not_moscow}:
+                        bot_message, reply_markup = manage_if_moscow(cur, user_id, username, got_message,
+                                                                     b_reg_moscow, b_reg_not_moscow,
+                                                                     reply_markup_main, keyboard_fed_dist_set)
 
                     elif got_message == b_help_no:
 
@@ -2093,6 +2121,9 @@ def main(request):
                                 continue
                             break
                         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+                        if onboarding_step_id == 20:  # "moscow_replied"
+                            save_onboarding_step(user_id, username, 'region_set')
 
                     elif got_message == b_settings:
                         bot_message = 'Это раздел с настройками. Здесь вы можете выбрать удобные для вас ' \
