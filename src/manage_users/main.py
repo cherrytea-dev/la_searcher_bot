@@ -30,6 +30,7 @@ def process_pubsub_message(event):
         received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
         print(f'DECODED DATA from EVENT {received_message_from_pubsub}')
         try:
+            received_message_from_pubsub.replace('null', 'None')
             encoded_to_ascii = eval(received_message_from_pubsub)
             data_in_ascii = encoded_to_ascii['data']
             message_in_ascii = data_in_ascii['message']
@@ -110,6 +111,7 @@ def save_onboarding_step(user_id, step_name, timestamp):
     dict_steps = {'start': 0,
                   'role_set': 10,
                   'moscow_replied': 20,
+                  'region_set': 21,
                   'urgency_set': 30,
                   'finished': 80,
                   'unrecognized': 99}
