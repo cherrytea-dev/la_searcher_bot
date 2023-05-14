@@ -1190,7 +1190,10 @@ def check_onboarding_step(cur, user_id):
                                WHERE user_id=%s ORDER BY step_id DESC;""",
                     (user_id,))
         raw_data = cur.fetchone()
-        step_id, step_name, time = list(raw_data)
+        if raw_data:
+            step_id, step_name, time = list(raw_data)
+        else:
+            step_id, step_name = None, None
 
     except Exception as e:
         logging.exception(e)
