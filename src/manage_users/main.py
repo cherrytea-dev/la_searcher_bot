@@ -91,6 +91,37 @@ def sql_connect_by_psycopg2():
     return conn_psy
 
 
+def save_onboarding_step(user_id, step_name, timestamp):
+    """save a step of onboarding"""
+
+    dict_steps = {'start': 0,
+                  'role_set': 10,
+                  'moscow_replied': 20,
+                  'urgency_set': 30,
+                  'finished': 80,
+                  'unrecognized': 99}
+
+    try:
+        step_id = dict_steps[step_name]
+    except:  # noqa
+        step_id = 99
+
+    # set PSQL connection & cursor
+    conn = sql_connect_by_psycopg2()
+    cur = conn.cursor()
+
+    cur.execute("""INSERT INTO user_onboarding (user_id, step_id, step_name, timestamp) VALUES (%s, %s, %s, %s);""",
+                (user_id, step_id, step_name, timestamp))
+
+    conn.commit()
+
+    # close connection & cursor
+    cur.close()
+    conn.close()
+
+    return None
+
+
 def save_updated_status_for_user(action, user_id, timestamp):
     """block, unblock or record as new user"""
 
@@ -149,15 +180,19 @@ def save_new_user(user_id, username, timestamp):
     conn.commit()
     num_of_updates = cur.fetchone()[0]
 
-    # close connection & cursor
-    cur.close()
-    conn.close()
-
     if num_of_updates == 0:
         logging.info(f'New user {user_id}, username {username} HAVE NOT BEEN SAVED '
                      f'due to duplication')
     else:
         logging.info(f'New user with id: {user_id}, username {username} saved.')
+
+    # save onboarding start
+    cur.execute("""INSERT INTO user_onboarding (user_id, step_id, step_name, timestamp) VALUES (%s, %s, %s, %s);""",
+                (user_id, 0, 'start', datetime.datetime.now()))
+
+    # close connection & cursor
+    cur.close()
+    conn.close()
 
     return None
 
@@ -233,6 +268,18 @@ def main(event, context): # noqa
                     save_new_user(curr_user_id, username, timestamp)
                     # save in table user_preferences
                     save_default_notif_settings(curr_user_id)
+
+            elif action in {'update_onboarding'}:
+                curr_user_id = received_dict['info']['user']
+                try:
+                    timestamp = datetime.datetime.strptime(received_dict['time'], '%Y-%m-%d %H:%M:%S.%f')
+                except: # noqa
+                    timestamp = datetime.datetime.now()
+                try:
+                    step_name = received_dict['step']
+                except:  # noqa
+                    step_name = 'unrecognized'
+                save_onboarding_step(curr_user_id, step_name, timestamp)
 
     except Exception as e:
         logging.error('User management script failed:' + repr(e))

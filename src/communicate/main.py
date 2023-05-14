@@ -1079,6 +1079,37 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
 
     return bot_message, reply_markup, expect_after
 
+# FIXME - this functionality is not in use – will be used only for latest Onboarding Step check
+def manage_onboarding(cur, user_id, action, step_name):
+    """save parameters of user's onboarding into psql"""
+
+    dict_steps = {'start': 0,
+                  'role_set': 10,
+                  'moscow_replied': 20,
+                  'urgency_set': 30,
+                  'finished': 80,
+                  'unrecognized': 99}
+
+    if action == 'save':
+        try:
+            step_id = dict_steps[step_name]
+        except:  # noqa
+            step_id = 99
+        cur.execute("""INSERT INTO user_onboarding (user_id, step_id, step_name, timestamp) VALUES (%s, %s, %s, %s);""",
+                    (user_id, step_id, step_name, datetime.datetime.now()))
+        return None
+
+    elif action == 'get_last':
+        cur.execute("""SELECT step_id, step_name, timestamp FROM user_onboarding 
+                       WHERE user_id=%s ORDER BY step_id DESC;""",
+                    (user_id,))
+        raw_data = cur.fetchone()
+        step_id, step_name, time = list(raw_data)
+        return step_name
+
+    else:
+        return None
+
 
 def manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_to_start,
                             bot_request_bfr_usr_msg, b_admin_menu, b_test_menu, b_yes_its_me, b_no_its_not_me):
@@ -1712,11 +1743,6 @@ def main(request):
                 # if there is a text message from user
                 elif got_message:
 
-                    # save user role
-                    if got_message in {b_role_want_to_be_la, b_role_iam_la, b_role_looking_for_person,
-                                       b_role_other, b_role_secret}:
-                        save_user_pref_role(cur, user_id, got_message)
-
                     # if pushed \start
                     if got_message == b_start:
 
@@ -1737,69 +1763,83 @@ def main(request):
                             bot_message = 'Привет! Бот управляется кнопками, которые заменяют обычную клавиатуру.'
                             reply_markup = reply_markup_main
 
-                    # get user role = relatives looking for a person
-                    elif got_message == b_role_looking_for_person:
+                    elif got_message in {b_role_looking_for_person, b_role_want_to_be_la,
+                                         b_role_iam_la, b_role_secret, b_role_other, b_orders_done, b_orders_tbd}:
 
-                        bot_message = 'Тогда вам следует:\n\n' \
-                                      '1. Подайте заявку на поиск в ЛизаАлерт ОДНИМ ИЗ ДВУХ способов:\n' \
-                                      '  1.1. САМОЕ БЫСТРОЕ – звоните на 88007005452 (бесплатная горячая ' \
-                                      'линия ЛизаАлерт). Вам зададут ряд вопросов, который максимально ' \
-                                      'ускорит поиск, и посоветуют дальнейшие действия. \n' \
-                                      '  1.2. Заполните форму поиска https://lizaalert.org/zayavka-na-poisk/ \n' \
-                                      'После заполнения формы на сайте нужно ожидать звонка от ЛизаАлерт. На ' \
-                                      'обработку может потребоваться более часа. Если нет возможности ждать, ' \
-                                      'после заполнения заявки следует позвонить на горячую линию отряда ' \
-                                      '88007005452, сообщив, что вы уже оформили заявку на сайте.\n\n' \
-                                      '2. Подать заявление в Полицию. Если иное не посоветовали на горячей линии,' \
-                                      'заявка в Полицию – поможет ускорить и упростить поиск. Самый быстрый ' \
-                                      'способ – позвонить на 102.\n\n' \
-                                      '3. Отслеживайте ход поиска.\n' \
-                                      'Когда заявки в ЛизаАлерт и Полицию сделаны, отряд начнет первые ' \
-                                      'мероприятия для поиска человека: уточнение деталей, прозвоны ' \
-                                      'в госучреждения, формирование плана и команды поиска и т.п. Весь этот' \
-                                      'процесс вам не будет виден, но часто люди находятся именно на этой стадии' \
-                                      'поиска. Если первые меры не помогут и отряд примет решение проводить' \
-                                      'выезд "на место поиска" – тогда вы сможете отслеживать ход поиска ' \
-                                      'через данный Бот, для этого продолжите настройку бота: вам нужно будет' \
-                                      'указать ваш регион и выбрать, какие уведомления от бота вы будете ' \
-                                      'получать. ' \
-                                      'Как альтернатива, вы можете зайти на форум https://lizaalert.org/forum/, ' \
-                                      'и отслеживать статус поиска там.\n' \
-                                      'Отряд сделает всё возможное, чтобы найти вашего близкого как можно ' \
-                                      'скорее.\n\n' \
-                                      'Сообщите, подали ли вы заявки в ЛизаАлерт и Полицию?'
+                        # save user role & onboarding stage
+                        if got_message in {b_role_want_to_be_la, b_role_iam_la, b_role_looking_for_person,
+                                           b_role_other, b_role_secret}:
+                            save_user_pref_role(cur, user_id, got_message)
 
-                        keyboard_orders = [[b_orders_done], [b_orders_tbd]]
-                        reply_markup = ReplyKeyboardMarkup(keyboard_orders, resize_keyboard=True)
+                            message_for_pubsub = {'action': 'update_onboarding',
+                                                  'info': {'user': user_id, 'username': username},
+                                                  'time': str(datetime.datetime.now()),
+                                                  'step': 'role_set'}
+                            publish_to_pubsub('topic_for_user_management', message_for_pubsub)
 
-                    # get user role = potential LA volunteer
-                    elif got_message == b_role_want_to_be_la:
+                        # get user role = relatives looking for a person
+                        if got_message == b_role_looking_for_person:
 
-                        bot_message = 'Супер! \n' \
-                                      'Знаете ли вы, как можно помогать ЛизаАлерт? Определились ли вы, как ' \
-                                      'вы готовы помочь? Если еще нет – не беда – рекомендуем ' \
-                                      'ознакомиться со статьёй: ' \
-                                      'https://takiedela.ru/news/2019/05/25/instrukciya-liza-alert/\n\n' \
-                                      'Задачи, которые можно выполнять даже без специальной подготовки, ' \
-                                      'выполняют Поисковики "на месте поиска". Этот Бот как раз старается ' \
-                                      'помогать именно Поисковикам.' \
-                                      'Есть хороший сайт, рассказывающий, как начать участвовать в поиске: ' \
-                                      'https://xn--b1afkdgwddgp9h.xn--p1ai/\n\n' \
-                                      'А если вы "из мира IT" и готовы помогать развитию этого Бота,' \
-                                      'пишите нам в специальный чат https://t.me/+2J-kV0GaCgwxY2Ni\n\n' \
-                                      'Надеемся, эта информацию оказалась полезной. ' \
-                                      'Если вы готовы продолжить настройку Бота, уточните, пожалуйста: ' \
-                                      'ваш основной регион – это Москва и Московская Область?'
-                        keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
-                        reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+                            bot_message = 'Тогда вам следует:\n\n' \
+                                          '1. Подайте заявку на поиск в ЛизаАлерт ОДНИМ ИЗ ДВУХ способов:\n' \
+                                          '  1.1. САМОЕ БЫСТРОЕ – звоните на 88007005452 (бесплатная горячая ' \
+                                          'линия ЛизаАлерт). Вам зададут ряд вопросов, который максимально ' \
+                                          'ускорит поиск, и посоветуют дальнейшие действия. \n' \
+                                          '  1.2. Заполните форму поиска https://lizaalert.org/zayavka-na-poisk/ \n' \
+                                          'После заполнения формы на сайте нужно ожидать звонка от ЛизаАлерт. На ' \
+                                          'обработку может потребоваться более часа. Если нет возможности ждать, ' \
+                                          'после заполнения заявки следует позвонить на горячую линию отряда ' \
+                                          '88007005452, сообщив, что вы уже оформили заявку на сайте.\n\n' \
+                                          '2. Подать заявление в Полицию. Если иное не посоветовали на горячей линии,' \
+                                          'заявка в Полицию – поможет ускорить и упростить поиск. Самый быстрый ' \
+                                          'способ – позвонить на 102.\n\n' \
+                                          '3. Отслеживайте ход поиска.\n' \
+                                          'Когда заявки в ЛизаАлерт и Полицию сделаны, отряд начнет первые ' \
+                                          'мероприятия для поиска человека: уточнение деталей, прозвоны ' \
+                                          'в госучреждения, формирование плана и команды поиска и т.п. Весь этот' \
+                                          'процесс вам не будет виден, но часто люди находятся именно на этой стадии' \
+                                          'поиска. Если первые меры не помогут и отряд примет решение проводить' \
+                                          'выезд "на место поиска" – тогда вы сможете отслеживать ход поиска ' \
+                                          'через данный Бот, для этого продолжите настройку бота: вам нужно будет' \
+                                          'указать ваш регион и выбрать, какие уведомления от бота вы будете ' \
+                                          'получать. ' \
+                                          'Как альтернатива, вы можете зайти на форум https://lizaalert.org/forum/, ' \
+                                          'и отслеживать статус поиска там.\n' \
+                                          'Отряд сделает всё возможное, чтобы найти вашего близкого как можно ' \
+                                          'скорее.\n\n' \
+                                          'Сообщите, подали ли вы заявки в ЛизаАлерт и Полицию?'
 
-                    # get user role = all others
-                    elif got_message in {b_role_iam_la, b_role_other, b_role_secret, b_orders_done, b_orders_tbd}:
+                            keyboard_orders = [[b_orders_done], [b_orders_tbd]]
+                            reply_markup = ReplyKeyboardMarkup(keyboard_orders, resize_keyboard=True)
 
-                        bot_message = 'Спасибо. Теперь уточните, пожалуйста, ваш основной регион – это ' \
-                                      'Москва и Московская Область?'
-                        keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
-                        reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+                        # get user role = potential LA volunteer
+                        elif got_message == b_role_want_to_be_la:
+
+                            bot_message = 'Супер! \n' \
+                                          'Знаете ли вы, как можно помогать ЛизаАлерт? Определились ли вы, как ' \
+                                          'вы готовы помочь? Если еще нет – не беда – рекомендуем ' \
+                                          'ознакомиться со статьёй: ' \
+                                          'https://takiedela.ru/news/2019/05/25/instrukciya-liza-alert/\n\n' \
+                                          'Задачи, которые можно выполнять даже без специальной подготовки, ' \
+                                          'выполняют Поисковики "на месте поиска". Этот Бот как раз старается ' \
+                                          'помогать именно Поисковикам.' \
+                                          'Есть хороший сайт, рассказывающий, как начать участвовать в поиске: ' \
+                                          'https://xn--b1afkdgwddgp9h.xn--p1ai/\n\n' \
+                                          'А если вы "из мира IT" и готовы помогать развитию этого Бота,' \
+                                          'пишите нам в специальный чат https://t.me/+2J-kV0GaCgwxY2Ni\n\n' \
+                                          'Надеемся, эта информацию оказалась полезной. ' \
+                                          'Если вы готовы продолжить настройку Бота, уточните, пожалуйста: ' \
+                                          'ваш основной регион – это Москва и Московская Область?'
+                            keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
+                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+
+                        # get user role = all others
+                        elif got_message in {b_role_iam_la, b_role_other, b_role_secret, b_orders_done, b_orders_tbd}:
+
+                            bot_message = 'Спасибо. Теперь уточните, пожалуйста, ваш основной регион – это ' \
+                                          'Москва и Московская Область?'
+                            keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
+                            reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
                     # if user Region is Moscow
                     elif got_message == b_reg_moscow:
