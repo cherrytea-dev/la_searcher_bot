@@ -1080,6 +1080,47 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
     return bot_message, reply_markup, expect_after
 
 
+def manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_to_start,
+                            bot_request_bfr_usr_msg, b_admin_menu, b_test_menu, b_yes_its_me, b_no_its_not_me):
+    
+    bot_message, reply_markup, bot_request_aft_usr_msg = None, None, None
+
+    if got_message == b_set_forum_nick:
+        bot_message = 'Чтобы связать бота с вашим аккаунтом, введите ответным сообщением ваше ' \
+                      'Имя Пользователя на форуме (логин). Желательно даже скопировать имя ' \
+                      'с форума, чтобы избежать ошибок.'
+        keyboard = [[b_back_to_start]]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        bot_request_aft_usr_msg = 'input_of_forum_username'
+
+    elif bot_request_bfr_usr_msg == 'input_of_forum_username' and \
+            got_message not in {b_admin_menu, b_back_to_start, b_test_menu} and len(got_message.split()) < 4:
+        message_for_pubsub = [user_id, got_message]
+        publish_to_pubsub('parse_user_profile_from_forum', message_for_pubsub)
+        bot_message = 'Сейчас посмотрю, это может занять до 10 секунд...'
+        keyboard = [[b_back_to_start]]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+    elif got_message in {b_yes_its_me}:
+
+        # Write "verified" for user
+        cur.execute("""UPDATE user_forum_attributes SET status='verified'
+                WHERE user_id=%s and timestamp =
+                (SELECT MAX(timestamp) FROM user_forum_attributes WHERE user_id=%s);""",
+                    (user_id, user_id))
+
+        bot_message = 'Отлично, мы записали: теперь бот будет понимать, кто вы на форуме.'
+
+    elif got_message == b_no_its_not_me:
+        bot_message = 'Пожалуйста, тщательно проверьте написание вашего ника на форуме ' \
+                      '(кириллица/латиница, без пробела в конце) и введите его заново'
+        keyboard = [[b_set_forum_nick], [b_back_to_start]]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        bot_request_aft_usr_msg = 'input_of_forum_username'
+
+    return bot_message, reply_markup, bot_request_aft_usr_msg
+
+
 async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
 
@@ -1292,6 +1333,9 @@ def main(request):
             b_pref_urgency_medium = 'могу ждать (<10 минут)'
             b_pref_urgency_low = 'не сильно важно (>10 минут)'
 
+            b_yes_its_me = 'да, это я'
+            b_no_its_not_me = 'нет, это не я'
+
             b_view_act_searches = 'посмотреть актуальные поиски'
             b_settings = 'настроить бот'
             b_other = 'другие возможности'
@@ -1305,7 +1349,8 @@ def main(request):
             b_set_pref_age = 'настроить возрастные группы БВП'
             b_set_pref_urgency = 'настроить скорость уведомлений'  # <-- TODO
             b_set_pref_role = 'настроить вашу роль'  # <-- TODO
-            b_set_forum_nick = 'связать с форумом'  # <-- TODO
+            b_set_forum_nick = 'связать аккаунты бота и форума'
+
             b_back_to_start = 'в начало'
 
             # Settings - notifications
@@ -1905,7 +1950,7 @@ def main(request):
                                       'на 100% корректно. Если заметите случаи некорректного выполнения ' \
                                       'функционала из этого раздела – пишите, пожалуйста, в телеграм-чат ' \
                                       'https://t.me/joinchat/2J-kV0GaCgwxY2Ni'
-                        keyboard_coordinates_admin = [[b_set_pref_urgency],
+                        keyboard_coordinates_admin = [[b_set_pref_urgency], [b_set_forum_nick],
                                                       [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
                     # FIXME ^^^
@@ -1940,6 +1985,13 @@ def main(request):
                             manage_radius(cur, user_id, got_message, b_set_pref_radius, b_pref_radius_act,
                                           b_pref_radius_deact, b_pref_radius_change, b_back_to_start,
                                           b_settings_coords, bot_request_bfr_usr_msg)
+
+                    elif got_message in {}:
+
+                        bot_message, reply_markup, bot_request_aft_usr_msg = \
+                            manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_to_start,
+                                                bot_request_bfr_usr_msg, b_admin_menu, b_test_menu, b_yes_its_me,
+                                                b_no_its_not_me)
 
                     elif got_message == b_set_pref_urgency:
 
