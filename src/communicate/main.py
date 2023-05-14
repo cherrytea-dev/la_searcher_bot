@@ -1318,6 +1318,9 @@ def main(request):
                                       'info': {'user': user_id, 'username': username},
                                       'time': str(datetime.datetime.now())}
                 publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+                # FIXME
+                print(f'WE SENT PUBSUB MSG: {message_for_pubsub}')
+                # FIXME ^^^
 
             # get user regional settings (which regions he/she is interested it)
             user_regions = get_user_regional_preferences(cur, user_id)

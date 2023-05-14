@@ -22,14 +22,22 @@ publisher = pubsub_v1.PublisherClient()
 def process_pubsub_message(event):
     """convert incoming pub/sub message into regular data"""
 
+    # FIXME
+    print(f'EVENT {event}')
+    # FIXME ^^^
     # receiving message text from pub/sub
     if 'data' in event:
         received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
+        encoded_to_ascii = eval(received_message_from_pubsub)
+        data_in_ascii = encoded_to_ascii['data']
+        message_in_ascii = data_in_ascii['message']
+
     else:
         received_message_from_pubsub = 'I cannot read message from pub/sub'
-    encoded_to_ascii = eval(received_message_from_pubsub)
-    data_in_ascii = encoded_to_ascii['data']
-    message_in_ascii = data_in_ascii['message']
+        message_in_ascii = None
+
+    logging.info(f'received from pubsub {received_message_from_pubsub}')
+    logging.info(f'message in ascii {message_in_ascii}')
 
     return message_in_ascii
 
@@ -245,7 +253,6 @@ def main(event, context): # noqa
 
     try:
         received_dict = process_pubsub_message(event)
-        logging.info(f'received message {received_dict}')
         if received_dict:
 
             action = received_dict['action']
