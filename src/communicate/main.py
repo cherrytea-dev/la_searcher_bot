@@ -397,7 +397,7 @@ def check_if_user_has_no_regions(cur, user_id):
     return no_regions
 
 
-def save_user_role(cur, user_id, role_desc):
+def save_user_pref_role(cur, user_id, role_desc):
     """save user role"""
 
     role_dict = {'я состою в ЛизаАлерт': 'member',
@@ -414,6 +414,31 @@ def save_user_role(cur, user_id, role_desc):
     cur.execute("""UPDATE users SET role=%s where user_id=%s;""", (role, user_id))
 
     logging.info(f'[comm]: user {user_id} selected role {role}')
+
+    return None
+
+
+def save_user_pref_urgency(cur, user_id, urgency_value,
+                           b_pref_urgency_highest, b_pref_urgency_high, b_pref_urgency_medium, b_pref_urgency_low):
+    """save user urgency"""
+
+    urgency_dict = {b_pref_urgency_highest: {'pref_id': 0, 'pref_name': 'highest'},
+                    b_pref_urgency_high: {'pref_id': 1, 'pref_name': 'high'},
+                    b_pref_urgency_medium: {'pref_id': 2, 'pref_name': 'medium'},
+                    b_pref_urgency_low: {'pref_id': 3, 'pref_name': 'low'}}
+
+    try:
+        pref_id = urgency_dict[urgency_value]['pref_id']
+        pref_name = urgency_dict[urgency_value]['pref_name']
+    except:  # noqa
+        pref_id = 99
+        pref_name = 'unidentified'
+
+    cur.execute("""DELETE FROM user_pref_urgency WHERE user_id=%s;""", (user_id,))
+    cur.execute("""INSERT INTO user_pref_urgency (user_id, pref_id, pref_name, timestamp) VALUES (%s, %s, %s, %s);""", 
+                (user_id, pref_id, pref_name, datetime.datetime.now()))
+
+    logging.info(f'urgency set as {pref_name} for user_id {user_id}')
 
     return None
 
@@ -1258,6 +1283,15 @@ def main(request):
             b_orders_done = 'да, заявки поданы'
             b_orders_tbd = 'нет, но я хочу продолжить'
 
+            b_forum_check_nickname = 'указать свой nickname с форума'
+            b_forum_dont_have = 'у меня нет аккаунта на форуме ЛА'
+            b_forum_dont_want = 'пропустить / не хочу говорить'
+
+            b_pref_urgency_highest = 'самым первым (<2 минуты)'
+            b_pref_urgency_high = 'пораньше (<5 минут)'
+            b_pref_urgency_medium = 'могу ждать (<10 минут)'
+            b_pref_urgency_low = 'не сильно важно (>10 минут)'
+
             b_view_act_searches = 'посмотреть актуальные поиски'
             b_settings = 'настроить бот'
             b_other = 'другие возможности'
@@ -1267,8 +1301,11 @@ def main(request):
             # Settings menu
             b_set_notifs_up = 'настроить виды уведомлений'
             b_settings_coords = 'настроить "домашние координаты"'
-            b_set_radius = 'настроить максимальный радиус'
-            b_set_age = 'настроить возрастные группы БВП'
+            b_set_pref_radius = 'настроить максимальный радиус'
+            b_set_pref_age = 'настроить возрастные группы БВП'
+            b_set_pref_urgency = 'настроить скорость уведомлений'  # <-- TODO
+            b_set_pref_role = 'настроить вашу роль'  # <-- TODO
+            b_set_forum_nick = 'связать с форумом'  # <-- TODO
             b_back_to_start = 'в начало'
 
             # Settings - notifications
@@ -1290,8 +1327,6 @@ def main(request):
             b_deact_field_trips_change = 'отключить: об изменениях в выездах'
             b_deact_coords_change = 'отключить: о смене места штаба'
             b_deact_first_post_change = 'отключить: об изменениях в первом посте'
-
-
 
             # Settings - coordinates
             b_coords_auto_def = KeyboardButton(text='автоматически определить "домашние координаты"',
@@ -1564,6 +1599,9 @@ def main(request):
             b_pref_radius_deact = 'отключить ограничение по расстоянию'
             b_pref_radius_change = 'изменить ограничение по расстоянию'
 
+            b_help_yes = 'да, помогите мне настроить бот'
+            b_help_no = 'нет, помощь не требуется'
+
             # basic markup which will be substituted for all specific cases
             reply_markup = reply_markup_main
 
@@ -1632,7 +1670,7 @@ def main(request):
                     # save user role
                     if got_message in {b_role_want_to_be_la, b_role_iam_la, b_role_looking_for_person,
                                        b_role_other, b_role_secret}:
-                        save_user_role(cur, user_id, got_message)
+                        save_user_pref_role(cur, user_id, got_message)
 
                     # if pushed \start
                     if got_message == b_start:
@@ -1711,9 +1749,7 @@ def main(request):
                         reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
                     # get user role = all others
-                    elif got_message in {b_role_iam_la,
-                                         b_role_other, b_role_secret,
-                                         b_orders_done, b_orders_tbd}:
+                    elif got_message in {b_role_iam_la, b_role_other, b_role_secret, b_orders_done, b_orders_tbd}:
 
                         bot_message = 'Спасибо. Теперь уточните, пожалуйста, ваш основной регион – это ' \
                                       'Москва и Московская Область?'
@@ -1747,6 +1783,43 @@ def main(request):
                                       'по поискам в этом регионе. Вы в любой момент сможете изменить ' \
                                       'список регионов через настройки бота.'
                         reply_markup = ReplyKeyboardMarkup(keyboard_fed_dist_set, resize_keyboard=True)
+
+                    elif got_message == b_help_no:
+
+                        bot_message = 'Спасибо, понятно. Мы записали. Тогда бот более не будет вас беспокоить, ' \
+                                      'пока вы сами не напишите в бот.\n\n' \
+                                      'На прощание, бот хотел бы посоветовать следующие вещи, делающие мир лучше:\n\n' \
+                                      '1. Посмотреть <a href="https://t.me/+6LYNNEy8BeI1NGUy">позитивные фото ' \
+                                      'с поисков ЛизаАлерт</a>.\n\n' \
+                                      '2. <a href="https://lizaalert.org/otryadnye-nuzhdy/">Помочь ' \
+                                      'отряду ЛизаАлерт, пожертвовав оборудование для поисков людей</a>.\n\n' \
+                                      '3. Помочь создателям данного бота, присоединившись к группе разработчиков' \
+                                      'или оплатив облачную инфраструктуру для бесперебойной работы бота. Для этого' \
+                                      '<a href="https://t.me/MikeMikeT">просто напишите разработчику бота</a>.\n\n' \
+                                      'Бот еще раз хотел подчеркнуть, что как только вы напишите что-то в бот – он' \
+                                      'сразу же "забудет", что вы ранее просили вас не беспокоить:)\n\n' \
+                                      'Обнимаем:)'
+                        keyboard = [[b_back_to_start]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+                    elif got_message == b_help_yes:
+
+                        bot_message = 'Супер! Тогда давайте посмотрим, что у вас не настроено.\n\n' \
+                                      'У вас не настроен Регион поисков – без него Бот не может определить, ' \
+                                      'какие поиски вас интересуют. Вы можете настроить регион двумя способами:\n' \
+                                      '1. Либо автоматически на основании ваших координат – нужно будет отправить ' \
+                                      'вашу геолокацию (работает только с мобильных устройств),\n' \
+                                      '2. Либо выбрав регион вручную: для этого нужно сначала выбрать ФО = ' \
+                                      'Федеральный Округ, где находится ваш регион, а потом кликнуть на сам регион. ' \
+                                      '\n\n'
+
+                    # set user pref: urgency
+                    elif got_message in {b_pref_urgency_highest, b_pref_urgency_high, 
+                                         b_pref_urgency_medium, b_pref_urgency_low}:
+                        
+                        save_user_pref_urgency(cur, user_id, got_message, b_pref_urgency_highest, 
+                                               b_pref_urgency_high, b_pref_urgency_medium, b_pref_urgency_low)
+                        bot_message = 'Хорошо, спасибо. Бот запомнил ваш выбор.'
 
                     # force user to input a region
                     elif not user_regions \
@@ -1832,24 +1905,22 @@ def main(request):
                                       'на 100% корректно. Если заметите случаи некорректного выполнения ' \
                                       'функционала из этого раздела – пишите, пожалуйста, в телеграм-чат ' \
                                       'https://t.me/joinchat/2J-kV0GaCgwxY2Ni'
-                        keyboard_coordinates_admin = [[b_act_field_trips_new], [b_deact_field_trips_new],
-                                                      [b_act_field_trips_change], [b_deact_field_trips_change],
-                                                      [b_act_coords_change], [b_deact_coords_change],
+                        keyboard_coordinates_admin = [[b_set_pref_urgency],
                                                       [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
                     # FIXME ^^^
 
-                    elif got_message in {b_set_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
+                    elif got_message in {b_set_pref_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
                                          b_pref_age_7_13_deact, b_pref_age_14_20_act, b_pref_age_14_20_deact,
                                          b_pref_age_21_50_act, b_pref_age_21_50_deact, b_pref_age_51_80_act,
                                          b_pref_age_51_80_deact, b_pref_age_81_on_act, b_pref_age_81_on_deact}:
 
-                        input_data = None if got_message == b_set_age else got_message
+                        input_data = None if got_message == b_set_pref_age else got_message
                         keyboard, first_visit = save_user_pref_age_and_return_curr_state(cur, user_id, input_data)
                         keyboard.append([b_back_to_start])
                         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-                        if got_message.lower() == b_set_age:
+                        if got_message.lower() == b_set_pref_age:
                             bot_message = 'Чтобы включить или отключить уведомления по определенной возрастной ' \
                                           'группе, нажмите на неё. Настройку можно изменить в любой момент.'
                             if first_visit:
@@ -1862,13 +1933,28 @@ def main(request):
                         else:
                             bot_message = 'Спасибо, записали.'
 
-                    elif got_message in {b_set_radius, b_pref_radius_act, b_pref_radius_deact,
+                    elif got_message in {b_set_pref_radius, b_pref_radius_act, b_pref_radius_deact,
                                          b_pref_radius_change} or bot_request_bfr_usr_msg == 'radius_input':
 
                         bot_message, reply_markup, bot_request_aft_usr_msg = \
-                            manage_radius(cur, user_id, got_message, b_set_radius, b_pref_radius_act,
+                            manage_radius(cur, user_id, got_message, b_set_pref_radius, b_pref_radius_act,
                                           b_pref_radius_deact, b_pref_radius_change, b_back_to_start,
                                           b_settings_coords, bot_request_bfr_usr_msg)
+
+                    elif got_message == b_set_pref_urgency:
+
+                        bot_message = 'Очень многие поисковики пользуются этим Ботом. При любой рассылке нотификаций' \
+                                      ' Бот ставит все сообщения в очередь, и они обрабатываются ' \
+                                      'со скоростью, ограниченной технологиями Телеграма. Иногда, в случае нескольких' \
+                                      ' больших поисков, очередь вырастает и кто-то получает сообщения практически ' \
+                                      'сразу, а кому-то они приходят с задержкой.\n' \
+                                      'Вы можете помочь сделать рассылки уведомлений более "нацеленными", обозначив ' \
+                                      'с какой срочностью вы бы хотели получать уведомления от Бота. В скобках ' \
+                                      'указаны примерные сроки задержки относительно появления информации на форуме. ' \
+                                      'Выберите наиболее подходящий Вам вариант'
+                        keyboard = [[b_pref_urgency_highest], [b_pref_urgency_high], [b_pref_urgency_medium],
+                                    [b_pref_urgency_low], [b_back_to_start]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
                     # DEBUG: for debugging purposes only
                     elif got_message.lower() == 'go':
@@ -1917,7 +2003,7 @@ def main(request):
                                       'уведомления, а также ввести свои "домашние координаты", на основе которых ' \
                                       'будет рассчитываться расстояние и направление до места поиска. Вы в любой ' \
                                       'момент сможете изменить эти настройки.'
-                        keyboard_settings = [[b_set_radius], [b_set_age],
+                        keyboard_settings = [[b_set_pref_radius], [b_set_pref_age],
                                              [b_set_notifs_up], [b_menu_set_region], [b_settings_coords],
                                              [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
