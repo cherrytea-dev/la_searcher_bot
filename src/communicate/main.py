@@ -1986,12 +1986,13 @@ def main(request):
                                           b_pref_radius_deact, b_pref_radius_change, b_back_to_start,
                                           b_settings_coords, bot_request_bfr_usr_msg)
 
-                    elif got_message in {}:
+                    elif got_message in {b_set_forum_nick, b_yes_its_me, b_no_its_not_me} \
+                            or bot_request_bfr_usr_msg == 'input_of_forum_username':
 
                         bot_message, reply_markup, bot_request_aft_usr_msg = \
                             manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_to_start,
-                                                bot_request_bfr_usr_msg, b_admin_menu, b_test_menu, b_yes_its_me,
-                                                b_no_its_not_me)
+                                                    bot_request_bfr_usr_msg, b_admin_menu, b_test_menu, b_yes_its_me,
+                                                    b_no_its_not_me)
 
                     elif got_message == b_set_pref_urgency:
 
