@@ -996,6 +996,27 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
     return list_of_buttons, first_visit
 
 
+def save_user_pref_topic_type(cur, user_id, pref_id):
+
+    def save(pref_type_id):
+        cur.execute("""INSERT INTO user_pref_topic_type (user_id, timestamp, topic_type_id) 
+                                            values (%s, %s, %s) ON CONFLICT (user_id, topic_type_id) DO NOTHING;""",
+                    (user_id, pref_type_id))
+        return None
+
+    if not (cur and user_id and pref_id):
+        return None
+
+    if pref_id == 'default':
+        default_topic_type_id = [0, 3, 4, 5, 10]  # 0=regular, 3=training, 4=info_support, 5=resonance, 10=event
+        for type_id in default_topic_type_id:
+            save(type_id)
+
+    else:
+        save(pref_id)
+
+    return None
+
 def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_back, b_home_coord, expect_before):
     """Save user Radius preference and generate the actual radius preference"""
 
@@ -1092,6 +1113,7 @@ def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_no
 
         save_onboarding_step(user_id, username, 'moscow_replied')
         save_onboarding_step(user_id, username, 'region_set')
+        save_user_pref_topic_type(cur, user_id, 'default')
 
         bot_message = 'Спасибо, бот запомнил этот выбор и теперь вы сможете получать ключевые ' \
                       'уведомления в регионе Москва и МО. Вы в любой момент сможете изменить ' \
@@ -1771,7 +1793,8 @@ def main(request):
 
                 if onboarding_step_id == 21:  # region_set
                     # mark that onboarding is finished
-                    if got_message in {b_back_to_start, b_view_act_searches, b_view_latest_searches}:
+                    if got_message in {b_back_to_start, b_view_act_searches,
+                                       b_view_latest_searches, b_settings, b_other}:
                         save_onboarding_step(user_id, username, 'finished')
 
                 # if there is any coordinates from user
@@ -2135,6 +2158,7 @@ def main(request):
 
                         if onboarding_step_id == 20:  # "moscow_replied"
                             save_onboarding_step(user_id, username, 'region_set')
+                            save_user_pref_topic_type(cur, user_id, 'default')
 
                     elif got_message == b_settings:
                         bot_message = 'Это раздел с настройками. Здесь вы можете выбрать удобные для вас ' \
