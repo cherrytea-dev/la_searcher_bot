@@ -187,7 +187,7 @@ def get_user_data(data):
     return None
 
 
-def get_user_region_in_bot():
+def match_user_region_from_forum_to_bot(forum_region):
 
     region_dict = {
         'Амурская область': 'Амурская обл.',
@@ -244,8 +244,16 @@ def get_user_region_in_bot():
         'ЯНАО': 'Ямало-Ненецкий АО'
     }
 
-    return None
+    try:
+        bot_region = region_dict[forum_region]
+    except Exception as e:
+        logging.exception(e)
+        bot_region = None
 
+    return bot_region
+
+# def save_user_region(user_id, region_name):
+#    return None
 
 def main(event, context):
     """main function triggered from communicate script via pyb/sub"""
@@ -317,15 +325,27 @@ def main(event, context):
 
         cur.execute("""SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=%s""", (1,))
         conn_psy.commit()
-        raw_data = cur.fetchone()
-        logging.info(raw_data)
-        logging.info(isinstance(raw_data, str))
-        bot_message += str(raw_data)
+        user_has_region_set = True if cur.fetchone() else False
+        bot_message += f' {user_has_region_set}'
+        logging.info(f'user_has_region_set = {user_has_region_set}')
+
+        resulting_region_in_bot = None
+        if not user_has_region_set and user.region:
+            resulting_region_in_bot = match_user_region_from_forum_to_bot(user.region)
+
+        # TODO - here should be a block for saving user region pref. now we cannot do it, cuz user prefs are
+        #  on folder level
+        # if resulting_region_in_bot:
+        # TODO ^^^
+
+
+
+
 
     else:
         bot_message = 'Бот не смог найти такого пользователя на форуме. ' \
-                      'Пожалуйста, проверьте правильность написания имени пользвателя (логина). ' \
-                      'Важно, чтобы каждый знак в точности соответсовал тому, что указано в вашем профиле на форуме'
+                      'Пожалуйста, проверьте правильность написания имени пользователя (логина). ' \
+                      'Важно, чтобы каждый знак в точности соответствовал тому, что указано в вашем профиле на форуме'
         keyboard = [['в начало']]
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
