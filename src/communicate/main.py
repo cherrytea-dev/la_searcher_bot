@@ -1468,6 +1468,7 @@ def main(request):
             b_set_pref_urgency = 'настроить скорость уведомлений'
             b_set_pref_role = 'настроить вашу роль'  # <-- TODO
             b_set_forum_nick = 'связать аккаунты бота и форума'
+            b_set_folder_type = 'настроить вид поисков'  # <-- TODO
 
             b_back_to_start = 'в начало'
 
@@ -2055,7 +2056,7 @@ def main(request):
                                       'на 100% корректно. Если заметите случаи некорректного выполнения ' \
                                       'функционала из этого раздела – пишите, пожалуйста, в телеграм-чат ' \
                                       'https://t.me/joinchat/2J-kV0GaCgwxY2Ni'
-                        keyboard_coordinates_admin = [[b_set_pref_urgency], [b_set_forum_nick],
+                        keyboard_coordinates_admin = [[b_set_pref_urgency], [b_set_forum_nick], [b_set_folder_type],
                                                       [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
                     # FIXME ^^^

@@ -323,7 +323,7 @@ def main(event, context):
                      user.region, user.auto_num, user.callsign, user.phone, user.reg_date))
         conn_psy.commit()
 
-        cur.execute("""SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=%s""", (1,))
+        cur.execute("""SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=%s""", (tg_user_id,))
         conn_psy.commit()
         user_has_region_set = True if cur.fetchone() else False
         bot_message += f' {user_has_region_set}'
