@@ -689,7 +689,7 @@ def update_and_download_list_of_regions(cur, user_id, got_message, b_menu_set_re
                     }
 
     # upload the new regional setting
-    reg_dict = {'Москва и МО: Активные Поиски': [276],
+    folder_dict = {'Москва и МО: Активные Поиски': [276],
                 'Москва и МО: Инфо Поддержка': [41],
 
                 'Белгородская обл.': [236],
@@ -779,7 +779,10 @@ def update_and_download_list_of_regions(cur, user_id, got_message, b_menu_set_re
                 }
 
     # Reversed dict is needed on the last step
-    rev_reg_dict = {value[0]: key for (key, value) in reg_dict.items()}
+    rev_reg_dict = {value[0]: key for (key, value) in folder_dict.items()}
+
+    # TODO - get the list of regions from PSQL
+    # TODO ^^^
 
     # case for the first entry to the screen of Reg Settings
     if got_message == b_menu_set_region:
@@ -789,7 +792,7 @@ def update_and_download_list_of_regions(cur, user_id, got_message, b_menu_set_re
     else:
         try:
 
-            list_of_regs_to_upload = reg_dict[got_message]
+            list_of_regs_to_upload = folder_dict[got_message]
 
             # any region
             cur.execute(
@@ -1106,15 +1109,20 @@ def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_no
                 """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
                 (%s, %s);""",
                 (user_id, 41))
+            cur.execute(
+                """INSERT INTO user_pref_region (user_id, region_id) values
+                (%s, %s);""",
+                (user_id, 1))
 
     # if region is NOT Moscow
     elif got_message == b_reg_not_moscow:
 
         save_onboarding_step(user_id, username, 'moscow_replied')
 
-        bot_message = 'Спасибо, тогда, пожалуйста, выберите сначала Федеральный Округ,' \
-                      'а затем хотя бы один Регион поисков, чтобы начать получать уведомления ' \
-                      'по поискам в этом регионе. Вы в любой момент сможете изменить ' \
+        bot_message = 'Спасибо, тогда для корректной работы Бота, пожалуйста, выберите свой регион:' \
+                      'сначала обозначьте Федеральный Округ,' \
+                      'а затем хотя бы один Регион поисков, чтобы отслеживать поиски в этом регионе. ' \
+                      'Вы в любой момент сможете изменить ' \
                       'список регионов через настройки бота.'
         reply_markup = ReplyKeyboardMarkup(keyboard_fed_dist_set, resize_keyboard=True)
 
