@@ -256,7 +256,7 @@ def compose_msg_on_all_last_searches(cur, region):
     for line in database:
         search = SearchSummary()
         search.topic_id, search.start_time, search.display_name, search.new_status, \
-            search.status, search.name, search.age = list(line)
+        search.status, search.name, search.age = list(line)
 
         if not search.display_name:
             age_string = f' {age_writer(search.age)}' if search.age != 0 else ''
@@ -302,7 +302,7 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
     for line in searches_list:
         search = SearchSummary()
         search.topic_id, search.start_time, search.display_name, search_lat, search_lon, \
-            search.topic_type,  search.name, search.age = list(line)
+        search.topic_type, search.name, search.age = list(line)
 
         if time_counter_since_search_start(search.start_time)[1] >= 60:
             continue
@@ -435,7 +435,7 @@ def save_user_pref_urgency(cur, user_id, urgency_value,
         pref_name = 'unidentified'
 
     cur.execute("""DELETE FROM user_pref_urgency WHERE user_id=%s;""", (user_id,))
-    cur.execute("""INSERT INTO user_pref_urgency (user_id, pref_id, pref_name, timestamp) VALUES (%s, %s, %s, %s);""", 
+    cur.execute("""INSERT INTO user_pref_urgency (user_id, pref_id, pref_name, timestamp) VALUES (%s, %s, %s, %s);""",
                 (user_id, pref_id, pref_name, datetime.datetime.now()))
 
     logging.info(f'urgency set as {pref_name} for user_id {user_id}')
@@ -535,7 +535,7 @@ def distance_to_search(search_lat, search_lon, user_let, user_lon):
     return [dist, direction]
 
 
-def get_user_regional_preferences(cur, user_id):
+def get_user_reg_folders_preferences(cur, user_id):
     """Return user's regional preferences"""
 
     user_prefs_list = []
@@ -690,93 +690,93 @@ def update_and_download_list_of_regions(cur, user_id, got_message, b_menu_set_re
 
     # upload the new regional setting
     folder_dict = {'Москва и МО: Активные Поиски': [276],
-                'Москва и МО: Инфо Поддержка': [41],
+                   'Москва и МО: Инфо Поддержка': [41],
 
-                'Белгородская обл.': [236],
-                'Брянская обл.': [138],
-                'Владимирская обл.': [123, 233],
-                'Воронежская обл.': [271, 315],
-                'Ивановская обл.': [132, 193],
-                'Калужская обл.': [185],
-                'Костромская обл.': [151],
-                'Курская обл.': [186],
-                'Липецкая обл.': [272],
-                'Орловская обл.': [222, 324],
-                'Рязанская обл.': [155],
-                'Смоленская обл.': [122],
-                'Тамбовская обл.': [273],
-                'Тверская обл.': [126],
-                'Тульская обл.': [125],
-                'Ярославская обл.': [264],
-                'Прочие поиски по ЦФО': [179],
+                   'Белгородская обл.': [236],
+                   'Брянская обл.': [138],
+                   'Владимирская обл.': [123, 233],
+                   'Воронежская обл.': [271, 315],
+                   'Ивановская обл.': [132, 193],
+                   'Калужская обл.': [185],
+                   'Костромская обл.': [151],
+                   'Курская обл.': [186],
+                   'Липецкая обл.': [272],
+                   'Орловская обл.': [222, 324],
+                   'Рязанская обл.': [155],
+                   'Смоленская обл.': [122],
+                   'Тамбовская обл.': [273],
+                   'Тверская обл.': [126],
+                   'Тульская обл.': [125],
+                   'Ярославская обл.': [264],
+                   'Прочие поиски по ЦФО': [179],
 
-                'Адыгея': [299],
-                'Астраханская обл.': [336],
-                'Волгоградская обл.': [131],
-                'Краснодарский край': [162],
-                'Крым': [293],
-                'Ростовская обл.': [157],
-                'Прочие поиски по ЮФО': [180],
+                   'Адыгея': [299],
+                   'Астраханская обл.': [336],
+                   'Волгоградская обл.': [131],
+                   'Краснодарский край': [162],
+                   'Крым': [293],
+                   'Ростовская обл.': [157],
+                   'Прочие поиски по ЮФО': [180],
 
-                'Архангельская обл.': [330],
-                'Вологодская обл.': [370, 369, 368],
-                'Карелия': [403, 404],
-                'Коми': [378, 377, 376],
-                'Ленинградская обл.': [120, 300],
-                'Мурманская обл.': [214, 371, 372, 373],
-                'Псковская обл.': [210, 383, 382],
-                'Прочие поиски по СЗФО': [181],
+                   'Архангельская обл.': [330],
+                   'Вологодская обл.': [370, 369, 368],
+                   'Карелия': [403, 404],
+                   'Коми': [378, 377, 376],
+                   'Ленинградская обл.': [120, 300],
+                   'Мурманская обл.': [214, 371, 372, 373],
+                   'Псковская обл.': [210, 383, 382],
+                   'Прочие поиски по СЗФО': [181],
 
-                'Амурская обл.': [390],
-                'Бурятия': [274],
-                'Приморский край': [298],
-                'Хабаровский край': [154],
-                'Прочие поиски по ДФО': [188],
+                   'Амурская обл.': [390],
+                   'Бурятия': [274],
+                   'Приморский край': [298],
+                   'Хабаровский край': [154],
+                   'Прочие поиски по ДФО': [188],
 
-                'Алтайский край': [161],
-                'Иркутская обл.': [137, 387, 386, 303],
-                'Кемеровская обл.': [202, 308],
-                'Красноярский край': [269, 318],
-                'Новосибирская обл.': [177, 310],
-                'Омская обл.': [153, 314],
-                'Томская обл.': [215, 401],
-                'Хакасия': [402],
-                'Прочие поиски по СФО': [182],
+                   'Алтайский край': [161],
+                   'Иркутская обл.': [137, 387, 386, 303],
+                   'Кемеровская обл.': [202, 308],
+                   'Красноярский край': [269, 318],
+                   'Новосибирская обл.': [177, 310],
+                   'Омская обл.': [153, 314],
+                   'Томская обл.': [215, 401],
+                   'Хакасия': [402],
+                   'Прочие поиски по СФО': [182],
 
-                'Свердловская обл.': [213],
-                'Курганская обл.': [391, 392],
-                'Тюменская обл.': [339],
-                'Ханты-Мансийский АО': [338],
-                'Челябинская обл.': [280],
-                'Ямало-Ненецкий АО': [204],
-                'Прочие поиски по УФО': [187],
+                   'Свердловская обл.': [213],
+                   'Курганская обл.': [391, 392],
+                   'Тюменская обл.': [339],
+                   'Ханты-Мансийский АО': [338],
+                   'Челябинская обл.': [280],
+                   'Ямало-Ненецкий АО': [204],
+                   'Прочие поиски по УФО': [187],
 
-                'Башкортостан': [191, 235],
-                'Кировская обл.': [211, 275],
-                'Марий Эл': [295, 297],
-                'Мордовия': [294],
-                'Нижегородская обл.': [121, 289],
-                'Оренбургская обл.': [337],
-                'Пензенская обл.': [170, 322],
-                'Пермский край': [143, 325],
-                'Самарская обл.': [333, 334, 305],
-                'Саратовская обл.': [212],
-                'Татарстан': [163, 231],
-                'Удмуртия': [237, 239],
-                'Ульяновская обл.': [290, 320],
-                'Чувашия': [265, 327],
-                'Прочие поиски по ПФО': [183],
+                   'Башкортостан': [191, 235],
+                   'Кировская обл.': [211, 275],
+                   'Марий Эл': [295, 297],
+                   'Мордовия': [294],
+                   'Нижегородская обл.': [121, 289],
+                   'Оренбургская обл.': [337],
+                   'Пензенская обл.': [170, 322],
+                   'Пермский край': [143, 325],
+                   'Самарская обл.': [333, 334, 305],
+                   'Саратовская обл.': [212],
+                   'Татарстан': [163, 231],
+                   'Удмуртия': [237, 239],
+                   'Ульяновская обл.': [290, 320],
+                   'Чувашия': [265, 327],
+                   'Прочие поиски по ПФО': [183],
 
-                'Дагестан': [292],
-                'Ставропольский край': [173],
-                'Чечня': [291],
-                'Кабардино-Балкария': [301],
-                'Ингушетия': [422],
-                'Северная Осетия': [423],
-                'Прочие поиски по СКФО': [184],
+                   'Дагестан': [292],
+                   'Ставропольский край': [173],
+                   'Чечня': [291],
+                   'Кабардино-Балкария': [301],
+                   'Ингушетия': [422],
+                   'Северная Осетия': [423],
+                   'Прочие поиски по СКФО': [184],
 
-                'Прочие поиски по РФ': [116]
-                }
+                   'Прочие поиски по РФ': [116]
+                   }
 
     # Reversed dict is needed on the last step
     rev_reg_dict = {value[0]: key for (key, value) in folder_dict.items()}
@@ -997,9 +997,8 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
 
 
 def save_user_pref_topic_type(cur, user_id, pref_id):
-
     def save(pref_type_id):
-        cur.execute("""INSERT INTO user_pref_topic_type (user_id, timestamp, topic_type_id) 
+        cur.execute("""INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp) 
                                             values (%s, %s, %s) ON CONFLICT (user_id, topic_type_id) DO NOTHING;""",
                     (user_id, pref_type_id, datetime.datetime.now()))
         return None
@@ -1016,6 +1015,7 @@ def save_user_pref_topic_type(cur, user_id, pref_id):
         save(pref_id)
 
     return None
+
 
 def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_back, b_home_coord, expect_before):
     """Save user Radius preference and generate the actual radius preference"""
@@ -1157,7 +1157,6 @@ def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_no
 
 def manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_to_start,
                             bot_request_bfr_usr_msg, b_admin_menu, b_test_menu, b_yes_its_me, b_no_its_not_me):
-    
     bot_message, reply_markup, bot_request_aft_usr_msg = None, None, None
 
     if got_message == b_set_forum_nick:
@@ -1212,8 +1211,11 @@ def save_onboarding_step(user_id, username, step):
     return None
 
 
-def check_onboarding_step(cur, user_id):
+def check_onboarding_step(cur, user_id, user_is_new):
     """checks the latest step of onboarding"""
+
+    if user_is_new:
+        return 0, 'start'
 
     try:
         cur.execute("""SELECT step_id, step_name, timestamp FROM user_onboarding 
@@ -1239,7 +1241,6 @@ async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def prepare_message_for_async(user_id, data):
-
     bot_token = get_secrets("bot_api_token__prod")
     application = Application.builder().token(bot_token).build()
     job_queue = application.job_queue
@@ -1260,6 +1261,74 @@ def process_sending_message_async(user_id, data) -> None:
     return None
 
 
+def get_the_update(bot, request):
+    """converts a request to an update"""
+
+    try:
+        update = Update.de_json(request.get_json(force=True), bot)
+    except Exception as e:
+        logging.exception(e)
+        logging.error('request received has no update')
+        update = None
+
+    logging.info(f'update received: {update}')
+
+    return update
+
+
+def get_basic_update_parameters(update):
+    """de-fragment update to the key parameters"""
+
+    user_new_status = get_param_if_exists(update, 'update.my_chat_member.new_chat_member.status')
+    timer_changed = get_param_if_exists(update, 'update.message.message_auto_delete_timer_changed')
+    photo = get_param_if_exists(update, 'update.message.photo')
+    document = get_param_if_exists(update, 'update.message.document')
+    voice = get_param_if_exists(update, 'update.message.voice')
+    contact = get_param_if_exists(update, 'update.message.contact')
+    inline_query = get_param_if_exists(update, 'update.inline_query')
+    sticker = get_param_if_exists(update, 'update.message.sticker.file_id')
+    user_latitude = get_param_if_exists(update, 'update.effective_message.location.latitude')
+    user_longitude = get_param_if_exists(update, 'update.effective_message.location.longitude')
+    got_message = get_param_if_exists(update, 'update.effective_message.text')
+
+    channel_type = get_param_if_exists(update, 'update.edited_channel_post.chat.type')
+    if not channel_type:
+        channel_type = get_param_if_exists(update, 'update.channel_post.chat.type')
+    if not channel_type:
+        channel_type = get_param_if_exists(update, 'update.my_chat_member.chat.type')
+
+    username = get_param_if_exists(update, 'update.effective_message.from_user.username')
+
+    # the purpose of this bot - sending messages to unique users, this way
+    # chat_id is treated as user_id and vice versa (which is not true in general)
+
+    user_id = get_param_if_exists(update, 'update.effective_message.from_user.id')
+    if not user_id:
+        user_id = get_param_if_exists(update, 'update.effective_message.chat.id')
+    if not user_id:
+        user_id = get_param_if_exists(update, 'update.edited_channel_post.chat.id')
+    if not user_id:
+        user_id = get_param_if_exists(update, 'update.my_chat_member.chat.id')
+    if not user_id:
+        user_id = get_param_if_exists(update, 'update.inline_query.from.id')
+    if not user_id:
+        logging.info('failed to define user_id')
+
+    return user_new_status, timer_changed, photo, document, voice, contact, inline_query, \
+        sticker, user_latitude, user_longitude, got_message, channel_type, username, user_id
+
+
+def save_new_user(user_id, username):
+    """send pubsub message to dedicated script to save new user"""
+
+    username = username if username else 'unknown'
+    message_for_pubsub = {'action': 'new', 'info': {'user': user_id, 'username': username},
+                          'time': str(datetime.datetime.now())}
+    publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+
+    return None
+
+
 def main(request):
     """Main function to orchestrate the whole script"""
 
@@ -1276,46 +1345,11 @@ def main(request):
             conn_psy.close()
             return None
 
-        try:
-            update = Update.de_json(request.get_json(force=True), bot)
-        except Exception as e:
-            logging.exception(e)
-            logging.error('custom error')
-            update = None
+        update = get_the_update(bot, request)
 
-        logging.info('update: ' + str(update))
-
-        user_new_status = get_param_if_exists(update, 'update.my_chat_member.new_chat_member.status')
-        timer_changed = get_param_if_exists(update, 'update.message.message_auto_delete_timer_changed')
-        photo = get_param_if_exists(update, 'update.message.photo')
-        document = get_param_if_exists(update, 'update.message.document')
-        voice = get_param_if_exists(update, 'update.message.voice')
-        contact = get_param_if_exists(update, 'update.message.contact')
-        inline_query = get_param_if_exists(update, 'update.inline_query')
-        sticker = get_param_if_exists(update, 'update.message.sticker.file_id')
-
-        channel_type = get_param_if_exists(update, 'update.edited_channel_post.chat.type')
-        if not channel_type:
-            channel_type = get_param_if_exists(update, 'update.channel_post.chat.type')
-        if not channel_type:
-            channel_type = get_param_if_exists(update, 'update.my_chat_member.chat.type')
-
-        username = get_param_if_exists(update, 'update.effective_message.from_user.username')
-
-        # the purpose of this bot - sending messages to unique users, this way
-        # chat_id is treated as user_id and vice versa (which is not true in general)
-
-        user_id = get_param_if_exists(update, 'update.effective_message.from_user.id')
-        if not user_id:
-            user_id = get_param_if_exists(update, 'update.effective_message.chat.id')
-        if not user_id:
-            user_id = get_param_if_exists(update, 'update.edited_channel_post.chat.id')
-        if not user_id:
-            user_id = get_param_if_exists(update, 'update.my_chat_member.chat.id')
-        if not user_id:
-            user_id = get_param_if_exists(update, 'update.inline_query.from.id')
-        if not user_id:
-            logging.info('failed to define user_id')
+        user_new_status, timer_changed, photo, document, voice, contact, inline_query, sticker, \
+            user_latitude, user_longitude, got_message, channel_type, username, \
+            user_id = get_basic_update_parameters(update)
 
         # CASE 1 – when user blocked / unblocked the bot
         if user_new_status in {'kicked', 'member'}:
@@ -1386,45 +1420,28 @@ def main(request):
 
         # CASE 7 – regular messaging with bot
         else:
-            # check if user is new - and if so - saving him/her
             user_is_new = check_if_new_user(cur, user_id)
-
             if user_is_new:
-                # initiate the manage_users script
-                if not username:
-                    username = 'unknown'
+                save_new_user(user_id, username)
 
-                message_for_pubsub = {'action': 'new',
-                                      'info': {'user': user_id, 'username': username},
-                                      'time': str(datetime.datetime.now())}
-                publish_to_pubsub('topic_for_user_management', message_for_pubsub)
-                # FIXME
-                print(f'WE SENT PUBSUB MSG: {message_for_pubsub}')
-                # FIXME ^^^
-                onboarding_step_id, onboarding_step_name = 0, 'start'
+            onboarding_step_id, onboarding_step_name = check_onboarding_step(cur, user_id, user_is_new)
+            user_regions = get_user_reg_folders_preferences(cur, user_id)
 
-            else:
-                onboarding_step_id, onboarding_step_name = check_onboarding_step(cur, user_id)
-
-            # get user regional settings (which regions he/she is interested it)
-            user_regions = get_user_regional_preferences(cur, user_id)
-
+            # FIXME - just check if can be deleted easily
             # getting message parameters if user send a REPLY to bot message
-            user_latitude = None
+            """user_latitude = None
             user_longitude = None
-            got_message = None
-            try:
-
+            got_message = None"""
+            """try:
                 if update.effective_message.location is not None:
                     user_latitude = update.effective_message.location.latitude
                     user_longitude = update.effective_message.location.longitude
-
                 if update.effective_message.text is not None:
                     got_message = update.effective_message.text
-
             except Exception as e:
                 logging.info('DBG.C.2.ERR: GENERAL COMM CRASH:')
-                logging.exception(e)
+                logging.exception(e)"""
+            # FIXME ^^^
 
             # placeholder for the New message from bot as reply to "update". Placed here – to avoid errors of GCF
             bot_message = ''
@@ -1468,7 +1485,7 @@ def main(request):
             b_set_pref_urgency = 'настроить скорость уведомлений'
             b_set_pref_role = 'настроить вашу роль'  # <-- TODO
             b_set_forum_nick = 'связать аккаунты бота и форума'
-            b_set_folder_type = 'настроить вид поисков'  # <-- TODO
+            b_set_folder_type = 'настроить вид интересующих поисков'  # <-- TODO
 
             b_back_to_start = 'в начало'
 
@@ -1965,10 +1982,10 @@ def main(request):
                                       '\n\n'
 
                     # set user pref: urgency
-                    elif got_message in {b_pref_urgency_highest, b_pref_urgency_high, 
+                    elif got_message in {b_pref_urgency_highest, b_pref_urgency_high,
                                          b_pref_urgency_medium, b_pref_urgency_low}:
-                        
-                        save_user_pref_urgency(cur, user_id, got_message, b_pref_urgency_highest, 
+
+                        save_user_pref_urgency(cur, user_id, got_message, b_pref_urgency_highest,
                                                b_pref_urgency_high, b_pref_urgency_medium, b_pref_urgency_low)
                         bot_message = 'Хорошо, спасибо. Бот запомнил ваш выбор.'
 
