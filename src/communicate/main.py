@@ -1001,14 +1001,14 @@ def save_user_pref_topic_type(cur, user_id, pref_id):
     def save(pref_type_id):
         cur.execute("""INSERT INTO user_pref_topic_type (user_id, timestamp, topic_type_id) 
                                             values (%s, %s, %s) ON CONFLICT (user_id, topic_type_id) DO NOTHING;""",
-                    (user_id, pref_type_id))
+                    (user_id, pref_type_id, datetime.datetime.now()))
         return None
 
     if not (cur and user_id and pref_id):
         return None
 
     if pref_id == 'default':
-        default_topic_type_id = [0, 3, 4, 5, 10]  # 0=regular, 3=training, 4=info_support, 5=resonance, 10=event
+        default_topic_type_id = [0, 3, 4, 5]  # 0=regular, 3=training, 4=info_support, 5=resonance
         for type_id in default_topic_type_id:
             save(type_id)
 
