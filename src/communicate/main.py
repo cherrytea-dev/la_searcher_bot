@@ -1899,9 +1899,11 @@ def main(request):
                                          [b_view_latest_searches], [b_view_act_searches], [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard_role, resize_keyboard=True)
 
-                        bot_message, reply_markup = manage_if_moscow(cur, user_id, username, got_message,
-                                                                     b_reg_moscow, b_reg_not_moscow,
-                                                                     reply_markup, keyboard_fed_dist_set, bot_message)
+                        if got_message == b_reg_moscow:
+                            bot_message, reply_markup = manage_if_moscow(cur, user_id, username, got_message,
+                                                                         b_reg_moscow, b_reg_not_moscow,
+                                                                         reply_markup, keyboard_fed_dist_set,
+                                                                         bot_message)
 
                     elif got_message in {b_role_looking_for_person, b_role_want_to_be_la,
                                          b_role_iam_la, b_role_secret, b_role_other, b_orders_done, b_orders_tbd}:
