@@ -1857,6 +1857,7 @@ def main(request):
                                            b_other, b_set_pref_notif_type, b_set_pref_coords, b_set_pref_radius,
                                            b_set_pref_age, b_set_forum_nick}:
                             save_onboarding_step(user_id, username, 'finished')
+                            onboarding_step_id, onboarding_step_name = check_onboarding_step(cur, user_id, user_is_new)
 
                     # if pushed \start
                     if got_message == b_start:
