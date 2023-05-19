@@ -1160,9 +1160,11 @@ def manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_
     bot_message, reply_markup, bot_request_aft_usr_msg = None, None, None
 
     if got_message == b_set_forum_nick:
-        bot_message = 'Чтобы связать бота с вашим аккаунтом, введите ответным сообщением ваше ' \
-                      'Имя Пользователя на форуме (логин). Желательно даже скопировать имя ' \
-                      'с форума, чтобы избежать ошибок.'
+        bot_message = 'Бот сможет быть еще полезнее, эффективнее и быстрее, если указать ваш аккаунт на форуме ' \
+                      'lizaalert.org\n\n' \
+                      'Для этого просто введите ответным сообщением своё имя пользователя (логин).\n\n' \
+                      'Если возникнут ошибки при распознавании – просто скопируйте имя с форума и ' \
+                      'отправьте боту ответным сообщением.'
         keyboard = [[b_back_to_start]]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         bot_request_aft_usr_msg = 'input_of_forum_username'
@@ -1183,7 +1185,9 @@ def manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_
                 (SELECT MAX(timestamp) FROM user_forum_attributes WHERE user_id=%s);""",
                     (user_id, user_id))
 
-        bot_message = 'Отлично, мы записали: теперь бот будет понимать, кто вы на форуме.'
+        bot_message = 'Отлично, мы записали: теперь бот будет понимать, кто вы на форуме.\nЭто поможет ' \
+                      'вам более оперативно получать сообщения о поисках, по которым вы оставляли ' \
+                      'комментарии на форуме.'
 
     elif got_message == b_no_its_not_me:
         bot_message = 'Пожалуйста, тщательно проверьте написание вашего ника на форуме ' \
@@ -1427,22 +1431,6 @@ def main(request):
             onboarding_step_id, onboarding_step_name = check_onboarding_step(cur, user_id, user_is_new)
             user_regions = get_user_reg_folders_preferences(cur, user_id)
 
-            # FIXME - just check if can be deleted easily
-            # getting message parameters if user send a REPLY to bot message
-            """user_latitude = None
-            user_longitude = None
-            got_message = None"""
-            """try:
-                if update.effective_message.location is not None:
-                    user_latitude = update.effective_message.location.latitude
-                    user_longitude = update.effective_message.location.longitude
-                if update.effective_message.text is not None:
-                    got_message = update.effective_message.text
-            except Exception as e:
-                logging.info('DBG.C.2.ERR: GENERAL COMM CRASH:')
-                logging.exception(e)"""
-            # FIXME ^^^
-
             # placeholder for the New message from bot as reply to "update". Placed here – to avoid errors of GCF
             bot_message = ''
 
@@ -1459,9 +1447,21 @@ def main(request):
             b_orders_done = 'да, заявки поданы'
             b_orders_tbd = 'нет, но я хочу продолжить'
 
+            # TODO - WIP: FORUM
             b_forum_check_nickname = 'указать свой nickname с форума'
             b_forum_dont_have = 'у меня нет аккаунта на форуме ЛА'
             b_forum_dont_want = 'пропустить / не хочу говорить'
+            # TODO ^^^
+
+            # TODO – WIP: TOPIC TYPE
+            b_topic_search_regular = 'стандартные активные поиски'
+            b_topic_search_resonance = 'резонансные поиски в нескольких регионах'
+            b_topic_search_info_support = 'информационная поддержка поисков'
+            b_topic_search_patrol = 'патруль (только для некоторых регионов)'
+            b_topic_search_reverse = 'обратные поиски (поиск родных)'
+            b_topic_search_training = 'учебные поиски'
+            b_topic_event = 'мероприятия'
+            # TODO ^^^
 
             b_pref_urgency_highest = 'самым первым (<2 минуты)'
             b_pref_urgency_high = 'пораньше (<5 минут)'
@@ -1478,14 +1478,14 @@ def main(request):
             reply_markup_main = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
 
             # Settings menu
-            b_set_notifs_up = 'настроить виды уведомлений'
-            b_settings_coords = 'настроить "домашние координаты"'
+            b_set_pref_notif_type = 'настроить виды уведомлений'
+            b_set_pref_coords = 'настроить "домашние координаты"'
             b_set_pref_radius = 'настроить максимальный радиус'
             b_set_pref_age = 'настроить возрастные группы БВП'
             b_set_pref_urgency = 'настроить скорость уведомлений'
             b_set_pref_role = 'настроить вашу роль'  # <-- TODO
             b_set_forum_nick = 'связать аккаунты бота и форума'
-            b_set_folder_type = 'настроить вид интересующих поисков'  # <-- TODO
+            b_set_topic_type = 'настроить вид интересующих поисков'  # <-- TODO
 
             b_back_to_start = 'в начало'
 
@@ -2068,12 +2068,10 @@ def main(request):
 
                     # FIXME - WIP
                     elif got_message.lower() == b_test_menu:
-                        bot_message = 'Вы вошли в специальный тестовый раздел, здесь доступны функции в стадии ' \
-                                      'отладки и тестирования. Представленный здесь функционал может не работать ' \
-                                      'на 100% корректно. Если заметите случаи некорректного выполнения ' \
-                                      'функционала из этого раздела – пишите, пожалуйста, в телеграм-чат ' \
+                        bot_message = 'Вы в секретном тестовом разделе, где всё может работать не так :) ' \
+                                      'Если что – пишите, пожалуйста, в телеграм-чат ' \
                                       'https://t.me/joinchat/2J-kV0GaCgwxY2Ni'
-                        keyboard_coordinates_admin = [[b_set_pref_urgency], [b_set_forum_nick], [b_set_folder_type],
+                        keyboard_coordinates_admin = [[b_set_pref_urgency], [b_set_forum_nick], [b_set_topic_type],
                                                       [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
                     # FIXME ^^^
@@ -2107,7 +2105,7 @@ def main(request):
                         bot_message, reply_markup, bot_request_aft_usr_msg = \
                             manage_radius(cur, user_id, got_message, b_set_pref_radius, b_pref_radius_act,
                                           b_pref_radius_deact, b_pref_radius_change, b_back_to_start,
-                                          b_settings_coords, bot_request_bfr_usr_msg)
+                                          b_set_pref_coords, bot_request_bfr_usr_msg)
 
                     elif got_message in {b_set_forum_nick, b_yes_its_me, b_no_its_not_me} \
                             or bot_request_bfr_usr_msg == 'input_of_forum_username':
@@ -2183,12 +2181,12 @@ def main(request):
                                       'уведомления, а также ввести свои "домашние координаты", на основе которых ' \
                                       'будет рассчитываться расстояние и направление до места поиска. Вы в любой ' \
                                       'момент сможете изменить эти настройки.'
-                        keyboard_settings = [[b_set_pref_radius], [b_set_pref_age],
-                                             [b_set_notifs_up], [b_menu_set_region], [b_settings_coords],
+                        keyboard_settings = [[b_set_pref_notif_type], [b_menu_set_region], [b_set_pref_coords],
+                                             [b_set_pref_radius], [b_set_pref_age],
                                              [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
 
-                    elif got_message == b_settings_coords:
+                    elif got_message == b_set_pref_coords:
                         bot_message = 'АВТОМАТИЧЕСКОЕ ОПРЕДЕЛЕНИЕ координат работает только для носимых устройств' \
                                       ' (для настольных компьютеров – НЕ работает: используйте, пожалуйста, ' \
                                       'кнопку ручного ввода координат). ' \
@@ -2274,7 +2272,7 @@ def main(request):
                     # special block for flexible menu on notification preferences
                     elif got_message in {b_act_all, b_deact_all,
                                          b_act_new_search, b_act_stat_change, b_act_titles, b_act_all_comments,
-                                         b_set_notifs_up, b_deact_stat_change, b_deact_all_comments,
+                                         b_set_pref_notif_type, b_deact_stat_change, b_deact_all_comments,
                                          b_deact_new_search,
                                          b_act_inforg_com, b_deact_inforg_com,
                                          b_act_field_trips_new, b_deact_field_trips_new,
@@ -2398,7 +2396,7 @@ def main(request):
                             save_preference(cur, user_id, '-first_post_changes')
 
                         # GET what are preferences
-                        elif got_message == b_set_notifs_up:
+                        elif got_message == b_set_pref_notif_type:
                             prefs = compose_user_preferences_message(cur, user_id)
                             if prefs[0] == 'пока нет включенных уведомлений' or prefs[0] == 'неизвестная настройка':
                                 bot_message = 'Выберите, какие уведомления вы бы хотели получать'

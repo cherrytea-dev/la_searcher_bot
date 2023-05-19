@@ -255,6 +255,7 @@ def match_user_region_from_forum_to_bot(forum_region):
 # def save_user_region(user_id, region_name):
 #    return None
 
+
 def main(event, context):
     """main function triggered from communicate script via pyb/sub"""
 
@@ -326,7 +327,6 @@ def main(event, context):
         cur.execute("""SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=%s""", (tg_user_id,))
         conn_psy.commit()
         user_has_region_set = True if cur.fetchone() else False
-        bot_message += f' {user_has_region_set}'
         logging.info(f'user_has_region_set = {user_has_region_set}')
 
         resulting_region_in_bot = None
@@ -338,15 +338,25 @@ def main(event, context):
         # if resulting_region_in_bot:
         # TODO ^^^
 
-
-
-
-
     else:
         bot_message = 'Бот не смог найти такого пользователя на форуме. ' \
                       'Пожалуйста, проверьте правильность написания имени пользователя (логина). ' \
                       'Важно, чтобы каждый знак в точности соответствовал тому, что указано в вашем профиле на форуме'
         keyboard = [['в начало']]
+        bot_request_aft_usr_msg = 'input_of_forum_username'
+        try:
+            cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (tg_user_id,))
+            conn_psy.commit()
+            cur.execute(
+                """
+                INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
+                """,
+                (tg_user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
+            conn_psy.commit()
+
+        except Exception as e:
+            logging.info('failed to update the last saved message from bot')
+            logging.exception(e)
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     bot.sendMessage(chat_id=tg_user_id, text=bot_message, reply_markup=reply_markup, parse_mode='HTML')
