@@ -1105,7 +1105,7 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
 
 
 def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_not_moscow,
-                     reply_markup_main, keyboard_fed_dist_set):
+                     reply_markup, keyboard_fed_dist_set, bot_message):
     """act if user replied either user from Moscow region or from another one"""
 
     # if user Region is Moscow
@@ -1114,11 +1114,6 @@ def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_no
         save_onboarding_step(user_id, username, 'moscow_replied')
         save_onboarding_step(user_id, username, 'region_set')
         save_user_pref_topic_type(cur, user_id, 'default')
-
-        bot_message = 'Спасибо, бот запомнил этот выбор и теперь вы сможете получать ключевые ' \
-                      'уведомления в регионе Москва и МО. Вы в любой момент сможете изменить ' \
-                      'список регионов через настройки бота.'
-        reply_markup = reply_markup_main
 
         if check_if_user_has_no_regions(cur, user_id):
             # add the New User into table user_regional_preferences
@@ -1142,7 +1137,7 @@ def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_no
         save_onboarding_step(user_id, username, 'moscow_replied')
 
         bot_message = 'Спасибо, тогда для корректной работы Бота, пожалуйста, выберите свой регион: ' \
-                      'сначала обозначьте Федеральный Округ,' \
+                      'сначала обозначьте Федеральный Округ, ' \
                       'а затем хотя бы один Регион поисков, чтобы отслеживать поиски в этом регионе. ' \
                       'Вы в любой момент сможете изменить ' \
                       'список регионов через настройки бота.'
@@ -1878,7 +1873,7 @@ def main(request):
                             reply_markup = reply_markup_main
 
                     elif (onboarding_step_id == 20 and got_message in full_list_of_regions) \
-                            or got_message == b_reg_moscow:  # "moscow_set"
+                            or got_message == b_reg_moscow:  # "moscow_replied"
                         bot_message = 'Отлично, вы завершили базовую настройку Бота.\n\n' \
                                       'Список того, что сейчас умеет бот:\n' \
                                       '- Высылает сводку по идущим поискам\n' \
@@ -1904,8 +1899,9 @@ def main(request):
                                          [b_view_latest_searches], [b_view_act_searches], [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard_role, resize_keyboard=True)
 
-                        save_onboarding_step(user_id, username, 'region_set')
-                        save_user_pref_topic_type(cur, user_id, 'default')
+                        bot_message, reply_markup = manage_if_moscow(cur, user_id, username, got_message,
+                                                                     b_reg_moscow, b_reg_not_moscow,
+                                                                     reply_markup, keyboard_fed_dist_set, bot_message)
 
                     elif got_message in {b_role_looking_for_person, b_role_want_to_be_la,
                                          b_role_iam_la, b_role_secret, b_role_other, b_orders_done, b_orders_tbd}:
