@@ -1904,6 +1904,13 @@ def main(request):
                                                                          b_reg_moscow, b_reg_not_moscow,
                                                                          reply_markup, keyboard_fed_dist_set,
                                                                          bot_message)
+                        else:
+                            save_onboarding_step(user_id, username, 'region_set')
+                            save_user_pref_topic_type(cur, user_id, 'default')
+                            updated_regions = update_and_download_list_of_regions(cur,
+                                                                                  user_id, got_message,
+                                                                                  b_menu_set_region,
+                                                                                  b_fed_dist_pick_other)
 
                     elif got_message in {b_role_looking_for_person, b_role_want_to_be_la,
                                          b_role_iam_la, b_role_secret, b_role_other, b_orders_done, b_orders_tbd}:
