@@ -1809,12 +1809,6 @@ def main(request):
                     except Exception:
                         pass
 
-                if onboarding_step_id == 21:  # region_set
-                    # mark that onboarding is finished
-                    if got_message in {b_back_to_start, b_view_act_searches,
-                                       b_view_latest_searches, b_settings, b_other}:
-                        save_onboarding_step(user_id, username, 'finished')
-
                 # if there is any coordinates from user
                 if user_latitude:
 
@@ -1854,6 +1848,13 @@ def main(request):
                 # if there is a text message from user
                 elif got_message:
 
+                    if onboarding_step_id == 21:  # region_set
+                        # mark that onboarding is finished
+                        if got_message in {b_back_to_start, b_view_act_searches, b_view_latest_searches, b_settings,
+                                           b_other, b_set_pref_notif_type, b_set_pref_coords, b_set_pref_radius,
+                                           b_set_pref_age, b_set_forum_nick}:
+                            save_onboarding_step(user_id, username, 'finished')
+
                     # if pushed \start
                     if got_message == b_start:
 
@@ -1873,6 +1874,32 @@ def main(request):
                         else:
                             bot_message = 'Привет! Бот управляется кнопками, которые заменяют обычную клавиатуру.'
                             reply_markup = reply_markup_main
+
+                    elif onboarding_step_id == 21:  # "region_set"
+                        bot_message = 'Отлично, вы завершили базовую настройку Бота.\n\n' \
+                                      'Список того, что сейчас умеет бот:\n' \
+                                      '- Высылает сводку по идущим поискам\n' \
+                                      '- Высылает сводку по последним поисками\n' \
+                                      '- Информирует о новых поисках с указанием расстояния до поиска\n' \
+                                      '- Информирует об изменении Статуса / Первого поста Инфорга\n' \
+                                      '- Информирует о новых комментариях Инфорга или пользователей\n' \
+                                      '- Позволяет очень гибко настроить информирование на основе удаленности от ' \
+                                      'вас, возраста пропавшего и т.п.\n\n' \
+                                      'С этого момента вы начнёте получать основные уведомления в ' \
+                                      'рамках выбранного региона, как только появятся новые изменения. ' \
+                                      'Или же вы сразу можете просмотреть списки Активных и Последних поисков.\n\n' \
+                                      'Бот приглашает вас настроить дополнительные параметры (можно пропустить):\n' \
+                                      '- Настроить виды уведомлений\n' \
+                                      '- Указать домашние координаты\n' \
+                                      '- Указать максимальный радиус до поиска\n' \
+                                      '- указать возрастные группы пропавших\n' \
+                                      '- Связать бот с Форумом\n\n' \
+                                      'Создатели Бота надеются, что Бот сможет помочь вам в ваших задачах! Удачи!' \
+
+                        keyboard_role = [[b_set_pref_notif_type], [b_set_pref_coords], [b_set_pref_radius],
+                                         [b_set_pref_age], [b_set_forum_nick],
+                                         [b_view_latest_searches], [b_view_act_searches], [b_back_to_start]]
+                        reply_markup = ReplyKeyboardMarkup(keyboard_role, resize_keyboard=True)
 
                     elif got_message in {b_role_looking_for_person, b_role_want_to_be_la,
                                          b_role_iam_la, b_role_secret, b_role_other, b_orders_done, b_orders_tbd}:

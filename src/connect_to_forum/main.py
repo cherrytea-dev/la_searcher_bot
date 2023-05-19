@@ -339,11 +339,15 @@ def main(event, context):
         # TODO ^^^
 
     else:
+
         bot_message = 'Бот не смог найти такого пользователя на форуме. ' \
                       'Пожалуйста, проверьте правильность написания имени пользователя (логина). ' \
                       'Важно, чтобы каждый знак в точности соответствовал тому, что указано в вашем профиле на форуме'
         keyboard = [['в начало']]
         bot_request_aft_usr_msg = 'input_of_forum_username'
+
+        sql_connect_by_psycopg2()
+
         try:
             cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (tg_user_id,))
             conn_psy.commit()
