@@ -1156,7 +1156,8 @@ def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_no
 
 
 def manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_to_start,
-                            bot_request_bfr_usr_msg, b_admin_menu, b_test_menu, b_yes_its_me, b_no_its_not_me):
+                            bot_request_bfr_usr_msg, b_admin_menu, b_test_menu, b_yes_its_me, b_no_its_not_me,
+                            b_settings):
     bot_message, reply_markup, bot_request_aft_usr_msg = None, None, None
 
     if got_message == b_set_forum_nick:
@@ -1188,6 +1189,8 @@ def manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_
         bot_message = 'Отлично, мы записали: теперь бот будет понимать, кто вы на форуме.\nЭто поможет ' \
                       'вам более оперативно получать сообщения о поисках, по которым вы оставляли ' \
                       'комментарии на форуме.'
+        keyboard = [[b_settings], [b_back_to_start]]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
     elif got_message == b_no_its_not_me:
         bot_message = 'Пожалуйста, тщательно проверьте написание вашего ника на форуме ' \
@@ -2140,7 +2143,7 @@ def main(request):
                         bot_message, reply_markup, bot_request_aft_usr_msg = \
                             manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_to_start,
                                                     bot_request_bfr_usr_msg, b_admin_menu, b_test_menu, b_yes_its_me,
-                                                    b_no_its_not_me)
+                                                    b_no_its_not_me, b_settings)
 
                     elif got_message == b_set_pref_urgency:
 
