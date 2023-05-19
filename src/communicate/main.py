@@ -1979,7 +1979,7 @@ def main(request):
                     elif got_message in {b_reg_not_moscow}:
                         bot_message, reply_markup = manage_if_moscow(cur, user_id, username, got_message,
                                                                      b_reg_moscow, b_reg_not_moscow,
-                                                                     reply_markup_main, keyboard_fed_dist_set)
+                                                                     reply_markup_main, keyboard_fed_dist_set, None)
 
                     elif got_message == b_help_no:
 
