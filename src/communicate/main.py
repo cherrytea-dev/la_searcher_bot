@@ -1853,11 +1853,9 @@ def main(request):
 
                     if onboarding_step_id == 21:  # region_set
                         # mark that onboarding is finished
-                        if got_message in {b_back_to_start, b_view_act_searches, b_view_latest_searches, b_settings,
-                                           b_other, b_set_pref_notif_type, b_set_pref_coords, b_set_pref_radius,
-                                           b_set_pref_age, b_set_forum_nick}:
+                        if got_message:
                             save_onboarding_step(user_id, username, 'finished')
-                            onboarding_step_id, onboarding_step_name = check_onboarding_step(cur, user_id, user_is_new)
+                            onboarding_step_id = 80
 
                     # if pushed \start
                     if got_message == b_start:
@@ -2086,6 +2084,7 @@ def main(request):
                                 except Exception as e:
                                     logging.info('failed to save the last message from bot')
                                     logging.exception(e)
+
 
                     # Perform individual replies
 
