@@ -1872,7 +1872,7 @@ def main(request):
                             bot_message = 'Привет! Бот управляется кнопками, которые заменяют обычную клавиатуру.'
                             reply_markup = reply_markup_main
 
-                    elif (onboarding_step_id == 20 and got_message in full_list_of_regions) \
+                    elif (onboarding_step_id == 20 and got_message in full_dict_of_regions) \
                             or got_message == b_reg_moscow:  # "moscow_replied"
                         bot_message = '🎉 Отлично, вы завершили базовую настройку Бота.\n\n' \
                                       'Список того, что сейчас умеет бот:\n' \
