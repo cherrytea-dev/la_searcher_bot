@@ -1141,7 +1141,7 @@ def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_no
 
         save_onboarding_step(user_id, username, 'moscow_replied')
 
-        bot_message = 'Спасибо, тогда для корректной работы Бота, пожалуйста, выберите свой регион:' \
+        bot_message = 'Спасибо, тогда для корректной работы Бота, пожалуйста, выберите свой регион: ' \
                       'сначала обозначьте Федеральный Округ,' \
                       'а затем хотя бы один Регион поисков, чтобы отслеживать поиски в этом регионе. ' \
                       'Вы в любой момент сможете изменить ' \
@@ -1877,7 +1877,8 @@ def main(request):
                             bot_message = 'Привет! Бот управляется кнопками, которые заменяют обычную клавиатуру.'
                             reply_markup = reply_markup_main
 
-                    elif onboarding_step_id == 21:  # "region_set"
+                    elif onboarding_step_id == 20 and (got_message in full_list_of_regions
+                                                       or got_message == b_reg_moscow):  # "moscow_set"
                         bot_message = 'Отлично, вы завершили базовую настройку Бота.\n\n' \
                                       'Список того, что сейчас умеет бот:\n' \
                                       '- Высылает сводку по идущим поискам\n' \
@@ -1902,6 +1903,9 @@ def main(request):
                                          [b_set_pref_age], [b_set_forum_nick],
                                          [b_view_latest_searches], [b_view_act_searches], [b_back_to_start]]
                         reply_markup = ReplyKeyboardMarkup(keyboard_role, resize_keyboard=True)
+
+                        save_onboarding_step(user_id, username, 'region_set')
+                        save_user_pref_topic_type(cur, user_id, 'default')
 
                     elif got_message in {b_role_looking_for_person, b_role_want_to_be_la,
                                          b_role_iam_la, b_role_secret, b_role_other, b_orders_done, b_orders_tbd}:
@@ -1976,7 +1980,7 @@ def main(request):
                             keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
                             reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
-                    elif got_message in {b_reg_moscow, b_reg_not_moscow}:
+                    elif got_message in {b_reg_not_moscow}:
                         bot_message, reply_markup = manage_if_moscow(cur, user_id, username, got_message,
                                                                      b_reg_moscow, b_reg_not_moscow,
                                                                      reply_markup_main, keyboard_fed_dist_set)
@@ -2084,7 +2088,6 @@ def main(request):
                                 except Exception as e:
                                     logging.info('failed to save the last message from bot')
                                     logging.exception(e)
-
 
                     # Perform individual replies
 
