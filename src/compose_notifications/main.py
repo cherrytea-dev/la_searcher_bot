@@ -336,7 +336,7 @@ def define_dist_and_dir_to_search(search_lat, search_lon, user_let, user_lon):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     distance = earth_radius * c
-    dist = round(distance)
+    dist = round(distance, 1)
 
     # define direction
     direction = calc_direction(lat1, lon1, lat2, lon2)
@@ -982,7 +982,10 @@ def compose_com_msg_on_first_post_change(message, clickable_name, old_lat, old_l
             distance, direction = None, None
 
         if distance and direction:
-            coord_change_phrase = f'\n\nКоординаты сместились на ~{distance} км {direction}'
+            if distance >= 1:
+                coord_change_phrase = f'\n\nКоординаты сместились на ~{int(distance)} км {direction}'
+            else:
+                coord_change_phrase = f'\n\nКоординаты сместились на ~{int(distance*1000)} метров {direction}'
 
     except Exception as e:
         notify_admin(f'HEY! something was broken in this new process! {message}')
@@ -1635,6 +1638,7 @@ def iterate_over_all_users_and_updates(conn, admins_list):
                     user_lon = user_line.user_longitude
                     actual_distance, direction = define_dist_and_dir_to_search(search_lat, search_lon,
                                                                                user_lat, user_lon)
+                    actual_distance = int(actual_distance)
                     if actual_distance <= user_line.radius:
                         temp_user_list.append(user_line)
 
@@ -1651,6 +1655,7 @@ def iterate_over_all_users_and_updates(conn, admins_list):
                         search_lat, search_lon = city_coords
                         actual_distance, direction = define_dist_and_dir_to_search(search_lat, search_lon,
                                                                                    user_lat, user_lon)
+                        actual_distance = int(actual_distance)
                         if actual_distance <= user_line.radius:
                             temp_user_list.append(user_line)
                             # FIXME - temp debug
@@ -1882,6 +1887,7 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
     if s_lat and s_lon and u_lat and u_lon:
         try:
             dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
+            dist = int(dist)
             direction = f'\n\nОт вас ~{dist} км {direct}'
 
             message += generate_yandex_maps_place_link2(s_lat, s_lon, direction)
@@ -1924,6 +1930,7 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
             clickable_coords = f'<code>{coord_format.format(float(s_lat))}, {coord_format.format(float(s_lon))}</code>'
             if u_lat and u_lon:
                 dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
+                dist = int(dist)
                 place = f'От вас ~{dist} км {direct}'
             else:
                 place = 'Карта'
@@ -1971,6 +1978,7 @@ def compose_individual_msg_on_field_trip(common_message, s_lat, s_lon, u_lat, u_
     region = f'{region_to_show}' if region_to_show else ''
     if s_lat and s_lon and u_lat and u_lon:
         dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
+        dist = int(dist)
         direction_wording = f'От вас ~{dist} км {direct}'
         direction_and_distance = generate_yandex_maps_place_link2(s_lat, s_lon, direction_wording)
 
@@ -1996,6 +2004,7 @@ def compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat,
 
     if s_lat and s_lon and u_lat and u_lon:
         dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
+        dist = int(dist)
         link_text = f'От вас ~{dist} км {direct}'
 
     msg = msg.format(region=region, link_text=link_text)
