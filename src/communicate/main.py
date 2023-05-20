@@ -1320,7 +1320,7 @@ def get_basic_update_parameters(update):
         logging.info('failed to define user_id')
 
     return user_new_status, timer_changed, photo, document, voice, contact, inline_query, \
-        sticker, user_latitude, user_longitude, got_message, channel_type, username, user_id
+           sticker, user_latitude, user_longitude, got_message, channel_type, username, user_id
 
 
 def save_new_user(user_id, username):
@@ -1413,6 +1413,27 @@ def process_block_unblock_user(user_id, user_new_status):
     return None
 
 
+def save_bot_reply_to_user(cur, user_id, bot_message):
+    """save bot's reply to user in psql"""
+
+    if len(bot_message) > 27 and bot_message[28] in {'Актуальные поиски за 60 дней', 'Последние 20 поисков в разде'}:
+        bot_message = bot_message[28]
+
+    cur.execute("""INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);""",
+                (user_id, 'bot', datetime.datetime.now(), bot_message))
+
+    return None
+
+
+def save_user_message_to_bot(cur, user_id, got_message):
+    """save user's message to bot in psql"""
+
+    cur.execute("""INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);""",
+                (user_id, 'user', datetime.datetime.now(), got_message))
+
+    return None
+
+
 def main(request):
     """Main function to orchestrate the whole script"""
 
@@ -1424,9 +1445,8 @@ def main(request):
     bot = Bot(token=bot_token)
     update = get_the_update(bot, request)
 
-    user_new_status, timer_changed, photo, document, voice, contact, inline_query, sticker, \
-        user_latitude, user_longitude, got_message, channel_type, username, \
-        user_id = get_basic_update_parameters(update)
+    user_new_status, timer_changed, photo, document, voice, contact, inline_query, sticker, user_latitude, \
+        user_longitude, got_message, channel_type, username, user_id = get_basic_update_parameters(update)
 
     if timer_changed or photo or document or voice or sticker or (channel_type and user_id < 0) or \
             contact or inline_query:
@@ -1437,22 +1457,6 @@ def main(request):
     if user_new_status in {'kicked', 'member'}:
         process_block_unblock_user(user_id, user_new_status)
         return 'finished successfully. it was a system message on bot block/unblock'
-
-    conn_psy = sql_connect_by_psycopg2()
-    cur = conn_psy.cursor()
-
-    bot_request_aft_usr_msg = ''
-    msg_sent_by_specific_code = False
-
-    user_is_new = check_if_new_user(cur, user_id)
-    if user_is_new:
-        save_new_user(user_id, username)
-
-    onboarding_step_id, onboarding_step_name = check_onboarding_step(cur, user_id, user_is_new)
-    user_regions = get_user_reg_folders_preferences(cur, user_id)
-
-    # placeholder for the New message from bot as reply to "update". Placed here – to avoid errors of GCF
-    bot_message = ''
 
     # Buttons & Keyboards
     # Start & Main menu
@@ -1806,6 +1810,25 @@ def main(request):
     # basic markup which will be substituted for all specific cases
     reply_markup = reply_markup_main
 
+    conn_psy = sql_connect_by_psycopg2()
+    cur = conn_psy.cursor()
+
+    if got_message:
+        save_user_message_to_bot(cur, user_id, got_message)
+
+    bot_request_aft_usr_msg = ''
+    msg_sent_by_specific_code = False
+
+    user_is_new = check_if_new_user(cur, user_id)
+    if user_is_new:
+        save_new_user(user_id, username)
+
+    onboarding_step_id, onboarding_step_name = check_onboarding_step(cur, user_id, user_is_new)
+    user_regions = get_user_reg_folders_preferences(cur, user_id)
+
+    # placeholder for the New message from bot as reply to "update". Placed here – to avoid errors of GCF
+    bot_message = ''
+
     # Check what was last request from bot and if bot is expecting user's input
     bot_request_bfr_usr_msg = get_last_bot_msg(cur, user_id)
 
@@ -1850,11 +1873,8 @@ def main(request):
             try:
                 cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
 
-                cur.execute(
-                    """
-                    INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
-                    """,
-                    (user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
+                cur.execute("""INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);""",
+                            (user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
 
             except Exception as e:
                 logging.info('failed to update the last saved message from bot')
@@ -1909,7 +1929,7 @@ def main(request):
                               '- Указать максимальный радиус до поиска\n' \
                               '- Указать возрастные группы пропавших\n' \
                               '- Связать бот с Форумом\n\n' \
-                              'Создатели Бота надеются, что Бот сможет помочь вам в ваших задачах! Удачи!' \
+                              'Создатели Бота надеются, что Бот сможет помочь вам в ваших задачах! Удачи!'
 
                 keyboard_role = [[b_set_pref_notif_type], [b_set_pref_coords], [b_set_pref_radius],
                                  [b_set_pref_age], [b_set_forum_nick],
@@ -2535,29 +2555,13 @@ def main(request):
             logging.info(text_for_admin)
             notify_admin(text_for_admin)
 
-        # save the request incoming to bot
-        if got_message:
-            cur.execute(
-                """
-                INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);
-                """,
-                (user_id, 'user', datetime.datetime.now(), got_message))
-
-        # save bot's reply to incoming request
-        if bot_message:
-            if len(bot_message) > 27 and bot_message[28] in {'Актуальные поиски за 60 дней',
-                                                             'Последние 20 поисков в разде'}:
-                bot_message = bot_message[28]
-            cur.execute(
-                """
-                INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);
-                """,
-                (user_id, 'bot', datetime.datetime.now(), bot_message))
-
     except Exception as e:
         logging.info('GENERAL COMM CRASH:')
         logging.exception(e)
         notify_admin('[comm] general script fail')
+
+    if bot_message:
+        save_bot_reply_to_user(cur, user_id, bot_message)
 
     cur.close()
     conn_psy.close()
