@@ -146,9 +146,10 @@ def mark_up_onboarding_status_0():
                     LIMIT 1;
                     ;""")
     conn.commit()
-    user_id_to_update = cur.fetchone()[0]
+    user_id_to_update = cur.fetchone()
 
     if user_id_to_update:
+        user_id_to_update = user_id_to_update[0]
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=0')
 
         # save onboarding start
@@ -189,9 +190,10 @@ def mark_up_onboarding_status_10():
                     limit 1;
                 """)
     conn.commit()
-    user_id_to_update = cur.fetchone()[0]
+    user_id_to_update = cur.fetchone()
 
     if user_id_to_update:
+        user_id_to_update = user_id_to_update[0]
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=10')
 
         # save onboarding start
@@ -232,9 +234,10 @@ def mark_up_onboarding_status_20():
                     limit 1;
                 """)
     conn.commit()
-    user_id_to_update = cur.fetchone()[0]
+    user_id_to_update = cur.fetchone()
 
     if user_id_to_update:
+        user_id_to_update = user_id_to_update[0]
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=20')
 
         # save onboarding start
@@ -274,9 +277,10 @@ def mark_up_onboarding_status_21_only_msk():
                     limit 1;
                 """)
     conn.commit()
-    user_id_to_update = cur.fetchone()[0]
+    user_id_to_update = cur.fetchone()
 
     if user_id_to_update:
+        user_id_to_update = user_id_to_update[0]
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=21')
 
         # save onboarding start
@@ -317,9 +321,10 @@ def mark_up_onboarding_status_80():
                     limit 1;
                 """)
     conn.commit()
-    user_id_to_update = cur.fetchone()[0]
+    user_id_to_update = cur.fetchone()
 
     if user_id_to_update:
+        user_id_to_update = user_id_to_update[0]
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
 
         # save onboarding start
