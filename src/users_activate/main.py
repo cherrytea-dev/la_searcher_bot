@@ -101,16 +101,13 @@ def sql_connect_by_psycopg2():
     db_host = '/cloudsql/' + db_conn
 
     conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
+    conn_psy.autocommit = True
 
     return conn_psy
 
 
-def mark_up_onboarding_status_0():
+def mark_up_onboarding_status_0(cur):
     """marks up Onboarding step_id=0 for existing old users"""
-
-    # set PSQL connection & cursor
-    conn = sql_connect_by_psycopg2()
-    cur = conn.cursor()
 
     # add the New User into table users
     cur.execute("""
@@ -145,7 +142,6 @@ def mark_up_onboarding_status_0():
                     WHERE o.user_id IS NOT NULL 
                     LIMIT 1;
                     ;""")
-    conn.commit()
     user_id_to_update = cur.fetchone()
 
     if user_id_to_update:
@@ -159,24 +155,15 @@ def mark_up_onboarding_status_0():
                             VALUES (%s, 'start', 0, '2023-05-14 12:39:00.000000')
                             ;""",
                     (user_id_to_update,))
-        conn.commit()
 
     else:
         logging.info(f'There are no users to assign onboarding pref_id=0.')
 
-    # close connection & cursor
-    cur.close()
-    conn.close()
-
     return None
 
 
-def mark_up_onboarding_status_10():
+def mark_up_onboarding_status_10(cur):
     """marks up Onboarding step_id=10 ('role_set') for existing old users"""
-
-    # set PSQL connection & cursor
-    conn = sql_connect_by_psycopg2()
-    cur = conn.cursor()
 
     # add the New User into table users
     cur.execute("""
@@ -189,7 +176,6 @@ def mark_up_onboarding_status_10():
                         folder_setting IS NULL 
                     limit 1;
                 """)
-    conn.commit()
     user_id_to_update = cur.fetchone()
 
     if user_id_to_update:
@@ -203,24 +189,15 @@ def mark_up_onboarding_status_10():
                             VALUES (%s, 'role_set', 10, '2023-05-14 12:39:00.000000')
                             ;""",
                     (user_id_to_update,))
-        conn.commit()
 
     else:
         logging.info(f'There are no users to assign onboarding pref_id=10.')
 
-    # close connection & cursor
-    cur.close()
-    conn.close()
-
     return None
 
 
-def mark_up_onboarding_status_20():
+def mark_up_onboarding_status_20(cur):
     """marks up Onboarding step_id=20 ('moscow_replied') for existing old users"""
-
-    # set PSQL connection & cursor
-    conn = sql_connect_by_psycopg2()
-    cur = conn.cursor()
 
     # add the New User into table users
     cur.execute("""
@@ -233,7 +210,6 @@ def mark_up_onboarding_status_20():
                         folder_setting IS NULL 
                     limit 1;
                 """)
-    conn.commit()
     user_id_to_update = cur.fetchone()
 
     if user_id_to_update:
@@ -247,24 +223,15 @@ def mark_up_onboarding_status_20():
                             VALUES (%s, 'moscow_replied', 20, '2023-05-14 12:39:00.000000')
                             ;""",
                     (user_id_to_update,))
-        conn.commit()
 
     else:
         logging.info(f'There are no users to assign onboarding pref_id=20.')
 
-    # close connection & cursor
-    cur.close()
-    conn.close()
-
     return None
 
 
-def mark_up_onboarding_status_21_only_msk():
+def mark_up_onboarding_status_21_only_msk(cur):
     """marks up Onboarding step_id=21 ('region_set') for existing old users"""
-
-    # set PSQL connection & cursor
-    conn = sql_connect_by_psycopg2()
-    cur = conn.cursor()
 
     # add the New User into table users
     cur.execute("""
@@ -276,7 +243,6 @@ def mark_up_onboarding_status_21_only_msk():
                         onb_step IS NULL 
                     limit 1;
                 """)
-    conn.commit()
     user_id_to_update = cur.fetchone()
 
     if user_id_to_update:
@@ -290,24 +256,15 @@ def mark_up_onboarding_status_21_only_msk():
                             VALUES (%s, 'region_set', 21, '2023-05-14 12:39:00.000000')
                             ;""",
                     (user_id_to_update,))
-        conn.commit()
 
     else:
         logging.info(f'There are no users to assign onboarding pref_id=21.')
 
-    # close connection & cursor
-    cur.close()
-    conn.close()
-
     return None
 
 
-def mark_up_onboarding_status_80():
+def mark_up_onboarding_status_80(cur):
     """marks up Onboarding step_id=80 for existing old users"""
-
-    # set PSQL connection & cursor
-    conn = sql_connect_by_psycopg2()
-    cur = conn.cursor()
 
     # add the New User into table users
     cur.execute("""
@@ -320,7 +277,6 @@ def mark_up_onboarding_status_80():
                         reg_period='before' 
                     limit 1;
                 """)
-    conn.commit()
     user_id_to_update = cur.fetchone()
 
     if user_id_to_update:
@@ -334,31 +290,38 @@ def mark_up_onboarding_status_80():
                             VALUES (%s, 'finished', 80, '2023-05-14 12:39:00.000000')
                             ;""",
                     (user_id_to_update,))
-        conn.commit()
 
     else:
         logging.info(f'There are no users to assign onboarding pref_id=80.')
 
-    # close connection & cursor
-    cur.close()
-    conn.close()
-
     return None
-
 
 
 def main(event, context): # noqa
     """main function"""
 
+    # FIXME –testing logging, which, seems, disappeared
+    logging.info(f'this is 1st logging line')
+    print(f'this is 1st print line')
+    # FIXME ^^^
+
+    # set PSQL connection & cursor
+    conn = sql_connect_by_psycopg2()
+    cur = conn.cursor()
+
     try:
-        mark_up_onboarding_status_0()
-        mark_up_onboarding_status_10()
-        mark_up_onboarding_status_20()
-        mark_up_onboarding_status_21_only_msk()
-        mark_up_onboarding_status_80()
+        mark_up_onboarding_status_0(cur)
+        mark_up_onboarding_status_10(cur)
+        mark_up_onboarding_status_20(cur)
+        mark_up_onboarding_status_21_only_msk(cur)
+        mark_up_onboarding_status_80(cur)
 
     except Exception as e:
         logging.error('User activation script failed')
         logging.exception(e)
+
+    # close connection & cursor
+    cur.close()
+    conn.close()
 
     return 'ok'
