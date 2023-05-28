@@ -19,7 +19,7 @@ project_id = urllib.request.urlopen(req).read().decode()
 publisher = pubsub_v1.PublisherClient()
 
 logger = logging.getLogger(__name__)
-
+logger.setLevel(logging.DEBUG)
 
 def process_pubsub_message(event):
     """convert incoming pub/sub message into regular data"""
@@ -312,8 +312,8 @@ def main(event, context): # noqa
     cur = conn.cursor()
 
     try:
-        mark_up_onboarding_status_0(cur)
-        # mark_up_onboarding_status_10(cur)
+        # mark_up_onboarding_status_0(cur)
+        mark_up_onboarding_status_10(cur)
         # mark_up_onboarding_status_20(cur)
         # mark_up_onboarding_status_21_only_msk(cur)
         # mark_up_onboarding_status_80(cur)
