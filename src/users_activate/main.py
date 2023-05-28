@@ -316,7 +316,7 @@ def main(event, context): # noqa
         mark_up_onboarding_status_10(cur)
         mark_up_onboarding_status_20(cur)
         mark_up_onboarding_status_21_only_msk(cur)
-        # mark_up_onboarding_status_80(cur)
+        mark_up_onboarding_status_80(cur)
 
     except Exception as e:
         logging.error('User activation script failed')
