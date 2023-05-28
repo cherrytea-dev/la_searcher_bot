@@ -312,10 +312,10 @@ def main(event, context): # noqa
     cur = conn.cursor()
 
     try:
-        # mark_up_onboarding_status_0(cur)
-        # mark_up_onboarding_status_10(cur)
+        mark_up_onboarding_status_0(cur)
+        mark_up_onboarding_status_10(cur)
         mark_up_onboarding_status_20(cur)
-        # mark_up_onboarding_status_21_only_msk(cur)
+        mark_up_onboarding_status_21_only_msk(cur)
         # mark_up_onboarding_status_80(cur)
 
     except Exception as e:
