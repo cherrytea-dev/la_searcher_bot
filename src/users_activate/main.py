@@ -170,6 +170,134 @@ def mark_up_onboarding_status_0():
     return None
 
 
+def mark_up_onboarding_status_10():
+    """marks up Onboarding step_id=10 ('role_set') for existing old users"""
+
+    # set PSQL connection & cursor
+    conn = sql_connect_by_psycopg2()
+    cur = conn.cursor()
+
+    # add the New User into table users
+    cur.execute("""
+                    select user_id 
+                    from user_view 
+                    where 
+                        reg_period='before' and 
+                        last_msg_role='yes' and 
+                        onb_step IS NULL and 
+                        folder_setting IS NULL 
+                    limit 1;
+                """)
+    conn.commit()
+    user_id_to_update = cur.fetchone()[0]
+
+    if user_id_to_update:
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=10')
+
+        # save onboarding start
+        cur.execute("""
+                            INSERT INTO user_onboarding 
+                            (user_id, step_name, step_id, timestamp) 
+                            VALUES (%s, 'role_set', 10, '2023-05-14 12:39:00.000000')
+                            ;""",
+                    (user_id_to_update,))
+        conn.commit()
+
+    else:
+        logging.info(f'There are no users to assign onboarding pref_id=10.')
+
+    # close connection & cursor
+    cur.close()
+    conn.close()
+
+    return None
+
+
+def mark_up_onboarding_status_20():
+    """marks up Onboarding step_id=20 ('moscow_replied') for existing old users"""
+
+    # set PSQL connection & cursor
+    conn = sql_connect_by_psycopg2()
+    cur = conn.cursor()
+
+    # add the New User into table users
+    cur.execute("""
+                    select user_id 
+                    from user_view 
+                    where 
+                        reg_period='before' and 
+                        last_msg_moscow='yes' and 
+                        onb_step IS NULL and 
+                        folder_setting IS NULL 
+                    limit 1;
+                """)
+    conn.commit()
+    user_id_to_update = cur.fetchone()[0]
+
+    if user_id_to_update:
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=20')
+
+        # save onboarding start
+        cur.execute("""
+                            INSERT INTO user_onboarding 
+                            (user_id, step_name, step_id, timestamp) 
+                            VALUES (%s, 'moscow_replied', 20, '2023-05-14 12:39:00.000000')
+                            ;""",
+                    (user_id_to_update,))
+        conn.commit()
+
+    else:
+        logging.info(f'There are no users to assign onboarding pref_id=20.')
+
+    # close connection & cursor
+    cur.close()
+    conn.close()
+
+    return None
+
+
+def mark_up_onboarding_status_21_only_msk():
+    """marks up Onboarding step_id=21 ('region_set') for existing old users"""
+
+    # set PSQL connection & cursor
+    conn = sql_connect_by_psycopg2()
+    cur = conn.cursor()
+
+    # add the New User into table users
+    cur.execute("""
+                    select user_id 
+                    from user_view 
+                    where 
+                        reg_period='before' and 
+                        last_msg_reg='yes' and 
+                        onb_step IS NULL 
+                    limit 1;
+                """)
+    conn.commit()
+    user_id_to_update = cur.fetchone()[0]
+
+    if user_id_to_update:
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=21')
+
+        # save onboarding start
+        cur.execute("""
+                            INSERT INTO user_onboarding 
+                            (user_id, step_name, step_id, timestamp) 
+                            VALUES (%s, 'region_set', 21, '2023-05-14 12:39:00.000000')
+                            ;""",
+                    (user_id_to_update,))
+        conn.commit()
+
+    else:
+        logging.info(f'There are no users to assign onboarding pref_id=21.')
+
+    # close connection & cursor
+    cur.close()
+    conn.close()
+
+    return None
+
+
 def mark_up_onboarding_status_80():
     """marks up Onboarding step_id=80 for existing old users"""
 
@@ -213,11 +341,15 @@ def mark_up_onboarding_status_80():
     return None
 
 
+
 def main(event, context): # noqa
     """main function"""
 
     try:
         mark_up_onboarding_status_0()
+        mark_up_onboarding_status_10()
+        mark_up_onboarding_status_20()
+        mark_up_onboarding_status_21_only_msk()
         mark_up_onboarding_status_80()
 
     except Exception as e:
