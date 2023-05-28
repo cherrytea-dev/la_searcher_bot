@@ -36,4 +36,4 @@ jobs:
             # max_instances: 1 # UPD HERE!
             # memory_mb: 8192 # UPD HERE!
             event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
-            event_trigger_resource: projects/lizaalert-bot-01/topics/topic_for_user_management # UPD HERE! topic
+            event_trigger_resource: projects/lizaalert-bot-01/topics/users_activate # UPD HERE! topic
