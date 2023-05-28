@@ -18,6 +18,8 @@ project_id = urllib.request.urlopen(req).read().decode()
 
 publisher = pubsub_v1.PublisherClient()
 
+logger = logging.getLogger(__name__)
+
 
 def process_pubsub_message(event):
     """convert incoming pub/sub message into regular data"""
