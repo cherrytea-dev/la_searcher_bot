@@ -1,4 +1,4 @@
-name: Deploy-GCF-Manage-Users
+name: Deploy-GCF-Manage-Users # UPD HERE!
 env:
   FILE_NAME: manage_users # UPD HERE!
 

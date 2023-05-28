@@ -1,6 +1,6 @@
-name: Deploy-GCF-Users-Activate
+name: Deploy-GCF-Users-Activate # UPD HERE!
 env:
-  FILE_NAME: manage_users # UPD HERE!
+  FILE_NAME: users_activate # UPD HERE!
 
 on:
   push:
