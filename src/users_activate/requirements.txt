@@ -1,0 +1,4 @@
+psycopg2-binary==2.9.5
+
+google-cloud-pubsub==2.16.0
+google-cloud-secret-manager==2.16.0
