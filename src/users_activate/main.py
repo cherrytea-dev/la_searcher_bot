@@ -170,12 +170,55 @@ def mark_up_onboarding_status_0():
     return None
 
 
+def mark_up_onboarding_status_80():
+    """marks up Onboarding step_id=80 for existing old users"""
+
+    # set PSQL connection & cursor
+    conn = sql_connect_by_psycopg2()
+    cur = conn.cursor()
+
+    # add the New User into table users
+    cur.execute("""
+                    select user_id 
+                    from user_view 
+                    where 
+                        receives_summaries='yes' and 
+                        notif_setting='yes' and 
+                        onb_step is NULL and 
+                        reg_period='before' 
+                    limit 1;
+                """)
+    conn.commit()
+    user_id_to_update = cur.fetchone()[0]
+
+    if user_id_to_update:
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
+
+        # save onboarding start
+        cur.execute("""
+                            INSERT INTO user_onboarding 
+                            (user_id, step_name, step_id, timestamp) 
+                            VALUES (%s, 'finished', 80, '2023-05-14 12:39:00.000000')
+                            ;""",
+                    (user_id_to_update,))
+        conn.commit()
+
+    else:
+        logging.info(f'There are no users to assign onboarding pref_id=80.')
+
+    # close connection & cursor
+    cur.close()
+    conn.close()
+
+    return None
+
 
 def main(event, context): # noqa
     """main function"""
 
     try:
         mark_up_onboarding_status_0()
+        mark_up_onboarding_status_80()
 
     except Exception as e:
         logging.error('User activation script failed')
