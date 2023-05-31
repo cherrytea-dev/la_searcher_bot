@@ -146,7 +146,7 @@ def mark_up_onboarding_status_0(cur):
                     ;""")
     user_id_to_update = cur.fetchone()
 
-    if user_id_to_update:
+    if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=0')
 
@@ -180,7 +180,7 @@ def mark_up_onboarding_status_10(cur):
                 """)
     user_id_to_update = cur.fetchone()
 
-    if user_id_to_update:
+    if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=10')
 
@@ -214,7 +214,7 @@ def mark_up_onboarding_status_20(cur):
                 """)
     user_id_to_update = cur.fetchone()
 
-    if user_id_to_update:
+    if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=20')
 
@@ -247,7 +247,7 @@ def mark_up_onboarding_status_21_only_msk(cur):
                 """)
     user_id_to_update = cur.fetchone()
 
-    if user_id_to_update:
+    if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=21')
 
@@ -281,9 +281,7 @@ def mark_up_onboarding_status_80(cur):
                 """)
     user_id_to_update = cur.fetchone()
 
-    if user_id_to_update and isinstance(user_id_to_update, tuple):
-        print(user_id_to_update)
-        print(len(user_id_to_update))
+    if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
 
@@ -314,10 +312,10 @@ def main(event, context): # noqa
     cur = conn.cursor()
 
     try:
-        # mark_up_onboarding_status_0(cur)
-        # mark_up_onboarding_status_10(cur)
-        # mark_up_onboarding_status_20(cur)
-        # mark_up_onboarding_status_21_only_msk(cur)
+        mark_up_onboarding_status_0(cur)
+        mark_up_onboarding_status_10(cur)
+        mark_up_onboarding_status_20(cur)
+        mark_up_onboarding_status_21_only_msk(cur)
         mark_up_onboarding_status_80(cur)
 
     except Exception as e:
