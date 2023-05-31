@@ -281,9 +281,9 @@ def mark_up_onboarding_status_80(cur):
                 """)
     user_id_to_update = cur.fetchone()
 
-    if user_id_to_update:
+    if user_id_to_update and isinstance(user_id_to_update, tuple):
         print(user_id_to_update)
-        print(type(user_id_to_update))
+        print(len(user_id_to_update))
         user_id_to_update = user_id_to_update[0]
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
 
