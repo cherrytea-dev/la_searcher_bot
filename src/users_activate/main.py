@@ -232,17 +232,13 @@ def mark_up_onboarding_status_20(cur):
     return None
 
 
-def mark_up_onboarding_status_21_only_msk(cur):
+def mark_up_onboarding_status_21(cur):
     """marks up Onboarding step_id=21 ('region_set') for existing old users"""
 
     # add the New User into table users
     cur.execute("""
                     select user_id 
-                    from user_view 
-                    where 
-                        reg_period='before' and 
-                        last_msg_reg='yes' and 
-                        onb_step IS NULL 
+                    from user_view_21_new 
                     limit 1;
                 """)
     user_id_to_update = cur.fetchone()
@@ -348,7 +344,7 @@ def main(event, context): # noqa
         # mark_up_onboarding_status_0(cur)
         # mark_up_onboarding_status_10(cur)
         # mark_up_onboarding_status_20(cur)
-        # mark_up_onboarding_status_21_only_msk(cur)
+        mark_up_onboarding_status_21(cur)
         # mark_up_onboarding_status_80(cur)
         mark_up_onboarding_status_80_patch(cur)
 
