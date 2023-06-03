@@ -938,29 +938,34 @@ def compose_com_msg_on_first_post_change(message, clickable_name, old_lat, old_l
     list_of_deletions = None
 
     # FIXME – temp:
-    if message and message[0] == '{':
-        message_dict = ast.literal_eval(message) if message else {}
+    try:
+        if message and message[0] == '{':
+            message_dict = ast.literal_eval(message) if message else {}
 
-        if 'del' in message_dict.keys() and 'add' in message_dict.keys():
-            message = ''
-            list_of_deletions = message_dict['del']
-            if list_of_deletions:
-                message += '➖Удалено:\n<s>'
-                for line in list_of_deletions:
-                    message += f'{line}\n'
-                message += '</s>'
+            if 'del' in message_dict.keys() and 'add' in message_dict.keys():
+                message = ''
+                list_of_deletions = message_dict['del']
+                if list_of_deletions:
+                    message += '➖Удалено:\n<s>'
+                    for line in list_of_deletions:
+                        message += f'{line}\n'
+                    message += '</s>'
 
-            list_of_additions = message_dict['add']
-            if list_of_additions:
-                if message:
-                    message += '\n'
-                message += '➕Добавлено:\n'
-                for line in list_of_additions:
-                    # majority of coords in RU: lat in [30-80], long in [20-180]
-                    updated_line = re.sub(coord_pattern, '<code>\g<0></code>', line)
-                    message += f'{updated_line}\n'
-        else:
-            message = message_dict['message']
+                list_of_additions = message_dict['add']
+                if list_of_additions:
+                    if message:
+                        message += '\n'
+                    message += '➕Добавлено:\n'
+                    for line in list_of_additions:
+                        # majority of coords in RU: lat in [30-80], long in [20-180]
+                        updated_line = re.sub(coord_pattern, '<code>\g<0></code>', line)
+                        message += f'{updated_line}\n'
+            else:
+                message = message_dict['message']
+    except Exception as e:
+        logging.exception(e)
+        logging.info(f'EXCEPTION in compose_com_msg_on_first_post_change for message={message}')
+        message = ''
     # FIXME ^^^
 
     # TODO: adding Variance of Coordinates:
@@ -989,10 +994,14 @@ def compose_com_msg_on_first_post_change(message, clickable_name, old_lat, old_l
 
     except Exception as e:
         notify_admin(f'HEY! something was broken in this new process! {message}')
+        resulting_message = ''
         logging.exception(e)
     # TODO ^^^
 
-    resulting_message = f'🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}{coord_change_phrase}'
+    if message:
+        resulting_message = f'🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}{coord_change_phrase}'
+    else:
+        resulting_message = ''
 
     return resulting_message
 
