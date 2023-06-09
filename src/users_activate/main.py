@@ -458,8 +458,9 @@ def main(event, context): # noqa
         # mark_up_onboarding_status_80(cur)
         # mark_up_onboarding_status_80_patch(cur)
         # mark_up_onboarding_status_80_wo_dialogs(cur)
-        mark_up_onboarding_status_0_2(cur)
-        mark_up_onboarding_status_10_2(cur)
+        for i in range(5):
+            mark_up_onboarding_status_0_2(cur)
+            mark_up_onboarding_status_10_2(cur)
 
     except Exception as e:
         logging.error('User activation script failed')
