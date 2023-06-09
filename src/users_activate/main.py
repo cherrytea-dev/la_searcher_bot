@@ -164,6 +164,47 @@ def mark_up_onboarding_status_0(cur):
     return None
 
 
+def mark_up_onboarding_status_0_2(cur):
+    """marks up Onboarding step_id=0 for existing old users"""
+
+    # add the New User into table users
+    cur.execute("""
+                    with 
+                        reg_setting AS (
+                            select distinct user_id, 'yes' folder_setting
+                            from user_regional_preferences), 
+                        onboard_step AS (                                                                                                                                                   
+                            select user_id, MAX(step_id) AS onb_step
+                            from user_onboarding GROUP BY 1) 
+                    
+                    SELECT u.user_id from users as u 
+                    LEFT JOIN reg_setting AS rs 
+                    ON rs.user_id=u.user_id 
+                    LEFT JOIN onboard_step AS o 
+                    ON o.user_id=u.user_id 
+                    WHERE o.onb_step IS NULL and rs.folder_setting IS NULL and u.role is null
+                    LIMIT 1
+                    ;""")
+    user_id_to_update = cur.fetchone()
+
+    if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
+        user_id_to_update = user_id_to_update[0]
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=0')
+
+        # save onboarding start
+        cur.execute("""
+                            INSERT INTO user_onboarding 
+                            (user_id, step_name, step_id, timestamp) 
+                            VALUES (%s, 'start', 0, '2023-05-14 12:39:00.000000')
+                            ;""",
+                    (user_id_to_update,))
+
+    else:
+        logging.info(f'There are no users to assign onboarding pref_id=0.')
+
+    return None
+
+
 def mark_up_onboarding_status_10(cur):
     """marks up Onboarding step_id=10 ('role_set') for existing old users"""
 
@@ -376,7 +417,8 @@ def main(event, context): # noqa
         # mark_up_onboarding_status_21(cur)
         # mark_up_onboarding_status_80(cur)
         # mark_up_onboarding_status_80_patch(cur)
-        mark_up_onboarding_status_80_wo_dialogs(cur)
+        # mark_up_onboarding_status_80_wo_dialogs(cur)
+        mark_up_onboarding_status_0_2(cur)
 
     except Exception as e:
         logging.error('User activation script failed')
