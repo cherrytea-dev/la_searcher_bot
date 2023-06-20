@@ -526,6 +526,12 @@ def mark_up_onboarding_status_80_self_deactivated(cur):
                             VALUES (%s, 'finished', 80, '2023-05-14 12:39:00.000000')
                             ;""",
                     (user_id_to_update,))
+        # save onboarding start
+        cur.execute("""
+                            DELETE FROM temp_onb_step_157 
+                            WHERE user_id=%s 
+                                    ;""",
+                    (user_id_to_update,))
 
     else:
         logging.info(f'There are no users to assign onboarding pref_id=80.')
