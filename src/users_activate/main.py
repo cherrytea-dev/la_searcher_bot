@@ -497,6 +497,42 @@ def mark_up_onboarding_status_80_have_all_settings(cur):
     return None
 
 
+def mark_up_onboarding_status_80_self_deactivated(cur):
+    """marks up Onboarding step_id=80 for existing old users"""
+
+    # add the New User into table users
+    cur.execute("""
+                    WITH step_0 AS (
+                        select t.user_id, CASE WHEN d.message_text LIKE 'отключ%' THEN 1 ELSE 0 END user_forced 
+                        from temp_onb_step_157 AS t 
+                        LEFT JOIN dialogs as d 
+                        ON t.user_id=d.user_id) 
+                    select user_id 
+                    from step_0 
+                    GROUP BY 1 
+                    HAVING max(user_forced) > 0
+                    limit 1;
+                """)
+    user_id_to_update = cur.fetchone()
+
+    if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
+        user_id_to_update = user_id_to_update[0]
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
+
+        # save onboarding start
+        cur.execute("""
+                            INSERT INTO user_onboarding 
+                            (user_id, step_name, step_id, timestamp) 
+                            VALUES (%s, 'finished', 80, '2023-05-14 12:39:00.000000')
+                            ;""",
+                    (user_id_to_update,))
+
+    else:
+        logging.info(f'There are no users to assign onboarding pref_id=80.')
+
+    return None
+
+
 def main(event, context): # noqa
     """main function"""
 
@@ -521,8 +557,9 @@ def main(event, context): # noqa
         for i in range(5):
             # mark_up_onboarding_status_0_2(cur)
             # mark_up_onboarding_status_10_2(cur)
-            mark_up_onboarding_status_80_just_got_summaries(cur)
-            mark_up_onboarding_status_80_have_all_settings(cur)
+            # mark_up_onboarding_status_80_just_got_summaries(cur)
+            # mark_up_onboarding_status_80_have_all_settings(cur)
+            mark_up_onboarding_status_80_self_deactivated(cur)
 
     except Exception as e:
         logging.error('User activation script failed')
