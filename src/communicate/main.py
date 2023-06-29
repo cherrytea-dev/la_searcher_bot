@@ -1307,10 +1307,7 @@ def get_the_update(bot, request):
         logging.error('request received has no update')
         update = None
 
-    logging.info(f'update received: {update}')
-    logging.info(f'{type(update)=}')
-    logging.info(f'{update.effective_user=}')
-    logging.info(f'just checking the get_json = {request.get_json(force=True)}')
+    logging.info(f'update received: {request.get_json(force=True)}')
 
     return update
 
@@ -1336,12 +1333,19 @@ def get_basic_update_parameters(update):
     if not channel_type:
         channel_type = get_param_if_exists(update, 'update.my_chat_member.chat.type')
 
-    username = get_param_if_exists(update, 'update.effective_message.from_user.username')
-
     # the purpose of this bot - sending messages to unique users, this way
     # chat_id is treated as user_id and vice versa (which is not true in general)
 
-    user_id = get_param_if_exists(update, 'update.effective_message.from_user.id')
+    user_id = update.effective_user.id
+    username = update.effective_user.username
+
+    if not username:
+        logging.exception(f'EFFECTIVE USER.USERNAME IS NOT GIVEN!')
+        username = get_param_if_exists(update, 'update.effective_message.from_user.username')
+
+    if not user_id:
+        logging.exception(f'EFFECTIVE USER.ID IS NOT GIVEN!')
+        user_id = get_param_if_exists(update, 'update.effective_message.from_user.id')
     if not user_id:
         user_id = get_param_if_exists(update, 'update.effective_message.chat.id')
     if not user_id:
@@ -1944,7 +1948,6 @@ def main(request):
     # ONBOARDING PHASE
     if onboarding_step_id < 80:
         onboarding_step_id = run_onboarding(user_id, username, onboarding_step_id, got_message)
-
 
     # get coordinates from the text
     if bot_request_bfr_usr_msg == 'input_of_coords_man':
