@@ -1308,6 +1308,9 @@ def get_the_update(bot, request):
         update = None
 
     logging.info(f'update received: {update}')
+    logging.info(f'{type(update)=}')
+    logging.info(f'{update.effective_user=}')
+    logging.info(f'just checking the get_json = {request.get_json(force=True)}')
 
     return update
 
