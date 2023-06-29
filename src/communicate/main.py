@@ -1340,8 +1340,9 @@ def get_basic_update_parameters(update):
     username = update.effective_user.username
 
     if not username:
-        logging.exception(f'EFFECTIVE USER.USERNAME IS NOT GIVEN!')
         username = get_param_if_exists(update, 'update.effective_message.from_user.username')
+        if username:
+            logging.exception(f'EFFECTIVE_USER.USERNAME IS NOT GIVEN! BUT WE\'VE GOT IT FROM EFF_MESSAGE!')
 
     if not user_id:
         logging.exception(f'EFFECTIVE USER.ID IS NOT GIVEN!')
