@@ -9,6 +9,7 @@ import psycopg2
 import urllib.request
 
 from google.cloud import secretmanager, pubsub_v1
+import google.cloud.logging
 
 import asyncio
 from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove
@@ -20,6 +21,9 @@ req = urllib.request.Request(url)
 req.add_header("Metadata-Flavor", "Google")
 project_id = urllib.request.urlopen(req).read().decode()
 client = secretmanager.SecretManagerServiceClient()
+
+log_client = google.cloud.logging.Client()
+log_client.setup_logging()
 
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
 # Important – these are not errors, but jest informational warnings that there were retries, that's why we exclude them
@@ -1230,13 +1234,40 @@ def check_onboarding_step(cur, user_id, user_is_new):
         if raw_data:
             step_id, step_name, time = list(raw_data)
         else:
-            step_id, step_name = None, None
+            step_id, step_name = 99, None
 
     except Exception as e:
         logging.exception(e)
-        step_id, step_name = None, None
+        step_id, step_name = 99, None
 
     return step_id, step_name
+
+
+async def leave_chat_async(context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.leave_chat(chat_id=context.job.chat_id)
+
+    return None
+
+
+async def prepare_message_for_leave_chat_async(user_id):
+    bot_token = get_secrets("bot_api_token__prod")
+    application = Application.builder().token(bot_token).build()
+    job_queue = application.job_queue
+    job = job_queue.run_once(leave_chat_async, 0, chat_id=user_id)
+
+    async with application:
+        await application.initialize()
+        await application.start()
+        await application.stop()
+        await application.shutdown()
+
+    return 'ok'
+
+
+def process_leaving_chat_async(user_id) -> None:
+    asyncio.run(prepare_message_for_leave_chat_async(user_id))
+
+    return None
 
 
 async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
@@ -1358,12 +1389,15 @@ def process_unneeded_messages(update, user_id, timer_changed, photo, document, v
 
         try:
             # TODO: should be refactored for PTB 20.2
+            process_leaving_chat_async(user_id)
             # bot.leaveChat(user_id)
             # TODO ^^^
-            notify_admin('[comm]: INFO: we EMULATED that we left the CHANNEL! BUT WE HAVE NOT')
+            notify_admin(f'[comm]: INFO: we tried to leave CHANNEL {user_id}! BUT dont know if we did')
 
         except Exception as e:
-            logging.error('[comm]: Leaving channel was not successful:' + repr(e))
+            logging.info(f'[comm]: Leaving channel  was not successful: {user_id}')
+            logging.exception(e)
+            notify_admin(f'[comm]: INFO: we tried to leave CHANNEL {user_id}! BUT dont know if we did')
 
     # CASE 5 – when user sends Contact
     elif contact:
@@ -1432,6 +1466,78 @@ def save_user_message_to_bot(cur, user_id, got_message):
                 (user_id, 'user', datetime.datetime.now(), got_message))
 
     return None
+
+
+def get_coordinates_from_string(got_message, lat_placeholder, lon_placeholder):
+    """gets coordinates from string"""
+
+    user_latitude, user_longitude = None, None
+    # Check if user input is in format of coordinates
+    # noinspection PyBroadException
+    try:
+        numbers = [float(s) for s in re.findall(r'-?\d+\.?\d*', got_message)]
+        if numbers and len(numbers) > 1 and 30 < numbers[0] < 80 and 10 < numbers[1] < 190:
+            user_latitude = numbers[0]
+            user_longitude = numbers[1]
+    except Exception as e:
+        logging.info(f'manual coordinates were not identified from string {got_message}')
+
+    if not (user_latitude and user_longitude):
+        user_latitude = lat_placeholder
+        user_longitude = lon_placeholder
+
+    return user_latitude, user_longitude
+
+
+def process_user_coordinates(cur, user_id, user_latitude, user_longitude, b_coords_check, b_coords_del, b_back_to_start,
+                             bot_request_aft_usr_msg):
+    """process coordinates which user sent to bot"""
+
+    save_user_coordinates(cur, user_id, user_latitude, user_longitude)
+
+    bot_message = 'Ваши "домашние координаты" сохранены:\n'
+    bot_message += generate_yandex_maps_place_link(user_latitude, user_longitude, 'coords')
+    bot_message += '\nТеперь для всех поисков, где удастся распознать координаты штаба или ' \
+                   'населенного пункта, будет указываться направление и расстояние по ' \
+                   'прямой от ваших "домашних координат".'
+
+    keyboard_settings = [[b_coords_check], [b_coords_del], [b_back_to_start]]
+    reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
+
+    data = {'text': bot_message, 'reply_markup': reply_markup,
+            'parse_mode': 'HTML', 'disable_web_page_preview': True}
+    process_sending_message_async(user_id=user_id, data=data)
+    # msg_sent_by_specific_code = True
+
+    # saving the last message from bot
+    if not bot_request_aft_usr_msg:
+        bot_request_aft_usr_msg = 'not_defined'
+
+    try:
+        cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
+
+        cur.execute("""INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);""",
+                    (user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
+
+    except Exception as e:
+        logging.info('failed to update the last saved message from bot')
+        logging.exception(e)
+
+    save_bot_reply_to_user(cur, user_id, bot_message)
+
+    return None
+
+
+def run_onboarding(user_id, username, onboarding_step_id, got_message):
+    """part of the script responsible for orchestration of activities for non-finally-onboarded users"""
+
+    if onboarding_step_id == 21:  # region_set
+        # mark that onboarding is finished
+        if got_message:
+            save_onboarding_step(user_id, username, 'finished')
+            onboarding_step_id = 80
+
+    return onboarding_step_id
 
 
 def main(request):
@@ -1826,68 +1932,34 @@ def main(request):
     onboarding_step_id, onboarding_step_name = check_onboarding_step(cur, user_id, user_is_new)
     user_regions = get_user_reg_folders_preferences(cur, user_id)
 
-    # placeholder for the New message from bot as reply to "update". Placed here – to avoid errors of GCF
-    bot_message = ''
-
     # Check what was last request from bot and if bot is expecting user's input
     bot_request_bfr_usr_msg = get_last_bot_msg(cur, user_id)
 
+    # placeholder for the New message from bot as reply to "update". Placed here – to avoid errors of GCF
+    bot_message = ''
+
+    # ONBOARDING PHASE
+    if onboarding_step_id < 80:
+        onboarding_step_id = run_onboarding()
+
+
     # get coordinates from the text
     if bot_request_bfr_usr_msg == 'input_of_coords_man':
+        user_latitude, user_longitude = get_coordinates_from_string(got_message, user_latitude, user_longitude)
 
-        # Check if user input is in format of coordinates
-        # noinspection PyBroadException
-        try:
-            numbers = [float(s) for s in re.findall(r'-?\d+\.?\d*', got_message)]
-            if numbers and len(numbers) > 1 and 30 < numbers[0] < 80 and 10 < numbers[1] < 190:
-                user_latitude = numbers[0]
-                user_longitude = numbers[1]
-        except Exception:
-            pass
+    # if there is any coordinates from user
+    if user_latitude and user_longitude:
+        process_user_coordinates(cur, user_id, user_latitude, user_longitude, b_coords_check, b_coords_del,
+                                 b_back_to_start, bot_request_aft_usr_msg)
+        cur.close()
+        conn_psy.close()
+
+        return 'finished successfully. in was a message with user coordinates'
 
     try:
 
-        # if there is any coordinates from user
-        if user_latitude:
-
-            save_user_coordinates(cur, user_id, user_latitude, user_longitude)
-
-            bot_message = 'Ваши "домашние координаты" сохранены:\n'
-            bot_message += generate_yandex_maps_place_link(user_latitude, user_longitude, 'coords')
-            bot_message += '\nТеперь для всех поисков, где удастся распознать координаты штаба или ' \
-                           'населенного пункта, будет указываться направление и расстояние по ' \
-                           'прямой от ваших "домашних координат".'
-
-            keyboard_settings = [[b_coords_check], [b_coords_del], [b_back_to_start]]
-            reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
-
-            data = {'text': bot_message, 'reply_markup': reply_markup,
-                    'parse_mode': 'HTML', 'disable_web_page_preview': True}
-            process_sending_message_async(user_id=user_id, data=data)
-            # msg_sent_by_specific_code = True
-
-            # saving the last message from bot
-            if not bot_request_aft_usr_msg:
-                bot_request_aft_usr_msg = 'not_defined'
-
-            try:
-                cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
-
-                cur.execute("""INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);""",
-                            (user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
-
-            except Exception as e:
-                logging.info('failed to update the last saved message from bot')
-                logging.exception(e)
-
         # if there is a text message from user
-        elif got_message:
-
-            if onboarding_step_id == 21:  # region_set
-                # mark that onboarding is finished
-                if got_message:
-                    save_onboarding_step(user_id, username, 'finished')
-                    onboarding_step_id = 80
+        if got_message:
 
             # if pushed \start
             if got_message == b_start:
@@ -2003,9 +2075,11 @@ def main(request):
                                   'https://takiedela.ru/news/2019/05/25/instrukciya-liza-alert/\n\n' \
                                   'Задачи, которые можно выполнять даже без специальной подготовки, ' \
                                   'выполняют Поисковики "на месте поиска". Этот Бот как раз старается ' \
-                                  'помогать именно Поисковикам.' \
+                                  'помогать именно Поисковикам. ' \
                                   'Есть хороший сайт, рассказывающий, как начать участвовать в поиске: ' \
-                                  'https://xn--b1afkdgwddgp9h.xn--p1ai/\n\n' \
+                                  'https://xn--b1afkdgwddgp9h.xn--p1ai/\n\n'\
+                                  'В случае любых вопросов – не стесняйтесь, обращайтесь на общий телефон, ' \
+                                  '8 800 700-54-52, где вам помогут с любыми вопросами при вступлении в отряд.\n\n' \
                                   'А если вы "из мира IT" и готовы помогать развитию этого Бота,' \
                                   'пишите нам в специальный чат https://t.me/+2J-kV0GaCgwxY2Ni\n\n' \
                                   'Надеемся, эта информацию оказалась полезной. ' \
