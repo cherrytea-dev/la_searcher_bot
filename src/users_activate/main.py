@@ -2,13 +2,14 @@ import base64
 
 import json
 import datetime
-import logging
+## import logging
 import urllib.request
 
 import psycopg2
 
 from google.cloud import pubsub_v1
 from google.cloud import secretmanager
+from google.cloud import logging
 
 
 url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
@@ -18,8 +19,11 @@ project_id = urllib.request.urlopen(req).read().decode()
 
 publisher = pubsub_v1.PublisherClient()
 
+logger = google.cloud.logging.Client()
+logger.setup_logging()
+
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.DEBUG)
 
 def process_pubsub_message(event):
     """convert incoming pub/sub message into regular data"""
