@@ -1943,7 +1943,7 @@ def main(request):
 
     # ONBOARDING PHASE
     if onboarding_step_id < 80:
-        onboarding_step_id = run_onboarding()
+        onboarding_step_id = run_onboarding(user_id, username, onboarding_step_id, got_message)
 
 
     # get coordinates from the text
