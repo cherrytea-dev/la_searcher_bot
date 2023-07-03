@@ -1336,14 +1336,14 @@ def get_basic_update_parameters(update):
     # the purpose of this bot - sending messages to unique users, this way
     # chat_id is treated as user_id and vice versa (which is not true in general)
 
-    user_id = update.effective_user.id
-    username = update.effective_user.username
+    username = get_param_if_exists(update, 'update.effective_user.username')
 
     if not username:
         username = get_param_if_exists(update, 'update.effective_message.from_user.username')
         if username:
             logging.exception(f'EFFECTIVE_USER.USERNAME IS NOT GIVEN! BUT WE\'VE GOT IT FROM EFF_MESSAGE!')
 
+    user_id = get_param_if_exists(update, 'update.effective_user.id')
     if not user_id:
         logging.exception(f'EFFECTIVE USER.ID IS NOT GIVEN!')
         user_id = get_param_if_exists(update, 'update.effective_message.from_user.id')

@@ -1456,8 +1456,8 @@ def recognize_title(line):
             patterns = [
                 r'(\W[\w-]{3,20}\W)?с\.п\..*',
                 r'(?i)\W(дер\.|деревня|село|пос\.|урочище|ур\.|станица|хутор|пгт|аул|городок|город\W|пос\W|улус\W|'
-                r'садовое тов|[сc][нh][тt]|ст\W|р\.п\.|жск|тсн|тлпх|днт|днп|о.п.|б/о|ж/м|ж/р|база\W|местечко|кп\.|го\W|'
-                r'рп|коллективный сад|г-к|г\.о\W|ми?крн?|м-н|улица|квартал|'
+                r'садовое тов|[сc][нh][тt]|ст\W|р\.п\.|жск|тсн|тлпх|днт|днп|о.п.|б/о|ж/м|ж/р|база\W|местечко|кп[.\s]|'
+                r'го\W|рп|коллективный сад|г-к|г\.о\W|ми?крн?|м-н|улица|квартал|'
                 r'([\w-]{3,20}\W)?(р-о?н|район|гп|ао|обл\.?|г\.о|мост|берег|пристань|шоссе|окр\W)|'
                 r'ж[/.]д|жд\W|пл\.|тер\.|массив|'
                 r'москва|([свзюцн]|юв|св|сз|юз|зел)ао\W|мо\W|одинцово|санкт-петербург|краснодар|адлер|сочи|'
@@ -2951,7 +2951,7 @@ def update_change_log_and_searches(db, folder_num):
                              e=line.parameters, f=line.change_type)
 
         '''2. move ADD to Change Log '''
-        new_searches_from_snapshot_list = []
+        new_topics_from_snapshot_list = []
 
         for snapshot_line in curr_snapshot_list:
             new_search_flag = 1
@@ -2961,37 +2961,45 @@ def update_change_log_and_searches(db, folder_num):
                     break
 
             if new_search_flag == 1:
-                new_searches_from_snapshot_list.append(snapshot_line)
+                new_topics_from_snapshot_list.append(snapshot_line)
 
-        change_log_new_searches_list = []
+        change_log_new_topics_list = []
 
-        for snapshot_line in new_searches_from_snapshot_list:
+        for snapshot_line in new_topics_from_snapshot_list:
+            topic_type_id = snapshot_line.topic_type_id
+            if topic_type_id == 10:
+                change_type_id = 9
+                change_type_name = 'new_event'
+            else:
+                change_type_id = 0
+                change_type_name = 'new_search'
+
             change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
                                             topic_id=snapshot_line.topic_id,
-                                            changed_field='new_search',
+                                            changed_field=change_type_name,
                                             new_value=snapshot_line.title,
                                             parameters='',
-                                            change_type=0)
-            change_log_new_searches_list.append(change_log_line)
+                                            change_type=change_type_id)
+            change_log_new_topics_list.append(change_log_line)
 
-        if change_log_new_searches_list:
+        if change_log_new_topics_list:
             stmt = sqlalchemy.text(
                 """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type) 
                 values (:a, :b, :c, :d, :e);"""
             )
-            for line in change_log_new_searches_list:
+            for line in change_log_new_topics_list:
                 conn.execute(stmt, a=line.parsed_time, b=line.topic_id, c=line.changed_field,
                              d=line.new_value, e=line.change_type)
 
         '''3. ADD to Searches'''
-        if new_searches_from_snapshot_list:
+        if new_topics_from_snapshot_list:
             stmt = sqlalchemy.text(
                 """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, 
                 search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, 
                 display_name, age_min, age_max, status, city_locations, topic_type_id) 
                 VALUES (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
             )
-            for line in new_searches_from_snapshot_list:
+            for line in new_topics_from_snapshot_list:
                 conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
                              e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
                              j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max, n=line.new_status,
@@ -3064,7 +3072,7 @@ def update_change_log_and_searches(db, folder_num):
                 search.name, search.age, search.id, search.folder_id = list(searches_line)
             curr_searches_list.append(search)
 
-        new_searches_from_snapshot_list = []
+        new_topics_from_snapshot_list = []
 
         for snapshot_line in curr_snapshot_list:
             new_search_flag = 1
@@ -3073,15 +3081,15 @@ def update_change_log_and_searches(db, folder_num):
                     new_search_flag = 0
                     break
             if new_search_flag == 1:
-                new_searches_from_snapshot_list.append(snapshot_line)
-        if new_searches_from_snapshot_list:
+                new_topics_from_snapshot_list.append(snapshot_line)
+        if new_topics_from_snapshot_list:
             stmt = sqlalchemy.text(
                 """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, 
                 search_start_time, num_of_replies, age, family_name, forum_folder_id, 
                 topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id) values 
                 (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
             )
-            for line in new_searches_from_snapshot_list:
+            for line in new_topics_from_snapshot_list:
                 conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
                              e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
                              j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max,
@@ -3185,7 +3193,7 @@ def get_the_list_of_ignored_folders(db):
     conn = db.connect()
 
     sql_text = sqlalchemy.text(
-        """SELECT folder_id FROM folders WHERE folder_type != 'searches';"""
+        """SELECT folder_id FROM folders WHERE folder_type != 'searches' AND folder_type != 'events';"""
     )
     raw_list = conn.execute(sql_text).fetchall()
 
