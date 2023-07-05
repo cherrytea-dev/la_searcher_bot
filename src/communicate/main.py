@@ -1396,16 +1396,13 @@ def process_unneeded_messages(update, user_id, timer_changed, photo, document, v
         notify_admin('[comm]: INFO: CHANNEL sends messages to bot!')
 
         try:
-            # TODO: should be refactored for PTB 20.2
             process_leaving_chat_async(user_id)
-            # bot.leaveChat(user_id)
-            # TODO ^^^
-            notify_admin(f'[comm]: INFO: we tried to leave CHANNEL {user_id}! BUT dont know if we did')
+            notify_admin(f'[comm]: INFO: we have left the CHANNEL {user_id}')
 
         except Exception as e:
-            logging.info(f'[comm]: Leaving channel  was not successful: {user_id}')
+            logging.info(f'[comm]: Leaving channel was not successful: {user_id}')
             logging.exception(e)
-            notify_admin(f'[comm]: INFO: we tried to leave CHANNEL {user_id}! BUT dont know if we did')
+            notify_admin(f'[comm]: Leaving channel was not successful: {user_id}')
 
     # CASE 5 – when user sends Contact
     elif contact:
