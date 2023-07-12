@@ -398,6 +398,7 @@ def update_first_posts_and_statuses():
                          r'value="\S{32}"',
                          r'value="\S{40}"',
                          r'sid=\S{32}&amp;',
+                         r'всего редактировалось \d+ раз.', ##AK:issue#9
                          r'<span class="footer-info"><span title="SQL time:.{120,130}</span></span>'
                          ]
 
