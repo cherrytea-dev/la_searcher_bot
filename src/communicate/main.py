@@ -2335,8 +2335,8 @@ def main(request):
                               'будет рассчитываться расстояние и направление до места поиска. Вы в любой ' \
                               'момент сможете изменить эти настройки.'
                 keyboard_settings = [[b_set_pref_notif_type], [b_menu_set_region], [b_set_pref_coords],
-                                     [b_set_pref_radius], [b_set_pref_age],
-                                     [b_back_to_start]]
+                                     [b_set_pref_radius], [b_set_pref_age], [b_set_forum_nick],
+                                     [b_back_to_start]] ##AK added b_set_forum_nick for issue #6
                 reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
 
             elif got_message == b_set_pref_coords:
