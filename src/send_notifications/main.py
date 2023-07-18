@@ -9,7 +9,9 @@ import json
 import psycopg2
 import urllib.request
 
-from telegram import Bot, error
+import asyncio
+from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove, error
+from telegram.ext import ContextTypes, Application
 
 from google.cloud import secretmanager
 from google.cloud import pubsub_v1
@@ -109,6 +111,60 @@ def notify_admin(message):
     return None
 
 
+async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
+
+    return None
+
+
+async def prepare_message_for_async(user_id, data):
+    bot_token = get_secrets("bot_api_token__prod")
+    application = Application.builder().token(bot_token).build()
+    job_queue = application.job_queue
+    job = job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
+
+    async with application:
+        await application.initialize()
+        await application.start()
+        await application.stop()
+        await application.shutdown()
+
+    return 'ok'
+
+
+def process_sending_message_async(user_id, data) -> None:
+    asyncio.run(prepare_message_for_async(user_id, data))
+
+    return None
+
+
+async def send_location_async(context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_location(chat_id=context.job.chat_id, **context.job.data)
+
+    return None
+
+
+async def prepare_location_for_async(user_id, data):
+    bot_token = get_secrets("bot_api_token__prod")
+    application = Application.builder().token(bot_token).build()
+    job_queue = application.job_queue
+    job = job_queue.run_once(send_location_async, 0, data=data, chat_id=user_id)
+
+    async with application:
+        await application.initialize()
+        await application.start()
+        await application.stop()
+        await application.shutdown()
+
+    return 'ok'
+
+
+def process_sending_location_async(user_id, data) -> None:
+    asyncio.run(prepare_location_for_async(user_id, data))
+
+    return None
+
+
 def check_for_notifs_to_send(cur):
     """return a notification which should be sent"""
 
@@ -181,10 +237,17 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
     try:
 
         if message_type == 'text':
-            bot.sendMessage(chat_id=user_id, text=message_content, **message_params)
+
+            data = {'text': message_content}
+            if message_params:
+                data = data | message_params
+
+            process_sending_message_async(user_id=user_id, data=data)
 
         elif message_type == 'coords':
-            bot.sendLocation(chat_id=user_id, **message_params)
+
+            process_sending_location_async(user_id=user_id, data=message_params)
+
 
         result = 'completed'
 
@@ -514,7 +577,7 @@ def finish_time_analytics(notif_times):
     return None
 
 
-def main_func(event, context):
+def main(event, context):
     """Main function that is triggered by pub/sub"""
 
     global analytics_notif_times

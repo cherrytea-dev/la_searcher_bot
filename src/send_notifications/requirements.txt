@@ -1,8 +1,9 @@
 urllib3==1.26.4
 psycopg2==2.8.6
 
-python-telegram-bot==13.4.1
+python-telegram-bot[rate-limiter, job-queue]==20.2
+httpx==0.23.3
 
-google-cloud-pubsub==2.6.0
-google-cloud-secret-manager==2.4.0
-
+google-cloud-pubsub==2.16.0
+google-cloud-secret-manager==2.16.0
+google-cloud-logging==3.5.0
