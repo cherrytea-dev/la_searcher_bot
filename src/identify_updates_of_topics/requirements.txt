@@ -4,7 +4,7 @@ idna==2.10  # translation of domain names
 certifi==2020.12.5  # SSL certificates
 
 beautifulsoup4==4.9.3  # BS4
-lxml==4.6.3  # for BS4
+lxml==4.9.1  # for BS4
 
 chardet==4.0.0  # encoding detector
 cchardet==2.1.7  # encoding detector

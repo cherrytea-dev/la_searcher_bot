@@ -1,7 +1,7 @@
 requests==2.25.1
 urllib3==1.26.4
 beautifulsoup4==4.9.3
-lxml==4.6.3
+lxml==4.9.1
 pg8000==1.19.4
 psycopg2==2.8.6
 
