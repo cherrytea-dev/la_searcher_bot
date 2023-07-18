@@ -1,21 +1,31 @@
 import os
 import base64
-from google.cloud import secretmanager
+import urllib.request
+import datetime
+import logging
 import requests
 import re
 import urllib.parse
 from time import sleep
+
 from bs4 import BeautifulSoup
-from telegram import ReplyKeyboardMarkup, Bot
 import psycopg2
-import datetime
-import logging
+
+import asyncio
+from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove, error
+from telegram.ext import ContextTypes, Application
+
+from google.cloud import secretmanager
+import google.cloud.logging
 
 project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
 session = requests.Session()
 cur = None
 conn_psy = None
+
+log_client = google.cloud.logging.Client()
+log_client.setup_logging()
 
 
 class ForumUser:
@@ -68,6 +78,33 @@ def sql_connect_by_psycopg2():
 
     conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
     cur = conn_psy.cursor()
+
+
+async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
+
+    return None
+
+
+async def prepare_message_for_async(user_id, data):
+    bot_token = get_secrets("bot_api_token__prod")
+    application = Application.builder().token(bot_token).build()
+    job_queue = application.job_queue
+    job = job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
+
+    async with application:
+        await application.initialize()
+        await application.start()
+        await application.stop()
+        await application.shutdown()
+
+    return 'ok'
+
+
+def process_sending_message_async(user_id, data) -> None:
+    asyncio.run(prepare_message_for_async(user_id, data))
+
+    return None
 
 
 def login_into_forum(forum_bot_password):
@@ -363,7 +400,9 @@ def main(event, context):
             logging.exception(e)
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    bot.sendMessage(chat_id=tg_user_id, text=bot_message, reply_markup=reply_markup, parse_mode='HTML')
+    data = {'text': bot_message, 'reply_markup': reply_markup,
+            'parse_mode': 'HTML', 'disable_web_page_preview': True}
+    process_sending_message_async(user_id=tg_user_id, data=data)
 
     # save bot's reply to incoming request
     if bot_message:

@@ -10,5 +10,6 @@ pytz==2021.1  # timezone
 SQLAlchemy==1.4.11
 pg8000==1.19.4  # PSQL driver
 
-google-cloud-pubsub==2.6.0
-google-cloud-secret-manager==2.4.0
+google-cloud-pubsub==2.16.0
+google-cloud-secret-manager==2.16.0
+google-cloud-logging==3.5.0
