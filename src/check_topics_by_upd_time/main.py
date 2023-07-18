@@ -1,16 +1,24 @@
-import os
+
 import json
 import datetime
 import requests
 import logging
+import urllib.request
 
 from bs4 import BeautifulSoup, SoupStrainer # noqa
 
 from google.cloud import pubsub_v1
+import google.cloud.logging
 
+url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+req = urllib.request.Request(url)
+req.add_header("Metadata-Flavor", "Google")
+project_id = urllib.request.urlopen(req).read().decode()
 
-project_id = os.environ["GCP_PROJECT"]
 publisher = pubsub_v1.PublisherClient()
+
+log_client = google.cloud.logging.Client()
+log_client.setup_logging()
 
 
 def check_updates_in_folder_with_folders(start_folder_num):
