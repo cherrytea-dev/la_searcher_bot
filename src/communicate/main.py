@@ -1159,7 +1159,7 @@ def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_no
 
 def manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_to_start,
                             bot_request_bfr_usr_msg, b_admin_menu, b_test_menu, b_yes_its_me, b_no_its_not_me,
-                            b_settings):
+                            b_settings, reply_markup_main):
     bot_message, reply_markup, bot_request_aft_usr_msg = None, None, None
 
     if got_message == b_set_forum_nick:
@@ -1200,6 +1200,10 @@ def manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_
         keyboard = [[b_set_forum_nick], [b_back_to_start]]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         bot_request_aft_usr_msg = 'input_of_forum_username'
+
+    elif got_message == b_back_to_start:
+        bot_message = 'возвращаемся в главное меню'
+        reply_markup = reply_markup_main
 
     return bot_message, reply_markup, bot_request_aft_usr_msg
 
@@ -2266,7 +2270,7 @@ def main(request):
                 bot_message, reply_markup, bot_request_aft_usr_msg = \
                     manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_to_start,
                                             bot_request_bfr_usr_msg, b_admin_menu, b_test_menu, b_yes_its_me,
-                                            b_no_its_not_me, b_settings)
+                                            b_no_its_not_me, b_settings, reply_markup_main)
 
             elif got_message == b_set_pref_urgency:
 
