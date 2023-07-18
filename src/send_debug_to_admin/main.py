@@ -2,17 +2,26 @@
 To receive notifications one should be marked as Admin in PSQL"""
 
 import datetime
-import os
 import base64
 import logging
+import urllib.request
 
-from telegram import Bot
+import asyncio
+from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove
+from telegram.ext import ContextTypes, Application
 
 from google.cloud import secretmanager
+import google.cloud.logging
 
+url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+req = urllib.request.Request(url)
+req.add_header("Metadata-Flavor", "Google")
+project_id = urllib.request.urlopen(req).read().decode()
 
-project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
+
+log_client = google.cloud.logging.Client()
+log_client.setup_logging()
 
 logging.getLogger("telegram.vendor.ptb_urllib3.urllib3").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
@@ -42,7 +51,32 @@ def process_pubsub_message(event):
     return message_in_ascii
 
 
-def send_message(admin_user_id, message, bot):
+async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
+
+    return None
+
+
+async def prepare_message_for_async(user_id, data):
+    bot_token = get_secrets("bot_api_token")
+    application = Application.builder().token(bot_token).build()
+    job_queue = application.job_queue
+    job = job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
+
+    async with application:
+        await application.initialize()
+        await application.start()
+        await application.stop()
+        await application.shutdown()
+
+    return 'ok'
+
+
+def process_sending_message_async(user_id, data) -> None:
+    asyncio.run(prepare_message_for_async(user_id, data))
+
+
+def send_message(admin_user_id, message):
     """send individual notification message to telegram (debug)"""
 
     try:
@@ -51,7 +85,8 @@ def send_message(admin_user_id, message, bot):
         if len(message) > 3500:
             message = message[:1500]
 
-        bot.sendMessage(chat_id=admin_user_id, text=message)
+        data = {'text': message}
+        process_sending_message_async(user_id=admin_user_id, data=data)
 
     except Exception as e:
         logging.info('[send_debug]: send debug to telegram failed')
@@ -59,7 +94,9 @@ def send_message(admin_user_id, message, bot):
 
         try:
             debug_message = f'ERROR! {datetime.datetime.now()}: {e}'
-            bot.sendMessage(chat_id=admin_user_id, text=debug_message)
+
+            data = {'text': debug_message}
+            process_sending_message_async(user_id=admin_user_id, data=data)
 
         except Exception as e2:
             logging.exception(e2)
@@ -76,10 +113,7 @@ def main(event, context): # noqa
     message_from_pubsub = process_pubsub_message(event)
 
     admin_user_id = get_secrets("my_telegram_id")
-    bot_token_debug = get_secrets("bot_api_token")
 
-    bot = Bot(token=bot_token_debug)
-
-    send_message(admin_user_id, message_from_pubsub, bot)
+    send_message(admin_user_id, message_from_pubsub)
 
     return None

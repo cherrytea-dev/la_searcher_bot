@@ -27,8 +27,8 @@ jobs:
         with:
             source_dir: src/send_notifications # name of directory
             name: send_notifications
-            runtime: python37
-            entry_point: main_func
+            runtime: python310
+            entry_point: main
             region: europe-west3
             timeout: 540
             max_instances: 1
