@@ -1,20 +1,28 @@
 """Parses the folder-tree on the forum, checking the last update time. Collects the list of leaf-level folders
 which contain updates – and makes a pub/sub call for other script to parse content of these folders"""
 
-import os
 import base64
 import ast
 import json
 import requests
 import logging
+import urllib.request
 
 from bs4 import BeautifulSoup, SoupStrainer # noqa
+
 from google.cloud import pubsub_v1
 from google.cloud import storage
+import google.cloud.logging
 
+url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+req = urllib.request.Request(url)
+req.add_header("Metadata-Flavor", "Google")
+project_id = urllib.request.urlopen(req).read().decode()
 
-project_id = os.environ["GCP_PROJECT"]
 publisher = pubsub_v1.PublisherClient()
+
+log_client = google.cloud.logging.Client()
+log_client.setup_logging()
 
 
 def process_pubsub_message(event):

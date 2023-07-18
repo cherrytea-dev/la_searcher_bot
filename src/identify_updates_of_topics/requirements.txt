@@ -16,8 +16,8 @@ pg8000==1.19.4  # PSQL driver
 
 natasha==1.4.0  # recognition of person and location within text string
 
-google-cloud-secret-manager==2.4.0
+google-cloud-pubsub==2.16.0
+google-cloud-secret-manager==2.16.0
+google-cloud-logging==3.5.0
 google-cloud-storage==1.40.0
-google-cloud-pubsub==2.6.0
-
 
