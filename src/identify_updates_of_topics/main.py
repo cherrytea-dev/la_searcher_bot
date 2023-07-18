@@ -1,7 +1,6 @@
 """Script takes as input the list of recently-updated forum folders. Then it parses first 20 searches (aka topics)
 and saves into PSQL if there are any updates"""
 
-import os
 import ast
 import json
 import re
@@ -11,21 +10,31 @@ import logging
 from datetime import datetime, timedelta
 from dateutil import relativedelta
 import copy
+import urllib.request
 
 import requests
 import sqlalchemy
 from bs4 import BeautifulSoup, SoupStrainer  # noqa
 from geopy.geocoders import Nominatim
 
+from natasha import Segmenter, NewsEmbedding, NewsNERTagger, Doc
+
 from google.cloud import secretmanager
 from google.cloud import storage
 from google.cloud import pubsub_v1
+import google.cloud.logging
 
-from natasha import Segmenter, NewsEmbedding, NewsNERTagger, Doc
+url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+req = urllib.request.Request(url)
+req.add_header("Metadata-Flavor", "Google")
+project_id = urllib.request.urlopen(req).read().decode()
 
-project_id = os.environ["GCP_PROJECT"]
 client = secretmanager.SecretManagerServiceClient()
+
 publisher = pubsub_v1.PublisherClient()
+
+log_client = google.cloud.logging.Client()
+log_client.setup_logging()
 
 # Sessions – to reuse for reoccurring requests
 requests_session = None
