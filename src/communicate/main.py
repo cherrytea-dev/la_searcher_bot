@@ -1160,17 +1160,42 @@ def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_no
 def manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_to_start,
                             bot_request_bfr_usr_msg, b_admin_menu, b_test_menu, b_yes_its_me, b_no_its_not_me,
                             b_settings, reply_markup_main):
+    """manage all interactions re connection of telegram and forum user accounts"""
+
     bot_message, reply_markup, bot_request_aft_usr_msg = None, None, None
 
     if got_message == b_set_forum_nick:
-        bot_message = 'Бот сможет быть еще полезнее, эффективнее и быстрее, если указать ваш аккаунт на форуме ' \
-                      'lizaalert.org\n\n' \
-                      'Для этого просто введите ответным сообщением своё имя пользователя (логин).\n\n' \
-                      'Если возникнут ошибки при распознавании – просто скопируйте имя с форума и ' \
-                      'отправьте боту ответным сообщением.'
-        keyboard = [[b_back_to_start]]
-        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-        bot_request_aft_usr_msg = 'input_of_forum_username'
+
+        # TODO: if user_is linked to forum so
+        cur.execute("""SELECT forum_username, forum_user_id 
+                       FROM user_forum_attributes 
+                       WHERE status='verified' AND user_id=%s 
+                       ORDER BY timestamp DESC 
+                       LIMIT 1);""",
+                    (user_id,))
+        saved_forum_user = cur.fetchone()
+
+        if not saved_forum_user:
+
+            bot_message = 'Бот сможет быть еще полезнее, эффективнее и быстрее, если указать ваш аккаунт на форуме ' \
+                          'lizaalert.org\n\n' \
+                          'Для этого просто введите ответным сообщением своё имя пользователя (логин).\n\n' \
+                          'Если возникнут ошибки при распознавании – просто скопируйте имя с форума и ' \
+                          'отправьте боту ответным сообщением.'
+            keyboard = [[b_back_to_start]]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            bot_request_aft_usr_msg = 'input_of_forum_username'
+
+        else:
+
+            saved_forum_username, saved_forum_user_id = list(saved_forum_user)
+
+            bot_message = f'Ваш телеграм уже привязан к аккаунту ' \
+                          f'<a href="https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u=' \
+                          f'{saved_forum_user_id}">{saved_forum_username}</a> ' \
+                          f'на форуме ЛизаАлерт. Больше никаких действий касательно аккаунта на форуме не требуется:)'
+            keyboard = [[b_settings], [b_back_to_start]]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
     elif bot_request_bfr_usr_msg == 'input_of_forum_username' and \
             got_message not in {b_admin_menu, b_back_to_start, b_test_menu} and len(got_message.split()) < 4:
@@ -1624,6 +1649,7 @@ def main(request):
     b_set_pref_urgency = 'настроить скорость уведомлений'
     b_set_pref_role = 'настроить вашу роль'  # <-- TODO
     b_set_forum_nick = 'связать аккаунты бота и форума'
+    b_change_forum_nick = 'изменить аккаунт форума'
     b_set_topic_type = 'настроить вид интересующих поисков'  # <-- TODO
 
     b_back_to_start = 'в начало'
@@ -2340,7 +2366,7 @@ def main(request):
                               'момент сможете изменить эти настройки.'
                 keyboard_settings = [[b_set_pref_notif_type], [b_menu_set_region], [b_set_pref_coords],
                                      [b_set_pref_radius], [b_set_pref_age], [b_set_forum_nick],
-                                     [b_back_to_start]] ##AK added b_set_forum_nick for issue #6
+                                     [b_back_to_start]]  # #AK added b_set_forum_nick for issue #6
                 reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
 
             elif got_message == b_set_pref_coords:
