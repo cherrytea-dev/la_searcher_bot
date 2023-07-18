@@ -1,13 +1,12 @@
-requests==2.25.1  # ok
+requests==2.31.0
 
 SQLAlchemy==1.4.11  # <-- old version, but still works
-pg8000==1.19.4  # <-- do we need to update it?
-
 # SQLAlchemy==2.0.7  # <-- new version for python 3.10, but start requiring 2 add'l params – so not yet implemented
 
-beautifulsoup4==4.9.3  # do we need to update it?
-# lxml==4.6.3 # do we need to update it?
-lxml==4.9.1  # <-- patched version as per dependabot
+pg8000==1.19.4  # <-- do we need to update it?
 
-google-cloud-pubsub==2.16.0  # ok
-google-cloud-secret-manager==2.16.0  # ok
+beautifulsoup4==4.9.3  # do we need to update it?
+lxml==4.9.1
+
+google-cloud-pubsub==2.16.0
+google-cloud-secret-manager==2.16.0
