@@ -1171,7 +1171,7 @@ def manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_
                        FROM user_forum_attributes 
                        WHERE status='verified' AND user_id=%s 
                        ORDER BY timestamp DESC 
-                       LIMIT 1);""",
+                       LIMIT 1;""",
                     (user_id,))
         saved_forum_user = cur.fetchone()
 
