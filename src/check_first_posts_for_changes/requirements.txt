@@ -1,4 +1,4 @@
-requests==2.25.1
+requests==2.31.0
 
 SQLAlchemy==1.4.11
 pg8000==1.19.4

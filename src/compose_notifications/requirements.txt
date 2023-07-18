@@ -1,7 +1,7 @@
-requests==2.25.1
+requests==2.31.0
 urllib3==1.26.5  # http client
 idna==2.10  # translation of domain names
-certifi==2020.12.5  # SSL certificates
+certifi==2022.12.07  # SSL certificates
 
 chardet==4.0.0  # encoding detector
 python-dateutil  # extension to datetime module
