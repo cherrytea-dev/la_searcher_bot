@@ -2,6 +2,7 @@
 
 import os
 import base64
+import urllib.request
 
 import ast
 import re
@@ -16,7 +17,11 @@ from google.cloud import secretmanager
 from google.cloud import pubsub_v1
 
 
-project_id = os.environ["GCP_PROJECT"]
+url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+req = urllib.request.Request(url)
+req.add_header("Metadata-Flavor", "Google")
+project_id = urllib.request.urlopen(req).read().decode()
+
 client = secretmanager.SecretManagerServiceClient()
 publisher = pubsub_v1.PublisherClient()
 new_records_list = []

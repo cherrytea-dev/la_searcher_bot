@@ -29,7 +29,7 @@ jobs:
         with:
             source_dir: src/${{ env.FILE_NAME }} # name of directory
             name: ${{ env.FILE_NAME }} # name of deploying function
-            runtime: python37
+            runtime: python310
             entry_point: main # UPD HERE! main function
             region: europe-west3
             timeout: 540 # UPD HERE!
