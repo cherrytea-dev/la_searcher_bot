@@ -15,6 +15,7 @@ from telegram.ext import ContextTypes, Application
 
 from google.cloud import secretmanager
 from google.cloud import pubsub_v1
+import google.cloud.logging
 
 url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
 req = urllib.request.Request(url)
@@ -23,6 +24,9 @@ project_id = urllib.request.urlopen(req).read().decode()
 
 client = secretmanager.SecretManagerServiceClient()
 publisher = pubsub_v1.PublisherClient()
+
+log_client = google.cloud.logging.Client()
+log_client.setup_logging()
 
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
 # Important – these are not errors, but just informational warnings that there were retries, that's why we exclude them
