@@ -116,34 +116,41 @@ def notify_admin(message):
 
 
 async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
+    try:
+        await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
+    except Exception as e:
+        logging.exception(e)
+        # FIXME - trying to understand where try-catch should be for async
+        logging.info(f'2 – HERE\'s THE EXCEPTION WE\'ARE LOOKING FOR')
+        # FIXME ^^^
 
     return None
 
 
 async def prepare_message_for_async(user_id, data):
-    bot_token = get_secrets("bot_api_token__prod")
-    application = Application.builder().token(bot_token).build()
-    job_queue = application.job_queue
-    job = job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
+    try:
+        bot_token = get_secrets("bot_api_token__prod")
+        application = Application.builder().token(bot_token).build()
+        job_queue = application.job_queue
+        job = job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
 
-    async with application:
-        await application.initialize()
-        await application.start()
-        await application.stop()
-        await application.shutdown()
+        async with application:
+            await application.initialize()
+            await application.start()
+            await application.stop()
+            await application.shutdown()
 
+    except Exception as e:
+        logging.exception(e)
+        # FIXME - trying to understand where try-catch should be for async
+        logging.info(f'3 –HERE\'s THE EXCEPTION WE\'ARE LOOKING FOR')
+        # FIXME ^^^
+    
     return 'ok'
 
 
 def process_sending_message_async(user_id, data) -> None:
-    try:
-        asyncio.run(prepare_message_for_async(user_id, data))
-    except Exception as e:
-        logging.exception(e)
-        # FIXME - trying to understand where try-catch should be for async
-        logging.info(f'HERE\'s THE EXCEPTION WE\'ARE LOOKING FOR')
-        # FIXME ^^^
+    asyncio.run(prepare_message_for_async(user_id, data))
 
     return None
 
