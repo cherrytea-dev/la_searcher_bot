@@ -226,6 +226,48 @@ def send_message_to_api(bot_token, user_id, message, params):
     return r.ok, r.reason
 
 
+def send_location_to_api(bot_token, user_id, params):
+    """send location directly to Telegram API w/o any wrappers ar libraries"""
+
+    try:
+        latitude = ''
+        longitude = ''
+        if params:
+            if 'latitude' in params.keys():
+                latitude = f'&latitude={params["latitude"]}'
+            if 'longitude' in params.keys():
+                longitude = f'&longitude={params["longitude"]}'
+
+        logging.info(latitude)
+        logging.info(longitude)
+
+        request_text = f'https://api.telegram.org/bot{bot_token}/sendLocation?chat_id={user_id}' \
+                       f'{latitude}{longitude}'
+
+        r = requests.Session().get(request_text)
+
+        if r.ok:
+            logging.info(f'location to {user_id} was successfully sent')
+        elif r.status_code == 400:  # Bad Request
+            logging.info(f'Bad Request: location to {user_id} was not sent, {r.reason=}')
+            logging.exception('BAD REQUEST')
+        elif r.status_code == 403:  # FORBIDDEN
+            logging.info(f'Forbidden: location to {user_id} was not sent, {r.reason=}')
+            logging.exception('FORBIDDEN')
+        elif 420 <= r.status_code <= 429:  # 'Flood Control':
+            logging.info(f'Flood Control: location to {user_id} was not sent, {r.reason=}')
+            logging.exception('FLOOD CONTROL')
+        else:
+            logging.info(f'UNKNOWN ERROR: location to {user_id} was not sent, {r.reason=}')
+            logging.info(f'{r.text}')
+            logging.exception('UNKNOWN ERROR')
+    except Exception as e:
+        logging.exception(e)
+        logging.info(f'THIS BAD EXCEPTION HAPPENED')
+
+    return r.ok, r.reason
+
+
 def check_for_notifs_to_send(cur):
     """return a notification which should be sent"""
 
@@ -311,7 +353,12 @@ def send_single_message(bot, bot_token, user_id, message_content, message_params
 
         elif message_type == 'coords':
 
-            process_sending_location_async(user_id=user_id, data=message_params)
+            if int(user_id) == int(admin_id):
+                result_ok, result_status = send_location_to_api(bot_token, user_id, message_params)
+                notify_admin('this location came via new mechanism')
+            
+            else:
+                process_sending_location_async(user_id=user_id, data=message_params)
 
         result = 'completed'
 
