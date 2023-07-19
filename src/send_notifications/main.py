@@ -210,8 +210,8 @@ def send_message_to_api(bot_token, user_id, message, params):
             logging.info(f'Bad Request: message to {user_id} was not sent, {r.reason=}')
             logging.exception('BAD REQUEST')
         elif r.status_code == 403:  # FORBIDDEN
-            logging.info(f'Bad Request: message to {user_id} was not sent, {r.reason=}')
-            logging.exception('BAD REQUEST')
+            logging.info(f'Forbidden: message to {user_id} was not sent, {r.reason=}')
+            logging.exception('FORBIDDEN')
         elif 420 <= r.status_code <= 429:  # 'Flood Control':
             logging.info(f'Flood Control: message to {user_id} was not sent, {r.reason=}')
             logging.exception('FLOOD CONTROL')
@@ -303,7 +303,7 @@ def send_single_message(bot, bot_token, user_id, message_content, message_params
             if message_params:
                 data = data | message_params
 
-            if int(user_id) == int(admin_id):
+            if int(user_id) != int(admin_id):
                 result_ok, result_status = send_message_to_api(bot_token, user_id, message_content, message_params)
 
             else:
