@@ -252,7 +252,6 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
 
             process_sending_location_async(user_id=user_id, data=message_params)
 
-
         result = 'completed'
 
         logging.info(f'success sending a msg to telegram user={user_id}')
@@ -269,8 +268,17 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
         result = 'failed_flood_control'
 
         logging.info(f'"flood control": failed sending to telegram user={user_id}, message={message_content}')
-        logging.error(e)
+        logging.exception(e)
         time.sleep(5)  # to mitigate flood control
+
+    except error.Forbidden as e:
+
+        logging.info(f'user {user_id} deactivated')
+        action = 'delete_user'
+        message_for_pubsub = {'action': action, 'info': {'user': user_id}}
+        publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+        logging.info(f'Identified user id {user_id} to do {action}')
+        result = 'cancelled'
 
     except Exception as e:  # when sending to telegram fails by other reasons
 
