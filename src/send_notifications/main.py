@@ -356,7 +356,7 @@ def send_single_message(bot, bot_token, user_id, message_content, message_params
             if int(user_id) == int(admin_id):
                 result_ok, result_status = send_location_to_api(bot_token, user_id, message_params)
                 notify_admin('this location came via new mechanism')
-            
+
             else:
                 process_sending_location_async(user_id=user_id, data=message_params)
 
@@ -458,7 +458,7 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time):
             analytics_sql_finish = datetime.datetime.now()
             analytics_sql_duration = round((analytics_sql_finish -
                                             analytics_sql_start).total_seconds(), 2)
-            logging.info('time: reading sql=' + str(analytics_sql_duration))
+            logging.info(f'time: {analytics_sql_duration:.2f} – reading sql')
             logging.info(str(message_to_send))
 
             if message_to_send:
@@ -491,7 +491,7 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time):
                     analytics_send_finish = datetime.datetime.now()
                     analytics_send_start_finish = round((analytics_send_finish -
                                                          analytics_pre_sending_msg).total_seconds(), 2)
-                    logging.info(f'time: {analytics_send_start_finish} – outer sending msg')
+                    logging.info(f'time: {analytics_send_start_finish:.2f} – sending msg')
 
                 else:
                     result = 'cancelled_due_to_doubling'
@@ -507,11 +507,11 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time):
 
                 analytics_save_sql_duration = round((analytics_after_double_saved_in_sql -
                                                      analytics_save_sql_start).total_seconds(), 2)
-                logging.info(f'time: {analytics_save_sql_duration} – saving to sql')
+                logging.info(f'time: {analytics_save_sql_duration:.2f} – saving to sql')
 
                 analytics_doubling_checked_saved_to_sql = round((analytics_after_double_saved_in_sql -
                                                                  analytics_pre_sending_msg).total_seconds(), 2)
-                logging.info(f'time: check -> save to sql: {analytics_doubling_checked_saved_to_sql}')
+                logging.info(f'time: {analytics_doubling_checked_saved_to_sql:.2f} – check -> save to sql')
 
                 # analytics on sending speed - finish for every user/notification
                 analytics_sm_finish = datetime.datetime.now()
@@ -548,7 +548,7 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time):
             analytics_end_of_iteration = datetime.datetime.now()
             analytics_iteration_duration = round((analytics_end_of_iteration -
                                                  analytics_iteration_start).total_seconds(), 2)
-            logging.info(f'time: iteration duration: {analytics_iteration_duration}')
+            logging.info(f'time: {analytics_iteration_duration:.2f} – iteration duration')
 
         cur.close()
     conn_psy.close()
