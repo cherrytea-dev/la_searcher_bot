@@ -137,7 +137,13 @@ async def prepare_message_for_async(user_id, data):
 
 
 def process_sending_message_async(user_id, data) -> None:
-    asyncio.run(prepare_message_for_async(user_id, data))
+    try:
+        asyncio.run(prepare_message_for_async(user_id, data))
+    except Exception as e:
+        logging.exception(e)
+        # FIXME - trying to understand where try-catch should be for async
+        logging.info(f'HERE\'s THE EXCEPTION WE\'ARE LOOKING FOR')
+        # FIXME ^^^
 
     return None
 
@@ -562,7 +568,7 @@ def finish_time_analytics(notif_times):
     average = sum(notif_times) / len_n
     ttl_time = round(sum(notif_times), 1)
     message = f'[send_notifs] {len_n} x {round(average, 2)} = {ttl_time} sec'
-    if len_n >= 10 and average > 0.3:
+    if len_n >= 10:  # FIXME – a temp deactivation to understand the sending speed. # and average > 0.3:
         notify_admin(message)
     logging.info(message)
 
