@@ -8,6 +8,7 @@ import logging
 import json
 import psycopg2
 import urllib.request
+import requests
 
 import asyncio
 from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove, error
@@ -145,7 +146,7 @@ async def prepare_message_for_async(user_id, data):
         # FIXME - trying to understand where try-catch should be for async
         logging.info(f'3 –HERE\'s THE EXCEPTION WE\'ARE LOOKING FOR')
         # FIXME ^^^
-    
+
     return 'ok'
 
 
@@ -180,6 +181,49 @@ def process_sending_location_async(user_id, data) -> None:
     asyncio.run(prepare_location_for_async(user_id, data))
 
     return None
+
+
+def send_message_to_api(bot_token, user_id, message, params):
+    """send message directly to Telegram API w/o any wrappers ar libraries"""
+
+    try:
+        parse_mode = ''
+        disable_web_page_preview = ''
+        if params:
+            if 'parse_mode' in params.keys():
+                parse_mode = f'&parse_mode={params["parse_mode"]}'
+            if 'disable_web_page_preview' in params.keys():
+                disable_web_page_preview = f'&disable_web_page_preview={params["disable_web_page_preview"]}'
+
+        message_encoded = urllib.parse.quote(message)
+
+        logging.info(parse_mode)
+        logging.info(disable_web_page_preview)
+        request_text = f'https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={user_id}' \
+                       f'{parse_mode}{disable_web_page_preview}&text={message_encoded}'
+
+        r = requests.Session().get(request_text)
+
+        if r.ok:
+            logging.info(f'message to {user_id} was successfully sent')
+        elif r.status_code == 400:  # Bad Request
+            logging.info(f'Bad Request: message to {user_id} was not sent, {r.reason=}')
+            logging.exception('BAD REQUEST')
+        elif r.status_code == 403:  # FORBIDDEN
+            logging.info(f'Bad Request: message to {user_id} was not sent, {r.reason=}')
+            logging.exception('BAD REQUEST')
+        elif 420 <= r.status_code <= 429:  # 'Flood Control':
+            logging.info(f'Flood Control: message to {user_id} was not sent, {r.reason=}')
+            logging.exception('FLOOD CONTROL')
+        else:
+            logging.info(f'UNKNOWN ERROR: message to {user_id} was not sent, {r.reason=}')
+            logging.info(f'{r.text}')
+            logging.exception('UNKNOWN ERROR')
+    except Exception as e:
+        logging.exception(e)
+        logging.info(f'THIS BAD EXCEPTION HAPPENED')
+
+    return r.ok, r.reason
 
 
 def check_for_notifs_to_send(cur):
@@ -243,7 +287,7 @@ def check_for_notifs_to_send(cur):
     return notification
 
 
-def send_single_message(bot, user_id, message_content, message_params, message_type):
+def send_single_message(bot, bot_token, user_id, message_content, message_params, message_type, admin_id):
     """send one message to telegram"""
 
     if message_params:
@@ -259,7 +303,11 @@ def send_single_message(bot, user_id, message_content, message_params, message_t
             if message_params:
                 data = data | message_params
 
-            process_sending_message_async(user_id=user_id, data=data)
+            if int(user_id) == int(admin_id):
+                result_ok, result_status = send_message_to_api(bot_token, user_id, message_content, message_params)
+
+            else:
+                process_sending_message_async(user_id=user_id, data=data)
 
         elif message_type == 'coords':
 
@@ -341,7 +389,7 @@ def save_sending_status_to_notif_by_user(cur, message_id, result):
     return None
 
 
-def iterate_over_notifications(bot, script_start_time):
+def iterate_over_notifications(bot, bot_token, admin_id, script_start_time):
     """iterate over all available notifications, finishes if timeout is met or no new notifications"""
 
     custom_timeout = 120  # seconds, after which iterations should stop to prevent the whole script timeout
@@ -390,7 +438,8 @@ def iterate_over_notifications(bot, script_start_time):
                     if change_type in {5, 6, 7, 8} and status != 'Ищем':
                         result = 'cancelled'
                     else:
-                        result = send_single_message(bot, user_id, message_content, message_params, message_type)
+                        result = send_single_message(bot, bot_token, user_id, message_content, message_params,
+                                                     message_type, admin_id)
 
                     analytics_send_finish = datetime.datetime.now()
                     analytics_send_start_finish = round((analytics_send_finish -
@@ -622,8 +671,9 @@ def main(event, context):
 
     bot_token = get_secrets("bot_api_token__prod")
     bot = Bot(token=bot_token)
+    admin_id = get_secrets("my_telegram_id")
 
-    iterate_over_notifications(bot, script_start_time)
+    iterate_over_notifications(bot, bot_token, admin_id, script_start_time)
 
     finish_time_analytics(analytics_notif_times)
     analytics_notif_times = []  # needed for high-frequency function execution, otherwise google remembers prev value
