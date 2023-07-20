@@ -501,8 +501,8 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time):
                 if result == 'completed':
                     creation_time = message_to_send[2]
                     completion_time = datetime.datetime.now()
-                    duration_completion_vs_creation_seconds = round((completion_time-creation_time).total_seconds(), 2)
-                    logging.info(f'metric: creation to completion time – {duration_completion_vs_creation_seconds} sec')
+                    duration_complete_vs_create_seconds = round((completion_time-creation_time).total_seconds()/60, 2)
+                    logging.info(f'metric: creation to completion time – {duration_complete_vs_create_seconds} min')
 
                 analytics_after_double_saved_in_sql = datetime.datetime.now()
 
