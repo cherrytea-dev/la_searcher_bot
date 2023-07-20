@@ -204,27 +204,12 @@ def send_message_to_api(bot_token, user_id, message, params):
 
         r = requests.Session().get(request_text)
 
-        if r.ok:
-            logging.info(f'message to {user_id} was successfully sent')
-        elif r.status_code == 400:  # Bad Request
-            logging.info(f'Bad Request: message to {user_id} was not sent, {r.reason=}')
-            logging.exception('BAD REQUEST')
-        elif r.status_code == 403:  # FORBIDDEN
-            logging.info(f'Forbidden: message to {user_id} was not sent, {r.reason=}')
-            logging.info(f'response: {r.text}')
-            logging.exception('FORBIDDEN')
-        elif 420 <= r.status_code <= 429:  # 'Flood Control':
-            logging.info(f'Flood Control: message to {user_id} was not sent, {r.reason=}')
-            logging.exception('FLOOD CONTROL')
-        else:
-            logging.info(f'UNKNOWN ERROR: message to {user_id} was not sent, {r.reason=}')
-            logging.info(f'response: {r.text}')
-            logging.exception('UNKNOWN ERROR')
     except Exception as e:
         logging.exception(e)
         logging.info(f'THIS BAD EXCEPTION HAPPENED')
+        r = None
 
-    return r.ok, r.reason
+    return r
 
 
 def send_location_to_api(bot_token, user_id, params):
@@ -265,8 +250,9 @@ def send_location_to_api(bot_token, user_id, params):
     except Exception as e:
         logging.exception(e)
         logging.info(f'THIS BAD EXCEPTION HAPPENED')
+        r = None
 
-    return r.ok, r.reason
+    return r
 
 
 def check_for_notifs_to_send(cur):
@@ -330,6 +316,53 @@ def check_for_notifs_to_send(cur):
     return notification
 
 
+def process_response(user_id, response):
+    """process response received as a result of Telegram API call while sending message/location"""
+
+    if not response:
+        return 'failed'
+
+    if not response.reason:
+        return 'failed'
+
+    if response.ok:
+        logging.info(f'message to {user_id} was successfully sent')
+        return 'completed'
+
+    elif response.status_code == 400:  # Bad Request
+        logging.info(f'Bad Request: message to {user_id} was not sent, {response.reason=}')
+        logging.exception('BAD REQUEST')
+        return 'cancelled_bad_request'
+
+    elif response.status_code == 403:  # FORBIDDEN
+        logging.info(f'Forbidden: message to {user_id} was not sent, {response.reason=}')
+        logging.info(f'response: {response.text}')  # FIXME – a temp debug, to be deleted
+        logging.exception('FORBIDDEN')
+        action = None
+        if response.text.find('bot was blocked by the user') != -1:
+            action = 'block_user'
+        if response.text.find('user is deactivated') != -1:
+            action = 'delete_user'
+        if action:
+            message_for_pubsub = {'action': action, 'info': {'user': user_id}}
+            publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+            logging.info(f'Identified user id {user_id} to do {action}')
+        return 'cancelled'
+
+    elif 420 <= response.status_code <= 429:  # 'Flood Control':
+        logging.info(f'Flood Control: message to {user_id} was not sent, {response.reason=}')
+        logging.info(f'response: {response.text}')  # FIXME – a temp debug, to be deleted
+        logging.exception('FLOOD CONTROL')
+        time.sleep(5)  # to mitigate flood control
+        return 'failed_flood_control'
+
+    else:
+        logging.info(f'UNKNOWN ERROR: message to {user_id} was not sent, {response.reason=}')
+        logging.info(f'response: {response.text}')
+        logging.exception('UNKNOWN ERROR')
+        return 'cancelled'
+
+
 def send_single_message(bot, bot_token, user_id, message_content, message_params, message_type, admin_id):
     """send one message to telegram"""
 
@@ -340,57 +373,14 @@ def send_single_message(bot, bot_token, user_id, message_content, message_params
 
     try:
 
-        result_status = None
+        response = None
         if message_type == 'text':
-
-            data = {'text': message_content}
-            if message_params:
-                data = data | message_params
-
-            if int(user_id) != int(admin_id):
-                result_ok, result_status = send_message_to_api(bot_token, user_id, message_content, message_params)
-
-            else:
-                process_sending_message_async(user_id=user_id, data=data)
+            response = send_message_to_api(bot_token, user_id, message_content, message_params)
 
         elif message_type == 'coords':
+            response = send_location_to_api(bot_token, user_id, message_params)
 
-            if int(user_id) == int(admin_id):
-                result_ok, result_status = send_location_to_api(bot_token, user_id, message_params)
-                notify_admin('this location came via new mechanism')
-
-            else:
-                process_sending_location_async(user_id=user_id, data=message_params)
-
-        if result_status == 'Forbidden':
-            result = 'cancelled'
-        else:
-            result = 'completed'
-            logging.info(f'success sending a msg to telegram user={user_id}')
-
-    except error.BadRequest as e:
-
-        result = 'cancelled_bad_request'
-
-        logging.info(f'failed sending to telegram due to Bad Request user={user_id}, message={message_content}')
-        logging.error(e)
-
-    except error.RetryAfter as e:
-
-        result = 'failed_flood_control'
-
-        logging.info(f'"flood control": failed sending to telegram user={user_id}, message={message_content}')
-        logging.exception(e)
-        time.sleep(5)  # to mitigate flood control
-
-    except error.Forbidden as e:
-
-        logging.info(f'user {user_id} deactivated')
-        action = 'delete_user'
-        message_for_pubsub = {'action': action, 'info': {'user': user_id}}
-        publish_to_pubsub('topic_for_user_management', message_for_pubsub)
-        logging.info(f'Identified user id {user_id} to do {action}')
-        result = 'cancelled'
+        result = process_response(user_id, response)
 
     except Exception as e:  # when sending to telegram fails by other reasons
 
@@ -453,17 +443,17 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time):
             # analytics on sending speed - start for every user/notification
             analytics_sm_start = datetime.datetime.now()
             analytics_iteration_start = datetime.datetime.now()
-            logging.info('time: -------------- loop start -------------')
             analytics_sql_start = datetime.datetime.now()
 
             # check if there are any non-notified users
             message_to_send = check_for_notifs_to_send(cur)
+            logging.info(str(message_to_send))
 
             analytics_sql_finish = datetime.datetime.now()
-            analytics_sql_duration = round((analytics_sql_finish -
-                                            analytics_sql_start).total_seconds(), 2)
+            analytics_sql_duration = round((analytics_sql_finish - analytics_sql_start).total_seconds(), 2)
+
+            logging.info('time: -------------- loop start -------------')
             logging.info(f'time: {analytics_sql_duration:.2f} – reading sql')
-            logging.info(str(message_to_send))
 
             if message_to_send:
                 doubling_trigger = message_to_send[11]
@@ -506,6 +496,13 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time):
 
                 # save result of sending telegram notification into SQL notif_by_user
                 save_sending_status_to_notif_by_user(cur, message_id, result)
+
+                # save metric: how long does it took from creation to completion
+                if result == 'completed':
+                    creation_time = message_to_send[2]
+                    completion_time = datetime.datetime.now()
+                    duration_completion_vs_creation_seconds = round((completion_time-creation_time).total_seconds(), 2)
+                    logging.info(f'metric: creation to completion time – {duration_completion_vs_creation_seconds} sec')
 
                 analytics_after_double_saved_in_sql = datetime.datetime.now()
 
