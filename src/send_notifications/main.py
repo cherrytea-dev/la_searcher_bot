@@ -211,13 +211,14 @@ def send_message_to_api(bot_token, user_id, message, params):
             logging.exception('BAD REQUEST')
         elif r.status_code == 403:  # FORBIDDEN
             logging.info(f'Forbidden: message to {user_id} was not sent, {r.reason=}')
+            logging.info(f'response: {r.text}')
             logging.exception('FORBIDDEN')
         elif 420 <= r.status_code <= 429:  # 'Flood Control':
             logging.info(f'Flood Control: message to {user_id} was not sent, {r.reason=}')
             logging.exception('FLOOD CONTROL')
         else:
             logging.info(f'UNKNOWN ERROR: message to {user_id} was not sent, {r.reason=}')
-            logging.info(f'{r.text}')
+            logging.info(f'response: {r.text}')
             logging.exception('UNKNOWN ERROR')
     except Exception as e:
         logging.exception(e)
@@ -339,6 +340,7 @@ def send_single_message(bot, bot_token, user_id, message_content, message_params
 
     try:
 
+        result_status = None
         if message_type == 'text':
 
             data = {'text': message_content}
@@ -360,9 +362,11 @@ def send_single_message(bot, bot_token, user_id, message_content, message_params
             else:
                 process_sending_location_async(user_id=user_id, data=message_params)
 
-        result = 'completed'
-
-        logging.info(f'success sending a msg to telegram user={user_id}')
+        if result_status == 'Forbidden':
+            result = 'cancelled'
+        else:
+            result = 'completed'
+            logging.info(f'success sending a msg to telegram user={user_id}')
 
     except error.BadRequest as e:
 
