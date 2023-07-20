@@ -320,9 +320,12 @@ def process_response(user_id, response):
     """process response received as a result of Telegram API call while sending message/location"""
 
     if not response:
+        logging.exception('Response is not found')
+        logging.info(f'response: {response.text}')
         return 'failed'
 
     if not response.reason:
+        logging.info(f'response: {response.text}')
         return 'failed'
 
     if response.ok:
