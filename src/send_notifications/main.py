@@ -319,51 +319,51 @@ def check_for_notifs_to_send(cur):
 def process_response(user_id, response):
     """process response received as a result of Telegram API call while sending message/location"""
 
-    if not response:
-        logging.exception('Response is not found')
-        logging.info(f'response: {response.text}')
+    try:
+
+        logging.info(f'response text = {response.text}')
+
+        if response.ok:
+            logging.info(f'message to {user_id} was successfully sent')
+            return 'completed'
+
+        elif response.status_code == 400:  # Bad Request
+            logging.info(f'Bad Request: message to {user_id} was not sent, {response.reason=}')
+            logging.exception('BAD REQUEST')
+            return 'cancelled_bad_request'
+
+        elif response.status_code == 403:  # FORBIDDEN
+            logging.info(f'Forbidden: message to {user_id} was not sent, {response.reason=}')
+            logging.info(f'response: {response.text}')  # FIXME – a temp debug, to be deleted
+            logging.exception('FORBIDDEN')
+            action = None
+            if response.text.find('bot was blocked by the user') != -1:
+                action = 'block_user'
+            if response.text.find('user is deactivated') != -1:
+                action = 'delete_user'
+            if action:
+                message_for_pubsub = {'action': action, 'info': {'user': user_id}}
+                publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+                logging.info(f'Identified user id {user_id} to do {action}')
+            return 'cancelled'
+
+        elif 420 <= response.status_code <= 429:  # 'Flood Control':
+            logging.info(f'Flood Control: message to {user_id} was not sent, {response.reason=}')
+            logging.info(f'response: {response.text}')  # FIXME – a temp debug, to be deleted
+            logging.exception('FLOOD CONTROL')
+            time.sleep(5)  # to mitigate flood control
+            return 'failed_flood_control'
+
+        else:
+            logging.info(f'UNKNOWN ERROR: message to {user_id} was not sent, {response.reason=}')
+            logging.info(f'response: {response.text}')
+            logging.exception('UNKNOWN ERROR')
+            return 'cancelled'
+
+    except Exception as e:
+        logging.info(f'Response is corrupted')
+        logging.exception(e)
         return 'failed'
-
-    if not response.reason:
-        logging.info(f'response: {response.text}')
-        return 'failed'
-
-    if response.ok:
-        logging.info(f'message to {user_id} was successfully sent')
-        return 'completed'
-
-    elif response.status_code == 400:  # Bad Request
-        logging.info(f'Bad Request: message to {user_id} was not sent, {response.reason=}')
-        logging.exception('BAD REQUEST')
-        return 'cancelled_bad_request'
-
-    elif response.status_code == 403:  # FORBIDDEN
-        logging.info(f'Forbidden: message to {user_id} was not sent, {response.reason=}')
-        logging.info(f'response: {response.text}')  # FIXME – a temp debug, to be deleted
-        logging.exception('FORBIDDEN')
-        action = None
-        if response.text.find('bot was blocked by the user') != -1:
-            action = 'block_user'
-        if response.text.find('user is deactivated') != -1:
-            action = 'delete_user'
-        if action:
-            message_for_pubsub = {'action': action, 'info': {'user': user_id}}
-            publish_to_pubsub('topic_for_user_management', message_for_pubsub)
-            logging.info(f'Identified user id {user_id} to do {action}')
-        return 'cancelled'
-
-    elif 420 <= response.status_code <= 429:  # 'Flood Control':
-        logging.info(f'Flood Control: message to {user_id} was not sent, {response.reason=}')
-        logging.info(f'response: {response.text}')  # FIXME – a temp debug, to be deleted
-        logging.exception('FLOOD CONTROL')
-        time.sleep(5)  # to mitigate flood control
-        return 'failed_flood_control'
-
-    else:
-        logging.info(f'UNKNOWN ERROR: message to {user_id} was not sent, {response.reason=}')
-        logging.info(f'response: {response.text}')
-        logging.exception('UNKNOWN ERROR')
-        return 'cancelled'
 
 
 def send_single_message(bot, bot_token, user_id, message_content, message_params, message_type, admin_id):
