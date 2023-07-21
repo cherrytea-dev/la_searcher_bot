@@ -720,6 +720,7 @@ def main(event, context):
 
     finish_time_analytics(analytics_notif_times, analytics_delays)
     analytics_notif_times = []  # needed for high-frequency function execution, otherwise google remembers prev value
+    analytics_delays = [] # needed for high-frequency function execution, otherwise google remembers prev value
 
     check_and_save_event_id(context, 'finish')
     logging.info('script finished')
