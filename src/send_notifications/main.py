@@ -665,7 +665,7 @@ def finish_time_analytics(notif_times, delays):
         min_delay = min(delays)
         max_delay = max(delays)
 
-    message = f'[send_notifs] {len_n} x {round(average, 2)} = {round(ttl_time, 0)} sec | {min_delay}–{max_delay} m del.'
+    message = f'[send_notif] {len_n:>3} x {round(average, 2)} = {round(ttl_time, 0)} s | {min_delay}–{max_delay} m'
     if len_n >= 10:  # FIXME – a temp deactivation to understand the sending speed. # and average > 0.3:
         notify_admin(message)
     logging.info(message)
