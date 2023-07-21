@@ -35,6 +35,7 @@ logging.getLogger("telegram.vendor.ptb_urllib3.urllib3").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 analytics_notif_times = []
+analytics_delays = []
 
 
 def process_pubsub_message(event):
@@ -194,11 +195,8 @@ def send_message_to_api(bot_token, user_id, message, params):
                 parse_mode = f'&parse_mode={params["parse_mode"]}'
             if 'disable_web_page_preview' in params.keys():
                 disable_web_page_preview = f'&disable_web_page_preview={params["disable_web_page_preview"]}'
-
         message_encoded = urllib.parse.quote(message)
 
-        logging.info(parse_mode)
-        logging.info(disable_web_page_preview)
         request_text = f'https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={user_id}' \
                        f'{parse_mode}{disable_web_page_preview}&text={message_encoded}'
 
@@ -232,21 +230,6 @@ def send_location_to_api(bot_token, user_id, params):
 
         r = requests.Session().get(request_text)
 
-        if r.ok:
-            logging.info(f'location to {user_id} was successfully sent')
-        elif r.status_code == 400:  # Bad Request
-            logging.info(f'Bad Request: location to {user_id} was not sent, {r.reason=}')
-            logging.exception('BAD REQUEST')
-        elif r.status_code == 403:  # FORBIDDEN
-            logging.info(f'Forbidden: location to {user_id} was not sent, {r.reason=}')
-            logging.exception('FORBIDDEN')
-        elif 420 <= r.status_code <= 429:  # 'Flood Control':
-            logging.info(f'Flood Control: location to {user_id} was not sent, {r.reason=}')
-            logging.exception('FLOOD CONTROL')
-        else:
-            logging.info(f'UNKNOWN ERROR: location to {user_id} was not sent, {r.reason=}')
-            logging.info(f'{r.text}')
-            logging.exception('UNKNOWN ERROR')
     except Exception as e:
         logging.exception(e)
         logging.info(f'THIS BAD EXCEPTION HAPPENED')
@@ -321,7 +304,7 @@ def process_response(user_id, response):
 
     try:
 
-        logging.info(f'response text = {response.text}')
+        logging.info(f'response text = {response.text}')  # FIXME – a temp debug, to be deleted
 
         if response.ok:
             logging.info(f'message to {user_id} was successfully sent')
@@ -450,12 +433,13 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time):
 
             # check if there are any non-notified users
             message_to_send = check_for_notifs_to_send(cur)
-            logging.info(str(message_to_send))
+
 
             analytics_sql_finish = datetime.datetime.now()
             analytics_sql_duration = round((analytics_sql_finish - analytics_sql_start).total_seconds(), 2)
 
             logging.info('time: -------------- loop start -------------')
+            logging.info(f'{message_to_send}')
             logging.info(f'time: {analytics_sql_duration:.2f} – reading sql')
 
             if message_to_send:
@@ -504,8 +488,9 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time):
                 if result == 'completed':
                     creation_time = message_to_send[2]
                     completion_time = datetime.datetime.now()
-                    duration_complete_vs_create_seconds = round((completion_time-creation_time).total_seconds()/60, 2)
-                    logging.info(f'metric: creation to completion time – {duration_complete_vs_create_seconds} min')
+                    duration_complete_vs_create_minutes = round((completion_time-creation_time).total_seconds()/60, 2)
+                    logging.info(f'metric: creation to completion time – {duration_complete_vs_create_minutes} min')
+                    analytics_delays.append(duration_complete_vs_create_minutes)
 
                 analytics_after_double_saved_in_sql = datetime.datetime.now()
 
@@ -663,7 +648,7 @@ def check_and_save_event_id(context, event):
         return False
 
 
-def finish_time_analytics(notif_times):
+def finish_time_analytics(notif_times, delays):
     """Make final steps for time analytics: inform admin, log, record statistics into PSQL"""
 
     if not notif_times:
@@ -674,7 +659,13 @@ def finish_time_analytics(notif_times):
     len_n = len(notif_times)
     average = sum(notif_times) / len_n
     ttl_time = round(sum(notif_times), 1)
-    message = f'[send_notifs] {len_n} x {round(average, 2)} = {ttl_time} sec'
+    if not delays:
+        min_delay, max_delay = None, None
+    else:
+        min_delay = min(delays)
+        max_delay = max(delays)
+
+    message = f'[send_notifs] {len_n} x {round(average, 2)} = {round(ttl_time, 0)} sec | {min_delay}–{max_delay} m del.'
     if len_n >= 10:  # FIXME – a temp deactivation to understand the sending speed. # and average > 0.3:
         notify_admin(message)
     logging.info(message)
@@ -706,6 +697,7 @@ def main(event, context):
     """Main function that is triggered by pub/sub"""
 
     global analytics_notif_times
+    global analytics_delays
 
     there_is_function_working_in_parallel = check_and_save_event_id(context, 'start')
     if there_is_function_working_in_parallel:
@@ -726,7 +718,7 @@ def main(event, context):
 
     iterate_over_notifications(bot, bot_token, admin_id, script_start_time)
 
-    finish_time_analytics(analytics_notif_times)
+    finish_time_analytics(analytics_notif_times, analytics_delays)
     analytics_notif_times = []  # needed for high-frequency function execution, otherwise google remembers prev value
 
     check_and_save_event_id(context, 'finish')
