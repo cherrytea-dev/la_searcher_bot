@@ -1077,10 +1077,6 @@ def compose_users_list_from_users(conn, new_record):
     global users_list
 
     try:
-        users_short_version = conn.execute(
-            """
-                """
-        ).fetchall()
 
         sql_text_psy = sqlalchemy.text("""
                 WITH 
