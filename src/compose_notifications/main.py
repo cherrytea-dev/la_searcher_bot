@@ -1099,7 +1099,7 @@ def compose_users_list_from_users(conn, new_record):
                 WHERE folder_id IS NOT NULL AND pref_id IS NOT NULL
                 /*action='get_user_list_filtered_by_folder_and_notif_type' */;""")
 
-        users_short_version = conn.execute(sql_text_psy, a=new_record.change_type, b=new_record.forum_folder).fetchone()
+        users_short_version = conn.execute(sql_text_psy, a=new_record.change_type, b=new_record.forum_folder).fetchall()
         if users_short_version:
             logging.info(f'{users_short_version}')
             users_short_version = list(users_short_version)
