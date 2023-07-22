@@ -15,7 +15,7 @@ import sqlalchemy
 
 from google.cloud import secretmanager
 from google.cloud import pubsub_v1
-
+import google.cloud.logging
 
 url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
 req = urllib.request.Request(url)
@@ -24,6 +24,11 @@ project_id = urllib.request.urlopen(req).read().decode()
 
 client = secretmanager.SecretManagerServiceClient()
 publisher = pubsub_v1.PublisherClient()
+
+log_client = google.cloud.logging.Client()
+log_client.setup_logging()
+
+
 new_records_list = []
 users_list = []
 coord_format = "{0:.5f}"
@@ -2179,7 +2184,7 @@ def check_and_save_event_id(context, event, conn):
                                           VALUES (:a, :b, :c)
                                           /*action='save_start_of_compose_function' */;""")
 
-        conn.execute(sql_text_psy, a=event_id, b=datetime.datetime.now(), c='compose_notifications')
+        conn.execute(sql_text_psy, a=event_num, b=datetime.datetime.now(), c='compose_notifications')
         logging.info(f'function was triggered by event {event_num}')
 
         return None
