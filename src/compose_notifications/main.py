@@ -389,6 +389,12 @@ def compose_new_records_from_change_log(conn):
         return None
 
     one_line_in_change_log = list(delta_in_cl)
+
+    if not one_line_in_change_log:
+        logging.info(f'new record is found in PSQL, however it is not list: {delta_in_cl}, {one_line_in_change_log}')
+        return None
+
+    logging.info(f'new record is {one_line_in_change_log}')
     new_record = LineInChangeLog()
     new_record.forum_search_num = one_line_in_change_log[0]
     new_record.changed_field = one_line_in_change_log[1]
@@ -1688,7 +1694,7 @@ def iterate_over_all_users(conn, admins_list, new_record):
                         actual_distance, direction = define_dist_and_dir_to_search(search_lat, search_lon,
                                                                                    user_lat, user_lon)
                         actual_distance = int(actual_distance)
-                        if actual_distance <= user_line.radius:
+                        """if actual_distance <= user_line.radius:
                             temp_user_list.append(user_line)
                             # FIXME - temp debug
                             if user_line.user_id not in admins_list:
@@ -1699,7 +1705,7 @@ def iterate_over_all_users(conn, admins_list, new_record):
                             if user_line.user_id not in admins_list:
                                 notify_admin(f'NOT IN RADIUS – {user_line.user_id}: CITY: {record.city_locations},'
                                              f'HQ: {record.search_latitude}, {record.search_longitude}. ')
-                            # FIXME ^^^
+                            # FIXME ^^^"""
 
             # CASE 4.3. No coordinates available
             else:
