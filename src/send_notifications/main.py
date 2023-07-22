@@ -428,7 +428,7 @@ def get_change_log_update_time(cur, change_log_id):
                     FROM change_log 
                     WHERE id = %s;
                     /*action='getting_change_log_parsing_time' */;"""
-    cur.execute(sql_text_psy, change_log_id)
+    cur.execute(sql_text_psy, (change_log_id, ))
     parsed_time = cur.fetchone()
 
     if not parsed_time:
