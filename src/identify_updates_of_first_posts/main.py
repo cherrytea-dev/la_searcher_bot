@@ -687,6 +687,9 @@ def clean_up_content(init_content):
         reco_content = [re.sub(pattern, '', line) for line in reco_content]
 
     reco_content = [re.sub('ё', 'е', line) for line in reco_content]
+    
+    translate_table = str.maketrans({'{': r'\{', '}': r'\}'})
+    reco_content = [line.translate(translate_table) for line in reco_content]
 
     return reco_content
 
