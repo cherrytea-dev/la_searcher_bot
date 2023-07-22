@@ -693,18 +693,17 @@ def finish_time_analytics(notif_times, delays, parsed_times):
     if not delays:
         min_delay, max_delay = None, None
     else:
-        min_delay = min(delays)
-        max_delay = max(delays)
+        min_delay = round(min(delays), 1)
+        max_delay = round(max(delays), 1)
 
     if not parsed_times:
         min_parse_time, max_parse_time = None, None
     else:
-        min_parse_time = min(parsed_times)
-        max_parse_time = max(parsed_times)
+        min_parse_time = int(min(parsed_times))
+        max_parse_time = int(max(parsed_times))
 
-    message = f'[send_notif] {len_n:>3} x {round(average, 2)} = {round(ttl_time, 0)} ' \
-              f'| {round(max_delay, 1)}–{round(min_delay, 1)} ' \
-              f'| {round(max_parse_time, 1)}–{round(min_parse_time, 1)}'
+    message = f'[send_notif] {len_n:>3} x {round(average, 2)} = {int(ttl_time)} ' \
+              f'| {min_delay, 1}–{max_delay} | {min_parse_time}–{max_parse_time}'
     if len_n >= 10:  # FIXME – a temp deactivation to understand the sending speed. # and average > 0.3:
         notify_admin(message)
     logging.info(message)
