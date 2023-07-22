@@ -388,7 +388,7 @@ def compose_new_records_from_change_log(conn):
         logging.info(f'new record is found in PSQL, however it is not list: {delta_in_cl}')
         return None
 
-    one_line_in_change_log = (delta_in_cl)
+    one_line_in_change_log = [i for i in delta_in_cl]
 
     if not one_line_in_change_log:
         logging.info(f'new record is found in PSQL, however it is not list: {delta_in_cl}, {one_line_in_change_log}')
