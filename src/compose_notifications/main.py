@@ -1120,29 +1120,13 @@ def compose_users_list_from_users(conn, new_record):
 
         users = conn.execute(
             """
-                WITH 
-                    user_list AS (SELECT user_id, username_telegram, role 
-                        FROM users WHERE status IS NULL or status='unblocked'), 
-                    user_pref AS (SELECT user_id, pref_id, preference 
-                        FROM user_preferences WHERE pref_id=30 OR pref_id= :a),
-                    user_folders AS (SELECT user_id, forum_folder_num 
-                        FROM user_regional_preferences WHERE forum_folder_num= :b), 
-                    user_short_list AS (SELECT ul.user_id, ul.username_telegram, ul.role 
-                        FROM user_list as ul 
-                        LEFT JOIN user_pref AS up 
-                        ON ul.user_id=up.user_id 
-                        LEFT JOIN user_folders AS uf 
-                        ON ul.user_id=uf.user_id 
-                        WHERE uf.forum_folder_num IS NOT NULL AND up.pref_id IS NOT NULL),
-                    user_with_loc AS (SELECT u.user_id, u.username_telegram, uc.latitude, uc.longitude, u.role 
-                        FROM user_short_list AS u 
-                        LEFT JOIN user_coordinates as uc ON u.user_id=uc.user_id)
-                    
-                SELECT ns.*, st.num_of_new_search_notifs 
-                FROM user_with_loc AS ns 
-                LEFT JOIN user_stat st 
-                ON ns.user_id=st.user_id
-                /*action='get_user_list_filtered_by_folder_and_notif_type' */;"""
+                SELECT ns.*, st.num_of_new_search_notifs FROM 
+            (SELECT u.user_id, u.username_telegram, uc.latitude, uc.longitude, u.role FROM users as u 
+            LEFT JOIN 
+            user_coordinates as uc ON u.user_id=uc.user_id 
+            WHERE u.status = 'unblocked' or u.status is Null) ns 
+            LEFT JOIN 
+            user_stat st ON ns.user_id=st.user_id;"""
         ).fetchall()
 
         analytics_sql_finish = datetime.datetime.now()
