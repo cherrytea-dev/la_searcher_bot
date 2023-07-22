@@ -1,6 +1,5 @@
 """compose and save all the text / location messages, then initiate sending via pub-sub"""
 
-import os
 import base64
 import urllib.request
 
@@ -28,7 +27,8 @@ publisher = pubsub_v1.PublisherClient()
 log_client = google.cloud.logging.Client()
 log_client.setup_logging()
 
-new_records_list = []
+WINDOW_FOR_NOTIFICATIONS_DAYS = 60
+
 users_list = []
 coord_format = "{0:.5f}"
 stat_list_of_recipients = []  # list of users who received notification on new search
@@ -374,52 +374,38 @@ def process_pubsub_message(event):
 def compose_new_records_from_change_log(conn):
     """compose the New Records list of the unique New Records in Change Log: one Record = One line in Change Log"""
 
-    global new_records_list
-
     delta_in_cl = conn.execute(
         """SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log 
         WHERE notification_sent is NULL 
         OR notification_sent='s' ORDER BY id LIMIT 1; """
     ).fetchall()
 
-    for i in range(len(delta_in_cl)):
-        one_line_in_change_log = list(delta_in_cl[i])
-        new_line = LineInChangeLog()
-        new_line.forum_search_num = one_line_in_change_log[0]
-        new_line.changed_field = one_line_in_change_log[1]
-        new_line.new_value = one_line_in_change_log[2]
-        new_line.change_id = one_line_in_change_log[3]
-        new_line.change_type = one_line_in_change_log[4]
+    if not delta_in_cl:
+        logging.info(f'no new records found in PSQL')
+        return None
 
-        try:
-            # define if this Record in change log is about New comments and New comments were already loaded into msgs
-            decision = 'add'
+    if not len(list(delta_in_cl)) > 0:
+        logging.info(f'new record is found in PSQL, however it is not list: {delta_in_cl}')
+        return None
 
-            if len(new_records_list) > 0 and new_line.change_type == 3:  # 'replies_num_change':
-                for j in new_records_list:
-                    if j.forum_search_num == new_line.forum_search_num and j.change_type == new_line.change_type:
-                        decision = 'drop'
-            if decision == 'add':
-                new_records_list.append(new_line)
+    one_line_in_change_log = list(delta_in_cl)
+    new_record = LineInChangeLog()
+    new_record.forum_search_num = one_line_in_change_log[0]
+    new_record.changed_field = one_line_in_change_log[1]
+    new_record.new_value = one_line_in_change_log[2]
+    new_record.change_id = one_line_in_change_log[3]
+    new_record.change_type = one_line_in_change_log[4]
 
-        except Exception as e:
-            new_records_list.append(new_line)
-            logging.warning('massages_array addition were done as Exception: ' + str(e))
+    # TODO – there was a filtering for duplication: Inforg comments vs All Comments, but after restructuring
+    #  of the scrip tech solution stopped working. The new filtering solution to be developed
 
-        del new_line
+    logging.info(f'New Record composed from Change Log: {str(new_record)}')
 
-    logging.info('New Records List composed from Change Log')
-    logging.info('New Records List:')
-    for line in new_records_list:
-        logging.info(str(line))
-
-    return None
+    return new_record
 
 
-def enrich_new_records_from_searches(conn):
-    """add the additional data from Searches into New Records list"""
-
-    global new_records_list
+def enrich_new_records_from_searches(conn, r_line):
+    """add the additional data from Searches into New Records"""
 
     try:
 
@@ -438,67 +424,63 @@ def enrich_new_records_from_searches(conn):
         ).fetchall()
 
         # look for matching Forum Search Numbers in New Records List & Searches
-        for r_line in new_records_list:
-            for s_line in searches_extract:
-                # when match is found
-                if r_line.forum_search_num == s_line[0]:
-                    r_line.status = s_line[1]
-                    r_line.link = 'https://lizaalert.org/forum/viewtopic.php?t=' + str(r_line.forum_search_num)
-                    r_line.title = s_line[2]
-                    r_line.n_of_replies = s_line[3]
-                    r_line.name = define_family_name(r_line.title, s_line[4])  # cuz not all the records has names in S
-                    r_line.age = s_line[5]
-                    r_line.age_wording = age_writer(s_line[5])
-                    r_line.forum_folder = s_line[6]
-                    r_line.search_latitude = s_line[7]
-                    r_line.search_longitude = s_line[8]
-                    r_line.start_time = s_line[9]
-                    r_line.display_name = s_line[10]
-                    r_line.age_min = s_line[11]
-                    r_line.age_max = s_line[12]
-                    r_line.new_status = s_line[13]
-                    r_line.city_locations = s_line[14]
-                    r_line.topic_type_id = s_line[15]
-                    r_line.region = s_line[16]
+        for s_line in searches_extract:
+            # when match is found
+            if r_line.forum_search_num == s_line[0]:
+                r_line.status = s_line[1]
+                r_line.link = 'https://lizaalert.org/forum/viewtopic.php?t=' + str(r_line.forum_search_num)
+                r_line.title = s_line[2]
+                r_line.n_of_replies = s_line[3]
+                r_line.name = define_family_name(r_line.title, s_line[4])  # cuz not all the records has names in S
+                r_line.age = s_line[5]
+                r_line.age_wording = age_writer(s_line[5])
+                r_line.forum_folder = s_line[6]
+                r_line.search_latitude = s_line[7]
+                r_line.search_longitude = s_line[8]
+                r_line.start_time = s_line[9]
+                r_line.display_name = s_line[10]
+                r_line.age_min = s_line[11]
+                r_line.age_max = s_line[12]
+                r_line.new_status = s_line[13]
+                r_line.city_locations = s_line[14]
+                r_line.topic_type_id = s_line[15]
+                r_line.region = s_line[16]
 
-                    print(f'TEMP – FORUM_FOLDER = {r_line.forum_folder}, while s_line = {str(s_line)}')
-                    print(f'TEMP – CITY LOCS = {r_line.city_locations}')
-                    print(f'TEMP – STATUS_OLD = {r_line.status}, STATUS_NEW = {r_line.new_status}')
+                print(f'TEMP – FORUM_FOLDER = {r_line.forum_folder}, while s_line = {str(s_line)}')
+                print(f'TEMP – CITY LOCS = {r_line.city_locations}')
+                print(f'TEMP – STATUS_OLD = {r_line.status}, STATUS_NEW = {r_line.new_status}')
 
-                    # case: when new search's status is already not "Ищем" – to be ignored
-                    if r_line.status != 'Ищем' and r_line.change_type == 0:  # "new_search":
+                # case: when new search's status is already not "Ищем" – to be ignored
+                if r_line.status != 'Ищем' and r_line.change_type == 0:  # "new_search":
+                    r_line.ignore = 'y'
+
+                # limit notification sending only for searches started 60 days ago
+                # 60 days – is a compromise and can be reviewed if community votes for another setting
+                try:
+                    latest_when_alert = r_line.start_time + datetime.timedelta(days=WINDOW_FOR_NOTIFICATIONS_DAYS)
+                    if latest_when_alert < datetime.datetime.now():
                         r_line.ignore = 'y'
 
-                    # limit notification sending only for searches started 60 days ago
-                    # 60 days – is a compromise and can be reviewed if community votes for another setting
-                    try:
-                        days_window_for_alerting = 60
-                        latest_when_alert = r_line.start_time + datetime.timedelta(days=days_window_for_alerting)
-                        if latest_when_alert < datetime.datetime.now():
-                            r_line.ignore = 'y'
+                        # DEBUG purposes only
+                        notify_admin(f'ignoring old search upd {r_line.forum_search_num} '
+                                     f'with start time {r_line.start_time}')
 
-                            # DEBUG purposes only
-                            notify_admin(f'ignoring old search upd {r_line.forum_search_num} '
-                                         f'with start time {r_line.start_time}')
+                except:  # noqa
+                    pass
 
-                    except:  # noqa
-                        pass
+                break
 
-                    break
-
-        logging.info('New Records enriched from Searches')
+        logging.info('New Record enriched from Searches')
 
     except Exception as e:
         logging.error('Not able to enrich New Records from Searches: ' + str(e))
         logging.exception(e)
 
-    return None
+    return r_line
 
 
-def enrich_new_records_with_search_activities(conn):
-    """add to New Records the lists of current searches' activities"""
-
-    global new_records_list
+def enrich_new_records_with_search_activities(conn, r_line):
+    """add the lists of current searches' activities to New Record"""
 
     try:
         list_of_activities = conn.execute("""SELECT sa.search_forum_num, dsa.activity_name from search_activities sa 
@@ -509,27 +491,24 @@ def enrich_new_records_with_search_activities(conn):
         sa.activity_status = 'ongoing' ORDER BY sa.id; """).fetchall()
 
         # look for matching Forum Search Numbers in New Records List & Search Activities
-        for r_line in new_records_list:
-            temp_list_of_activities = []
-            for a_line in list_of_activities:
-                # when match is found
-                if r_line.forum_search_num == a_line[0]:
-                    temp_list_of_activities.append(a_line[1])
-            r_line.activities = temp_list_of_activities
+        temp_list_of_activities = []
+        for a_line in list_of_activities:
+            # when match is found
+            if r_line.forum_search_num == a_line[0]:
+                temp_list_of_activities.append(a_line[1])
+        r_line.activities = temp_list_of_activities
 
-        logging.info('New Records enriched with Search Activities')
+        logging.info('New Record enriched with Search Activities')
 
     except Exception as e:
         logging.error('Not able to enrich New Records with Search Activities: ' + str(e))
         logging.exception(e)
 
-    return None
+    return r_line
 
 
-def enrich_new_records_with_managers(conn):
-    """add to New Records the lists of current searches' managers"""
-
-    global new_records_list
+def enrich_new_records_with_managers(conn, r_line):
+    """add the lists of current searches' managers to the New Record"""
 
     try:
         list_of_managers = conn.execute("""
@@ -539,25 +518,22 @@ def enrich_new_records_with_managers(conn):
         ORDER BY id; """).fetchall()
 
         # look for matching Forum Search Numbers in New Records List & Search Managers
-        for r_line in new_records_list:
-            for m_line in list_of_managers:
-                # when match is found
-                if r_line.forum_search_num == m_line[0] and m_line[2] != '[]':
-                    r_line.managers = m_line[2]
+        for m_line in list_of_managers:
+            # when match is found
+            if r_line.forum_search_num == m_line[0] and m_line[2] != '[]':
+                r_line.managers = m_line[2]
 
-        logging.info('New Records enriched with Managers')
+        logging.info('New Record enriched with Managers')
 
     except Exception as e:
         logging.error('Not able to enrich New Records with Managers: ' + str(e))
         logging.exception(e)
 
-    return None
+    return r_line
 
 
-def enrich_new_records_with_comments(conn, type_of_comments):
-    """add to New Records the lists of new comments + new inforg comments"""
-
-    global new_records_list
+def enrich_new_record_with_comments(conn, type_of_comments, r_line):
+    """add the lists of new comments + new inforg comments to the New Record"""
 
     try:
         if type_of_comments == 'all':
@@ -575,49 +551,48 @@ def enrich_new_records_with_comments(conn, type_of_comments):
         else:
             comments = None
 
-        # look for matching Forum Search Numbers in New Records List & Comments
-        for r_line in new_records_list:
-            if r_line.change_type in {3, 4}:  # {'replies_num_change', 'inforg_replies'}:
-                temp_list_of_comments = []
-                for c_line in comments:
-                    # when match of Forum Numbers is found
-                    if r_line.forum_search_num == c_line[4]:
-                        # check for empty comments
-                        if c_line[1] and c_line[1][0:6].lower() != 'резерв':
+        # look for matching Forum Search Numbers in New Record List & Comments
+        if r_line.change_type in {3, 4}:  # {'replies_num_change', 'inforg_replies'}:
+            temp_list_of_comments = []
+            for c_line in comments:
+                # when match of Forum Numbers is found
+                if r_line.forum_search_num == c_line[4]:
+                    # check for empty comments
+                    if c_line[1] and c_line[1][0:6].lower() != 'резерв':
 
-                            comment = Comment()
-                            comment.url = c_line[0]
-                            comment.text = c_line[1]
+                        comment = Comment()
+                        comment.url = c_line[0]
+                        comment.text = c_line[1]
 
-                            # limitation for extra long messages
-                            if len(comment.text) > 3500:
-                                comment.text = comment.text[:2000] + '...'
+                        # limitation for extra long messages
+                        if len(comment.text) > 3500:
+                            comment.text = comment.text[:2000] + '...'
 
-                            comment.author_link = c_line[3]
-                            comment.search_forum_num = c_line[4]
-                            comment.num = c_line[5]
+                        comment.author_link = c_line[3]
+                        comment.search_forum_num = c_line[4]
+                        comment.num = c_line[5]
 
-                            # some nicknames can be like >>Белый<< which crashes html markup -> we delete symbols
-                            comment.author_nickname = c_line[2]
-                            if comment.author_nickname.find('>') > -1:
-                                comment.author_nickname = comment.author_nickname.replace('>', '')
-                            if comment.author_nickname.find('<') > -1:
-                                comment.author_nickname = comment.author_nickname.replace('<', '')
+                        # some nicknames can be like >>Белый<< which crashes html markup -> we delete symbols
+                        comment.author_nickname = c_line[2]
+                        if comment.author_nickname.find('>') > -1:
+                            comment.author_nickname = comment.author_nickname.replace('>', '')
+                        if comment.author_nickname.find('<') > -1:
+                            comment.author_nickname = comment.author_nickname.replace('<', '')
 
-                            temp_list_of_comments.append(comment)
+                        temp_list_of_comments.append(comment)
 
-                if type_of_comments == 'all':
-                    r_line.comments = temp_list_of_comments
-                elif type_of_comments == 'inforg':
-                    r_line.comments_inforg = temp_list_of_comments
+            if type_of_comments == 'all':
+                r_line.comments = temp_list_of_comments
+            elif type_of_comments == 'inforg':
+                r_line.comments_inforg = temp_list_of_comments
 
-        logging.info('New Records enriched with Comments for ' + type_of_comments)
+        logging.info(f'New Record enriched with Comments for {type_of_comments}')
 
     except Exception as e:
-        logging.error('Not able to enrich New Records with Comments for' + type_of_comments + ': ' + str(e))
+        logging.error(f'Not able to enrich New Records with Comments for {type_of_comments}:')
         logging.exception(e)
 
-    return None
+    return r_line
 
 
 def compose_com_msg_on_new_search(start, activities, managers, clickable_name):
@@ -1039,58 +1014,55 @@ def add_tel_link(incoming_text, modifier='all'):
     return outcome_text
 
 
-def enrich_new_records_with_com_message_texts():
-    """add user-independent message texts to New Records list"""
-
-    global new_records_list
+def enrich_new_record_with_com_message_texts(line):
+    """add user-independent message text to the New Records"""
 
     last_line = None
 
     try:
-        for line in new_records_list:
-            last_line = line
+        last_line = line
 
-            if line.display_name:
-                clickable_name = f'<a href="{line.link}">{line.display_name}</a>'
+        if line.display_name:
+            clickable_name = f'<a href="{line.link}">{line.display_name}</a>'
+        else:
+            if line.name:
+                name = line.name
             else:
-                if line.name:
-                    name = line.name
-                else:
-                    name = 'БВП'
-                age_info = f' {line.age_wording}' if (name[0].isupper() and line.age and line.age != 0) else ''
-                clickable_name = f'<a href="{line.link}">{name}{age_info}</a>'
+                name = 'БВП'
+            age_info = f' {line.age_wording}' if (name[0].isupper() and line.age and line.age != 0) else ''
+            clickable_name = f'<a href="{line.link}">{name}{age_info}</a>'
 
-            if line.change_type == 0:  # 'new_search':
-                line.message, line.message_object, line.ignore = compose_com_msg_on_new_search(line.start_time,
-                                                                                               line.activities,
-                                                                                               line.managers,
-                                                                                               clickable_name)
-            elif line.change_type == 1:  # 'status_change':
-                line.message = compose_com_msg_on_status_change(line.status, line.region, clickable_name)
-            elif line.change_type == 2:  # 'title_change':
-                line.message = compose_com_msg_on_title_change(line.title, clickable_name)
-            elif line.change_type == 3:  # 'replies_num_change':
-                line.message = compose_com_msg_on_new_comments(line.comments, clickable_name)
-            elif line.change_type == 4:  # 'inforg_replies':
-                line.message = compose_com_msg_on_inforg_comments(line.comments_inforg, line.region, clickable_name)
-            elif line.change_type in {5, 6}:  # topic_field_trip_new & topic_field_trip_change
-                line.message, line.search_latitude, line.search_longitude = \
-                    compose_com_msg_on_field_trip(line.new_value, clickable_name)
-            elif line.change_type == 7:  # coords_change
-                line.message, line.search_latitude, line.search_longitude, line.coords_change_type = \
-                    compose_com_msg_on_coords_change(line.new_value, clickable_name)
-            elif line.change_type == 8:  # first_post_change
-                line.message = compose_com_msg_on_first_post_change(line.new_value, clickable_name,
-                                                                    line.search_latitude, line.search_longitude)
+        if line.change_type == 0:  # 'new_search':
+            line.message, line.message_object, line.ignore = compose_com_msg_on_new_search(line.start_time,
+                                                                                           line.activities,
+                                                                                           line.managers,
+                                                                                           clickable_name)
+        elif line.change_type == 1:  # 'status_change':
+            line.message = compose_com_msg_on_status_change(line.status, line.region, clickable_name)
+        elif line.change_type == 2:  # 'title_change':
+            line.message = compose_com_msg_on_title_change(line.title, clickable_name)
+        elif line.change_type == 3:  # 'replies_num_change':
+            line.message = compose_com_msg_on_new_comments(line.comments, clickable_name)
+        elif line.change_type == 4:  # 'inforg_replies':
+            line.message = compose_com_msg_on_inforg_comments(line.comments_inforg, line.region, clickable_name)
+        elif line.change_type in {5, 6}:  # topic_field_trip_new & topic_field_trip_change
+            line.message, line.search_latitude, line.search_longitude = \
+                compose_com_msg_on_field_trip(line.new_value, clickable_name)
+        elif line.change_type == 7:  # coords_change
+            line.message, line.search_latitude, line.search_longitude, line.coords_change_type = \
+                compose_com_msg_on_coords_change(line.new_value, clickable_name)
+        elif line.change_type == 8:  # first_post_change
+            line.message = compose_com_msg_on_first_post_change(line.new_value, clickable_name,
+                                                                line.search_latitude, line.search_longitude)
 
-        logging.info('New Records enriched with common Message Texts')
+        logging.info('New Record enriched with common Message Text')
 
     except Exception as e:
-        logging.error('Not able to enrich New Records with common Message Texts:' + str(e))
+        logging.error('Not able to enrich New Record with common Message Texts:' + str(e))
         logging.exception(e)
         logging.info('FOR DEBUG OF ERROR – line is: ' + str(last_line))
 
-    return None
+    return line
 
 
 def compose_users_list_from_users(conn):
@@ -1373,8 +1345,8 @@ def record_notification_statistics(conn):
     return None
 
 
-def iterate_over_all_users_and_updates(conn, admins_list):
-    """initiates a full cycle for all messages send to all the users"""
+def iterate_over_all_users(conn, admins_list, new_record):
+    """initiates a full cycle for all messages composition for all the users"""
 
     def save_to_sql_notif_by_user(mailing_id_, user_id_, message_, message_without_html_,
                                   message_type_, message_params_, message_group_id_, change_log_id_):
@@ -1750,7 +1722,6 @@ def iterate_over_all_users_and_updates(conn, admins_list):
 
         return users_list_outcome
 
-    global new_records_list
     global users_list
     global coord_format
     global stat_list_of_recipients
@@ -1762,148 +1733,146 @@ def iterate_over_all_users_and_updates(conn, admins_list):
 
     try:
 
-        for new_record in new_records_list:
+        # skip ignored lines which don't require a notification
+        if new_record.ignore != 'y':
 
-            # skip ignored lines which don't require a notification
-            if new_record.ignore != 'y':
+            s_lat = new_record.search_latitude
+            s_lon = new_record.search_longitude
+            topic_id = new_record.forum_search_num
+            change_type = new_record.change_type
+            change_log_id = new_record.change_id
 
-                s_lat = new_record.search_latitude
-                s_lon = new_record.search_longitude
-                topic_id = new_record.forum_search_num
-                change_type = new_record.change_type
-                change_log_id = new_record.change_id
+            users_who_should_not_be_informed, this_record_was_processed_already, mailing_id = \
+                process_mailing_id(change_log_id)
 
-                users_who_should_not_be_informed, this_record_was_processed_already, mailing_id = \
-                    process_mailing_id(change_log_id)
+            users_list = crop_user_list(users_list, users_who_should_not_be_informed, new_record)
 
-                users_list = crop_user_list(users_list, users_who_should_not_be_informed, new_record)
+            for user in users_list:
+                u_lat = user.user_latitude
+                u_lon = user.user_longitude
+                region_to_show = new_record.region if user.user_in_multi_regions else None
+                message = ''
+                number_of_situations_checked += 1
 
-                for user in users_list:
-                    u_lat = user.user_latitude
-                    u_lon = user.user_longitude
-                    region_to_show = new_record.region if user.user_in_multi_regions else None
-                    message = ''
-                    number_of_situations_checked += 1
+                # start composing individual messages (specific user on specific situation)
+                if change_type == 0:  # new_search
+                    num_of_msgs_sent_already = user.user_new_search_notifs
+                    message = compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_lon,
+                                                                       region_to_show, num_of_msgs_sent_already)
+                elif change_type == 1:  # status_change
+                    message = new_record.message[0]
+                    if user.user_in_multi_regions and new_record.message[1]:
+                        message += new_record.message[1]
 
-                    # start composing individual messages (specific user on specific situation)
-                    if change_type == 0:  # new_search
-                        num_of_msgs_sent_already = user.user_new_search_notifs
-                        message = compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_lon,
-                                                                           region_to_show, num_of_msgs_sent_already)
-                    elif change_type == 1:  # status_change
-                        message = new_record.message[0]
-                        if user.user_in_multi_regions and new_record.message[1]:
-                            message += new_record.message[1]
+                elif change_type == 2:  # 'title_change':
+                    message = new_record.message
 
-                    elif change_type == 2:  # 'title_change':
-                        message = new_record.message
+                elif change_type == 3:  # 'replies_num_change':
+                    message = new_record.message[0]
 
-                    elif change_type == 3:  # 'replies_num_change':
-                        message = new_record.message[0]
+                elif change_type == 4:  # 'inforg_replies':
+                    message = new_record.message[0]
+                    if user.user_in_multi_regions and new_record.message[1]:
+                        message += new_record.message[1]
+                    if new_record.message[2]:
+                        message += new_record.message[2]
 
-                    elif change_type == 4:  # 'inforg_replies':
-                        message = new_record.message[0]
-                        if user.user_in_multi_regions and new_record.message[1]:
-                            message += new_record.message[1]
-                        if new_record.message[2]:
-                            message += new_record.message[2]
+                elif change_type == 5:  # field_trips_new
+                    message = compose_individual_msg_on_field_trip(new_record.message, s_lat, s_lon, u_lat,
+                                                                   u_lon, region_to_show)
 
-                    elif change_type == 5:  # field_trips_new
-                        message = compose_individual_msg_on_field_trip(new_record.message, s_lat, s_lon, u_lat,
-                                                                       u_lon, region_to_show)
+                elif change_type == 6:  # field_trips_change
+                    message = compose_individual_msg_on_field_trip(new_record.message, s_lat, s_lon, u_lat,
+                                                                   u_lon, region_to_show)
 
-                    elif change_type == 6:  # field_trips_change
-                        message = compose_individual_msg_on_field_trip(new_record.message, s_lat, s_lon, u_lat,
-                                                                       u_lon, region_to_show)
+                elif change_type == 7:  # coords_change
+                    message = compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat,
+                                                                          u_lon, region_to_show)
+                elif change_type == 8:  # first_post_change
+                    message = compose_individual_message_on_first_post_change(new_record, region_to_show)
 
-                    elif change_type == 7:  # coords_change
-                        message = compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat,
-                                                                              u_lon, region_to_show)
-                    elif change_type == 8:  # first_post_change
-                        message = compose_individual_message_on_first_post_change(new_record, region_to_show)
+                # TODO: to delete msg_group at all ?
+                # messages followed by coordinates (sendMessage + sendLocation) have same group
+                msg_group_id = get_the_new_group_id() if change_type in {0, 5, 6, 7, 8} else None
+                # not None for new_search, field_trips_new, field_trips_change,  coord_change
 
-                    # TODO: to delete msg_group at all ?
-                    # messages followed by coordinates (sendMessage + sendLocation) have same group
-                    msg_group_id = get_the_new_group_id() if change_type in {0, 5, 6, 7, 8} else None
-                    # not None for new_search, field_trips_new, field_trips_change,  coord_change
+                # define if user received this message already
+                this_user_was_notified = False
 
-                    # define if user received this message already
-                    this_user_was_notified = False
+                if this_record_was_processed_already:
+                    this_user_was_notified = get_from_sql_if_was_notified_already(user.user_id, 'text',
+                                                                                  new_record.change_id)
 
-                    if this_record_was_processed_already:
-                        this_user_was_notified = get_from_sql_if_was_notified_already(user.user_id, 'text',
-                                                                                      new_record.change_id)
+                    logging.info(f'this user was notified already {user.user_id}, {this_user_was_notified}')
+                    if user.user_id in users_who_should_not_be_informed:
+                        logging.info('this user is in the list of non-notifiers')
+                    else:
+                        logging.info('this user is NOT in the list of non-notifiers')
 
-                        logging.info(f'this user was notified already {user.user_id}, {this_user_was_notified}')
-                        if user.user_id in users_who_should_not_be_informed:
-                            logging.info('this user is in the list of non-notifiers')
-                        else:
-                            logging.info('this user is NOT in the list of non-notifiers')
+                if message and not this_user_was_notified:
 
-                    if message and not this_user_was_notified:
+                    # TODO: make text more compact within 50 symbols
+                    message_without_html = re.sub(cleaner, '', message)
 
-                        # TODO: make text more compact within 50 symbols
-                        message_without_html = re.sub(cleaner, '', message)
+                    message_params = {'parse_mode': 'HTML',
+                                      'disable_web_page_preview': 'True'}
 
-                        message_params = {'parse_mode': 'HTML',
-                                          'disable_web_page_preview': 'True'}
+                    # TODO: Debug only - to delete
+                    print(f'what we are saving to SQL: {mailing_id}, {user.user_id}, {message_without_html}, '
+                          f'{message_params}, {msg_group_id}, {change_log_id}')
+                    # TODO: Debug only - to delete
 
-                        # TODO: Debug only - to delete
-                        print(f'what we are saving to SQL: {mailing_id}, {user.user_id}, {message_without_html}, '
-                              f'{message_params}, {msg_group_id}, {change_log_id}')
-                        # TODO: Debug only - to delete
+                    # record into SQL table notif_by_user
+                    save_to_sql_notif_by_user(mailing_id, user.user_id, message, message_without_html,
+                                              'text', message_params, msg_group_id, change_log_id)
 
-                        # record into SQL table notif_by_user
-                        save_to_sql_notif_by_user(mailing_id, user.user_id, message, message_without_html,
-                                                  'text', message_params, msg_group_id, change_log_id)
+                    # for user tips in "new search" notifs – to increase sent messages counter
+                    if change_type == 0:  # 'new_search':
+                        stat_list_of_recipients.append(user.user_id)
 
-                        # for user tips in "new search" notifs – to increase sent messages counter
-                        if change_type == 0:  # 'new_search':
-                            stat_list_of_recipients.append(user.user_id)
+                    # save to SQL the sendLocation notification for "new search" & "field trips"
+                    if change_type in {0, 5, 6} and s_lat and s_lon:
+                        # 'new_search', field_trip_new, field_trip_change
+                        message_params = {'latitude': s_lat, 'longitude': s_lon}
 
-                        # save to SQL the sendLocation notification for "new search" & "field trips"
-                        if change_type in {0, 5, 6} and s_lat and s_lon:
-                            # 'new_search', field_trip_new, field_trip_change
-                            message_params = {'latitude': s_lat, 'longitude': s_lon}
+                        # record into SQL table notif_by_user (not text, but coords only)
+                        save_to_sql_notif_by_user(mailing_id, user.user_id, None, None, 'coords', message_params,
+                                                  msg_group_id, change_log_id)
+                    if change_type == 8:
 
-                            # record into SQL table notif_by_user (not text, but coords only)
-                            save_to_sql_notif_by_user(mailing_id, user.user_id, None, None, 'coords', message_params,
-                                                      msg_group_id, change_log_id)
-                        if change_type == 8:
+                        try:
+                            list_of_coords = re.findall(r'<code>', message)
+                            if list_of_coords and len(list_of_coords) == 1:
+                                # that would mean that there's only 1 set of new coordinates and hence we can
+                                # send the dedicated sendLocation message
+                                both_coordinates = re.search(r'(?<=<code>).{5,100}(?=</code>)', message).group()
+                                if both_coordinates:
+                                    new_lat = re.search(r'^[\d.]{2,12}(?=\D)', both_coordinates).group()
+                                    new_lon = re.search(r'(?<=\D)[\d.]{2,12}$', both_coordinates).group()
+                                    message_params = {'latitude': new_lat, 'longitude': new_lon}
+                                    save_to_sql_notif_by_user(mailing_id, user.user_id, None, None, 'coords',
+                                                              message_params,
+                                                              msg_group_id, change_log_id)
+                        except Exception as ee:
+                            logging.info('exception happened')
+                            logging.exception(ee)
 
-                            try:
-                                list_of_coords = re.findall(r'<code>', message)
-                                if list_of_coords and len(list_of_coords) == 1:
-                                    # that would mean that there's only 1 set of new coordinates and hence we can
-                                    # send the dedicated sendLocation message
-                                    both_coordinates = re.search(r'(?<=<code>).{5,100}(?=</code>)', message).group()
-                                    if both_coordinates:
-                                        new_lat = re.search(r'^[\d.]{2,12}(?=\D)', both_coordinates).group()
-                                        new_lon = re.search(r'(?<=\D)[\d.]{2,12}$', both_coordinates).group()
-                                        message_params = {'latitude': new_lat, 'longitude': new_lon}
-                                        save_to_sql_notif_by_user(mailing_id, user.user_id, None, None, 'coords',
-                                                                  message_params,
-                                                                  msg_group_id, change_log_id)
-                            except Exception as ee:
-                                logging.info('exception happened')
-                                logging.exception(ee)
+                    # save to SQL the sendLocation notification for "coords change"
+                    if change_type == 7 and s_lat and s_lon and new_record.coords_change_type != 'drop' \
+                            and user.user_id in admins_list:  # coords_change
+                        message_params = {'latitude': s_lat, 'longitude': s_lon}
 
-                        # save to SQL the sendLocation notification for "coords change"
-                        if change_type == 7 and s_lat and s_lon and new_record.coords_change_type != 'drop' \
-                                and user.user_id in admins_list:  # coords_change
-                            message_params = {'latitude': s_lat, 'longitude': s_lon}
+                        save_to_sql_notif_by_user(mailing_id, user.user_id, None, None, 'coords', message_params,
+                                                  msg_group_id, change_log_id)
 
-                            save_to_sql_notif_by_user(mailing_id, user.user_id, None, None, 'coords', message_params,
-                                                      msg_group_id, change_log_id)
+                    number_of_messages_sent += 1
 
-                        number_of_messages_sent += 1
+            # mark this line as all-processed
+            new_record.processed = 'yes'
 
-                # mark this line as all-processed
-                new_record.processed = 'yes'
-
-            # mark all ignored lines as processed
-            else:
-                new_record.processed = 'yes'
+        # mark all ignored lines as processed
+        else:
+            new_record.processed = 'yes'
 
         logging.info('Iterations over all Users and Updates are done')
 
@@ -1911,7 +1880,7 @@ def iterate_over_all_users_and_updates(conn, admins_list):
         logging.info('Not able to Iterate over all Users and Updates: ')
         logging.exception(e1)
 
-    return None
+    return new_record
 
 
 def generate_yandex_maps_place_link2(lat, lon, param):
@@ -2111,36 +2080,25 @@ def notify_admin(message):
     return None
 
 
-def mark_new_records_as_processed(conn):
+def mark_new_record_as_processed(conn, new_record):
     """mark all the new records in SQL as processed, to avoid processing in the next iteration"""
 
     try:
-        # Compose the list of Change_log id's for which notifications were sent, hence which to be marked as 'processed'
-        change_id_list = []
-        change_id_list_ignored = []
+        if new_record.processed == 'yes':
+            if new_record.ignore != 'y':
+                sql_text = sqlalchemy.text("""UPDATE change_log SET notification_sent = 'y' WHERE id=:a;""")
+                conn.execute(sql_text, a=new_record.change_id)
+                logging.info(f'The New Record {new_record.change_id} was marked as processed in PSQL')
+            else:
+                sql_text = sqlalchemy.text("""UPDATE change_log SET notification_sent = 'n' WHERE id=:a;""")
+                conn.execute(sql_text, a=new_record.change_id)
+                logging.info(f'The New Record {new_record.change_id} was marked as IGNORED in PSQL')
 
-        for record in new_records_list:
-
-            if record.processed == 'yes':
-                if record.ignore != 'y':
-                    change_id_list.append(record.change_id)
-                else:
-                    change_id_list_ignored.append(record.change_id)
-
-        for record in change_id_list:
-            sql_text = sqlalchemy.text("""UPDATE change_log SET notification_sent = 'y' WHERE id=:a;""")
-            conn.execute(sql_text, a=record)
-
-        for record in change_id_list_ignored:
-            sql_text = sqlalchemy.text("""UPDATE change_log SET notification_sent = 'n' WHERE id=:a;""")
-            conn.execute(sql_text, a=record)
-
-        logging.info(f'The list of Updates that are processed and not ignored: {change_id_list}')
-        logging.info(f'The list of Updates that are processed and ignored: {change_id_list_ignored}')
         logging.info('All Updates are marked as processed in Change Log')
 
     except Exception as e:
 
+        # FIXME – should be a smarter way to re-process the record instead of just marking everything as processed
         # For Safety's Sake – Update Change_log SQL table, setting 'y' everywhere
         conn.execute(
             """UPDATE change_log SET notification_sent = 'y' WHERE notification_sent is NULL 
@@ -2151,36 +2109,34 @@ def mark_new_records_as_processed(conn):
         logging.exception(e)
         logging.info('Due to error, all Updates are marked as processed in Change Log')
         notify_admin('ERROR: Not able to mark Updates as Processed in Change Log!')
+        # FIXME ^^^
 
     return None
 
 
-def mark_new_comments_as_processed(conn):
+def mark_new_comments_as_processed(conn, record):
     """mark in SQL table Comments all the comments that were processed at this step, basing on search_forum_id"""
 
     try:
-        change_id_list_all = []
-        change_id_list_inforg = []
-        for record in new_records_list:
-            if record.processed == 'yes' and record.change_type == 3 and record.ignore != 'y':
-                change_id_list_all.append(record.forum_search_num)
-            elif record.processed == 'yes' and record.change_type == 4 and record.ignore != 'y':
-                change_id_list_inforg.append(record.forum_search_num)
+        # TODO – is it correct that we mark comments processes for any Comments for certain search? Looks
+        #  like we can mark some comments which are not yet processed at all. Probably base on change_id? To be checked
+        if record.processed == 'yes' and record.ignore != 'y':
 
-        for record in change_id_list_all:
-            sql_text = sqlalchemy.text("UPDATE comments SET notification_sent = 'y' WHERE search_forum_num=:a;")
-            conn.execute(sql_text, a=record)
+            if record.change_type == 3:
+                sql_text = sqlalchemy.text("UPDATE comments SET notification_sent = 'y' WHERE search_forum_num=:a;")
+                conn.execute(sql_text, a=record.forum_search_num)
 
-        for record in change_id_list_inforg:
-            sql_text = sqlalchemy.text("UPDATE comments SET notif_sent_inforg = 'y' WHERE search_forum_num=:a;")
-            conn.execute(sql_text, a=record)
+            elif record.change_type == 4:
+                sql_text = sqlalchemy.text("UPDATE comments SET notif_sent_inforg = 'y' WHERE search_forum_num=:a;")
+                conn.execute(sql_text, a=record.forum_search_num)
+            # FIXME ^^^
 
-        logging.info(f'The list of Updates with Comments that are processed and not ignored: {change_id_list_all}, '
-                     f'{change_id_list_inforg}')
-        logging.info('All Comments are marked as processed')
+            logging.info(f'The Update {record.change_id} with Comments that are processed and not ignored')
+            logging.info('All Comments are marked as processed')
 
     except Exception as e:
 
+        # TODO – seems a vary vague solution: to mark all
         sql_text = sqlalchemy.text("""UPDATE comments SET notification_sent = 'y' WHERE notification_sent is Null 
                                       OR notification_sent = 's';""")
         conn.execute(sql_text)
@@ -2191,11 +2147,12 @@ def mark_new_comments_as_processed(conn):
         logging.exception(e)
         logging.info('Due to error, all Comments are marked as processed')
         notify_admin('ERROR: Not able to mark Comments as Processed!')
+        # TODO ^^^
 
     return None
 
 
-def check_and_save_event_id(context, event, conn):
+def check_and_save_event_id(context, event, conn, new_record):
     """Work with PSQL table notif_functions_registry. Goal of the table & function is to avoid parallel work of
     two compose_notifications functions. Executed in the beginning and in the end of compose_notifications function"""
 
@@ -2263,10 +2220,10 @@ def check_and_save_event_id(context, event, conn):
     elif event == 'finish':
 
         json_of_params = None
-        if new_records_list:
+        if new_record:
             # FIXME -- temp try. the content is not temp
             try:
-                list_of_change_log_ids = [x.change_id for x in new_records_list]
+                list_of_change_log_ids = [new_record.change_id]
                 json_of_params = json.dumps({"change_log_ids": list_of_change_log_ids})
             except Exception as e:  # noqa
                 logging.exception(e)
@@ -2275,14 +2232,27 @@ def check_and_save_event_id(context, event, conn):
         return False
 
 
+def check_if_need_compose_more(conn):
+    """check if there are any notifications remained to be composed"""
+
+    check = conn.execute("""SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log 
+                            WHERE notification_sent is NULL 
+                            OR notification_sent='s' LIMIT 1; """).fetchall()
+    if check:
+        logging.info('we checked – there is still something to compose: re-initiating [compose_notification]')
+        publish_to_pubsub('topic_for_notification', 're-run from same script')
+    else:
+        logging.info('we checked – there is nothing to compose: we are not re-initiating [compose_notification]')
+
+    return None
+
+
 def main(event, context):  # noqa
     """key function which is initiated by Pub/Sub"""
 
-    global new_records_list
     global users_list
 
-    # the below two lines are required due to Google Cloud Functions specifics
-    new_records_list = []
+    # the below line is required due to Google Cloud Functions specifics
     users_list = []
 
     analytics_start_of_func = datetime.datetime.now()
@@ -2290,36 +2260,36 @@ def main(event, context):  # noqa
     pool = sql_connect()
     with pool.connect() as conn:
 
-        there_is_function_working_in_parallel = check_and_save_event_id(context, 'start', conn)
+        there_is_function_working_in_parallel = check_and_save_event_id(context, 'start', conn, None)
         if there_is_function_working_in_parallel:
             logging.info(f'function execution stopped due to parallel run with another function')
-            check_and_save_event_id(context, 'finish', conn)
+            check_and_save_event_id(context, 'finish', conn, None)
             logging.info('script finished')
             conn.close()
             pool.dispose()
             return None
 
         # compose New Records List: the delta from Change log
-        compose_new_records_from_change_log(conn)
+        new_record = compose_new_records_from_change_log(conn)
 
         # only if there are updates in Change Log
-        if new_records_list:
+        if new_record:
 
             # enrich New Records List with all the updates that should be in notifications
-            enrich_new_records_from_searches(conn)
-            enrich_new_records_with_search_activities(conn)
-            enrich_new_records_with_managers(conn)
+            new_record = enrich_new_records_from_searches(conn, new_record)
+            new_record = enrich_new_records_with_search_activities(conn, new_record)
+            new_record = enrich_new_records_with_managers(conn, new_record)
 
             # FIXME - temp debug
             try:
-                logging.info(f'TEMP - pre-comments print of the search info: {new_records_list[0]}')
+                logging.info(f'TEMP - pre-comments print of the search info: {new_record}')
             except:  # noqa
                 pass
             # FIXME ^^^
 
-            enrich_new_records_with_comments(conn, 'all')
-            enrich_new_records_with_comments(conn, 'inforg')
-            enrich_new_records_with_com_message_texts()
+            new_record = enrich_new_record_with_comments(conn, 'all', new_record)
+            new_record = enrich_new_record_with_comments(conn, 'inforg', new_record)
+            new_record = enrich_new_record_with_com_message_texts(new_record)
 
             # compose Users List: all the notifications recipients' details
             admins_list, testers_list = get_list_of_admins_and_testers(conn)  # for debug purposes
@@ -2335,40 +2305,35 @@ def main(event, context):  # noqa
             logging.info(f'time: function match end-to-end – {duration_match} sec')
 
             # check the matrix: new update - user and initiate sending notifications
-            iterate_over_all_users_and_updates(conn, admins_list)
+            new_record = iterate_over_all_users(conn, admins_list, new_record)
 
             analytics_iterations_finish = datetime.datetime.now()
             duration_iterations = round((analytics_iterations_finish - analytics_match_finish).total_seconds(), 2)
             logging.info(f'time: function iterations end-to-end – {duration_iterations} sec')
 
             # mark all the "new" lines in tables Change Log & Comments as "old"
-            mark_new_records_as_processed(conn)
-            mark_new_comments_as_processed(conn)
+            mark_new_record_as_processed(conn, new_record)
+            mark_new_comments_as_processed(conn, new_record)
 
             # final step – update statistics on how many users received notifications on new searches
             record_notification_statistics(conn)
 
-        # check if there are any notifications remained to be composed
-        check = conn.execute("""SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log 
-                                WHERE notification_sent is NULL 
-                                OR notification_sent='s' LIMIT 1; """).fetchall()
-        if check:
-            logging.info('we checked – there is still something to notify, so we re-initiated this function')
-            publish_to_pubsub('topic_for_notification', 're-run from same script')
-
-        check_and_save_event_id(context, 'finish', conn)
+        check_if_need_compose_more(conn)
+        check_and_save_event_id(context, 'finish', conn, new_record)
         publish_to_pubsub('topic_to_send_notifications', 'initiate notifs send out')
 
         analytics_finish = datetime.datetime.now()
         duration_saving = round((analytics_finish - analytics_iterations_finish).total_seconds(), 2)
         logging.info(f'time: function data saving – {duration_saving} sec')
 
+        duration_full = round((analytics_finish - analytics_start_of_func).total_seconds(), 2)
+        logging.info(f'time: function full end-to-end – {duration_full} sec')
+
         logging.info('script finished')
 
         conn.close()
     pool.dispose()
 
-    del new_records_list
     del users_list
 
     return None
