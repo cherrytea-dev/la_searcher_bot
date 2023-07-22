@@ -1101,7 +1101,8 @@ def compose_users_list_from_users(conn, new_record):
 
         users_short_version = conn.execute(sql_text_psy, a=new_record.change_type, b=new_record.forum_folder).fetchone()
         if users_short_version:
-            users_short_version = users_short_version[0]
+            logging.info(f'{users_short_version}')
+            users_short_version = list(users_short_version)
             logging.info(f' -=!!!!=- Users Short Ver = {len(users_short_version)} with folder '
                          f'{new_record.forum_folder} and change type {new_record.change_type}')
 
