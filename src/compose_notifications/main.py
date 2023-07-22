@@ -2189,13 +2189,15 @@ def check_and_save_event_id(context, event, conn):
 
         return None
 
-    def record_finish_of_function(event_num):
+    def record_finish_of_function(event_num, params_json):
         """Record into PSQL that this function finished working (id = id of the respective pub/sub event)"""
 
-        sql_text_psy = sqlalchemy.text("""UPDATE notif_functions_registry SET time_finish = :a WHERE event_id = :b
+        sql_text_psy = sqlalchemy.text("""UPDATE notif_functions_registry 
+                                          SET time_finish = :a, params = :c 
+                                          WHERE event_id = :b
                                           /*action='save_finish_of_compose_function' */;""")
 
-        conn.execute(sql_text_psy, a=datetime.datetime.now(), b=event_num)
+        conn.execute(sql_text_psy, a=datetime.datetime.now(), b=event_num, c=params_json)
 
         return None
 
@@ -2218,7 +2220,17 @@ def check_and_save_event_id(context, event, conn):
 
     # if this functions is triggered in the very end of the Google Cloud Function execution
     elif event == 'finish':
-        record_finish_of_function(event_id)
+
+        json_of_params = None
+        if new_records_list:
+            # FIXME -- temp try. the content is not temp
+            try:
+                list_of_change_log_ids = [x.change_id for x in new_records_list]
+                json_of_params = json.dumps({"change_log_ids":list_of_change_log_ids})
+            except Exception as e:  # noqa
+                logging.exception(e)
+            # FIXME ^^^
+        record_finish_of_function(event_id, json_of_params)
         return False
 
 
