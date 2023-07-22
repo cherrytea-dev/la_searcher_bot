@@ -1104,6 +1104,8 @@ def compose_users_list_from_users(conn, new_record):
                 /*action='get_user_list_filtered_by_folder_and_notif_type' */;""")
 
         users_short_version = conn.execute(sql_text_psy, a=new_record.change_type, b=new_record.forum_folder).fetchall()
+
+        logging.info(f'>>>>>>{users_short_version[0]}')
         if users_short_version:
             logging.info(f'{users_short_version}')
             users_short_version = list(users_short_version)
@@ -1132,6 +1134,9 @@ def compose_users_list_from_users(conn, new_record):
         analytics_sql_finish = datetime.datetime.now()
         duration_sql = round((analytics_sql_finish - analytics_start).total_seconds(), 2)
         logging.info(f'time: {analytics_prefix} sql – {duration_sql} sec')
+
+        logging.info(f'>>>>>> {users[0]}')
+
 
         for line in users:
             new_line = User(user_id=line[0], username_telegram=line[1], user_latitude=line[2], user_longitude=line[3],
