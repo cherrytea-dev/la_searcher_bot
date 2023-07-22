@@ -28,7 +28,6 @@ publisher = pubsub_v1.PublisherClient()
 log_client = google.cloud.logging.Client()
 log_client.setup_logging()
 
-
 new_records_list = []
 users_list = []
 coord_format = "{0:.5f}"
@@ -153,7 +152,7 @@ class User:
                  user_corr_regions=None,  # FIXME - seems it's not needed anymore
                  user_new_search_notifs=None,
                  user_role=None,
-                 user_age_periods=None, # noqa
+                 user_age_periods=None,  # noqa
                  radius=None
                  ):
         user_age_periods = []
@@ -328,6 +327,7 @@ def define_dist_and_dir_to_search(search_lat, search_lon, user_let, user_lon):
         nsew = points[bearing]
 
         return nsew
+
     earth_radius = 6373.0  # radius of the Earth
 
     # coordinates in radians
@@ -481,7 +481,7 @@ def enrich_new_records_from_searches(conn):
                             notify_admin(f'ignoring old search upd {r_line.forum_search_num} '
                                          f'with start time {r_line.start_time}')
 
-                    except: # noqa
+                    except:  # noqa
                         pass
 
                     break
@@ -1000,7 +1000,7 @@ def compose_com_msg_on_first_post_change(message, clickable_name, old_lat, old_l
             if distance >= 1:
                 coord_change_phrase = f'\n\nКоординаты сместились на ~{int(distance)} км {direction}'
             else:
-                coord_change_phrase = f'\n\nКоординаты сместились на ~{int(distance*1000)} метров {direction}'
+                coord_change_phrase = f'\n\nКоординаты сместились на ~{int(distance * 1000)} метров {direction}'
 
     except Exception as e:
         notify_admin(f'HEY! something was broken in this new process! {message}')
@@ -1099,6 +1099,10 @@ def compose_users_list_from_users(conn):
     global users_list
 
     try:
+
+        analytics_prefix = 'users list'
+        analytics_start = datetime.datetime.now()
+
         users = conn.execute(
             """SELECT ns.*, st.num_of_new_search_notifs FROM 
             (SELECT u.user_id, u.username_telegram, uc.latitude, uc.longitude, u.role FROM users as u 
@@ -1109,6 +1113,10 @@ def compose_users_list_from_users(conn):
             user_stat st ON ns.user_id=st.user_id;"""
         ).fetchall()
 
+        analytics_sql_finish = datetime.datetime.now()
+        duration_sql = round((analytics_sql_finish - analytics_start).total_seconds(), 2)
+        logging.info(f'time: {analytics_prefix} sql – {duration_sql} sec')
+
         for line in users:
             new_line = User(user_id=line[0], username_telegram=line[1], user_latitude=line[2], user_longitude=line[3],
                             user_role=line[4])
@@ -1118,6 +1126,12 @@ def compose_users_list_from_users(conn):
                 new_line.user_new_search_notifs = int(line[5])
 
             users_list.append(new_line)
+
+        analytics_match_finish = datetime.datetime.now()
+        duration_match = round((analytics_match_finish - analytics_sql_finish).total_seconds(), 2)
+        logging.info(f'time: {analytics_prefix} match – {duration_match} sec')
+        duration_full = round((analytics_match_finish - analytics_start).total_seconds(), 2)
+        logging.info(f'time: {analytics_prefix} end-to-end – {duration_full} sec')
 
         logging.info('User List composed')
         # logging.info('User List: ' + str(users_list))
@@ -1191,9 +1205,16 @@ def enrich_users_list_with_notification_preferences(conn):
     global users_list
 
     try:
+        analytics_prefix = 'notifs'
+        analytics_start = datetime.datetime.now()
+
         notif_prefs = conn.execute(
             """SELECT user_id, preference, pref_id FROM user_preferences;"""
         ).fetchall()
+
+        analytics_sql_finish = datetime.datetime.now()
+        duration_sql = round((analytics_sql_finish - analytics_start).total_seconds(), 2)
+        logging.info(f'time: {analytics_prefix} sql – {duration_sql} sec')
 
         # look for matching User_ID in Users List & Notification Preferences
         for u_line in users_list:
@@ -1207,6 +1228,12 @@ def enrich_users_list_with_notification_preferences(conn):
 
             u_line.notification_preferences = prefs_array
             u_line.notif_pref_ids_list = user_pref_ids_list
+
+        analytics_match_finish = datetime.datetime.now()
+        duration_match = round((analytics_match_finish - analytics_sql_finish).total_seconds(), 2)
+        logging.info(f'time: {analytics_prefix} match – {duration_match} sec')
+        duration_full = round((analytics_match_finish - analytics_start).total_seconds(), 2)
+        logging.info(f'time: {analytics_prefix} end-to-end – {duration_full} sec')
 
         logging.info('Users List enriched with Notification Prefs')
 
@@ -1223,9 +1250,17 @@ def enrich_users_list_with_user_regions(conn):
     global users_list
 
     try:
+
+        analytics_prefix = 'regions'
+        analytics_start = datetime.datetime.now()
+
         reg_prefs = conn.execute(
             """SELECT user_id, forum_folder_num FROM user_regional_preferences;"""
         ).fetchall()
+
+        analytics_sql_finish = datetime.datetime.now()
+        duration_sql = round((analytics_sql_finish - analytics_start).total_seconds(), 2)
+        logging.info(f'time: {analytics_prefix} sql – {duration_sql} sec')
 
         # look for matching User_ID in Users List & Regional Preferences
         for u_line in users_list:
@@ -1239,6 +1274,12 @@ def enrich_users_list_with_user_regions(conn):
 
             if len(prefs_array) < 2:
                 u_line.user_in_multi_regions = False
+
+        analytics_match_finish = datetime.datetime.now()
+        duration_match = round((analytics_match_finish - analytics_sql_finish).total_seconds(), 2)
+        logging.info(f'time: {analytics_prefix} match – {duration_match} sec')
+        duration_full = round((analytics_match_finish - analytics_start).total_seconds(), 2)
+        logging.info(f'time: {analytics_prefix} end-to-end – {duration_full} sec')
 
         logging.info('Users List enriched with User Regions')
 
@@ -1589,7 +1630,7 @@ def iterate_over_all_users_and_updates(conn, admins_list):
                                  f'record {record.forum_search_num}')
 
             logging.info(
-                f'User List crop due to Topic Type [DEMO]: delta={len(users_list_outcome)-len(temp_user_list)}: '
+                f'User List crop due to Topic Type [DEMO]: delta={len(users_list_outcome) - len(temp_user_list)}: '
                 f'{len(users_list_outcome)} --> {len(temp_user_list)}')
             # users_list_outcome = temp_user_list
 
@@ -1974,7 +2015,7 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
         final_message = re.sub(r'\s{3,}', '\n\n', final_message)  # clean excessive blank lines
         final_message = re.sub(r'\s*$', '', final_message)  # clean blank symbols in the end of file
         print(f'TEMP - FINAL NEW MESSAGE FOR NEW SEARCH {final_message}')
-    except Exception as e: # noqa
+    except Exception as e:  # noqa
         notify_admin('ERROR IN COMPOSE INDIVIDUAL MSG')
         logging.error(e)
         logging.exception(e)
@@ -2226,7 +2267,7 @@ def check_and_save_event_id(context, event, conn):
             # FIXME -- temp try. the content is not temp
             try:
                 list_of_change_log_ids = [x.change_id for x in new_records_list]
-                json_of_params = json.dumps({"change_log_ids":list_of_change_log_ids})
+                json_of_params = json.dumps({"change_log_ids": list_of_change_log_ids})
             except Exception as e:  # noqa
                 logging.exception(e)
             # FIXME ^^^
@@ -2240,13 +2281,12 @@ def main(event, context):  # noqa
     global new_records_list
     global users_list
 
-    # TODO: should be avoided in the future (doesn't return None help?)
-    # the below two lines are required - in other case these arrays are not always empty,
-    # spent 2 hours - don't know why using '=[]' in the body of this Script (lines ~14-15) is not sufficient
+    # the below two lines are required due to Google Cloud Functions specifics
     new_records_list = []
     users_list = []
 
-    # initiate SQL connection
+    analytics_start_of_func = datetime.datetime.now()
+
     pool = sql_connect()
     with pool.connect() as conn:
 
@@ -2273,7 +2313,7 @@ def main(event, context):  # noqa
             # FIXME - temp debug
             try:
                 logging.info(f'TEMP - pre-comments print of the search info: {new_records_list[0]}')
-            except: # noqa
+            except:  # noqa
                 pass
             # FIXME ^^^
 
@@ -2290,8 +2330,16 @@ def main(event, context):  # noqa
             enrich_users_list_with_user_regions(conn)
             enrich_users_list_with_topic_type_preferences(conn)
 
+            analytics_match_finish = datetime.datetime.now()
+            duration_match = round((analytics_match_finish - analytics_start_of_func).total_seconds(), 2)
+            logging.info(f'time: function match end-to-end – {duration_match} sec')
+
             # check the matrix: new update - user and initiate sending notifications
             iterate_over_all_users_and_updates(conn, admins_list)
+
+            analytics_iterations_finish = datetime.datetime.now()
+            duration_iterations = round((analytics_iterations_finish - analytics_match_finish).total_seconds(), 2)
+            logging.info(f'time: function iterations end-to-end – {duration_iterations} sec')
 
             # mark all the "new" lines in tables Change Log & Comments as "old"
             mark_new_records_as_processed(conn)
@@ -2310,6 +2358,11 @@ def main(event, context):  # noqa
 
         check_and_save_event_id(context, 'finish', conn)
         publish_to_pubsub('topic_to_send_notifications', 'initiate notifs send out')
+
+        analytics_finish = datetime.datetime.now()
+        duration_saving = round((analytics_finish - analytics_iterations_finish).total_seconds(), 2)
+        logging.info(f'time: function data saving – {duration_saving} sec')
+
         logging.info('script finished')
 
         conn.close()
