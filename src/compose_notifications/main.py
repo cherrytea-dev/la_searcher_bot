@@ -1071,10 +1071,49 @@ def enrich_new_record_with_com_message_texts(line):
     return line
 
 
-def compose_users_list_from_users(conn):
+def compose_users_list_from_users(conn, new_record):
     """compose the Users list from the tables Users & User Coordinates: one Record = one user"""
 
     global users_list
+
+    try:
+        users_short_version = conn.execute(
+            """
+                """
+        ).fetchall()
+
+        sql_text_psy = sqlalchemy.text("""
+                WITH 
+                    user_list AS (SELECT user_id FROM users WHERE status IS NULL or status='unblocked'), 
+                    user_pref_0 AS (SELECT user_id, pref_id, preference 
+                        FROM user_preferences WHERE pref_id=30 OR pref_id=:a),
+                    user_pref_1 AS (SELECT user_id, array_agg(pref_id) pref_id, array_agg(preference) preference 
+                        FROM user_pref_0 GROUP BY user_id), 
+                    user_folders_0 AS (SELECT user_id, forum_folder_num 
+                        FROM user_regional_preferences WHERE forum_folder_num=:b), 
+                    user_folders_1 AS (SELECT user_id, array_agg(forum_folder_num) folder_id 
+                        FROM user_folders_0 GROUP BY user_id) 
+                    
+                SELECT ul.user_id, up.preference, up.pref_id, uf.folder_id 
+                FROM user_list as ul 
+                LEFT JOIN user_pref_1 AS up 
+                ON ul.user_id=up.user_id 
+                LEFT JOIN user_folders_1 AS uf 
+                ON ul.user_id=uf.user_id 
+                WHERE folder_id IS NOT NULL AND pref_id IS NOT NULL
+                /*action='get_user_list_filtered_by_folder_and_notif_type' */;""")
+
+        conn.execute(sql_text_psy, a=datetime.datetime.now(), b=new_record.change_type, c=new_record.forum_folder)
+        users_short_version = conn.fetchone()
+        if users_short_version:
+            users_short_version = users_short_version[0]
+            logging.info(f' -=!!!!=- Users Short Ver = {len(users_short_version)} with folder '
+                         f'{new_record.forum_folder} and change type {new_record.change_type}')
+
+    except Exception as e:
+        logging.exception(e)
+
+
 
     try:
 
@@ -1617,7 +1656,7 @@ def iterate_over_all_users(conn, admins_list, new_record):
             notify_admin(f'TEMP - exception CROP Topic Type: {repr(e)}')
         # FIXME ^^^ ----------------------
 
-        # 2. TYPE. crop the list of users, excluding Users who does not want to receive notifications of such a kind
+        # 2. NOTIF TYPE. crop the list of users, excluding Users who does not want to receive notifs of such a kind
         try:
             temp_user_list = []
             for user_line in users_list_outcome:
@@ -2299,7 +2338,7 @@ def main(event, context):  # noqa
 
             # compose Users List: all the notifications recipients' details
             admins_list, testers_list = get_list_of_admins_and_testers(conn)  # for debug purposes
-            compose_users_list_from_users(conn)
+            compose_users_list_from_users(conn, new_record)
             enrich_users_list_with_notification_preferences(conn)
             enrich_users_list_with_age_periods(conn)
             enrich_users_list_with_radius(conn)
