@@ -318,8 +318,6 @@ def process_response(user_id, response):
 
         elif response.status_code == 403:  # FORBIDDEN
             logging.info(f'Forbidden: message to {user_id} was not sent, {response.reason=}')
-            logging.info(f'response: {response.text}')  # FIXME – a temp debug, to be deleted
-            logging.exception('FORBIDDEN')
             action = None
             if response.text.find('bot was blocked by the user') != -1:
                 action = 'block_user'
