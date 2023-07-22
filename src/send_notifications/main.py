@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 analytics_notif_times = []
 analytics_delays = []
+analytics_parsed_times = []
 
 
 def process_pubsub_message(event):
@@ -416,6 +417,28 @@ def save_sending_status_to_notif_by_user(cur, message_id, result):
     return None
 
 
+def get_change_log_update_time(cur, change_log_id):
+    """get he time of parsing of the change, saved in PSQL"""
+
+    if not change_log_id:
+        return None
+
+    sql_text_psy = f"""
+                    SELECT parsed_time 
+                    FROM change_log 
+                    WHERE id = %s;
+                    /*action='getting_change_log_parsing_time' */;"""
+    cur.execute(sql_text_psy, change_log_id)
+    parsed_time = cur.fetchone()
+
+    if not parsed_time:
+        return None
+
+    parsed_time = parsed_time[0]
+
+    return parsed_time
+
+
 def iterate_over_notifications(bot, bot_token, admin_id, script_start_time):
     """iterate over all available notifications, finishes if timeout is met or no new notifications"""
 
@@ -445,6 +468,8 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time):
             if message_to_send:
                 doubling_trigger = message_to_send[11]
                 message_id = message_to_send[0]
+                change_log_id = message_to_send[9]
+                change_log_upd_time = get_change_log_update_time(cur, change_log_id)
 
                 if doubling_trigger == 'no_doubling':
 
@@ -487,10 +512,16 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time):
                 # save metric: how long does it took from creation to completion
                 if result == 'completed':
                     creation_time = message_to_send[2]
+
                     completion_time = datetime.datetime.now()
                     duration_complete_vs_create_minutes = round((completion_time-creation_time).total_seconds()/60, 2)
                     logging.info(f'metric: creation to completion time – {duration_complete_vs_create_minutes} min')
                     analytics_delays.append(duration_complete_vs_create_minutes)
+
+                    duration_complete_vs_parsed_time_minutes = \
+                        round((completion_time-change_log_upd_time).total_seconds()/60, 2)
+                    logging.info(f'metric: parsing to completion time – {duration_complete_vs_parsed_time_minutes} min')
+                    analytics_parsed_times.append(duration_complete_vs_parsed_time_minutes)
 
                 analytics_after_double_saved_in_sql = datetime.datetime.now()
 
@@ -648,7 +679,7 @@ def check_and_save_event_id(context, event):
         return False
 
 
-def finish_time_analytics(notif_times, delays):
+def finish_time_analytics(notif_times, delays, parsed_times):
     """Make final steps for time analytics: inform admin, log, record statistics into PSQL"""
 
     if not notif_times:
@@ -665,7 +696,15 @@ def finish_time_analytics(notif_times, delays):
         min_delay = min(delays)
         max_delay = max(delays)
 
-    message = f'[send_notif] {len_n:>3} x {round(average, 2)} = {round(ttl_time, 0)} s | {min_delay}–{max_delay} m'
+    if not parsed_times:
+        min_parse_time, max_parse_time = None, None
+    else:
+        min_parse_time = min(parsed_times)
+        max_parse_time = max(parsed_times)
+
+    message = f'[send_notif] {len_n:>3} x {round(average, 2)} = {round(ttl_time, 0)} ' \
+              f'| {round(max_delay, 1)}–{round(min_delay, 1)} ' \
+              f'| {round(max_parse_time, 1)}–{round(min_parse_time, 1)}'
     if len_n >= 10:  # FIXME – a temp deactivation to understand the sending speed. # and average > 0.3:
         notify_admin(message)
     logging.info(message)
@@ -698,6 +737,7 @@ def main(event, context):
 
     global analytics_notif_times
     global analytics_delays
+    global analytics_parsed_times
 
     there_is_function_working_in_parallel = check_and_save_event_id(context, 'start')
     if there_is_function_working_in_parallel:
@@ -718,9 +758,11 @@ def main(event, context):
 
     iterate_over_notifications(bot, bot_token, admin_id, script_start_time)
 
-    finish_time_analytics(analytics_notif_times, analytics_delays)
-    analytics_notif_times = []  # needed for high-frequency function execution, otherwise google remembers prev value
-    analytics_delays = [] # needed for high-frequency function execution, otherwise google remembers prev value
+    finish_time_analytics(analytics_notif_times, analytics_delays, analytics_parsed_times)
+    # the below – is needed for high-frequency function execution, otherwise google remembers prev value
+    analytics_notif_times = []
+    analytics_delays = []
+    analytics_parsed_times = []
 
     check_and_save_event_id(context, 'finish')
     logging.info('script finished')

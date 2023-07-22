@@ -467,7 +467,7 @@ def enrich_new_records_from_searches(conn):
                     # limit notification sending only for searches started 60 days ago
                     # 60 days – is a compromise and can be reviewed if community votes for another setting
                     try:
-                        days_window_for_alerting = 600
+                        days_window_for_alerting = 60
                         latest_when_alert = r_line.start_time + datetime.timedelta(days=days_window_for_alerting)
                         if latest_when_alert < datetime.datetime.now():
                             r_line.ignore = 'y'
