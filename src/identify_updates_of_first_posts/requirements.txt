@@ -10,3 +10,4 @@ lxml==4.9.1
 
 google-cloud-pubsub==2.16.0
 google-cloud-secret-manager==2.16.0
+google-cloud-logging==3.5.0

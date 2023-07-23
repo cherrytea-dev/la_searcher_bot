@@ -17,6 +17,7 @@ from bs4 import BeautifulSoup, NavigableString
 
 from google.cloud import pubsub_v1
 from google.cloud import secretmanager
+import google.cloud.logging
 
 url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
 req = urllib.request.Request(url)
@@ -25,6 +26,9 @@ project_id = urllib.request.urlopen(req).read().decode()
 
 publisher = pubsub_v1.PublisherClient()
 client = secretmanager.SecretManagerServiceClient()
+
+log_client = google.cloud.logging.Client()
+log_client.setup_logging()
 
 requests_session = requests.Session()
 
