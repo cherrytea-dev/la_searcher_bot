@@ -2372,8 +2372,9 @@ def main(event, context):  # noqa
         publish_to_pubsub('topic_to_send_notifications', 'initiate notifs send out')
 
         analytics_finish = datetime.datetime.now()
-        duration_saving = round((analytics_finish - analytics_iterations_finish).total_seconds(), 2)
-        logging.info(f'time: function data saving – {duration_saving} sec')
+        if new_record:
+            duration_saving = round((analytics_finish - analytics_iterations_finish).total_seconds(), 2)
+            logging.info(f'time: function data saving – {duration_saving} sec')
 
         duration_full = round((analytics_finish - analytics_start_of_func).total_seconds(), 2)
         logging.info(f'time: function full end-to-end – {duration_full} sec')
