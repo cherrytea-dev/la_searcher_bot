@@ -185,7 +185,7 @@ def process_sending_location_async(user_id, data) -> None:
     return None
 
 
-def send_message_to_api(bot_token, user_id, message, params):
+def send_message_to_api(session, bot_token, user_id, message, params):
     """send message directly to Telegram API w/o any wrappers ar libraries"""
 
     try:
@@ -201,7 +201,7 @@ def send_message_to_api(bot_token, user_id, message, params):
         request_text = f'https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={user_id}' \
                        f'{parse_mode}{disable_web_page_preview}&text={message_encoded}'
 
-        r = requests.Session().get(request_text)
+        r = session.get(request_text)
 
     except Exception as e:
         logging.exception(e)
@@ -211,7 +211,7 @@ def send_message_to_api(bot_token, user_id, message, params):
     return r
 
 
-def send_location_to_api(bot_token, user_id, params):
+def send_location_to_api(session, bot_token, user_id, params):
     """send location directly to Telegram API w/o any wrappers ar libraries"""
 
     try:
@@ -229,7 +229,7 @@ def send_location_to_api(bot_token, user_id, params):
         request_text = f'https://api.telegram.org/bot{bot_token}/sendLocation?chat_id={user_id}' \
                        f'{latitude}{longitude}'
 
-        r = requests.Session().get(request_text)
+        r = session.get(request_text)
 
     except Exception as e:
         logging.exception(e)
@@ -348,7 +348,7 @@ def process_response(user_id, response):
         return 'failed'
 
 
-def send_single_message(bot, bot_token, user_id, message_content, message_params, message_type, admin_id):
+def send_single_message(bot, bot_token, user_id, message_content, message_params, message_type, admin_id, session):
     """send one message to telegram"""
 
     if message_params:
@@ -360,10 +360,10 @@ def send_single_message(bot, bot_token, user_id, message_content, message_params
 
         response = None
         if message_type == 'text':
-            response = send_message_to_api(bot_token, user_id, message_content, message_params)
+            response = send_message_to_api(session, bot_token, user_id, message_content, message_params)
 
         elif message_type == 'coords':
-            response = send_location_to_api(bot_token, user_id, message_params)
+            response = send_location_to_api(session, bot_token, user_id, message_params)
 
         result = process_response(user_id, response)
 
@@ -437,7 +437,7 @@ def get_change_log_update_time(cur, change_log_id):
     return parsed_time
 
 
-def iterate_over_notifications(bot, bot_token, admin_id, script_start_time):
+def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, session):
     """iterate over all available notifications, finishes if timeout is met or no new notifications"""
 
     custom_timeout = 120  # seconds, after which iterations should stop to prevent the whole script timeout
@@ -454,7 +454,6 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time):
 
             # check if there are any non-notified users
             message_to_send = check_for_notifs_to_send(cur)
-
 
             analytics_sql_finish = datetime.datetime.now()
             analytics_sql_duration = round((analytics_sql_finish - analytics_sql_start).total_seconds(), 2)
@@ -490,7 +489,7 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time):
                         result = 'cancelled'
                     else:
                         result = send_single_message(bot, bot_token, user_id, message_content, message_params,
-                                                     message_type, admin_id)
+                                                     message_type, admin_id, session)
 
                     analytics_send_finish = datetime.datetime.now()
                     analytics_send_start_finish = round((analytics_send_finish -
@@ -753,7 +752,8 @@ def main(event, context):
     bot = Bot(token=bot_token)
     admin_id = get_secrets("my_telegram_id")
 
-    iterate_over_notifications(bot, bot_token, admin_id, script_start_time)
+    with requests.Session() as session:
+        iterate_over_notifications(bot, bot_token, admin_id, script_start_time, session)
 
     finish_time_analytics(analytics_notif_times, analytics_delays, analytics_parsed_times)
     # the below – is needed for high-frequency function execution, otherwise google remembers prev value
