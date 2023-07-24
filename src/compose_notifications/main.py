@@ -1600,16 +1600,6 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
 
         users_list_outcome = users_list_incoming
 
-        # FIXME – commented due to filtration on SQL-query level, so this crop is not needed anymore. to be deleted
-        # 1. REGIONS. crop the list of users, excluding Users from other regions
-        """temp_user_list = []
-        for user_line in users_list_outcome:
-            for region_line in user_line.user_regions:
-                if str(region_line) == str(record.forum_folder):
-                    temp_user_list.append(user_line)
-        logging.info(f'User List crop due to region: {len(users_list_outcome)} --> {len(temp_user_list)}')
-        users_list_outcome = temp_user_list"""
-
         # FIXME -------- INFORG 2x -------------
         try:
             temp_user_list = []
@@ -1659,22 +1649,6 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
             logging.info(f'TEMP - exception CROP Topic Type: {repr(e)}')
             notify_admin(f'TEMP - exception CROP Topic Type: {repr(e)}')
         # FIXME ^^^ ----------------------
-
-        # 2. NOTIF TYPE. crop the list of users, excluding Users who does not want to receive notifs of such a kind
-        # FIXME –commented due to filtration on SQL-query level, so this crop is not needed anymore. to be deleted
-        """try:
-            temp_user_list = []
-            for user_line in users_list_outcome:
-                for user_notif_pref in user_line.notif_pref_ids_list:
-                    if user_notif_pref == record.change_type or user_notif_pref == 30:  # MEMO: 30 = 'all'
-                        temp_user_list.append(user_line)
-                        break
-
-            logging.info(f'User List crop due to notif type: {len(users_list_outcome)} --> {len(temp_user_list)}')
-            users_list_outcome = temp_user_list
-
-        except Exception as e:
-            logging.info(f'TEMP - exception notif type: {repr(e)}')"""
 
         # 3. AGES. crop the list of users, excluding Users who does not want to receive notifications for such Ages
         temp_user_list = []
