@@ -1895,6 +1895,17 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
                     logging.info(f'THEY ARE EQUAL')
                 else:
                     logging.info(f'THEY ARE DIFFERENT')
+
+                for item in old_list:
+                    for old_item in users_list:
+                        if old_item.user_id == item:
+                            for new_item in list_of_users:
+                                if new_item.user_id == item:
+                                    if old_item == new_item:
+                                        logging.info(f'THEY ARE EQUAL – ITEM {item}')
+                                    else:
+                                        logging.info(f'THEY ARE DIFFERENT – ITEM {item}')
+
             except Exception as e:
                 logging.exception(e)
 
