@@ -2432,7 +2432,7 @@ def main(event, context):  # noqa
             logging.info(f'time: function match end-to-end – {duration_match} sec')
 
             # check the matrix: new update - user and initiate sending notifications
-            new_record = iterate_over_all_users(conn, admins_list, new_record)
+            new_record = iterate_over_all_users(conn, admins_list, new_record, list_of_users)
 
             analytics_iterations_finish = datetime.datetime.now()
             duration_iterations = round((analytics_iterations_finish - analytics_match_finish).total_seconds(), 2)
