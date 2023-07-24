@@ -1075,6 +1075,7 @@ def compose_users_list_from_users(conn, new_record):
     """compose the Users list from the tables Users & User Coordinates: one Record = one user"""
 
     global users_list
+    list_of_users = []
 
     try:
 
@@ -1103,14 +1104,26 @@ def compose_users_list_from_users(conn, new_record):
                 ON ns.user_id=st.user_id
                 /*action='get_user_list_filtered_by_folder_and_notif_type' */;""")
 
+        # FIXME: schema: user_id, username_telegram, latitude, longitude, role, num_of_new_search_notifs
+
         users_short_version = conn.execute(sql_text_psy, a=new_record.change_type, b=new_record.forum_folder).fetchall()
 
-        logging.info(f'>>>>>>{users_short_version[0]}')
+        logging.info(f'new >>>>>> {users_short_version[0]}')
         if users_short_version:
             logging.info(f'{users_short_version}')
             users_short_version = list(users_short_version)
             logging.info(f' -=!!!!=- Users Short Ver = {len(users_short_version)} with folder '
                          f'{new_record.forum_folder} and change type {new_record.change_type}')
+
+        for line in users_short_version:
+            new_line = User(user_id=line[0], username_telegram=line[1], user_latitude=line[2], user_longitude=line[3],
+                            user_role=line[4])
+            if line[5] == 'None' or line[5] is None:
+                new_line.user_new_search_notifs = 0
+            else:
+                new_line.user_new_search_notifs = int(line[5])
+
+            list_of_users.append(new_line)
 
     except Exception as e:
         logging.exception(e)
@@ -1131,12 +1144,13 @@ def compose_users_list_from_users(conn, new_record):
             user_stat st ON ns.user_id=st.user_id;"""
         ).fetchall()
 
+        # FIXME: schema: user_id, username_telegram, latitude, longitude, role, num_of_new_search_notifs
+
         analytics_sql_finish = datetime.datetime.now()
         duration_sql = round((analytics_sql_finish - analytics_start).total_seconds(), 2)
         logging.info(f'time: {analytics_prefix} sql – {duration_sql} sec')
 
-        logging.info(f'>>>>>> {users[0]}')
-
+        logging.info(f'old >>>>>> {users[0]}')
 
         for line in users:
             new_line = User(user_id=line[0], username_telegram=line[1], user_latitude=line[2], user_longitude=line[3],
@@ -1161,10 +1175,10 @@ def compose_users_list_from_users(conn, new_record):
         logging.error('Not able to compose Users List: ' + repr(e))
         logging.exception(e)
 
-    return None
+    return list_of_users
 
 
-def enrich_users_list_with_age_periods(conn):
+def enrich_users_list_with_age_periods(conn, list_of_users):
     """add the data on Lost people age notification preferences from user_pref_age into users List"""
 
     global users_list
@@ -1173,26 +1187,36 @@ def enrich_users_list_with_age_periods(conn):
         notif_prefs = conn.execute("""SELECT user_id, period_min, period_max FROM user_pref_age;""").fetchall()
 
         if not notif_prefs:
-            return None
+            return list_of_users
 
+        number_of_enrichments_old = 0
         number_of_enrichments = 0
         for np_line in notif_prefs:
             new_period = [np_line[1], np_line[2]]
+
+            # FIXME OlD
             for u_line in users_list:
+                if u_line.user_id == np_line[0]:
+                    u_line.age_periods.append(new_period)
+                    number_of_enrichments_old += 1
+            # FIXME ^^^
+
+            for u_line in list_of_users:
                 if u_line.user_id == np_line[0]:
                     u_line.age_periods.append(new_period)
                     number_of_enrichments += 1
 
+        logging.info(f'Users List enriched with Age Prefs, OLD num of enrichments is {number_of_enrichments_old}')
         logging.info(f'Users List enriched with Age Prefs, num of enrichments is {number_of_enrichments}')
 
     except Exception as e:
         logging.info(f'Not able to enrich Users List with Age Prefs')
         logging.exception(e)
 
-    return None
+    return list_of_users
 
 
-def enrich_users_list_with_radius(conn):
+def enrich_users_list_with_radius(conn, list_of_users):
     """add the data on distance notification preferences from user_pref_radius into users List"""
 
     global users_list
@@ -1203,24 +1227,34 @@ def enrich_users_list_with_radius(conn):
         if not notif_prefs:
             return None
 
+        number_of_enrichments_old = 0
         number_of_enrichments = 0
         for np_line in notif_prefs:
+            # FIXME OlD
             for u_line in users_list:
+                if u_line.user_id == np_line[0]:
+                    u_line.radius = int(round(np_line[1], 0))
+                    number_of_enrichments_old += 1
+                    print(f'TEMP - RADIUS OLD user_id = {u_line.user_id}, radius = {u_line.radius}')
+            # FIXME ^^^
+
+            for u_line in list_of_users:
                 if u_line.user_id == np_line[0]:
                     u_line.radius = int(round(np_line[1], 0))
                     number_of_enrichments += 1
                     print(f'TEMP - RADIUS user_id = {u_line.user_id}, radius = {u_line.radius}')
 
+        logging.info(f'Users List enriched with Radius, OLD num of enrichments is {number_of_enrichments_old}')
         logging.info(f'Users List enriched with Radius, num of enrichments is {number_of_enrichments}')
 
     except Exception as e:
         logging.info(f'Not able to enrich Users List with Radius')
         logging.exception(e)
 
-    return None
+    return list_of_users
 
 
-def enrich_users_list_with_notification_preferences(conn):
+def enrich_users_list_with_notification_preferences(conn, list_of_users):
     """add the additional data on notification preferences from User_preferences into Users List"""
 
     global users_list
@@ -1237,8 +1271,23 @@ def enrich_users_list_with_notification_preferences(conn):
         duration_sql = round((analytics_sql_finish - analytics_start).total_seconds(), 2)
         logging.info(f'time: {analytics_prefix} sql – {duration_sql} sec')
 
+        # FIXME OLD
         # look for matching User_ID in Users List & Notification Preferences
         for u_line in users_list:
+            prefs_array = []
+            user_pref_ids_list = []
+            for np_line in notif_prefs:
+                # when match is found
+                if u_line.user_id == np_line[0]:
+                    prefs_array.append(np_line[1])
+                    user_pref_ids_list.append(np_line[2])
+
+            u_line.notification_preferences = prefs_array
+            u_line.notif_pref_ids_list = user_pref_ids_list
+        # FIXME ^^^
+
+        # look for matching User_ID in Users List & Notification Preferences
+        for u_line in list_of_users:
             prefs_array = []
             user_pref_ids_list = []
             for np_line in notif_prefs:
@@ -1262,10 +1311,10 @@ def enrich_users_list_with_notification_preferences(conn):
         logging.error('Not able to enrich Users List with Notification Prefs: ' + str(e))
         logging.exception(e)
 
-    return None
+    return list_of_users
 
 
-def enrich_users_list_with_user_regions(conn):
+def enrich_users_list_with_user_regions(conn, list_of_users):
     """add the additional data on user preferred regions from User Regional Preferences into Users List"""
 
     global users_list
@@ -1284,7 +1333,21 @@ def enrich_users_list_with_user_regions(conn):
         logging.info(f'time: {analytics_prefix} sql – {duration_sql} sec')
 
         # look for matching User_ID in Users List & Regional Preferences
+        # FIXME OLD
         for u_line in users_list:
+            prefs_array = []
+            for rp_line in reg_prefs:
+                # when match is found
+                if u_line.user_id == rp_line[0]:
+                    prefs_array.append(rp_line[1])
+
+            u_line.user_regions = prefs_array
+
+            if len(prefs_array) < 2:
+                u_line.user_in_multi_regions = False
+        # FIXME ^^^
+
+        for u_line in list_of_users:
             prefs_array = []
             for rp_line in reg_prefs:
                 # when match is found
@@ -1308,10 +1371,10 @@ def enrich_users_list_with_user_regions(conn):
         logging.error('Not able to enrich Users List with User Regions: ' + repr(e))
         logging.exception(e)
 
-    return None
+    return list_of_users
 
 
-def enrich_users_list_with_topic_type_preferences(conn):
+def enrich_users_list_with_topic_type_preferences(conn, list_of_users):
     """add the additional data on topic type preferences (reverse search, training, event) into Users List"""
 
     global users_list
@@ -1321,8 +1384,19 @@ def enrich_users_list_with_topic_type_preferences(conn):
             """SELECT user_id, topic_type_id FROM user_pref_topic_type;"""
         ).fetchall()
 
+        # FIXME OLD
         # look for matching User_ID in Users List & Notification Preferences
         for u_line in users_list:
+            user_pref_ids_list = []
+            for np_line in notif_prefs:
+                # when match is found
+                if u_line.user_id == np_line[0]:
+                    user_pref_ids_list.append(np_line[1])
+            u_line.topic_type_pref_ids_list = user_pref_ids_list
+        # FIXME ^^^
+
+        # look for matching User_ID in Users List & Notification Preferences
+        for u_line in list_of_users:
             user_pref_ids_list = []
             for np_line in notif_prefs:
                 # when match is found
@@ -1337,7 +1411,7 @@ def enrich_users_list_with_topic_type_preferences(conn):
         logging.exception(e)
         notify_admin(f'Not able to enrich Users List with Topic Type Prefs')
 
-    return None
+    return list_of_users
 
 
 def get_list_of_admins_and_testers(conn):
@@ -1394,7 +1468,7 @@ def record_notification_statistics(conn):
     return None
 
 
-def iterate_over_all_users(conn, admins_list, new_record):
+def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
     """initiates a full cycle for all messages composition for all the users"""
 
     def save_to_sql_notif_by_user(mailing_id_, user_id_, message_, message_without_html_,
@@ -1772,7 +1846,6 @@ def iterate_over_all_users(conn, admins_list, new_record):
         return users_list_outcome
 
     global users_list
-    global coord_format
     global stat_list_of_recipients
 
     stat_list_of_recipients = []  # still not clear why w/o it – saves data from prev iterations
@@ -1795,6 +1868,11 @@ def iterate_over_all_users(conn, admins_list, new_record):
                 process_mailing_id(change_log_id)
 
             users_list = crop_user_list(users_list, users_who_should_not_be_informed, new_record)
+
+            # FIXME – debug check while moving from user_list to list_of_users
+            logging.info(f'OLD LEN OF USER LIST {len(users_list)}')
+            logging.info(f'NEW LEN OF USER LIST {len(list_of_users)}')
+            # FIXME ^^^
 
             for user in users_list:
                 u_lat = user.user_latitude
@@ -2342,12 +2420,12 @@ def main(event, context):  # noqa
 
             # compose Users List: all the notifications recipients' details
             admins_list, testers_list = get_list_of_admins_and_testers(conn)  # for debug purposes
-            compose_users_list_from_users(conn, new_record)
-            enrich_users_list_with_notification_preferences(conn)
-            enrich_users_list_with_age_periods(conn)
-            enrich_users_list_with_radius(conn)
-            enrich_users_list_with_user_regions(conn)
-            enrich_users_list_with_topic_type_preferences(conn)
+            list_of_users = compose_users_list_from_users(conn, new_record)
+            list_of_users = enrich_users_list_with_notification_preferences(conn, list_of_users)
+            list_of_users = enrich_users_list_with_age_periods(conn, list_of_users)
+            list_of_users = enrich_users_list_with_radius(conn, list_of_users)
+            list_of_users = enrich_users_list_with_user_regions(conn, list_of_users)
+            list_of_users = enrich_users_list_with_topic_type_preferences(conn, list_of_users)
 
             analytics_match_finish = datetime.datetime.now()
             duration_match = round((analytics_match_finish - analytics_start_of_func).total_seconds(), 2)
