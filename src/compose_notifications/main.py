@@ -1867,8 +1867,15 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
             users_who_should_not_be_informed, this_record_was_processed_already, mailing_id = \
                 process_mailing_id(change_log_id)
 
+            logging.info(f'CROPPING USER LIST OLD')
             users_list = crop_user_list(users_list, users_who_should_not_be_informed, new_record)
-
+            logging.info(f'CROPPING USER LIST NEW')
+            try:
+                list_of_users = crop_user_list(list_of_users, users_who_should_not_be_informed, new_record)
+            except Exception as e:
+                logging.info(f'THAT DIDNT HAPPEN!')
+                logging.exception(e)
+                
             # FIXME – debug check while moving from user_list to list_of_users
             logging.info(f'OLD LEN OF USER LIST {len(users_list)}')
             logging.info(f'NEW LEN OF USER LIST {len(list_of_users)}')
