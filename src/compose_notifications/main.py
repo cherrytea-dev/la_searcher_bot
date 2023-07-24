@@ -1880,12 +1880,10 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
             logging.info(f'OLD LEN OF USER LIST {len(users_list)}')
             logging.info(f'NEW LEN OF USER LIST {len(list_of_users)}')
 
-            users_list.sort()
-            list_of_users.sort()
             if users_list == list_of_users:
                 logging.info(f'THEY ARE EQUAL')
             else:
-                logging.info(f'THE ARE DIFFERENT')
+                logging.info(f'THEY ARE DIFFERENT')
 
             # FIXME ^^^
 
