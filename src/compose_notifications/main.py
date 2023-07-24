@@ -29,7 +29,6 @@ log_client.setup_logging()
 
 WINDOW_FOR_NOTIFICATIONS_DAYS = 60
 
-users_list = []
 coord_format = "{0:.5f}"
 stat_list_of_recipients = []  # list of users who received notification on new search
 fib_list = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987]
@@ -203,6 +202,7 @@ class User:
                self.role == other.role and \
                self.age_periods == other.age_periods and \
                self.radius == other.radius
+
 
 class Message:
 
@@ -1100,20 +1100,25 @@ def enrich_new_record_with_com_message_texts(line):
 def compose_users_list_from_users(conn, new_record):
     """compose the Users list from the tables Users & User Coordinates: one Record = one user"""
 
-    global users_list
     list_of_users = []
 
     try:
+        analytics_prefix = 'users list'
+        analytics_start = datetime.datetime.now()
 
         sql_text_psy = sqlalchemy.text("""
                 WITH 
-                    user_list AS (SELECT user_id, username_telegram, role 
+                    user_list AS (
+                        SELECT user_id, username_telegram, role 
                         FROM users WHERE status IS NULL or status='unblocked'), 
-                    user_pref AS (SELECT user_id, pref_id, preference 
+                    user_pref AS (
+                        SELECT user_id, pref_id, preference 
                         FROM user_preferences WHERE pref_id=30 OR pref_id= :a),
-                    user_folders AS (SELECT user_id, forum_folder_num 
+                    user_folders AS (
+                        SELECT user_id, forum_folder_num 
                         FROM user_regional_preferences WHERE forum_folder_num= :b), 
-                    user_short_list AS (SELECT ul.user_id, ul.username_telegram, ul.role 
+                    user_short_list AS (
+                        SELECT ul.user_id, ul.username_telegram, ul.role 
                         FROM user_list as ul 
                         LEFT JOIN user_pref AS up 
                         ON ul.user_id=up.user_id 
@@ -1122,7 +1127,8 @@ def compose_users_list_from_users(conn, new_record):
                         WHERE uf.forum_folder_num IS NOT NULL AND up.pref_id IS NOT NULL),
                     user_with_loc AS (SELECT u.user_id, u.username_telegram, uc.latitude, uc.longitude, u.role 
                         FROM user_short_list AS u 
-                        LEFT JOIN user_coordinates as uc ON u.user_id=uc.user_id)
+                        LEFT JOIN user_coordinates as uc 
+                        ON u.user_id=uc.user_id)
                     
                 SELECT ns.*, st.num_of_new_search_notifs 
                 FROM user_with_loc AS ns 
@@ -1130,16 +1136,15 @@ def compose_users_list_from_users(conn, new_record):
                 ON ns.user_id=st.user_id
                 /*action='get_user_list_filtered_by_folder_and_notif_type' */;""")
 
-        # FIXME: schema: user_id, username_telegram, latitude, longitude, role, num_of_new_search_notifs
-
         users_short_version = conn.execute(sql_text_psy, a=new_record.change_type, b=new_record.forum_folder).fetchall()
 
-        logging.info(f'new >>>>>> {users_short_version[0]}')
+        analytics_sql_finish = datetime.datetime.now()
+        duration_sql = round((analytics_sql_finish - analytics_start).total_seconds(), 2)
+        logging.info(f'time: {analytics_prefix} sql – {duration_sql} sec')
+
         if users_short_version:
             logging.info(f'{users_short_version}')
             users_short_version = list(users_short_version)
-            logging.info(f' -=!!!!=- Users Short Ver = {len(users_short_version)} with folder '
-                         f'{new_record.forum_folder} and change type {new_record.change_type}')
 
         for line in users_short_version:
             new_line = User(user_id=line[0], username_telegram=line[1], user_latitude=line[2], user_longitude=line[3],
@@ -1151,43 +1156,6 @@ def compose_users_list_from_users(conn, new_record):
 
             list_of_users.append(new_line)
 
-    except Exception as e:
-        logging.exception(e)
-
-    try:
-
-        analytics_prefix = 'users list'
-        analytics_start = datetime.datetime.now()
-
-        users = conn.execute(
-            """
-                SELECT ns.*, st.num_of_new_search_notifs FROM 
-            (SELECT u.user_id, u.username_telegram, uc.latitude, uc.longitude, u.role FROM users as u 
-            LEFT JOIN 
-            user_coordinates as uc ON u.user_id=uc.user_id 
-            WHERE u.status = 'unblocked' or u.status is Null) ns 
-            LEFT JOIN 
-            user_stat st ON ns.user_id=st.user_id;"""
-        ).fetchall()
-
-        # FIXME: schema: user_id, username_telegram, latitude, longitude, role, num_of_new_search_notifs
-
-        analytics_sql_finish = datetime.datetime.now()
-        duration_sql = round((analytics_sql_finish - analytics_start).total_seconds(), 2)
-        logging.info(f'time: {analytics_prefix} sql – {duration_sql} sec')
-
-        logging.info(f'old >>>>>> {users[0]}')
-
-        for line in users:
-            new_line = User(user_id=line[0], username_telegram=line[1], user_latitude=line[2], user_longitude=line[3],
-                            user_role=line[4])
-            if line[5] == 'None' or line[5] is None:
-                new_line.user_new_search_notifs = 0
-            else:
-                new_line.user_new_search_notifs = int(line[5])
-
-            users_list.append(new_line)
-
         analytics_match_finish = datetime.datetime.now()
         duration_match = round((analytics_match_finish - analytics_sql_finish).total_seconds(), 2)
         logging.info(f'time: {analytics_prefix} match – {duration_match} sec')
@@ -1195,7 +1163,6 @@ def compose_users_list_from_users(conn, new_record):
         logging.info(f'time: {analytics_prefix} end-to-end – {duration_full} sec')
 
         logging.info('User List composed')
-        # logging.info('User List: ' + str(users_list))
 
     except Exception as e:
         logging.error('Not able to compose Users List: ' + repr(e))
@@ -1207,8 +1174,6 @@ def compose_users_list_from_users(conn, new_record):
 def enrich_users_list_with_age_periods(conn, list_of_users):
     """add the data on Lost people age notification preferences from user_pref_age into users List"""
 
-    global users_list
-
     try:
         notif_prefs = conn.execute("""SELECT user_id, period_min, period_max FROM user_pref_age;""").fetchall()
 
@@ -1219,13 +1184,6 @@ def enrich_users_list_with_age_periods(conn, list_of_users):
         number_of_enrichments = 0
         for np_line in notif_prefs:
             new_period = [np_line[1], np_line[2]]
-
-            # FIXME OlD
-            for u_line in users_list:
-                if u_line.user_id == np_line[0]:
-                    u_line.age_periods.append(new_period)
-                    number_of_enrichments_old += 1
-            # FIXME ^^^
 
             for u_line in list_of_users:
                 if u_line.user_id == np_line[0]:
@@ -1245,32 +1203,20 @@ def enrich_users_list_with_age_periods(conn, list_of_users):
 def enrich_users_list_with_radius(conn, list_of_users):
     """add the data on distance notification preferences from user_pref_radius into users List"""
 
-    global users_list
-
     try:
         notif_prefs = conn.execute("""SELECT user_id, radius FROM user_pref_radius;""").fetchall()
 
         if not notif_prefs:
             return None
 
-        number_of_enrichments_old = 0
         number_of_enrichments = 0
         for np_line in notif_prefs:
-            # FIXME OlD
-            for u_line in users_list:
-                if u_line.user_id == np_line[0]:
-                    u_line.radius = int(round(np_line[1], 0))
-                    number_of_enrichments_old += 1
-                    print(f'TEMP - RADIUS OLD user_id = {u_line.user_id}, radius = {u_line.radius}')
-            # FIXME ^^^
-
             for u_line in list_of_users:
                 if u_line.user_id == np_line[0]:
                     u_line.radius = int(round(np_line[1], 0))
                     number_of_enrichments += 1
                     print(f'TEMP - RADIUS user_id = {u_line.user_id}, radius = {u_line.radius}')
 
-        logging.info(f'Users List enriched with Radius, OLD num of enrichments is {number_of_enrichments_old}')
         logging.info(f'Users List enriched with Radius, num of enrichments is {number_of_enrichments}')
 
     except Exception as e:
@@ -1283,8 +1229,6 @@ def enrich_users_list_with_radius(conn, list_of_users):
 def enrich_users_list_with_notification_preferences(conn, list_of_users):
     """add the additional data on notification preferences from User_preferences into Users List"""
 
-    global users_list
-
     try:
         analytics_prefix = 'notifs'
         analytics_start = datetime.datetime.now()
@@ -1296,21 +1240,6 @@ def enrich_users_list_with_notification_preferences(conn, list_of_users):
         analytics_sql_finish = datetime.datetime.now()
         duration_sql = round((analytics_sql_finish - analytics_start).total_seconds(), 2)
         logging.info(f'time: {analytics_prefix} sql – {duration_sql} sec')
-
-        # FIXME OLD
-        # look for matching User_ID in Users List & Notification Preferences
-        for u_line in users_list:
-            prefs_array = []
-            user_pref_ids_list = []
-            for np_line in notif_prefs:
-                # when match is found
-                if u_line.user_id == np_line[0]:
-                    prefs_array.append(np_line[1])
-                    user_pref_ids_list.append(np_line[2])
-
-            u_line.notification_preferences = prefs_array
-            u_line.notif_pref_ids_list = user_pref_ids_list
-        # FIXME ^^^
 
         # look for matching User_ID in Users List & Notification Preferences
         for u_line in list_of_users:
@@ -1343,10 +1272,7 @@ def enrich_users_list_with_notification_preferences(conn, list_of_users):
 def enrich_users_list_with_user_regions(conn, list_of_users):
     """add the additional data on user preferred regions from User Regional Preferences into Users List"""
 
-    global users_list
-
     try:
-
         analytics_prefix = 'regions'
         analytics_start = datetime.datetime.now()
 
@@ -1359,20 +1285,6 @@ def enrich_users_list_with_user_regions(conn, list_of_users):
         logging.info(f'time: {analytics_prefix} sql – {duration_sql} sec')
 
         # look for matching User_ID in Users List & Regional Preferences
-        # FIXME OLD
-        for u_line in users_list:
-            prefs_array = []
-            for rp_line in reg_prefs:
-                # when match is found
-                if u_line.user_id == rp_line[0]:
-                    prefs_array.append(rp_line[1])
-
-            u_line.user_regions = prefs_array
-
-            if len(prefs_array) < 2:
-                u_line.user_in_multi_regions = False
-        # FIXME ^^^
-
         for u_line in list_of_users:
             prefs_array = []
             for rp_line in reg_prefs:
@@ -1403,23 +1315,10 @@ def enrich_users_list_with_user_regions(conn, list_of_users):
 def enrich_users_list_with_topic_type_preferences(conn, list_of_users):
     """add the additional data on topic type preferences (reverse search, training, event) into Users List"""
 
-    global users_list
-
     try:
         notif_prefs = conn.execute(
             """SELECT user_id, topic_type_id FROM user_pref_topic_type;"""
         ).fetchall()
-
-        # FIXME OLD
-        # look for matching User_ID in Users List & Notification Preferences
-        for u_line in users_list:
-            user_pref_ids_list = []
-            for np_line in notif_prefs:
-                # when match is found
-                if u_line.user_id == np_line[0]:
-                    user_pref_ids_list.append(np_line[1])
-            u_line.topic_type_pref_ids_list = user_pref_ids_list
-        # FIXME ^^^
 
         # look for matching User_ID in Users List & Notification Preferences
         for u_line in list_of_users:
@@ -1871,7 +1770,6 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
 
         return users_list_outcome
 
-    global users_list
     global stat_list_of_recipients
 
     stat_list_of_recipients = []  # still not clear why w/o it – saves data from prev iterations
@@ -1893,53 +1791,8 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
             users_who_should_not_be_informed, this_record_was_processed_already, mailing_id = \
                 process_mailing_id(change_log_id)
 
-            logging.info(f'CROPPING USER LIST OLD')
-            users_list = crop_user_list(users_list, users_who_should_not_be_informed, new_record)
-            logging.info(f'CROPPING USER LIST NEW')
-            try:
-                list_of_users = crop_user_list(list_of_users, users_who_should_not_be_informed, new_record)
-            except Exception as e:
-                logging.info(f'THAT DIDNT HAPPEN!')
-                logging.exception(e)
+            list_of_users = crop_user_list(list_of_users, users_who_should_not_be_informed, new_record)
 
-            # FIXME – debug check while moving from user_list to list_of_users
-            logging.info(f'OLD LEN OF USER LIST {len(users_list)}')
-            logging.info(f'NEW LEN OF USER LIST {len(list_of_users)}')
-
-            try:
-                old_list = []
-                for item in users_list:
-                    old_list.append(item.user_id)
-                new_list = []
-                for item in list_of_users:
-                    new_list.append(item.user_id)
-                old_list.sort()
-                new_list.sort()
-
-                if old_list == new_list:
-                    logging.info(f'THEY ARE EQUAL – list of ids')
-                else:
-                    logging.info(f'THEY ARE DIFFERENT – list of ids')
-
-                for item in old_list:
-                    for old_item in users_list:
-                        if old_item.user_id == item:
-                            for new_item in list_of_users:
-                                if new_item.user_id == item:
-                                    if old_item == new_item:
-                                        logging.info(f'THEY ARE EQUAL – ITEM {item}')
-                                    else:
-                                        logging.info(f'THEY ARE DIFFERENT – ITEM {item}')
-                                        logging.info(f'OLD {old_item}')
-                                        logging.info(f'NEW {new_item}')
-                                        logging.info(f'OlD str item = NEW str item: {str(old_item) == str(new_item)}')
-
-            except Exception as e:
-                logging.exception(e)
-
-            # FIXME ^^^
-
-            # FIXME OLD ONE for user in users_list:
             for user in list_of_users:
                 u_lat = user.user_latitude
                 u_lon = user.user_longitude
@@ -2443,11 +2296,6 @@ def check_if_need_compose_more(conn):
 def main(event, context):  # noqa
     """key function which is initiated by Pub/Sub"""
 
-    global users_list
-
-    # the below line is required due to Google Cloud Functions specifics
-    users_list = []
-
     analytics_start_of_func = datetime.datetime.now()
 
     pool = sql_connect()
@@ -2527,7 +2375,5 @@ def main(event, context):  # noqa
 
         conn.close()
     pool.dispose()
-
-    del users_list
 
     return None
