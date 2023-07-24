@@ -683,7 +683,7 @@ def clean_up_content(init_content):
 
     # language=regexp
     patterns = [r'(\[/?[biu]]|\[/?color.{0,8}]|\[/?quote]|\[/?size.{0,8}]|\[/?spoiler=?]?)',
-                r'(?i)последний раз редактировалось',
+                r'(?i)последний раз редактировалось( .{200} \d{1,3} раза?\.)?',
                 r'^\s+'
                 ]
 
