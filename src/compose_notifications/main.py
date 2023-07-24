@@ -1875,10 +1875,18 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
             except Exception as e:
                 logging.info(f'THAT DIDNT HAPPEN!')
                 logging.exception(e)
-                
+
             # FIXME – debug check while moving from user_list to list_of_users
             logging.info(f'OLD LEN OF USER LIST {len(users_list)}')
             logging.info(f'NEW LEN OF USER LIST {len(list_of_users)}')
+
+            users_list.sort()
+            list_of_users.sort()
+            if users_list == list_of_users:
+                logging.info(f'THEY ARE EQUAL')
+            else:
+                logging.info(f'THE ARE DIFFERENT')
+
             # FIXME ^^^
 
             for user in users_list:
