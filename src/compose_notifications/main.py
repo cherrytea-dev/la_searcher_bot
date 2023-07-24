@@ -141,17 +141,17 @@ class LineInChangeLog:
 class User:
     def __init__(self,
                  user_id=None,
-                 username_telegram=None,
-                 notification_preferences=None,
-                 notif_pref_ids_list=None,
-                 topic_type_pref_ids_list=None,
+                 username_telegram=None,   # TODO: to check if it's needed
+                 notification_preferences=None,  # TODO: to check if it's needed
+                 notif_pref_ids_list=None,   # TODO: to check if it's needed
+                 topic_type_pref_ids_list=None,  # TODO: to check if it's needed
                  user_latitude=None,
                  user_longitude=None,
-                 user_regions=None,
+                 user_regions=None,  # TODO: COULD BE NEEDED for MULTY-REGION to check if it's needed
                  user_in_multi_regions=True,
                  user_corr_regions=None,  # FIXME - seems it's not needed anymore
-                 user_new_search_notifs=None,
-                 user_role=None,
+                 user_new_search_notifs=None,  # TODO: to check if it's needed
+                 user_role=None,  # TODO: to check if it's needed
                  user_age_periods=None,  # noqa
                  radius=None
                  ):
@@ -172,11 +172,37 @@ class User:
         self.radius = radius
 
     def __str__(self):
-        return str([self.user_id, self.username_telegram, self.notification_preferences, self.notif_pref_ids_list,
-                    self.user_latitude, self.user_longitude, self.user_regions, self.user_in_multi_regions,
-                    self.user_corr_regions, self.user_new_search_notifs, self.age_periods, self.radius,
-                    self.topic_type_pref_ids_list])
+        return str([self.user_id,
+                    self.username_telegram,
+                    self.notification_preferences,
+                    self.notif_pref_ids_list,
+                    self.topic_type_pref_ids_list,
+                    self.user_latitude,
+                    self.user_longitude,
+                    self.user_regions,
+                    self.user_in_multi_regions,
+                    self.user_corr_regions,
+                    self.user_new_search_notifs,
+                    self.role,
+                    self.age_periods,
+                    self.radius
+                    ])
 
+    def __eq__(self, other):
+        return self.user_id == other.user_id and \
+               self.username_telegram == other.username_telegram and \
+               self.notification_preferences == other.notification_preferences and \
+               self.notif_pref_ids_list == other.notif_pref_ids_list and \
+               self.topic_type_pref_ids_list == other.topic_type_pref_ids_list and \
+               self.user_latitude == other.user_latitude and \
+               self.user_longitude == other.user_longitude and \
+               self.user_regions == other.user_regions and \
+               self.user_in_multi_regions == other.user_in_multi_regions and \
+               self.user_corr_regions == other.user_corr_regions and \
+               self.user_new_search_notifs == other.user_new_search_notifs and \
+               self.role == other.role and \
+               self.age_periods == other.age_periods and \
+               self.radius == other.radius
 
 class Message:
 
@@ -1892,9 +1918,9 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
                 new_list.sort()
 
                 if old_list == new_list:
-                    logging.info(f'THEY ARE EQUAL')
+                    logging.info(f'THEY ARE EQUAL – list of ids')
                 else:
-                    logging.info(f'THEY ARE DIFFERENT')
+                    logging.info(f'THEY ARE DIFFERENT – list of ids')
 
                 for item in old_list:
                     for old_item in users_list:
@@ -1907,6 +1933,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
                                         logging.info(f'THEY ARE DIFFERENT – ITEM {item}')
                                         logging.info(f'OLD {old_item}')
                                         logging.info(f'NEW {new_item}')
+                                        logging.info(f'OlD str item = NEW str item: {str(old_item) == str(new_item)}')
 
             except Exception as e:
                 logging.exception(e)
