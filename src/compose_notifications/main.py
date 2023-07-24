@@ -1906,7 +1906,6 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
             logging.info(f'OLD LEN OF USER LIST {len(users_list)}')
             logging.info(f'NEW LEN OF USER LIST {len(list_of_users)}')
 
-
             try:
                 old_list = []
                 for item in users_list:
@@ -1940,7 +1939,8 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
 
             # FIXME ^^^
 
-            for user in users_list:
+            # FIXME OLD ONE for user in users_list:
+            for user in list_of_users:
                 u_lat = user.user_latitude
                 u_lon = user.user_longitude
                 region_to_show = new_record.region if user.user_in_multi_regions else None
