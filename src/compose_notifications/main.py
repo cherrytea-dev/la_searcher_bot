@@ -2207,7 +2207,7 @@ def check_and_save_event_id(context, event, conn, new_record, function_id, trigg
 
         sql_text_psy = sqlalchemy.text("""INSERT INTO functions_registry
                                           (event_id, time_start, cloud_function_name, function_id, triggered_by_func_id)
-                                          VALUES (:a, :b, :c, :d)
+                                          VALUES (:a, :b, :c, :d, :e)
                                           /*action='save_start_of_compose_function' */;""")
 
         conn.execute(sql_text_psy, a=event_num, b=datetime.datetime.now(),
