@@ -2180,7 +2180,7 @@ def mark_new_comments_as_processed(conn, record):
     return None
 
 
-def check_and_save_event_id(context, event, conn, new_record, function_id):
+def check_and_save_event_id(context, event, conn, new_record, function_id, triggered_by_func_id):
     """Work with PSQL table functions_registry. Goal of the table & function is to avoid parallel work of
     two compose_notifications functions. Executed in the beginning and in the end of compose_notifications function"""
 
@@ -2206,11 +2206,12 @@ def check_and_save_event_id(context, event, conn, new_record, function_id):
         """Record into PSQL that this function started working (id = id of the respective pub/sub event)"""
 
         sql_text_psy = sqlalchemy.text("""INSERT INTO functions_registry
-                                          (event_id, time_start, cloud_function_name, function_id)
+                                          (event_id, time_start, cloud_function_name, function_id, triggered_by_func_id)
                                           VALUES (:a, :b, :c, :d)
                                           /*action='save_start_of_compose_function' */;""")
 
-        conn.execute(sql_text_psy, a=event_num, b=datetime.datetime.now(), c='compose_notifications', d=function_num)
+        conn.execute(sql_text_psy, a=event_num, b=datetime.datetime.now(),
+                     c='compose_notifications', d=function_num, e=triggered_by_func_id)
         logging.info(f'function was triggered by event {event_num}')
 
         return None
@@ -2316,10 +2317,11 @@ def main(event, context):  # noqa
     pool = sql_connect()
     with pool.connect() as conn:
 
-        there_is_function_working_in_parallel = check_and_save_event_id(context, 'start', conn, None, function_id)
+        there_is_function_working_in_parallel = check_and_save_event_id(context, 'start', conn, None, function_id,
+                                                                        triggered_by_func_id)
         if there_is_function_working_in_parallel:
             logging.info(f'function execution stopped due to parallel run with another function')
-            check_and_save_event_id(context, 'finish', conn, None, function_id)
+            check_and_save_event_id(context, 'finish', conn, None, function_id, triggered_by_func_id)
             logging.info('script finished')
             conn.close()
             pool.dispose()
@@ -2375,7 +2377,7 @@ def main(event, context):  # noqa
             record_notification_statistics(conn)
 
         check_if_need_compose_more(conn)
-        check_and_save_event_id(context, 'finish', conn, new_record, function_id)
+        check_and_save_event_id(context, 'finish', conn, new_record, function_id, triggered_by_func_id)
         message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'initiate notifs send out'}
         publish_to_pubsub('topic_to_send_notifications', message_for_pubsub)
 
