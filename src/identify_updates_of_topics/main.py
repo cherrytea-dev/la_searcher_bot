@@ -3231,10 +3231,12 @@ def save_function_into_register(db, context, start_time, function_id):
         with db.connect() as conn:
 
             sql_text = sqlalchemy.text("""INSERT INTO functions_registry
-                                                      (event_id, time_start, cloud_function_name, function_id)
-                                                      VALUES (:a, :b, :c, :d)
+                                                      (event_id, time_start, cloud_function_name, function_id, 
+                                                      time_finish)
+                                                      VALUES (:a, :b, :c, :d, :e)
                                                       /*action='save_start_of_ide_topics_function' */;""")
-            conn.execute(sql_text, a=event_id, b=start_time, c='identify_updates_of_topics', d=function_id)
+            conn.execute(sql_text, a=event_id, b=start_time,
+                         c='identify_updates_of_topics', d=function_id, e=datetime.now())
 
             logging.info(f'function {function_id} was saved in functions_registry')
 
