@@ -2348,7 +2348,8 @@ def main(event, context):  # noqa
 
         check_if_need_compose_more(conn)
         check_and_save_event_id(context, 'finish', conn, new_record, function_id)
-        publish_to_pubsub('topic_to_send_notifications', 'initiate notifs send out')
+        message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'initiate notifs send out'}
+        publish_to_pubsub('topic_to_send_notifications', message_for_pubsub)
 
         analytics_finish = datetime.datetime.now()
         if new_record:
