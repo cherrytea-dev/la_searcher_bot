@@ -581,7 +581,7 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
 
 
 def check_and_save_event_id(context, event, function_id, changed_ids):
-    """Work with PSQL table notif_functions_registry. Goal of the table & function is to avoid parallel work of
+    """Work with PSQL table functions_registry. Goal of the table & function is to avoid parallel work of
     two send_notifications functions. Executed in the beginning and in the end of send_notifications function"""
 
     def check_if_other_functions_are_working():
@@ -594,7 +594,7 @@ def check_and_save_event_id(context, event, function_id, changed_ids):
                         SELECT 
                             event_id 
                         FROM
-                            notif_functions_registry
+                            functions_registry
                         WHERE
                             time_start > NOW() - interval '130 seconds' AND
                             time_finish IS NULL AND
@@ -621,7 +621,7 @@ def check_and_save_event_id(context, event, function_id, changed_ids):
 
         sql_text_psy = f"""
                         INSERT INTO 
-                            notif_functions_registry
+                            functions_registry
                         (event_id, time_start, cloud_function_name, function_id)
                         VALUES
                         (%s, %s, %s, %s);
@@ -646,7 +646,7 @@ def check_and_save_event_id(context, event, function_id, changed_ids):
 
         sql_text_psy = f"""
                         UPDATE 
-                            notif_functions_registry
+                            functions_registry
                         SET
                             time_finish = %s,
                             params = %s
@@ -686,7 +686,7 @@ def check_and_save_event_id(context, event, function_id, changed_ids):
         return False
 
 
-def finish_time_analytics(notif_times, delays, parsed_times):
+def finish_time_analytics(notif_times, delays, parsed_times, list_of_change_ids):
     """Make final steps for time analytics: inform admin, log, record statistics into PSQL"""
 
     if not notif_times:
@@ -709,8 +709,8 @@ def finish_time_analytics(notif_times, delays, parsed_times):
         min_parse_time = int(min(parsed_times))
         max_parse_time = int(max(parsed_times))
 
-    message = f'[send_notif] {len_n:>3} x {round(average, 2)} = {int(ttl_time)} ' \
-              f'| {min_delay}–{max_delay} | {min_parse_time}–{max_parse_time}'
+    message = f'[sn] {len_n} x {round(average, 2)} = {int(ttl_time)} ' \
+              f'| {min_delay}–{max_delay} | {min_parse_time}–{max_parse_time} | {list_of_change_ids}'
     if len_n >= 10:  # FIXME – a temp deactivation to understand the sending speed. # and average > 0.3:
         notify_admin(message)
     logging.info(message)
@@ -775,7 +775,7 @@ def main(event, context):
     with requests.Session() as session:
         changed_ids = iterate_over_notifications(bot, bot_token, admin_id, script_start_time, session, function_id)
 
-    finish_time_analytics(analytics_notif_times, analytics_delays, analytics_parsed_times)
+    finish_time_analytics(analytics_notif_times, analytics_delays, analytics_parsed_times, changed_ids)
     # the below – is needed for high-frequency function execution, otherwise google remembers prev value
     analytics_notif_times = []
     analytics_delays = []
