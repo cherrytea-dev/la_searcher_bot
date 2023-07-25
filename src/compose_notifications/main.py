@@ -9,6 +9,7 @@ import datetime
 import json
 import logging
 import math
+import random
 
 import sqlalchemy
 
@@ -2174,8 +2175,8 @@ def mark_new_comments_as_processed(conn, record):
     return None
 
 
-def check_and_save_event_id(context, event, conn, new_record):
-    """Work with PSQL table notif_functions_registry. Goal of the table & function is to avoid parallel work of
+def check_and_save_event_id(context, event, conn, new_record, function_id):
+    """Work with PSQL table functions_registry. Goal of the table & function is to avoid parallel work of
     two compose_notifications functions. Executed in the beginning and in the end of compose_notifications function"""
 
     def check_if_other_functions_are_working():
@@ -2183,7 +2184,7 @@ def check_and_save_event_id(context, event, conn, new_record):
 
         sql_text_psy = sqlalchemy.text("""
                         SELECT event_id 
-                        FROM notif_functions_registry
+                        FROM functions_registry
                         WHERE
                             time_start > NOW() - interval '130 seconds' AND
                             time_finish IS NULL AND
@@ -2196,15 +2197,15 @@ def check_and_save_event_id(context, event, conn, new_record):
 
         return parallel_functions
 
-    def record_start_of_function(event_num):
+    def record_start_of_function(event_num, function_num):
         """Record into PSQL that this function started working (id = id of the respective pub/sub event)"""
 
-        sql_text_psy = sqlalchemy.text("""INSERT INTO notif_functions_registry
-                                          (event_id, time_start, cloud_function_name)
-                                          VALUES (:a, :b, :c)
+        sql_text_psy = sqlalchemy.text("""INSERT INTO functions_registry
+                                          (event_id, time_start, cloud_function_name, function_id)
+                                          VALUES (:a, :b, :c, :d)
                                           /*action='save_start_of_compose_function' */;""")
 
-        conn.execute(sql_text_psy, a=event_num, b=datetime.datetime.now(), c='compose_notifications')
+        conn.execute(sql_text_psy, a=event_num, b=datetime.datetime.now(), c='compose_notifications', d=function_num)
         logging.info(f'function was triggered by event {event_num}')
 
         return None
@@ -2212,7 +2213,7 @@ def check_and_save_event_id(context, event, conn, new_record):
     def record_finish_of_function(event_num, params_json):
         """Record into PSQL that this function finished working (id = id of the respective pub/sub event)"""
 
-        sql_text_psy = sqlalchemy.text("""UPDATE notif_functions_registry 
+        sql_text_psy = sqlalchemy.text("""UPDATE functions_registry 
                                           SET time_finish = :a, params = :c 
                                           WHERE event_id = :b
                                           /*action='save_finish_of_compose_function' */;""")
@@ -2232,10 +2233,10 @@ def check_and_save_event_id(context, event, conn, new_record):
     # if this functions is triggered in the very beginning of the Google Cloud Function execution
     if event == 'start':
         if check_if_other_functions_are_working():
-            record_start_of_function(event_id)
+            record_start_of_function(event_id, function_id)
             return True
 
-        record_start_of_function(event_id)
+        record_start_of_function(event_id, function_id)
         return False
 
     # if this functions is triggered in the very end of the Google Cloud Function execution
@@ -2269,18 +2270,28 @@ def check_if_need_compose_more(conn):
     return None
 
 
+def generate_random_function_id():
+    """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
+
+    random_id = random.randint(100000000000, 999999999999)
+
+    return random_id
+
+
 def main(event, context):  # noqa
     """key function which is initiated by Pub/Sub"""
 
     analytics_start_of_func = datetime.datetime.now()
 
+    function_id = generate_random_function_id()
+
     pool = sql_connect()
     with pool.connect() as conn:
 
-        there_is_function_working_in_parallel = check_and_save_event_id(context, 'start', conn, None)
+        there_is_function_working_in_parallel = check_and_save_event_id(context, 'start', conn, None, function_id)
         if there_is_function_working_in_parallel:
             logging.info(f'function execution stopped due to parallel run with another function')
-            check_and_save_event_id(context, 'finish', conn, None)
+            check_and_save_event_id(context, 'finish', conn, None, function_id)
             logging.info('script finished')
             conn.close()
             pool.dispose()
