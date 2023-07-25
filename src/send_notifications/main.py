@@ -761,7 +761,7 @@ def get_triggering_function(message_from_pubsub):
 
         if message_from_pubsub and isinstance(message_from_pubsub, dict) and \
                 'triggered_by_func_id' in message_from_pubsub.keys():
-            triggered_by_func_id = message_from_pubsub[triggered_by_func_id]
+            triggered_by_func_id = message_from_pubsub['triggered_by_func_id']
 
     except Exception as e:
         logging.exception(e)
