@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from dateutil import relativedelta
 import copy
 import urllib.request
+import random
 
 import requests
 import sqlalchemy
@@ -3213,13 +3214,46 @@ def get_the_list_of_ignored_folders(db):
     return list_of_ignored_folders
 
 
+def generate_random_function_id():
+    """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
+
+    random_id = random.randint(100000000000, 999999999999)
+
+    return random_id
+
+
+def save_function_into_register(db, context, start_time, function_id):
+    """save current function into functions_registry"""
+
+    try:
+        event_id = context.event_id
+
+        with db.connect() as conn:
+
+            sql_text = sqlalchemy.text("""INSERT INTO functions_registry
+                                                      (event_id, time_start, cloud_function_name, function_id)
+                                                      VALUES (:a, :b, :c, :d)
+                                                      /*action='save_start_of_ide_topics_function' */;""")
+            conn.execute(sql_text, a=event_id, b=start_time, c='identify_updates_of_topics', d=function_id)
+
+            logging.info(f'function {function_id} was saved in functions_registry')
+
+    except Exception as e:
+        logging.info(f'function {function_id} was NOT ABLE to be saved in functions_registry')
+        logging.exception(e)
+
+    return None
+
+
 def main(event, context):  # noqa
     """main function triggered by pub/sub"""
 
     global requests_session
 
+    function_id = generate_random_function_id()
     folders_list = []
 
+    analytics_func_start = datetime.now()
     requests_session = requests.Session()
 
     message_from_pubsub = process_pubsub_message(event)
@@ -3251,7 +3285,10 @@ def main(event, context):  # noqa
     logging.info(f'Here\'s a list of folders with updates: {list_of_folders_with_updates}')
 
     if list_of_folders_with_updates:
-        publish_to_pubsub('topic_for_notification', 'let\'s compose notifications')
+        message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'let\'s compose notifications'}
+        publish_to_pubsub('topic_for_notification', message_for_pubsub)
+
+        save_function_into_register(db, context, analytics_func_start, function_id)
 
     requests_session.close()
     db.dispose()

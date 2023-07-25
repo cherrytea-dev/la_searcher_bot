@@ -385,15 +385,20 @@ def process_pubsub_message(event):
     """get the readable message from incoming pub/sub call"""
 
     # receive message text from pub/sub
-    if 'data' in event:
-        received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
-    else:
-        received_message_from_pubsub = 'I cannot read message from pub/sub'
-    encoded_to_ascii = eval(received_message_from_pubsub)
-    data_in_ascii = encoded_to_ascii['data']
-    message_in_ascii = str(data_in_ascii['message'])
+    try:
+        if 'data' in event:
+            received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
+            encoded_to_ascii = eval(received_message_from_pubsub)
+            data_in_ascii = encoded_to_ascii['data']
+            message_in_ascii = data_in_ascii['message']
+        else:
+            message_in_ascii = 'ERROR: I cannot read message from pub/sub'
 
-    logging.info('LOGGING-INFO: incoming Pub/Sub message: ' + str(message_in_ascii))
+    except Exception as e:
+        message_in_ascii = 'ERROR: I cannot read message from pub/sub'
+        logging.exception(e)
+
+    logging.info(f'received message from pub/sub: {message_in_ascii}')
 
     return message_in_ascii
 
@@ -2278,12 +2283,35 @@ def generate_random_function_id():
     return random_id
 
 
+def get_triggering_function(message_from_pubsub):
+    """get a function_id of the function, which triggered this function (if available)"""
+
+    triggered_by_func_id = None
+    try:
+        if message_from_pubsub and isinstance(message_from_pubsub, dict) and \
+                'triggered_by_func_id' in message_from_pubsub.keys():
+            triggered_by_func_id = message_from_pubsub['triggered_by_func_id']
+
+    except Exception as e:
+        logging.exception(e)
+
+    if triggered_by_func_id:
+        logging.info(f'this function is triggered by func_id {triggered_by_func_id}')
+    else:
+        logging.info(f'triggering func_id was not determined')
+
+    return triggered_by_func_id
+
+
+
 def main(event, context):  # noqa
     """key function which is initiated by Pub/Sub"""
 
     analytics_start_of_func = datetime.datetime.now()
 
     function_id = generate_random_function_id()
+    message_from_pubsub = process_pubsub_message(event)
+    triggered_by_func_id = get_triggering_function(message_from_pubsub)
 
     pool = sql_connect()
     with pool.connect() as conn:
