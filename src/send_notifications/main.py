@@ -57,6 +57,8 @@ def process_pubsub_message(event):
     except:  # noqa
         message_in_ascii = 'ERROR: I cannot read message from pub/sub'
 
+    logging.info(f'received message from pub/sub: {message_in_ascii}')
+
     return message_in_ascii
 
 
@@ -405,7 +407,6 @@ def save_sending_status_to_notif_by_user(cur, message_id, result):
         result = result[0:6]
 
     if result in {'completed', 'cancelled', 'failed'}:
-
         sql_text_psy = f"""
                     UPDATE notif_by_user
                     SET {result} = %s
@@ -429,7 +430,7 @@ def get_change_log_update_time(cur, change_log_id):
                     FROM change_log 
                     WHERE id = %s;
                     /*action='getting_change_log_parsing_time' */;"""
-    cur.execute(sql_text_psy, (change_log_id, ))
+    cur.execute(sql_text_psy, (change_log_id,))
     parsed_time = cur.fetchone()
 
     if not parsed_time:
@@ -516,12 +517,13 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
                     set_of_change_ids.add(change_log_id)
 
                     completion_time = datetime.datetime.now()
-                    duration_complete_vs_create_minutes = round((completion_time-creation_time).total_seconds()/60, 2)
+                    duration_complete_vs_create_minutes = round((completion_time - creation_time).total_seconds() / 60,
+                                                                2)
                     logging.info(f'metric: creation to completion time – {duration_complete_vs_create_minutes} min')
                     analytics_delays.append(duration_complete_vs_create_minutes)
 
                     duration_complete_vs_parsed_time_minutes = \
-                        round((completion_time-change_log_upd_time).total_seconds()/60, 2)
+                        round((completion_time - change_log_upd_time).total_seconds() / 60, 2)
                     logging.info(f'metric: parsing to completion time – {duration_complete_vs_parsed_time_minutes} min')
                     analytics_parsed_times.append(duration_complete_vs_parsed_time_minutes)
 
@@ -569,7 +571,7 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
 
             analytics_end_of_iteration = datetime.datetime.now()
             analytics_iteration_duration = round((analytics_end_of_iteration -
-                                                 analytics_iteration_start).total_seconds(), 2)
+                                                  analytics_iteration_start).total_seconds(), 2)
             logging.info(f'time: {analytics_iteration_duration:.2f} – iteration duration')
 
         cur.close()
@@ -642,7 +644,7 @@ def check_and_save_event_id(context, event, function_id, changed_ids):
         conn_psy = sql_connect_by_psycopg2()
         cur = conn_psy.cursor()
 
-        json_of_params = json.dumps({"change_log_ids": list_of_changed_ids})
+        json_of_params = json.dumps({"ch_id": list_of_changed_ids})
 
         sql_text_psy = f"""
                         UPDATE 
@@ -753,7 +755,17 @@ def main(event, context):
     global analytics_delays
     global analytics_parsed_times
 
+    # timer is needed to finish the script if it's already close to timeout
+    script_start_time = datetime.datetime.now()
+
     function_id = generate_random_function_id()
+
+    message_from_pubsub = process_pubsub_message(event)
+
+    triggered_by_func_id = None
+    if message_from_pubsub and isinstance(message_from_pubsub, dict) and \
+            'triggered_by_func_id' in message_from_pubsub.keys():
+        triggered_by_func_id = message_from_pubsub[triggered_by_func_id]
 
     there_is_function_working_in_parallel = check_and_save_event_id(context, 'start', function_id, None)
     if there_is_function_working_in_parallel:
@@ -761,12 +773,6 @@ def main(event, context):
         check_and_save_event_id(context, 'finish', function_id, None)
         logging.info('script finished')
         return None
-
-    # timer is needed to finish the script if it's already close to timeout
-    script_start_time = datetime.datetime.now()
-
-    message_from_pubsub = process_pubsub_message(event)
-    logging.info(f'received message from pub/sub: {message_from_pubsub}')
 
     bot_token = get_secrets("bot_api_token__prod")
     bot = Bot(token=bot_token)
