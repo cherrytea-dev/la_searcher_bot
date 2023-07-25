@@ -2247,7 +2247,7 @@ def check_and_save_event_id(context, event, conn, new_record, function_id):
             # FIXME -- temp try. the content is not temp
             try:
                 list_of_change_log_ids = [new_record.change_id]
-                json_of_params = json.dumps({"change_log_ids": list_of_change_log_ids})
+                json_of_params = json.dumps({"ch_id": list_of_change_log_ids})
             except Exception as e:  # noqa
                 logging.exception(e)
             # FIXME ^^^
@@ -2347,7 +2347,7 @@ def main(event, context):  # noqa
             record_notification_statistics(conn)
 
         check_if_need_compose_more(conn)
-        check_and_save_event_id(context, 'finish', conn, new_record)
+        check_and_save_event_id(context, 'finish', conn, new_record, function_id)
         publish_to_pubsub('topic_to_send_notifications', 'initiate notifs send out')
 
         analytics_finish = datetime.datetime.now()
