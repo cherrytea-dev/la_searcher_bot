@@ -9,6 +9,7 @@ import json
 import psycopg2
 import urllib.request
 import requests
+import random
 
 import asyncio
 from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove, error
@@ -33,6 +34,8 @@ log_client.setup_logging()
 # Important – these are not errors, but just informational warnings that there were retries, that's why we exclude them
 logging.getLogger("telegram.vendor.ptb_urllib3.urllib3").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
+
+SCRIPT_SOFT_TIMEOUT_SECONDS = 120  # after which iterations should stop to prevent the whole script timeout
 
 analytics_notif_times = []
 analytics_delays = []
@@ -437,10 +440,10 @@ def get_change_log_update_time(cur, change_log_id):
     return parsed_time
 
 
-def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, session):
+def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, session, function_id):
     """iterate over all available notifications, finishes if timeout is met or no new notifications"""
 
-    custom_timeout = 120  # seconds, after which iterations should stop to prevent the whole script timeout
+    set_of_change_ids = set()
 
     with sql_connect_by_psycopg2() as conn_psy, conn_psy.cursor() as cur:
 
@@ -510,6 +513,8 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
                 if result == 'completed':
                     creation_time = message_to_send[2]
 
+                    set_of_change_ids.add(change_log_id)
+
                     completion_time = datetime.datetime.now()
                     duration_complete_vs_create_minutes = round((completion_time-creation_time).total_seconds()/60, 2)
                     logging.info(f'metric: creation to completion time – {duration_complete_vs_create_minutes} min')
@@ -521,7 +526,6 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
                     analytics_parsed_times.append(duration_complete_vs_parsed_time_minutes)
 
                 analytics_after_double_saved_in_sql = datetime.datetime.now()
-
                 analytics_save_sql_duration = round((analytics_after_double_saved_in_sql -
                                                      analytics_save_sql_start).total_seconds(), 2)
                 logging.info(f'time: {analytics_save_sql_duration:.2f} – saving to sql')
@@ -548,7 +552,7 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
             # check if not too much time passed (not more than 500 seconds)
             now = datetime.datetime.now()
 
-            if (now - script_start_time).total_seconds() > custom_timeout:
+            if (now - script_start_time).total_seconds() > SCRIPT_SOFT_TIMEOUT_SECONDS:
                 timeout = True
             else:
                 timeout = False
@@ -560,7 +564,8 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
                 trigger_to_continue_iterations = False
 
             if not no_new_notifications and timeout:
-                publish_to_pubsub('topic_to_send_notifications', 'next iteration')
+                message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'next iteration'}
+                publish_to_pubsub('topic_to_send_notifications', message_for_pubsub)
 
             analytics_end_of_iteration = datetime.datetime.now()
             analytics_iteration_duration = round((analytics_end_of_iteration -
@@ -570,10 +575,12 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
         cur.close()
     conn_psy.close()
 
-    return None
+    list_of_change_ids = list(set_of_change_ids)
+
+    return list_of_change_ids
 
 
-def check_and_save_event_id(context, event):
+def check_and_save_event_id(context, event, function_id, changed_ids):
     """Work with PSQL table notif_functions_registry. Goal of the table & function is to avoid parallel work of
     two send_notifications functions. Executed in the beginning and in the end of send_notifications function"""
 
@@ -606,7 +613,7 @@ def check_and_save_event_id(context, event):
 
         return parallel_functions
 
-    def record_start_of_function(event_num):
+    def record_start_of_function(event_num, function_num):
         """Record into PSQL that this function started working (id = id of the respective pub/sub event)"""
 
         conn_psy = sql_connect_by_psycopg2()
@@ -615,38 +622,41 @@ def check_and_save_event_id(context, event):
         sql_text_psy = f"""
                         INSERT INTO 
                             notif_functions_registry
-                        (event_id, time_start, cloud_function_name)
+                        (event_id, time_start, cloud_function_name, function_id)
                         VALUES
-                        (%s, %s, %s);
+                        (%s, %s, %s, %s);
                         /*action='save_start_of_notif_function' */
                         ;"""
 
-        cur.execute(sql_text_psy, (event_id, datetime.datetime.now(), 'send_notifications'))
-        logging.info(f'function was triggered by event {event_num}')
+        cur.execute(sql_text_psy, (event_num, datetime.datetime.now(), 'send_notifications', function_num))
+        logging.info(f'function was triggered by event {event_num}, we assigned a function_id = {function_num}')
 
         cur.close()
         conn_psy.close()
 
         return None
 
-    def record_finish_of_function(event_num):
+    def record_finish_of_function(event_num, list_of_changed_ids):
         """Record into PSQL that this function finished working (id = id of the respective pub/sub event)"""
 
         conn_psy = sql_connect_by_psycopg2()
         cur = conn_psy.cursor()
 
+        json_of_params = json.dumps({"change_log_ids": list_of_changed_ids})
+
         sql_text_psy = f"""
                         UPDATE 
                             notif_functions_registry
                         SET
-                            time_finish = %s
+                            time_finish = %s,
+                            params = %s
                         WHERE
                             event_id = %s
                         ;
                         /*action='save_finish_of_notif_function' */
                         ;"""
 
-        cur.execute(sql_text_psy, (datetime.datetime.now(), event_num))
+        cur.execute(sql_text_psy, (datetime.datetime.now(), json_of_params, event_num))
 
         cur.close()
         conn_psy.close()
@@ -664,15 +674,15 @@ def check_and_save_event_id(context, event):
     # if this functions is triggered in the very beginning of the Google Cloud Function execution
     if event == 'start':
         if check_if_other_functions_are_working():
-            record_start_of_function(event_id)
+            record_start_of_function(event_id, function_id)
             return True
 
-        record_start_of_function(event_id)
+        record_start_of_function(event_id, function_id)
         return False
 
     # if this functions is triggered in the very end of the Google Cloud Function execution
     elif event == 'finish':
-        record_finish_of_function(event_id)
+        record_finish_of_function(event_id, changed_ids)
         return False
 
 
@@ -728,6 +738,14 @@ def finish_time_analytics(notif_times, delays, parsed_times):
     return None
 
 
+def generate_random_function_id():
+    """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
+
+    random_id = random.randint(100000000000, 999999999999)
+
+    return random_id
+
+
 def main(event, context):
     """Main function that is triggered by pub/sub"""
 
@@ -735,10 +753,12 @@ def main(event, context):
     global analytics_delays
     global analytics_parsed_times
 
-    there_is_function_working_in_parallel = check_and_save_event_id(context, 'start')
+    function_id = generate_random_function_id()
+
+    there_is_function_working_in_parallel = check_and_save_event_id(context, 'start', function_id, None)
     if there_is_function_working_in_parallel:
         logging.info(f'function execution stopped due to parallel run with another function')
-        check_and_save_event_id(context, 'finish')
+        check_and_save_event_id(context, 'finish', function_id, None)
         logging.info('script finished')
         return None
 
@@ -753,7 +773,7 @@ def main(event, context):
     admin_id = get_secrets("my_telegram_id")
 
     with requests.Session() as session:
-        iterate_over_notifications(bot, bot_token, admin_id, script_start_time, session)
+        changed_ids = iterate_over_notifications(bot, bot_token, admin_id, script_start_time, session, function_id)
 
     finish_time_analytics(analytics_notif_times, analytics_delays, analytics_parsed_times)
     # the below – is needed for high-frequency function execution, otherwise google remembers prev value
@@ -761,7 +781,7 @@ def main(event, context):
     analytics_delays = []
     analytics_parsed_times = []
 
-    check_and_save_event_id(context, 'finish')
+    check_and_save_event_id(context, 'finish', function_id, changed_ids)
     logging.info('script finished')
 
     return 'ok'
