@@ -582,7 +582,7 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
     return list_of_change_ids
 
 
-def check_and_save_event_id(context, event, function_id, changed_ids):
+def check_and_save_event_id(context, event, function_id, changed_ids, triggered_by_func_id):
     """Work with PSQL table functions_registry. Goal of the table & function is to avoid parallel work of
     two send_notifications functions. Executed in the beginning and in the end of send_notifications function"""
 
@@ -615,7 +615,7 @@ def check_and_save_event_id(context, event, function_id, changed_ids):
 
         return parallel_functions
 
-    def record_start_of_function(event_num, function_num):
+    def record_start_of_function(event_num, function_num, triggered_by_func_num):
         """Record into PSQL that this function started working (id = id of the respective pub/sub event)"""
 
         conn_psy = sql_connect_by_psycopg2()
@@ -624,13 +624,14 @@ def check_and_save_event_id(context, event, function_id, changed_ids):
         sql_text_psy = f"""
                         INSERT INTO 
                             functions_registry
-                        (event_id, time_start, cloud_function_name, function_id)
+                        (event_id, time_start, cloud_function_name, function_id, triggered_by_func_id)
                         VALUES
-                        (%s, %s, %s, %s);
+                        (%s, %s, %s, %s, %s);
                         /*action='save_start_of_notif_function' */
                         ;"""
 
-        cur.execute(sql_text_psy, (event_num, datetime.datetime.now(), 'send_notifications', function_num))
+        cur.execute(sql_text_psy, (event_num, datetime.datetime.now(), 'send_notifications',
+                                   function_num, triggered_by_func_num))
         logging.info(f'function was triggered by event {event_num}, we assigned a function_id = {function_num}')
 
         cur.close()
@@ -676,10 +677,10 @@ def check_and_save_event_id(context, event, function_id, changed_ids):
     # if this functions is triggered in the very beginning of the Google Cloud Function execution
     if event == 'start':
         if check_if_other_functions_are_working():
-            record_start_of_function(event_id, function_id)
+            record_start_of_function(event_id, function_id, triggered_by_func_id)
             return True
 
-        record_start_of_function(event_id, function_id)
+        record_start_of_function(event_id, function_id, triggered_by_func_id)
         return False
 
     # if this functions is triggered in the very end of the Google Cloud Function execution
@@ -748,6 +749,17 @@ def generate_random_function_id():
     return random_id
 
 
+def get_triggering_function(message_from_pubsub):
+    """get a function_id of the function, which triggered this function (if available)"""
+
+    triggered_by_func_id = None
+    if message_from_pubsub and isinstance(message_from_pubsub, dict) and \
+            'triggered_by_func_id' in message_from_pubsub.keys():
+        triggered_by_func_id = message_from_pubsub[triggered_by_func_id]
+
+    return triggered_by_func_id
+
+
 def main(event, context):
     """Main function that is triggered by pub/sub"""
 
@@ -761,16 +773,13 @@ def main(event, context):
     function_id = generate_random_function_id()
 
     message_from_pubsub = process_pubsub_message(event)
+    triggered_by_func_id = get_triggering_function(message_from_pubsub)
 
-    triggered_by_func_id = None
-    if message_from_pubsub and isinstance(message_from_pubsub, dict) and \
-            'triggered_by_func_id' in message_from_pubsub.keys():
-        triggered_by_func_id = message_from_pubsub[triggered_by_func_id]
-
-    there_is_function_working_in_parallel = check_and_save_event_id(context, 'start', function_id, None)
+    there_is_function_working_in_parallel = check_and_save_event_id(context, 'start', function_id, None,
+                                                                    triggered_by_func_id)
     if there_is_function_working_in_parallel:
         logging.info(f'function execution stopped due to parallel run with another function')
-        check_and_save_event_id(context, 'finish', function_id, None)
+        check_and_save_event_id(context, 'finish', function_id, None, None)
         logging.info('script finished')
         return None
 
@@ -787,7 +796,7 @@ def main(event, context):
     analytics_delays = []
     analytics_parsed_times = []
 
-    check_and_save_event_id(context, 'finish', function_id, changed_ids)
+    check_and_save_event_id(context, 'finish', function_id, changed_ids, None)
     logging.info('script finished')
 
     return 'ok'
