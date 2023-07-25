@@ -2289,6 +2289,11 @@ def get_triggering_function(message_from_pubsub):
 
     triggered_by_func_id = None
     try:
+        logging.info(f'M = message {message_from_pubsub}')
+        logging.info(f'M = type {type(message_from_pubsub)}')
+        logging.info(f'M = if '
+                     f'{isinstance(message_from_pubsub, dict) and "triggered_by_func_id" in message_from_pubsub.keys()}')
+        logging.info(f'M = {message_from_pubsub["triggered_by_func_id"]}')
         if message_from_pubsub and isinstance(message_from_pubsub, dict) and \
                 'triggered_by_func_id' in message_from_pubsub.keys():
             triggered_by_func_id = message_from_pubsub['triggered_by_func_id']
