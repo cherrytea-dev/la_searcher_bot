@@ -683,7 +683,7 @@ def clean_up_content(init_content):
 
     # language=regexp
     patterns = [r'(\[/?[biu]]|\[/?color.{0,8}]|\[/?quote]|\[/?size.{0,8}]|\[/?spoiler=?]?)',
-                r'(?i)последний раз редактировалось( .{1,200} \d{1,3} раза?\.)?',
+                r'(?i)последний раз редактировалось.{1,200}',
                 r'(?i).{1,200}\d\d:\d\d, всего редактировалось.{1,200}',
                 r'^\s+'
                 ]
@@ -779,7 +779,7 @@ def process_first_page_comparison(conn, search_id, first_page_content_prev, firs
             try:
                 notify_admin(f'[ide_posts]: IGNORED MINOR CHANGE: \ninit message: {message}'
                              f'\ndel: {list_of_del}\nadd: {list_of_add}')
-            except:
+            except:  # noqa
                 notify_admin(f'THIS ERROR')
             return '', None
 
