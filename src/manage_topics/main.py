@@ -4,12 +4,13 @@ import json
 import datetime
 import logging
 import urllib.request
+import random
 
 import sqlalchemy
 
 from google.cloud import pubsub_v1
 from google.cloud import secretmanager
-
+import google.cloud.logging
 
 url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
 req = urllib.request.Request(url)
@@ -17,6 +18,9 @@ req.add_header("Metadata-Flavor", "Google")
 project_id = urllib.request.urlopen(req).read().decode()
 
 publisher = pubsub_v1.PublisherClient()
+
+log_client = google.cloud.logging.Client()
+log_client.setup_logging()
 
 
 def process_pubsub_message(event):
@@ -150,6 +154,7 @@ def save_visibility_for_topic(topic_id, visibility):
 def save_status_for_topic(topic_id, status):
     """save in SQL if topic status was updated: active search, search finished etc."""
 
+    change_log_id = None
     try:
         pool = sql_connect()
         with pool.connect() as conn:
@@ -163,8 +168,14 @@ def save_status_for_topic(topic_id, status):
             # update status in change_log table
             stmt = sqlalchemy.text(
                 """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters, 
-                change_type) values (:a, :b, :c, :d, :e, :f); """)
-            conn.execute(stmt, a=datetime.datetime.now(), b=topic_id, c='status_change', d=status, e='', f=1)
+                change_type) values (:a, :b, :c, :d, :e, :f) RETURNING id;""")
+            raw_data = conn.execute(stmt,
+                                    a=datetime.datetime.now(),
+                                    b=topic_id, c='status_change', d=status, e='',
+                                    f=1).fetchone()
+
+            change_log_id = raw_data[0]
+            logging.info(f'{change_log_id=}')
 
             # update status in searches table
             stmt = sqlalchemy.text("""UPDATE searches SET status_short=:a, status=:b WHERE search_forum_num=:c;""")
@@ -180,11 +191,51 @@ def save_status_for_topic(topic_id, status):
     except Exception as e:
         logging.exception(e)
 
+    return change_log_id
+
+
+def save_function_into_register(context, start_time, function_id, change_log_id):
+    """save current function into functions_registry"""
+
+    try:
+        event_id = context.event_id
+
+        json_of_params = json.dumps({"ch_id": list(change_log_id)})
+
+        pool = sql_connect()
+        with pool.connect() as conn:
+
+            sql_text = sqlalchemy.text("""INSERT INTO functions_registry
+                                                      (event_id, time_start, cloud_function_name, function_id, 
+                                                      time_finish, params)
+                                                      VALUES (:a, :b, :c, :d, :e, :f)
+                                                      /*action='save_manage_topics_function' */;""")
+            conn.execute(sql_text, a=event_id, b=start_time,
+                         c='manage_topics', d=function_id, e=datetime.datetime.now(),
+                         f=json_of_params)
+
+            logging.info(f'function {function_id} was saved in functions_registry')
+
+    except Exception as e:
+        logging.info(f'function {function_id} was NOT ABLE to be saved in functions_registry')
+        logging.exception(e)
+
     return None
+
+
+def generate_random_function_id():
+    """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
+
+    random_id = random.randint(100000000000, 999999999999)
+
+    return random_id
 
 
 def main(event, context): # noqa
     """main function"""
+
+    analytics_func_start = datetime.datetime.now()
+    function_id = generate_random_function_id()
 
     try:
         received_dict = process_pubsub_message(event)
@@ -202,7 +253,10 @@ def main(event, context): # noqa
             if 'status' in received_dict:
 
                 status = received_dict['status']
-                save_status_for_topic(topic_id, status)
+                change_log_id = save_status_for_topic(topic_id, status)
+                save_function_into_register(context, analytics_func_start, function_id, change_log_id)
+                message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'let\'s compose notifications'}
+                publish_to_pubsub('topic_for_notification', message_for_pubsub)
 
     except Exception as e:
         logging.error('Topic management script failed:' + repr(e))
