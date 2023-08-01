@@ -2,5 +2,6 @@ SQLAlchemy==1.4.11  # <-- old version, but still works
 pg8000==1.19.4  # <-- old version, but still works
 
 
-google-cloud-pubsub==2.16.0  # ok
-google-cloud-secret-manager==2.16.0  # ok
+google-cloud-pubsub==2.16.0
+google-cloud-secret-manager==2.16.0
+google-cloud-logging==3.5.0
