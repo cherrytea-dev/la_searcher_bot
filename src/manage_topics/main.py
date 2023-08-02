@@ -200,7 +200,7 @@ def save_function_into_register(context, start_time, function_id, change_log_id)
     try:
         event_id = context.event_id
 
-        json_of_params = json.dumps({"ch_id": list(change_log_id)})
+        json_of_params = json.dumps({"ch_id": [change_log_id]})
 
         pool = sql_connect()
         with pool.connect() as conn:
