@@ -50,7 +50,7 @@ def publish_to_pubsub(topic_name, message):
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publishing succeeded
-        logging.info('Pub/sub message published: ' + message)
+        logging.info(f'Pub/sub message published: {message}')
 
     except Exception as e:
         logging.error('Publishing to pub/sub failed: ' + repr(e))
