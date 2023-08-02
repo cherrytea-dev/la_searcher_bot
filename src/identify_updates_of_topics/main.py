@@ -3233,7 +3233,7 @@ def save_function_into_register(db, context, start_time, function_id, change_log
 
     try:
         event_id = context.event_id
-        json_of_params = json.dumps({"ch_id": [change_log_ids]})
+        json_of_params = json.dumps({"ch_id": change_log_ids})
 
         with db.connect() as conn:
             sql_text = sqlalchemy.text("""INSERT INTO functions_registry
