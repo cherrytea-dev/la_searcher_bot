@@ -1131,7 +1131,7 @@ def save_function_into_register(conn, context, start_time, function_id, change_l
                                                   time_finish, params)
                                                   VALUES (:a, :b, :c, :d, :e, :f)
                                                   /*action='save_ide_f_posts_function' */;""")
-        conn.execute(sql_text, a=event_id, b=start_time, c='identify_updates_of_first_posts', d=function_id,
+        conn.execute(sql_text, a=event_id, b=start_time, c='identify_updates_of_f_posts', d=function_id,
                      e=datetime.datetime.now(), f=json_of_params)
         logging.info(f'function {function_id} was saved in functions_registry')
 
