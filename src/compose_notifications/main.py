@@ -2261,7 +2261,7 @@ def check_and_save_event_id(context, event, conn, new_record, function_id, trigg
         return False
 
 
-def check_if_need_compose_more(conn):
+def check_if_need_compose_more(conn, function_id):
     """check if there are any notifications remained to be composed"""
 
     check = conn.execute("""SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log 
@@ -2269,7 +2269,8 @@ def check_if_need_compose_more(conn):
                             OR notification_sent='s' LIMIT 1; """).fetchall()
     if check:
         logging.info('we checked – there is still something to compose: re-initiating [compose_notification]')
-        publish_to_pubsub('topic_for_notification', 're-run from same script')
+        message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 're-run from same script'}
+        publish_to_pubsub('topic_for_notification', message_for_pubsub)
     else:
         logging.info('we checked – there is nothing to compose: we are not re-initiating [compose_notification]')
 
@@ -2376,7 +2377,7 @@ def main(event, context):  # noqa
             # final step – update statistics on how many users received notifications on new searches
             record_notification_statistics(conn)
 
-        check_if_need_compose_more(conn)
+        check_if_need_compose_more(conn, function_id)
         check_and_save_event_id(context, 'finish', conn, new_record, function_id, triggered_by_func_id)
         message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'initiate notifs send out'}
         publish_to_pubsub('topic_to_send_notifications', message_for_pubsub)
