@@ -11,6 +11,7 @@ import copy
 import requests
 import urllib.request
 import difflib
+import random
 
 import sqlalchemy
 from bs4 import BeautifulSoup, NavigableString
@@ -793,18 +794,14 @@ def save_new_record_into_change_log(conn, search_id, coords_change_list, changed
 
     stmt = sqlalchemy.text(
         """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type)
-        values (:a, :b, :c, :d, :e);"""
+        values (:a, :b, :c, :d, :e) RETURNING id;"""
     )
 
-    conn.execute(stmt,
-                 a=datetime.datetime.now(),
-                 b=search_id,
-                 c=changed_field,
-                 d=str(coords_change_list),
-                 e=change_type
-                 )
+    raw_data = conn.execute(stmt, a=datetime.datetime.now(), b=search_id, c=changed_field, d=str(coords_change_list),
+                            e=change_type).fetchone()
+    change_log_id = raw_data[0]
 
-    return None
+    return change_log_id
 
 
 def get_the_search_status_out_of_text(initial_text):
@@ -1114,12 +1111,48 @@ def age_writer(age):
     return wording
 
 
+def generate_random_function_id():
+    """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
+
+    random_id = random.randint(100000000000, 999999999999)
+
+    return random_id
+
+
+def save_function_into_register(conn, context, start_time, function_id, change_log_ids):
+    """save current function into functions_registry"""
+
+    try:
+        event_id = context.event_id
+        json_of_params = json.dumps({"ch_id": change_log_ids})
+
+        sql_text = sqlalchemy.text("""INSERT INTO functions_registry
+                                                  (event_id, time_start, cloud_function_name, function_id, 
+                                                  time_finish, params)
+                                                  VALUES (:a, :b, :c, :d, :e, :f)
+                                                  /*action='save_ide_f_posts_function' */;""")
+        conn.execute(sql_text, a=event_id, b=start_time, c='identify_updates_of_first_posts', d=function_id,
+                     e=datetime.datetime.now(), f=json_of_params)
+        logging.info(f'function {function_id} was saved in functions_registry')
+
+    except Exception as e:
+        logging.info(f'function {function_id} was NOT ABLE to be saved in functions_registry')
+        logging.exception(e)
+
+    return None
+
+
 def main(event, context):  # noqa
     """key function"""
+
+    function_id = generate_random_function_id()
+    analytics_func_start = datetime.datetime.now()
 
     # receive a list of searches where first post was updated
     message_from_pubsub = process_pubsub_message(event)
     list_of_updated_searches = ast.literal_eval(message_from_pubsub)
+
+    change_log_ids = []
 
     if list_of_updated_searches:
         pool = sql_connect()
@@ -1170,46 +1203,10 @@ def main(event, context):  # noqa
                                                               first_page_content_prev, first_page_content_curr)
                             if message_on_first_posts_diff:
                                 message_on_first_posts_diff = str(diff_dict)
-                                save_new_record_into_change_log(conn, search_id, message_on_first_posts_diff,
-                                                                'topic_first_post_change', 8)
-
-                            # TODO: the below is deactivated because updates 5, 6 and 7 – were not tuned well to cover
-                            #  all 100% of cases (specifically – bad work for search with SEVERAL field trips,
-                            #  or for distinguishing field trips and autonoms)
-                            #  Code itself works well – but "logic" should be updated
-                            if 1 == 0:
-
-                                # get the final list of parameters on field trip (new, change or drop)
-                                field_trips_dict, filed_trips_obj = process_field_trips_comparison(conn, search_id,
-                                                                                                   first_page_content_prev,
-                                                                                                   first_page_content_curr)
-
-                                # Save Field Trip (incl potential Coords change) into Change_log
-                                if field_trips_dict['case'] == 'add':
-                                    save_new_record_into_change_log(conn, search_id,
-                                                                    str(field_trips_dict), 'field_trip_new', 5)
-
-                                elif field_trips_dict['case'] in {'drop', 'change'}:
-
-                                    # Check if coords changed as well during Field Trip
-                                    # structure: lat, lon, prev_desc, curr_desc
-                                    coords_change_list = process_coords_comparison(conn, search_id,
-                                                                                   first_page_content_curr,
-                                                                                   first_page_content_prev)
-                                    field_trips_dict['coords'] = str(coords_change_list)
-
-                                    save_new_record_into_change_log(conn, search_id,
-                                                                    str(field_trips_dict), 'field_trip_change', 6)
-
-                                else:
-
-                                    # structure_list: lat, lon, prev_desc, curr_desc
-                                    coords_change_list = process_coords_comparison(conn, search_id,
-                                                                                   first_page_content_curr,
-                                                                                   first_page_content_prev)
-                                    if coords_change_list:
-                                        save_new_record_into_change_log(conn, search_id,
-                                                                        coords_change_list, 'coords_change', 7)
+                                change_log_id = save_new_record_into_change_log(conn, search_id,
+                                                                                message_on_first_posts_diff,
+                                                                                'topic_first_post_change', 8)
+                                change_log_ids.append(change_log_id)
 
                     except Exception as e:
                         logging.info('[ide_posts]: Error fired during output_dict creation.')
@@ -1226,8 +1223,13 @@ def main(event, context):  # noqa
                 # evoke 'parsing script' to check if the folders with updated searches have any update
                 if list_of_folders_with_upd_searches:
                     # notify_admin(f'[ide_post]: {str(list_of_folders_with_upd_searches)}')
+
+                    save_function_into_register(conn, context, analytics_func_start, function_id, change_log_ids)
+
                     publish_to_pubsub('topic_to_run_parsing_script', str(list_of_folders_with_upd_searches))
-                    publish_to_pubsub('topic_for_notification', str(list_of_folders_with_upd_searches))
+                    message_for_pubsub = {'triggered_by_func_id': function_id,
+                                          'text': str(list_of_folders_with_upd_searches)}
+                    publish_to_pubsub('topic_for_notification', message_for_pubsub)
 
             except Exception as e:
                 logging.info('exception in main function')
