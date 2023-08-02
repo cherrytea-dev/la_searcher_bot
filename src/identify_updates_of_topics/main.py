@@ -2826,6 +2826,8 @@ def parse_one_comment(db, search_num, comment_num):
 def update_change_log_and_searches(db, folder_num):
     """update of SQL tables 'searches' and 'change_log' on the changes vs previous parse"""
 
+    change_log_ids = []
+
     class ChangeLogLine:
 
         def __init__(self,
@@ -2953,12 +2955,13 @@ def update_change_log_and_searches(db, folder_num):
 
             stmt = sqlalchemy.text(
                 """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters, 
-                change_type) values (:a, :b, :c, :d, :e, :f); """
+                change_type) values (:a, :b, :c, :d, :e, :f) RETURNING id;"""
             )
 
             for line in change_log_updates_list:
-                conn.execute(stmt, a=line.parsed_time, b=line.topic_id, c=line.changed_field, d=line.new_value,
-                             e=line.parameters, f=line.change_type)
+                raw_data = conn.execute(stmt, a=line.parsed_time, b=line.topic_id, c=line.changed_field,
+                                        d=line.new_value, e=line.parameters, f=line.change_type).fetchone()
+                change_log_ids.append(raw_data[0])
 
         '''2. move ADD to Change Log '''
         new_topics_from_snapshot_list = []
@@ -2995,11 +2998,12 @@ def update_change_log_and_searches(db, folder_num):
         if change_log_new_topics_list:
             stmt = sqlalchemy.text(
                 """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type) 
-                values (:a, :b, :c, :d, :e);"""
+                values (:a, :b, :c, :d, :e) RETURNING id;"""
             )
             for line in change_log_new_topics_list:
-                conn.execute(stmt, a=line.parsed_time, b=line.topic_id, c=line.changed_field,
-                             d=line.new_value, e=line.change_type)
+                raw_data = conn.execute(stmt, a=line.parsed_time, b=line.topic_id, c=line.changed_field,
+                                        d=line.new_value, e=line.change_type).fetchone()
+                change_log_ids.append(raw_data[0])
 
         '''3. ADD to Searches'''
         if new_topics_from_snapshot_list:
@@ -3113,7 +3117,7 @@ def update_change_log_and_searches(db, folder_num):
     logging.info(f'DBG.P.5.process_delta() exec time: {func_execution_time_ms}')
     # DEBUG - function execution time counter
 
-    return None
+    return change_log_ids
 
 
 def process_one_folder(db, folder_to_parse):
@@ -3165,6 +3169,8 @@ def process_one_folder(db, folder_to_parse):
 
         return None
 
+    change_log_ids = []
+
     # parse a new version of summary page from the chosen folder
     old_folder_summary_full, titles_and_num_of_replies, new_folder_summary = parse_one_folder(db, folder_to_parse)
 
@@ -3189,12 +3195,12 @@ def process_one_folder(db, folder_to_parse):
 
             logging.info(f'starting updating change_log and searches tables for folder {folder_to_parse}')
 
-            update_change_log_and_searches(db, folder_to_parse)
+            change_log_ids = update_change_log_and_searches(db, folder_to_parse)
             update_coordinates(db, old_folder_summary_full, new_folder_summary)
 
     logging.info(debug_message)
 
-    return update_trigger
+    return update_trigger, change_log_ids
 
 
 def get_the_list_of_ignored_folders(db):
@@ -3222,22 +3228,21 @@ def generate_random_function_id():
     return random_id
 
 
-def save_function_into_register(db, context, start_time, function_id):
+def save_function_into_register(db, context, start_time, function_id, change_log_ids):
     """save current function into functions_registry"""
 
     try:
         event_id = context.event_id
+        json_of_params = json.dumps({"ch_id": [change_log_ids]})
 
         with db.connect() as conn:
-
             sql_text = sqlalchemy.text("""INSERT INTO functions_registry
                                                       (event_id, time_start, cloud_function_name, function_id, 
-                                                      time_finish)
-                                                      VALUES (:a, :b, :c, :d, :e)
-                                                      /*action='save_start_of_ide_topics_function' */;""")
-            conn.execute(sql_text, a=event_id, b=start_time,
-                         c='identify_updates_of_topics', d=function_id, e=datetime.now())
-
+                                                      time_finish, params)
+                                                      VALUES (:a, :b, :c, :d, :e, :f)
+                                                      /*action='save_ide_topics_function' */;""")
+            conn.execute(sql_text, a=event_id, b=start_time, c='identify_updates_of_topics', d=function_id,
+                         e=datetime.now(), f=json_of_params)
             logging.info(f'function {function_id} was saved in functions_registry')
 
     except Exception as e:
@@ -3274,23 +3279,27 @@ def main(event, context):  # noqa
         folders_list = [276, 41]
 
     list_of_folders_with_updates = []
+    change_log_ids = []
+
     if folders_list:
         for folder in folders_list:
 
             logging.info(f'start checking if folder {folder} has any updates')
 
-            update_trigger = process_one_folder(db, folder)
+            update_trigger, one_folder_change_log_ids = process_one_folder(db, folder)
 
             if update_trigger:
                 list_of_folders_with_updates.append(folder)
+                change_log_ids += one_folder_change_log_ids
 
     logging.info(f'Here\'s a list of folders with updates: {list_of_folders_with_updates}')
+    logging.info(f'Here\'s a list of change_log ids created: {change_log_ids}')
 
     if list_of_folders_with_updates:
+        save_function_into_register(db, context, analytics_func_start, function_id, change_log_ids)
+
         message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'let\'s compose notifications'}
         publish_to_pubsub('topic_for_notification', message_for_pubsub)
-
-        save_function_into_register(db, context, analytics_func_start, function_id)
 
     requests_session.close()
     db.dispose()
