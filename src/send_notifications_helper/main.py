@@ -278,7 +278,8 @@ def check_for_notifs_to_send(cur):
                         completed IS NULL AND
                         cancelled IS NULL
                     ORDER BY 1
-                    LIMIT 1 )
+                    LIMIT 1 
+                    OFFSET 2000)
 
                     SELECT
                         n.*, 
@@ -295,7 +296,7 @@ def check_for_notifs_to_send(cur):
                     ON
                         cl.search_forum_num = s.search_forum_num
  
-                    /*action='check_for_notifs_to_send 3.0' */
+                    /*action='check_for_notifs_to_send_helper 3.0' */
                     ;
                     """
 
@@ -303,34 +304,6 @@ def check_for_notifs_to_send(cur):
     notification = cur.fetchone()
 
     return notification
-
-
-def check_for_number_of_notifs_to_send(cur):
-    """return a number of notifications to be sent"""
-
-    sql_text_psy = """
-                    WITH notification AS (
-                    SELECT
-                        DISTINCT change_log_id, user_id, message_type
-                    FROM
-                        notif_by_user
-                    WHERE 
-                        completed IS NULL AND
-                        cancelled IS NULL
-                    )
-
-                    SELECT
-                        count(*)
-                    FROM
-                        notification
-                    /*action='check_for_number_of_notifs_to_send' */
-                    ;
-                    """
-
-    cur.execute(sql_text_psy)
-    num_of_notifs = int(cur.fetchone()[0])
-
-    return num_of_notifs
 
 
 def process_response(user_id, response):
@@ -484,13 +457,6 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
             analytics_iteration_start = datetime.datetime.now()
             analytics_sql_start = datetime.datetime.now()
 
-            # check if there are more than 2000 of non-sent notifications – is so –
-            # we're asking send_notification_helper to help is sending all of them
-            num_of_notifs_to_send = check_for_number_of_notifs_to_send(cur)
-            if num_of_notifs_to_send and num_of_notifs_to_send > 2000:
-                message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'helper requested'}
-                publish_to_pubsub('topic_to_send_notifications_helper', message_for_pubsub)
-
             # check if there are any non-notified users
             message_to_send = check_for_notifs_to_send(cur)
 
@@ -600,9 +566,9 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
             else:
                 trigger_to_continue_iterations = False
 
-            if not no_new_notifications and timeout:
+            """if not no_new_notifications and timeout:
                 message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'next iteration'}
-                publish_to_pubsub('topic_to_send_notifications', message_for_pubsub)
+                publish_to_pubsub('topic_to_send_notifications', message_for_pubsub)"""
 
             analytics_end_of_iteration = datetime.datetime.now()
             analytics_iteration_duration = round((analytics_end_of_iteration -
@@ -619,10 +585,10 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
 
 def check_and_save_event_id(context, event, function_id, changed_ids, triggered_by_func_id):
     """Work with PSQL table functions_registry. Goal of the table & function is to avoid parallel work of
-    two send_notifications functions. Executed in the beginning and in the end of send_notifications function"""
+    two send_notifications_helper functions."""
 
     def check_if_other_functions_are_working():
-        """Check in PSQL in there's the same function 'send_notifications' working in parallel"""
+        """Check in PSQL in there's the same function 'send_notifications_helper' working in parallel"""
 
         conn_psy = sql_connect_by_psycopg2()
         cur = conn_psy.cursor()
@@ -635,7 +601,7 @@ def check_and_save_event_id(context, event, function_id, changed_ids, triggered_
                         WHERE
                             time_start > NOW() - interval '130 seconds' AND
                             time_finish IS NULL AND
-                            cloud_function_name  = 'send_notifications'
+                            cloud_function_name  = 'send_notifications_helper'
                         ;
                         /*action='check_if_there_is_parallel_notif_function' */
                         ;"""
@@ -662,10 +628,10 @@ def check_and_save_event_id(context, event, function_id, changed_ids, triggered_
                         (event_id, time_start, cloud_function_name, function_id, triggered_by_func_id)
                         VALUES
                         (%s, %s, %s, %s, %s);
-                        /*action='save_start_of_notif_function' */
+                        /*action='save_start_of_notif_helper_function' */
                         ;"""
 
-        cur.execute(sql_text_psy, (event_num, datetime.datetime.now(), 'send_notifications',
+        cur.execute(sql_text_psy, (event_num, datetime.datetime.now(), 'send_notifications_helper',
                                    function_num, triggered_by_func_num))
         logging.info(f'function was triggered by event {event_num}, we assigned a function_id = {function_num}')
 
@@ -747,7 +713,7 @@ def finish_time_analytics(notif_times, delays, parsed_times, list_of_change_ids)
         min_parse_time = int(min(parsed_times))
         max_parse_time = int(max(parsed_times))
 
-    message = f'[sn] {len_n} x {round(average, 2)} = {int(ttl_time)} ' \
+    message = f'[s2] {len_n} x {round(average, 2)} = {int(ttl_time)} ' \
               f'| {min_delay}–{max_delay} | {min_parse_time}–{max_parse_time} | {list_of_change_ids}'
     if len_n >= 10:  # FIXME – a temp deactivation to understand the sending speed. # and average > 0.3:
         notify_admin(message)
@@ -763,7 +729,7 @@ def finish_time_analytics(notif_times, delays, parsed_times, list_of_change_ids)
                         (timestamp, num_of_msgs, speed, ttl_time)
                         VALUES
                         (%s, %s, %s, %s);
-                        /*action='notif_stat_sending_speed' */
+                        /*action='notif_helper_stat_sending_speed' */
                         ;"""
 
         cur.execute(sql_text_psy, (datetime.datetime.now(), len_n, average, ttl_time))
