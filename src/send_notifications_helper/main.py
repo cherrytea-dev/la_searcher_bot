@@ -30,12 +30,14 @@ publisher = pubsub_v1.PublisherClient()
 log_client = google.cloud.logging.Client()
 log_client.setup_logging()
 
+OFFSET_VS_INITIAL_FUNCTION = 1500
+
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
 # Important – these are not errors, but just informational warnings that there were retries, that's why we exclude them
 logging.getLogger("telegram.vendor.ptb_urllib3.urllib3").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
-SCRIPT_SOFT_TIMEOUT_SECONDS = 120  # after which iterations should stop to prevent the whole script timeout
+SCRIPT_SOFT_TIMEOUT_SECONDS = 110  # after which iterations should stop to prevent the whole script timeout
 
 analytics_notif_times = []
 analytics_delays = []
@@ -244,11 +246,55 @@ def send_location_to_api(session, bot_token, user_id, params):
     return r
 
 
-def check_for_notifs_to_send(cur):
+def check_first_notif_to_send(cur):
+    """return a first message_id for function to start sending"""
+
+    sql_text_psy = f"""
+                    WITH notification AS (
+                    SELECT
+                        message_id,
+                        message_type, 
+                        (CASE 
+                            WHEN DENSE_RANK() OVER (
+                                PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id) + 
+                                DENSE_RANK() OVER (
+                                PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id DESC) 
+                                -1 = 1 
+                            THEN 'no_doubling' 
+                            ELSE 'doubling' 
+                        END) AS doubling, 
+                    FROM
+                        notif_by_user
+                    WHERE 
+                        completed IS NULL AND
+                        cancelled IS NULL
+                    ORDER BY 1
+                    LIMIT 1 
+                    OFFSET {OFFSET_VS_INITIAL_FUNCTION})
+
+                    SELECT * FROM notification WHERE doubling = 'no_doubling'
+                    /*action='check_first_notif_to_send_helper' */;
+                    """
+
+    cur.execute(sql_text_psy)
+    notification = cur.fetchone()
+    try:
+        message_id, message_type, doubling = notification
+        if message_type == 'coords':
+            message_id += 1 
+
+    except Exception as e:
+        logging.exception(e)
+        message_id = None
+
+    return message_id
+
+
+def check_for_notifs_to_send(cur, first_message):
     """return a notification which should be sent"""
 
     # TODO: can "doubling" calculation be done not dynamically but as a field of table?
-    sql_text_psy = """
+    sql_text_psy = f"""
                     WITH notification AS (
                     SELECT
                         message_id,
@@ -276,10 +322,10 @@ def check_for_notifs_to_send(cur):
                         notif_by_user
                     WHERE 
                         completed IS NULL AND
-                        cancelled IS NULL
+                        cancelled IS NULL AND
+                        message_id >= {first_message}
                     ORDER BY 1
-                    LIMIT 1 
-                    OFFSET 2000)
+                    LIMIT 1)
 
                     SELECT
                         n.*, 
@@ -296,7 +342,7 @@ def check_for_notifs_to_send(cur):
                     ON
                         cl.search_forum_num = s.search_forum_num
  
-                    /*action='check_for_notifs_to_send_helper 3.0' */
+                    /*action='check_for_notifs_to_send_helper' */
                     ;
                     """
 
@@ -450,6 +496,11 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
     with sql_connect_by_psycopg2() as conn_psy, conn_psy.cursor() as cur:
 
         trigger_to_continue_iterations = True
+
+        message_id_of_first_message = check_first_notif_to_send(cur)
+        if not message_id_of_first_message:
+            trigger_to_continue_iterations = False
+
         while trigger_to_continue_iterations:
 
             # analytics on sending speed - start for every user/notification
@@ -458,7 +509,7 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
             analytics_sql_start = datetime.datetime.now()
 
             # check if there are any non-notified users
-            message_to_send = check_for_notifs_to_send(cur)
+            message_to_send = check_for_notifs_to_send(cur, message_id_of_first_message)
 
             analytics_sql_finish = datetime.datetime.now()
             analytics_sql_duration = round((analytics_sql_finish - analytics_sql_start).total_seconds(), 2)

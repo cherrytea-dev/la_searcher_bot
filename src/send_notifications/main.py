@@ -30,6 +30,8 @@ publisher = pubsub_v1.PublisherClient()
 log_client = google.cloud.logging.Client()
 log_client.setup_logging()
 
+MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION = 1500
+
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
 # Important – these are not errors, but just informational warnings that there were retries, that's why we exclude them
 logging.getLogger("telegram.vendor.ptb_urllib3.urllib3").setLevel(logging.ERROR)
@@ -484,10 +486,10 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
             analytics_iteration_start = datetime.datetime.now()
             analytics_sql_start = datetime.datetime.now()
 
-            # check if there are more than 2000 of non-sent notifications – is so –
+            # check if there are more than the set number of non-sent notifications – is so –
             # we're asking send_notification_helper to help is sending all of them
             num_of_notifs_to_send = check_for_number_of_notifs_to_send(cur)
-            if num_of_notifs_to_send and num_of_notifs_to_send > 2000:
+            if num_of_notifs_to_send and num_of_notifs_to_send > MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION:
                 message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'helper requested'}
                 publish_to_pubsub('topic_to_send_notifications_helper', message_for_pubsub)
 
