@@ -278,6 +278,10 @@ def check_first_notif_to_send(cur):
 
     cur.execute(sql_text_psy)
     notification = cur.fetchone()
+
+    if not notification:
+        return None
+
     try:
         message_id, message_type, doubling = notification
         if message_type == 'coords':

@@ -1,4 +1,4 @@
-name: Deploy-GCF-Send-Notifications
+name: Deploy-GCF-Send-Notifications-Helper
 
 on:
   push:
