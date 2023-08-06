@@ -599,7 +599,7 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
                 # wait for 10 seconds – maybe any new notification will pop up
                 time.sleep(10)
 
-                message_to_send = check_for_notifs_to_send(cur)
+                message_to_send = check_for_notifs_to_send(cur, message_id_of_first_message)
 
                 no_new_notifications = False if message_to_send else True
 
