@@ -262,7 +262,7 @@ def check_first_notif_to_send(cur):
                                 -1 = 1 
                             THEN 'no_doubling' 
                             ELSE 'doubling' 
-                        END) AS doubling, 
+                        END) AS doubling
                     FROM
                         notif_by_user
                     WHERE 
@@ -281,7 +281,7 @@ def check_first_notif_to_send(cur):
     try:
         message_id, message_type, doubling = notification
         if message_type == 'coords':
-            message_id += 1 
+            message_id += 1
 
     except Exception as e:
         logging.exception(e)
