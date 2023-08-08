@@ -1226,7 +1226,7 @@ def record_notification_statistics(conn):
     return None
 
 
-def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
+def iterate_over_all_users(conn, admins_list, new_record, list_of_users, function_id):
     """initiates a full cycle for all messages composition for all the users"""
 
     def save_to_sql_notif_by_user(mailing_id_, user_id_, message_, message_without_html_,
@@ -1601,6 +1601,9 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
                 process_mailing_id(change_log_id)
 
             list_of_users = crop_user_list(list_of_users, users_who_should_not_be_informed, new_record)
+
+            message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'initiate notifs send out'}
+            publish_to_pubsub('topic_to_send_notifications', message_for_pubsub)
 
             for user in list_of_users:
                 u_lat = user.user_latitude
@@ -2165,7 +2168,7 @@ def main(event, context):  # noqa
             logging.info(f'time: function match end-to-end – {duration_match} sec')
 
             # check the matrix: new update - user and initiate sending notifications
-            new_record = iterate_over_all_users(conn, admins_list, new_record, list_of_users)
+            new_record = iterate_over_all_users(conn, admins_list, new_record, list_of_users, function_id)
 
             analytics_iterations_finish = datetime.datetime.now()
             duration_iterations = round((analytics_iterations_finish - analytics_match_finish).total_seconds(), 2)
