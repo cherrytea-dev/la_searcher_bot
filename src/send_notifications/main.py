@@ -526,12 +526,14 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
                     status = message_to_send[13]
                     change_type = message_to_send[14]
 
+                    # FIXME – to move this check to [compose_notifs] scripts and delete mention of deprecated 5,6,7
                     # if notif is about field trips or coords change and search is inactive – no need to send it
                     if change_type in {5, 6, 7, 8} and status != 'Ищем':
                         result = 'cancelled'
                     else:
                         result = send_single_message(bot, bot_token, user_id, message_content, message_params,
                                                      message_type, admin_id, session)
+                    # FIXME ^^^
 
                     analytics_send_finish = datetime.datetime.now()
                     analytics_send_start_finish = round((analytics_send_finish -
