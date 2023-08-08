@@ -126,73 +126,6 @@ def notify_admin(message):
     return None
 
 
-async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
-    try:
-        await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
-    except Exception as e:
-        logging.exception(e)
-        # FIXME - trying to understand where try-catch should be for async
-        logging.info(f'2 – HERE\'s THE EXCEPTION WE\'ARE LOOKING FOR')
-        # FIXME ^^^
-
-    return None
-
-
-async def prepare_message_for_async(user_id, data):
-    try:
-        bot_token = get_secrets("bot_api_token__prod")
-        application = Application.builder().token(bot_token).build()
-        job_queue = application.job_queue
-        job = job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
-
-        async with application:
-            await application.initialize()
-            await application.start()
-            await application.stop()
-            await application.shutdown()
-
-    except Exception as e:
-        logging.exception(e)
-        # FIXME - trying to understand where try-catch should be for async
-        logging.info(f'3 –HERE\'s THE EXCEPTION WE\'ARE LOOKING FOR')
-        # FIXME ^^^
-
-    return 'ok'
-
-
-def process_sending_message_async(user_id, data) -> None:
-    asyncio.run(prepare_message_for_async(user_id, data))
-
-    return None
-
-
-async def send_location_async(context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_location(chat_id=context.job.chat_id, **context.job.data)
-
-    return None
-
-
-async def prepare_location_for_async(user_id, data):
-    bot_token = get_secrets("bot_api_token__prod")
-    application = Application.builder().token(bot_token).build()
-    job_queue = application.job_queue
-    job = job_queue.run_once(send_location_async, 0, data=data, chat_id=user_id)
-
-    async with application:
-        await application.initialize()
-        await application.start()
-        await application.stop()
-        await application.shutdown()
-
-    return 'ok'
-
-
-def process_sending_location_async(user_id, data) -> None:
-    asyncio.run(prepare_location_for_async(user_id, data))
-
-    return None
-
-
 def send_message_to_api(session, bot_token, user_id, message, params):
     """send message directly to Telegram API w/o any wrappers ar libraries"""
 
@@ -523,17 +456,8 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
 
                     analytics_pre_sending_msg = datetime.datetime.now()
 
-                    status = message_to_send[13]
-                    change_type = message_to_send[14]
-
-                    # FIXME – to move this check to [compose_notifs] scripts and delete mention of deprecated 5,6,7
-                    # if notif is about field trips or coords change and search is inactive – no need to send it
-                    if change_type in {5, 6, 7, 8} and status != 'Ищем':
-                        result = 'cancelled'
-                    else:
-                        result = send_single_message(bot, bot_token, user_id, message_content, message_params,
-                                                     message_type, admin_id, session)
-                    # FIXME ^^^
+                    result = send_single_message(bot, bot_token, user_id, message_content, message_params,
+                                                 message_type, admin_id, session)
 
                     analytics_send_finish = datetime.datetime.now()
                     analytics_send_start_finish = round((analytics_send_finish -

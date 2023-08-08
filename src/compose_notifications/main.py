@@ -489,7 +489,7 @@ def enrich_new_records_from_searches(conn, r_line):
                 print(f'TEMP – STATUS_OLD = {r_line.status}, STATUS_NEW = {r_line.new_status}')
 
                 # case: when new search's status is already not "Ищем" – to be ignored
-                if r_line.status != 'Ищем' and r_line.change_type == 0:  # "new_search":
+                if r_line.status != 'Ищем' and r_line.change_type in {0, 8}:  # "new_search" & "first_post_change":
                     r_line.ignore = 'y'
 
                 # limit notification sending only for searches started 60 days ago
@@ -679,173 +679,6 @@ def compose_com_msg_on_new_search(start, activities, managers, clickable_name):
         msg_1, msg_2, msg_3, message = None, None, None, None
 
     return [msg_2, msg_1, msg_3], message, line_ignore  # 1 - person, 2 - activities, 3 - managers
-
-
-def compose_com_msg_on_coords_change(new_value, clickable_name):
-    """compose the common, user-independent message on coordinates change"""
-
-    msg = ''
-    lat, lon = None, None
-    link_text = '{link_text}'
-    region = '{region}'
-
-    # structure: lat, lon, prev_desc, curr_desc
-    list_of_coords_changes = ast.literal_eval(new_value)
-
-    verdict = {"drop": False, "add": False, "again": False, 'change': False}
-    scenario = None
-
-    for line in list_of_coords_changes:
-        if line[2] in {1, 2} and line[3] in {0, 3, 4}:
-            verdict['drop'] = True
-        elif line[2] == 0 and line[3] in {1, 2}:
-            verdict['add'] = True
-        elif line[2] in {3, 4} and line[3] in {1, 2}:
-            verdict['again'] = True
-
-    if verdict['drop'] and verdict['add']:
-        verdict['change'] = True
-        verdict['drop'] = False
-        verdict['add'] = False
-
-    # A -> B -> A
-    if verdict['drop'] and verdict['again']:
-        verdict['change'] = True
-        verdict['drop'] = False
-        verdict['again'] = False
-
-    # TODO: temp try (content is needed, try itself is temp)
-    try:
-        # CASE 1. Change of coordinates: A -> B
-        if verdict['change']:
-            msg += f'🧭 Смена координат по {clickable_name} ({region}):\n\nСтарые: '
-            for line in list_of_coords_changes:
-                if line[2] in {1, 2} and line[3] in {0, 3, 4}:
-                    msg += f'{line[0]}, {line[1]}\n'
-
-            msg += '\nНовые:\n'
-            for line in list_of_coords_changes:
-                if line[2] == 0 and line[3] in {1, 2}:
-                    link_text = '{link_text}'
-                    clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
-                    msg += f'{clickable_link}\n<code>{line[0]}, {line[1]}</code>\n'
-                    lat = line[0]
-                    lon = line[1]
-                    break
-
-            scenario = 'change'
-
-        # CASE 2. Re-opening of closed coordinates: A -> not-A -> A
-        elif verdict['again']:
-            msg += f'🧭 Прежние координаты вновь актуальны по {clickable_name} ({region}):\n\n'
-            for line in list_of_coords_changes:
-                if line[2] in {3, 4} and line[3] in {1, 2}:
-                    clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
-                    msg += f'{clickable_link}\n<code>{line[0]}, {line[1]}</code>\n'
-                    lat = line[0]
-                    lon = line[1]
-                    break
-            scenario = 'again'
-
-        # CASE 3. Announcement of new coordinates: not-A -> A
-        elif verdict['add']:
-            msg += f'🧭 Объявлены координаты сбора {clickable_name} ({region}):\n'
-            for line in list_of_coords_changes:
-                if line[2] == 0 and line[3] in {1, 2}:
-                    clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
-                    msg += f'{clickable_link}\n<code>{line[0]}, {line[1]}</code>\n'
-                    lat = line[0]
-                    lon = line[1]
-                    break
-            scenario = 'add'
-
-        # CASE 4. Cancellation of announced coordinates: A -> not-A
-        elif verdict['drop']:
-            msg += f'🧭 Координаты по {clickable_name} ({region}):\n'
-            for line in list_of_coords_changes:
-                if line[2] in {1, 2} and line[3] in {0, 3, 4}:
-                    # clickable_link = generate_yandex_maps_place_link2(line[0], line[1], link_text)
-                    # msg += f'{clickable_link}\n'
-                    msg += f'Более НЕ АКТУАЛЬНЫ {line[0]}, {line[1]}{link_text}\n'
-            scenario = 'drop'
-
-    except Exception as e:
-        logging.exception(e)
-        msg = f'error{region}{link_text}'
-
-    return msg, lat, lon, scenario
-
-
-def compose_com_msg_on_field_trip(parameters, clickable_name):
-    """compose the common, user-independent message on field trips: new, change"""
-
-    parameters = ast.literal_eval(parameters) if parameters else {}
-
-    region = '{region}'  # will be added on level of individual user (some of them see region, some don't)
-    direction_and_distance = '{direction_and_distance}'  # will be added on level of individual user (user-specific)
-
-    case = parameters['case']  # scenario of field trip update: None / add / drop / change
-
-    planned = ' планируется' if 'planned' in parameters else ''
-    # TODO: probably in urgent and secondary "and parameters['urgent']" is not needed
-    urgent = ' срочный' if 'urgent' in parameters and parameters['urgent'] else ''
-    secondary = ' повторный' if 'secondary' in parameters and parameters['secondary'] else ''
-
-    date_and_time_curr = f'\n{parameters["date_and_time_curr"]}' if 'date_and_time_curr' in parameters else ''
-    address_curr = f'\n{parameters["address_curr"]}' if 'address_curr' in parameters else ''
-    coords_list_curr = parameters["coords_curr"] if 'coords_curr' in parameters else None
-
-    date_and_time_prev = f'\n{parameters["date_and_time_prev"]}' if 'date_and_time_prev' in parameters else ''
-    address_prev = f'\n{parameters["address_prev"]}' if 'address_prev' in parameters else ''
-    coords_list_prev = parameters["coords_prev"] if 'coords_prev' in parameters else None
-
-    if coords_list_curr:
-        lat = coord_format.format(float(coords_list_curr[0]))
-        lon = coord_format.format(float(coords_list_curr[1]))
-        coords_curr = f'\n<code>{lat}, {lon}</code>'
-    else:
-        lat, lon = None, None
-        coords_curr = ''
-
-    if coords_list_prev:
-        lat_prev = coord_format.format(float(coords_list_prev[0]))
-        lon_prev = coord_format.format(float(coords_list_prev[1]))
-        coords_prev = f'\n{lat_prev}, {lon_prev}'
-    else:
-        coords_prev = ''
-
-    if case == 'add':
-        msg = f'🚨 Внимание,{urgent}{planned}{secondary} выезд!\n{region}\n\n' \
-              f'{clickable_name}\n\n' \
-              f'{date_and_time_curr}' \
-              f'{address_curr}' \
-              f'\n{direction_and_distance}' \
-              f'{coords_curr}'
-
-    elif case == 'change':
-        msg = f'🚨 Изменения по выезду {clickable_name}\n{region}:\n' \
-              f'<del>{date_and_time_prev}' \
-              f'{address_prev}' \
-              f'{coords_prev}</del>\n' \
-              f'{date_and_time_curr}' \
-              f'{address_curr}\n' \
-              f'{direction_and_distance}' \
-              f'{coords_curr}'
-
-    elif case == 'drop':
-        msg = f'🚨 Штаб свёрнут – {clickable_name}\n{region}.'
-
-    else:
-        msg = None
-
-    # DEBUG
-    notify_admin(f'Field Trips / incoming parameters: {parameters}')
-    notify_admin(f'Field Trips / Common Message: {msg}')
-    # DEBUG
-
-    msg = re.sub(r'\s{3,}', '\n\n', msg)  # Clean the message from excessive line breaks, like \n\n\n
-
-    return msg, lat, lon
 
 
 def compose_com_msg_on_status_change(status, region, clickable_name):
@@ -1083,12 +916,6 @@ def enrich_new_record_with_com_message_texts(line):
             line.message = compose_com_msg_on_new_comments(line.comments, clickable_name)
         elif line.change_type == 4:  # 'inforg_replies':
             line.message = compose_com_msg_on_inforg_comments(line.comments_inforg, line.region, clickable_name)
-        elif line.change_type in {5, 6}:  # topic_field_trip_new & topic_field_trip_change
-            line.message, line.search_latitude, line.search_longitude = \
-                compose_com_msg_on_field_trip(line.new_value, clickable_name)
-        elif line.change_type == 7:  # coords_change
-            line.message, line.search_latitude, line.search_longitude, line.coords_change_type = \
-                compose_com_msg_on_coords_change(line.new_value, clickable_name)
         elif line.change_type == 8:  # first_post_change
             line.message = compose_com_msg_on_first_post_change(line.new_value, clickable_name,
                                                                 line.search_latitude, line.search_longitude)
@@ -1805,23 +1632,12 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
                     if new_record.message[2]:
                         message += new_record.message[2]
 
-                elif change_type == 5:  # field_trips_new
-                    message = compose_individual_msg_on_field_trip(new_record.message, s_lat, s_lon, u_lat,
-                                                                   u_lon, region_to_show)
-
-                elif change_type == 6:  # field_trips_change
-                    message = compose_individual_msg_on_field_trip(new_record.message, s_lat, s_lon, u_lat,
-                                                                   u_lon, region_to_show)
-
-                elif change_type == 7:  # coords_change
-                    message = compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat,
-                                                                          u_lon, region_to_show)
                 elif change_type == 8:  # first_post_change
                     message = compose_individual_message_on_first_post_change(new_record, region_to_show)
 
                 # TODO: to delete msg_group at all ?
                 # messages followed by coordinates (sendMessage + sendLocation) have same group
-                msg_group_id = get_the_new_group_id() if change_type in {0, 5, 6, 7, 8} else None
+                msg_group_id = get_the_new_group_id() if change_type in {0, 8} else None
                 # not None for new_search, field_trips_new, field_trips_change,  coord_change
 
                 # define if user received this message already
@@ -1859,8 +1675,8 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
                         stat_list_of_recipients.append(user.user_id)
 
                     # save to SQL the sendLocation notification for "new search" & "field trips"
-                    if change_type in {0, 5, 6} and s_lat and s_lon:
-                        # 'new_search', field_trip_new, field_trip_change
+                    if change_type in {0} and s_lat and s_lon:
+                        # 'new_search',
                         message_params = {'latitude': s_lat, 'longitude': s_lon}
 
                         # record into SQL table notif_by_user (not text, but coords only)
@@ -1884,14 +1700,6 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users):
                         except Exception as ee:
                             logging.info('exception happened')
                             logging.exception(ee)
-
-                    # save to SQL the sendLocation notification for "coords change"
-                    if change_type == 7 and s_lat and s_lon and new_record.coords_change_type != 'drop' \
-                            and user.user_id in admins_list:  # coords_change
-                        message_params = {'latitude': s_lat, 'longitude': s_lon}
-
-                        save_to_sql_notif_by_user(mailing_id, user.user_id, None, None, 'coords', message_params,
-                                                  msg_group_id, change_log_id)
 
                     number_of_messages_sent += 1
 
@@ -2305,7 +2113,6 @@ def get_triggering_function(message_from_pubsub):
     return triggered_by_func_id
 
 
-
 def main(event, context):  # noqa
     """key function which is initiated by Pub/Sub"""
 
@@ -2338,14 +2145,6 @@ def main(event, context):  # noqa
             new_record = enrich_new_records_from_searches(conn, new_record)
             new_record = enrich_new_records_with_search_activities(conn, new_record)
             new_record = enrich_new_records_with_managers(conn, new_record)
-
-            # FIXME - temp debug
-            try:
-                logging.info(f'TEMP - pre-comments print of the search info: {new_record}')
-            except:  # noqa
-                pass
-            # FIXME ^^^
-
             new_record = enrich_new_record_with_comments(conn, 'all', new_record)
             new_record = enrich_new_record_with_comments(conn, 'inforg', new_record)
             new_record = enrich_new_record_with_com_message_texts(new_record)
@@ -2357,7 +2156,9 @@ def main(event, context):  # noqa
             list_of_users = enrich_users_list_with_age_periods(conn, list_of_users)
             list_of_users = enrich_users_list_with_radius(conn, list_of_users)
             list_of_users = enrich_users_list_with_user_regions(conn, list_of_users)
+            # TODO - to be added into compose_users_list_from_users function
             list_of_users = enrich_users_list_with_topic_type_preferences(conn, list_of_users)
+            # TODO ^^^
 
             analytics_match_finish = datetime.datetime.now()
             duration_match = round((analytics_match_finish - analytics_start_of_func).total_seconds(), 2)
