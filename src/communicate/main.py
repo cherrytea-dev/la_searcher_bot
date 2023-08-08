@@ -419,7 +419,7 @@ def save_user_pref_role(cur, user_id, role_desc):
 
     logging.info(f'[comm]: user {user_id} selected role {role}')
 
-    return None
+    return role
 
 
 def save_user_pref_urgency(cur, user_id, urgency_value,
@@ -558,6 +558,26 @@ def get_user_reg_folders_preferences(cur, user_id):
         logging.exception(e)
 
     return user_prefs_list
+
+
+def get_user_role(cur, user_id):
+    """Return user's role"""
+
+    user_role = None
+
+    try:
+        cur.execute("SELECT role FROM users WHERE user_id=%s LIMIT 1;", (user_id,))
+        user_role = cur.fetchone()
+        if user_role:
+            user_role = user_role[0]
+
+        logging.info(f'user {user_id} role is {user_role}')
+
+    except Exception as e:
+        logging.info(f'failed to get user role for user {user_id}')
+        logging.exception(e)
+
+    return user_role
 
 
 def save_preference(cur, user_id, preference):
@@ -1003,7 +1023,7 @@ def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
     return list_of_buttons, first_visit
 
 
-def save_user_pref_topic_type(cur, user_id, pref_id):
+def save_user_pref_topic_type(cur, user_id, pref_id, user_role):
     def save(pref_type_id):
         cur.execute("""INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp) 
                                             values (%s, %s, %s) ON CONFLICT (user_id, topic_type_id) DO NOTHING;""",
@@ -1014,7 +1034,11 @@ def save_user_pref_topic_type(cur, user_id, pref_id):
         return None
 
     if pref_id == 'default':
-        default_topic_type_id = [0, 3, 4, 5]  # 0=regular, 3=training, 4=info_support, 5=resonance
+        if user_role in {'member', 'new_member'}:
+            default_topic_type_id = [0, 3, 4, 5]  # 0=regular, 3=training, 4=info_support, 5=resonance
+        else:
+            default_topic_type_id = [0, 4, 5]  # 0=regular, 4=info_support, 5=resonance
+
         for type_id in default_topic_type_id:
             save(type_id)
 
@@ -1112,7 +1136,7 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
 
 
 def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_not_moscow,
-                     reply_markup, keyboard_fed_dist_set, bot_message):
+                     reply_markup, keyboard_fed_dist_set, bot_message, user_role):
     """act if user replied either user from Moscow region or from another one"""
 
     # if user Region is Moscow
@@ -1120,7 +1144,7 @@ def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_no
 
         save_onboarding_step(user_id, username, 'moscow_replied')
         save_onboarding_step(user_id, username, 'region_set')
-        save_user_pref_topic_type(cur, user_id, 'default')
+        save_user_pref_topic_type(cur, user_id, 'default', user_role)
 
         if check_if_user_has_no_regions(cur, user_id):
             # add the New User into table user_regional_preferences
@@ -1966,6 +1990,7 @@ def main(request):
 
     onboarding_step_id, onboarding_step_name = check_onboarding_step(cur, user_id, user_is_new)
     user_regions = get_user_reg_folders_preferences(cur, user_id)
+    user_role = get_user_role(cur, user_id)
 
     # Check what was last request from bot and if bot is expecting user's input
     bot_request_bfr_usr_msg = get_last_bot_msg(cur, user_id)
@@ -2046,10 +2071,10 @@ def main(request):
                     bot_message, reply_markup = manage_if_moscow(cur, user_id, username, got_message,
                                                                  b_reg_moscow, b_reg_not_moscow,
                                                                  reply_markup, keyboard_fed_dist_set,
-                                                                 bot_message)
+                                                                 bot_message, user_role)
                 else:
                     save_onboarding_step(user_id, username, 'region_set')
-                    save_user_pref_topic_type(cur, user_id, 'default')
+                    save_user_pref_topic_type(cur, user_id, 'default', user_role)
                     updated_regions = update_and_download_list_of_regions(cur,
                                                                           user_id, got_message,
                                                                           b_menu_set_region,
@@ -2061,7 +2086,7 @@ def main(request):
                 # save user role & onboarding stage
                 if got_message in {b_role_want_to_be_la, b_role_iam_la, b_role_looking_for_person,
                                    b_role_other, b_role_secret}:
-                    save_user_pref_role(cur, user_id, got_message)
+                    user_role = save_user_pref_role(cur, user_id, got_message)
                     save_onboarding_step(user_id, username, 'role_set')
 
                 # get user role = relatives looking for a person
@@ -2133,7 +2158,7 @@ def main(request):
             elif got_message in {b_reg_not_moscow}:
                 bot_message, reply_markup = manage_if_moscow(cur, user_id, username, got_message,
                                                              b_reg_moscow, b_reg_not_moscow,
-                                                             reply_markup_main, keyboard_fed_dist_set, None)
+                                                             reply_markup_main, keyboard_fed_dist_set, None, user_role)
 
             elif got_message == b_help_no:
 
@@ -2357,7 +2382,7 @@ def main(request):
 
                 if onboarding_step_id == 20:  # "moscow_replied"
                     save_onboarding_step(user_id, username, 'region_set')
-                    save_user_pref_topic_type(cur, user_id, 'default')
+                    save_user_pref_topic_type(cur, user_id, 'default', user_role)
 
             elif got_message == b_settings:
                 bot_message = 'Это раздел с настройками. Здесь вы можете выбрать удобные для вас ' \
