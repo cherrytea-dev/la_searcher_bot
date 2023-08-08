@@ -30,14 +30,15 @@ publisher = pubsub_v1.PublisherClient()
 log_client = google.cloud.logging.Client()
 log_client.setup_logging()
 
-MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION = 1500
-
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
 # Important – these are not errors, but just informational warnings that there were retries, that's why we exclude them
 logging.getLogger("telegram.vendor.ptb_urllib3.urllib3").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
-SCRIPT_SOFT_TIMEOUT_SECONDS = 120  # after which iterations should stop to prevent the whole script timeout
+SCRIPT_SOFT_TIMEOUT_SECONDS = 60  # after which iterations should stop to prevent the whole script timeout
+MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION = 800
+INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 70  # window within which we check for started parallel function
+SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS = 5
 
 analytics_notif_times = []
 analytics_delays = []
@@ -478,6 +479,13 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
 
     with sql_connect_by_psycopg2() as conn_psy, conn_psy.cursor() as cur:
 
+        # check if there are more than the set number of non-sent notifications – is so –
+        # we're asking send_notification_helper to help is sending all of them
+        num_of_notifs_to_send = check_for_number_of_notifs_to_send(cur)
+        if num_of_notifs_to_send and num_of_notifs_to_send > MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION:
+            message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'helper requested'}
+            publish_to_pubsub('topic_to_send_notifications_helper', message_for_pubsub)
+
         trigger_to_continue_iterations = True
         while trigger_to_continue_iterations:
 
@@ -485,13 +493,6 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
             analytics_sm_start = datetime.datetime.now()
             analytics_iteration_start = datetime.datetime.now()
             analytics_sql_start = datetime.datetime.now()
-
-            # check if there are more than the set number of non-sent notifications – is so –
-            # we're asking send_notification_helper to help is sending all of them
-            num_of_notifs_to_send = check_for_number_of_notifs_to_send(cur)
-            if num_of_notifs_to_send and num_of_notifs_to_send > MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION:
-                message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'helper requested'}
-                publish_to_pubsub('topic_to_send_notifications_helper', message_for_pubsub)
 
             # check if there are any non-notified users
             message_to_send = check_for_notifs_to_send(cur)
@@ -581,8 +582,8 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
                 no_new_notifications = False
 
             else:
-                # wait for 10 seconds – maybe any new notification will pop up
-                time.sleep(10)
+                # wait for some time – maybe any new notification will pop up
+                time.sleep(SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS)
 
                 message_to_send = check_for_notifs_to_send(cur)
 
@@ -635,7 +636,7 @@ def check_and_save_event_id(context, event, function_id, changed_ids, triggered_
                         FROM
                             functions_registry
                         WHERE
-                            time_start > NOW() - interval '130 seconds' AND
+                            time_start > NOW() - interval '{INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS} seconds' AND
                             time_finish IS NULL AND
                             cloud_function_name  = 'send_notifications'
                         ;

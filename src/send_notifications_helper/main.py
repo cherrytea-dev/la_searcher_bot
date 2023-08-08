@@ -30,14 +30,15 @@ publisher = pubsub_v1.PublisherClient()
 log_client = google.cloud.logging.Client()
 log_client.setup_logging()
 
-OFFSET_VS_INITIAL_FUNCTION = 1500
-
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
 # Important – these are not errors, but just informational warnings that there were retries, that's why we exclude them
 logging.getLogger("telegram.vendor.ptb_urllib3.urllib3").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
-SCRIPT_SOFT_TIMEOUT_SECONDS = 110  # after which iterations should stop to prevent the whole script timeout
+SCRIPT_SOFT_TIMEOUT_SECONDS = 55  # after which iterations should stop to prevent the whole script timeout
+OFFSET_VS_INITIAL_FUNCTION = 800
+INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 70  # window within which we check for started parallel function
+SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS = 0
 
 analytics_notif_times = []
 analytics_delays = []
@@ -600,8 +601,8 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
                 no_new_notifications = False
 
             else:
-                # wait for 10 seconds – maybe any new notification will pop up
-                time.sleep(10)
+                # wait for some time – maybe any new notification will pop up
+                time.sleep(SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS)
 
                 message_to_send = check_for_notifs_to_send(cur, message_id_of_first_message)
 
@@ -654,7 +655,7 @@ def check_and_save_event_id(context, event, function_id, changed_ids, triggered_
                         FROM
                             functions_registry
                         WHERE
-                            time_start > NOW() - interval '130 seconds' AND
+                            time_start > NOW() - interval '{INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS} seconds' AND
                             time_finish IS NULL AND
                             cloud_function_name  = 'send_notifications_helper'
                         ;
