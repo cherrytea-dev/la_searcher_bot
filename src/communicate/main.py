@@ -210,22 +210,19 @@ def compose_user_preferences_message(cur, user_id):
             prefs_list.append(user_pref_line[0])
             if user_pref_line[0] == 'all':
                 prefs_wording += 'все сообщения'
-            # elif user_pref_line[0] == 'start':
-            #     prefs_wording += 'пока нет включенных уведомлений'
-            # elif user_pref_line[0] == 'finish':
-            #     prefs_wording += 'пока нет включенных уведомлений'
             elif user_pref_line[0] == 'new_searches':
                 prefs_wording += ' &#8226; о новых поисках\n'
             elif user_pref_line[0] == 'status_changes':
                 prefs_wording += ' &#8226; об изменении статуса\n'
             elif user_pref_line[0] == 'title_changes':
-                prefs_wording += ' &#8226; об изменении названия\n'
+                prefs_wording += ' &#8226; об изменении заголовка\n'
             elif user_pref_line[0] == 'comments_changes':
                 prefs_wording += ' &#8226; о всех комментариях\n'
             elif user_pref_line[0] == 'inforg_comments':
                 prefs_wording += ' &#8226; о комментариях Инфорга\n'
             elif user_pref_line[0] == 'first_post_changes':
                 prefs_wording += ' &#8226; об изменениях в первом посте\n'
+                notify_admin(prefs_wording)
             else:
                 prefs_wording += 'неизвестная настройка'
     else:
@@ -2644,8 +2641,6 @@ def main(request):
                             keyboard_notifications_flexible[4] = [b_deact_inforg_com]
                         elif line == 'first_post_changes':
                             keyboard_notifications_flexible[5] = [b_deact_first_post_change]
-                        # TODO: when functionality of notifications on "first post changes" will be ready
-                        #  for prod –to be added: coords_change and field_trip_changes
 
                 reply_markup = ReplyKeyboardMarkup(keyboard_notifications_flexible, resize_keyboard=True)
 
