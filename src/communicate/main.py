@@ -222,12 +222,10 @@ def compose_user_preferences_message(cur, user_id):
                 prefs_wording += ' &#8226; о комментариях Инфорга\n'
             elif user_pref_line[0] == 'first_post_changes':
                 prefs_wording += ' &#8226; об изменениях в первом посте\n'
-                notify_admin(prefs_wording)
             elif user_pref_line[0] == 'bot_news':
                 pass
             else:
                 prefs_wording += 'неизвестная настройка'
-                notify_admin(user_pref_line[0])
     else:
         prefs_wording += 'пока нет включенных уведомлений'
 
