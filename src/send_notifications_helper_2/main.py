@@ -684,10 +684,10 @@ def check_and_save_event_id(context, event, function_id, changed_ids, triggered_
                         (event_id, time_start, cloud_function_name, function_id, triggered_by_func_id)
                         VALUES
                         (%s, %s, %s, %s, %s);
-                        /*action='save_start_of_notif_helper_function' */
+                        /*action='save_start_of_notif_helper_function_2' */
                         ;"""
 
-        cur.execute(sql_text_psy, (event_num, datetime.datetime.now(), 'send_notifications_helper',
+        cur.execute(sql_text_psy, (event_num, datetime.datetime.now(), 'send_notifications_helper_2',
                                    function_num, triggered_by_func_num))
         logging.info(f'function was triggered by event {event_num}, we assigned a function_id = {function_num}')
 

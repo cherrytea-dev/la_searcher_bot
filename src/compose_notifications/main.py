@@ -141,14 +141,14 @@ class LineInChangeLog:
 class User:
     def __init__(self,
                  user_id=None,
-                 username_telegram=None,   # TODO: to check if it's needed
+                 username_telegram=None,  # TODO: to check if it's needed
                  notification_preferences=None,  # TODO: to check if it's needed
-                 notif_pref_ids_list=None,   # TODO: to check if it's needed
+                 notif_pref_ids_list=None,  # TODO: to check if it's needed
                  topic_type_pref_ids_list=None,  # TODO: to check if it's needed
                  user_latitude=None,
                  user_longitude=None,
                  user_regions=None,  # TODO: COULD BE NEEDED for MULTY-REGION to check if it's needed
-                 user_in_multi_regions=True,
+                 user_in_multi_folders=True,
                  user_corr_regions=None,  # FIXME - seems it's not needed anymore
                  user_new_search_notifs=None,  # TODO: to check if it's needed
                  user_role=None,  # TODO: to check if it's needed
@@ -164,7 +164,7 @@ class User:
         self.user_latitude = user_latitude
         self.user_longitude = user_longitude
         self.user_regions = user_regions
-        self.user_in_multi_regions = user_in_multi_regions
+        self.user_in_multi_folders = user_in_multi_folders
         self.user_corr_regions = user_corr_regions
         self.user_new_search_notifs = user_new_search_notifs
         self.role = user_role
@@ -180,7 +180,7 @@ class User:
                     self.user_latitude,
                     self.user_longitude,
                     self.user_regions,
-                    self.user_in_multi_regions,
+                    self.user_in_multi_folders,
                     self.user_corr_regions,
                     self.user_new_search_notifs,
                     self.role,
@@ -197,7 +197,7 @@ class User:
                self.user_latitude == other.user_latitude and \
                self.user_longitude == other.user_longitude and \
                self.user_regions == other.user_regions and \
-               self.user_in_multi_regions == other.user_in_multi_regions and \
+               self.user_in_multi_folders == other.user_in_multi_folders and \
                self.user_corr_regions == other.user_corr_regions and \
                self.user_new_search_notifs == other.user_new_search_notifs and \
                self.role == other.role and \
@@ -947,23 +947,30 @@ def compose_users_list_from_users(conn, new_record):
                     user_pref AS (
                         SELECT user_id, pref_id, preference 
                         FROM user_preferences WHERE pref_id=30 OR pref_id= :a),
+                    user_folders_prep AS (
+                        SELECT user_id, forum_folder_num, 
+                            CASE WHEN count(forum_folder_num) OVER (PARTITION BY user_id) > 1 
+                                THEN TRUE ELSE FALSE END as multi_folder
+                        FROM user_regional_preferences),
                     user_folders AS (
-                        SELECT user_id, forum_folder_num 
-                        FROM user_regional_preferences WHERE forum_folder_num= :b), 
+                        SELECT user_id, forum_folder_num, multi_folder 
+                        FROM user_folders_prep WHERE forum_folder_num= :b), 
                     user_short_list AS (
-                        SELECT ul.user_id, ul.username_telegram, ul.role 
+                        SELECT ul.user_id, ul.username_telegram, ul.role , uf.multi_folder
                         FROM user_list as ul 
                         LEFT JOIN user_pref AS up 
                         ON ul.user_id=up.user_id 
                         LEFT JOIN user_folders AS uf 
                         ON ul.user_id=uf.user_id 
                         WHERE uf.forum_folder_num IS NOT NULL AND up.pref_id IS NOT NULL),
-                    user_with_loc AS (SELECT u.user_id, u.username_telegram, uc.latitude, uc.longitude, u.role 
+                    user_with_loc AS (
+                        SELECT u.user_id, u.username_telegram, uc.latitude, uc.longitude, u.role, u.multi_folder 
                         FROM user_short_list AS u 
                         LEFT JOIN user_coordinates as uc 
                         ON u.user_id=uc.user_id)
                     
-                SELECT ns.*, st.num_of_new_search_notifs 
+                SELECT ns.user_id, ns.username_telegram, ns.latitude, ns.longitude, ns.role, 
+                    st.num_of_new_search_notifs, ns.multi_folder
                 FROM user_with_loc AS ns 
                 LEFT JOIN user_stat st 
                 ON ns.user_id=st.user_id
@@ -981,7 +988,7 @@ def compose_users_list_from_users(conn, new_record):
 
         for line in users_short_version:
             new_line = User(user_id=line[0], username_telegram=line[1], user_latitude=line[2], user_longitude=line[3],
-                            user_role=line[4])
+                            user_role=line[4], user_in_multi_folders=line[6])
             if line[5] == 'None' or line[5] is None:
                 new_line.user_new_search_notifs = 0
             else:
@@ -1128,7 +1135,11 @@ def enrich_users_list_with_user_regions(conn, list_of_users):
             u_line.user_regions = prefs_array
 
             if len(prefs_array) < 2:
-                u_line.user_in_multi_regions = False
+                # FIXME - temp debug to understand if new method of calc is ok for u_line.user_in_multi_folders
+                if u_line.user_in_multi_folders == True:
+                    notify_admin('NEW u_line.user_in_multi_folders DOES NOT WORK')
+                # FIXME ^^^
+                u_line.user_in_multi_folders = False
 
         analytics_match_finish = datetime.datetime.now()
         duration_match = round((analytics_match_finish - analytics_sql_finish).total_seconds(), 2)
@@ -1608,7 +1619,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
             for user in list_of_users:
                 u_lat = user.user_latitude
                 u_lon = user.user_longitude
-                region_to_show = new_record.region if user.user_in_multi_regions else None
+                region_to_show = new_record.region if user.user_in_multi_folders else None
                 message = ''
                 number_of_situations_checked += 1
 
@@ -1619,7 +1630,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                                                                        region_to_show, num_of_msgs_sent_already)
                 elif change_type == 1:  # status_change
                     message = new_record.message[0]
-                    if user.user_in_multi_regions and new_record.message[1]:
+                    if user.user_in_multi_folders and new_record.message[1]:
                         message += new_record.message[1]
 
                 elif change_type == 2:  # 'title_change':
@@ -1630,7 +1641,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
 
                 elif change_type == 4:  # 'inforg_replies':
                     message = new_record.message[0]
-                    if user.user_in_multi_regions and new_record.message[1]:
+                    if user.user_in_multi_folders and new_record.message[1]:
                         message += new_record.message[1]
                     if new_record.message[2]:
                         message += new_record.message[2]
