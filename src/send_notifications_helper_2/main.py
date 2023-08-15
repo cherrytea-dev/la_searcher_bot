@@ -36,7 +36,7 @@ logging.getLogger("telegram.vendor.ptb_urllib3.urllib3").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 SCRIPT_SOFT_TIMEOUT_SECONDS = 55  # after which iterations should stop to prevent the whole script timeout
-OFFSET_VS_INITIAL_FUNCTION = 800
+OFFSET_VS_INITIAL_FUNCTION = 1600
 INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 70  # window within which we check for started parallel function
 SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS = 0
 
@@ -769,7 +769,7 @@ def finish_time_analytics(notif_times, delays, parsed_times, list_of_change_ids)
         min_parse_time = int(min(parsed_times))
         max_parse_time = int(max(parsed_times))
 
-    message = f'[s1] {len_n} x {round(average, 2)} = {int(ttl_time)} ' \
+    message = f'[s2] {len_n} x {round(average, 2)} = {int(ttl_time)} ' \
               f'| {min_delay}–{max_delay} | {min_parse_time}–{max_parse_time} | {list_of_change_ids}'
     if len_n >= 10:  # FIXME – a temp deactivation to understand the sending speed. # and average > 0.3:
         notify_admin(message)

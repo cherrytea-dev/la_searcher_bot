@@ -36,7 +36,8 @@ logging.getLogger("telegram.vendor.ptb_urllib3.urllib3").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 SCRIPT_SOFT_TIMEOUT_SECONDS = 60  # after which iterations should stop to prevent the whole script timeout
-MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION = 800
+MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_1 = 800
+MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_2 = 1600
 INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 70  # window within which we check for started parallel function
 SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS = 5
 
@@ -415,9 +416,12 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
         # check if there are more than the set number of non-sent notifications – is so –
         # we're asking send_notification_helper to help is sending all of them
         num_of_notifs_to_send = check_for_number_of_notifs_to_send(cur)
-        if num_of_notifs_to_send and num_of_notifs_to_send > MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION:
+        if num_of_notifs_to_send and num_of_notifs_to_send > MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_1:
             message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'helper requested'}
             publish_to_pubsub('topic_to_send_notifications_helper', message_for_pubsub)
+        if num_of_notifs_to_send and num_of_notifs_to_send > MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_2:
+            message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'helper requested'}
+            publish_to_pubsub('topic_to_send_notifications_helper_2', message_for_pubsub)
 
         trigger_to_continue_iterations = True
         while trigger_to_continue_iterations:
@@ -676,7 +680,7 @@ def finish_time_analytics(notif_times, delays, parsed_times, list_of_change_ids)
         min_parse_time = int(min(parsed_times))
         max_parse_time = int(max(parsed_times))
 
-    message = f'[sn] {len_n} x {round(average, 2)} = {int(ttl_time)} ' \
+    message = f'[s0] {len_n} x {round(average, 2)} = {int(ttl_time)} ' \
               f'| {min_delay}–{max_delay} | {min_parse_time}–{max_parse_time} | {list_of_change_ids}'
     if len_n >= 10:  # FIXME – a temp deactivation to understand the sending speed. # and average > 0.3:
         notify_admin(message)
