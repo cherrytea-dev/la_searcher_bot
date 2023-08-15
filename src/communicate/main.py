@@ -227,6 +227,7 @@ def compose_user_preferences_message(cur, user_id):
                 pass
             else:
                 prefs_wording += 'неизвестная настройка'
+                notify_admin(user_pref_line[0])
     else:
         prefs_wording += 'пока нет включенных уведомлений'
 
