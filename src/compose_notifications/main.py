@@ -184,7 +184,6 @@ class User:
                     self.user_longitude,
                     self.user_regions,
                     self.user_in_multi_folders,
-                    self.all_notifs,
                     self.user_corr_regions,
                     self.user_new_search_notifs,
                     self.role,
