@@ -1556,14 +1556,18 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                         actual_distance, direction = define_dist_and_dir_to_search(search_lat, search_lon,
                                                                                    user_lat, user_lon)
                         actual_distance = int(actual_distance)
-                        """if actual_distance <= user_line.radius:
+                        if actual_distance <= user_line.radius:
                             temp_user_list.append(user_line)
-                            # FIXME - temp debug
+                            """# FIXME - temp debug
                             if user_line.user_id not in admins_list:
                                 notify_admin(f'IN RADIUS – {user_line.user_id}: CITY: {record.city_locations},'
-                                             f'HQ: {record.search_latitude}, {record.search_longitude}. ')
+                                             f'HQ: {record.search_latitude}, {record.search_longitude}. ')"""
+                            # FIXME - debug message 16.08.2023 – reason: to assure now we capture such scenarios
+                            notify_admin('THIS CASE WORKS WELL – YOU CAN DELETE DEBUG MSG')
+                            # FIXME ^^^
+
                             break
-                        else:
+                        """else:
                             if user_line.user_id not in admins_list:
                                 notify_admin(f'NOT IN RADIUS – {user_line.user_id}: CITY: {record.city_locations},'
                                              f'HQ: {record.search_latitude}, {record.search_longitude}. ')
@@ -2166,10 +2170,12 @@ def main(event, context):  # noqa
             # compose Users List: all the notifications recipients' details
             admins_list, testers_list = get_list_of_admins_and_testers(conn)  # for debug purposes
             list_of_users = compose_users_list_from_users(conn, new_record)
+            # TODO - to be added into compose_users_list_from_users function
             list_of_users = enrich_users_list_with_notification_preferences(conn, list_of_users)
+            # TODO ^^^
             list_of_users = enrich_users_list_with_age_periods(conn, list_of_users)
             list_of_users = enrich_users_list_with_radius(conn, list_of_users)
-            list_of_users = enrich_users_list_with_user_regions(conn, list_of_users)
+            # list_of_users = enrich_users_list_with_user_regions(conn, list_of_users)
             # TODO - to be added into compose_users_list_from_users function
             list_of_users = enrich_users_list_with_topic_type_preferences(conn, list_of_users)
             # TODO ^^^
