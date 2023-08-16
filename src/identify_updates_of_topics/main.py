@@ -1392,7 +1392,8 @@ def recognize_title(line):
                 [r'(?<=\d{4}\W)г\.?р?', 'г.р.'],  # rare case
                 [r'(?<!\d)\d{3}\Wг\.р\.', ''],  # specific case for one search
                 [r'(?<=\d{2}\Wгод\W{2}\d{4})\W{1,3}(?!г)', ' г.р. '],  # specific case for one search
-                [r'((?<=год)|(?<=года)|(?<=лет))\W{1,2}\(\d{1,2}\W{1,2}(года?|лет)?\W?на м\.п\.\)', ' ']  # rare case
+                [r'((?<=год)|(?<=года)|(?<=лет))\W{1,2}\(\d{1,2}\W{1,2}(года?|лет)?\W?на м\.п\.\)', ' '],  # rare case
+                [r'(?i)провекра\s', 'проверка ']  # specific case for one search
             ]
 
         elif pattern_type == 'AVIA':
