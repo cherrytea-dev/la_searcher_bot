@@ -1462,11 +1462,11 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                 if not (record.change_type == 4 and user_line.all_notifs):
                     temp_user_list.append(user_line)
                     logging.info(f'Inforg 2x CHECK for {user_line.user_id} is OK, record {record.change_type}, '
-                                 f'user {user_line.user_id} {user_line.all_notif}. '
+                                 f'user {user_line.user_id} {user_line.all_notifs}. '
                                  f'record {record.forum_search_num}')
                 else:
                     logging.info(f'Inforg 2x CHECK for {user_line.user_id} is FAILED, record {record.change_type}, '
-                                 f'user {user_line.user_id} {user_line.all_notif}. '
+                                 f'user {user_line.user_id} {user_line.all_notifs}. '
                                  f'record {record.forum_search_num}')
 
             logging.info(f'User List crop due to Inforg 2x [DEMO]: {len(users_list_outcome)} --> {len(temp_user_list)}')
