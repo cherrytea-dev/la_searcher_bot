@@ -143,7 +143,8 @@ class User:
                  user_id=None,
                  username_telegram=None,  # TODO: to check if it's needed
                  notification_preferences=None,  # TODO: to check if it's needed
-                 notif_pref_ids_list=None,  # TODO: to check if it's needed
+                 notif_pref_ids_list=None,  # TODO: to check if it's needed,
+                 all_notifs=None,
                  topic_type_pref_ids_list=None,  # TODO: to check if it's needed
                  user_latitude=None,
                  user_longitude=None,
@@ -160,6 +161,7 @@ class User:
         self.username_telegram = username_telegram
         self.notification_preferences = notification_preferences
         self.notif_pref_ids_list = notif_pref_ids_list
+        self.all_notifs = all_notifs
         self.topic_type_pref_ids_list = topic_type_pref_ids_list
         self.user_latitude = user_latitude
         self.user_longitude = user_longitude
@@ -176,11 +178,13 @@ class User:
                     self.username_telegram,
                     self.notification_preferences,
                     self.notif_pref_ids_list,
+                    self.all_notifs,
                     self.topic_type_pref_ids_list,
                     self.user_latitude,
                     self.user_longitude,
                     self.user_regions,
                     self.user_in_multi_folders,
+                    self.all_notifs,
                     self.user_corr_regions,
                     self.user_new_search_notifs,
                     self.role,
@@ -198,6 +202,7 @@ class User:
                self.user_longitude == other.user_longitude and \
                self.user_regions == other.user_regions and \
                self.user_in_multi_folders == other.user_in_multi_folders and \
+               self.all_notifs == other.all_notifs and \
                self.user_corr_regions == other.user_corr_regions and \
                self.user_new_search_notifs == other.user_new_search_notifs and \
                self.role == other.role and \
@@ -944,9 +949,14 @@ def compose_users_list_from_users(conn, new_record):
                     user_list AS (
                         SELECT user_id, username_telegram, role 
                         FROM users WHERE status IS NULL or status='unblocked'), 
-                    user_pref AS (
-                        SELECT user_id, pref_id, preference 
-                        FROM user_preferences WHERE pref_id=30 OR pref_id= :a),
+                    user_notif_pref_prep AS (
+                        SELECT user_id, array_agg(pref_id) aS agg 
+                        FROM user_preferences GROUP BY user_id),
+                    user_notif_pref AS (
+                        SELECT user_id, CASE WHEN 30 = ANY(agg) THEN True ELSE False END AS all_notifs 
+                        FROM user_notif_pref_prep 
+                        WHERE 30 = ANY(agg) OR :a = ANY(agg)),
+                        
                     user_folders_prep AS (
                         SELECT user_id, forum_folder_num, 
                             CASE WHEN count(forum_folder_num) OVER (PARTITION BY user_id) > 1 
@@ -956,21 +966,22 @@ def compose_users_list_from_users(conn, new_record):
                         SELECT user_id, forum_folder_num, multi_folder 
                         FROM user_folders_prep WHERE forum_folder_num= :b), 
                     user_short_list AS (
-                        SELECT ul.user_id, ul.username_telegram, ul.role , uf.multi_folder
+                        SELECT ul.user_id, ul.username_telegram, ul.role , uf.multi_folder, up.all_notifs
                         FROM user_list as ul 
-                        LEFT JOIN user_pref AS up 
+                        LEFT JOIN user_notif_pref AS up 
                         ON ul.user_id=up.user_id 
                         LEFT JOIN user_folders AS uf 
                         ON ul.user_id=uf.user_id 
-                        WHERE uf.forum_folder_num IS NOT NULL AND up.pref_id IS NOT NULL),
+                        WHERE uf.forum_folder_num IS NOT NULL AND up.all_notifs IS NOT NULL),
                     user_with_loc AS (
-                        SELECT u.user_id, u.username_telegram, uc.latitude, uc.longitude, u.role, u.multi_folder 
+                        SELECT u.user_id, u.username_telegram, uc.latitude, uc.longitude, 
+                            u.role, u.multi_folder, u.all_notifs 
                         FROM user_short_list AS u 
                         LEFT JOIN user_coordinates as uc 
                         ON u.user_id=uc.user_id)
                     
                 SELECT ns.user_id, ns.username_telegram, ns.latitude, ns.longitude, ns.role, 
-                    st.num_of_new_search_notifs, ns.multi_folder
+                    st.num_of_new_search_notifs, ns.multi_folder, ns.all_notifs 
                 FROM user_with_loc AS ns 
                 LEFT JOIN user_stat st 
                 ON ns.user_id=st.user_id
@@ -988,7 +999,7 @@ def compose_users_list_from_users(conn, new_record):
 
         for line in users_short_version:
             new_line = User(user_id=line[0], username_telegram=line[1], user_latitude=line[2], user_longitude=line[3],
-                            user_role=line[4], user_in_multi_folders=line[6])
+                            user_role=line[4], user_in_multi_folders=line[6], all_notifs=line[7])
             if line[5] == 'None' or line[5] is None:
                 new_line.user_new_search_notifs = 0
             else:
@@ -1449,14 +1460,14 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
             temp_user_list = []
             for user_line in users_list_outcome:
                 # if this record is about inforg_comments and user already subscribed to all comments
-                if not (record.change_type == 4 and 30 in user_line.notif_pref_ids_list):
+                if not (record.change_type == 4 and user_line.all_notifs):
                     temp_user_list.append(user_line)
                     logging.info(f'Inforg 2x CHECK for {user_line.user_id} is OK, record {record.change_type}, '
-                                 f'user {user_line.user_id} {user_line.notif_pref_ids_list}. '
+                                 f'user {user_line.user_id} {user_line.all_notif}. '
                                  f'record {record.forum_search_num}')
                 else:
                     logging.info(f'Inforg 2x CHECK for {user_line.user_id} is FAILED, record {record.change_type}, '
-                                 f'user {user_line.user_id} {user_line.notif_pref_ids_list}. '
+                                 f'user {user_line.user_id} {user_line.all_notif}. '
                                  f'record {record.forum_search_num}')
 
             logging.info(f'User List crop due to Inforg 2x [DEMO]: {len(users_list_outcome)} --> {len(temp_user_list)}')
