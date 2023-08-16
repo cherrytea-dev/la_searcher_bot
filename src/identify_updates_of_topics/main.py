@@ -1015,6 +1015,8 @@ def define_status_from_search_title(title):
         search_status = "СТОП"
     elif search_status[0:12].lower() == "поиск заверш":
         search_status = "Завершен"
+    elif search_status[0:8].lower() == "завершен":
+        search_status = "Завершен"
     elif search_status[0:21].lower() == "потеряшки в больницах":
         search_status = "не показываем"
     elif search_status[0:12].lower() == "поиск родных":
