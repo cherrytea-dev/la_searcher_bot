@@ -144,6 +144,8 @@ def send_message_to_api(session, bot_token, user_id, message, params):
                        f'{parse_mode}{disable_web_page_preview}&text={message_encoded}'
 
         r = session.get(request_text)
+        print(r)
+        print(r.text)
 
     except Exception as e:
         logging.exception(e)
@@ -338,6 +340,7 @@ def send_single_message(bot, bot_token, user_id, message_content, message_params
             result = process_response(user_id, response)
         else:
             result = 'failed'
+            print('we ar in failed')
 
     except Exception as e:  # when sending to telegram fails by other reasons
 
