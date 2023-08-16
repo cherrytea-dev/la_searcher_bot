@@ -147,7 +147,7 @@ def send_message_to_api(session, bot_token, user_id, message, params):
 
     except Exception as e:
         logging.exception(e)
-        logging.info(f'THIS BAD EXCEPTION HAPPENED')
+        logging.info(f'Error in getting response from Telegram')
         r = None
 
     return r
@@ -168,14 +168,13 @@ def send_location_to_api(session, bot_token, user_id, params):
         logging.info(latitude)
         logging.info(longitude)
 
-        request_text = f'https://api.telegram.org/bot{bot_token}/sendLocation?chat_id={user_id}' \
-                       f'{latitude}{longitude}'
+        request_text = f'https://api.telegram.org/bot{bot_token}/sendLocation?chat_id={user_id}{latitude}{longitude}'
 
         r = session.get(request_text)
 
     except Exception as e:
         logging.exception(e)
-        logging.info(f'THIS BAD EXCEPTION HAPPENED')
+        logging.info(f'Error in getting response from Telegram')
         r = None
 
     return r
@@ -335,7 +334,10 @@ def send_single_message(bot, bot_token, user_id, message_content, message_params
         elif message_type == 'coords':
             response = send_location_to_api(session, bot_token, user_id, message_params)
 
-        result = process_response(user_id, response)
+        if response:
+            result = process_response(user_id, response)
+        else:
+            result = 'failed'
 
     except Exception as e:  # when sending to telegram fails by other reasons
 
