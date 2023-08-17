@@ -543,7 +543,7 @@ def temp_update_users():
     pool = sql_connect()
     conn = pool.connect()
 
-    num_of_users = 1
+    num_of_users = 10
 
     # TODO - don't forget to do the same for relatives
     stmt = sqlalchemy.text("""WITH s1 AS (SELECT user_id, array_agg(topic_type_id) AS agg FROM user_pref_topic_type 
@@ -560,6 +560,7 @@ def temp_update_users():
             raw_data = conn.execute(stmt).fetchone()
             if raw_data:
                 user_id = raw_data[0]
+                logging.info(f'UZ_ID = {user_id}')
                 for type_id in default_topic_type_id:
                     conn.execute("""INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp) 
                                  values (%s, %s, %s) ON CONFLICT (user_id, topic_type_id) DO NOTHING;""",
