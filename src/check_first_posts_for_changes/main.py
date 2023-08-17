@@ -538,6 +538,42 @@ def update_first_posts_and_statuses():
     return None
 
 
+def temp_update_users():
+
+    pool = sql_connect()
+    conn = pool.connect()
+
+    num_of_users = 1
+
+    # TODO - don't forget to do the same for relatives
+    stmt = sqlalchemy.text("""WITH s1 AS (SELECT user_id, array_agg(topic_type_id) AS agg FROM user_pref_topic_type 
+    GROUP BY user_id), s2 AS ( SELECT u.user_id, u.role, u.status, t.agg FROM users AS u LEFT JOIN s1 AS t 
+    ON u.user_id=t.user_id) SELECT user_id FROM s2 where agg IS NULL AND (status IS NULL OR status != 'deleted') AND 
+    (role = 'member' OR role = 'new_member') LIMIT 1;""")
+
+    default_topic_type_id = [0, 3, 4, 5]  # 0=regular, 3=training, 4=info_support, 5=resonance
+    # TODO ^^^
+
+    try:
+        for i in range(num_of_users):
+
+            raw_data = conn.execute(stmt).fetchone()
+            if raw_data:
+                user_id = raw_data[0]
+                for type_id in default_topic_type_id:
+                    conn.execute("""INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp) 
+                                 values (%s, %s, %s) ON CONFLICT (user_id, topic_type_id) DO NOTHING;""",
+                                (user_id, type_id, datetime.datetime.now()))
+
+    except Exception as e:
+        logging.info('exception in updating users')
+        logging.exception(e)
+
+    conn.close()
+    pool.dispose()
+    return None
+
+
 def main(event, context): # noqa
     """main function"""
 
@@ -554,6 +590,10 @@ def main(event, context): # noqa
     # BLOCK 2. small bonus: check one of topics, which has visibility='hidden' to check if it was not unhidden later.
     # It is done in this script only because there's no better place. Ant these are circa 40 hidden topics at all.
     update_visibility_for_one_hidden_topic()
+
+    # FIXME TEMP BLOCK 3 – to update users
+    temp_update_users()
+    # FIXmE ^^^
 
     if bad_gateway_counter > 3:
         publish_to_pubsub('topic_notify_admin', f'[che_posts]: Bad Gateway {bad_gateway_counter} times')
