@@ -491,6 +491,7 @@ def enrich_new_records_from_searches(conn, r_line):
                 print(f'TEMP – FORUM_FOLDER = {r_line.forum_folder}, while s_line = {str(s_line)}')
                 print(f'TEMP – CITY LOCS = {r_line.city_locations}')
                 print(f'TEMP – STATUS_OLD = {r_line.status}, STATUS_NEW = {r_line.new_status}')
+                print(f'TEMP – TOPIC_TYPE = {r_line.topic_type_id}')
 
                 # case: when new search's status is already not "Ищем" – to be ignored
                 if r_line.status != 'Ищем' and r_line.change_type in {0, 8}:  # "new_search" & "first_post_change":
@@ -797,66 +798,50 @@ def compose_com_msg_on_first_post_change(message, clickable_name, old_lat, old_l
     list_of_additions = None
     list_of_deletions = None
 
-    # FIXME – temp:
-    try:
-        if message and message[0] == '{':
-            message_dict = ast.literal_eval(message) if message else {}
+    if message and message[0] == '{':
+        message_dict = ast.literal_eval(message) if message else {}
 
-            if 'del' in message_dict.keys() and 'add' in message_dict.keys():
-                message = ''
-                list_of_deletions = message_dict['del']
-                if list_of_deletions:
-                    message += '➖Удалено:\n<s>'
-                    for line in list_of_deletions:
-                        message += f'{line}\n'
-                    message += '</s>'
+        if 'del' in message_dict.keys() and 'add' in message_dict.keys():
+            message = ''
+            list_of_deletions = message_dict['del']
+            if list_of_deletions:
+                message += '➖Удалено:\n<s>'
+                for line in list_of_deletions:
+                    message += f'{line}\n'
+                message += '</s>'
 
-                list_of_additions = message_dict['add']
-                if list_of_additions:
-                    if message:
-                        message += '\n'
-                    message += '➕Добавлено:\n'
-                    for line in list_of_additions:
-                        # majority of coords in RU: lat in [30-80], long in [20-180]
-                        updated_line = re.sub(coord_pattern, '<code>\g<0></code>', line)
-                        message += f'{updated_line}\n'
-            else:
-                message = message_dict['message']
-    except Exception as e:
-        logging.exception(e)
-        logging.info(f'EXCEPTION in compose_com_msg_on_first_post_change for message={message}')
-        message = ''
-    # FIXME ^^^
-
-    # TODO: adding Variance of Coordinates:
-    coord_change_phrase = ''
-    try:
-
-        add_lat, add_lon = get_coords_from_list(list_of_additions)
-        del_lat, del_lon = get_coords_from_list(list_of_deletions)
-
-        if old_lat and old_lon:
-            old_lat = coord_format.format(float(old_lat))
-            old_lon = coord_format.format(float(old_lon))
-
-        if add_lat and add_lon and del_lat and del_lon and (add_lat != del_lat or add_lon != del_lon):
-            distance, direction = define_dist_and_dir_to_search(del_lat, del_lon, add_lat, add_lon)
-        elif add_lat and add_lon and old_lat and old_lon and (add_lat != old_lat or add_lon != old_lon):
-            distance, direction = define_dist_and_dir_to_search(old_lat, old_lon, add_lat, add_lon)
+            list_of_additions = message_dict['add']
+            if list_of_additions:
+                if message:
+                    message += '\n'
+                message += '➕Добавлено:\n'
+                for line in list_of_additions:
+                    # majority of coords in RU: lat in [30-80], long in [20-180]
+                    updated_line = re.sub(coord_pattern, '<code>\g<0></code>', line)
+                    message += f'{updated_line}\n'
         else:
-            distance, direction = None, None
+            message = message_dict['message']
 
-        if distance and direction:
-            if distance >= 1:
-                coord_change_phrase = f'\n\nКоординаты сместились на ~{int(distance)} км {direction}'
-            else:
-                coord_change_phrase = f'\n\nКоординаты сместились на ~{int(distance * 1000)} метров {direction}'
+    coord_change_phrase = ''
+    add_lat, add_lon = get_coords_from_list(list_of_additions)
+    del_lat, del_lon = get_coords_from_list(list_of_deletions)
 
-    except Exception as e:
-        notify_admin(f'HEY! something was broken in this new process! {message}')
-        resulting_message = ''
-        logging.exception(e)
-    # TODO ^^^
+    if old_lat and old_lon:
+        old_lat = coord_format.format(float(old_lat))
+        old_lon = coord_format.format(float(old_lon))
+
+    if add_lat and add_lon and del_lat and del_lon and (add_lat != del_lat or add_lon != del_lon):
+        distance, direction = define_dist_and_dir_to_search(del_lat, del_lon, add_lat, add_lon)
+    elif add_lat and add_lon and old_lat and old_lon and (add_lat != old_lat or add_lon != old_lon):
+        distance, direction = define_dist_and_dir_to_search(old_lat, old_lon, add_lat, add_lon)
+    else:
+        distance, direction = None, None
+
+    if distance and direction:
+        if distance >= 1:
+            coord_change_phrase = f'\n\nКоординаты сместились на ~{int(distance)} км {direction}'
+        else:
+            coord_change_phrase = f'\n\nКоординаты сместились на ~{int(distance * 1000)} метров {direction}'
 
     if message:
         resulting_message = f'🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}{coord_change_phrase}'
@@ -951,11 +936,10 @@ def compose_users_list_from_users(conn, new_record):
                     user_notif_pref_prep AS (
                         SELECT user_id, array_agg(pref_id) aS agg 
                         FROM user_preferences GROUP BY user_id),
-                    user_notif_pref AS (
+                    user_notif_type_pref AS (
                         SELECT user_id, CASE WHEN 30 = ANY(agg) THEN True ELSE False END AS all_notifs 
                         FROM user_notif_pref_prep 
-                        WHERE 30 = ANY(agg) OR :a = ANY(agg)),
-                        
+                        WHERE 30 = ANY(agg) OR :a = ANY(agg)),     
                     user_folders_prep AS (
                         SELECT user_id, forum_folder_num, 
                             CASE WHEN count(forum_folder_num) OVER (PARTITION BY user_id) > 1 
@@ -964,14 +948,26 @@ def compose_users_list_from_users(conn, new_record):
                     user_folders AS (
                         SELECT user_id, forum_folder_num, multi_folder 
                         FROM user_folders_prep WHERE forum_folder_num= :b), 
+                    user_topic_pref_prep AS (
+                        SELECT user_id, array_agg(topic_type_id) aS agg 
+                        FROM user_pref_topic_type GROUP BY user_id),
+                    user_topic_type_pref AS (
+                        SELECT user_id, agg AS all_types
+                        FROM user_topic_pref_prep 
+                        WHERE 10 = ANY(agg) OR :c = ANY(agg)),
                     user_short_list AS (
                         SELECT ul.user_id, ul.username_telegram, ul.role , uf.multi_folder, up.all_notifs
                         FROM user_list as ul 
-                        LEFT JOIN user_notif_pref AS up 
+                        LEFT JOIN user_notif_type_pref AS up 
                         ON ul.user_id=up.user_id 
                         LEFT JOIN user_folders AS uf 
                         ON ul.user_id=uf.user_id 
-                        WHERE uf.forum_folder_num IS NOT NULL AND up.all_notifs IS NOT NULL),
+                        LEFT JOIN user_topic_type_pref AS ut
+                        ON ul.user_id=ut.user_id
+                        WHERE 
+                            uf.forum_folder_num IS NOT NULL AND 
+                            up.all_notifs IS NOT NULL AND 
+                            ut.all_types IS NOT NULL),
                     user_with_loc AS (
                         SELECT u.user_id, u.username_telegram, uc.latitude, uc.longitude, 
                             u.role, u.multi_folder, u.all_notifs 
@@ -986,7 +982,8 @@ def compose_users_list_from_users(conn, new_record):
                 ON ns.user_id=st.user_id
                 /*action='get_user_list_filtered_by_folder_and_notif_type' */;""")
 
-        users_short_version = conn.execute(sql_text_psy, a=new_record.change_type, b=new_record.forum_folder).fetchall()
+        users_short_version = conn.execute(sql_text_psy, a=new_record.change_type, b=new_record.forum_folder,
+                                           c=new_record.topic_type_id).fetchall()
 
         analytics_sql_finish = datetime.datetime.now()
         duration_sql = round((analytics_sql_finish - analytics_start).total_seconds(), 2)
@@ -1145,10 +1142,6 @@ def enrich_users_list_with_user_regions(conn, list_of_users):
             u_line.user_regions = prefs_array
 
             if len(prefs_array) < 2:
-                # FIXME - temp debug to understand if new method of calc is ok for u_line.user_in_multi_folders
-                if u_line.user_in_multi_folders == True:
-                    notify_admin('NEW u_line.user_in_multi_folders DOES NOT WORK')
-                # FIXME ^^^
                 u_line.user_in_multi_folders = False
 
         analytics_match_finish = datetime.datetime.now()
@@ -1310,34 +1303,6 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                                                  ).fetchone()[0]
 
         return user_was_already_notified
-
-    def get_from_sql_list_of_already_notified_users(change_log_id_):
-        """check in sql if this user was already notified for this change_log record
-        works one time only, prior to iteration over users"""
-
-        sql_text_ = sqlalchemy.text("""
-            SELECT 
-                user_id 
-            FROM 
-                notif_by_user 
-            WHERE 
-                completed IS NOT NULL AND
-                change_log_id=:a
-                    
-            /*action='get_from_sql_list_of_already_notified_users 2.0'*/
-            ;
-            """)
-
-        raw_data_ = conn.execute(sql_text_, a=change_log_id_).fetchall()
-        # TODO: to delete
-        logging.info("DDD: NEW: were notified:")
-        logging.info(raw_data_)
-
-        users_who_were_notified = []
-        for line in raw_data_:
-            users_who_were_notified.append(line[0])
-
-        return users_who_were_notified
 
     def get_from_sql_list_of_users_with_prepared_message(change_log_id_):
         """check what is the list of users for whom we already composed messages for the given change_log record"""
@@ -1572,10 +1537,6 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                             if user_line.user_id not in admins_list:
                                 notify_admin(f'IN RADIUS – {user_line.user_id}: CITY: {record.city_locations},'
                                              f'HQ: {record.search_latitude}, {record.search_longitude}. ')"""
-                            # FIXME - debug message 16.08.2023 – reason: to assure now we capture such scenarios
-                            notify_admin('THIS CASE WORKS WELL – YOU CAN DELETE DEBUG MSG')
-                            # FIXME ^^^
-
                             break
                         """else:
                             if user_line.user_id not in admins_list:
@@ -1816,93 +1777,37 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
             message += '<i>Совет: Чтобы Бот показывал Направление и Расстояние до поиска – просто укажите ваши ' \
                        '"Домашние координаты" в Настройках Бота.</i>'
 
-    # FIXME - NEW
-    try:
+    if s_lat and s_lon:
+        clickable_coords = f'<code>{coord_format.format(float(s_lat))}, {coord_format.format(float(s_lon))}</code>'
+        if u_lat and u_lon:
+            dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
+            dist = int(dist)
+            place = f'От вас ~{dist} км {direct}'
+        else:
+            place = 'Карта'
+        place_link = f'<a href="https://yandex.ru/maps/?pt={s_lon},{s_lat}&z=11&l=map">{place}</a>'
 
-        if s_lat and s_lon:
-            clickable_coords = f'<code>{coord_format.format(float(s_lat))}, {coord_format.format(float(s_lon))}</code>'
-            if u_lat and u_lon:
-                dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
-                dist = int(dist)
-                place = f'От вас ~{dist} км {direct}'
-            else:
-                place = 'Карта'
-            place_link = f'<a href="https://yandex.ru/maps/?pt={s_lon},{s_lat}&z=11&l=map">{place}</a>'
+        if not num_of_sent or num_of_sent in fib_list:
+            tip_on_click_to_copy = '<i>Совет: Координаты и телефоны можно скопировать, нажав на них.</i>'
+            if not u_lat and not u_lon:
+                tip_on_home_coords = '<i>Совет: Чтобы Бот показывал Направление и Расстояние до поиска – просто ' \
+                                     'укажите ваши "Домашние координаты" в Настройках Бота.</i>'
 
-            if not num_of_sent or num_of_sent in fib_list:
-                tip_on_click_to_copy = '<i>Совет: Координаты и телефоны можно скопировать, нажав на них.</i>'
-                if not u_lat and not u_lon:
-                    tip_on_home_coords = '<i>Совет: Чтобы Бот показывал Направление и Расстояние до поиска – просто ' \
-                                         'укажите ваши "Домашние координаты" в Настройках Бота.</i>'
+    obj = new_record.message_object
+    final_message = f"""Новый поиск{region_wording}!\n
+                        {obj.activities}\n\n
+                        {obj.clickable_name}\n\n
+                        {place_link}\n
+                        {clickable_coords}\n\n
+                        {obj.managers}\n\n
+                        {tip_on_click_to_copy}\n\n
+                        {tip_on_home_coords}"""
 
-        obj = new_record.message_object
-        final_message = f"""Новый поиск{region_wording}!\n
-                            {obj.activities}\n\n
-                            {obj.clickable_name}\n\n
-                            {place_link}\n
-                            {clickable_coords}\n\n
-                            {obj.managers}\n\n
-                            {tip_on_click_to_copy}\n\n
-                            {tip_on_home_coords}"""
-
-        final_message = re.sub(r'\s{3,}', '\n\n', final_message)  # clean excessive blank lines
-        final_message = re.sub(r'\s*$', '', final_message)  # clean blank symbols in the end of file
-        print(f'TEMP - FINAL NEW MESSAGE FOR NEW SEARCH {final_message}')
-    except Exception as e:  # noqa
-        notify_admin('ERROR IN COMPOSE INDIVIDUAL MSG')
-        logging.error(e)
-        logging.exception(e)
-    # FIXME ^^^
+    final_message = re.sub(r'\s{3,}', '\n\n', final_message)  # clean excessive blank lines
+    final_message = re.sub(r'\s*$', '', final_message)  # clean blank symbols in the end of file
+    logging.info(f'TEMP - FINAL NEW MESSAGE FOR NEW SEARCH {final_message}')
 
     return message
-
-
-def compose_individual_msg_on_field_trip(common_message, s_lat, s_lon, u_lat, u_lon, region_to_show):
-    """compose individual message for notification of every user on new field trip"""
-
-    # for reference, the below is the structure of common message
-    """com_msg = f'🚨 Внимание, (urgent)(now)(secondary) выезд!\n' \
-          f'Поиск <a href="(link)">(name)(age_info)</a>{region}:\n\n' \
-          f'(date_and_time_curr)(address_curr)' \
-          f'{direction_and_distance}' \
-          f'(coords)'"""
-
-    # the list of parameters to be defined on user-level:
-    region = f'{region_to_show}' if region_to_show else ''
-    if s_lat and s_lon and u_lat and u_lon:
-        dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
-        dist = int(dist)
-        direction_wording = f'От вас ~{dist} км {direct}'
-        direction_and_distance = generate_yandex_maps_place_link2(s_lat, s_lon, direction_wording)
-
-    elif s_lat and s_lon and not u_lat and not u_lon:
-        direction_and_distance = generate_yandex_maps_place_link2(s_lat, s_lon, 'map')
-
-    else:
-        direction_and_distance = ''
-
-    # taking the common message and injecting individual user-related parameters
-    individual_message = common_message.format(region=region, direction_and_distance=direction_and_distance)
-
-    return individual_message
-
-
-def compose_individual_message_on_coords_change(new_record, s_lat, s_lon, u_lat, u_lon, region_to_show):
-    """compose individual message for notification of every user on change of coordinates"""
-
-    msg = new_record.message
-
-    region = f'{region_to_show}' if region_to_show else ''
-    link_text = f'{s_lat}, {s_lon}' if new_record.coords_change_type != 'drop' else ''
-
-    if s_lat and s_lon and u_lat and u_lon:
-        dist, direct = define_dist_and_dir_to_search(s_lat, s_lon, u_lat, u_lon)
-        dist = int(dist)
-        link_text = f'От вас ~{dist} км {direct}'
-
-    msg = msg.format(region=region, link_text=link_text)
-
-    return msg
 
 
 def compose_individual_message_on_first_post_change(new_record, region_to_show):
@@ -2180,15 +2085,11 @@ def main(event, context):  # noqa
             # compose Users List: all the notifications recipients' details
             admins_list, testers_list = get_list_of_admins_and_testers(conn)  # for debug purposes
             list_of_users = compose_users_list_from_users(conn, new_record)
-            # TODO - to be added into compose_users_list_from_users function
-            list_of_users = enrich_users_list_with_notification_preferences(conn, list_of_users)
-            # TODO ^^^
+            # list_of_users = enrich_users_list_with_notification_preferences(conn, list_of_users)
             list_of_users = enrich_users_list_with_age_periods(conn, list_of_users)
             list_of_users = enrich_users_list_with_radius(conn, list_of_users)
             # list_of_users = enrich_users_list_with_user_regions(conn, list_of_users)
-            # TODO - to be added into compose_users_list_from_users function
-            list_of_users = enrich_users_list_with_topic_type_preferences(conn, list_of_users)
-            # TODO ^^^
+            # list_of_users = enrich_users_list_with_topic_type_preferences(conn, list_of_users)
 
             analytics_match_finish = datetime.datetime.now()
             duration_match = round((analytics_match_finish - analytics_start_of_func).total_seconds(), 2)
