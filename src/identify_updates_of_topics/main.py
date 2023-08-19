@@ -1020,11 +1020,11 @@ def define_status_from_search_title(title):
     elif search_status[0:21].lower() == "потеряшки в больницах":
         search_status = "не показываем"
     elif search_status[0:12].lower() == "поиск родных":
-        search_status = "не показываем"
+        search_status = "Ищем"
     elif search_status[0:14].lower() == "родные найдены":
-        search_status = "не показываем"
+        search_status = "НЖ"
     elif search_status[0:19].lower() == "поиск родственников":
-        search_status = "не показываем"
+        search_status = "Ищем"
     else:
         search_status = 'Ищем'
 
@@ -1998,11 +1998,10 @@ def recognize_title(line):
                     elif pattern[1] == 'number':
                         number = block_2.group()
 
-            if date_full or date_short:
-                if date_full:
-                    date = datetime.strptime(date_full, '%d.%m.%Y')
-                else:
-                    date = datetime.strptime(date_full, '%d.%m.%y')
+            if date_full:
+                date = datetime.strptime(date_full, '%d.%m.%Y')
+            elif date_short:
+                date = datetime.strptime(date_short, '%d.%m.%y')
 
             if not age and date:
                 age = relativedelta.relativedelta(datetime.now(), date).years
@@ -2645,7 +2644,8 @@ def parse_one_folder(db, folder_id):
                                  f"NEW = {title_reco_dict}")
 
                 # NEW exclude non-relevant searches
-                if title_reco_dict['topic_type'] in {'search', 'search training'}:
+                if title_reco_dict['topic_type'] in {'search', 'search training',
+                                                     'search reverse', 'search patrol', 'event'}:
                     # FIXME – status and new_status to be updated
                     search_summary_object = SearchSummary(parsed_time=current_datetime, topic_id=search_id,
                                                           status=search_status_short, title=search_title,
@@ -2656,7 +2656,8 @@ def parse_one_folder(db, folder_id):
                     search_summary_object.topic_type = title_reco_dict['topic_type']
 
                     # FIXME - remove try
-                    topic_type_dict = {'search': 0, 'search training': 3}
+                    topic_type_dict = {'search': 0, 'search reverse': 1, 'search patrol': 2, 'search training': 3,
+                                       'event': 10}
                     try:
                         search_summary_object.topic_type_id = topic_type_dict[search_summary_object.topic_type]
                     except Exception as e:
@@ -3180,8 +3181,7 @@ def process_one_folder(db, folder_to_parse):
     update_trigger = False
     debug_message = f'folder {folder_to_parse} has NO new updates'
 
-    # TODO - to be switched to new_ one
-    if old_folder_summary_full:
+    if new_folder_summary:
 
         # transform the current snapshot into the string to be able to compare it: string vs string
         curr_snapshot_as_one_dimensional_list = [y for x in titles_and_num_of_replies for y in x]

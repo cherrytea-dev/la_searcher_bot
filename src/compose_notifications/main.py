@@ -1420,19 +1420,22 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
         users_list_outcome = users_list_incoming
 
         # FIXME -------- INFORG 2x -------------
+        # 1. INFORG 2X notifications. crop the list of users, excluding Users who recieves all types of notifications
+        # (otherwise it will be doubling for them)
         try:
             temp_user_list = []
-            for user_line in users_list_outcome:
-                # if this record is about inforg_comments and user already subscribed to all comments
-                if not (record.change_type == 4 and user_line.all_notifs):
-                    temp_user_list.append(user_line)
-                    logging.info(f'Inforg 2x CHECK for {user_line.user_id} is OK, record {record.change_type}, '
-                                 f'user {user_line.user_id} {user_line.all_notifs}. '
-                                 f'record {record.forum_search_num}')
-                else:
-                    logging.info(f'Inforg 2x CHECK for {user_line.user_id} is FAILED, record {record.change_type}, '
-                                 f'user {user_line.user_id} {user_line.all_notifs}. '
-                                 f'record {record.forum_search_num}')
+            if record.change_type != 4:
+                for user_line in users_list_outcome:
+                    # if this record is about inforg_comments and user already subscribed to all comments
+                    if not user_line.all_notifs:
+                        temp_user_list.append(user_line)
+                        logging.info(f'Inforg 2x CHECK for {user_line.user_id} is OK, record {record.change_type}, '
+                                     f'user {user_line.user_id} {user_line.all_notifs}. '
+                                     f'record {record.forum_search_num}')
+                    else:
+                        logging.info(f'Inforg 2x CHECK for {user_line.user_id} is FAILED, record {record.change_type}, '
+                                     f'user {user_line.user_id} {user_line.all_notifs}. '
+                                     f'record {record.forum_search_num}')
 
             logging.info(f'User List crop due to Inforg 2x [DEMO]: {len(users_list_outcome)} --> {len(temp_user_list)}')
             # users_list_outcome = temp_user_list
@@ -1441,35 +1444,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
             logging.info(f'TEMP - exception CROP Inforg 2X: {repr(e)}')
         # FIXME ^^^ ----------------------
 
-        # FIXME -------- TOPIC TYPE -------------
-        default_types = [0, 1, 2, 3, 4, 5]
-
-        try:
-            temp_user_list = []
-            for user_line in users_list_outcome:
-                # if this record is for specific Topic Type and user wants to get it
-                if not record.topic_type_id or record.topic_type_id in default_types or \
-                        (record.topic_type_id in user_line.topic_type_pref_ids_list):
-                    temp_user_list.append(user_line)
-                    logging.info(f'Topic Type CHECK for {user_line.user_id} is OK, record {record.topic_type_id}, '
-                                 f'user {user_line.user_id} {user_line.topic_type_pref_ids_list}. '
-                                 f'record {record.forum_search_num}')
-                else:
-                    logging.info(f'Topic Type CHECK for {user_line.user_id} is FAILED, record {record.topic_type_id}, '
-                                 f'user {user_line.user_id} {user_line.topic_type_pref_ids_list}. '
-                                 f'record {record.forum_search_num}')
-
-            logging.info(
-                f'User List crop due to Topic Type [DEMO]: delta={len(users_list_outcome) - len(temp_user_list)}: '
-                f'{len(users_list_outcome)} --> {len(temp_user_list)}')
-            # users_list_outcome = temp_user_list
-
-        except Exception as e:
-            logging.info(f'TEMP - exception CROP Topic Type: {repr(e)}')
-            notify_admin(f'TEMP - exception CROP Topic Type: {repr(e)}')
-        # FIXME ^^^ ----------------------
-
-        # 3. AGES. crop the list of users, excluding Users who does not want to receive notifications for such Ages
+        # 2. AGES. crop the list of users, excluding Users who does not want to receive notifications for such Ages
         temp_user_list = []
         if not (record.age_min or record.age_max):
             logging.info(f'User List crop due to ages: no changes, there were no age_min and max for search')
@@ -1491,7 +1466,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
         logging.info(f'User List crop due to ages: {len(users_list_outcome)} --> {len(temp_user_list)}')
         users_list_outcome = temp_user_list
 
-        # 4. RADIUS. crop the list of users, excluding Users who does want to receive notifications within the radius
+        # 3. RADIUS. crop the list of users, excluding Users who does want to receive notifications within the radius
         try:
             search_lat = record.search_latitude
             search_lon = record.search_longitude
@@ -1502,7 +1477,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
 
             temp_user_list = []
 
-            # CASE 4.1. When exact coordinates of Search Headquarters are indicated
+            # CASE 3.1. When exact coordinates of Search Headquarters are indicated
             if search_lat and search_lon:
 
                 for user_line in users_list_outcome:
@@ -1517,7 +1492,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                     if actual_distance <= user_line.radius:
                         temp_user_list.append(user_line)
 
-            # CASE 4.2. When exact coordinates of a Place are geolocated
+            # CASE 3.2. When exact coordinates of a Place are geolocated
             elif list_of_city_coords:
                 for user_line in users_list_outcome:
                     if not (user_line.radius and user_line.user_latitude and user_line.user_longitude):
@@ -1533,18 +1508,9 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                         actual_distance = int(actual_distance)
                         if actual_distance <= user_line.radius:
                             temp_user_list.append(user_line)
-                            """# FIXME - temp debug
-                            if user_line.user_id not in admins_list:
-                                notify_admin(f'IN RADIUS – {user_line.user_id}: CITY: {record.city_locations},'
-                                             f'HQ: {record.search_latitude}, {record.search_longitude}. ')"""
                             break
-                        """else:
-                            if user_line.user_id not in admins_list:
-                                notify_admin(f'NOT IN RADIUS – {user_line.user_id}: CITY: {record.city_locations},'
-                                             f'HQ: {record.search_latitude}, {record.search_longitude}. ')
-                            # FIXME ^^^"""
 
-            # CASE 4.3. No coordinates available
+            # CASE 3.3. No coordinates available
             else:
                 temp_user_list = users_list_outcome
 
@@ -1555,7 +1521,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
             logging.info(f'TEMP - exception radius: {repr(e)}')
             logging.exception(e)
 
-        # 5. DOUBLING. crop the list of users, excluding Users who were already notified on this change_log_id
+        # 4. DOUBLING. crop the list of users, excluding Users who were already notified on this change_log_id
         temp_user_list = []
         for user_line in users_list_outcome:
             if user_line.user_id not in users_should_not_be_informed:
