@@ -741,7 +741,7 @@ def update_and_download_list_of_regions(cur, user_id, got_message, b_menu_set_re
                    'Прочие поиски по ЮФО': [180],
 
                    'Архангельская обл.': [330],
-                   'Вологодская обл.': [370, 369, 368],
+                   'Вологодская обл.': [370, 369, 368, 367],
                    'Карелия': [403, 404],
                    'Коми': [378, 377, 376],
                    'Ленинградская обл.': [120, 300],
@@ -2225,11 +2225,11 @@ def main(request):
                     """
                 )
 
-                regions_table = cur.fetchall()
+                folders_list = cur.fetchall()
 
                 region_name = ''
                 for region in user_regions:
-                    for line in regions_table:
+                    for line in folders_list:
 
                         if line[0] == region:
                             region_name = line[1]

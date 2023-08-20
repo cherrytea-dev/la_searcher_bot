@@ -1018,7 +1018,7 @@ def define_status_from_search_title(title):
     elif search_status[0:8].lower() == "завершен":
         search_status = "Завершен"
     elif search_status[0:21].lower() == "потеряшки в больницах":
-        search_status = "не показываем"
+        search_status = "Ищем"
     elif search_status[0:12].lower() == "поиск родных":
         search_status = "Ищем"
     elif search_status[0:14].lower() == "родные найдены":
@@ -2585,6 +2585,8 @@ def parse_one_folder(db, folder_id):
 
     global requests_session
 
+    topic_type_dict = {'search': 0, 'search reverse': 1, 'search patrol': 2, 'search training': 3, 'event': 10}
+
     topics_summary_in_folder = []
     titles_and_num_of_replies = []
     folder_summary = []
@@ -2615,67 +2617,52 @@ def parse_one_folder(db, folder_id):
             search_title = re.sub(r'\[/?(b|size.{0,6}|color.{0,10})]', '', search_title_block.next_element)
             search_id = int(re.search(r'(?<=&t=)\d{2,8}', search_title_block['href']).group())
             search_replies_num = int(data_block.find('dd', 'posts').next_element)
+            start_datetime = define_start_time_of_search(data_block)
 
             # FIXME - to be removed after final feature parity
-            person_fam_name = define_family_name_from_search_title_new(search_title)
-            person_age = define_age_from_search_title(search_title)
-            start_datetime = define_start_time_of_search(data_block)
-            search_status_short = define_status_from_search_title(search_title)
+            person_fam_name = define_family_name_from_search_title_new(search_title)  # needed till "family_name"
+            # field is in use in searched table
+            search_status_short = define_status_from_search_title(search_title)  # TODO – needed only for logs
             # FIXME ^^^
 
             try:
                 title_reco_dict = recognize_title(search_title)
                 logging.info(f'TEMP – title_reco_dict = {title_reco_dict}')
 
-                # TODO - check if old exclusions are not better than new ones
-                if search_status_short == "не показываем" and 'topic_type' in title_reco_dict.keys() and \
-                        title_reco_dict['topic_type'] in {'search', 'search training'}:
-                    logging.info(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
-                                 f"NEW = {title_reco_dict['topic_type'] == 'search'}")
-                    notify_admin(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
-                                 f"NEW = {title_reco_dict['topic_type'] == 'search'}")
-                elif search_status_short != "не показываем" and \
-                        ('topic_type' not in title_reco_dict.keys() or
-                         'topic_type' in title_reco_dict.keys() and title_reco_dict['topic_type']
-                         not in {'search', 'search training'}):
+                # FIXME - check if old exclusions are not better than new ones
+                if ('topic_type' not in title_reco_dict.keys() or 'topic_type' in title_reco_dict.keys()
+                        and title_reco_dict['topic_type'] not in {'search', 'search training'}):
                     logging.info(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
                                  f"NEW = {title_reco_dict}")
                     notify_admin(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
                                  f"NEW = {title_reco_dict}")
+                # FIXME ^^^
 
                 # NEW exclude non-relevant searches
                 if title_reco_dict['topic_type'] in {'search', 'search training',
                                                      'search reverse', 'search patrol', 'event'}:
-                    # FIXME – status and new_status to be updated
                     search_summary_object = SearchSummary(parsed_time=current_datetime, topic_id=search_id,
-                                                          status=search_status_short, title=search_title,
+                                                          title=search_title,
                                                           start_time=start_datetime,
-                                                          num_of_replies=search_replies_num, age=person_age,
+                                                          num_of_replies=search_replies_num,
                                                           name=person_fam_name, folder_id=folder_id)
-                    # FIXME ^^^
                     search_summary_object.topic_type = title_reco_dict['topic_type']
 
-                    # FIXME - remove try
-                    topic_type_dict = {'search': 0, 'search reverse': 1, 'search patrol': 2, 'search training': 3,
-                                       'event': 10}
-                    try:
-                        search_summary_object.topic_type_id = topic_type_dict[search_summary_object.topic_type]
-                    except Exception as e:
-                        logging.exception(e)
-                        notify_admin('[ide_topics]: error in topic_type_id identification')
-                        logging.info('[ide_topics]: error in topic_type_id identification')
-                    # FIXME ^^^
+                    search_summary_object.topic_type_id = topic_type_dict[search_summary_object.topic_type]
 
                     if 'persons' in title_reco_dict.keys():
                         if 'total_display_name' in title_reco_dict['persons'].keys():
                             search_summary_object.display_name = title_reco_dict['persons']['total_display_name']
                         if 'age_min' in title_reco_dict['persons'].keys():
                             search_summary_object.age_min = title_reco_dict['persons']['age_min']
+                            search_summary_object.age = title_reco_dict['persons']['age_min']  # Due to the field
+                            # "age" in searches which is integer, so we cannot indicate a range
                         if 'age_max' in title_reco_dict['persons'].keys():
                             search_summary_object.age_max = title_reco_dict['persons']['age_max']
 
                     if 'status' in title_reco_dict.keys():
                         search_summary_object.new_status = title_reco_dict['status']
+                        search_summary_object.status = title_reco_dict['status']
 
                     if 'locations' in title_reco_dict.keys():
                         list_of_location_cities = [x['address'] for x in title_reco_dict['locations']]
@@ -2684,20 +2671,19 @@ def parse_one_folder(db, folder_id):
 
                     folder_summary.append(search_summary_object)
 
+                    search_summary = [current_datetime, search_id, search_summary_object.status, search_title, '',
+                                      start_datetime, search_replies_num, search_summary_object.age_min,
+                                      person_fam_name, folder_id]
+                    topics_summary_in_folder.append(search_summary)
+
+                    parsed_wo_date = [search_title, search_replies_num]
+                    titles_and_num_of_replies.append(parsed_wo_date)
+
             except Exception as e:
                 logging.info(f'TEMP - THIS BIG ERROR HAPPENED')
                 notify_admin(f'TEMP - THIS BIG ERROR HAPPENED')
                 logging.error(e)
                 logging.exception(e)
-
-            # exclude non-relevant searches
-            if search_status_short != "не показываем":
-                search_summary = [current_datetime, search_id, search_status_short, search_title, '',
-                                  start_datetime, search_replies_num, person_age, person_fam_name, folder_id]
-                topics_summary_in_folder.append(search_summary)
-
-                parsed_wo_date = [search_title, search_replies_num]
-                titles_and_num_of_replies.append(parsed_wo_date)
 
         del search_code_blocks
 
@@ -2984,12 +2970,8 @@ def update_change_log_and_searches(db, folder_num):
 
         for snapshot_line in new_topics_from_snapshot_list:
             topic_type_id = snapshot_line.topic_type_id
-            if topic_type_id == 10:
-                change_type_id = 9
-                change_type_name = 'new_event'
-            else:
-                change_type_id = 0
-                change_type_name = 'new_search'
+            change_type_id = 0
+            change_type_name = 'new_search'
 
             change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
                                             topic_id=snapshot_line.topic_id,
