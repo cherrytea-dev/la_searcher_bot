@@ -223,7 +223,7 @@ class Message:
         self.clickable_name = clickable_name
 
 
-class MessageNewSearch(Message):
+class MessageNewTopic(Message):
 
     def __init__(self,
                  city_coords=None,
@@ -638,50 +638,57 @@ def enrich_new_record_with_comments(conn, type_of_comments, r_line):
     return r_line
 
 
-def compose_com_msg_on_new_search(start, activities, managers, clickable_name):
-    """compose the common, user-independent message on new search"""
+def compose_com_msg_on_new_topic(start, activities, managers, clickable_name, topic_type_id):
+    """compose the common, user-independent message on new topic (search, event)"""
 
     line_ignore = None
     now = datetime.datetime.now()
-    days_since_search_start = (now - start).days
+    days_since_topic_start = (now - start).days
 
-    if days_since_search_start < 2:  # we do not notify users on "new" searches appeared >=2 days ago
-        message = MessageNewSearch()
+    # FIXME – temp limitation for olny topics - cuz we don't want to filter event.
+    #  Once events messaging will go smooth, this limitation to be removed
+    if topic_type_id in {0, 1, 2, 3, 4, 5}:
+        # FIXME ^^^
+        if days_since_topic_start >= 2:  # we do not notify users on "new" searches appeared >=2 days ago:
+            return [None, None, None], None, 'y'  # topic to be ignored
 
-        # 1. List of activities – user-independent
-        msg_1 = ''
-        if activities:
-            for line in activities:
-                msg_1 += f'{line}\n'
-        message.activities = msg_1
+    message = MessageNewTopic()
 
-        # 2. Person
-        msg_2 = clickable_name
+    if topic_type_id == 10:  # new event
+        clickable_name = f'🗓️Новое мероприятие!\n{clickable_name}'
+        message.clickable_name = clickable_name
+        return [clickable_name, None, None], message, line_ignore
 
-        if clickable_name:
-            message.clickable_name = clickable_name
+    # 1. List of activities – user-independent
+    msg_1 = ''
+    if activities:
+        for line in activities:
+            msg_1 += f'{line}\n'
+    message.activities = msg_1
 
-        # 3. List of managers – user-independent
-        msg_3 = ''
-        if managers:
-            try:
-                managers_list = ast.literal_eval(managers)
-                msg_3 += 'Ответственные:'
-                for manager in managers_list:
-                    line = add_tel_link(manager)
-                    msg_3 += f'\n &#8226; {line}'
+    # 2. Person
+    msg_2 = clickable_name
 
-            except Exception as e:
-                logging.error('Not able to compose New Search Message text with Managers: ' + str(e))
-                logging.exception(e)
+    if clickable_name:
+        message.clickable_name = clickable_name
 
-            message.managers = msg_3
+    # 3. List of managers – user-independent
+    msg_3 = ''
+    if managers:
+        try:
+            managers_list = ast.literal_eval(managers)
+            msg_3 += 'Ответственные:'
+            for manager in managers_list:
+                line = add_tel_link(manager)
+                msg_3 += f'\n &#8226; {line}'
 
-        logging.info('msg 2 + msg 1 + msg 3: ' + str(msg_2) + ' // ' + str(msg_1) + ' // ' + str(msg_3))
+        except Exception as e:
+            logging.error('Not able to compose New Search Message text with Managers: ' + str(e))
+            logging.exception(e)
 
-    else:
-        line_ignore = 'y'
-        msg_1, msg_2, msg_3, message = None, None, None, None
+        message.managers = msg_3
+
+    logging.info('msg 2 + msg 1 + msg 3: ' + str(msg_2) + ' // ' + str(msg_1) + ' // ' + str(msg_3))
 
     return [msg_2, msg_1, msg_3], message, line_ignore  # 1 - person, 2 - activities, 3 - managers
 
@@ -882,22 +889,27 @@ def enrich_new_record_with_com_message_texts(line):
     try:
         last_line = line
 
-        if line.display_name:
-            clickable_name = f'<a href="{line.link}">{line.display_name}</a>'
-        else:
-            if line.name:
-                name = line.name
+        if line.topic_type_id in {0, 1, 2, 3, 4, 5}:  # if it's search
+            if line.display_name:
+                clickable_name = f'<a href="{line.link}">{line.display_name}</a>'
             else:
-                name = 'БВП'
-            age_info = f' {line.age_wording}' if (name[0].isupper() and line.age and line.age != 0) else ''
-            clickable_name = f'<a href="{line.link}">{name}{age_info}</a>'
+                if line.name:
+                    name = line.name
+                else:
+                    name = 'БВП'
+                age_info = f' {line.age_wording}' if (name[0].isupper() and line.age and line.age != 0) else ''
+                clickable_name = f'<a href="{line.link}">{name}{age_info}</a>'
+        else:  # if it's event or something else
+            clickable_name = f'<a href="{line.link}">{line.title}</a>'
 
-        if line.change_type == 0:  # 'new_search':
-            line.message, line.message_object, line.ignore = compose_com_msg_on_new_search(line.start_time,
-                                                                                           line.activities,
-                                                                                           line.managers,
-                                                                                           clickable_name)
-        elif line.change_type == 1:  # 'status_change':
+        if line.change_type == 0:  # new topic: new search, new event
+            line.message, line.message_object, line.ignore = compose_com_msg_on_new_topic(line.start_time,
+                                                                                          line.activities,
+                                                                                          line.managers,
+                                                                                          clickable_name,
+                                                                                          line.topic_type_id)
+
+        elif line.change_type == 1 and line.topic_type_id in {0, 1, 2, 3, 4, 5}:  # status change for search:
             line.message = compose_com_msg_on_status_change(line.status, line.region, clickable_name)
         elif line.change_type == 2:  # 'title_change':
             line.message = compose_com_msg_on_title_change(line.title, clickable_name)
@@ -954,7 +966,7 @@ def compose_users_list_from_users(conn, new_record):
                     user_topic_type_pref AS (
                         SELECT user_id, agg AS all_types
                         FROM user_topic_pref_prep 
-                        WHERE 10 = ANY(agg) OR :c = ANY(agg)),
+                        WHERE 30 = ANY(agg) OR :c = ANY(agg)),
                     user_short_list AS (
                         SELECT ul.user_id, ul.username_telegram, ul.role , uf.multi_folder, up.all_notifs
                         FROM user_list as ul 
@@ -1069,119 +1081,6 @@ def enrich_users_list_with_radius(conn, list_of_users):
     except Exception as e:
         logging.info(f'Not able to enrich Users List with Radius')
         logging.exception(e)
-
-    return list_of_users
-
-
-def enrich_users_list_with_notification_preferences(conn, list_of_users):
-    """add the additional data on notification preferences from User_preferences into Users List"""
-
-    try:
-        analytics_prefix = 'notifs'
-        analytics_start = datetime.datetime.now()
-
-        notif_prefs = conn.execute(
-            """SELECT user_id, preference, pref_id FROM user_preferences;"""
-        ).fetchall()
-
-        analytics_sql_finish = datetime.datetime.now()
-        duration_sql = round((analytics_sql_finish - analytics_start).total_seconds(), 2)
-        logging.info(f'time: {analytics_prefix} sql – {duration_sql} sec')
-
-        # look for matching User_ID in Users List & Notification Preferences
-        for u_line in list_of_users:
-            prefs_array = []
-            user_pref_ids_list = []
-            for np_line in notif_prefs:
-                # when match is found
-                if u_line.user_id == np_line[0]:
-                    prefs_array.append(np_line[1])
-                    user_pref_ids_list.append(np_line[2])
-
-            u_line.notification_preferences = prefs_array
-            u_line.notif_pref_ids_list = user_pref_ids_list
-
-        analytics_match_finish = datetime.datetime.now()
-        duration_match = round((analytics_match_finish - analytics_sql_finish).total_seconds(), 2)
-        logging.info(f'time: {analytics_prefix} match – {duration_match} sec')
-        duration_full = round((analytics_match_finish - analytics_start).total_seconds(), 2)
-        logging.info(f'time: {analytics_prefix} end-to-end – {duration_full} sec')
-
-        logging.info('Users List enriched with Notification Prefs')
-
-    except Exception as e:
-        logging.error('Not able to enrich Users List with Notification Prefs: ' + str(e))
-        logging.exception(e)
-
-    return list_of_users
-
-
-def enrich_users_list_with_user_regions(conn, list_of_users):
-    """add the additional data on user preferred regions from User Regional Preferences into Users List"""
-
-    try:
-        analytics_prefix = 'regions'
-        analytics_start = datetime.datetime.now()
-
-        reg_prefs = conn.execute(
-            """SELECT user_id, forum_folder_num FROM user_regional_preferences;"""
-        ).fetchall()
-
-        analytics_sql_finish = datetime.datetime.now()
-        duration_sql = round((analytics_sql_finish - analytics_start).total_seconds(), 2)
-        logging.info(f'time: {analytics_prefix} sql – {duration_sql} sec')
-
-        # look for matching User_ID in Users List & Regional Preferences
-        for u_line in list_of_users:
-            prefs_array = []
-            for rp_line in reg_prefs:
-                # when match is found
-                if u_line.user_id == rp_line[0]:
-                    prefs_array.append(rp_line[1])
-
-            u_line.user_regions = prefs_array
-
-            if len(prefs_array) < 2:
-                u_line.user_in_multi_folders = False
-
-        analytics_match_finish = datetime.datetime.now()
-        duration_match = round((analytics_match_finish - analytics_sql_finish).total_seconds(), 2)
-        logging.info(f'time: {analytics_prefix} match – {duration_match} sec')
-        duration_full = round((analytics_match_finish - analytics_start).total_seconds(), 2)
-        logging.info(f'time: {analytics_prefix} end-to-end – {duration_full} sec')
-
-        logging.info('Users List enriched with User Regions')
-
-    except Exception as e:
-        logging.error('Not able to enrich Users List with User Regions: ' + repr(e))
-        logging.exception(e)
-
-    return list_of_users
-
-
-def enrich_users_list_with_topic_type_preferences(conn, list_of_users):
-    """add the additional data on topic type preferences (reverse search, training, event) into Users List"""
-
-    try:
-        notif_prefs = conn.execute(
-            """SELECT user_id, topic_type_id FROM user_pref_topic_type;"""
-        ).fetchall()
-
-        # look for matching User_ID in Users List & Notification Preferences
-        for u_line in list_of_users:
-            user_pref_ids_list = []
-            for np_line in notif_prefs:
-                # when match is found
-                if u_line.user_id == np_line[0]:
-                    user_pref_ids_list.append(np_line[1])
-            u_line.topic_type_pref_ids_list = user_pref_ids_list
-
-        logging.info('Users List enriched with Topic Type Prefs')
-
-    except Exception as e:
-        logging.error('Not able to enrich Users List with Topic Type Prefs: ' + str(e))
-        logging.exception(e)
-        notify_admin(f'Not able to enrich Users List with Topic Type Prefs')
 
     return list_of_users
 
@@ -1420,7 +1319,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
         users_list_outcome = users_list_incoming
 
         # FIXME -------- INFORG 2x -------------
-        # 1. INFORG 2X notifications. crop the list of users, excluding Users who recieves all types of notifications
+        # 1. INFORG 2X notifications. crop the list of users, excluding Users who receives all types of notifications
         # (otherwise it will be doubling for them)
         try:
             temp_user_list = []
@@ -1541,130 +1440,134 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
     try:
 
         # skip ignored lines which don't require a notification
-        if new_record.ignore != 'y':
+        if new_record.ignore == 'y':
+            new_record.processed = 'yes'
+            logging.info('Iterations over all Users and Updates are done (record Ignored)')
+            return new_record
 
-            s_lat = new_record.search_latitude
-            s_lon = new_record.search_longitude
-            topic_id = new_record.forum_search_num
-            change_type = new_record.change_type
-            change_log_id = new_record.change_id
+        s_lat = new_record.search_latitude
+        s_lon = new_record.search_longitude
+        topic_id = new_record.forum_search_num
+        change_type = new_record.change_type
+        change_log_id = new_record.change_id
+        topic_type_id = new_record.topic_type_id
 
-            users_who_should_not_be_informed, this_record_was_processed_already, mailing_id = \
-                process_mailing_id(change_log_id)
+        users_who_should_not_be_informed, this_record_was_processed_already, mailing_id = \
+            process_mailing_id(change_log_id)
 
-            list_of_users = crop_user_list(list_of_users, users_who_should_not_be_informed, new_record)
+        list_of_users = crop_user_list(list_of_users, users_who_should_not_be_informed, new_record)
 
-            message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'initiate notifs send out'}
-            publish_to_pubsub('topic_to_send_notifications', message_for_pubsub)
+        message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'initiate notifs send out'}
+        publish_to_pubsub('topic_to_send_notifications', message_for_pubsub)
 
-            for user in list_of_users:
-                u_lat = user.user_latitude
-                u_lon = user.user_longitude
-                region_to_show = new_record.region if user.user_in_multi_folders else None
-                message = ''
-                number_of_situations_checked += 1
+        for user in list_of_users:
+            u_lat = user.user_latitude
+            u_lon = user.user_longitude
+            region_to_show = new_record.region if user.user_in_multi_folders else None
+            message = ''
+            number_of_situations_checked += 1
 
-                # start composing individual messages (specific user on specific situation)
-                if change_type == 0:  # new_search
-                    num_of_msgs_sent_already = user.user_new_search_notifs
+            # start composing individual messages (specific user on specific situation)
+            if change_type == 0:  # new topic: new search, new event
+                num_of_msgs_sent_already = user.user_new_search_notifs
+
+                if topic_type_id in {0, 1, 2, 3, 4, 5}:  # if it's a new search
                     message = compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_lon,
                                                                        region_to_show, num_of_msgs_sent_already)
-                elif change_type == 1:  # status_change
-                    message = new_record.message[0]
-                    if user.user_in_multi_folders and new_record.message[1]:
-                        message += new_record.message[1]
+                else:  # new event
+                    message = new_record.message.clickable_name
 
-                elif change_type == 2:  # 'title_change':
-                    message = new_record.message
+            elif change_type == 1 and topic_type_id in {0, 1, 2, 3, 4, 5}:  # search status change
+                message = new_record.message[0]
+                if user.user_in_multi_folders and new_record.message[1]:
+                    message += new_record.message[1]
 
-                elif change_type == 3:  # 'replies_num_change':
-                    message = new_record.message[0]
+            elif change_type == 2:  # 'title_change':
+                message = new_record.message
 
-                elif change_type == 4:  # 'inforg_replies':
-                    message = new_record.message[0]
-                    if user.user_in_multi_folders and new_record.message[1]:
-                        message += new_record.message[1]
-                    if new_record.message[2]:
-                        message += new_record.message[2]
+            elif change_type == 3:  # 'replies_num_change':
+                message = new_record.message[0]
 
-                elif change_type == 8:  # first_post_change
-                    message = compose_individual_message_on_first_post_change(new_record, region_to_show)
+            elif change_type == 4:  # 'inforg_replies':
+                message = new_record.message[0]
+                if user.user_in_multi_folders and new_record.message[1]:
+                    message += new_record.message[1]
+                if new_record.message[2]:
+                    message += new_record.message[2]
 
-                # TODO: to delete msg_group at all ?
-                # messages followed by coordinates (sendMessage + sendLocation) have same group
-                msg_group_id = get_the_new_group_id() if change_type in {0, 8} else None
-                # not None for new_search, field_trips_new, field_trips_change,  coord_change
+            elif change_type == 8:  # first_post_change
+                message = compose_individual_message_on_first_post_change(new_record, region_to_show)
 
-                # define if user received this message already
-                this_user_was_notified = False
+            # TODO: to delete msg_group at all ?
+            # messages followed by coordinates (sendMessage + sendLocation) have same group
+            msg_group_id = get_the_new_group_id() if change_type in {0, 8} else None
+            # not None for new_search, field_trips_new, field_trips_change,  coord_change
 
-                if this_record_was_processed_already:
-                    this_user_was_notified = get_from_sql_if_was_notified_already(user.user_id, 'text',
-                                                                                  new_record.change_id)
+            # define if user received this message already
+            this_user_was_notified = False
 
-                    logging.info(f'this user was notified already {user.user_id}, {this_user_was_notified}')
-                    if user.user_id in users_who_should_not_be_informed:
-                        logging.info('this user is in the list of non-notifiers')
-                    else:
-                        logging.info('this user is NOT in the list of non-notifiers')
+            if this_record_was_processed_already:
+                this_user_was_notified = get_from_sql_if_was_notified_already(user.user_id, 'text',
+                                                                              new_record.change_id)
 
-                if message and not this_user_was_notified:
+                logging.info(f'this user was notified already {user.user_id}, {this_user_was_notified}')
+                if user.user_id in users_who_should_not_be_informed:
+                    logging.info('this user is in the list of non-notifiers')
+                else:
+                    logging.info('this user is NOT in the list of non-notifiers')
 
-                    # TODO: make text more compact within 50 symbols
-                    message_without_html = re.sub(cleaner, '', message)
+            if message and not this_user_was_notified:
 
-                    message_params = {'parse_mode': 'HTML',
-                                      'disable_web_page_preview': 'True'}
+                # TODO: make text more compact within 50 symbols
+                message_without_html = re.sub(cleaner, '', message)
 
-                    # TODO: Debug only - to delete
-                    print(f'what we are saving to SQL: {mailing_id}, {user.user_id}, {message_without_html}, '
-                          f'{message_params}, {msg_group_id}, {change_log_id}')
-                    # TODO: Debug only - to delete
+                message_params = {'parse_mode': 'HTML',
+                                  'disable_web_page_preview': 'True'}
 
-                    # record into SQL table notif_by_user
-                    save_to_sql_notif_by_user(mailing_id, user.user_id, message, message_without_html,
-                                              'text', message_params, msg_group_id, change_log_id)
+                # TODO: Debug only - to delete
+                print(f'what we are saving to SQL: {mailing_id}, {user.user_id}, {message_without_html}, '
+                      f'{message_params}, {msg_group_id}, {change_log_id}')
+                # TODO: Debug only - to delete
 
-                    # for user tips in "new search" notifs – to increase sent messages counter
-                    if change_type == 0:  # 'new_search':
-                        stat_list_of_recipients.append(user.user_id)
+                # record into SQL table notif_by_user
+                save_to_sql_notif_by_user(mailing_id, user.user_id, message, message_without_html,
+                                          'text', message_params, msg_group_id, change_log_id)
 
-                    # save to SQL the sendLocation notification for "new search" & "field trips"
-                    if change_type in {0} and s_lat and s_lon:
-                        # 'new_search',
-                        message_params = {'latitude': s_lat, 'longitude': s_lon}
+                # for user tips in "new search" notifs – to increase sent messages counter
+                if change_type == 0 and topic_type_id in {0, 1, 2, 3, 4, 5}:  # 'new_search':
+                    stat_list_of_recipients.append(user.user_id)
 
-                        # record into SQL table notif_by_user (not text, but coords only)
-                        save_to_sql_notif_by_user(mailing_id, user.user_id, None, None, 'coords', message_params,
-                                                  msg_group_id, change_log_id)
-                    if change_type == 8:
+                # save to SQL the sendLocation notification for "new search"
+                if change_type in {0} and topic_type_id in {0, 1, 2, 3, 4, 5} and s_lat and s_lon:
+                    # 'new_search',
+                    message_params = {'latitude': s_lat, 'longitude': s_lon}
 
-                        try:
-                            list_of_coords = re.findall(r'<code>', message)
-                            if list_of_coords and len(list_of_coords) == 1:
-                                # that would mean that there's only 1 set of new coordinates and hence we can
-                                # send the dedicated sendLocation message
-                                both_coordinates = re.search(r'(?<=<code>).{5,100}(?=</code>)', message).group()
-                                if both_coordinates:
-                                    new_lat = re.search(r'^[\d.]{2,12}(?=\D)', both_coordinates).group()
-                                    new_lon = re.search(r'(?<=\D)[\d.]{2,12}$', both_coordinates).group()
-                                    message_params = {'latitude': new_lat, 'longitude': new_lon}
-                                    save_to_sql_notif_by_user(mailing_id, user.user_id, None, None, 'coords',
-                                                              message_params,
-                                                              msg_group_id, change_log_id)
-                        except Exception as ee:
-                            logging.info('exception happened')
-                            logging.exception(ee)
+                    # record into SQL table notif_by_user (not text, but coords only)
+                    save_to_sql_notif_by_user(mailing_id, user.user_id, None, None, 'coords', message_params,
+                                              msg_group_id, change_log_id)
+                if change_type == 8:
 
-                    number_of_messages_sent += 1
+                    try:
+                        list_of_coords = re.findall(r'<code>', message)
+                        if list_of_coords and len(list_of_coords) == 1:
+                            # that would mean that there's only 1 set of new coordinates and hence we can
+                            # send the dedicated sendLocation message
+                            both_coordinates = re.search(r'(?<=<code>).{5,100}(?=</code>)', message).group()
+                            if both_coordinates:
+                                new_lat = re.search(r'^[\d.]{2,12}(?=\D)', both_coordinates).group()
+                                new_lon = re.search(r'(?<=\D)[\d.]{2,12}$', both_coordinates).group()
+                                message_params = {'latitude': new_lat, 'longitude': new_lon}
+                                save_to_sql_notif_by_user(mailing_id, user.user_id, None, None, 'coords',
+                                                          message_params,
+                                                          msg_group_id, change_log_id)
+                    except Exception as ee:
+                        logging.info('exception happened')
+                        logging.exception(ee)
 
-            # mark this line as all-processed
-            new_record.processed = 'yes'
+                number_of_messages_sent += 1
 
-        # mark all ignored lines as processed
-        else:
-            new_record.processed = 'yes'
-
+        # mark this line as all-processed
+        new_record.processed = 'yes'
         logging.info('Iterations over all Users and Updates are done')
 
     except Exception as e1:
@@ -2051,11 +1954,8 @@ def main(event, context):  # noqa
             # compose Users List: all the notifications recipients' details
             admins_list, testers_list = get_list_of_admins_and_testers(conn)  # for debug purposes
             list_of_users = compose_users_list_from_users(conn, new_record)
-            # list_of_users = enrich_users_list_with_notification_preferences(conn, list_of_users)
             list_of_users = enrich_users_list_with_age_periods(conn, list_of_users)
             list_of_users = enrich_users_list_with_radius(conn, list_of_users)
-            # list_of_users = enrich_users_list_with_user_regions(conn, list_of_users)
-            # list_of_users = enrich_users_list_with_topic_type_preferences(conn, list_of_users)
 
             analytics_match_finish = datetime.datetime.now()
             duration_match = round((analytics_match_finish - analytics_start_of_func).total_seconds(), 2)
