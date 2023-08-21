@@ -1475,7 +1475,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                     message = compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_lon,
                                                                        region_to_show, num_of_msgs_sent_already)
                 else:  # new event
-                    message = new_record.message.clickable_name
+                    message = new_record.message[0]
 
             elif change_type == 1 and topic_type_id in {0, 1, 2, 3, 4, 5}:  # search status change
                 message = new_record.message[0]
