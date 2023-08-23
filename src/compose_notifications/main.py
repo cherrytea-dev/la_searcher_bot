@@ -839,6 +839,8 @@ def compose_com_msg_on_first_post_change(message, clickable_name, old_lat, old_l
 
     if add_lat and add_lon and del_lat and del_lon and (add_lat != del_lat or add_lon != del_lon):
         distance, direction = define_dist_and_dir_to_search(del_lat, del_lon, add_lat, add_lon)
+    elif add_lat and add_lon and del_lat and del_lon and (add_lat == del_lat and add_lon == del_lon):
+        distance, direction = None, None
     elif add_lat and add_lon and old_lat and old_lon and (add_lat != old_lat or add_lon != old_lon):
         distance, direction = define_dist_and_dir_to_search(old_lat, old_lon, add_lat, add_lon)
     else:
