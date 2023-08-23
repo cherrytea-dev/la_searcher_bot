@@ -157,35 +157,37 @@ def save_status_for_topic(topic_id, status):
     change_log_id = None
     try:
         pool = sql_connect()
-        with pool.connect() as conn:
+        conn = pool.connect()
 
-            # MEMO: status can be:
-            # 'Ищем' – active search
-            # 'НЖ' – search finished, found alive
-            # 'НП' – search finished, found dead
-            # etc.
+        # check if this topic is already marked with the new status:
+        stmt = sqlalchemy.text("""SELECT id FROM searches WHERE search_forum_num=:a AND status=:b;""")
+        this_data_already_recorded = conn.execute(stmt, a=topic_id, b=status).fetchone()
 
-            # update status in change_log table
-            stmt = sqlalchemy.text(
-                """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters, 
-                change_type) values (:a, :b, :c, :d, :e, :f) RETURNING id;""")
-            raw_data = conn.execute(stmt,
-                                    a=datetime.datetime.now(),
-                                    b=topic_id, c='status_change', d=status, e='',
-                                    f=1).fetchone()
-
-            change_log_id = raw_data[0]
-            logging.info(f'{change_log_id=}')
-
-            # update status in searches table
-            stmt = sqlalchemy.text("""UPDATE searches SET status_short=:a, status=:b WHERE search_forum_num=:c;""")
-            conn.execute(stmt, a=status, b=status, c=topic_id)
-
-            logging.info(f'Status is set={status} for topic_id={topic_id}')
-
+        if this_data_already_recorded:
+            logging.info(f'The status {status} for search {topic_id} WAS ALREADY recorded, so It\'s being ignored.')
+            notify_admin(f'The status {status} for search {topic_id} WAS ALREADY recorded, so It\'s being ignored.')
             conn.close()
+            pool.dispose()
+            return None
+
+        # update status in change_log table
+        stmt = sqlalchemy.text(
+            """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters, 
+            change_type) values (:a, :b, :c, :d, :e, :f) RETURNING id;""")
+        raw_data = conn.execute(stmt, a=datetime.datetime.now(), b=topic_id, c='status_change', d=status, e='',
+                                f=1).fetchone()
+
+        change_log_id = raw_data[0]
+        logging.info(f'{change_log_id=}')
+
+        # update status in searches table
+        stmt = sqlalchemy.text("""UPDATE searches SET status_short=:a, status=:b WHERE search_forum_num=:c;""")
+        conn.execute(stmt, a=status, b=status, c=topic_id)
+
+        conn.close()
         pool.dispose()
 
+        logging.info(f'Status is set={status} for topic_id={topic_id}')
         logging.info(f'status {status} for topic {topic_id} has been saved in change_log and searches tables.')
 
     except Exception as e:
@@ -255,8 +257,9 @@ def main(event, context): # noqa
                 status = received_dict['status']
                 change_log_id = save_status_for_topic(topic_id, status)
                 save_function_into_register(context, analytics_func_start, function_id, change_log_id)
-                message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'let\'s compose notifications'}
-                publish_to_pubsub('topic_for_notification', message_for_pubsub)
+                if change_log_id:
+                    message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'let\'s compose notifications'}
+                    publish_to_pubsub('topic_for_notification', message_for_pubsub)
 
     except Exception as e:
         logging.error('Topic management script failed:' + repr(e))
