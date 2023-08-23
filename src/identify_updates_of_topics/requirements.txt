@@ -1,7 +1,7 @@
 requests==2.31.0
 urllib3==1.26.5  # http client
 idna==2.10  # translation of domain names
-certifi==2022.12.07  # SSL certificates
+certifi==2023.7.22  # SSL certificates
 
 beautifulsoup4==4.9.3  # BS4
 lxml==4.9.1  # for BS4
