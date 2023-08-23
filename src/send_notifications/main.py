@@ -302,6 +302,13 @@ def process_response(user_id, response):
             logging.info(f'Flood Control: message to {user_id} was not sent, {response.reason=}')
             logging.info(f'response: {response.text}')  # FIXME – a temp debug, to be deleted
             logging.exception('FLOOD CONTROL')
+            # fixme - try to get retry_after
+            try:
+                retry_after = response.parameters.retry_after
+                print(f'ho-ho, we did it! 429 worked! {retry_after}')
+            except:  # noqa
+                pass
+            # fixme ^^^
             time.sleep(5)  # to mitigate flood control
             return 'failed_flood_control'
 

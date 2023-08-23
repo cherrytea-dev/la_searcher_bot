@@ -258,10 +258,10 @@ def compose_msg_on_all_last_searches(cur, region):
     for line in database:
         search = SearchSummary()
         search.topic_id, search.start_time, search.display_name, search.new_status, \
-        search.status, search.name, search.age = list(line)
+            search.status, search.name, search.age = list(line)
 
         if not search.display_name:
-            age_string = f' {age_writer(search.age)}' if search.age != 0 else ''
+            age_string = f' {age_writer(search.age)}' if search.age and search.age != 0 else ''
             search.display_name = f'{search.name}{age_string}'
 
         if not search.new_status:
@@ -581,7 +581,7 @@ def get_user_role(cur, user_id):
 def save_preference(cur, user_id, preference):
     """Save user preference on types of notifications to be sent by bot"""
 
-    # the master-table is notif_mailing_types:
+    # the master-table is dict_notif_types:
 
     pref_dict = {'topic_new': 0,
                  'topic_status_change': 1,
