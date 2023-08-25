@@ -775,6 +775,9 @@ def compose_com_msg_on_title_change(line):
 def get_coords_from_list(input_list):
     """get the list of coords [lat, lon] for the input list of strings"""
 
+    if not input_list:
+        return None, None
+    
     coords_in_text = []
 
     for line in input_list:
