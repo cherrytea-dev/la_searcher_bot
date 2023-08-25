@@ -754,7 +754,14 @@ def process_first_page_comparison(conn, search_id, first_page_content_prev, firs
         logging.info(f'same for topic_id={search_id} with .fetchone: {what_is_saved_in_psql.fetchone()}')
         logging.exception(f'exception set just for alarming')
         return None, None
-    display_name, status, name, age, status_old = what_is_saved_in_psql.fetchone()
+    try:
+        display_name, status, name, age, status_old = what_is_saved_in_psql.fetchone()
+    except Exception as e:
+        notify_admin(f'this strange exception happened, check [ide_posts]')
+        logging.exception(e)
+        logging.info(f'{what_is_saved_in_psql=}')
+        logging.info(f'{what_is_saved_in_psql.fetchone()=}')
+        logging.info(f'{what_is_saved_in_psql.fetchone()==None}')
     # FIXME ^^^
 
     # updates are made only for non-finished searches
