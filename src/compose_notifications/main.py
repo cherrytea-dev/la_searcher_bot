@@ -94,8 +94,7 @@ class LineInChangeLog:
                  city_locations=None,
                  display_name=None,
                  age_min=None,
-                 age_max=None,
-                 clickable_name=None
+                 age_max=None
                  ):
         self.forum_search_num = forum_search_num
         self.topic_type_id = topic_type_id
@@ -129,7 +128,6 @@ class LineInChangeLog:
         self.display_name = display_name
         self.age_min = age_min
         self.age_max = age_max
-        self.clickable_name = clickable_name
 
     def __str__(self):
         return str([self.forum_search_num, self.change_type, self.changed_field, self.new_value, self.change_id,
@@ -137,8 +135,7 @@ class LineInChangeLog:
                     self.status, self.n_of_replies, self.title, self.age, self.age_wording, self.forum_folder,
                     self.search_latitude, self.search_longitude, self.activities, self.comments, self.comments_inforg,
                     self.message, self.processed, self.managers, self.start_time, self.ignore, self.region,
-                    self.coords_change_type, self.display_name, self.age_min, self.age_max, self.topic_type_id,
-                    self.clickable_name])
+                    self.coords_change_type, self.display_name, self.age_min, self.age_max, self.topic_type_id])
 
 
 class User:
@@ -641,14 +638,8 @@ def enrich_new_record_with_comments(conn, type_of_comments, r_line):
     return r_line
 
 
-def compose_com_msg_on_new_topic(line):
+def compose_com_msg_on_new_topic(start, activities, managers, clickable_name, topic_type_id):
     """compose the common, user-independent message on new topic (search, event)"""
-
-    start = line.start_time
-    activities = line.activities
-    managers = line.managers
-    clickable_name = line.clickable_name
-    topic_type_id = line.topic_type_id
 
     line_ignore = None
     now = datetime.datetime.now()
@@ -702,12 +693,8 @@ def compose_com_msg_on_new_topic(line):
     return [msg_2, msg_1, msg_3], message, line_ignore  # 1 - person, 2 - activities, 3 - managers
 
 
-def compose_com_msg_on_status_change(line):
+def compose_com_msg_on_status_change(status, region, clickable_name):
     """compose the common, user-independent message on search status change"""
-
-    status = line.status,
-    region = line.region,
-    clickable_name = line.clickable_name
 
     if status == 'Ищем':
         status_info = 'Поиск возобновлён'
@@ -723,24 +710,24 @@ def compose_com_msg_on_status_change(line):
     return msg_1, msg_2
 
 
-def compose_com_msg_on_new_comments(line):
+def compose_com_msg_on_new_comments(comments, clickable_name):
     """compose the common, user-independent message on ALL search comments change"""
 
     url_prefix = 'https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u='
 
     msg = ''
-    for comment in line.comments:
+    for comment in comments:
         if comment.text:
             comment_text = f'{comment.text[:500]}...' if len(comment.text) > 500 else comment.text
             msg += f' &#8226; <a href="{url_prefix}{comment.author_link}">{comment.author_nickname}</a>: ' \
                    f'<i>«<a href="{comment.url}">{comment_text}</a>»</i>\n'
 
-    msg = f'Новые комментарии по поиску {line.clickable_name}:\n{msg}' if msg else ''
+    msg = f'Новые комментарии по поиску {clickable_name}:\n{msg}' if msg else ''
 
     return msg, None
 
 
-def compose_com_msg_on_inforg_comments(line):
+def compose_com_msg_on_inforg_comments(comments, region, clickable_name):
     """compose the common, user-independent message on INFORG search comments change"""
 
     # region_to_show = f' ({region})' if region else ''
@@ -748,26 +735,26 @@ def compose_com_msg_on_inforg_comments(line):
 
     msg_1, msg_2 = None, None
     msg_3 = ''
-    if line.comments_inforg:
+    if comments:
         author = None
-        for comment in line.comments_inforg:
+        for comment in comments:
             if comment.text:
                 author = f'<a href="{url_prefix}{comment.author_link}">{comment.author_nickname}</a>'
                 msg_3 += f'<i>«<a href="{comment.url}">{comment.text}</a>»</i>\n'
 
         msg_3 = f':\n{msg_3}'
 
-        msg_1 = f'Сообщение от {author} по {line.clickable_name}'
-        if line.region:
-            msg_2 = f' ({line.region})'
+        msg_1 = f'Сообщение от {author} по {clickable_name}'
+        if region:
+            msg_2 = f' ({region})'
 
     return msg_1, msg_2, msg_3
 
 
-def compose_com_msg_on_title_change(line):
+def compose_com_msg_on_title_change(title, clickable_name):
     """compose the common, user-independent message on search title change"""
 
-    msg = f'{line.title} – обновление заголовка поиска по {line.clickable_name}'
+    msg = f'{title} – обновление заголовка поиска по {clickable_name}'
 
     return msg
 
@@ -775,9 +762,6 @@ def compose_com_msg_on_title_change(line):
 def get_coords_from_list(input_list):
     """get the list of coords [lat, lon] for the input list of strings"""
 
-    if not input_list:
-        return None, None
-    
     coords_in_text = []
 
     for line in input_list:
@@ -814,14 +798,8 @@ def get_coords_from_list(input_list):
         return None, None
 
 
-def compose_com_msg_on_first_post_change(line):
+def compose_com_msg_on_first_post_change(message, clickable_name, old_lat, old_lon):
     """compose the common, user-independent message on search first post change"""
-
-    message = line.new_value,
-    clickable_name = line.clickable_name,
-    old_lat = line.search_latitude,
-    old_lon = line.search_longitude,
-    type_id = line.topic_type_id
 
     region = '{region}'  # to be filled in on a stage of Individual Message preparation
     list_of_additions = None
@@ -874,14 +852,10 @@ def compose_com_msg_on_first_post_change(line):
         else:
             coord_change_phrase = f'\n\nКоординаты сместились на ~{int(distance * 1000)} метров {direction}'
 
-    if not message:
-        return ''
-
-    if type_id in {0, 1, 2, 3, 4, 5}:
-        resulting_message = f'🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}' \
-                            f'{coord_change_phrase}'
-    elif type_id == 10:
-        resulting_message = f'📝Изменения в описании мероприятия {clickable_name}{region}:\n\n{message}'
+    if message:
+        resulting_message = f'🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}{coord_change_phrase}'
+    else:
+        resulting_message = ''
 
     return resulting_message
 
@@ -909,25 +883,6 @@ def add_tel_link(incoming_text, modifier='all'):
     return outcome_text
 
 
-def enrich_new_record_with_clickable_name(line):
-    """add clickable name to the record"""
-
-    if line.topic_type_id in {0, 1, 2, 3, 4, 5}:  # if it's search
-        if line.display_name:
-            line.clickable_name = f'<a href="{line.link}">{line.display_name}</a>'
-        else:
-            if line.name:
-                name = line.name
-            else:
-                name = 'БВП'
-            age_info = f' {line.age_wording}' if (name[0].isupper() and line.age and line.age != 0) else ''
-            line.clickable_name = f'<a href="{line.link}">{name}{age_info}</a>'
-    else:  # if it's event or something else
-        line.clickable_name = f'<a href="{line.link}">{line.title}</a>'
-
-    return line
-
-
 def enrich_new_record_with_com_message_texts(line):
     """add user-independent message text to the New Records"""
 
@@ -936,18 +891,37 @@ def enrich_new_record_with_com_message_texts(line):
     try:
         last_line = line
 
+        if line.topic_type_id in {0, 1, 2, 3, 4, 5}:  # if it's search
+            if line.display_name:
+                clickable_name = f'<a href="{line.link}">{line.display_name}</a>'
+            else:
+                if line.name:
+                    name = line.name
+                else:
+                    name = 'БВП'
+                age_info = f' {line.age_wording}' if (name[0].isupper() and line.age and line.age != 0) else ''
+                clickable_name = f'<a href="{line.link}">{name}{age_info}</a>'
+        else:  # if it's event or something else
+            clickable_name = f'<a href="{line.link}">{line.title}</a>'
+
         if line.change_type == 0:  # new topic: new search, new event
-            line.message, line.message_object, line.ignore = compose_com_msg_on_new_topic(line)
+            line.message, line.message_object, line.ignore = compose_com_msg_on_new_topic(line.start_time,
+                                                                                          line.activities,
+                                                                                          line.managers,
+                                                                                          clickable_name,
+                                                                                          line.topic_type_id)
+
         elif line.change_type == 1 and line.topic_type_id in {0, 1, 2, 3, 4, 5}:  # status change for search:
-            line.message = compose_com_msg_on_status_change(line)
+            line.message = compose_com_msg_on_status_change(line.status, line.region, clickable_name)
         elif line.change_type == 2:  # 'title_change':
-            line.message = compose_com_msg_on_title_change(line)
+            line.message = compose_com_msg_on_title_change(line.title, clickable_name)
         elif line.change_type == 3:  # 'replies_num_change':
-            line.message = compose_com_msg_on_new_comments(line)
+            line.message = compose_com_msg_on_new_comments(line.comments, clickable_name)
         elif line.change_type == 4:  # 'inforg_replies':
-            line.message = compose_com_msg_on_inforg_comments(line)
+            line.message = compose_com_msg_on_inforg_comments(line.comments_inforg, line.region, clickable_name)
         elif line.change_type == 8:  # first_post_change
-            line.message = compose_com_msg_on_first_post_change(line)
+            line.message = compose_com_msg_on_first_post_change(line.new_value, clickable_name,
+                                                                line.search_latitude, line.search_longitude)
 
         logging.info('New Record enriched with common Message Text')
 
@@ -1624,18 +1598,8 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
 
     region_wording = f' в регионе {region_to_show}' if region_to_show else ''
 
-    topic_type_id = new_record.topic_type_id
-    topic_type_dict = {0: '',  # search regular
-                       1: '🏠',  # search reverse
-                       2: '🚓',  # search patrol
-                       3: '🎓',  # search training
-                       4: 'ℹ️',  # search info support
-                       5: '🚨'  # search resonance
-                       }
-    topic_emoji = topic_type_dict[topic_type_id]
-
     # 0. Heading and Region clause if user is 'multi-regional'
-    message = f'{topic_emoji}Новый поиск{region_wording}!\n'
+    message = f'Новый поиск{region_wording}!\n'
 
     # 1. Search important attributes - common part (e.g. 'Внимание, выезд!)
     if new_record.message[1]:
@@ -1987,7 +1951,6 @@ def main(event, context):  # noqa
             new_record = enrich_new_records_with_managers(conn, new_record)
             new_record = enrich_new_record_with_comments(conn, 'all', new_record)
             new_record = enrich_new_record_with_comments(conn, 'inforg', new_record)
-            new_record = enrich_new_record_with_clickable_name(new_record)
             new_record = enrich_new_record_with_com_message_texts(new_record)
 
             # compose Users List: all the notifications recipients' details
