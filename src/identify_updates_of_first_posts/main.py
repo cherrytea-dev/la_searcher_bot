@@ -748,7 +748,7 @@ def process_first_page_comparison(conn, search_id, first_page_content_prev, firs
 
     # FIXME - incorporate new status and display name
     what_is_saved_in_psql = conn.execute(sql_text, a=search_id)
-    if not what_is_saved_in_psql:
+    if not what_is_saved_in_psql or not what_is_saved_in_psql.fetchone():
         logging.info(f'field trips comparison failed on stage of downloading the search from psql')
         logging.info(f'what was saved in psql for topic_id={search_id}: {what_is_saved_in_psql}')
         logging.info(f'same for topic_id={search_id} with .fetchone: {what_is_saved_in_psql.fetchone()}')
@@ -762,11 +762,12 @@ def process_first_page_comparison(conn, search_id, first_page_content_prev, firs
         logging.info(f'{what_is_saved_in_psql=}')
         logging.info(f'{what_is_saved_in_psql.fetchone()=}')
         logging.info(f'{what_is_saved_in_psql.fetchone()==None}')
+        return None, None
     # FIXME ^^^
 
     # updates are made only for non-finished searches
     # FIXME - to be changed to status from status_old
-    if status_old != 'Ищем':
+    if status != 'Ищем':
         return None, None
 
     prev_clean_content = clean_up_content(first_page_content_prev)
