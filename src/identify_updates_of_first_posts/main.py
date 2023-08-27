@@ -748,20 +748,23 @@ def process_first_page_comparison(conn, search_id, first_page_content_prev, firs
 
     # FIXME - incorporate new status and display name
     what_is_saved_in_psql = conn.execute(sql_text, a=search_id)
-    if not what_is_saved_in_psql or not what_is_saved_in_psql.fetchone():
+    got_info = what_is_saved_in_psql.fetchone()
+    logging.info(f'WE PRINT 1: {got_info}')
+
+    if not got_info:
         logging.info(f'field trips comparison failed on stage of downloading the search from psql')
-        logging.info(f'what was saved in psql for topic_id={search_id}: {what_is_saved_in_psql}')
-        logging.info(f'same for topic_id={search_id} with .fetchone: {what_is_saved_in_psql.fetchone()}')
+        # logging.info(f'what was saved in psql for topic_id={search_id}: {what_is_saved_in_psql}')
+        logging.info(f'same for topic_id={search_id} with .fetchone: {got_info}')
         logging.exception(f'exception set just for alarming')
         return None, None
     try:
-        display_name, status, name, age, status_old = what_is_saved_in_psql.fetchone()
+        display_name, status, name, age, status_old = list(got_info)
     except Exception as e:
         notify_admin(f'this strange exception happened, check [ide_posts]')
         logging.exception(e)
-        logging.info(f'{what_is_saved_in_psql=}')
-        logging.info(f'{what_is_saved_in_psql.fetchone()=}')
-        logging.info(f'{what_is_saved_in_psql.fetchone()==None}')
+        logging.info(f'{got_info}')
+        logging.info(f'{list(got_info)}')
+        # logging.info(f'{what_is_saved_in_psql.fetchone()==None}')
         return None, None
     # FIXME ^^^
 

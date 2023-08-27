@@ -2621,22 +2621,11 @@ def parse_one_folder(db, folder_id):
 
             # FIXME - to be removed after final feature parity
             person_fam_name = define_family_name_from_search_title_new(search_title)  # needed till "family_name"
-            # field is in use in searched table
-            search_status_short = define_status_from_search_title(search_title)  # TODO – needed only for logs
             # FIXME ^^^
 
             try:
                 title_reco_dict = recognize_title(search_title)
                 logging.info(f'TEMP – title_reco_dict = {title_reco_dict}')
-
-                # FIXME - check if old exclusions are not better than new ones
-                if ('topic_type' not in title_reco_dict.keys() or 'topic_type' in title_reco_dict.keys()
-                        and title_reco_dict['topic_type'] not in {'search', 'search training'}):
-                    logging.info(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
-                                 f"NEW = {title_reco_dict}")
-                    notify_admin(f"TEMP - MISMATCH OF non-active searches: OLD = {search_status_short}, "
-                                 f"NEW = {title_reco_dict}")
-                # FIXME ^^^
 
                 # NEW exclude non-relevant searches
                 if title_reco_dict['topic_type'] in {'search', 'search training',
