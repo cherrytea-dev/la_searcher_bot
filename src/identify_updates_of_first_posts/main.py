@@ -747,8 +747,9 @@ def process_first_page_comparison(conn, search_id, first_page_content_prev, firs
                                       FROM searches WHERE search_forum_num=:a;""")
 
     # FIXME - incorporate new status and display name
-    what_is_saved_in_psql = conn.execute(sql_text, a=search_id)
-    got_info = what_is_saved_in_psql.fetchone()
+    what_is_saved_in_psql = conn.execute(sql_text, a=search_id).fetchone()
+    print(f'{type(search_id)}')
+    got_info = what_is_saved_in_psql
     logging.info(f'WE PRINT 1: {got_info}')
 
     if not got_info:
@@ -1172,6 +1173,20 @@ def main(event, context):  # noqa
                 list_of_folders_with_upd_searches = []
 
                 for search_id in list_of_updated_searches:
+
+                    # FIXME
+                    # FIXME
+                    # FIXME
+                    # check the latest status on this search
+                    sql_text = sqlalchemy.text("""SELECT display_name, status, family_name, age, status_short 
+                                                      FROM searches WHERE search_forum_num=:a;""")
+
+                    got_info = conn.execute(sql_text, a=search_id).fetchone()
+                    print(f'{type(search_id)}')
+                    logging.info(f'WE PRINT 0: {got_info}')
+                    # FIXME
+                    # FIXME
+                    # FIXME
 
                     # get the Current First Page Content
                     sql_text = sqlalchemy.text("""
