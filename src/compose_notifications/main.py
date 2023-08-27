@@ -654,7 +654,7 @@ def compose_com_msg_on_new_topic(line):
     now = datetime.datetime.now()
     days_since_topic_start = (now - start).days
 
-    # FIXME – temp limitation for olny topics - cuz we don't want to filter event.
+    # FIXME – temp limitation for only topics - cuz we don't want to filter event.
     #  Once events messaging will go smooth, this limitation to be removed
     if topic_type_id in {0, 1, 2, 3, 4, 5}:
         # FIXME ^^^
@@ -705,8 +705,8 @@ def compose_com_msg_on_new_topic(line):
 def compose_com_msg_on_status_change(line):
     """compose the common, user-independent message on search status change"""
 
-    status = line.status,
-    region = line.region,
+    status = line.status
+    region = line.region
     clickable_name = line.clickable_name
 
     if status == 'Ищем':
@@ -727,6 +727,7 @@ def compose_com_msg_on_new_comments(line):
     """compose the common, user-independent message on ALL search comments change"""
 
     url_prefix = 'https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u='
+    activity = 'мероприятию' if line.topic_type_id == 10 else 'поиску'
 
     msg = ''
     for comment in line.comments:
@@ -735,7 +736,7 @@ def compose_com_msg_on_new_comments(line):
             msg += f' &#8226; <a href="{url_prefix}{comment.author_link}">{comment.author_nickname}</a>: ' \
                    f'<i>«<a href="{comment.url}">{comment_text}</a>»</i>\n'
 
-    msg = f'Новые комментарии по поиску {line.clickable_name}:\n{msg}' if msg else ''
+    msg = f'Новые комментарии по {activity} {line.clickable_name}:\n{msg}' if msg else ''
 
     return msg, None
 
@@ -767,7 +768,8 @@ def compose_com_msg_on_inforg_comments(line):
 def compose_com_msg_on_title_change(line):
     """compose the common, user-independent message on search title change"""
 
-    msg = f'{line.title} – обновление заголовка поиска по {line.clickable_name}'
+    activity = 'мероприятия' if line.topic_type_id == 10 else 'поиска'
+    msg = f'{line.title} – обновление заголовка {activity} по {line.clickable_name}'
 
     return msg
 
@@ -882,6 +884,8 @@ def compose_com_msg_on_first_post_change(line):
                             f'{coord_change_phrase}'
     elif type_id == 10:
         resulting_message = f'📝Изменения в описании мероприятия {clickable_name}{region}:\n\n{message}'
+    else:
+        resulting_message = ''
 
     return resulting_message
 
