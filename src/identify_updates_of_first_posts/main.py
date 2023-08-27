@@ -189,254 +189,6 @@ def get_the_list_of_coords_out_of_text(initial_text):
     return resulting_list
 
 
-def get_resulting_message_on_coordinates_change(prev_coords, curr_coords):
-    """compare two versions of coordinates for same search and generate the outgoing message"""
-
-    message = ''
-    filtered_list = []
-
-    if prev_coords and curr_coords:
-
-        # combine the fill list of coords
-        full_list = []
-        for line in prev_coords:
-            full_list.append([line[0], line[1], 0, 0])
-        for line in curr_coords:
-            full_list.append([line[0], line[1], 0, 0])
-
-        # remove duplicates
-        resulting_list = []
-        if full_list:
-            for line in full_list:
-                if line not in resulting_list:
-                    resulting_list.append(line)
-
-        # fill in the new list
-        # structure: lat, lon, prev_desc, curr_desc
-        if resulting_list:
-            for line in resulting_list:
-                if prev_coords:
-                    for line_2 in prev_coords:
-                        if line[0] == line_2[0] and line[1] == line_2[1]:
-                            line[2] = int(line_2[2][0])
-                if curr_coords:
-                    for line_2 in curr_coords:
-                        if line[0] == line_2[0] and line[1] == line_2[1]:
-                            line[3] = int(line_2[2][0])
-
-        # filter the list from unchanged records
-        if resulting_list:
-            for line in resulting_list:
-                if line[2] != line[3]:
-                    filtered_list.append(line)
-
-        # generate message
-        if filtered_list:
-            for line in filtered_list:
-                if line[2] in {1, 2} and line[3] in {0, 3, 4}:
-                    message += f' * координаты {line[0]}, {line[1]} более не актуальны!\n'
-                elif line[2] == 0 and line[3] in {1, 2}:
-                    message += f' * новые координаты поиска! {line[0]}, {line[1]}\n'
-                elif line[2] in {3, 4} and line[3] in {1, 2}:
-                    message += f' * координаты {line[0]}, {line[1]} вновь актуальны!\n'
-
-    # structure of filtered_list: lat, lon, prev_desc, curr_desc
-    return filtered_list, message
-
-
-def process_coords_comparison(conn, search_id, first_page_content_curr, first_page_content_prev):
-    """compare first post content to identify diff in coords"""
-
-    # get the lists of coordinates & context: curr vs prev
-    # format [[lat_1, lon_1, type_1], ... ,[lat_N, lon_N, type_N]]
-    coords_curr = get_the_list_of_coords_out_of_text(first_page_content_curr)
-    coords_prev = get_the_list_of_coords_out_of_text(first_page_content_prev)
-
-    # TODO: DEBUG temp
-    logging.info(f'curr coords: {coords_curr}')
-    logging.info(f'prev coords: {coords_prev}')
-    # TODO: DEBUG temp
-
-    # save the curr coords snapshot
-    sql_text = sqlalchemy.text("""
-                    UPDATE search_first_posts SET coords=:a WHERE search_id=:b AND actual = True;
-                    """)
-    conn.execute(sql_text, a=str(coords_curr), b=search_id)
-
-    # TODO: temp debug
-    if coords_prev and coords_curr and coords_prev != coords_curr:
-        publish_to_pubsub('topic_notify_admin', f'[ide_post]: prev coords {search_id}: {coords_prev}')
-        publish_to_pubsub('topic_notify_admin', f'[ide_post]: curr coords {search_id}: {coords_curr}')
-    logging.info(f'[ide_post]: prev coords {search_id}: {coords_prev}')
-    logging.info(f'[ide_post]: curr coords {search_id}: {coords_curr}')
-    # TODO: temp debug
-
-    # get a list of changed coordinates
-    # TODO: + temp DEBUG message for admin
-    # structure of coords_change_list: lat, lon, prev_desc, curr_desc
-    coords_change_list, msg = get_resulting_message_on_coordinates_change(coords_prev, coords_curr)
-    if msg:
-        msg = f'[ide_post]: coords change {search_id}: \n{msg}'
-        publish_to_pubsub('topic_notify_admin', msg)
-
-    # structure of coords_change_list: lat, lon, prev_desc, curr_desc
-    return coords_change_list
-
-
-def process_field_trips_comparison(conn, search_id, first_page_content_prev, first_page_content_curr):
-    """compare first post content to identify diff in field trips"""
-
-    class Content:
-
-        def __init__(self,
-                     init=None,
-                     deleted=None,
-                     nondeleted=None
-                     ):
-            self.init = init
-            self.deleted = deleted
-            self.nondel = nondeleted
-
-    class Summary:
-
-        def __init__(self,
-                     case=None,
-                     curr_content_original=Content(),
-                     prev_content_original=Content()
-                     ):
-            self.case = case
-            self.curr = curr_content_original
-            self.prev = prev_content_original
-
-    # check the latest status on this search
-    sql_text = sqlalchemy.text("""SELECT display_name, status, family_name, age, status_short 
-                                  FROM searches WHERE search_forum_num=:a;""")
-    # FIXME - incorporate new status and display name
-    what_is_saved_in_psql = conn.execute(sql_text, a=search_id)
-    if not what_is_saved_in_psql:
-        logging.info(f'field trips comparison failed on stage of downloading the search from psql')
-        logging.info(f'what was saved in psql for topic_id={search_id}: {what_is_saved_in_psql}')
-        logging.info(f'same for topic_id={search_id} with .fetchone: {what_is_saved_in_psql.fetchone()}')
-        logging.exception(f'exception set just for alarming')
-        return {'case': None}, None
-
-    display_name, status, name, age, status_old = what_is_saved_in_psql.fetchone()
-    # FIXME ^^^
-
-    # TODO: this block is only for DEBUG - to be deleted
-    link = f'https://lizaalert.org/forum/viewtopic.php?t={search_id}'
-    age_wording = age_writer(age) if age else None
-    age_info = f' {age_wording}' if (name[0].isupper() and age and age != 0) else ''
-    msg_2 = f'{name}{age_info}, {search_id}, {link}'
-    # publish_to_pubsub('topic_notify_admin', f'[ide_post]: testing: {msg_2}')
-    # TODO: this block is only for DEBUG - to be deleted
-
-    obj = Summary()
-    obj.curr.init = first_page_content_curr
-    obj.prev.init = first_page_content_prev
-
-    field_trips_dict = {'case': None}
-
-    # updated are made only for non-finished searches
-    # FIXME - to be changed to status from status_old
-    if status_old != 'Ищем':
-        return field_trips_dict, obj
-
-    # split the texts of the first posts into deleted and regular blocks
-    text_prev_del, text_prev_reg = split_text_to_deleted_and_regular_parts(first_page_content_prev)
-    text_curr_del, text_curr_reg = split_text_to_deleted_and_regular_parts(first_page_content_curr)
-
-    obj.prev.deleted, obj.prev.nondel = split_text_to_deleted_and_regular_parts(obj.prev.init)
-    obj.curr.deleted, obj.curr.nondel = split_text_to_deleted_and_regular_parts(obj.curr.init)
-
-    # get field_trip-related context from texts
-    # format:
-    # context_prev_del = check_changes_of_field_trip(text_prev_del)
-    context_prev_reg = get_field_trip_details_from_text(text_prev_reg)
-    context_curr_del = get_field_trip_details_from_text(text_curr_del)
-    context_curr_reg = get_field_trip_details_from_text(text_curr_reg)
-
-    field_trips_dict = {'case': None}
-
-    if 'urgent' in context_curr_reg:
-        field_trips_dict['urgent'] = context_curr_reg['urgent']
-    if 'planned' in context_curr_reg:
-        field_trips_dict['planned'] = context_curr_reg['planned']
-    if 'secondary' in context_curr_reg:
-        field_trips_dict['secondary'] = context_curr_reg['secondary']
-
-    if 'date_and_time' in context_curr_reg:
-        field_trips_dict['date_and_time_curr'] = context_curr_reg['date_and_time']
-    if 'address' in context_curr_reg:
-        field_trips_dict['address_curr'] = context_curr_reg['address']
-    if 'coords' in context_curr_reg:
-        field_trips_dict['coords_curr'] = context_curr_reg['coords']
-
-    # TODO: temp debug
-    print(f"context_prev_reg={context_prev_reg}")
-    print(f"context_curr_del={context_curr_del}")
-    print(f"context_curr_reg={context_curr_reg}")
-    # TODO: temp debug
-
-    # define the CASE (None / add / drop / change)
-    # CASE 1 "add"
-    if context_curr_reg['vyezd'] and not context_prev_reg['vyezd']:
-        field_trips_dict['case'] = 'add'
-
-    # CASE 2 "drop"
-    if not context_curr_reg['vyezd'] and context_prev_reg['vyezd']:
-        field_trips_dict['case'] = 'drop'
-
-    # CASE 3 "change"
-    # CASE 3.1 "was nothing in prev and here's already cancelled one and regular one in curr"
-    if context_curr_reg['vyezd'] and not context_prev_reg['vyezd'] and context_curr_del['vyezd']:
-
-        field_trips_dict['case'] = 'change'
-
-        time_and_date_curr = context_curr_reg['date_and_time'] if 'time_and_date' in context_curr_reg else ''
-        time_and_date_prev = context_curr_del['date_and_time'] if 'time_and_date' in context_curr_del else ''
-        if time_and_date_curr != time_and_date_prev and 'time_and_date' in context_curr_del:
-            field_trips_dict['date_and_time_prev'] = context_curr_del['date_and_time']
-
-        address_curr = context_curr_reg['address'] if 'address' in context_curr_reg else ''
-        address_prev = context_curr_del['address'] if 'address' in context_curr_del else ''
-        if address_curr != address_prev and 'address' in context_curr_del:
-            field_trips_dict['address_prev'] = context_curr_del['address']
-
-        coords_curr = context_curr_reg['coords'] if 'coords' in context_curr_reg else ''
-        coords_prev = context_curr_del['coords'] if 'coords' in context_curr_del else ''
-        if coords_curr != coords_prev and 'coords' in context_curr_del:
-            field_trips_dict['coords_prev'] = context_curr_del['coords']
-
-    # CASE 3.2 "there was something which differs in prev and curr"
-    if context_curr_reg['vyezd'] and context_prev_reg['vyezd'] and (context_curr_reg != context_prev_reg):
-
-        field_trips_dict['case'] = 'change'
-
-        time_and_date_curr = context_curr_reg['date_and_time'] if 'time_and_date' in context_curr_reg else ''
-        time_and_date_prev = context_prev_reg['date_and_time'] if 'time_and_date' in context_prev_reg else ''
-        if time_and_date_curr != time_and_date_prev and 'time_and_date' in context_prev_reg:
-            field_trips_dict['date_and_time_prev'] = context_prev_reg['date_and_time']
-
-        address_curr = context_curr_reg['address'] if 'address' in context_curr_reg else ''
-        address_prev = context_prev_reg['address'] if 'address' in context_prev_reg else ''
-        if address_curr != address_prev and 'address' in context_prev_reg:
-            field_trips_dict['address_prev'] = context_prev_reg['address']
-
-        coords_curr = context_curr_reg['coords'] if 'coords' in context_curr_reg else ''
-        coords_prev = context_prev_reg['coords'] if 'coords' in context_prev_reg else ''
-        if coords_curr != coords_prev and 'coords' in context_prev_reg:
-            field_trips_dict['coords_prev'] = context_prev_reg['coords']
-
-    # TODO: temp debug
-    if 'case' in field_trips_dict and field_trips_dict['case'] not in {'None', None}:
-        notify_admin(f'[ide_posts]:{msg_2}\n\n{field_trips_dict}')
-    logging.info(f'{msg_2}\n\n{field_trips_dict}')
-    # TODO: temp debug
-
-    return field_trips_dict, obj
-
-
 def clean_up_content(init_content):
     def cook_soup(content):
 
@@ -746,31 +498,27 @@ def process_first_page_comparison(conn, search_id, first_page_content_prev, firs
     sql_text = sqlalchemy.text("""SELECT display_name, status, family_name, age, status_short 
                                       FROM searches WHERE search_forum_num=:a;""")
 
-    # FIXME - incorporate new status and display name
     what_is_saved_in_psql = conn.execute(sql_text, a=search_id).fetchone()
-    print(f'{type(search_id)}')
-    got_info = what_is_saved_in_psql
-    logging.info(f'WE PRINT 1: {got_info}')
 
-    if not got_info:
-        logging.info(f'field trips comparison failed on stage of downloading the search from psql')
-        # logging.info(f'what was saved in psql for topic_id={search_id}: {what_is_saved_in_psql}')
-        logging.info(f'same for topic_id={search_id} with .fetchone: {got_info}')
-        logging.exception(f'exception set just for alarming')
+    if not what_is_saved_in_psql:
+        logging.info(f'first page comparison failed – nothing is searches psql table')
         return None, None
+
     try:
-        display_name, status, name, age, status_old = list(got_info)
+        # FIXME – just to double-check
+        print(f' we print that what_is_saved_in_psql = {what_is_saved_in_psql}')
+        print(f' we print "not what_is_saved_in_psql" = {not what_is_saved_in_psql}')
+        print(f' we print "what_is_saved_in_psql == None" = {what_is_saved_in_psql == None}')
+        print(f' we print "what_is_saved_in_psql == Null" = {what_is_saved_in_psql == "Null"}')
+        # FIXME ^^^
+
+        display_name, status, name, age, status_old = list(what_is_saved_in_psql)
     except Exception as e:
         notify_admin(f'this strange exception happened, check [ide_posts]')
         logging.exception(e)
-        logging.info(f'{got_info}')
-        logging.info(f'{list(got_info)}')
-        # logging.info(f'{what_is_saved_in_psql.fetchone()==None}')
         return None, None
-    # FIXME ^^^
 
     # updates are made only for non-finished searches
-    # FIXME - to be changed to status from status_old
     if status != 'Ищем':
         return None, None
 
@@ -1173,20 +921,6 @@ def main(event, context):  # noqa
                 list_of_folders_with_upd_searches = []
 
                 for search_id in list_of_updated_searches:
-
-                    # FIXME
-                    # FIXME
-                    # FIXME
-                    # check the latest status on this search
-                    sql_text = sqlalchemy.text("""SELECT display_name, status, family_name, age, status_short 
-                                                      FROM searches WHERE search_forum_num=:a;""")
-
-                    got_info = conn.execute(sql_text, a=search_id).fetchone()
-                    print(f'{type(search_id)}')
-                    logging.info(f'WE PRINT 0: {got_info}')
-                    # FIXME
-                    # FIXME
-                    # FIXME
 
                     # get the Current First Page Content
                     sql_text = sqlalchemy.text("""
