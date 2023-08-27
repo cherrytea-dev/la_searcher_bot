@@ -140,35 +140,38 @@ def notify_admin(message):
     return None
 
 
+def define_topic_visibility_by_content(content):
+    """define visibility for the topic's content: regular, hidden or deleted"""
+
+    if content.find('Запрошенной темы не существует.') > -1:
+        visibility = 'deleted'
+    elif content.find('Для просмотра этого форума вы должны быть авторизованы') > -1:
+        visibility = 'hidden'
+    else:
+        visibility = 'regular'
+
+    return visibility
+
+
+def define_topic_visibility_by_topic_id(search_num):
+    """check is the existing search was deleted or hidden"""
+
+    content, site_unavailable = parse_search(search_num)
+
+    if site_unavailable:
+        return None, None, None, None
+
+    topic_visibility = define_topic_visibility_by_content(content)
+
+    logging.info(f'visibility for search {search_num} is defined as {topic_visibility}')
+
+    return site_unavailable, topic_visibility
+
+
 def update_one_topic_visibility(search_id):
-    """update the status of one search: if it is ok or was deleted or hidden"""
+    """record in psql the visibility of one topic: regular, deleted or hidden"""
 
-    def check_topic_visibility(search_num):
-        """check is the existing search was deleted or hidden"""
-
-        topic_visibility = 'regular'
-        content, site_unavailable = parse_search(search_num)
-
-        if site_unavailable:
-            return None, None, None, None
-
-        if content.find('Запрошенной темы не существует.') > -1:
-            deleted_trigger = True
-            topic_visibility = 'deleted'
-        else:
-            deleted_trigger = False
-
-        if content.find('Для просмотра этого форума вы должны быть авторизованы') > -1:
-            hidden_trigger = True
-            topic_visibility = 'hidden'
-        else:
-            hidden_trigger = False
-
-        logging.info(f'search {search_num} is {topic_visibility}')
-
-        return deleted_trigger, hidden_trigger, site_unavailable, topic_visibility
-
-    del_trig, hid_trig, forum_unavailable, visibility = check_topic_visibility(search_id)
+    forum_unavailable, visibility = define_topic_visibility_by_topic_id(search_id)
     logging.info(f'Visibility checked for {search_id}: visibility = {visibility}')
 
     if forum_unavailable or not visibility:
@@ -283,9 +286,9 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
 
 
 def update_first_posts_and_statuses():
-    """update first posts for searches"""
+    """update first posts for topics"""
 
-    def get_list_of_searches():
+    def get_list_of_topics():
         """get best list of searches for which first posts should be checked"""
 
         base_table_of_objects = []
@@ -325,7 +328,7 @@ def update_first_posts_and_statuses():
 
         return base_table_of_objects
 
-    def generate_list_of_search_groups():
+    def generate_list_of_topic_groups():
         """generate N search groups, groups needed to define which part of all searches will be checked now"""
 
         percent_step = 5
@@ -344,7 +347,7 @@ def update_first_posts_and_statuses():
 
         return list_of_groups
 
-    def define_which_search_groups_to_be_checked(list_of_groups):
+    def define_which_topic_groups_to_be_checked(list_of_groups):
         """gives an output of 2 groups that should be checked for this time"""
 
         start_time = datetime.datetime(2023, 1, 1, 0, 0, 0)
@@ -358,7 +361,7 @@ def update_first_posts_and_statuses():
 
         return curr_minute_list
 
-    def enrich_groups_with_searches(list_of_groups, list_of_s):
+    def enrich_groups_with_topics(list_of_groups, list_of_s):
         """add searches to the chosen groups"""
 
         num_of_searches = len(list_of_s)
@@ -432,16 +435,17 @@ def update_first_posts_and_statuses():
         # FIXME – deactivated on Feb 6 2023 because seems it's not correct that this script should check status
         # FIXME – activated on Feb 7 2023 –af far as there were 2 searches w/o status updated
         get_status_from_content_and_send_to_topic_management(search_num, cont)
+        topic_visibility = define_topic_visibility_by_content(cont)
 
         cont = prettify_content(cont)
 
         # craft a hash for this content
         hash_num = hashlib.md5(cont.encode()).hexdigest()
 
-        return hash_num, cont, forum_unavailable, not_found
+        return hash_num, cont, forum_unavailable, not_found, topic_visibility
 
     def update_first_posts_in_sql(searches_list):
-        """TODO"""
+        """generate a list of topic_ids with updated first posts and record in it PSQL"""
 
         num_of_searches_counter = 0
         num_of_site_errors_counter = 0
@@ -451,8 +455,8 @@ def update_first_posts_and_statuses():
         try:
             for line in searches_list:
                 num_of_searches_counter += 1
-                search_id = line.topic_id
-                act_hash, act_content, site_unavailable, topic_not_found = get_first_post(search_id)
+                topic_id = line.topic_id
+                act_hash, act_content, site_unavailable, topic_not_found, topic_visibility = get_first_post(topic_id)
 
                 if not site_unavailable and not topic_not_found:
 
@@ -461,7 +465,7 @@ def update_first_posts_and_statuses():
                             SELECT content_hash, num_of_checks, content from search_first_posts WHERE search_id=:a 
                             AND actual = TRUE;
                             """)
-                    raw_data = conn.execute(stmt, a=search_id).fetchone()
+                    raw_data = conn.execute(stmt, a=topic_id).fetchone()
 
                     # if record for this search – exists
                     if raw_data:
@@ -469,13 +473,13 @@ def update_first_posts_and_statuses():
                         last_hash = raw_data[0]
 
                         # if record for this search – outdated
-                        if act_hash != last_hash:
+                        if act_hash != last_hash and topic_visibility == 'regular':
 
                             # set all prev records as Actual = False
                             stmt = sqlalchemy.text("""
                                     UPDATE search_first_posts SET actual = FALSE WHERE search_id = :a;
                                     """)
-                            conn.execute(stmt, a=search_id)
+                            conn.execute(stmt, a=topic_id)
 
                             # add new record
                             stmt = sqlalchemy.text("""
@@ -483,27 +487,27 @@ def update_first_posts_and_statuses():
                                     (search_id, timestamp, actual, content_hash, content, num_of_checks) 
                                     VALUES (:a, :b, TRUE, :c, :d, :e);
                                     """)
-                            conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=act_hash,
+                            conn.execute(stmt, a=topic_id, b=datetime.datetime.now(), c=act_hash,
                                          d=act_content, e=1)
 
-                            list_of_searches_with_updated_f_posts.append(search_id)
+                            list_of_searches_with_updated_f_posts.append(topic_id)
 
                     # if record for this search – does not exist – add a new record
                     else:
                         stmt = sqlalchemy.text("""INSERT INTO search_first_posts 
                                                   (search_id, timestamp, actual, content_hash, content, num_of_checks) 
                                                   VALUES (:a, :b, TRUE, :c, :d, :e);""")
-                        conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=act_hash, d=act_content, e=1)
+                        conn.execute(stmt, a=topic_id, b=datetime.datetime.now(), c=act_hash, d=act_content, e=1)
 
                 elif site_unavailable:
                     num_of_site_errors_counter += 1
-                    logging.info(f'forum unavailable for search {search_id}')
+                    logging.info(f'forum unavailable for search {topic_id}')
                     if num_of_site_errors_counter > 3:
                         notify_admin(f'LA FORUM UNAVAILABLE, che_posts tried {num_of_site_errors_counter} times.')
                         break
 
                 elif topic_not_found:
-                    update_one_topic_visibility(search_id)
+                    update_one_topic_visibility(topic_id)
 
         except Exception as e:
             logging.info('exception in update_first_posts_and_statuses')
@@ -519,21 +523,21 @@ def update_first_posts_and_statuses():
     global bad_gateway_counter
     global requests_session
 
-    list_of_searches = get_list_of_searches()
-    groups_list_all = generate_list_of_search_groups()
-    groups_list_now = define_which_search_groups_to_be_checked(groups_list_all)
-    groups_list_now = enrich_groups_with_searches(groups_list_now, list_of_searches)
-    searches_list_now = [line for group in groups_list_now for line in group.s]
+    list_of_searches = get_list_of_topics()
+    groups_list_all = generate_list_of_topic_groups()
+    groups_list_now = define_which_topic_groups_to_be_checked(groups_list_all)
+    groups_list_now = enrich_groups_with_topics(groups_list_now, list_of_searches)
+    topics_list_now = [line for group in groups_list_now for line in group.s]
 
-    if not searches_list_now:
+    if not topics_list_now:
         return None
 
-    list_of_searches_with_updated_first_posts = update_first_posts_in_sql(searches_list_now)
+    list_of_topics_with_updated_first_posts = update_first_posts_in_sql(topics_list_now)
 
-    if not list_of_searches_with_updated_first_posts:
+    if not list_of_topics_with_updated_first_posts:
         return None
 
-    publish_to_pubsub('topic_for_first_post_processing', list_of_searches_with_updated_first_posts)
+    publish_to_pubsub('topic_for_first_post_processing', list_of_topics_with_updated_first_posts)
 
     return None
 
