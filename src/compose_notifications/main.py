@@ -95,7 +95,8 @@ class LineInChangeLog:
                  display_name=None,
                  age_min=None,
                  age_max=None,
-                 clickable_name=None
+                 clickable_name=None,
+                 topic_emoji=None
                  ):
         self.forum_search_num = forum_search_num
         self.topic_type_id = topic_type_id
@@ -130,6 +131,7 @@ class LineInChangeLog:
         self.age_min = age_min
         self.age_max = age_max
         self.clickable_name = clickable_name
+        self.topic_emoji = topic_emoji
 
     def __str__(self):
         return str([self.forum_search_num, self.change_type, self.changed_field, self.new_value, self.change_id,
@@ -138,7 +140,7 @@ class LineInChangeLog:
                     self.search_latitude, self.search_longitude, self.activities, self.comments, self.comments_inforg,
                     self.message, self.processed, self.managers, self.start_time, self.ignore, self.region,
                     self.coords_change_type, self.display_name, self.age_min, self.age_max, self.topic_type_id,
-                    self.clickable_name])
+                    self.clickable_name, self.topic_emoji])
 
 
 class User:
@@ -758,7 +760,7 @@ def compose_com_msg_on_inforg_comments(line):
 
         msg_3 = f':\n{msg_3}'
 
-        msg_1 = f'Сообщение от {author} по {line.clickable_name}'
+        msg_1 = f'{line.topic_emoji}Сообщение от {author} по {line.clickable_name}'
         if line.region:
             msg_2 = f' ({line.region})'
 
@@ -880,10 +882,10 @@ def compose_com_msg_on_first_post_change(line):
         return ''
 
     if type_id in {0, 1, 2, 3, 4, 5}:
-        resulting_message = f'🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}' \
+        resulting_message = f'{line.topic_emoji}🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}' \
                             f'{coord_change_phrase}'
     elif type_id == 10:
-        resulting_message = f'📝Изменения в описании мероприятия {clickable_name}{region}:\n\n{message}'
+        resulting_message = f'{line.topic_emoji}Изменения в описании мероприятия {clickable_name}{region}:\n\n{message}'
     else:
         resulting_message = ''
 
@@ -931,6 +933,22 @@ def enrich_new_record_with_clickable_name(line):
 
     return line
 
+
+def enrich_new_record_with_emoji(line):
+    """add specific emoji based on topic (search) type"""
+
+    topic_type_id = line.topic_type_id
+    topic_type_dict = {0: '',  # search regular
+                       1: '🏠',  # search reverse
+                       2: '🚓',  # search patrol
+                       3: '🎓',  # search training
+                       4: 'ℹ️',  # search info support
+                       5: '🚨',  # search resonance
+                       10: '📝'  # event
+                       }
+    line.topic_emoji = topic_type_dict[topic_type_id]
+
+    return line
 
 def enrich_new_record_with_com_message_texts(line):
     """add user-independent message text to the New Records"""
@@ -1628,18 +1646,8 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
 
     region_wording = f' в регионе {region_to_show}' if region_to_show else ''
 
-    topic_type_id = new_record.topic_type_id
-    topic_type_dict = {0: '',  # search regular
-                       1: '🏠',  # search reverse
-                       2: '🚓',  # search patrol
-                       3: '🎓',  # search training
-                       4: 'ℹ️',  # search info support
-                       5: '🚨'  # search resonance
-                       }
-    topic_emoji = topic_type_dict[topic_type_id]
-
     # 0. Heading and Region clause if user is 'multi-regional'
-    message = f'{topic_emoji}Новый поиск{region_wording}!\n'
+    message = f'{new_record.topic_emoji}Новый поиск{region_wording}!\n'
 
     # 1. Search important attributes - common part (e.g. 'Внимание, выезд!)
     if new_record.message[1]:
@@ -1704,8 +1712,9 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
                 tip_on_home_coords = '<i>Совет: Чтобы Бот показывал Направление и Расстояние до поиска – просто ' \
                                      'укажите ваши "Домашние координаты" в Настройках Бота.</i>'
 
+    # TODO - yet not implemented new message template
     obj = new_record.message_object
-    final_message = f"""Новый поиск{region_wording}!\n
+    final_message = f"""{new_record.topic_emoji}Новый поиск{region_wording}!\n
                         {obj.activities}\n\n
                         {obj.clickable_name}\n\n
                         {place_link}\n
@@ -1717,6 +1726,7 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
     final_message = re.sub(r'\s{3,}', '\n\n', final_message)  # clean excessive blank lines
     final_message = re.sub(r'\s*$', '', final_message)  # clean blank symbols in the end of file
     logging.info(f'TEMP - FINAL NEW MESSAGE FOR NEW SEARCH {final_message}')
+    # TODO ^^^
 
     return message
 
@@ -1992,7 +2002,9 @@ def main(event, context):  # noqa
             new_record = enrich_new_record_with_comments(conn, 'all', new_record)
             new_record = enrich_new_record_with_comments(conn, 'inforg', new_record)
             new_record = enrich_new_record_with_clickable_name(new_record)
+            new_record = enrich_new_record_with_emoji(new_record)
             new_record = enrich_new_record_with_com_message_texts(new_record)
+
 
             # compose Users List: all the notifications recipients' details
             admins_list, testers_list = get_list_of_admins_and_testers(conn)  # for debug purposes
