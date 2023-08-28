@@ -159,7 +159,7 @@ def define_topic_visibility_by_topic_id(search_num):
     content, site_unavailable = parse_search(search_num)
 
     if site_unavailable:
-        return None, None, None, None
+        return None, None
 
     topic_visibility = define_topic_visibility_by_content(content)
 
@@ -430,7 +430,7 @@ def update_first_posts_and_statuses():
 
         if forum_unavailable or not_found:
             hash_num = None
-            return hash_num, cont, forum_unavailable, not_found
+            return hash_num, cont, forum_unavailable, not_found, None
 
         # FIXME – deactivated on Feb 6 2023 because seems it's not correct that this script should check status
         # FIXME – activated on Feb 7 2023 –af far as there were 2 searches w/o status updated
