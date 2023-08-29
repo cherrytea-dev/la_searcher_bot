@@ -451,83 +451,91 @@ def compose_new_records_from_change_log(conn):
     return new_record
 
 
-def enrich_new_records_from_searches(conn, r_line):
+def enrich_new_record_from_searches(conn, r_line):
     """add the additional data from Searches into New Records"""
 
     try:
+        s_line = conn.execute(
+            """WITH 
+            s AS (
+                SELECT search_forum_num, status_short, forum_search_title, num_of_replies, family_name, age, 
+                    forum_folder_id, search_start_time, display_name, age_min, age_max, status, city_locations, 
+                    topic_type_id 
+                FROM searches
+                WHERE search_forum_num = :a
+            ),
+            ns AS (
+                SELECT s.search_forum_num, s.status_short, s.forum_search_title, s.num_of_replies, s.family_name, 
+                    s.age, s.forum_folder_id, sa.latitude, sa.longitude, s.search_start_time, s.display_name, 
+                    s.age_min, s.age_max, s.status, s.city_locations, s.topic_type_id 
+                FROM s 
+                LEFT JOIN search_coordinates as sa 
+                ON s.search_forum_num=sa.search_id
+            )
+            SELECT ns.*, rtf.folder_description 
+            FROM ns 
+            LEFT JOIN regions_to_folders rtf 
+            ON ns.forum_folder_id = rtf.forum_folder_id;""",
+            a=r_line.forum_search_num).fetchone()
 
-        # TODO: in the future there's a need to limit the number of searches in this query (limit by time?)
-        # TODO: MEMO: as of Jan 2022 - there are 5000 lines – not so crucially much
-        searches_extract = conn.execute(
-            """SELECT ns.*, rtf.folder_description FROM 
-            (SELECT s.search_forum_num, s.status_short, s.forum_search_title,  
-            s.num_of_replies, s.family_name, s.age, s.forum_folder_id, 
-            sa.latitude, sa.longitude, s.search_start_time, s.display_name, s.age_min, s.age_max,
-            s.status, s.city_locations, s.topic_type_id 
-            FROM searches as s LEFT JOIN 
-            search_coordinates as sa ON s.search_forum_num=sa.search_id) ns LEFT JOIN 
-            regions_to_folders rtf ON ns.forum_folder_id = rtf.forum_folder_id 
-            ORDER BY ns.search_forum_num DESC;"""
-        ).fetchall()
+        if not s_line:
+            logging.info('New Record WERE NOT enriched from Searches as there was no record in searches')
+            logging.info(f'New Record is {r_line}')
+            logging.info(f'extract from searches is {s_line}')
+            logging.exception('no search in searches table!')
+            return r_line
 
-        # look for matching Forum Search Numbers in New Records List & Searches
-        for s_line in searches_extract:
-            # when match is found
-            if r_line.forum_search_num == s_line[0]:
-                r_line.status = s_line[1]
-                r_line.link = 'https://lizaalert.org/forum/viewtopic.php?t=' + str(r_line.forum_search_num)
-                r_line.title = s_line[2]
-                r_line.n_of_replies = s_line[3]
-                r_line.name = define_family_name(r_line.title, s_line[4])  # cuz not all the records has names in S
-                r_line.age = s_line[5]
-                r_line.age_wording = age_writer(s_line[5])
-                r_line.forum_folder = s_line[6]
-                r_line.search_latitude = s_line[7]
-                r_line.search_longitude = s_line[8]
-                r_line.start_time = s_line[9]
-                r_line.display_name = s_line[10]
-                r_line.age_min = s_line[11]
-                r_line.age_max = s_line[12]
-                r_line.new_status = s_line[13]
-                r_line.city_locations = s_line[14]
-                r_line.topic_type_id = s_line[15]
-                r_line.region = s_line[16]
+        r_line.status = s_line[1]
+        r_line.link = f'https://lizaalert.org/forum/viewtopic.php?t={r_line.forum_search_num}'
+        r_line.title = s_line[2]
+        r_line.n_of_replies = s_line[3]
+        r_line.name = define_family_name(r_line.title, s_line[4])  # cuz not all the records has names in S
+        r_line.age = s_line[5]
+        r_line.age_wording = age_writer(s_line[5])
+        r_line.forum_folder = s_line[6]
+        r_line.search_latitude = s_line[7]
+        r_line.search_longitude = s_line[8]
+        r_line.start_time = s_line[9]
+        r_line.display_name = s_line[10]
+        r_line.age_min = s_line[11]
+        r_line.age_max = s_line[12]
+        r_line.new_status = s_line[13]
+        r_line.city_locations = s_line[14]
+        r_line.topic_type_id = s_line[15]
+        r_line.region = s_line[16]
 
-                print(f'TEMP – FORUM_FOLDER = {r_line.forum_folder}, while s_line = {str(s_line)}')
-                print(f'TEMP – CITY LOCS = {r_line.city_locations}')
-                print(f'TEMP – STATUS_OLD = {r_line.status}, STATUS_NEW = {r_line.new_status}')
-                print(f'TEMP – TOPIC_TYPE = {r_line.topic_type_id}')
+        logging.info(f'TEMP – FORUM_FOLDER = {r_line.forum_folder}, while s_line = {str(s_line)}')
+        logging.info(f'TEMP – CITY LOCS = {r_line.city_locations}')
+        logging.info(f'TEMP – STATUS_OLD = {r_line.status}, STATUS_NEW = {r_line.new_status}')
+        logging.info(f'TEMP – TOPIC_TYPE = {r_line.topic_type_id}')
 
-                # case: when new search's status is already not "Ищем" – to be ignored
-                if r_line.status != 'Ищем' and r_line.change_type in {0, 8}:  # "new_search" & "first_post_change":
-                    r_line.ignore = 'y'
+        # case: when new search's status is already not "Ищем" – to be ignored
+        if r_line.status != 'Ищем' and r_line.change_type in {0, 8}:  # "new_search" & "first_post_change":
+            r_line.ignore = 'y'
 
-                # limit notification sending only for searches started 60 days ago
-                # 60 days – is a compromise and can be reviewed if community votes for another setting
-                try:
-                    latest_when_alert = r_line.start_time + datetime.timedelta(days=WINDOW_FOR_NOTIFICATIONS_DAYS)
-                    if latest_when_alert < datetime.datetime.now():
-                        r_line.ignore = 'y'
+        # limit notification sending only for searches started 60 days ago
+        # 60 days – is a compromise and can be reviewed if community votes for another setting
+        try:
+            latest_when_alert = r_line.start_time + datetime.timedelta(days=WINDOW_FOR_NOTIFICATIONS_DAYS)
+            if latest_when_alert < datetime.datetime.now():
+                r_line.ignore = 'y'
 
-                        # DEBUG purposes only
-                        notify_admin(f'ignoring old search upd {r_line.forum_search_num} '
-                                     f'with start time {r_line.start_time}')
+                # DEBUG purposes only
+                notify_admin(f'ignoring old search upd {r_line.forum_search_num} with start time {r_line.start_time}')
 
-                except:  # noqa
-                    pass
-
-                break
+        except:  # noqa
+            pass
 
         logging.info('New Record enriched from Searches')
 
     except Exception as e:
-        logging.error('Not able to enrich New Records from Searches: ' + str(e))
+        logging.error('Not able to enrich New Records from Searches:')
         logging.exception(e)
 
     return r_line
 
 
-def enrich_new_records_with_search_activities(conn, r_line):
+def enrich_new_record_with_search_activities(conn, r_line):
     """add the lists of current searches' activities to New Record"""
 
     try:
@@ -555,7 +563,7 @@ def enrich_new_records_with_search_activities(conn, r_line):
     return r_line
 
 
-def enrich_new_records_with_managers(conn, r_line):
+def enrich_new_record_with_managers(conn, r_line):
     """add the lists of current searches' managers to the New Record"""
 
     try:
@@ -949,6 +957,7 @@ def enrich_new_record_with_emoji(line):
     line.topic_emoji = topic_type_dict[topic_type_id]
 
     return line
+
 
 def enrich_new_record_with_com_message_texts(line):
     """add user-independent message text to the New Records"""
@@ -1996,9 +2005,9 @@ def main(event, context):  # noqa
         if new_record:
 
             # enrich New Records List with all the updates that should be in notifications
-            new_record = enrich_new_records_from_searches(conn, new_record)
-            new_record = enrich_new_records_with_search_activities(conn, new_record)
-            new_record = enrich_new_records_with_managers(conn, new_record)
+            new_record = enrich_new_record_from_searches(conn, new_record)
+            new_record = enrich_new_record_with_search_activities(conn, new_record)
+            new_record = enrich_new_record_with_managers(conn, new_record)
             new_record = enrich_new_record_with_comments(conn, 'all', new_record)
             new_record = enrich_new_record_with_comments(conn, 'inforg', new_record)
             new_record = enrich_new_record_with_clickable_name(new_record)
