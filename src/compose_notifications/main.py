@@ -954,7 +954,10 @@ def enrich_new_record_with_emoji(line):
                        5: '🚨',  # search resonance
                        10: '📝'  # event
                        }
-    line.topic_emoji = topic_type_dict[topic_type_id]
+    if topic_type_id:
+        line.topic_emoji = topic_type_dict[topic_type_id]
+    else:
+        line.topic_emoji = ''
 
     return line
 
