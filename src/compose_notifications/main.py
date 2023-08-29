@@ -455,7 +455,7 @@ def enrich_new_record_from_searches(conn, r_line):
     """add the additional data from Searches into New Records"""
 
     try:
-        s_line = conn.execute(
+        sql_text = sqlalchemy.text(
             """WITH 
             s AS (
                 SELECT search_forum_num, status_short, forum_search_title, num_of_replies, family_name, age, 
@@ -475,8 +475,9 @@ def enrich_new_record_from_searches(conn, r_line):
             SELECT ns.*, rtf.folder_description 
             FROM ns 
             LEFT JOIN regions_to_folders rtf 
-            ON ns.forum_folder_id = rtf.forum_folder_id;""",
-            a=r_line.forum_search_num).fetchone()
+            ON ns.forum_folder_id = rtf.forum_folder_id;""")
+
+        s_line = conn.execute(sql_text, a=r_line.forum_search_num).fetchone()
 
         if not s_line:
             logging.info('New Record WERE NOT enriched from Searches as there was no record in searches')
