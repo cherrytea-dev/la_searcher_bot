@@ -818,14 +818,14 @@ def get_coords_from_list(input_list):
         return None, None
 
 
-def compose_com_msg_on_first_post_change(line):
+def compose_com_msg_on_first_post_change(record):
     """compose the common, user-independent message on search first post change"""
 
-    message = line.new_value
-    clickable_name = line.clickable_name
-    old_lat = line.search_latitude
-    old_lon = line.search_longitude
-    type_id = line.topic_type_id
+    message = record.new_value
+    clickable_name = record.clickable_name
+    old_lat = record.search_latitude
+    old_lon = record.search_longitude
+    type_id = record.topic_type_id
 
     region = '{region}'  # to be filled in on a stage of Individual Message preparation
     list_of_additions = None
@@ -882,10 +882,10 @@ def compose_com_msg_on_first_post_change(line):
         return ''
 
     if type_id in {0, 1, 2, 3, 4, 5}:
-        resulting_message = f'{line.topic_emoji}🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}' \
+        resulting_message = f'{record.topic_emoji}🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}' \
                             f'{coord_change_phrase}'
     elif type_id == 10:
-        resulting_message = f'{line.topic_emoji}Изменения в описании мероприятия {clickable_name}{region}:\n\n{message}'
+        resulting_message = f'{record.topic_emoji}Изменения в описании мероприятия {clickable_name}{region}:\n\n{message}'
     else:
         resulting_message = ''
 
