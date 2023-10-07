@@ -1372,6 +1372,7 @@ def recognize_title(line):
                 [r'(?i)^э\W{1,3}', ''],  # specific case for one search
                 [r'попал ', 'пропал '],  # specific case for one search
                 [r'(?i)найлен(?=\W)', 'найден'],  # specific case for one search
+                [r'(?i)^нж(?=\W)', 'найден жив'],  # specific case for one search
                 [r'ле,т', 'лет,'],  # specific case for one search
                 [r'(?i)^Стор', 'Стоп'],  # specific case for one search
                 [r'ПроЖив', 'Жив'],  # specific case for one search
