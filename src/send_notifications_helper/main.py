@@ -388,14 +388,12 @@ def process_response(user_id, response):
 
         elif 420 <= response.status_code <= 429:  # 'Flood Control':
             logging.info(f'Flood Control: message to {user_id} was not sent, {response.reason=}')
-            logging.info(f'response: {response.text}')  # FIXME – a temp debug, to be deleted
             logging.exception('FLOOD CONTROL')
             time.sleep(5)  # to mitigate flood control
             return 'failed_flood_control'
 
         else:
             logging.info(f'UNKNOWN ERROR: message to {user_id} was not sent, {response.reason=}')
-            logging.info(f'response: {response.text}')
             logging.exception('UNKNOWN ERROR')
             return 'cancelled'
 

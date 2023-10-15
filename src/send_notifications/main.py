@@ -300,7 +300,6 @@ def process_response(user_id, response):
 
         elif 420 <= response.status_code <= 429:  # 'Flood Control':
             logging.info(f'Flood Control: message to {user_id} was not sent, {response.reason=}')
-            logging.info(f'response: {response.text}')  # FIXME – a temp debug, to be deleted
             logging.exception('FLOOD CONTROL')
             # fixme - try to get retry_after
             try:
@@ -314,7 +313,6 @@ def process_response(user_id, response):
 
         else:
             logging.info(f'UNKNOWN ERROR: message to {user_id} was not sent, {response.reason=}')
-            logging.info(f'response: {response.text}')
             logging.exception('UNKNOWN ERROR')
             return 'cancelled'
 
