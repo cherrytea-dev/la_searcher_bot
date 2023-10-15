@@ -287,12 +287,16 @@ def get_coordinates(db, address):
                 if prev_str_of_geocheck:
                     prev_time_of_geocheck = datetime.strptime(prev_str_of_geocheck, '%Y-%m-%dT%H:%M:%S+00:00')
                     now = datetime.now()
+                    now_utc = datetime.utcnow()
                     if prev_time_of_geocheck:
                         time_delta_bw_now_and_next_request = prev_time_of_geocheck + timedelta(seconds=1) - now
                         # FIXME: DEBUG – temp
-                        print(f'{time_delta_bw_now_and_next_request=}')
-                        new_delta = prev_api_call_time - now + timedelta(seconds=1)
-                        print(f'{new_delta=}')
+                        try:
+                            print(f'{time_delta_bw_now_and_next_request=}')
+                            new_delta = prev_api_call_time - now_utc + timedelta(seconds=1)
+                            print(f'{new_delta=}')
+                        except Exception as e:
+                            logging.exception(e)
                         # FIXME: ^^^
                     else:
                         time_delta_bw_now_and_next_request = timedelta(seconds=0)
@@ -655,12 +659,16 @@ def parse_coordinates(db, search_num):
                 if prev_str_of_geocheck:
                     prev_time_of_geocheck = datetime.strptime(prev_str_of_geocheck, '%Y-%m-%dT%H:%M:%S+00:00')
                     now = datetime.now()
+                    now_utc = datetime.utcnow()
                     if prev_time_of_geocheck:
                         time_delta_bw_now_and_next_request = prev_time_of_geocheck + timedelta(seconds=1) - now
                         # FIXME: DEBUG – temp
-                        print(f'{time_delta_bw_now_and_next_request=}')
-                        new_delta = prev_api_call_time - now + timedelta(seconds=1)
-                        print(f'{new_delta=}')
+                        try:
+                            print(f'{time_delta_bw_now_and_next_request=}')
+                            new_delta = prev_api_call_time - now_utc + timedelta(seconds=1)
+                            print(f'{new_delta=}')
+                        except Exception as e:
+                            logging.exception(e)
                         # FIXME: ^^^
                     else:
                         time_delta_bw_now_and_next_request = timedelta(seconds=0)
