@@ -7,7 +7,7 @@ import re
 import base64
 import time
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dateutil import relativedelta
 import copy
 import urllib.request
@@ -157,6 +157,34 @@ def read_yaml_from_cloud_storage(bucket_to_read, folder_num):
     return contents
 
 
+def save_last_api_call_time_to_psql(db: sqlalchemy.engine, geocoder: str) -> bool:
+    """Used to track time of the last api call to geocoders. Saves the current timestamp in UTC in psql"""
+
+    conn = None
+    try:
+        conn = db.connect()
+        stmt = sqlalchemy.text(
+            """UPDATE geocoding SET timestamp=:a WITH TIME ZONE 'UTC' WHERE geocoder=:b;"""
+        )
+        conn.execute(stmt, a=datetime.now(timezone.utc), b=geocoder)
+        conn.close()
+
+        # FIXME – temp debug
+        print(f'THIS IS GOOD')
+        # FIXME ^^^
+
+        return True
+
+    except Exception as e:
+        logging.info(f'UNSUCCESSFUL saving last api call time to geocoder {geocoder}')
+        logging.exception(e)
+        notify_admin(f'UNSUCCESSFUL saving last api call time to geocoder {geocoder}')
+        if conn:
+            conn.close()
+
+        return False
+
+
 def get_coordinates(db, address):
     """convert address string into a pair of coordinates"""
 
@@ -242,6 +270,7 @@ def get_coordinates(db, address):
 
                 now_str = datetime.now().strftime('%Y-%m-%dT%H:%M:%S+00:00')
                 write_snapshot_to_cloud_storage('bucket_for_ad_hoc', now_str, 'geocode')
+                api_call_time_saved = save_last_api_call_time_to_psql(db=db, geocoder='openstreetmap')
 
                 if search_location:
                     latitude, longitude = search_location.latitude, search_location.longitude
@@ -600,6 +629,7 @@ def parse_coordinates(db, search_num):
 
                 now_str = datetime.now().strftime('%Y-%m-%dT%H:%M:%S+00:00')
                 write_snapshot_to_cloud_storage('bucket_for_ad_hoc', now_str, 'geocode')
+                api_call_time_saved = save_last_api_call_time_to_psql(db=db, geocoder='openstreetmap')
 
                 if search_location:
                     latitude, longitude = search_location.latitude, search_location.longitude
