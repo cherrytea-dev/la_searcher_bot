@@ -1,5 +1,5 @@
 requests==2.31.0
-urllib3==1.26.5  # http client
+urllib3==1.26.17  # http client
 idna==2.10  # translation of domain names
 certifi==2023.7.22  # SSL certificates
 

@@ -195,7 +195,10 @@ def get_last_api_call_time_from_psql(db: sqlalchemy.engine, geocoder: str) -> da
         stmt = sqlalchemy.text(
             """SELECT timestamp FROM geocode_last_api_call WHERE geocoder=:a LIMIT 1;"""
         )
-        last_call = conn.execute(stmt, a=geocoder)
+        last_call = conn.execute(stmt, a=geocoder).fetchone()
+        # FIXME – temp debug
+        print(f'{last_call=}')
+        # FIXME ^^^
         last_call = last_call[0]
         conn.close()
 
