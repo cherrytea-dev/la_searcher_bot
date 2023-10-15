@@ -287,7 +287,7 @@ def get_coordinates(db, address):
                 if prev_str_of_geocheck:
                     prev_time_of_geocheck = datetime.strptime(prev_str_of_geocheck, '%Y-%m-%dT%H:%M:%S+00:00')
                     now = datetime.now()
-                    now_utc = datetime.utcnow()
+                    now_utc = datetime.now(timezone.utc)
                     if prev_time_of_geocheck:
                         time_delta_bw_now_and_next_request = prev_time_of_geocheck + timedelta(seconds=1) - now
                         # FIXME: DEBUG – temp
@@ -659,7 +659,7 @@ def parse_coordinates(db, search_num):
                 if prev_str_of_geocheck:
                     prev_time_of_geocheck = datetime.strptime(prev_str_of_geocheck, '%Y-%m-%dT%H:%M:%S+00:00')
                     now = datetime.now()
-                    now_utc = datetime.utcnow()
+                    now_utc = datetime.now(timezone.utc)
                     if prev_time_of_geocheck:
                         time_delta_bw_now_and_next_request = prev_time_of_geocheck + timedelta(seconds=1) - now
                         # FIXME: DEBUG – temp
