@@ -164,7 +164,7 @@ def save_last_api_call_time_to_psql(db: sqlalchemy.engine, geocoder: str) -> boo
     try:
         conn = db.connect()
         stmt = sqlalchemy.text(
-            """UPDATE geocoding SET timestamp=:a WITH TIME ZONE 'UTC' WHERE geocoder=:b;"""
+            """UPDATE geocode_last_api_call SET timestamp=:a AT TIME ZONE 'UTC' WHERE geocoder=:b;"""
         )
         conn.execute(stmt, a=datetime.now(timezone.utc), b=geocoder)
         conn.close()
@@ -183,6 +183,34 @@ def save_last_api_call_time_to_psql(db: sqlalchemy.engine, geocoder: str) -> boo
             conn.close()
 
         return False
+
+
+def get_last_api_call_time_from_psql(db: sqlalchemy.engine, geocoder: str) -> datetime.timestamp:
+    """Used to track time of the last api call to geocoders. Gets the last timestamp in UTC saved in psql"""
+
+    conn = None
+    last_call = None
+    try:
+        conn = db.connect()
+        stmt = sqlalchemy.text(
+            """SELECT timestamp FROM geocode_last_api_call WHERE geocoder=:a LIMIT 1;"""
+        )
+        last_call = conn.execute(stmt, a=geocoder)
+        last_call = last_call[0]
+        conn.close()
+
+        # FIXME – temp debug
+        print(f'THIS IS GOOD 2')
+        # FIXME ^^^
+
+    except Exception as e:
+        logging.info(f'UNSUCCESSFUL getting last api call time of geocoder {geocoder}')
+        logging.exception(e)
+        notify_admin(f'UNSUCCESSFUL getting last api call time of geocoder {geocoder}')
+        if conn:
+            conn.close()
+
+    return last_call
 
 
 def get_coordinates(db, address):
@@ -248,6 +276,10 @@ def get_coordinates(db, address):
                 # second – check that next request won't be in less a minute from previous
                 prev_str_of_geocheck = read_snapshot_from_cloud_storage('bucket_for_ad_hoc', 'geocode')
                 logging.info(f'prev_str_of_geocheck: {prev_str_of_geocheck}')
+                prev_api_call_time = get_last_api_call_time_from_psql(db=db, geocoder='openstreetmap')
+                # FIXME: DEBUG - temp
+                print(f'{prev_api_call_time=}')
+                # FIXME: ^^^
 
                 if prev_str_of_geocheck:
                     prev_time_of_geocheck = datetime.strptime(prev_str_of_geocheck, '%Y-%m-%dT%H:%M:%S+00:00')
