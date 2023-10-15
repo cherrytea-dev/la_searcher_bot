@@ -253,6 +253,11 @@ def get_coordinates(db, address):
         # first - check if this address was already geolocated and saved to psql
         saved_loc_list = load_geolocation_form_psql(db2, address_string)
 
+        # FIXME – temp debug
+        print(f'{address_string=}')
+        print(f'{saved_loc_list=}')
+        # FIXME ^^^
+
         # there is a psql record on this address - no geocoding activities are required
         if saved_loc_list:
             if saved_loc_list[1] == 'ok':
@@ -265,23 +270,16 @@ def get_coordinates(db, address):
         # no psql record for this address found OR existing info is insufficient
         if not latitude and not longitude and status_in_psql != 'failed':
             try:
-                # second – check that next request won't be in less a minute from previous
-                prev_str_of_geocheck = read_snapshot_from_cloud_storage('bucket_for_ad_hoc', 'geocode')
-                logging.info(f'prev_str_of_geocheck: {prev_str_of_geocheck}')
+                # second – check that next request won't be in less a MINUTE from previous
                 prev_api_call_time = get_last_api_call_time_from_psql(db=db, geocoder='openstreetmap')
-                # FIXME: DEBUG - temp
-                print(f'{prev_api_call_time=}')
-                # FIXME: ^^^
 
                 if prev_api_call_time:
                     now_utc = datetime.now(timezone.utc)
-                    # FIXME: DEBUG – temp
-                    try:
-                        time_delta_bw_now_and_next_request = prev_api_call_time - now_utc + timedelta(seconds=1)
-                        print(f'{time_delta_bw_now_and_next_request=}')
-                    except Exception as e:
-                        logging.exception(e)
-                        time_delta_bw_now_and_next_request = timedelta(seconds=0)
+                    time_delta_bw_now_and_next_request = prev_api_call_time - now_utc + timedelta(seconds=1)
+                    # FIXME: DEBUG - temp
+                    print(f'{prev_api_call_time=}')
+                    print(f'{now_utc=}')
+                    print(f'{time_delta_bw_now_and_next_request=}')
                     # FIXME: ^^^
                     if time_delta_bw_now_and_next_request.total_seconds() > 0:
                         time.sleep(time_delta_bw_now_and_next_request.total_seconds())
@@ -544,25 +542,6 @@ def parse_coordinates(db, search_num):
 
         return address_string
 
-    def save_geolocation_in_psql(db2, address_string, status, latitude, longitude):
-        """save results of geocoding to avoid multiple requests to openstreetmap service"""
-
-        try:
-            with db2.connect() as conn:
-                stmt = sqlalchemy.text(
-                    """INSERT INTO geocoding (address, status, latitude, longitude) VALUES (:a, 
-                    :b, :c, :d); """
-                )
-                conn.execute(stmt, a=address_string, b=status, c=latitude, d=longitude)
-                conn.close()
-
-        except Exception as e7:
-            logging.info('DBG.P.EXC.109: ')
-            logging.exception(e7)
-            notify_admin('ERROR: saving geolocation to psql failed: ' + address_string + ', ' + status)
-
-        return None
-
     def save_place_in_psql(db2, address_string):
         """save a link search to address in sql table search_places"""
 
@@ -591,91 +570,6 @@ def parse_coordinates(db, search_num):
             notify_admin('ERROR: saving place to psql failed: ' + address_string + ', ' + search_num)
 
         return None
-
-    def load_geolocation_form_psql(db2, address_string):
-        """get results of geocoding from psql"""
-
-        with db2.connect() as conn:
-            stmt = sqlalchemy.text(
-                """SELECT address, status, latitude, longitude from geocoding WHERE address=:a LIMIT 1; """
-            )
-            saved_result = conn.execute(stmt, a=address_string).fetchone()
-
-            conn.close()
-
-        return saved_result
-
-    def get_coordinates_from_address(db2, address_string):
-        """return coordinates on the request of address string"""
-        """NB! openstreetmap requirements: NO more than 1 request per 1 min, no doubling requests"""
-
-        latitude = 0
-        longitude = 0
-        status_in_psql = None
-
-        geolocator = Nominatim(user_agent="LizaAlertBot")
-
-        # first - check if this address was already geolocated and saved to psql
-        saved_loc_list = load_geolocation_form_psql(db2, address_string)
-
-        # there is a psql record on this address - no geocoding activities are required
-        if saved_loc_list:
-            if saved_loc_list[1] == 'ok':
-                latitude = saved_loc_list[2]
-                longitude = saved_loc_list[3]
-
-            elif saved_loc_list[1] == 'failed':
-                status_in_psql = 'failed'
-
-        # no psql record for this address found OR existing info is insufficient
-
-        if not latitude and not longitude and status_in_psql != 'failed':
-            try:
-                # second – check that next request won't be in less a minute from previous
-                prev_str_of_geocheck = read_snapshot_from_cloud_storage('bucket_for_ad_hoc', 'geocode')
-                logging.info(f'prev_str_of_geocheck: {prev_str_of_geocheck}')
-                prev_api_call_time = get_last_api_call_time_from_psql(db=db, geocoder='openstreetmap')
-                # FIXME: DEBUG - temp
-                print(f'{prev_api_call_time=}')
-                # FIXME: ^^^
-
-                if prev_api_call_time:
-                    now_utc = datetime.now(timezone.utc)
-                    # FIXME: DEBUG – temp
-                    try:
-                        time_delta_bw_now_and_next_request = prev_api_call_time - now_utc + timedelta(seconds=1)
-                        print(f'{time_delta_bw_now_and_next_request=}')
-                    except Exception as e:
-                        logging.exception(e)
-                        time_delta_bw_now_and_next_request = timedelta(seconds=0)
-                    # FIXME: ^^^
-                    if time_delta_bw_now_and_next_request.total_seconds() > 0:
-                        time.sleep(time_delta_bw_now_and_next_request.total_seconds())
-
-                try:
-                    search_location = geolocator.geocode(address_string, timeout=10000)
-                    logging.info(f'geo_location: {str(search_location)}')
-                except Exception as e55:
-                    search_location = None
-                    logging.info('ERROR: geo loc ')
-                    logging.exception(e55)
-                    notify_admin(f'ERROR: in geo loc : {str(e55)}')
-
-                now_str = datetime.now().strftime('%Y-%m-%dT%H:%M:%S+00:00')
-                write_snapshot_to_cloud_storage('bucket_for_ad_hoc', now_str, 'geocode')
-                api_call_time_saved = save_last_api_call_time_to_psql(db=db, geocoder='openstreetmap')
-
-                if search_location:
-                    latitude, longitude = search_location.latitude, search_location.longitude
-                    save_geolocation_in_psql(db, address_string, 'ok', latitude, longitude)
-                else:
-                    save_geolocation_in_psql(db, address_string, 'fail', None, None)
-            except Exception as e6:
-                logging.info(f'Error in func get_coordinates_from_address for address: {address_string}. Repr: ')
-                logging.exception(e6)
-                notify_admin('ERROR: get_coords_from_address failed.')
-
-        return latitude, longitude
 
     # DEBUG - function execution time counter
     func_start = datetime.now()
@@ -848,7 +742,7 @@ def parse_coordinates(db, search_num):
             address = parse_address_from_title(title)
             if address:
                 save_place_in_psql(db, address)
-                lat, lon = get_coordinates_from_address(db, address)
+                lat, lon = get_coordinates(db, address)
                 if lat != 0:
                     coord_type = '4. coordinates by address'
             else:
