@@ -688,7 +688,7 @@ def finish_time_analytics(notif_times, delays, parsed_times, list_of_change_ids)
 
     message = f'[s0] {len_n} x {round(average, 2)} = {int(ttl_time)} ' \
               f'| {min_delay}–{max_delay} | {min_parse_time}–{max_parse_time} | {list_of_change_ids}'
-    if len_n >= 10:  # FIXME – a temp deactivation to understand the sending speed. # and average > 0.3:
+    if max_parse_time >= 2:  # only for cases when delay is >2 mins from parsing time
         notify_admin(message)
     logging.info(message)
 
