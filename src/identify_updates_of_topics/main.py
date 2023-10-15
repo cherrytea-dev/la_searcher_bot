@@ -169,10 +169,6 @@ def save_last_api_call_time_to_psql(db: sqlalchemy.engine, geocoder: str) -> boo
         conn.execute(stmt, a=datetime.now(timezone.utc), b=geocoder)
         conn.close()
 
-        # FIXME – temp debug
-        print(f'THIS IS GOOD')
-        # FIXME ^^^
-
         return True
 
     except Exception as e:
@@ -196,15 +192,8 @@ def get_last_api_call_time_from_psql(db: sqlalchemy.engine, geocoder: str) -> da
             """SELECT timestamp FROM geocode_last_api_call WHERE geocoder=:a LIMIT 1;"""
         )
         last_call = conn.execute(stmt, a=geocoder).fetchone()
-        # FIXME – temp debug
-        print(f'{last_call=}')
-        # FIXME ^^^
         last_call = last_call[0]
         conn.close()
-
-        # FIXME – temp debug
-        print(f'THIS IS GOOD 2')
-        # FIXME ^^^
 
     except Exception as e:
         logging.info(f'UNSUCCESSFUL getting last api call time of geocoder {geocoder}')
@@ -284,22 +273,16 @@ def get_coordinates(db, address):
                 print(f'{prev_api_call_time=}')
                 # FIXME: ^^^
 
-                if prev_str_of_geocheck:
-                    prev_time_of_geocheck = datetime.strptime(prev_str_of_geocheck, '%Y-%m-%dT%H:%M:%S+00:00')
-                    now = datetime.now()
+                if prev_api_call_time:
                     now_utc = datetime.now(timezone.utc)
-                    if prev_time_of_geocheck:
-                        time_delta_bw_now_and_next_request = prev_time_of_geocheck + timedelta(seconds=1) - now
-                        # FIXME: DEBUG – temp
-                        try:
-                            print(f'{time_delta_bw_now_and_next_request=}')
-                            new_delta = prev_api_call_time - now_utc + timedelta(seconds=1)
-                            print(f'{new_delta=}')
-                        except Exception as e:
-                            logging.exception(e)
-                        # FIXME: ^^^
-                    else:
+                    # FIXME: DEBUG – temp
+                    try:
+                        time_delta_bw_now_and_next_request = prev_api_call_time - now_utc + timedelta(seconds=1)
+                        print(f'{time_delta_bw_now_and_next_request=}')
+                    except Exception as e:
+                        logging.exception(e)
                         time_delta_bw_now_and_next_request = timedelta(seconds=0)
+                    # FIXME: ^^^
                     if time_delta_bw_now_and_next_request.total_seconds() > 0:
                         time.sleep(time_delta_bw_now_and_next_request.total_seconds())
 
@@ -656,22 +639,16 @@ def parse_coordinates(db, search_num):
                 print(f'{prev_api_call_time=}')
                 # FIXME: ^^^
 
-                if prev_str_of_geocheck:
-                    prev_time_of_geocheck = datetime.strptime(prev_str_of_geocheck, '%Y-%m-%dT%H:%M:%S+00:00')
-                    now = datetime.now()
+                if prev_api_call_time:
                     now_utc = datetime.now(timezone.utc)
-                    if prev_time_of_geocheck:
-                        time_delta_bw_now_and_next_request = prev_time_of_geocheck + timedelta(seconds=1) - now
-                        # FIXME: DEBUG – temp
-                        try:
-                            print(f'{time_delta_bw_now_and_next_request=}')
-                            new_delta = prev_api_call_time - now_utc + timedelta(seconds=1)
-                            print(f'{new_delta=}')
-                        except Exception as e:
-                            logging.exception(e)
-                        # FIXME: ^^^
-                    else:
+                    # FIXME: DEBUG – temp
+                    try:
+                        time_delta_bw_now_and_next_request = prev_api_call_time - now_utc + timedelta(seconds=1)
+                        print(f'{time_delta_bw_now_and_next_request=}')
+                    except Exception as e:
+                        logging.exception(e)
                         time_delta_bw_now_and_next_request = timedelta(seconds=0)
+                    # FIXME: ^^^
                     if time_delta_bw_now_and_next_request.total_seconds() > 0:
                         time.sleep(time_delta_bw_now_and_next_request.total_seconds())
 
