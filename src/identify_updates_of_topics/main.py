@@ -289,6 +289,11 @@ def get_coordinates(db, address):
                     now = datetime.now()
                     if prev_time_of_geocheck:
                         time_delta_bw_now_and_next_request = prev_time_of_geocheck + timedelta(seconds=1) - now
+                        # FIXME: DEBUG – temp
+                        print(f'{time_delta_bw_now_and_next_request=}')
+                        new_delta = prev_api_call_time - now + timedelta(seconds=1)
+                        print(f'{new_delta=}')
+                        # FIXME: ^^^
                     else:
                         time_delta_bw_now_and_next_request = timedelta(seconds=0)
                     if time_delta_bw_now_and_next_request.total_seconds() > 0:
@@ -642,12 +647,21 @@ def parse_coordinates(db, search_num):
                 # second – check that next request won't be in less a minute from previous
                 prev_str_of_geocheck = read_snapshot_from_cloud_storage('bucket_for_ad_hoc', 'geocode')
                 logging.info(f'prev_str_of_geocheck: {prev_str_of_geocheck}')
+                prev_api_call_time = get_last_api_call_time_from_psql(db=db, geocoder='openstreetmap')
+                # FIXME: DEBUG - temp
+                print(f'{prev_api_call_time=}')
+                # FIXME: ^^^
 
                 if prev_str_of_geocheck:
                     prev_time_of_geocheck = datetime.strptime(prev_str_of_geocheck, '%Y-%m-%dT%H:%M:%S+00:00')
                     now = datetime.now()
                     if prev_time_of_geocheck:
                         time_delta_bw_now_and_next_request = prev_time_of_geocheck + timedelta(seconds=1) - now
+                        # FIXME: DEBUG – temp
+                        print(f'{time_delta_bw_now_and_next_request=}')
+                        new_delta = prev_api_call_time - now + timedelta(seconds=1)
+                        print(f'{new_delta=}')
+                        # FIXME: ^^^
                     else:
                         time_delta_bw_now_and_next_request = timedelta(seconds=0)
                     if time_delta_bw_now_and_next_request.total_seconds() > 0:
