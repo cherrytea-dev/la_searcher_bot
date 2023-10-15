@@ -244,8 +244,8 @@ def get_coordinates(db, address):
         """return coordinates on the request of address string"""
         """NB! openstreetmap requirements: NO more than 1 request per 1 min, no doubling requests"""
 
-        latitude = 0
-        longitude = 0
+        latitude = None
+        longitude = None
         status_in_psql = None
 
         geolocator = Nominatim(user_agent="LizaAlertBot")
@@ -264,7 +264,7 @@ def get_coordinates(db, address):
                 latitude = saved_loc_list[2]
                 longitude = saved_loc_list[3]
 
-            elif saved_loc_list[1] == 'failed':
+            elif saved_loc_list[1] == 'fail':
                 status_in_psql = 'failed'
 
         # no psql record for this address found OR existing info is insufficient
