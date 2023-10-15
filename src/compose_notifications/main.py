@@ -33,7 +33,7 @@ WINDOW_FOR_NOTIFICATIONS_DAYS = 60
 coord_format = "{0:.5f}"
 stat_list_of_recipients = []  # list of users who received notification on new search
 fib_list = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987]
-coord_pattern = r'0?[3-8]\d\.\d{1,10}.{0,3}[2-8]\d\.\d{1,10}'
+coord_pattern = r'0?[3-8]\d\.\d{1,10}.{0,3}([2-9]\d|1\d{2})\.\d{1,10}'
 
 
 class Comment:

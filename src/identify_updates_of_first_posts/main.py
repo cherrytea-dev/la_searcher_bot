@@ -485,7 +485,7 @@ def compose_diff_message(curr_list, prev_list):
         message += 'Добавлено:\n'
         for line in list_of_additions:
             # majority of coords in RU: lat in [30-80], long in [20-180]
-            updated_line = re.sub(r'0?[3-8]\d\.\d{1,10}.{0,3}[2-8]\d\.\d{1,10}', '<code>\g<0></code>', line)
+            updated_line = re.sub(r'0?[3-8]\d\.\d{1,10}.{0,3}([2-9]\d|1\d{2})\.\d{1,10}', r'<code>\g<0></code>', line)
             message += f'{updated_line}\n'
 
     return message, list_of_deletions, list_of_additions
