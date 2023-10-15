@@ -315,14 +315,13 @@ def get_coordinates(db, address):
         if lat and lon:
             logging.info(f'TEMP - LOC - NEW title loc for {address}: [{lat}, {lon}]')
             return [lat, lon]
-        else:
-            return address
+
     except Exception as e:
         logging.info('TEMP - LOC - New getting coordinates from title failed')
         logging.exception(e)
     # FIXME ^^^
 
-    return address
+    return [None, None]
 
 
 def parse_coordinates(db, search_num):
@@ -743,7 +742,7 @@ def parse_coordinates(db, search_num):
             if address:
                 save_place_in_psql(db, address)
                 lat, lon = get_coordinates(db, address)
-                if lat != 0:
+                if lat and lon:
                     coord_type = '4. coordinates by address'
             else:
                 logging.info(f'No address was found for search {search_num}, title {title}')
@@ -2614,7 +2613,11 @@ def parse_one_folder(db, folder_id):
 
                     if 'locations' in title_reco_dict.keys():
                         list_of_location_cities = [x['address'] for x in title_reco_dict['locations']]
-                        list_of_location_coords = [get_coordinates(db, x) for x in list_of_location_cities]
+                        list_of_location_coords = []
+                        for location_city in list_of_location_cities:
+                            city_lat, city_lon = get_coordinates(db, location_city)
+                            if city_lat and city_lon:
+                                list_of_location_coords.append([city_lat, city_lon])
                         search_summary_object.locations = list_of_location_coords
 
                     folder_summary.append(search_summary_object)
