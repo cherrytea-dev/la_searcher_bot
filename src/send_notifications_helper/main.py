@@ -361,9 +361,6 @@ def process_response(user_id, response):
     """process response received as a result of Telegram API call while sending message/location"""
 
     try:
-
-        logging.info(f'response text = {response.text}')  # FIXME – a temp debug, to be deleted
-
         if response.ok:
             logging.info(f'message to {user_id} was successfully sent')
             return 'completed'
