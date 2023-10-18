@@ -237,7 +237,8 @@ def get_coordinates(db, address):
 
         with db2.connect() as conn:
             stmt = sqlalchemy.text(
-                """SELECT address, status, latitude, longitude, geocoder from geocoding WHERE address=:a LIMIT 1; """
+                """SELECT address, status, latitude, longitude, geocoder from geocoding WHERE address=:a 
+                ORDER BY id DESC LIMIT 1; """
             )
             saved_result = conn.execute(stmt, a=address_string).fetchone()
             conn.close()
