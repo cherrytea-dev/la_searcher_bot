@@ -266,7 +266,10 @@ def get_coordinates(db, address):
             with db2.connect() as conn:
                 stmt = sqlalchemy.text(
                     """INSERT INTO geocoding (address, status, latitude, longitude, geocoder, timestamp) VALUES 
-                    (:a, :b, :c, :d, :e, :f); """
+                    (:a, :b, :c, :d, :e, :f) 
+                    ON CONFLICT(address) DO 
+                    UPDATE SET status=EXCLUDED.status, latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, 
+                    geocoder=EXCLUDED.geocoder, timestamp=EXCLUDED.timestamp;"""
                 )
                 conn.execute(stmt, a=address_string, b=status, c=latitude, d=longitude,
                              e=geocoder, f=datetime.now(timezone.utc))
