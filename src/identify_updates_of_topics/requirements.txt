@@ -10,6 +10,7 @@ chardet==4.0.0  # encoding detector
 cchardet==2.1.7  # encoding detector
 python-dateutil  # extension to datetime module
 geopy==2.2.0  # geocoding / coordinates
+yandex-geocoder==3.0.1  # # geocoding / coordinates
 
 SQLAlchemy==1.4.11
 pg8000==1.19.4  # PSQL driver

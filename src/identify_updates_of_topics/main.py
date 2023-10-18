@@ -17,6 +17,7 @@ import requests
 import sqlalchemy
 from bs4 import BeautifulSoup, SoupStrainer  # noqa
 from geopy.geocoders import Nominatim
+from yandex_geocoder import Client, exceptions
 
 from natasha import Segmenter, NewsEmbedding, NewsNERTagger, Doc
 
@@ -54,7 +55,6 @@ dict_status_words = {'жив': 'one', 'жива': 'one', 'живы': 'many',
                      'остановлен': 'na',
                      'стоп': 'na', 'эвакуация': 'na'}
 dict_ignore = {'', ':'}
-
 
 class SearchSummary:
 
@@ -279,16 +279,17 @@ def get_coordinates(db, address):
 
     def get_coordinates_from_address_by_osm(address_string):
         """return coordinates on the request of address string"""
-        """NB! openstreetmap requirements: NO more than 1 request per 1 min, no doubling requests"""
+        """NB! openstreetmap requirements: NO more than 1 request per 1 second, no doubling requests"""
         """MEMO: documentation on API: https://operations.osmfoundation.org/policies/nominatim/"""
 
         latitude = None
         longitude = None
-        geolocator = Nominatim(user_agent="LizaAlertBot")
+        osm_identifier = get_secrets('osm_identifier')
+        geolocator = Nominatim(user_agent=osm_identifier)
 
         try:
             search_location = geolocator.geocode(address_string, timeout=10000)
-            logging.info(f'geo_location by osm: {str(search_location)}')
+            logging.info(f'geo_location by osm: {search_location}')
             if search_location:
                 latitude, longitude = search_location.latitude, search_location.longitude
 
@@ -296,6 +297,34 @@ def get_coordinates(db, address):
             logging.info(f'Error in func get_coordinates_from_address_by_osm for address: {address_string}. Repr: ')
             logging.exception(e6)
             notify_admin('ERROR: get_coords_from_address failed.')
+
+        return latitude, longitude
+
+    def get_coordinates_from_address_by_yandex(address_string: str) -> (float, float):
+        """return coordinates on the request of address string, geocoded by yandex"""
+
+        latitude = None
+        longitude = None
+        yandex_api_key = get_secrets('yandex_api_key')
+        yandex_client = Client(yandex_api_key)
+
+        try:
+            coordinates = yandex_client.coordinates(address_string)
+            logging.info(f'geo_location by yandex: {coordinates}')
+        except Exception as e2:
+            coordinates = None
+            if isinstance(e2, exceptions.NothingFound):
+                logging.info(f'address "{address_string}" not found by yandex')
+            elif isinstance(e2, exceptions.YandexGeocoderException) or \
+                    isinstance(e2, exceptions.UnexpectedResponse) or \
+                    isinstance(e2, exceptions.InvalidKey):
+                logging.info('unexpected yandex error')
+            else:
+                logging.info('unexpected error:')
+                logging.exception(e2)
+
+        if coordinates:
+            latitude, longitude = float(coordinates[0]), float(coordinates[1])
 
         return latitude, longitude
 
@@ -324,9 +353,16 @@ def get_coordinates(db, address):
 
         if saved_status == 'fail' and (saved_geocoder == 'osm' or not saved_geocoder):
             # then we need to geocode with yandex
-            # TODO – yandex geocoding
-            pass
-            # TODO ^^^
+            rate_limit_for_api(db=db, geocoder='yandex')
+            lat, lon = get_coordinates_from_address_by_yandex(address)
+            api_call_time_saved = save_last_api_call_time_to_psql(db=db, geocoder='yandex')
+            logging.info(f'{api_call_time_saved=}')
+
+            if lat and lon:
+                saved_status = 'ok'
+            else:
+                saved_status = 'fail'
+            save_geolocation_in_psql(db, address, saved_status, lat, lon, 'yandex')
 
         return lat, lon
 
@@ -3232,6 +3268,7 @@ def main(event, context):  # noqa
     change_log_ids = []
 
     if folders_list:
+
         for folder in folders_list:
 
             logging.info(f'start checking if folder {folder} has any updates')
