@@ -204,128 +204,138 @@ def get_last_api_call_time_from_psql(db: sqlalchemy.engine, geocoder: str) -> da
 
     return last_call
 
+def rate_limit_for_api(db: sqlalchemy.engine, geocoder: str) -> None:
+    """sleeps certain time if api calls are too frequent"""
+
+    # check that next request won't be in less a SECOND from previous
+    prev_api_call_time = get_last_api_call_time_from_psql(db=db, geocoder='openstreetmap')
+
+    if not prev_api_call_time:
+        return None
+
+    now_utc = datetime.now(timezone.utc)
+    time_delta_bw_now_and_next_request = prev_api_call_time - now_utc + timedelta(seconds=1)
+
+    logging.info(f'{prev_api_call_time=}')
+    logging.info(f'{now_utc=}')
+    logging.info(f'{time_delta_bw_now_and_next_request=}')
+
+    if time_delta_bw_now_and_next_request.total_seconds() > 0:
+        time.sleep(time_delta_bw_now_and_next_request.total_seconds())
+        logging.info(f'rate limit for {geocoder}: sleep {time_delta_bw_now_and_next_request.total_seconds()}')
+        notify_admin(f'rate limit for {geocoder}: sleep {time_delta_bw_now_and_next_request.total_seconds()}')
+
+    return None
+
 
 def get_coordinates(db, address):
     """convert address string into a pair of coordinates"""
 
-    def load_geolocation_form_psql(db2, address_string):
+    def get_geolocation_form_psql(db2, address_string):
         """get results of geocoding from psql"""
 
         with db2.connect() as conn:
             stmt = sqlalchemy.text(
-                """SELECT address, status, latitude, longitude from geocoding WHERE address=:a LIMIT 1; """
+                """SELECT address, status, latitude, longitude, geocoder from geocoding WHERE address=:a LIMIT 1; """
             )
             saved_result = conn.execute(stmt, a=address_string).fetchone()
-
             conn.close()
 
-        return saved_result
+        logging.info(f'{address_string=}')
+        logging.info(f'{saved_result=}')
 
-    def save_geolocation_in_psql(db2, address_string, status, latitude, longitude):
+        # there is a psql record on this address - no geocoding activities are required
+        if saved_result:
+            if saved_result[1] == 'ok':
+                latitude = saved_result[2]
+                longitude = saved_result[3]
+                geocoder = saved_result[4]
+                return 'ok', latitude, longitude, geocoder
+
+            elif saved_result[1] == 'fail':
+                return 'fail', None, None, None
+
+        return 'none', None, None, None
+
+    def save_geolocation_in_psql(db2, address_string, status, latitude, longitude, geocoder):
         """save results of geocoding to avoid multiple requests to openstreetmap service"""
 
         try:
             with db2.connect() as conn:
                 stmt = sqlalchemy.text(
-                    """INSERT INTO geocoding (address, status, latitude, longitude) VALUES (:a, 
-                    :b, :c, :d); """
+                    """INSERT INTO geocoding (address, status, latitude, longitude, geocoder, timestamp) VALUES 
+                    (:a, :b, :c, :d, :e, :f); """
                 )
-                conn.execute(stmt, a=address_string, b=status, c=latitude, d=longitude)
+                conn.execute(stmt, a=address_string, b=status, c=latitude, d=longitude,
+                             e=geocoder, f=datetime.now(timezone.utc))
                 conn.close()
 
-        except Exception as e7:
-            logging.info('DBG.P.EXC.109: ')
-            logging.exception(e7)
-            notify_admin('ERROR: saving geolocation to psql failed: ' + address_string + ', ' + status)
+        except Exception as e2:
+            logging.info(f'ERROR: saving geolocation to psql failed: {address_string}, {status}')
+            logging.exception(e2)
+            notify_admin(f'ERROR: saving geolocation to psql failed: {address_string}, {status}')
 
         return None
 
-    def get_coordinates_from_address(db2, address_string):
+    def get_coordinates_from_address_by_osm(address_string):
         """return coordinates on the request of address string"""
         """NB! openstreetmap requirements: NO more than 1 request per 1 min, no doubling requests"""
         """MEMO: documentation on API: https://operations.osmfoundation.org/policies/nominatim/"""
 
         latitude = None
         longitude = None
-
         geolocator = Nominatim(user_agent="LizaAlertBot")
 
-        # check if this address was already geolocated and saved to psql
-        saved_loc_list = load_geolocation_form_psql(db2, address_string)
-
-        # FIXME – temp debug
-        print(f'{address_string=}')
-        print(f'{saved_loc_list=}')
-        # FIXME ^^^
-
-        # there is a psql record on this address - no geocoding activities are required
-        if saved_loc_list:
-            if saved_loc_list[1] == 'ok':
-                latitude = saved_loc_list[2]
-                longitude = saved_loc_list[3]
-                return latitude, longitude
-
-            elif saved_loc_list[1] == 'fail':
-                return None, None
-
-        # when no psql record for this address
         try:
-            # check that next request won't be in less a SECOND from previous
-            prev_api_call_time = get_last_api_call_time_from_psql(db=db, geocoder='openstreetmap')
-
-            if prev_api_call_time:
-                now_utc = datetime.now(timezone.utc)
-                time_delta_bw_now_and_next_request = prev_api_call_time - now_utc + timedelta(seconds=1)
-                # FIXME: DEBUG - temp
-                print(f'{prev_api_call_time=}')
-                print(f'{now_utc=}')
-                print(f'{time_delta_bw_now_and_next_request=}')
-                # FIXME: ^^^
-                if time_delta_bw_now_and_next_request.total_seconds() > 0:
-                    time.sleep(time_delta_bw_now_and_next_request.total_seconds())
-                    # FIXME: DEBUG - temp
-                    print(f'we were sleeping for {time_delta_bw_now_and_next_request.total_seconds()}')
-                    notify_admin(f'we were sleeping for {time_delta_bw_now_and_next_request.total_seconds()}')
-                    # FIXME ^^^
-
-            try:
-                search_location = geolocator.geocode(address_string, timeout=10000)
-                logging.info(f'geo_location: {str(search_location)}')
-            except Exception as e55:
-                search_location = None
-                logging.info('ERROR: geo loc ')
-                logging.exception(e55)
-                notify_admin(f'ERROR: in geo loc : {str(e55)}')
-
-            api_call_time_saved = save_last_api_call_time_to_psql(db=db, geocoder='openstreetmap')
-            logging.info(f'{api_call_time_saved=}')
-
+            search_location = geolocator.geocode(address_string, timeout=10000)
+            logging.info(f'geo_location by osm: {str(search_location)}')
             if search_location:
                 latitude, longitude = search_location.latitude, search_location.longitude
-                save_geolocation_in_psql(db, address_string, 'ok', latitude, longitude)
-            else:
-                save_geolocation_in_psql(db, address_string, 'fail', None, None)
 
         except Exception as e6:
-            logging.info(f'Error in func get_coordinates_from_address for address: {address_string}. Repr: ')
+            logging.info(f'Error in func get_coordinates_from_address_by_osm for address: {address_string}. Repr: ')
             logging.exception(e6)
             notify_admin('ERROR: get_coords_from_address failed.')
 
         return latitude, longitude
 
-    # FIXME - temp try
     try:
-        lat, lon = get_coordinates_from_address(db, address)
+        # check if this address was already geolocated and saved to psql
+        saved_status, lat, lon, saved_geocoder = get_geolocation_form_psql(db, address)
+
         if lat and lon:
-            logging.info(f'TEMP - LOC - NEW title loc for {address}: [{lat}, {lon}]')
-            return [lat, lon]
+            return lat, lon
+
+        elif saved_status == 'fail' and saved_geocoder == 'yandex':
+            return None, None
+
+        elif not saved_status:
+            # when there's no saved record
+            rate_limit_for_api(db=db, geocoder='osm')
+            lat, lon = get_coordinates_from_address_by_osm(address)
+            api_call_time_saved = save_last_api_call_time_to_psql(db=db, geocoder='osm')
+            logging.info(f'{api_call_time_saved=}')
+
+            if lat and lon:
+                saved_status = 'ok'
+            else:
+                saved_status = 'fail'
+            save_geolocation_in_psql(db, address, saved_status, lat, lon, 'osm')
+
+        if saved_status == 'fail' and (saved_geocoder == 'osm' or not saved_geocoder):
+            # then we need to geocode with yandex
+            # TODO – yandex geocoding
+            pass
+            # TODO ^^^
+
+        return lat, lon
 
     except Exception as e:
         logging.info('TEMP - LOC - New getting coordinates from title failed')
         logging.exception(e)
-    # FIXME ^^^
+        notify_admin(f'ERROR: major geocoding script failed')
 
-    return [None, None]
+    return None, None
 
 
 def parse_coordinates(db, search_num):
