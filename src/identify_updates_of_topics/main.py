@@ -204,11 +204,12 @@ def get_last_api_call_time_from_psql(db: sqlalchemy.engine, geocoder: str) -> da
 
     return last_call
 
+
 def rate_limit_for_api(db: sqlalchemy.engine, geocoder: str) -> None:
     """sleeps certain time if api calls are too frequent"""
 
     # check that next request won't be in less a SECOND from previous
-    prev_api_call_time = get_last_api_call_time_from_psql(db=db, geocoder='openstreetmap')
+    prev_api_call_time = get_last_api_call_time_from_psql(db=db, geocoder=geocoder)
 
     if not prev_api_call_time:
         return None
