@@ -1,0 +1,2 @@
+functions-framework==3.4.0  # a part of Google Cloud Functions Gen 2 framework
+

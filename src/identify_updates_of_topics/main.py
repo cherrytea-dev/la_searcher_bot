@@ -214,6 +214,9 @@ def rate_limit_for_api(db: sqlalchemy.engine, geocoder: str) -> None:
     if not prev_api_call_time:
         return None
 
+    if geocoder == 'yandex':
+        return None
+
     now_utc = datetime.now(timezone.utc)
     time_delta_bw_now_and_next_request = prev_api_call_time - now_utc + timedelta(seconds=1)
 
@@ -261,6 +264,7 @@ def get_coordinates(db, address):
 
     def save_geolocation_in_psql(db2, address_string, status, latitude, longitude, geocoder):
         """save results of geocoding to avoid multiple requests to openstreetmap service"""
+        """the Geocoder HTTP API may not exceed 1000 per day"""
 
         try:
             with db2.connect() as conn:
