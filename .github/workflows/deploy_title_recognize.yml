@@ -38,4 +38,6 @@ jobs:
           --runtime=python310 \
           --source=src/${{ env.FILE_NAME }} \
           --entry-point=main \
-          --trigger-http
+          --trigger-http \
+          --memory 1024MB
+          
