@@ -8,7 +8,7 @@ lxml==4.9.1  # for BS4
 
 chardet==4.0.0  # encoding detector
 cchardet==2.1.7  # encoding detector
-python-dateutil  # extension to datetime module
+python-dateutil==2.8.2  # extension to datetime module
 geopy==2.2.0  # geocoding / coordinates
 yandex-geocoder==3.0.1  # # geocoding / coordinates
 
