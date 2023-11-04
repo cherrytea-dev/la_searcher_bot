@@ -15,31 +15,17 @@ log_client = google.cloud.logging.Client()
 log_client.setup_logging()
 
 
-def get_requested_title(request: Union[Dict, None]) -> str:
+def get_requested_title(request: Union[Dict, None]) -> Union[str, None]:
     """gets the title from the incoming request"""
 
-    request_json = request.get_json(silent=True)  # for the case when request contains json
-    request_args = request.args  # for the case when request URLquery parameters
+    # for the case when request contains json
+    request_json = request.get_json(silent=True)  # noqa
 
     if request_json and 'title' in request_json:
         title = request_json['title']
-
-    elif request_args and 'title' in request_args:
-        title = request_args['title']
+        return title
     else:
-        title = None
-
-    return title
-
-
-def title_recognition(title: str) -> Union[Dict, None]:
-    """recognize the title and compose a dict with recognized values"""
-
-    if not title:
         return None
-
-    mock_reco = {"key_1": "value_1", "key_2": "value_2"}
-    return mock_reco
 
 
 def recognize_title(line: str) -> Union[Dict, None]:
@@ -1369,20 +1355,20 @@ def main(request):
     title = get_requested_title(request)
 
     if not title:
-        response = {'get_title': 'fail', 'request': str(request.data)}
+        response = {'status': 'fail', 'fail_reason': 'no title provided', 'request': str(request.data)}
         response_json = json.dumps(response)
         return response_json
 
-    # reco_title = title_recognition(title)
     reco_title = recognize_title(title)
 
-    if not reco_title:
-        response = {'get_title': 'ok', 'reco_status': 'fail', 'title': title, 'request': str(request.data)}
+    if not reco_title or ('topic_type' in reco_title.keys() and reco_title['topic_type'] == 'UNRECOGNIZED'):
+
+        response = {'status': 'fail', 'fail_reason': 'not able to recognize',
+                    'title': title, 'request': str(request.data)}
         response_json = json.dumps(response)
         return response_json
 
-    response = {'get_title': 'ok', 'reco_status': 'ok', 'title': title, 'recognition': reco_title,
-                'request': str(request.data)}
+    response = {'status': 'ok', 'title': title, 'recognition': reco_title}
     response_json = json.dumps(response)
 
     return response_json
