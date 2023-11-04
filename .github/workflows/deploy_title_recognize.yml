@@ -37,5 +37,5 @@ jobs:
           --region=europe-west3 \
           --runtime=python310 \
           --source=src/${{ env.FILE_NAME }} \
-          --entry-point=main
+          --entry-point=main \
           --trigger-http
