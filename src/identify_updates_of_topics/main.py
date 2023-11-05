@@ -2614,7 +2614,7 @@ def make_api_call(function: str, data: dict):
     headers = {"Authorization": f"Bearer {id_token}", 'Content-Type': 'application/json'}
 
     r = requests.post(endpoint, json=data, headers=headers)
-    content = r.content
+    content = r.json()
 
     return content
 
@@ -2668,11 +2668,12 @@ def parse_one_folder(db, folder_id):
                     # incoming dict, which should contain "title" as a key
                     data = {"title": search_title}
                     new_title_reco_dict = make_api_call('title_recognize', data)
-                    notify_admin(f'IT WORKED!!!!!! {new_title_reco_dict}')
+                    if new_title_reco_dict and 'status' in new_title_reco_dict.keys() and new_title_reco_dict['status'] == 'ok':
+                        new_title_reco_dict = new_title_reco_dict['recognition']    
+
                 except Exception as except_1:
                     logging.exception(except_1)
                     new_title_reco_dict = None
-                    notify_admin(f'IT DIDNT WORK!!!!!!')
 
                 title_reco_dict = recognize_title(search_title)
                 if new_title_reco_dict == title_reco_dict:
