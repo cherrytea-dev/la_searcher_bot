@@ -2667,16 +2667,18 @@ def parse_one_folder(db, folder_id):
                 try:
                     # incoming dict, which should contain "title" as a key
                     data = {"title": search_title}
-                    title_reco_dict = make_api_call('title_recognize', data)
-                    temp_success_flag = True
-                    notify_admin(f'IT WORKED!!!!!! {title_reco_dict}')
+                    new_title_reco_dict = make_api_call('title_recognize', data)
+                    notify_admin(f'IT WORKED!!!!!! {new_title_reco_dict}')
                 except Exception as except_1:
                     logging.exception(except_1)
-                    temp_success_flag = False
+                    new_title_reco_dict = None
                     notify_admin(f'IT DIDNT WORK!!!!!!')
 
-                if not temp_success_flag:
-                    title_reco_dict = recognize_title(search_title)
+                title_reco_dict = recognize_title(search_title)
+                if new_title_reco_dict == title_reco_dict:
+                    notify_admin(f'IT MATCHES!!!!!!')
+                else:
+                    notify_admin(f'IT DOES NOT MATCH: {new_title_reco_dict=} |||| {title_reco_dict=}')
                 # FIXME ^^^
 
                 logging.info(f'TEMP – title_reco_dict = {title_reco_dict}')
