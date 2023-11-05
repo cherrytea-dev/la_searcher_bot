@@ -2663,26 +2663,17 @@ def parse_one_folder(db, folder_id):
             # FIXME ^^^
 
             try:
-                # FIXME – 05.11.2023 – switch from built-in "recognize_title" func to API call to another microservice
-                try:
-                    # incoming dict, which should contain "title" as a key
-                    data = {"title": search_title}
-                    new_title_reco_dict = make_api_call('title_recognize', data)
-                    if new_title_reco_dict and 'status' in new_title_reco_dict.keys() and new_title_reco_dict['status'] == 'ok':
-                        new_title_reco_dict = new_title_reco_dict['recognition']    
+                data = {"title": search_title}
+                title_reco_response = make_api_call('title_recognize', data)
 
-                except Exception as except_1:
-                    logging.exception(except_1)
-                    new_title_reco_dict = None
-
-                title_reco_dict = recognize_title(search_title)
-                if new_title_reco_dict == title_reco_dict:
-                    notify_admin(f'IT MATCHES!!!!!!')
+                if title_reco_response and 'status' in title_reco_response.keys() \
+                        and title_reco_response['status'] == 'ok':
+                    title_reco_dict = title_reco_response['recognition']
                 else:
-                    notify_admin(f'IT DOES NOT MATCH: {new_title_reco_dict=} |||| {title_reco_dict=}')
-                # FIXME ^^^
+                    title_reco_dict = {'topic_type': 'UNRECOGNIZED'}
 
-                logging.info(f'TEMP – title_reco_dict = {title_reco_dict}')
+                logging.info(f'{title_reco_dict=}')
+                notify_admin(title_reco_dict)
 
                 # NEW exclude non-relevant searches
                 if title_reco_dict['topic_type'] in {'search', 'search training',
