@@ -11,9 +11,9 @@ from datetime import datetime, timedelta, timezone
 from dateutil import relativedelta
 import copy
 import urllib.request
+import requests
 import random
 
-import requests
 import sqlalchemy
 from bs4 import BeautifulSoup, SoupStrainer  # noqa
 from geopy.geocoders import Nominatim
@@ -25,6 +25,9 @@ from google.cloud import secretmanager
 from google.cloud import storage
 from google.cloud import pubsub_v1
 import google.cloud.logging
+import google.auth.transport.requests
+import google.oauth2.id_token
+
 
 url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
 req = urllib.request.Request(url)
@@ -55,6 +58,7 @@ dict_status_words = {'жив': 'one', 'жива': 'one', 'живы': 'many',
                      'остановлен': 'na',
                      'стоп': 'na', 'эвакуация': 'na'}
 dict_ignore = {'', ':'}
+
 
 class SearchSummary:
 
@@ -2597,6 +2601,24 @@ def recognize_title(line):
     return final_recognition_dict
 
 
+def make_api_call(function: str, data: dict):
+    """makes an API call to another Google Cloud Function"""
+
+    # function we're turing to "title_recognize"
+    endpoint = f'https://europe-west3-lizaalert-bot-01.cloudfunctions.net/{function}'
+
+    # required magic for Google Cloud Functions Gen2 to invoke each other
+    audience = endpoint
+    auth_req = google.auth.transport.requests.Request()
+    id_token = google.oauth2.id_token.fetch_id_token(auth_req, audience)
+    headers = {"Authorization": f"Bearer {id_token}", 'Content-Type': 'application/json'}
+
+    r = requests.post(endpoint, json=data, headers=headers)
+    content = r.content
+
+    return content
+
+
 def parse_one_folder(db, folder_id):
     """parse forum folder with searches' summaries"""
 
@@ -2641,7 +2663,22 @@ def parse_one_folder(db, folder_id):
             # FIXME ^^^
 
             try:
-                title_reco_dict = recognize_title(search_title)
+                # FIXME – 05.11.2023 – switch from built-in "recognize_title" func to API call to another microservice
+                try:
+                    # incoming dict, which should contain "title" as a key
+                    data = {"title": search_title}
+                    title_reco_dict = make_api_call('title_recognize', data)
+                    temp_success_flag = True
+                    notify_admin(f'IT WORKED!!!!!! {title_reco_dict}')
+                except Exception as except_1:
+                    logging.exception(except_1)
+                    temp_success_flag = False
+                    notify_admin(f'IT DIDNT WORK!!!!!!')
+
+                if not temp_success_flag:
+                    title_reco_dict = recognize_title(search_title)
+                # FIXME ^^^
+
                 logging.info(f'TEMP – title_reco_dict = {title_reco_dict}')
 
                 # NEW exclude non-relevant searches
