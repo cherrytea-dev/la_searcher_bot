@@ -2614,7 +2614,6 @@ def make_api_call(function: str, data: dict):
     headers = {"Authorization": f"Bearer {id_token}", 'Content-Type': 'application/json'}
 
     r = requests.post(endpoint, json=data, headers=headers)
-    r.encoding = 'utf-8'
     content = r.json()
 
     return content
@@ -2674,7 +2673,7 @@ def parse_one_folder(db, folder_id):
                     title_reco_dict = {'topic_type': 'UNRECOGNIZED'}
 
                 logging.info(f'{title_reco_dict=}')
-                notify_admin(title_reco_dict)
+                notify_admin(f'{title_reco_dict=}')
 
                 # NEW exclude non-relevant searches
                 if title_reco_dict['topic_type'] in {'search', 'search training',
