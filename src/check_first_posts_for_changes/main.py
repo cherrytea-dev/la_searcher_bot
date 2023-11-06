@@ -315,7 +315,7 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
             if new_status == status:
                 notify_admin(f'f-posts: old and new statis match')
             else:
-                notify_admin(f'f-posts: status dont match: {status=}, {new_status=}')
+                notify_admin(f'f-posts: status dont match: {status=}, {new_status=}, {title=}')
 
     except Exception as ex:
         logging.exception(ex)
