@@ -1284,10 +1284,8 @@ def parse_one_folder(db, folder_id):
                                                      'search reverse', 'search patrol', 'event'}:
                     # FIXME – 06.11.2023 – work to delete function "define_family_name_from_search_title_new"
                     try:
-                        new_f_name = title_reco_dict['persons']['person'][0]['name']
-                        if new_f_name == person_fam_name:
-                            notify_admin('names match!')
-                        else:
+                        new_f_name = title_reco_dict['persons']['total_name']  # noqa
+                        if new_f_name != person_fam_name:
                             notify_admin(f'names DON\'T match: {new_f_name=}, {person_fam_name=}')
                     except Exception as ex:
                         logging.exception(ex)

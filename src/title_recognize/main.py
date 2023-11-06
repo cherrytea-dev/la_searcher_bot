@@ -1216,7 +1216,8 @@ def recognize_title(line: str) -> Union[Dict, None]:
             total_persons = [1-9] / group / undefined
             age_min = [0-199]
             age_max = [0-199]
-            total_display_name = displayed name + age (age range)
+            total_name = name of the first person
+            total_display_name = display name + age (age range)
             person =
                [
                 [optional] person = 
@@ -1302,6 +1303,7 @@ def recognize_title(line: str) -> Union[Dict, None]:
             for block in recognition.blocks:
                 if block.type and block.type == 'PER':
                     summary['total_persons'] = block.reco.block_num
+                    summary['total_name'] = block.reco.name
                     summary['total_display_name'] = block.reco.display_name
                     if isinstance(block.reco.age, list) and len(block.reco.age) > 0:
                         summary['age_min'] = block.reco.age[0]
@@ -1322,7 +1324,7 @@ def recognize_title(line: str) -> Union[Dict, None]:
 
         # placeholders if no persons
         if final_dict['topic_type'] in {'search', 'search training'} and 'persons' not in final_dict.keys():
-            per_dict = {'total_persons': -1, 'total_display_name': 'Неизвестный'}
+            per_dict = {'total_persons': -1, 'total_name': 'Неизвестный', 'total_display_name': 'Неизвестный'}
             final_dict['persons'] = per_dict
 
         if 'persons' in final_dict.keys() and 'total_persons' in final_dict['persons'].keys() and \
