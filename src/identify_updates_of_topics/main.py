@@ -984,69 +984,6 @@ def define_family_name_from_search_title_new(title):
     return fam_name
 
 
-def define_age_from_search_title(search_title):
-    """finds the age from the search title"""
-    # it's really simple now and gets just a first number out of all – but this simple solution seems to work well
-    # probably in the future we'd need to have an ML model to define age more accurately
-
-    # MEMO: int(float(s)) is required to overcome errors for cases "blah-blah 3."
-    list_of_numbers_in_title = [int(float(s)) for s in re.findall(r'-?\d+\.?\d*', search_title)]
-
-    # if there are several numbers in title - age is often written first
-    if list_of_numbers_in_title:
-        search_person_age = list_of_numbers_in_title[0]
-    else:
-        search_person_age = 0
-
-    # if the first number is year - change to age itself
-    if search_person_age > 1900:
-        search_person_age = datetime.now().year - search_person_age
-
-    return search_person_age
-
-
-def define_status_from_search_title(title):
-    """define the status from search title"""
-
-    search_status = title
-
-    # Identify and delete the text of text for Training activities
-    if search_status.lower().find('учебн') > -1:
-        pattern = r'(?i)учебн(?:ый|ая|ые)(?:[\s]сбор[ы]?|[\s]поиск|[\s]выход)?(?:\s|.|:|,)[\s]?'
-        search_status = re.sub(pattern, '', search_status)
-
-    if search_status[0:3].lower() == "жив":
-        search_status = "НЖ"
-    elif search_status[0:3].lower() == "най":
-        if search_status.split()[1].lower()[0:3] == "пог":
-            search_status = "НП"
-        else:
-            search_status = "НЖ"
-    elif search_status[0:3].lower() == "пог":
-        search_status = "НП"
-    elif search_status[0:3].lower() == "сто":
-        search_status = "СТОП"
-    elif search_status[0:3].lower() == "эва":
-        search_status = "ЭВАКУАЦИЯ"
-    elif search_status[0:14].lower() == "поиск приостан":
-        search_status = "СТОП"
-    elif search_status[0:12].lower() == "поиск заверш":
-        search_status = "Завершен"
-    elif search_status[0:8].lower() == "завершен":
-        search_status = "Завершен"
-    elif search_status[0:21].lower() == "потеряшки в больницах":
-        search_status = "Ищем"
-    elif search_status[0:12].lower() == "поиск родных":
-        search_status = "Ищем"
-    elif search_status[0:14].lower() == "родные найдены":
-        search_status = "НЖ"
-    elif search_status[0:19].lower() == "поиск родственников":
-        search_status = "Ищем"
-    else:
-        search_status = 'Ищем'
-
-    return search_status
-
 
 def define_start_time_of_search(blocks):
     """define search start time & date"""
@@ -1341,11 +1278,22 @@ def parse_one_folder(db, folder_id):
                     title_reco_dict = {'topic_type': 'UNRECOGNIZED'}
 
                 logging.info(f'{title_reco_dict=}')
-                notify_admin(f'{title_reco_dict=}')
 
                 # NEW exclude non-relevant searches
                 if title_reco_dict['topic_type'] in {'search', 'search training',
                                                      'search reverse', 'search patrol', 'event'}:
+                    # FIXME – 06.11.2023 – work to delete function "define_family_name_from_search_title_new"
+                    try:
+                        new_f_name = title_reco_dict['persons']['person'][0]['name']
+                        if new_f_name == person_fam_name:
+                            notify_admin('names match!')
+                        else:
+                            notify_admin(f'names DON\'T match: {new_f_name=}, {person_fam_name=}')
+                    except Exception as ex:
+                        logging.exception(ex)
+                        notify_admin(repr(ex))
+                    # FIXME ^^^
+
                     search_summary_object = SearchSummary(parsed_time=current_datetime, topic_id=search_id,
                                                           title=search_title,
                                                           start_time=start_datetime,
