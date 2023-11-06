@@ -1,4 +1,6 @@
 name: Deploy-GCF-Identify-Updates-Of-Topics
+env:
+  FILE_NAME: identify_updates_of_topics # UPD HERE!
 
 on:
   push:
@@ -25,13 +27,14 @@ jobs:
         id: deploy
         uses: google-github-actions/deploy-cloud-functions@v1
         with:
-            source_dir: src/identify_updates_of_topics # name of directory
-            name: identify_updates_of_topics
+            source_dir: src/${{ env.FILE_NAME }}
+            name: ${{ env.FILE_NAME }}
             runtime: python310
             entry_point: main
             region: europe-west3
             timeout: 540
             max_instances: 1
-            memory_mb: 1024 # 2048
+            memory_mb: 512 # 2048
             event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
             event_trigger_resource: projects/lizaalert-bot-01/topics/topic_to_run_parsing_script
+            labels: gcp=${{ env.FILE_NAME }}
