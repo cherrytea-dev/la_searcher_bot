@@ -1206,7 +1206,7 @@ def parse_search_profile(search_num):
     return left_text
 
 
-def make_api_call(function: str, data: dict):
+def make_api_call(function: str, data: dict) -> dict:
     """makes an API call to another Google Cloud Function"""
 
     # function we're turing to "title_recognize"

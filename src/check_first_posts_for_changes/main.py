@@ -17,6 +17,8 @@ import sqlalchemy  # idea for optimization – to move to psycopg2
 from google.cloud import secretmanager
 from google.cloud import pubsub_v1
 import google.cloud.logging
+import google.auth.transport.requests
+import google.oauth2.id_token
 
 url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
 req = urllib.request.Request(url)
@@ -254,6 +256,24 @@ def parse_search(search_num):
     return content, site_unavailable
 
 
+def make_api_call(function: str, data: dict) -> dict:
+    """makes an API call to another Google Cloud Function"""
+
+    # function we're turing to "title_recognize"
+    endpoint = f'https://europe-west3-lizaalert-bot-01.cloudfunctions.net/{function}'
+
+    # required magic for Google Cloud Functions Gen2 to invoke each other
+    audience = endpoint
+    auth_req = google.auth.transport.requests.Request()
+    id_token = google.oauth2.id_token.fetch_id_token(auth_req, audience)
+    headers = {"Authorization": f"Bearer {id_token}", 'Content-Type': 'application/json'}
+
+    r = requests.post(endpoint, json=data, headers=headers)
+    content = r.json()
+
+    return content
+
+
 def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
     """block to check if Status of the search has changed – if so send a pub/sub to topic_management"""
 
@@ -276,6 +296,32 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
         if re.search(pattern[0], title):
             status = pattern[1]
             break
+
+    # FIXME - 06.11.2023 - implementing API call for title_reco
+    try:
+        data = {"title": title}
+        title_reco_response = make_api_call('title_recognize', data)
+
+        if title_reco_response and 'status' in title_reco_response.keys() \
+                and title_reco_response['status'] == 'ok':
+            title_reco_dict = title_reco_response['recognition']
+        else:
+            title_reco_dict = {'topic_type': 'UNRECOGNIZED'}
+        logging.info(f'{title_reco_dict=}')
+
+        new_status = title_reco_dict['status']
+
+        if new_status in {'НЖ', 'НП', 'Завершен'}:
+            if new_status == status:
+                notify_admin(f'f-posts: old and new statis match')
+            else:
+                notify_admin(f'f-posts: status dont match: {status=}, {new_status=}')
+
+    except Exception as ex:
+        logging.exception(ex)
+        notify_admin(repr(ex))
+
+    # FIXME ^^^
 
     if not status:
         return None
