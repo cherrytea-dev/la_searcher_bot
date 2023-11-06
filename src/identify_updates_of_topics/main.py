@@ -2674,7 +2674,7 @@ def parse_one_folder(db, folder_id):
                     title_reco_dict = {'topic_type': 'UNRECOGNIZED'}
 
                 logging.info(f'{title_reco_dict=}')
-                notify_admin(title_reco_dict)
+                notify_admin(f'{title_reco_dict=}')
 
                 # NEW exclude non-relevant searches
                 if title_reco_dict['topic_type'] in {'search', 'search training',
