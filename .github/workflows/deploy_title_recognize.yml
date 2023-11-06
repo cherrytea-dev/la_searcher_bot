@@ -39,5 +39,6 @@ jobs:
           --source=src/${{ env.FILE_NAME }} \
           --entry-point=main \
           --trigger-http \
-          --memory 1024MB
+          --memory 512MB \
+          --update-labels=[gcf= ${{ env.FILE_NAME }}]
           
