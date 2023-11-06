@@ -2614,6 +2614,7 @@ def make_api_call(function: str, data: dict):
     headers = {"Authorization": f"Bearer {id_token}", 'Content-Type': 'application/json'}
 
     r = requests.post(endpoint, json=data, headers=headers)
+    r.encoding = 'utf-8'
     content = r.json()
 
     return content
