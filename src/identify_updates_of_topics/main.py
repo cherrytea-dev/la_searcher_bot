@@ -1286,7 +1286,7 @@ def parse_one_folder(db, folder_id):
                     try:
                         new_f_name = title_reco_dict['persons']['total_name']  # noqa
                         if new_f_name != person_fam_name:
-                            notify_admin(f'names DON\'T match: {new_f_name=}, {person_fam_name=}')
+                            notify_admin(f'names DON\'T match: {new_f_name=}, {person_fam_name=}, {search_title=}')
                     except Exception as ex:
                         logging.exception(ex)
                         notify_admin(repr(ex))
