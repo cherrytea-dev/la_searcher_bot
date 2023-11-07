@@ -1132,9 +1132,18 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                 if block.type and block.type == 'ST':
                     statuses_list.append([j, block.reco])
 
+            # FIXME - 07.11.2023 – for status_only debug
+            logging.info(f'5 RECO list: {statuses_list=}')
+            # FIXME ^^^
+
             # if status is the only one (which is true in 99% of cases)
             if len(statuses_list) == 1:
                 recognition.st = statuses_list[0][1]
+
+                # FIXME - 07.11.2023 – for status_only debug
+                logging.info(f'6 RECO list: {statuses_list=}')
+                logging.info(f'6 RECO ST: {recognition.st}')
+                # FIXME ^^^
 
             # if there are more than 1 status. have never seen 3, so stopping on 2
             elif len(statuses_list) > 1:
