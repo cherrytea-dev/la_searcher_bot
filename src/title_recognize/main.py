@@ -462,6 +462,10 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                 recognition.act = block.reco
             # MEMO: recognition.st is done on the later stages of title recognition
 
+            # FIXME – 07.11.2023 –temp debug to see blocks
+            print(f'0 HERE IS THE BLOCK {block}')
+            # FIXME ^^^
+
         return recognition
 
     def check_word_by_natasha(string_to_check, direction):
