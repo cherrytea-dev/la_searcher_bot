@@ -1119,7 +1119,14 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
     def define_general_status(recognition):
         """In rare cases searches have 2 statuses: or by mistake or due to differences between lost persons' statues"""
 
+        # FIXME - 07.11.2023 – for status_only debug
+        for block in recognition.blocks:
+            logging.info(f'3 RECO BLOCKS: {block.type=}, {block.init=}, {block.reco=}, {block.block_num=}')
+        logging.info(f'3 RECO ST: {recognition.st}')
+        # FIXME ^^^
+
         if recognition:
+
             statuses_list = []
             for j, block in enumerate(recognition.groups):
                 if block.type and block.type == 'ST':
@@ -1143,6 +1150,12 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                     else:
 
                         recognition.st = f'{statuses_list[0][1]} и {statuses_list[1][1]}'
+
+        # FIXME - 07.11.2023 – for status_only debug
+        for block in recognition.blocks:
+            logging.info(f'4 RECO BLOCKS: {block.type=}, {block.init=}, {block.reco=}, {block.block_num=}')
+        logging.info(f'4 RECO ST: {recognition.st}')
+        # FIXME ^^^
 
         return recognition
 
@@ -1253,6 +1266,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
         # FIXME - 07.11.2023 – for status_only debug
         for block in recognition.blocks:
             logging.info(f'1 RECO BLOCKS: {block.type=}, {block.init=}, {block.reco=}, {block.block_num=}')
+        logging.info(f'1 RECO ST: {recognition.st}')
         # FIXME ^^^
 
         persons_identified = False
@@ -1264,6 +1278,9 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
         if not recognition.act and not recognition.st and persons_identified:
             recognition.act = 'search'
             recognition.st = 'Ищем'
+            # FIXME - 07.11.2023 – for status_only debug
+            logging.info(f'2 RECO ST: {recognition.st}')
+            # FIXME ^^^
 
         if recognition.act and not recognition.st and recognition.tr:
             recognition.st = 'Ищем'
