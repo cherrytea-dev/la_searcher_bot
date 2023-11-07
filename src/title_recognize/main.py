@@ -159,6 +159,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                 [r'Стоп(?=[А-Я])', 'Стоп '],  # specific case for one search
                 [r'Жив(?=[А-Я])', 'Жив '],  # specific case for one search
                 [r'Жмва ', 'Жива '],  # specific case for one search
+                [r'Жтва ', 'Жива '],  # specific case for one search
                 [r'Жиаа ', 'Жива '],  # specific case for one search
                 [r'Жиаа(?=[А-Я])', 'Жива '],  # specific case for one search
                 [r'(?i)погию\s', 'погиб '],  # specific case for one search
