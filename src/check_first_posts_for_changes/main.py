@@ -328,11 +328,10 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
 
             new_status = title_reco_dict['status']
 
-            if new_status in {'НЖ', 'НП', 'Завершен'}:
-                if new_status == status:
-                    notify_admin(f'f-posts: old and new statis match')
-                else:
-                    notify_admin(f'f-posts: status dont match: {status=}, {new_status=}, {title=}')
+            if new_status == status:
+                notify_admin(f'f-posts: old and new statis match, {new_status=}')
+            else:
+                notify_admin(f'f-posts: status dont match: {status=}, {new_status=}, {title=}')
 
         except Exception as ex:
             logging.exception(ex)
@@ -620,6 +619,42 @@ def main(event, context): # noqa
     # BLOCK 2. small bonus: check one of topics, which has visibility='hidden' to check if it was not unhidden later.
     # It is done in this script only because there's no better place. Ant these are circa 40 hidden topics at all.
     update_visibility_for_one_hidden_topic()
+
+    # FIXME - 07.11.2023 – filling the absent "status" field in "searches" table
+    try:
+        # get the search
+        pool_2 = sql_connect()
+        conn_2 = pool_2.connect()
+
+        raw_sql_extract = conn_2.execute("""   
+                    WITH 
+                    s AS (SELECT search_forum_num, search_start_time, forum_folder_id, status FROM searches 
+                        WHERE status_short = 'Ищем' and status IS NULL),
+                    h AS (SELECT search_forum_num, status FROM search_health_check),
+                    f AS (SELECT folder_id, folder_type FROM folders 
+                        WHERE folder_type IS NULL OR folder_type = 'searches')
+
+                    SELECT s.search_forum_num, s.search_start_time FROM s 
+                    LEFT JOIN h ON s.search_forum_num=h.search_forum_num 
+                    JOIN f ON s.forum_folder_id=f.folder_id 
+                    WHERE (h.status != 'deleted' AND h.status != 'hidden') or h.status IS NULL
+                    ORDER BY 2 DESC
+                    LIMIT 1        
+                    ;""").fetchall()
+
+        # form the list-like table
+        if raw_sql_extract:
+            for line_2 in raw_sql_extract:
+                topic_id = line_2[0]
+                notify_admin(f'--> WE PlAN TO FIX SEARCH {topic_id}')
+
+        conn_2.close()
+        pool_2.dispose()
+
+    except Exception as ex:
+        logging.exception(ex)
+        notify_admin('[che_posts] EXCPT: FIXME - 07.11.2023 – filling the absent "status" field in "searches" table')
+    # FIXME ^^^
 
     if bad_gateway_counter > 3:
         publish_to_pubsub('topic_notify_admin', f'[che_posts]: Bad Gateway {bad_gateway_counter} times')
