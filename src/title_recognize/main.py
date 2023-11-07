@@ -1378,6 +1378,8 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
     recognition_result = split_status_training_activity(line, prettified_line)
 
     if reco_type == 'status_only':
+        recognition_result = split_per_from_loc_blocks(recognition_result)
+        recognition_result = split_per_and_loc_blocks_to_groups(recognition_result)
         recognition_result = define_general_status(recognition_result)
     else:
         recognition_result = split_per_from_loc_blocks(recognition_result)
