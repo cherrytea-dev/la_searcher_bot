@@ -463,7 +463,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
             # MEMO: recognition.st is done on the later stages of title recognition
 
             # FIXME – 07.11.2023 –temp debug to see blocks
-            print(f'0 HERE IS THE BLOCK {block}')
+            logging.info(f'0 HERE IS THE BLOCK {block}')
             # FIXME ^^^
 
         return recognition
@@ -1249,6 +1249,11 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
             ]
         }
         """
+
+        # FIXME - 07.11.2023 – for status_only debug
+        for block in recognition.blocks:
+            logging.info(f'1 RECO BLOCKS: {block}')
+        # FIXME ^^^
 
         persons_identified = False
         for block in recognition.blocks:
