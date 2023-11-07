@@ -313,11 +313,9 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
     # FIXME ^^^
 
     # FIXME - 06.11.2023 - implementing API call for title_reco
-    if status_active:
-        notify_admin(f'status active – ignoring title_reco, {title=}')
-
     if not status_active:
         try:
+            notify_admin(f'status NOT active, {title=}')
             data = {"title": title, "reco_type": "status_only"}
             title_reco_response = make_api_call('title_recognize', data)
 
