@@ -643,10 +643,36 @@ def main(event, context): # noqa
                     ;""").fetchall()
 
         # form the list-like table
+        topic_id = None
         if raw_sql_extract:
             for line_2 in raw_sql_extract:
                 topic_id = line_2[0]
                 notify_admin(f'--> WE PlAN TO FIX SEARCH {topic_id}')
+
+        if topic_id:
+            cont, forum_unavailable = parse_search(topic_id)
+            not_found = True if cont and re.search(r'Запрошенной темы не существует', cont) else False
+        else:
+            forum_unavailable, not_found, cont = '1', '1', '1'
+
+        if not forum_unavailable and not not_found:
+
+            # get the Title out of page content (intentionally avoid BS4 to make pack slimmer)
+            pre_title = re.search(r'<h2 class="topic-title"><a href=.{1,500}</a>', cont)
+            pre_title = pre_title.group() if pre_title else None
+            pre_title = re.search(r'">.{1,500}</a>', pre_title[32:]) if pre_title else None
+            title = pre_title.group()[2:-4] if pre_title else None
+            notify_admin(f'--> WE SEE A TITLE {title}')
+
+            data = {"title": title, "reco_type": "status_only"}
+            title_reco_response = make_api_call('title_recognize', data)
+
+            if title_reco_response and 'status' in title_reco_response.keys() \
+                    and title_reco_response['status'] == 'ok':
+                title_reco_dict = title_reco_response['recognition']
+
+                new_status = title_reco_dict['status']
+                notify_admin(f'--> WE SEE A STATUS {new_status}')
 
         conn_2.close()
         pool_2.dispose()
