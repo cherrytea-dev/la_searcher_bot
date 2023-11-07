@@ -1381,6 +1381,8 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
         recognition_result = split_per_from_loc_blocks(recognition_result)
         recognition_result = split_per_and_loc_blocks_to_groups(recognition_result)
         recognition_result = define_general_status(recognition_result)
+        recognition_result = define_person_display_name_and_age(recognition_result)
+        recognition_result = define_person_block_display_name_and_age_range(recognition_result)
     else:
         recognition_result = split_per_from_loc_blocks(recognition_result)
         recognition_result = split_per_and_loc_blocks_to_groups(recognition_result)
