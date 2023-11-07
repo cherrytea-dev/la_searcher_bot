@@ -289,7 +289,11 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
     # language=regexp
     patterns = [[r'(?i)(^\W{0,2}|(?<=\W)|(найден[аы]?\W{1,3})?)жив[аы]?\W', 'НЖ'],
                 [r'(?i)(^\W{0,2}|(?<=\W)|(найден[аы]?\W{1,3})?)погиб(л[иа])?\W', 'НП'],
-                [r'(?i).{0,10}заверш.н\W', 'Завершен']]  # [r'(?i).{0,10}пропал.*', 'Ищем'],
+                [r'(?i).{0,10}заверш.н\W', 'Завершен'],
+                [r'(?i).{0,10}прекращ.н\W', 'Завершен'],
+                [r'(?i).{0,10}остановлен\W', 'Завершен'],
+                [r'(?i).{0,10}личность уствновлена', 'Завершен'],
+                ]  # [r'(?i).{0,10}пропал.*', 'Ищем'],
 
     status = None
     for pattern in patterns:
@@ -297,30 +301,44 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
             status = pattern[1]
             break
 
+    # FIXME - 07.11.2023 – limiting the number of api calls
+    # language=regexp
+    patterns = [[r'(?i)(^\W{0,2}|(?<=\W)|(пропал[аи]?\W{1,3})?)', 'Ищем']]
+
+    status_active = None
+    for pattern in patterns:
+        if re.search(pattern[0], title):
+            status_active = pattern[1]
+            break
+    # FIXME ^^^
+
     # FIXME - 06.11.2023 - implementing API call for title_reco
-    try:
-        data = {"title": title, "reco_type": "status_only"}
-        title_reco_response = make_api_call('title_recognize', data)
+    if status_active:
+        notify_admin(f'status active – ignoring title_reco, {title=}')
+        
+    if not status_active:
+        try:
+            data = {"title": title, "reco_type": "status_only"}
+            title_reco_response = make_api_call('title_recognize', data)
 
-        if title_reco_response and 'status' in title_reco_response.keys() \
-                and title_reco_response['status'] == 'ok':
-            title_reco_dict = title_reco_response['recognition']
-        else:
-            title_reco_dict = {'topic_type': 'UNRECOGNIZED'}
-        logging.info(f'{title_reco_dict=}')
-
-        new_status = title_reco_dict['status']
-
-        if new_status in {'НЖ', 'НП', 'Завершен'}:
-            if new_status == status:
-                notify_admin(f'f-posts: old and new statis match')
+            if title_reco_response and 'status' in title_reco_response.keys() \
+                    and title_reco_response['status'] == 'ok':
+                title_reco_dict = title_reco_response['recognition']
             else:
-                notify_admin(f'f-posts: status dont match: {status=}, {new_status=}, {title=}')
+                title_reco_dict = {'topic_type': 'UNRECOGNIZED'}
+            logging.info(f'{title_reco_dict=}')
 
-    except Exception as ex:
-        logging.exception(ex)
-        notify_admin(repr(ex))
+            new_status = title_reco_dict['status']
 
+            if new_status in {'НЖ', 'НП', 'Завершен'}:
+                if new_status == status:
+                    notify_admin(f'f-posts: old and new statis match')
+                else:
+                    notify_admin(f'f-posts: status dont match: {status=}, {new_status=}, {title=}')
+
+        except Exception as ex:
+            logging.exception(ex)
+            notify_admin(repr(ex))
     # FIXME ^^^
 
     if not status:
