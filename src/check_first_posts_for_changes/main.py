@@ -660,16 +660,21 @@ def main(event, context): # noqa
                 title = pre_title.group()[2:-4] if pre_title else None
                 notify_admin(f'--> WE SEE A TITLE {title}')
 
-                data = {"title": title, "reco_type": "status_only"}
-                title_reco_response = make_api_call('title_recognize', data)
+                new_status = None
+                if not title:
+                    new_status = 'Ищем'
+                else:
+                    data = {"title": title, "reco_type": "status_only"}
+                    title_reco_response = make_api_call('title_recognize', data)
 
-                if title_reco_response and 'status' in title_reco_response.keys() \
-                        and title_reco_response['status'] == 'ok':
-                    title_reco_dict = title_reco_response['recognition']
+                    if title_reco_response and 'status' in title_reco_response.keys() \
+                            and title_reco_response['status'] == 'ok':
+                        title_reco_dict = title_reco_response['recognition']
 
-                    new_status = title_reco_dict['status']
-                    notify_admin(f'--> WE SEE A STATUS {new_status}')
+                        new_status = title_reco_dict['status']
+                        notify_admin(f'--> WE SEE A STATUS {new_status}')
 
+                if new_status:
                     stmt = sqlalchemy.text("""UPDATE searches SET status=:a WHERE search_forum_num=:b;""")
                     conn_2.execute(stmt, a=new_status, b=topic_id)
 
