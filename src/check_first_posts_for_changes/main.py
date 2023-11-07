@@ -674,6 +674,9 @@ def main(event, context): # noqa
                 new_status = title_reco_dict['status']
                 notify_admin(f'--> WE SEE A STATUS {new_status}')
 
+                stmt = sqlalchemy.text("""UPDATE searches SET status=:a WHERE search_forum_num=:b;""")
+                conn_2.execute(stmt, a=new_status, b=topic_id)
+
         conn_2.close()
         pool_2.dispose()
 
