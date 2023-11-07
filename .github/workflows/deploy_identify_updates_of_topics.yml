@@ -37,4 +37,4 @@ jobs:
             memory_mb: 512 # 2048
             event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
             event_trigger_resource: projects/lizaalert-bot-01/topics/topic_to_run_parsing_script
-            labels: gcp=${{ env.FILE_NAME }}
+            labels: gcf=${{ env.FILE_NAME }}

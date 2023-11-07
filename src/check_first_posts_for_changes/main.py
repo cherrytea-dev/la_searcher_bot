@@ -299,7 +299,7 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
 
     # FIXME - 06.11.2023 - implementing API call for title_reco
     try:
-        data = {"title": title}
+        data = {"title": title, 'reco_type': 'status_only'}
         title_reco_response = make_api_call('title_recognize', data)
 
         if title_reco_response and 'status' in title_reco_response.keys() \
