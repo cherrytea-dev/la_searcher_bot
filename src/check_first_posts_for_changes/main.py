@@ -303,7 +303,7 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
 
     # FIXME - 07.11.2023 – limiting the number of api calls
     # language=regexp
-    patterns = [[r'(?i)(^\W{0,2}|(?<=\W)|(пропал[аи]?\W{1,3})?)', 'Ищем']]
+    patterns = [[r'(?i)(^\W{0,2}|(?<=\W))(пропал[аи]?\W{1,3})', 'Ищем']]
 
     status_active = None
     for pattern in patterns:
@@ -315,7 +315,7 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
     # FIXME - 06.11.2023 - implementing API call for title_reco
     if status_active:
         notify_admin(f'status active – ignoring title_reco, {title=}')
-        
+
     if not status_active:
         try:
             data = {"title": title, "reco_type": "status_only"}
