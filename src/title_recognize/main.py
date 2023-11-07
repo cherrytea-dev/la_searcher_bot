@@ -15,20 +15,26 @@ log_client = google.cloud.logging.Client()
 log_client.setup_logging()
 
 
-def get_requested_title(request: Union[Dict, None]) -> Union[str, None]:
+def get_requested_title(request: Union[Dict, None]) -> tuple:
     """gets the title from the incoming request"""
 
     # for the case when request contains json
     request_json = request.get_json(silent=True)  # noqa
 
-    if request_json and 'title' in request_json:
-        title = request_json['title']
-        return title
+    if not request_json or (request_json and 'title' not in request_json):
+        return None, None
+
+    title = request_json['title']
+
+    if request_json and 'reco_type' in request_json:
+        reco_type = request_json['reco_type']
     else:
-        return None
+        reco_type = None
+
+    return title, reco_type
 
 
-def recognize_title(line: str) -> Union[Dict, None]:
+def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
     """Recognize LA Thread Subject (Title) and return a dict of recognized parameters"""
 
     class Block:
@@ -1334,16 +1340,19 @@ def recognize_title(line: str) -> Union[Dict, None]:
         return final_dict
 
     prettified_line = clean_and_prettify(line)
-
     recognition_result = split_status_training_activity(line, prettified_line)
-    recognition_result = split_per_from_loc_blocks(recognition_result)
-    recognition_result = split_per_and_loc_blocks_to_groups(recognition_result)
-    recognition_result = define_person_display_name_and_age(recognition_result)
-    recognition_result = define_person_block_display_name_and_age_range(recognition_result)
-    recognition_result = prettify_loc_group_address(recognition_result)
-    recognition_result = define_loc_block_summary(recognition_result)
-    recognition_result = define_general_status(recognition_result)
-    recognition_result = calculate_total_num_of_persons(recognition_result)
+
+    if reco_type == 'status_only':
+        recognition_result = define_general_status(recognition_result)
+    else:
+        recognition_result = split_per_from_loc_blocks(recognition_result)
+        recognition_result = split_per_and_loc_blocks_to_groups(recognition_result)
+        recognition_result = define_person_display_name_and_age(recognition_result)
+        recognition_result = define_person_block_display_name_and_age_range(recognition_result)
+        recognition_result = prettify_loc_group_address(recognition_result)
+        recognition_result = define_loc_block_summary(recognition_result)
+        recognition_result = define_general_status(recognition_result)
+        recognition_result = calculate_total_num_of_persons(recognition_result)
 
     final_recognition_dict = generate_final_reco_dict(recognition_result)
 
@@ -1354,14 +1363,14 @@ def recognize_title(line: str) -> Union[Dict, None]:
 def main(request):
     """entry point to http-invoked cloud function"""
 
-    title = get_requested_title(request)
+    title, reco_type = get_requested_title(request)
 
     if not title:
         response = {'status': 'fail', 'fail_reason': 'no title provided', 'request': str(request.data)}
         response_json = json.dumps(response)
         return response_json
 
-    reco_title = recognize_title(title)
+    reco_title = recognize_title(title, reco_type)
 
     if not reco_title or ('topic_type' in reco_title.keys() and reco_title['topic_type'] == 'UNRECOGNIZED'):
 
