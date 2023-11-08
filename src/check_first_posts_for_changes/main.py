@@ -637,7 +637,8 @@ def main(event, context): # noqa
                         SELECT s.search_forum_num, s.search_start_time FROM s 
                         LEFT JOIN h ON s.search_forum_num=h.search_forum_num 
                         JOIN f ON s.forum_folder_id=f.folder_id 
-                        WHERE (h.status != 'deleted' AND h.status != 'hidden') or h.status IS NULL
+                        WHERE ((h.status != 'deleted' AND h.status != 'hidden') or h.status IS NULL) AND s.search_forum_num != 53678
+
                         ORDER BY 2 DESC
                         LIMIT 1        
                         ;""").fetchall()
