@@ -621,73 +621,73 @@ def main(event, context): # noqa
     update_visibility_for_one_hidden_topic()
 
     # FIXME - 07.11.2023 – filling the absent "status" field in "searches" table
-    try:
-        # get the search
-        pool_2 = sql_connect()
-        conn_2 = pool_2.connect()
+    pool_2 = sql_connect()
+    conn_2 = pool_2.connect()
+    for _ in range(10):
+        try:
+            # get the search
+            raw_sql_extract = conn_2.execute("""   
+                        WITH 
+                        s AS (SELECT search_forum_num, search_start_time, forum_folder_id, status FROM searches 
+                            WHERE status_short = 'Ищем' and status IS NULL),
+                        h AS (SELECT search_forum_num, status FROM search_health_check),
+                        f AS (SELECT folder_id, folder_type FROM folders 
+                            WHERE folder_type IS NULL OR folder_type = 'searches')
+    
+                        SELECT s.search_forum_num, s.search_start_time FROM s 
+                        LEFT JOIN h ON s.search_forum_num=h.search_forum_num 
+                        JOIN f ON s.forum_folder_id=f.folder_id 
+                        WHERE (h.status != 'deleted' AND h.status != 'hidden') or h.status IS NULL
+                        ORDER BY 2 DESC
+                        LIMIT 1        
+                        ;""").fetchall()
 
-        raw_sql_extract = conn_2.execute("""   
-                    WITH 
-                    s AS (SELECT search_forum_num, search_start_time, forum_folder_id, status FROM searches 
-                        WHERE status_short = 'Ищем' and status IS NULL),
-                    h AS (SELECT search_forum_num, status FROM search_health_check),
-                    f AS (SELECT folder_id, folder_type FROM folders 
-                        WHERE folder_type IS NULL OR folder_type = 'searches')
+            # form the list-like table
+            topic_id = None
+            if raw_sql_extract:
+                for line_2 in raw_sql_extract:
+                    topic_id = line_2[0]
+                    notify_admin(f'--> WE PlAN TO FIX SEARCH {topic_id}')
 
-                    SELECT s.search_forum_num, s.search_start_time FROM s 
-                    LEFT JOIN h ON s.search_forum_num=h.search_forum_num 
-                    JOIN f ON s.forum_folder_id=f.folder_id 
-                    WHERE (h.status != 'deleted' AND h.status != 'hidden') or h.status IS NULL
-                    ORDER BY 2 DESC
-                    LIMIT 1        
-                    ;""").fetchall()
+            if topic_id:
+                cont, forum_unavailable = parse_search(topic_id)
 
-        # form the list-like table
-        topic_id = None
-        if raw_sql_extract:
-            for line_2 in raw_sql_extract:
-                topic_id = line_2[0]
-                notify_admin(f'--> WE PlAN TO FIX SEARCH {topic_id}')
+                if cont:
+                    # get the Title out of page content (intentionally avoid BS4 to make pack slimmer)
+                    pre_title = re.search(r'<h2 class="topic-title"><a href=.{1,500}</a>', cont)
+                    pre_title = pre_title.group() if pre_title else None
+                    pre_title = re.search(r'">.{1,500}</a>', pre_title[32:]) if pre_title else None
+                    title = pre_title.group()[2:-4] if pre_title else None
+                    notify_admin(f'--> WE SEE A TITLE {title}')
 
-        if topic_id:
-            cont, forum_unavailable = parse_search(topic_id)
+                    new_status = None
+                    if not title:
+                        new_status = 'Ищем'
+                    else:
+                        data = {"title": title, "reco_type": "status_only"}
+                        title_reco_response = make_api_call('title_recognize', data)
 
-            if cont:
-                # get the Title out of page content (intentionally avoid BS4 to make pack slimmer)
-                pre_title = re.search(r'<h2 class="topic-title"><a href=.{1,500}</a>', cont)
-                pre_title = pre_title.group() if pre_title else None
-                pre_title = re.search(r'">.{1,500}</a>', pre_title[32:]) if pre_title else None
-                title = pre_title.group()[2:-4] if pre_title else None
-                notify_admin(f'--> WE SEE A TITLE {title}')
+                        if title_reco_response and 'status' in title_reco_response.keys() \
+                                and title_reco_response['status'] == 'ok':
+                            title_reco_dict = title_reco_response['recognition']
 
-                new_status = None
-                if not title:
-                    new_status = 'Ищем'
-                else:
-                    data = {"title": title, "reco_type": "status_only"}
-                    title_reco_response = make_api_call('title_recognize', data)
+                            if title_reco_dict['topic_type'] == 'search patrol' and 'status' not in title_reco_dict.keys():
+                                new_status = 'Ищем'
+                            else:
+                                new_status = title_reco_dict['status']
+                            notify_admin(f'--> WE SEE A STATUS {new_status}, {title_reco_dict["topic_type"]=}')
 
-                    if title_reco_response and 'status' in title_reco_response.keys() \
-                            and title_reco_response['status'] == 'ok':
-                        title_reco_dict = title_reco_response['recognition']
+                    if new_status:
+                        stmt = sqlalchemy.text("""UPDATE searches SET status=:a WHERE search_forum_num=:b;""")
+                        conn_2.execute(stmt, a=new_status, b=topic_id)
 
-                        if title_reco_dict['topic_type'] == 'search patrol' and 'status' not in title_reco_dict.keys():
-                            new_status = 'Ищем'
-                        else:
-                            new_status = title_reco_dict['status']
-                        notify_admin(f'--> WE SEE A STATUS {new_status}, {title_reco_dict["topic_type"]=}')
+        except Exception as ex:
+            logging.exception(ex)
+            notify_admin('[che_posts] EXCPT: FIXME - 07.11.2023 – filling the absent "status" field in "searches" table')
+        # FIXME ^^^
 
-                if new_status:
-                    stmt = sqlalchemy.text("""UPDATE searches SET status=:a WHERE search_forum_num=:b;""")
-                    conn_2.execute(stmt, a=new_status, b=topic_id)
-
-        conn_2.close()
-        pool_2.dispose()
-
-    except Exception as ex:
-        logging.exception(ex)
-        notify_admin('[che_posts] EXCPT: FIXME - 07.11.2023 – filling the absent "status" field in "searches" table')
-    # FIXME ^^^
+    conn_2.close()
+    pool_2.dispose()
 
     if bad_gateway_counter > 3:
         publish_to_pubsub('topic_notify_admin', f'[che_posts]: Bad Gateway {bad_gateway_counter} times')
