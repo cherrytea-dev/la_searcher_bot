@@ -674,7 +674,7 @@ def main(event, context): # noqa
                                 and title_reco_response['status'] == 'ok':
                             title_reco_dict = title_reco_response['recognition']
 
-                            if title_reco_dict['topic_type'] in {'search patrol', 'event'} and \
+                            if title_reco_dict['topic_type'] in {'search patrol', 'event', 'info'} and \
                                     'status' not in title_reco_dict.keys():
                                 new_status = 'Ищем'
                             else:
