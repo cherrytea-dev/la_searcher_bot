@@ -641,6 +641,7 @@ def main(event, context): # noqa
                             AND s.search_forum_num != 53678
                             AND s.search_forum_num != 53541
                             AND s.search_forum_num != 51726
+                            AND s.search_forum_num != 11366
 
                         ORDER BY 2 DESC
                         LIMIT 1        
