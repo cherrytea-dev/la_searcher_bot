@@ -316,7 +316,7 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
             notify_admin(repr(ex))
     # FIXME ^^^
 
-    if not status:
+    if not status or status == 'Ищем':
         return None
 
     publish_to_pubsub('topic_for_topic_management', {'topic_id': topic_id, 'status': status})
