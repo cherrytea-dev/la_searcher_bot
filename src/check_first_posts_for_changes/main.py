@@ -361,7 +361,7 @@ def update_first_posts_and_statuses():
             raw_sql_extract = conn_2.execute("""   
                 WITH 
                 s AS (SELECT search_forum_num, search_start_time, forum_folder_id FROM searches 
-                    WHERE status_short = 'Ищем'),
+                    WHERE status = 'Ищем'),
                 h AS (SELECT search_forum_num, status FROM search_health_check),
                 f AS (SELECT folder_id, folder_type FROM folders 
                     WHERE folder_type IS NULL OR folder_type = 'searches')
