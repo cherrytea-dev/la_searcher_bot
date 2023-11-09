@@ -623,7 +623,7 @@ def main(event, context): # noqa
     # FIXME - 07.11.2023 – filling the absent "status" field in "searches" table
     pool_2 = sql_connect()
     conn_2 = pool_2.connect()
-    for _ in range(10):
+    for _ in range(50):
         try:
             # get the search
             raw_sql_extract = conn_2.execute("""   
@@ -681,6 +681,8 @@ def main(event, context): # noqa
                             else:
                                 new_status = title_reco_dict['status']
                             notify_admin(f'--> WE SEE A STATUS {new_status}, {title_reco_dict["topic_type"]=}')
+                        else:
+                            break
 
                     if new_status:
                         stmt = sqlalchemy.text("""UPDATE searches SET status=:a WHERE search_forum_num=:b;""")
