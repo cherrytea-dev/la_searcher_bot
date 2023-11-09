@@ -287,13 +287,7 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
         return None
 
     # language=regexp
-    patterns = [[r'(?i)(^\W{0,2}|(?<=\W)|(найден[аы]?\W{1,3})?)жив[аы]?\W', 'НЖ'],
-                [r'(?i)(^\W{0,2}|(?<=\W)|(найден[аы]?\W{1,3})?)погиб(л[иа])?\W', 'НП'],
-                [r'(?i).{0,10}заверш.н\W', 'Завершен'],
-                [r'(?i).{0,10}прекращ.н\W', 'Завершен'],
-                [r'(?i).{0,10}остановлен\W', 'Завершен'],
-                [r'(?i).{0,10}личность уствновлена', 'Завершен'],
-                ]  # [r'(?i).{0,10}пропал.*', 'Ищем'],
+    patterns = [[r'(?i)(^\W{0,2}|(?<=\W))(пропал[аи]?\W{1,3})', 'Ищем']]
 
     status = None
     for pattern in patterns:
@@ -301,19 +295,8 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
             status = pattern[1]
             break
 
-    # FIXME - 07.11.2023 – limiting the number of api calls
-    # language=regexp
-    patterns = [[r'(?i)(^\W{0,2}|(?<=\W))(пропал[аи]?\W{1,3})', 'Ищем']]
-
-    status_active = None
-    for pattern in patterns:
-        if re.search(pattern[0], title):
-            status_active = pattern[1]
-            break
-    # FIXME ^^^
-
     # FIXME - 06.11.2023 - implementing API call for title_reco
-    if not status_active:
+    if not status:
         try:
             notify_admin(f'status NOT active, {title=}')
             data = {"title": title, "reco_type": "status_only"}
@@ -322,16 +305,11 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
             if title_reco_response and 'status' in title_reco_response.keys() \
                     and title_reco_response['status'] == 'ok':
                 title_reco_dict = title_reco_response['recognition']
+                status = title_reco_dict['status']
             else:
                 title_reco_dict = {'topic_type': 'UNRECOGNIZED'}
+
             logging.info(f'{title_reco_dict=}')
-
-            new_status = title_reco_dict['status']
-
-            if new_status == status:
-                notify_admin(f'f-posts: old and new statis match, {new_status=}')
-            else:
-                notify_admin(f'f-posts: status dont match: {status=}, {new_status=}, {title=}')
 
         except Exception as ex:
             logging.exception(ex)
