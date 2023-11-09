@@ -640,6 +640,7 @@ def main(event, context): # noqa
                         WHERE ((h.status != 'deleted' AND h.status != 'hidden') or h.status IS NULL) 
                             AND s.search_forum_num != 53678
                             AND s.search_forum_num != 53541
+                            AND s.search_forum_num != 51726
 
                         ORDER BY 2 DESC
                         LIMIT 1        
