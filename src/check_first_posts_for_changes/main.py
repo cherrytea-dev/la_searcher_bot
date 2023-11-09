@@ -213,7 +213,7 @@ def update_visibility_for_one_hidden_topic():
 
     try:
         hidden_topic = conn.execute("""
-            SELECT h.search_forum_num, s.status_short, s.status 
+            SELECT h.search_forum_num, s.status 
             FROM search_health_check AS h LEFT JOIN searches AS s 
             ON h.search_forum_num=s.search_forum_num 
             WHERE h.status = 'hidden' ORDER BY RANDOM() LIMIT 1; 
