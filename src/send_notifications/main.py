@@ -218,7 +218,7 @@ def check_for_notifs_to_send(cur):
 
                     SELECT
                         n.*, 
-                        s.status_short AS status,
+                        s.status AS status,
                         cl.change_type
                     FROM
                         notification AS n

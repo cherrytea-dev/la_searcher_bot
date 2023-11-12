@@ -243,7 +243,7 @@ def compose_msg_on_all_last_searches(cur, region):
     # download the list from SEARCHES sql table
     cur.execute(
         """SELECT s2.* FROM 
-            (SELECT search_forum_num, search_start_time, display_name, status, status_short, family_name, age 
+            (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
             FROM searches 
             WHERE forum_folder_id=%s 
             ORDER BY search_start_time DESC 
@@ -287,7 +287,7 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
             s.topic_type, s.family_name, s.age 
             FROM searches s 
             LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
-            WHERE (s.status='Ищем' OR s.status='Возобновлен' OR (s.status IS NULL AND s.status_short='Ищем')) 
+            WHERE (s.status='Ищем' OR s.status='Возобновлен') 
                 AND s.forum_folder_id=%s ORDER BY s.search_start_time DESC) s2 
         LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
         WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 

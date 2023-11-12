@@ -198,8 +198,8 @@ def move_first_posts_to_history_in_psql(conn):
                             INNER JOIN 
                                 searches AS s 
                             ON sfp.search_id=s.search_forum_num 
-                            WHERE s.status_short = 'НЖ' or s.status_short = 'НП' or s.status_short = 'Найден' 
-                                OR s.status_short = 'Завершен'
+                            WHERE s.status = 'НЖ' or s.status = 'НП' or s.status = 'Найден' 
+                                OR s.status = 'Завершен'
                         )
                         
                         ;""")
@@ -222,8 +222,8 @@ def move_first_posts_to_history_in_psql(conn):
                     searches AS s 
                 ON 
                     sfp.search_id=s.search_forum_num 
-                WHERE s.status_short = 'НЖ' or s.status_short = 'НП' or s.status_short = 'Найден' 
-                    OR s.status_short = 'Завершен'
+                WHERE s.status = 'НЖ' or s.status = 'НП' or s.status = 'Найден' 
+                    OR s.status = 'Завершен'
         
         );""")
     # number_of_deleted_rows = conn.execute(stmt).fetchone()
