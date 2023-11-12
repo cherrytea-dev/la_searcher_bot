@@ -495,7 +495,7 @@ def process_first_page_comparison(conn, search_id, first_page_content_prev, firs
     """compare first post content to identify any diffs"""
 
     # check the latest status on this search
-    sql_text = sqlalchemy.text("""SELECT display_name, status, family_name, age, status_short 
+    sql_text = sqlalchemy.text("""SELECT display_name, status, family_name, age, status 
                                       FROM searches WHERE search_forum_num=:a;""")
 
     what_is_saved_in_psql = conn.execute(sql_text, a=search_id).fetchone()

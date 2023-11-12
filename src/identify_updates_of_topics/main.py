@@ -951,40 +951,6 @@ def get_secrets(secret_request):
     return response.payload.data.decode("UTF-8")
 
 
-def define_family_name_from_search_title_new(title):
-    """Define the family name of the lost person out ot search title.
-    It is very basic method which works in 99% of cases.
-    Probably in the future more complicated model will be implemented"""
-
-    global dict_status_words
-    global dict_ignore
-
-    # Can work with input as string or list
-    if isinstance(title, str):
-        string_by_word = re.split(r"[;,.!\s]\s*", title)
-
-    elif isinstance(title, list):
-        string_by_word = title
-
-    else:
-        string_by_word = title
-        logging.info(type(title))
-
-    title_wo_status = []
-
-    for word in string_by_word:
-        if word.strip().lower() not in dict_status_words and word.strip().lower() not in dict_ignore:
-            title_wo_status.append(word)
-
-    if title_wo_status[0].isnumeric():
-        fam_name = title_wo_status[0] + ' ' + title_wo_status[1]
-    else:
-        fam_name = title_wo_status[0]
-
-    return fam_name
-
-
-
 def define_start_time_of_search(blocks):
     """define search start time & date"""
 
@@ -1263,10 +1229,6 @@ def parse_one_folder(db, folder_id):
             search_replies_num = int(data_block.find('dd', 'posts').next_element)
             start_datetime = define_start_time_of_search(data_block)
 
-            # FIXME - to be removed after final feature parity
-            person_fam_name = define_family_name_from_search_title_new(search_title)  # needed till "family_name"
-            # FIXME ^^^
-
             try:
                 data = {"title": search_title}
                 title_reco_response = make_api_call('title_recognize', data)
@@ -1284,12 +1246,11 @@ def parse_one_folder(db, folder_id):
                                                      'search reverse', 'search patrol', 'event'}:
                     # FIXME – 06.11.2023 – work to delete function "define_family_name_from_search_title_new"
                     try:
-                        new_f_name = title_reco_dict['persons']['total_name']  # noqa
-                        if new_f_name != person_fam_name:
-                            notify_admin(f'names DON\'T match: {new_f_name=}, {person_fam_name=}, {search_title=}')
+                        person_fam_name = title_reco_dict['persons']['total_name']  # noqa
                     except Exception as ex:
                         logging.exception(ex)
                         notify_admin(repr(ex))
+                        person_fam_name = 'БВП'
                     # FIXME ^^^
 
                     search_summary_object = SearchSummary(parsed_time=current_datetime, topic_id=search_id,
@@ -1496,7 +1457,7 @@ def update_change_log_and_searches(db, folder_num):
     with db.connect() as conn:
 
         sql_text = sqlalchemy.text(
-            """SELECT search_forum_num, parsed_time, status_short, forum_search_title, search_start_time, 
+            """SELECT search_forum_num, parsed_time, status, forum_search_title, search_start_time, 
             num_of_replies, family_name, age, id, forum_folder_id, topic_type, display_name, age_min, age_max,
             status, city_locations, topic_type_id
             FROM forum_summary_snapshot WHERE 
@@ -1517,7 +1478,7 @@ def update_change_log_and_searches(db, folder_num):
 
         # TODO - in future: should the number of searches be limited? Probably to JOIN change_log and WHERE folder=...
         searches_full_list = conn.execute(
-            """SELECT search_forum_num, parsed_time, status_short, forum_search_title, search_start_time, 
+            """SELECT search_forum_num, parsed_time, status, forum_search_title, search_start_time, 
             num_of_replies, family_name, age, id, forum_folder_id, 
             topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id FROM searches;"""
         ).fetchall()
@@ -1649,13 +1610,13 @@ def update_change_log_and_searches(db, folder_num):
         '''3. ADD to Searches'''
         if new_topics_from_snapshot_list:
             stmt = sqlalchemy.text(
-                """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, 
+                """INSERT INTO searches (search_forum_num, parsed_time, forum_search_title, 
                 search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, 
                 display_name, age_min, age_max, status, city_locations, topic_type_id) 
-                VALUES (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
+                VALUES (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
             )
             for line in new_topics_from_snapshot_list:
-                conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
+                conn.execute(stmt, a=line.topic_id, b=line.parsed_time, d=line.title,
                              e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
                              j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max, n=line.new_status,
                              o=str(line.locations), p=line.topic_type_id)
@@ -1716,7 +1677,7 @@ def update_change_log_and_searches(db, folder_num):
 
         '''5. UPD added to Searches'''
         searches_full_list = conn.execute(
-            """SELECT search_forum_num, parsed_time, status_short, forum_search_title, search_start_time, 
+            """SELECT search_forum_num, parsed_time, status, forum_search_title, search_start_time, 
             num_of_replies, family_name, age, id, forum_folder_id FROM searches;"""
         ).fetchall()
         curr_searches_list = []
@@ -1739,13 +1700,13 @@ def update_change_log_and_searches(db, folder_num):
                 new_topics_from_snapshot_list.append(snapshot_line)
         if new_topics_from_snapshot_list:
             stmt = sqlalchemy.text(
-                """INSERT INTO searches (search_forum_num, parsed_time, status_short, forum_search_title, 
+                """INSERT INTO searches (search_forum_num, parsed_time, forum_search_title, 
                 search_start_time, num_of_replies, age, family_name, forum_folder_id, 
                 topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id) values 
-                (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
+                (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
             )
             for line in new_topics_from_snapshot_list:
-                conn.execute(stmt, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
+                conn.execute(stmt, a=line.topic_id, b=line.parsed_time, d=line.title,
                              e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
                              j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max,
                              n=line.new_status, o=str(line.locations), p=line.topic_type_id)
@@ -1795,14 +1756,14 @@ def process_one_folder(db, folder_to_parse):
             conn.execute(sql_text, a=folder_num)
 
             sql_text = sqlalchemy.text(
-                """INSERT INTO forum_summary_snapshot (search_forum_num, parsed_time, status_short, forum_search_title, 
+                """INSERT INTO forum_summary_snapshot (search_forum_num, parsed_time, forum_search_title, 
                 search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, display_name, age_min, 
                 age_max, status, city_locations, topic_type_id) 
-                VALUES (:a, :b, :c, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
+                VALUES (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
             )
             # FIXME – add status
             for line in folder_summary:
-                conn.execute(sql_text, a=line.topic_id, b=line.parsed_time, c=line.status, d=line.title,
+                conn.execute(sql_text, a=line.topic_id, b=line.parsed_time, d=line.title,
                              e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
                              j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max, n=line.new_status,
                              o=str(line.locations), p=line.topic_type_id)
