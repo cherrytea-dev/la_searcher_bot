@@ -295,10 +295,8 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
             status = pattern[1]
             break
 
-    # FIXME - 06.11.2023 - implementing API call for title_reco
     if not status:
         try:
-            notify_admin(f'status NOT active, {title=}')
             data = {"title": title, "reco_type": "status_only"}
             title_reco_response = make_api_call('title_recognize', data)
 
@@ -314,7 +312,6 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
         except Exception as ex:
             logging.exception(ex)
             notify_admin(repr(ex))
-    # FIXME ^^^
 
     if not status or status == 'Ищем':
         return None
