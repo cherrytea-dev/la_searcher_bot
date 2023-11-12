@@ -181,7 +181,7 @@ def save_status_for_topic(topic_id, status):
         logging.info(f'{change_log_id=}')
 
         # update status in searches table
-        stmt = sqlalchemy.text("""UPDATE searches SET status=:a, WHERE search_forum_num=:b;""")
+        stmt = sqlalchemy.text("""UPDATE searches SET status=:a WHERE search_forum_num=:b;""")
         conn.execute(stmt, a=status, b=topic_id)
 
         conn.close()

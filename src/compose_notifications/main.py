@@ -458,7 +458,7 @@ def enrich_new_record_from_searches(conn, r_line):
         sql_text = sqlalchemy.text(
             """WITH 
             s AS (
-                SELECT search_forum_num, status, forum_search_title, num_of_replies, family_name, age, 
+                SELECT search_forum_num, forum_search_title, num_of_replies, family_name, age, 
                     forum_folder_id, search_start_time, display_name, age_min, age_max, status, city_locations, 
                     topic_type_id 
                 FROM searches
