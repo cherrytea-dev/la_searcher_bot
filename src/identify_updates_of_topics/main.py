@@ -1245,13 +1245,16 @@ def parse_one_folder(db, folder_id):
                 if title_reco_dict['topic_type'] in {'search', 'search training',
                                                      'search reverse', 'search patrol', 'event'}:
                     # FIXME – 06.11.2023 – work to delete function "define_family_name_from_search_title_new"
-                    try:
-                        person_fam_name = title_reco_dict['persons']['total_name']  # noqa
-                    except Exception as ex:
-                        logging.exception(ex)
-                        notify_admin(repr(ex))
-                        person_fam_name = 'БВП'
-                    # FIXME ^^^
+                    if title_reco_dict['topic_type'] == 'event':
+                        person_fam_name = None
+                    else:
+                        try:
+                            person_fam_name = title_reco_dict['persons']['total_name']  # noqa
+                        except Exception as ex:
+                            logging.exception(ex)
+                            notify_admin(repr(ex))
+                            person_fam_name = 'БВП'
+                        # FIXME ^^^
 
                     search_summary_object = SearchSummary(parsed_time=current_datetime, topic_id=search_id,
                                                           title=search_title,
