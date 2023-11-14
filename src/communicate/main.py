@@ -1644,12 +1644,12 @@ def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
         logging.info(f'{list_of_settings}')
         logging.info(f'{user_score}')
 
-        # if user_score == 100:
-        #    return None
+        if user_score == 100:
+            return None
 
-        message_text = f'Вы настроили бот на {user_score}%.\n\nЧтобы сделать бот максимально ' \
-                            f'эффективным именно для вас, ' \
-                            f'рекомендуем настроить следующие параметры:\n'
+        user_score_emoji = f'{user_score//10}\U0000FE0F\U000020E3{user_score-(user_score//10)*10}\U0000FE0F\U000020E3'
+        message_text = f'Вы настроили бот на {user_score_emoji}%.\n\nЧтобы сделать бот максимально эффективным ' \
+                       f'именно для вас, рекомендуем настроить следующие параметры:\n'
         if not pref_notif_type:
             message_text += ' - Тип уведомлений,\n'
         if not pref_region_old:
