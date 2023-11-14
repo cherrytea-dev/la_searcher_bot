@@ -1662,7 +1662,7 @@ def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
             message_text += ' - Возрастные группы БВП,\n'
         if not pref_forum:
             message_text += ' - Связать бот с форумом ЛА,\n'
-        message_text = message_text[:-3]
+        message_text = message_text[:-2]
 
         return message_text
 
