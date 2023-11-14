@@ -1635,7 +1635,7 @@ def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
         if not raw_data:
             return None
 
-        pref_age, pref_coords, pref_radius, pref_region, pref_topic_type, \
+        _, pref_age, pref_coords, pref_radius, pref_region, pref_topic_type, \
             pref_urgency, pref_notif_type, pref_region_old, pref_forum = raw_data
 
         list_of_settings = [pref_notif_type, pref_region_old, pref_coords, pref_radius, pref_age, pref_forum]
@@ -2464,7 +2464,7 @@ def main(request):
                 message_prefix = compose_msg_on_user_setting_fullness(cur, user_id)
                 if message_prefix:
                     bot_message = f'{bot_message}\n\n{message_prefix}'
-                
+
                 keyboard_settings = [[b_set_pref_notif_type], [b_menu_set_region], [b_set_pref_coords],
                                      [b_set_pref_radius], [b_set_pref_age], [b_set_forum_nick],
                                      [b_back_to_start]]  # #AK added b_set_forum_nick for issue #6
