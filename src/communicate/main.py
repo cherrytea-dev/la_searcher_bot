@@ -1641,8 +1641,11 @@ def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
         list_of_settings = [pref_notif_type, pref_region_old, pref_coords, pref_radius, pref_age, pref_forum]
         user_score = round(sum(list_of_settings)/len(list_of_settings)*100, 0)
 
-        if user_score == 100:
-            return None
+        logging.info(f'{list_of_settings}')
+        logging.info(f'{user_score}')
+
+        # if user_score == 100:
+        #    return None
 
         message_text = f'Вы настроили бот на {user_score}%.\n\nЧтобы сделать бот максимально ' \
                             f'эффективным именно для вас, ' \
