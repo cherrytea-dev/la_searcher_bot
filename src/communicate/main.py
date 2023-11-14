@@ -7,6 +7,7 @@ import logging
 import math
 import psycopg2
 import urllib.request
+from typing import Union
 
 from google.cloud import secretmanager, pubsub_v1
 import google.cloud.logging
@@ -1596,6 +1597,78 @@ def run_onboarding(user_id, username, onboarding_step_id, got_message):
     return onboarding_step_id
 
 
+def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
+    """Create a text of message, which describes the degree on how complete user's profile is.
+    More settings set – more complete profile it. It's done to motivate users to set the most tailored settings."""
+
+    if not cur or not user_id:
+        return None
+
+    try:
+        cur.execute("""SELECT
+                            user_id 
+                            , CASE WHEN (SELECT TRUE FROM user_pref_age WHERE user_id=%s LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS age
+                            , CASE WHEN (SELECT TRUE FROM user_coordinates WHERE user_id=%s LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS coords    
+                            , CASE WHEN (SELECT TRUE FROM user_pref_radius WHERE user_id=%s LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS radius
+                            , CASE WHEN (SELECT TRUE FROM user_pref_region WHERE user_id=%s LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS region
+                            , CASE WHEN (SELECT TRUE FROM user_pref_topic_type WHERE user_id=%s LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS topic_type
+                            , CASE WHEN (SELECT TRUE FROM user_pref_urgency WHERE user_id=%s LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS urgency
+                            , CASE WHEN (SELECT TRUE FROM user_preferences WHERE user_id=%s 
+                                AND preference!='bot_news' LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS notif_type
+                            , CASE WHEN (SELECT TRUE FROM user_regional_preferences WHERE user_id=%s LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS region_old
+                            , CASE WHEN (SELECT TRUE FROM user_forum_attributes WHERE user_id=%s
+                                AND status = 'verified' LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS forum
+                        FROM users WHERE user_id=%s;
+                        """, (user_id, user_id, user_id, user_id, user_id,
+                              user_id, user_id, user_id, user_id, user_id, ))
+
+        raw_data = cur.fetchone()
+        if not raw_data:
+            return None
+
+        pref_age, pref_coords, pref_radius, pref_region, pref_topic_type, \
+            pref_urgency, pref_notif_type, pref_region_old, pref_forum = raw_data
+
+        list_of_settings = [pref_notif_type, pref_region_old, pref_coords, pref_radius, pref_age, pref_forum]
+        user_score = round(sum(list_of_settings)/len(list_of_settings)*100, 0)
+
+        if user_score == 100:
+            return None
+
+        message_text = f'Вы настроили бот на {user_score}%.\n\nЧтобы сделать бот максимально ' \
+                            f'эффективным именно для вас, ' \
+                            f'рекомендуем настроить следующие параметры:\n'
+        if not pref_notif_type:
+            message_text += ' - Тип уведомлений,\n'
+        if not pref_region_old:
+            message_text += ' - Регион,\n'
+        if not pref_coords:
+            message_text += ' - Домашние координаты,\n'
+        if not pref_radius:
+            message_text += ' - Максимальный радиус,\n'
+        if not pref_age:
+            message_text += ' - Возрастные группы БВП,\n'
+        if not pref_forum:
+            message_text += ' - Связать бот с форумом ЛА,\n'
+        message_text = message_text[:-3]
+
+        return message_text
+
+    except Exception as e:
+        logging.info(f'Exception in "compose_msg_on_user_setting_fullness" function')
+        logging.exception(e)
+        return None
+
+
 def main(request):
     """Main function to orchestrate the whole script"""
 
@@ -2387,6 +2460,11 @@ def main(request):
                               'уведомления, а также ввести свои "домашние координаты", на основе которых ' \
                               'будет рассчитываться расстояние и направление до места поиска. Вы в любой ' \
                               'момент сможете изменить эти настройки.'
+
+                message_prefix = compose_msg_on_user_setting_fullness(cur, user_id)
+                if message_prefix:
+                    bot_message = f'{bot_message}\n\n{message_prefix}'
+                
                 keyboard_settings = [[b_set_pref_notif_type], [b_menu_set_region], [b_set_pref_coords],
                                      [b_set_pref_radius], [b_set_pref_age], [b_set_forum_nick],
                                      [b_back_to_start]]  # #AK added b_set_forum_nick for issue #6
