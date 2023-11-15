@@ -357,9 +357,14 @@ def get_coordinates(db, address):
 
             if lat and lon:
                 saved_status = 'ok'
+                save_geolocation_in_psql(db, address, saved_status, lat, lon, 'osm')
             else:
                 saved_status = 'fail'
-            save_geolocation_in_psql(db, address, saved_status, lat, lon, 'osm')
+
+        # FIXME – 15.11.2023 – check why saving to DB does not work
+        else:
+            notify_admin(f'ELSE: {saved_status=}, {saved_status is None}, {type(saved_status)}')
+        # FIXME ^^^
 
         if saved_status == 'fail' and (saved_geocoder == 'osm' or not saved_geocoder):
             # then we need to geocode with yandex
