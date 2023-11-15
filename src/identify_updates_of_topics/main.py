@@ -363,7 +363,8 @@ def get_coordinates(db, address):
 
         # FIXME – 15.11.2023 – check why saving to DB does not work
         else:
-            notify_admin(f'ELSE: {saved_status=}, {saved_status is None}, {type(saved_status)}')
+            notify_admin(f'ELSE: {saved_status=}, {saved_status is None}, {type(saved_status)}, {saved_geocoder=}')
+            notify_admin(f"IF {saved_status == 'fail' and (saved_geocoder == 'osm' or not saved_geocoder)}")
         # FIXME ^^^
 
         if saved_status == 'fail' and (saved_geocoder == 'osm' or not saved_geocoder):
