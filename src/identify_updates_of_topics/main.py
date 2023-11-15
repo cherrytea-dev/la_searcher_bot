@@ -261,7 +261,7 @@ def get_coordinates(db, address):
             elif saved_result[1] == 'fail':
                 return 'fail', None, None, None
 
-        return 'none', None, None, None
+        return None, None, None, None
 
     def save_geolocation_in_psql(db2, address_string, status, latitude, longitude, geocoder):
         """save results of geocoding to avoid multiple requests to openstreetmap service"""
