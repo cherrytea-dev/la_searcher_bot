@@ -31,6 +31,58 @@ log_client.setup_logging()
 logging.getLogger("telegram.vendor.ptb_urllib3.urllib3").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
+full_buttons_dict = {
+    'topic_types':
+        {
+            'regular': {
+                'text': 'стандартные активные поиски',
+                'id': 0},
+            'reverse': {
+                'text': 'обратные поиски (поиск родных)',
+                'id': 1},
+            'patrol': {
+                'text': 'патруль (только для некоторых регионов)',
+                'id': 2,
+                'hide': True},
+            'training': {
+                'text': 'учебные поиски',
+                'id': 3},
+            'info_support': {
+                'text': 'информационная поддержка поисков',
+                'id': 4,
+                'hide': True},
+            'resonance': {
+                'text': 'резонансные поиски в нескольких регионах',
+                'id': 5,
+                'hide': True},
+            'event': {
+                'text': 'мероприятия',
+                'id': 10},
+            'info': {
+                'text': 'полезная информация',
+                'id': 20,
+                'hide': True},
+         },
+    'roles':
+        {
+            'member': {
+                'text': 'я состою в ЛизаАлерт',
+                'id': 'member'},
+            'new_member': {
+                'text': 'я хочу помогать ЛизаАлерт',
+                'id': 'new_member'},
+            'relative': {
+                'text': 'я ищу человека',
+                'id': 'relative'},
+            'other': {
+                'text': 'у меня другая задача',
+                'id': 'other'},
+            'no_answer': {
+                'text': 'не хочу говорить',
+                'id': 'no_answer'}
+        }
+}
+
 
 class SearchSummary:
 
@@ -81,6 +133,115 @@ class SearchSummary:
         return f'{self.parsed_time} – {self.folder_id} / {self.topic_id} : {self.name} - {self.age} – ' \
                f'{self.num_of_replies}. NEW: {self.display_name} – {self.age_min} – {self.age_max} – ' \
                f'{self.num_of_persons}'
+
+
+class Button:
+    """Contains one unique button and all the associated attributes"""
+
+    def __init__(self, data=None, modifier=None):
+
+        if modifier is None:
+            modifier = {'on': '☑ ', 'off': '☐ '}  # standard modifier
+
+        self.modifier = modifier
+        self.data = data
+        self.text = None
+        for key, value in self.data.items():
+            setattr(self, key, value)
+
+        self.any_text = [self.text]
+        for key, value in modifier.items():
+            new_value = f'{value}{self.text}'
+            setattr(self, key, new_value)
+            self.any_text.append(new_value)
+
+        self.all = [v for k, v in self.__dict__.items() if v != modifier]
+
+    def __str__(self):
+        return self.text
+
+    def temp_all_keys(self):
+        return [k for k, v in self.__dict__.items()]
+
+
+class GroupOfButtons:
+    """Contains the set of unique buttons of the similar nature (to be shown together as alternatives)"""
+
+    def __init__(self, button_dict, modifier_dict=None):
+
+        self.modifier_dict = modifier_dict
+
+        all_button_texts = []
+        for key, value in button_dict.items():
+            setattr(self, key, Button(value, modifier_dict))
+            all_button_texts += self.__getattribute__(key).any_text
+        self.any_text = all_button_texts
+
+    def __str__(self):
+        return self.any_text
+
+    def contains(self, check):
+        """Check is the given text is used for any button in this group"""
+
+        if check in self.any_text:
+            return True
+        else:
+            return False
+
+    def temp_all_keys(self):
+        return [k for k, v in self.__dict__.items()]
+
+    def id(self, given_id):
+        """Return a Button which correspond to the given id"""
+        for key, value in self.__dict__.items():
+            if not value:
+                continue
+            if hasattr(value, 'id') and value.id == given_id:
+                return value
+        return None
+
+    def keyboard(self, act_list, change_list):
+        """Generate a list of telegram buttons (2D array) basing on existing setting list and one that should change"""
+
+        keyboard = []
+        for key, value in self.__dict__.items():
+            if key in {'modifier_dict', 'any_text'}:
+                continue
+            if hasattr(value, 'hide') and value.hide:
+                continue
+            curr_button_is_in_existing_id_list = False
+            curr_button_is_asked_to_change = False
+            for id_item in act_list:
+                if self.__getattribute__(key).id == id_item:
+                    curr_button_is_in_existing_id_list = True
+                    break
+            for id_item in change_list:
+                if self.__getattribute__(key).id == id_item:
+                    curr_button_is_asked_to_change = True
+                    break
+
+            if curr_button_is_in_existing_id_list:
+                if not curr_button_is_asked_to_change:
+                    keyboard += [self.__getattribute__(key).on]
+                else:
+                    keyboard += [self.__getattribute__(key).off]
+            else:
+                if not curr_button_is_asked_to_change:
+                    keyboard += [self.__getattribute__(key).off]
+                else:
+                    keyboard += [self.__getattribute__(key).on]
+        return keyboard
+
+
+class AllButtons:
+
+    def __init__(self, initial_dict):
+
+        for key, value in initial_dict.items():
+            setattr(self, key, GroupOfButtons(value))
+
+    def temp_all_keys(self):
+        return [k for k, v in self.__dict__.items()]
 
 
 def get_secrets(secret_request):
@@ -946,7 +1107,7 @@ def get_param_if_exists(upd, func_input):
     return func_output
 
 
-def save_user_pref_age_and_return_curr_state(cur, user_id, user_input):
+def manage_age(cur, user_id, user_input):
     """Save user Age preference and generate the list of updated Are preferences"""
 
     class AgePeriod:
@@ -1133,6 +1294,36 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
 
     return bot_message, reply_markup, expect_after
 
+
+def manage_topic_type(cur, user_id, user_input, b_set_topic_type, bd_topic_type, modifiers, b_back) -> list:
+    """Save user Topic Type preference and generate the actual topic type preference message"""
+
+    list_of_buttons = []
+    bot_message = None
+    reply_markup_needed = True
+
+    if not user_input:
+        return None, None
+
+    if user_input == b_set_topic_type:
+        initial_list_of_buttons = [[v] for k, v in bd_topic_type.items() if k in {'search_regular',
+                                                                                  'search_reverse',
+                                                                                  'search_training',
+                                                                                  'event'}]
+
+
+        initial_list_of_buttons.append([b_back])
+        bot_message = 'Вы можете выбрать, по каким типам поисков или мероприятий бот должен присылать ' \
+                      'вам уведомления. На данный моменты вы можете выбрать следующие виды поисков или ' \
+                      'мероприятий. Вы можете выбрать несколько значений. Выбор можно изменить в любой момент.' \
+                      '☐☑'
+
+    if reply_markup_needed:
+        reply_markup = ReplyKeyboardMarkup(list_of_buttons, resize_keyboard=True)
+    else:
+        reply_markup = ReplyKeyboardRemove()
+
+    return bot_message, reply_markup
 
 def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_not_moscow,
                      reply_markup, keyboard_fed_dist_set, bot_message, user_role):
@@ -1607,6 +1798,7 @@ def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
     try:
         cur.execute("""SELECT
                             user_id 
+                            , CASE WHEN role IS NOT NULL THEN TRUE ELSE FALSE END as role 
                             , CASE WHEN (SELECT TRUE FROM user_pref_age WHERE user_id=%s LIMIT 1) 
                                 THEN TRUE ELSE FALSE END AS age
                             , CASE WHEN (SELECT TRUE FROM user_coordinates WHERE user_id=%s LIMIT 1) 
@@ -1635,7 +1827,7 @@ def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
         if not raw_data:
             return None
 
-        _, pref_age, pref_coords, pref_radius, pref_region, pref_topic_type, \
+        _, pref_role, pref_age, pref_coords, pref_radius, pref_region, pref_topic_type, \
             pref_urgency, pref_notif_type, pref_region_old, pref_forum = raw_data
 
         list_of_settings = [pref_notif_type, pref_region_old, pref_coords, pref_radius, pref_age, pref_forum]
@@ -1696,6 +1888,8 @@ def main(request):
         process_block_unblock_user(user_id, user_new_status)
         return 'finished successfully. it was a system message on bot block/unblock'
 
+    b = AllButtons(full_buttons_dict)
+
     # Buttons & Keyboards
     # Start & Main menu
     b_start = '/start'
@@ -1723,6 +1917,16 @@ def main(request):
     b_topic_search_reverse = 'обратные поиски (поиск родных)'
     b_topic_search_training = 'учебные поиски'
     b_topic_event = 'мероприятия'
+    bd_topic_type = {'search_regular': b_topic_search_regular,
+                     'search_resonance': b_topic_search_resonance,
+                     'search_info_support': b_topic_search_info_support,
+                     'search_patrol': b_topic_search_patrol,
+                     'search_reverse': b_topic_search_reverse,
+                     'search_training': b_topic_search_training,
+                     'event': b_topic_event}
+
+    modifiers = {'y': '☑', 'n': '☐'}
+
     # TODO ^^^
 
     b_pref_urgency_highest = 'самым первым (<2 минуты)'
@@ -1744,7 +1948,7 @@ def main(request):
     b_set_pref_coords = 'настроить "домашние координаты"'
     b_set_pref_radius = 'настроить максимальный радиус'
     b_set_pref_age = 'настроить возрастные группы БВП'
-    b_set_pref_urgency = 'настроить скорость уведомлений'
+    b_set_pref_urgency = 'настроить скорость уведомлений'  # <-- TODO: likely to be removed as redundant
     b_set_pref_role = 'настроить вашу роль'  # <-- TODO
     b_set_forum_nick = 'связать аккаунты бота и форума'
     b_change_forum_nick = 'изменить аккаунт форума'
@@ -2358,13 +2562,22 @@ def main(request):
                 reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
             # FIXME ^^^
 
+            elif got_message == b_set_topic_type or  b.topic_types.contains(got_message):  # noqa
+                notify_admin(f'yes, we are there after getting {got_message=}')
+                pass
+                """got_message == b_set_topic_type or \
+                got_message in [head+' '+tail for tail in bd_topic_type.values() for head in modifiers.values()]:"""
+                """bot_message, reply_markup = \
+                    manage_topic_type(cur, user_id, got_message, b_set_topic_type,
+                                      bd_topic_type, modifiers, b_back_to_start)"""
+
             elif got_message in {b_set_pref_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
                                  b_pref_age_7_13_deact, b_pref_age_14_20_act, b_pref_age_14_20_deact,
                                  b_pref_age_21_50_act, b_pref_age_21_50_deact, b_pref_age_51_80_act,
                                  b_pref_age_51_80_deact, b_pref_age_81_on_act, b_pref_age_81_on_deact}:
 
                 input_data = None if got_message == b_set_pref_age else got_message
-                keyboard, first_visit = save_user_pref_age_and_return_curr_state(cur, user_id, input_data)
+                keyboard, first_visit = manage_age(cur, user_id, input_data)
                 keyboard.append([b_back_to_start])
                 reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
