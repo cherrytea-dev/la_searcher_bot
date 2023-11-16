@@ -80,6 +80,19 @@ full_buttons_dict = {
             'no_answer': {
                 'text': 'не хочу говорить',
                 'id': 'no_answer'}
+        },
+    'set':
+        {
+            'topic_type': {
+                'text': 'настроить вид интересующих поисков',
+                'id': 'topic_type'}
+        },
+    'core':
+        {
+            'to_start': {
+                'text': 'в начало',
+                'id': 'to_start'
+            }
         }
 }
 
@@ -1295,33 +1308,26 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
     return bot_message, reply_markup, expect_after
 
 
-def manage_topic_type(cur, user_id, user_input, b_set_topic_type, bd_topic_type, modifiers, b_back) -> list:
+def manage_topic_type(cur, user_id, user_input, b) -> list:
     """Save user Topic Type preference and generate the actual topic type preference message"""
-
-    list_of_buttons = []
-    bot_message = None
-    reply_markup_needed = True
 
     if not user_input:
         return None, None
 
-    if user_input == b_set_topic_type:
-        initial_list_of_buttons = [[v] for k, v in bd_topic_type.items() if k in {'search_regular',
-                                                                                  'search_reverse',
-                                                                                  'search_training',
-                                                                                  'event'}]
+    if user_input == b.set.topic_type:
 
-
-        initial_list_of_buttons.append([b_back])
         bot_message = 'Вы можете выбрать, по каким типам поисков или мероприятий бот должен присылать ' \
                       'вам уведомления. На данный моменты вы можете выбрать следующие виды поисков или ' \
-                      'мероприятий. Вы можете выбрать несколько значений. Выбор можно изменить в любой момент.' \
-                      '☐☑'
+                      'мероприятий. Вы можете выбрать несколько значений. Выбор можно изменить в любой момент.'
 
-    if reply_markup_needed:
-        reply_markup = ReplyKeyboardMarkup(list_of_buttons, resize_keyboard=True)
     else:
-        reply_markup = ReplyKeyboardRemove()
+        bot_message = f'Not there {b.set.topic_type=}'
+
+    list_of_current_setting_ids = [0, 1, 2, 3, 4, 5]
+    list_of_ids_to_change_now = [5]
+    keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
+
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
     return bot_message, reply_markup
 
@@ -2564,12 +2570,7 @@ def main(request):
 
             elif got_message == b_set_topic_type or  b.topic_types.contains(got_message):  # noqa
                 notify_admin(f'yes, we are there after getting {got_message=}')
-                pass
-                """got_message == b_set_topic_type or \
-                got_message in [head+' '+tail for tail in bd_topic_type.values() for head in modifiers.values()]:"""
-                """bot_message, reply_markup = \
-                    manage_topic_type(cur, user_id, got_message, b_set_topic_type,
-                                      bd_topic_type, modifiers, b_back_to_start)"""
+                bot_message, reply_markup = manage_topic_type(cur, user_id, got_message, b)
 
             elif got_message in {b_set_pref_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
                                  b_pref_age_7_13_deact, b_pref_age_14_20_act, b_pref_age_14_20_deact,
