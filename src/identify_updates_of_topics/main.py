@@ -334,7 +334,7 @@ def get_coordinates(db, address):
                 logging.exception(e2)
 
         if coordinates:
-            latitude, longitude = float(coordinates[0]), float(coordinates[1])
+            longitude, latitude = float(coordinates[0]), float(coordinates[1])
 
         return latitude, longitude
 
