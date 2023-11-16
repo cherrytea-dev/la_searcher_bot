@@ -216,6 +216,9 @@ class GroupOfButtons:
     def keyboard(self, act_list, change_list):
         """Generate a list of telegram buttons (2D array) basing on existing setting list and one that should change"""
 
+        logging.info(f'IN KEYBOARD: {act_list=}')
+        logging.info(f'IN KEYBOARD: {change_list=}')
+
         keyboard = []
         for key, value in self.__dict__.items():
             if key in {'modifier_dict', 'any_text'}:
@@ -232,6 +235,10 @@ class GroupOfButtons:
                 if self.__getattribute__(key).id == id_item:
                     curr_button_is_asked_to_change = True
                     break
+
+            logging.info(f'IN KEYBOARD: {key=}')
+            logging.info(f'IN KEYBOARD: {curr_button_is_in_existing_id_list=}')
+            logging.info(f'IN KEYBOARD: {curr_button_is_asked_to_change=}')
 
             if curr_button_is_in_existing_id_list:
                 if not curr_button_is_asked_to_change:
@@ -3011,5 +3018,7 @@ def main(request):
 
     cur.close()
     conn_psy.close()
+
+    del b
 
     return 'finished successfully. in was a regular conversational message'
