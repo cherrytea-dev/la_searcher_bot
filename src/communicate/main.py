@@ -243,6 +243,9 @@ class GroupOfButtons:
                     keyboard += [self.__getattribute__(key).off]
                 else:
                     keyboard += [self.__getattribute__(key).on]
+
+        keyboard = [[k] for k in keyboard]
+
         return keyboard
 
 
