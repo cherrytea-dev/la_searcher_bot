@@ -1332,9 +1332,9 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
                       'мероприятий. Вы можете выбрать несколько значений. Выбор можно изменить в любой момент.'
         list_of_ids_to_change_now = []
     else:
-        list_of_ids_to_change_now = [b.topic_type.button_by_text(user_input).id]
+        list_of_ids_to_change_now = [b.topic_types.button_by_text(user_input).id]
 
-        bot_message = f'We are changing line {b.topic_type.button_by_text(user_input).text}'
+        bot_message = f'We are changing line {b.topic_types.button_by_text(user_input).text}'
 
     list_of_current_setting_ids = [0, 1, 2, 3, 4, 5]
     keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
