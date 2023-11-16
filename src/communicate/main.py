@@ -1327,10 +1327,12 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
 
         saved_pref = []
         cur.execute("""SELECT topic_type_id FROM user_pref_topic_type WHERE user_id=%s ORDER BY 1;""", (user,))
-        raw_data = cur.fetchone()
+        raw_data = cur.fetchall()
         if raw_data and str(raw_data) != 'None':
             for line in raw_data:
                 saved_pref.append(line)
+
+        logging.info(f'{saved_pref=}')
 
         return saved_pref
 
@@ -1344,7 +1346,8 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
         """Insert a certain topic_type for a certain user_id into the DB"""
 
         cur.execute("""INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp) 
-                        VALUES (%s, %s, %s);""", (user, type_id, datetime.datetime.now()))
+                        VALUES (%s, %s, %s) ON CONFLICT (user_id, topic_type_id) DO NOTHING;""",
+                    (user, type_id, datetime.datetime.now()))
         return None
 
     if not user_input:
@@ -2634,10 +2637,7 @@ def main(request):
             # FIXME ^^^
 
             elif got_message == b.set.topic_type.text or  b.topic_types.contains(got_message):  # noqa
-                notify_admin(f'yes, we are there after getting {got_message=}')
                 bot_message, reply_markup = manage_topic_type(cur, user_id, got_message, b)
-                notify_admin(f'{bot_message=}')
-                notify_admin(f'{reply_markup=}')
 
             elif got_message in {b_set_pref_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
                                  b_pref_age_7_13_deact, b_pref_age_14_20_act, b_pref_age_14_20_deact,
