@@ -1934,7 +1934,7 @@ def if_user_enables(text: str) -> Union[None, bool]:
     if text.find('☐') > -1:
         user_wants_to_enable = True
     elif text.find('☑') > -1:
-        user_wants_to_enable = True
+        user_wants_to_enable = False
 
     return user_wants_to_enable
 
