@@ -1350,6 +1350,8 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
     if not user_input:
         return None, None
 
+    list_of_current_setting_ids = check_saved_topic_types(user_id)
+
     if user_input == b.set.topic_type.text:
 
         bot_message = 'Вы можете выбрать, по каким типам поисков или мероприятий бот должен присылать ' \
@@ -1357,7 +1359,6 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
                       'мероприятий. Вы можете выбрать несколько значений. Выбор можно изменить в любой момент.'
         list_of_ids_to_change_now = []
     else:
-        list_of_current_setting_ids = check_saved_topic_types(user_id)
         topic_id = b.topic_types.button_by_text(user_input).id
         list_of_ids_to_change_now = [topic_id]
         user_wants_to_enable = if_user_enables(user_input)
@@ -1374,6 +1375,7 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
                 delete_topic_type(user_id, topic_id)
 
     keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
+    keyboard += [b.core.to_start.text]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
     logging.info(f'{list_of_current_setting_ids=}')
