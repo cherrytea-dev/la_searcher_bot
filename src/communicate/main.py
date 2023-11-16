@@ -7,7 +7,7 @@ import logging
 import math
 import psycopg2
 import urllib.request
-from typing import Union
+from typing import Union, Tuple
 
 from google.cloud import secretmanager, pubsub_v1
 import google.cloud.logging
@@ -1319,10 +1319,10 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
     return bot_message, reply_markup, expect_after
 
 
-def manage_topic_type(cur, user_id, user_input, b) -> list:
+def manage_topic_type(cur, user_id, user_input, b) -> Union[tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
     """Save user Topic Type preference and generate the actual topic type preference message"""
 
-    def check_saved_topic_types(user):
+    def check_saved_topic_types(user: int) -> list:
         """check if user already has any preference"""
 
         saved_pref = []
@@ -1366,11 +1366,12 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
         list_of_ids_to_change_now = [topic_id]
         user_wants_to_enable = if_user_enables(user_input)
         if user_wants_to_enable is None:
+            bot_message = ''
             pass
         elif user_wants_to_enable == True:  # noqa. not a poor design – function can be: None, True, False
             bot_message = f'Супер, мы включили уведомления по таким типам поисков / мероприятиям'
             record_topic_type(user_id, topic_id)
-        elif user_wants_to_enable == False:  # noqa. not a poor design – function can be: None, True, False
+        else: # user_wants_to_enable == False:  # noqa. not a poor design – function can be: None, True, False
             if len(list_of_current_setting_ids) == 1:
                 bot_message = 'Изменения не внесены. У вас должен быть включен хотя бы один тип поиска или мероприятия.'
             else:
@@ -1387,6 +1388,7 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
     logging.info(f'{keyboard=}')
 
     return bot_message, reply_markup
+
 
 def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_not_moscow,
                      reply_markup, keyboard_fed_dist_set, bot_message, user_role):
@@ -2631,8 +2633,8 @@ def main(request):
                 bot_message = 'Вы в секретном тестовом разделе, где всё может работать не так :) ' \
                               'Если что – пишите, пожалуйста, в телеграм-чат ' \
                               'https://t.me/joinchat/2J-kV0GaCgwxY2Ni'
-                keyboard_coordinates_admin = [[b_set_pref_urgency], [b_set_forum_nick], [b_set_topic_type],
-                                              [b_back_to_start]]
+                keyboard_coordinates_admin = [[b_set_topic_type], [b_back_to_start]]
+                # [b_set_pref_urgency], [b_set_forum_nick]
                 reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
             # FIXME ^^^
 
