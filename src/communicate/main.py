@@ -248,6 +248,14 @@ class GroupOfButtons:
 
         return keyboard
 
+    def button_by_text(self, given_text):
+        """Return a Button which correspond to the given text"""
+        for key, value in self.__dict__.items():
+            if not value:
+                continue
+            if hasattr(value, 'any_text') and given_text in value.any_text:
+                return value
+        return None
 
 class AllButtons:
 
@@ -1322,12 +1330,13 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
         bot_message = 'Вы можете выбрать, по каким типам поисков или мероприятий бот должен присылать ' \
                       'вам уведомления. На данный моменты вы можете выбрать следующие виды поисков или ' \
                       'мероприятий. Вы можете выбрать несколько значений. Выбор можно изменить в любой момент.'
-
+        list_of_ids_to_change_now = []
     else:
-        bot_message = f'Not there {b.set.topic_type.text=}'
+        list_of_ids_to_change_now = [b.topic_type.button_by_text(user_input).id]
+
+        bot_message = f'We are changing line {b.topic_type.button_by_text(user_input).text}'
 
     list_of_current_setting_ids = [0, 1, 2, 3, 4, 5]
-    list_of_ids_to_change_now = [5]
     keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
     notify_admin(f'{keyboard=}')
 
