@@ -216,9 +216,6 @@ class GroupOfButtons:
     def keyboard(self, act_list, change_list):
         """Generate a list of telegram buttons (2D array) basing on existing setting list and one that should change"""
 
-        logging.info(f'IN KEYBOARD: {act_list=}')
-        logging.info(f'IN KEYBOARD: {change_list=}')
-
         keyboard = []
         for key, value in self.__dict__.items():
             if key in {'modifier_dict', 'any_text'}:
@@ -235,10 +232,6 @@ class GroupOfButtons:
                 if self.__getattribute__(key).id == id_item:
                     curr_button_is_asked_to_change = True
                     break
-
-            logging.info(f'IN KEYBOARD: {key=}')
-            logging.info(f'IN KEYBOARD: {curr_button_is_in_existing_id_list=}')
-            logging.info(f'IN KEYBOARD: {curr_button_is_asked_to_change=}')
 
             if curr_button_is_in_existing_id_list:
                 if not curr_button_is_asked_to_change:
@@ -1329,6 +1322,18 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
 def manage_topic_type(cur, user_id, user_input, b) -> list:
     """Save user Topic Type preference and generate the actual topic type preference message"""
 
+    def check_saved_topic_types(user):
+        """check if user already has any preference"""
+
+        saved_pref = []
+        cur.execute("""SELECT topic_type_id FROM user_pref_topic_type WHERE user_id=%s ORDER BY 1;""", (user,))
+        raw_data = cur.fetchone()
+        if raw_data and str(raw_data) != 'None':
+            for line in raw_data:
+                saved_pref.append(line[0])
+
+        return saved_pref
+
     if not user_input:
         return None, None
 
@@ -1343,13 +1348,14 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
 
         bot_message = f'We are changing line {b.topic_types.button_by_text(user_input).text}'
 
-    list_of_current_setting_ids = [0, 1, 2, 3, 4, 5, 10, 20]
+    # list_of_current_setting_ids = [0, 1, 2, 3, 4, 5, 10, 20]
+    list_of_current_setting_ids = check_saved_topic_types(user_id)
+
     keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
-    notify_admin(f'{list_of_ids_to_change_now=}')
-    notify_admin(f'{keyboard=}')
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
+    logging.info(f'{list_of_current_setting_ids=}')
     logging.info(f'{user_input=}')
     logging.info(f'We are changing line {b.topic_types.button_by_text(user_input).text}')
     logging.info(f'{b.topic_types.button_by_text(user_input).id=}')
@@ -3018,7 +3024,5 @@ def main(request):
 
     cur.close()
     conn_psy.close()
-
-    del b
 
     return 'finished successfully. in was a regular conversational message'
