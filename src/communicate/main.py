@@ -1334,6 +1334,19 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
 
         return saved_pref
 
+    def delete_topic_type(user: int, type_id: int) -> None:
+        """Delete a certain topic_type for a certain user_id from the DB"""
+
+        cur.execute("""DELETE FROM user_pref_topic_type WHERE user_id=%s AND topic_type_id=%s;""", (user, type_id))
+        return None
+
+    def record_topic_type(user: int, type_id: int) -> None:
+        """Insert a certain topic_type for a certain user_id into the DB"""
+
+        cur.execute("""INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp) 
+                        VALUES (%s, %s, %s);""", (user, type_id, datetime.datetime.now()))
+        return None
+
     if not user_input:
         return None, None
 
@@ -1344,18 +1357,23 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
                       'мероприятий. Вы можете выбрать несколько значений. Выбор можно изменить в любой момент.'
         list_of_ids_to_change_now = []
     else:
-        list_of_ids_to_change_now = [b.topic_types.button_by_text(user_input).id]
-
-        bot_message = f'We are changing line {b.topic_types.button_by_text(user_input).text}'
-
-        logging.info(f'We are changing line {b.topic_types.button_by_text(user_input).text}')
-        logging.info(f'{b.topic_types.button_by_text(user_input).id=}')
-
-    # list_of_current_setting_ids = [0, 1, 2, 3, 4, 5, 10, 20]
-    list_of_current_setting_ids = check_saved_topic_types(user_id)
+        list_of_current_setting_ids = check_saved_topic_types(user_id)
+        topic_id = b.topic_types.button_by_text(user_input).id
+        list_of_ids_to_change_now = [topic_id]
+        user_wants_to_enable = if_user_enables(user_input)
+        if user_wants_to_enable is None:
+            pass
+        elif user_wants_to_enable == True:  # noqa. not a poor design – function can be: None, True, False
+            bot_message = f'Супер, мы включили уведомления по таким типам поисков / мероприятиям'
+            record_topic_type(user_id, topic_id)
+        elif user_wants_to_enable == False:  # noqa. not a poor design – function can be: None, True, False
+            if len(list_of_current_setting_ids) == 1:
+                bot_message = 'Изменения не внесены. У вас должен быть включен хотя бы один тип поиска или мероприятия.'
+            else:
+                bot_message = f'Хорошо, мы изменили список настроек'
+                delete_topic_type(user_id, topic_id)
 
     keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
-
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
     logging.info(f'{list_of_current_setting_ids=}')
@@ -1903,6 +1921,17 @@ def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
         logging.exception(e)
         return None
 
+
+def if_user_enables(text: str) -> Union[None, bool]:
+    """check if user wants to enable or disable a feature"""
+    user_wants_to_enable = None
+
+    if text.find('☐') > -1:
+        user_wants_to_enable = True
+    elif text.find('☑') > -1:
+        user_wants_to_enable = True
+
+    return user_wants_to_enable
 
 def main(request):
     """Main function to orchestrate the whole script"""
