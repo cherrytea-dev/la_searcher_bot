@@ -1348,6 +1348,9 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
 
         bot_message = f'We are changing line {b.topic_types.button_by_text(user_input).text}'
 
+        logging.info(f'We are changing line {b.topic_types.button_by_text(user_input).text}')
+        logging.info(f'{b.topic_types.button_by_text(user_input).id=}')
+
     # list_of_current_setting_ids = [0, 1, 2, 3, 4, 5, 10, 20]
     list_of_current_setting_ids = check_saved_topic_types(user_id)
 
@@ -1357,8 +1360,6 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
 
     logging.info(f'{list_of_current_setting_ids=}')
     logging.info(f'{user_input=}')
-    logging.info(f'We are changing line {b.topic_types.button_by_text(user_input).text}')
-    logging.info(f'{b.topic_types.button_by_text(user_input).id=}')
     logging.info(f'{list_of_ids_to_change_now=}')
     logging.info(f'{keyboard=}')
 
