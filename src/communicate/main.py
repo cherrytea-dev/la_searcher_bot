@@ -1317,14 +1317,14 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
     if not user_input:
         return None, None
 
-    if user_input == b.set.topic_type:
+    if user_input == b.set.topic_type.text:
 
         bot_message = 'Вы можете выбрать, по каким типам поисков или мероприятий бот должен присылать ' \
                       'вам уведомления. На данный моменты вы можете выбрать следующие виды поисков или ' \
                       'мероприятий. Вы можете выбрать несколько значений. Выбор можно изменить в любой момент.'
 
     else:
-        bot_message = f'Not there {b.set.topic_type=}'
+        bot_message = f'Not there {b.set.topic_type.text=}'
 
     list_of_current_setting_ids = [0, 1, 2, 3, 4, 5]
     list_of_ids_to_change_now = [5]
@@ -2572,7 +2572,7 @@ def main(request):
                 reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
             # FIXME ^^^
 
-            elif got_message == b_set_topic_type or  b.topic_types.contains(got_message):  # noqa
+            elif got_message == b.set.topic_type.text or  b.topic_types.contains(got_message):  # noqa
                 notify_admin(f'yes, we are there after getting {got_message=}')
                 bot_message, reply_markup = manage_topic_type(cur, user_id, got_message, b)
                 notify_admin(f'{bot_message=}')
