@@ -1336,8 +1336,9 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
 
         bot_message = f'We are changing line {b.topic_types.button_by_text(user_input).text}'
 
-    list_of_current_setting_ids = [0, 1, 2, 3, 4, 5]
+    list_of_current_setting_ids = [0, 1, 2, 3, 4, 5, 10, 20]
     keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
+    notify_admin(f'{list_of_ids_to_change_now=}')
     notify_admin(f'{keyboard=}')
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
