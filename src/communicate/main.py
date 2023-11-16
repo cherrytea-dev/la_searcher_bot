@@ -1343,6 +1343,12 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
+    logging.info(f'{user_input=}')
+    logging.info(f'We are changing line {b.topic_types.button_by_text(user_input).text}')
+    logging.info(f'{b.topic_types.button_by_text(user_input).id=}')
+    logging.info(f'{list_of_ids_to_change_now=}')
+    logging.info(f'{keyboard=}')
+
     return bot_message, reply_markup
 
 def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_not_moscow,
