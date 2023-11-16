@@ -1330,7 +1330,7 @@ def manage_topic_type(cur, user_id, user_input, b) -> list:
         raw_data = cur.fetchall()
         if raw_data and str(raw_data) != 'None':
             for line in raw_data:
-                saved_pref.append(line)
+                saved_pref.append(line[0])
 
         logging.info(f'{saved_pref=}')
 
