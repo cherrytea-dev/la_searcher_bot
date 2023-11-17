@@ -1665,8 +1665,10 @@ def send_message_to_api(bot_token, user_id, message, params):
                 disable_web_page_preview = f'&disable_web_page_preview={params["disable_web_page_preview"]}'
             if 'reply_markup' in params.keys():
                 # reply_markup = f'&reply_markup={urllib.parse.quote(bytes(params["reply_markup"]))}'
+                stupid = '{"inline_keyboard": [[{"text": "but_1", "callback_data": "but_1"}]]}'
+
                 notify_admin(params['reply_markup'])
-                rep_as_str = str(params['reply_markup'])
+                rep_as_str = str(json.dumps(params['reply_markup']))
                 notify_admin(rep_as_str)
                 reply_markup = urllib.parse.quote(rep_as_str)
                 notify_admin(reply_markup)
