@@ -1656,15 +1656,18 @@ def send_message_to_api(bot_token, user_id, message, params):
     try:
         parse_mode = ''
         disable_web_page_preview = ''
+        reply_markup = ''
         if params:
             if 'parse_mode' in params.keys():
                 parse_mode = f'&parse_mode={params["parse_mode"]}'
             if 'disable_web_page_preview' in params.keys():
                 disable_web_page_preview = f'&disable_web_page_preview={params["disable_web_page_preview"]}'
+            if 'reply_markup' in params.keys():
+                reply_markup = f'&reply_markup={urllib.parse.quote(params["reply_markup"])}'
         message_encoded = urllib.parse.quote(message)
 
         request_text = f'https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={user_id}' \
-                       f'{parse_mode}{disable_web_page_preview}&text={message_encoded}'
+                       f'{parse_mode}{disable_web_page_preview}&text={message_encoded}{reply_markup}'
 
         with requests.Session() as session:
             response = session.get(request_text)
@@ -2759,12 +2762,12 @@ def main(request):
             elif got_message.lower() == 'test3':
                 bot_message = 'Вы в СУПЕР-секретном тестовом разделе 3'
 
-                # reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+                reply_markup = {"inline_keyboard": [
+                    [{"text": "but_1", "callback_data": "but_1"}],
+                    [{"text": "but_2", "callback_data": "but_2"}, {"text": "but_3", "callback_data": "but_3"}],
+                    [{"text": "but_4", "callback_data": "but_4"}]
+                    ]}
 
-                inline_keyboard = [[InlineKeyboardButton('b_high', callback_data='{"param1": "value1", "param2": "value2"}')],
-                                    [InlineKeyboardButton('b_med', callback_data='callback_data_2_ver3'),
-                                 InlineKeyboardButton('b_low', callback_data='callback_data_3_ver3')]]
-                reply_markup = InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
             # FIXME ^^^
 
             elif got_message == b.set.topic_type.text or  b.topic_types.contains(got_message):  # noqa
@@ -3154,7 +3157,7 @@ def main(request):
                             'parse_mode': 'HTML', 'disable_web_page_preview': True}
                     process_sending_message_async(user_id=user_id, data=data)
                 else:
-                    params = {'parse_mode': 'HTML', 'disable_web_page_preview': True}
+                    params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup}
                     result = send_message_to_api(bot_token, user_id, bot_message, params)
                     notify_admin(f'RESULT {result}')
                 # FIXME ^^^
