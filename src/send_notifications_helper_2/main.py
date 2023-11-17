@@ -11,10 +11,6 @@ import urllib.request
 import requests
 import random
 
-import asyncio
-from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove, error
-from telegram.ext import ContextTypes, Application
-
 from google.cloud import secretmanager
 from google.cloud import pubsub_v1
 import google.cloud.logging
@@ -122,73 +118,6 @@ def notify_admin(message):
     """send the pub/sub message to Debug to Admin"""
 
     publish_to_pubsub('topic_notify_admin', message)
-
-    return None
-
-
-async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
-    try:
-        await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
-    except Exception as e:
-        logging.exception(e)
-        # FIXME - trying to understand where try-catch should be for async
-        logging.info(f'2 – HERE\'s THE EXCEPTION WE\'ARE LOOKING FOR')
-        # FIXME ^^^
-
-    return None
-
-
-async def prepare_message_for_async(user_id, data):
-    try:
-        bot_token = get_secrets("bot_api_token__prod")
-        application = Application.builder().token(bot_token).build()
-        job_queue = application.job_queue
-        job = job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
-
-        async with application:
-            await application.initialize()
-            await application.start()
-            await application.stop()
-            await application.shutdown()
-
-    except Exception as e:
-        logging.exception(e)
-        # FIXME - trying to understand where try-catch should be for async
-        logging.info(f'3 –HERE\'s THE EXCEPTION WE\'ARE LOOKING FOR')
-        # FIXME ^^^
-
-    return 'ok'
-
-
-def process_sending_message_async(user_id, data) -> None:
-    asyncio.run(prepare_message_for_async(user_id, data))
-
-    return None
-
-
-async def send_location_async(context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_location(chat_id=context.job.chat_id, **context.job.data)
-
-    return None
-
-
-async def prepare_location_for_async(user_id, data):
-    bot_token = get_secrets("bot_api_token__prod")
-    application = Application.builder().token(bot_token).build()
-    job_queue = application.job_queue
-    job = job_queue.run_once(send_location_async, 0, data=data, chat_id=user_id)
-
-    async with application:
-        await application.initialize()
-        await application.start()
-        await application.stop()
-        await application.shutdown()
-
-    return 'ok'
-
-
-def process_sending_location_async(user_id, data) -> None:
-    asyncio.run(prepare_location_for_async(user_id, data))
 
     return None
 
@@ -400,7 +329,7 @@ def process_response(user_id, response):
         return 'failed'
 
 
-def send_single_message(bot, bot_token, user_id, message_content, message_params, message_type, admin_id, session):
+def send_single_message(bot_token, user_id, message_content, message_params, message_type, admin_id, session):
     """send one message to telegram"""
 
     if message_params:
@@ -488,7 +417,7 @@ def get_change_log_update_time(cur, change_log_id):
     return parsed_time
 
 
-def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, session, function_id):
+def iterate_over_notifications(bot_token, admin_id, script_start_time, session, function_id):
     """iterate over all available notifications, finishes if timeout is met or no new notifications"""
 
     set_of_change_ids = set()
@@ -544,7 +473,7 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
                     if change_type in {5, 6, 7, 8} and status != 'Ищем':
                         result = 'cancelled'
                     else:
-                        result = send_single_message(bot, bot_token, user_id, message_content, message_params,
+                        result = send_single_message(bot_token, user_id, message_content, message_params,
                                                      message_type, admin_id, session)
 
                     analytics_send_finish = datetime.datetime.now()
@@ -845,11 +774,10 @@ def main(event, context):
         return None
 
     bot_token = get_secrets("bot_api_token__prod")
-    bot = Bot(token=bot_token)
     admin_id = get_secrets("my_telegram_id")
 
     with requests.Session() as session:
-        changed_ids = iterate_over_notifications(bot, bot_token, admin_id, script_start_time, session, function_id)
+        changed_ids = iterate_over_notifications(bot_token, admin_id, script_start_time, session, function_id)
 
     finish_time_analytics(analytics_notif_times, analytics_delays, analytics_parsed_times, changed_ids)
     # the below – is needed for high-frequency function execution, otherwise google remembers prev value
