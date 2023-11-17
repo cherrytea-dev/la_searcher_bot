@@ -7,6 +7,7 @@ import logging
 import math
 import psycopg2
 import urllib.request
+import requests
 from typing import Union, Tuple
 
 from google.cloud import secretmanager, pubsub_v1
@@ -1606,6 +1607,78 @@ def process_sending_message_async(user_id, data) -> None:
 
     return None
 
+
+def process_response_of_api_call(user_id, response):
+    """process response received as a result of Telegram API call while sending message/location"""
+
+    try:
+        if response.ok:
+            logging.info(f'message to {user_id} was successfully sent')
+            return 'completed'
+
+        elif response.status_code == 400:  # Bad Request
+            logging.info(f'Bad Request: message to {user_id} was not sent, {response.reason=}')
+            logging.exception('BAD REQUEST')
+            return 'cancelled_bad_request'
+
+        elif response.status_code == 403:  # FORBIDDEN
+            logging.info(f'Forbidden: message to {user_id} was not sent, {response.reason=}')
+            action = None
+            if response.text.find('bot was blocked by the user') != -1:
+                action = 'block_user'
+            if response.text.find('user is deactivated') != -1:
+                action = 'delete_user'
+            if action:
+                message_for_pubsub = {'action': action, 'info': {'user': user_id}}
+                publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+                logging.info(f'Identified user id {user_id} to do {action}')
+            return 'cancelled'
+
+        elif 420 <= response.status_code <= 429:  # 'Flood Control':
+            logging.info(f'Flood Control: message to {user_id} was not sent, {response.reason=}')
+            logging.exception('FLOOD CONTROL')
+            return 'failed_flood_control'
+
+        else:
+            logging.info(f'UNKNOWN ERROR: message to {user_id} was not sent, {response.reason=}')
+            logging.exception('UNKNOWN ERROR')
+            return 'cancelled'
+
+    except Exception as e:
+        logging.info(f'Response is corrupted')
+        logging.exception(e)
+        return 'failed'
+
+
+def send_message_to_api(bot_token, user_id, message, params):
+    """send message directly to Telegram API w/o any wrappers ar libraries"""
+
+    try:
+        parse_mode = ''
+        disable_web_page_preview = ''
+        if params:
+            if 'parse_mode' in params.keys():
+                parse_mode = f'&parse_mode={params["parse_mode"]}'
+            if 'disable_web_page_preview' in params.keys():
+                disable_web_page_preview = f'&disable_web_page_preview={params["disable_web_page_preview"]}'
+        message_encoded = urllib.parse.quote(message)
+
+        request_text = f'https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={user_id}' \
+                       f'{parse_mode}{disable_web_page_preview}&text={message_encoded}'
+
+        with requests.Session() as session:
+            response = session.get(request_text)
+
+    except Exception as e:
+        logging.exception(e)
+        logging.info(f'Error in getting response from Telegram')
+        response = None
+
+    result = process_response_of_api_call(user_id, response)
+
+    return result
+
+
 def get_the_update(bot, request):
     """converts a request to an update"""
 
@@ -3073,9 +3146,18 @@ def main(request):
                 reply_markup = reply_markup_main
 
             if not msg_sent_by_specific_code:
-                data = {'text': bot_message, 'reply_markup': reply_markup,
-                        'parse_mode': 'HTML', 'disable_web_page_preview': True}
-                process_sending_message_async(user_id=user_id, data=data)
+
+                # FIXME – 17.11.2023 – migrating from async to pure api call
+                admin_id = get_secrets('my_telegram_id')
+                if user_id != admin_id:
+                    data = {'text': bot_message, 'reply_markup': reply_markup,
+                            'parse_mode': 'HTML', 'disable_web_page_preview': True}
+                    process_sending_message_async(user_id=user_id, data=data)
+                else:
+                    params = {'parse_mode': 'HTML', 'disable_web_page_preview': True}
+                    result = send_message_to_api(bot_token, user_id, bot_message, params)
+                    notify_admin(f'RESULT {result}')
+                # FIXME ^^^
 
             # saving the last message from bot
             if not bot_request_aft_usr_msg:
