@@ -3148,7 +3148,7 @@ def main(request):
             if not msg_sent_by_specific_code:
 
                 # FIXME – 17.11.2023 – migrating from async to pure api call
-                admin_id = get_secrets('my_telegram_id')
+                admin_id = int(get_secrets('my_telegram_id'))
                 if user_id != admin_id:
                     data = {'text': bot_message, 'reply_markup': reply_markup,
                             'parse_mode': 'HTML', 'disable_web_page_preview': True}
