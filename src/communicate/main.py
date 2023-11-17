@@ -13,7 +13,8 @@ from google.cloud import secretmanager, pubsub_v1
 import google.cloud.logging
 
 import asyncio
-from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove
+from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove, \
+    InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes, Application
 
 publisher = pubsub_v1.PublisherClient()
@@ -1940,6 +1941,7 @@ def if_user_enables(text: str) -> Union[None, bool]:
 
     return user_wants_to_enable
 
+
 def main(request):
     """Main function to orchestrate the whole script"""
 
@@ -2305,6 +2307,7 @@ def main(request):
 
     b_admin_menu = 'admin'
     b_test_menu = 'test'
+    b_test_menu_2 = 'test2'
 
     b_pref_age_0_6_act = 'отключить: Маленькие Дети 0-6 лет'
     b_pref_age_0_6_deact = 'включить: Маленькие Дети 0-6 лет'
@@ -2636,6 +2639,16 @@ def main(request):
                 keyboard_coordinates_admin = [[b_set_topic_type], [b_back_to_start]]
                 # [b_set_pref_urgency], [b_set_forum_nick]
                 reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+
+            elif got_message.lower() == b_test_menu_2:
+                bot_message = 'Вы в СУПЕР-секретном тестовом разделе'
+
+                # reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+
+                inline_keyboard = [[InlineKeyboardButton('b_urgency_high', callback_data='callback_data_1')],
+                                    [InlineKeyboardButton('b_urgency_med', callback_data='callback_data_2'),
+                                 InlineKeyboardButton('b_urgency_low', callback_data='callback_data_3')]]
+                reply_markup = InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
             # FIXME ^^^
 
             elif got_message == b.set.topic_type.text or  b.topic_types.contains(got_message):  # noqa
