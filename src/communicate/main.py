@@ -1580,9 +1580,9 @@ def process_leaving_chat_async(user_id) -> None:
 
 
 async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
+    message_sent = await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
 
-    return None
+    return message_sent
 
 
 async def prepare_message_for_async(user_id, data):
@@ -1597,13 +1597,15 @@ async def prepare_message_for_async(user_id, data):
         await application.stop()
         await application.shutdown()
 
-    return 'ok'
+    message_sent = await job.result()
+
+    return message_sent
 
 
-def process_sending_message_async(user_id, data) -> None:
-    asyncio.run(prepare_message_for_async(user_id, data))
+def process_sending_message_async(user_id, data):
+    message_sent = asyncio.run(prepare_message_for_async(user_id, data))
 
-    return None
+    return message_sent
 
 
 def get_the_update(bot, request):
@@ -1671,6 +1673,7 @@ def get_basic_update_parameters(update):
     my_list = [user_new_status, timer_changed, photo, document, voice, contact, inline_query, sticker,
                user_latitude, user_longitude, got_message, channel_type, username, user_id]
     callback_query = get_param_if_exists(update, 'callback_query')
+    if callback_query:
 
     notify_admin(f'initial set of attrs: {my_list}')
     # FIXME ^^^
@@ -1948,6 +1951,27 @@ def if_user_enables(text: str) -> Union[None, bool]:
         user_wants_to_enable = False
 
     return user_wants_to_enable
+
+
+def save_last_user_inline_dialogue(cur, user_id: int, message_id: int) -> None:
+    """Save to DB the user's last interaction via inline buttons"""
+
+    cur.execute("""INSERT INTO communications_last_inline_msg 
+                    (user_id, timestamp, message_id) values (%s, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', %s)
+                    ON CONFLICT (user_id) DO 
+                    UPDATE SET timestamp=CURRENT_TIMESTAMP AT TIME ZONE 'UTC', message_id=%s;""",
+                (user_id, message_id, message_id))
+    return None
+
+
+def get_last_user_inline_dialogue(cur, user_id: int) -> int:
+    """Get from DB the user's last interaction via inline buttons"""
+
+    cur.execute("""SELECT message_id FROM communications_last_inline_msg WHERE user_id=%s LIMIT 1;""",
+                (user_id,))
+    message_id = cur.fetchone()
+
+    return message_id
 
 
 def main(request):
@@ -2613,7 +2637,8 @@ def main(request):
 
                         data = {'text': bot_message, 'reply_markup': reply_markup,
                                 'parse_mode': 'HTML', 'disable_web_page_preview': True}
-                        process_sending_message_async(user_id=user_id, data=data)
+                        message_sent = process_sending_message_async(user_id=user_id, data=data)
+                        notify_admin(f'MSG SNT: {message_sent}')
 
                         # saving the last message from bot
                         try:
