@@ -11,7 +11,6 @@ import urllib.request
 import requests
 import random
 
-import asyncio
 from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove, error
 from telegram.ext import ContextTypes, Application
 
@@ -319,7 +318,7 @@ def process_response(user_id, response):
         return 'failed'
 
 
-def send_single_message(bot, bot_token, user_id, message_content, message_params, message_type, admin_id, session):
+def send_single_message(bot_token, user_id, message_content, message_params, message_type, admin_id, session):
     """send one message to telegram"""
 
     if message_params:
@@ -327,39 +326,14 @@ def send_single_message(bot, bot_token, user_id, message_content, message_params
         if 'disable_web_page_preview' in message_params:
             message_params['disable_web_page_preview'] = (message_params['disable_web_page_preview'] == 'True')
 
-    try:
+    response = None
+    if message_type == 'text':
+        response = send_message_to_api(session, bot_token, user_id, message_content, message_params)
 
-        response = None
-        if message_type == 'text':
-            response = send_message_to_api(session, bot_token, user_id, message_content, message_params)
+    elif message_type == 'coords':
+        response = send_location_to_api(session, bot_token, user_id, message_params)
 
-        elif message_type == 'coords':
-            response = send_location_to_api(session, bot_token, user_id, message_params)
-
-        result = process_response(user_id, response)
-
-    except Exception as e:  # when sending to telegram fails by other reasons
-
-        error_description = str(e)
-
-        # if user blocked the bot OR user is deactivated (deleted telegram account)
-        if error_description.find('bot was blocked by the user') != -1 \
-                or error_description.find('user is deactivated') != -1:
-            if error_description.find('bot was blocked by the user') != -1:
-                action = 'block_user'
-            else:
-                action = 'delete_user'
-            message_for_pubsub = {'action': action, 'info': {'user': user_id}}
-            publish_to_pubsub('topic_for_user_management', message_for_pubsub)
-
-            logging.info(f'Identified user id {user_id} to do {action}')
-            result = 'cancelled'
-
-        else:
-            result = 'failed'
-
-            logging.info(f'failed sending to telegram user={user_id}, message={message_content}')
-            logging.exception(error_description)
+    result = process_response(user_id, response)
 
     return result
 
@@ -461,7 +435,7 @@ def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, sess
 
                     analytics_pre_sending_msg = datetime.datetime.now()
 
-                    result = send_single_message(bot, bot_token, user_id, message_content, message_params,
+                    result = send_single_message(bot_token, user_id, message_content, message_params,
                                                  message_type, admin_id, session)
 
                     analytics_send_finish = datetime.datetime.now()
