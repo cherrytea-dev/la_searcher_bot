@@ -2655,7 +2655,7 @@ def main(request):
 
                 # reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
-                inline_keyboard = [[InlineKeyboardButton('b_urgency_high', callback_data={"param1": "value1", "param2": "value2"})],
+                inline_keyboard = [[InlineKeyboardButton('b_urgency_high', callback_data='{"param1": "value1", "param2": "value2"}')],
                                     [InlineKeyboardButton('b_urgency_med', callback_data='callback_data_2'),
                                  InlineKeyboardButton('b_urgency_low', callback_data='callback_data_3')]]
                 reply_markup = InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
@@ -2665,7 +2665,7 @@ def main(request):
 
                 # reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
-                inline_keyboard = [[InlineKeyboardButton('b_high', callback_data={"param1": "value1", "param2": "value2"})],
+                inline_keyboard = [[InlineKeyboardButton('b_high', callback_data='{"param1": "value1", "param2": "value2"}')],
                                     [InlineKeyboardButton('b_med', callback_data='callback_data_2_ver3'),
                                  InlineKeyboardButton('b_low', callback_data='callback_data_3_ver3')]]
                 reply_markup = InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
