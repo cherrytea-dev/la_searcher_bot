@@ -13,6 +13,7 @@ from google.cloud import secretmanager, pubsub_v1
 import google.cloud.logging
 
 import asyncio
+from queue import Queue
 from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove, \
     InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes, Application
@@ -1585,11 +1586,11 @@ async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
     return message_sent
 
 
-async def prepare_message_for_async(user_id, data):
+async def prepare_message_for_async(user_id, data, queue: Queue) -> None:
     bot_token = get_secrets("bot_api_token__prod")
     application = Application.builder().token(bot_token).build()
     job_queue = application.job_queue
-    job = job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
+    job = job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id, context=application.context, queue=queue)
 
     async with application:
         await application.initialize()
@@ -1597,13 +1598,14 @@ async def prepare_message_for_async(user_id, data):
         await application.stop()
         await application.shutdown()
 
-    message_sent = await job.result()
-
-    return message_sent
+    return None
 
 
 def process_sending_message_async(user_id, data):
-    message_sent = asyncio.run(prepare_message_for_async(user_id, data))
+    result_queue = Queue()
+    asyncio.run(prepare_message_for_async(user_id, data, result_queue))
+
+    message_sent = result_queue.get()
 
     return message_sent
 
@@ -1676,7 +1678,7 @@ def get_basic_update_parameters(update):
     notify_admin(f'initial set of attrs: {my_list}')
     if callback_query:
         notify_admin(f'{callback_query=}')
-    
+
     # FIXME ^^^
 
     return user_new_status, timer_changed, photo, document, voice, contact, inline_query, \
