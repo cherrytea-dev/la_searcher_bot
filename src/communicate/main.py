@@ -1664,23 +1664,16 @@ def send_message_to_api(bot_token, user_id, message, params):
             if 'disable_web_page_preview' in params.keys():
                 disable_web_page_preview = f'&disable_web_page_preview={params["disable_web_page_preview"]}'
             if 'reply_markup' in params.keys():
-                # reply_markup = f'&reply_markup={urllib.parse.quote(bytes(params["reply_markup"]))}'
-                stupid = '{"inline_keyboard": [[{"text": "but_1", "callback_data": "but_1"}]]}'
-
-                notify_admin(params['reply_markup'])
                 rep_as_str = str(json.dumps(params['reply_markup']))
-                notify_admin(rep_as_str)
-                reply_markup = urllib.parse.quote(rep_as_str)
-                notify_admin(reply_markup)
-                reply_markup = f'&reply_markup={reply_markup}'
-                notify_admin(reply_markup)
-        message_encoded = urllib.parse.quote(message)
+                reply_markup = f'&reply_markup={urllib.parse.quote(rep_as_str)}'
+        message_encoded = f'&text={urllib.parse.quote(message)}'
 
         request_text = f'https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={user_id}' \
-                       f'{parse_mode}{disable_web_page_preview}&text={message_encoded}{reply_markup}'
+                       f'{message_encoded}{parse_mode}{disable_web_page_preview}{reply_markup}'
 
         with requests.Session() as session:
             response = session.get(request_text)
+            notify_admin(response)
 
     except Exception as e:
         logging.exception(e)
@@ -2778,7 +2771,7 @@ def main(request):
                     [{"text": "but_4", "callback_data": "but_4"}]
                     ]}
 
-                reply_markup = {"inline_keyboard": [[{"text": "but_1", "callback_data": "but_1"}]]}
+                # reply_markup = {"inline_keyboard": [[{"text": "but_1", "callback_data": "but_1"}]]}
 
             # FIXME ^^^
 
