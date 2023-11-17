@@ -1673,7 +1673,7 @@ def send_message_to_api(bot_token, user_id, message, params):
 
         with requests.Session() as session:
             response = session.get(request_text)
-            notify_admin(response)
+            notify_admin(str(response))
 
     except Exception as e:
         logging.exception(e)
