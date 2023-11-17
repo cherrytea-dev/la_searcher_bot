@@ -11,9 +11,6 @@ import urllib.request
 import requests
 import random
 
-from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove, error
-from telegram.ext import ContextTypes, Application
-
 from google.cloud import secretmanager
 from google.cloud import pubsub_v1
 import google.cloud.logging
@@ -381,7 +378,7 @@ def get_change_log_update_time(cur, change_log_id):
     return parsed_time
 
 
-def iterate_over_notifications(bot, bot_token, admin_id, script_start_time, session, function_id):
+def iterate_over_notifications(bot_token, admin_id, script_start_time, session, function_id):
     """iterate over all available notifications, finishes if timeout is met or no new notifications"""
 
     set_of_change_ids = set()
@@ -736,11 +733,10 @@ def main(event, context):
         return None
 
     bot_token = get_secrets("bot_api_token__prod")
-    bot = Bot(token=bot_token)
     admin_id = get_secrets("my_telegram_id")
 
     with requests.Session() as session:
-        changed_ids = iterate_over_notifications(bot, bot_token, admin_id, script_start_time, session, function_id)
+        changed_ids = iterate_over_notifications(bot_token, admin_id, script_start_time, session, function_id)
 
     finish_time_analytics(analytics_notif_times, analytics_delays, analytics_parsed_times, changed_ids)
     # the below – is needed for high-frequency function execution, otherwise google remembers prev value
