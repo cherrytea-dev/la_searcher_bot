@@ -1667,6 +1667,14 @@ def get_basic_update_parameters(update):
     if not user_id:
         logging.info('failed to define user_id')
 
+    # FIXME – 17.11.2023 – playing with getting inline buttons interactions
+    my_list = [user_new_status, timer_changed, photo, document, voice, contact, inline_query, sticker,
+               user_latitude, user_longitude, got_message, channel_type, username, user_id]
+    callback_query = get_param_if_exists(update, 'callback_query')
+
+    notify_admin(f'initial set of attrs: {my_list}')
+    # FIXME ^^^
+
     return user_new_status, timer_changed, photo, document, voice, contact, inline_query, \
            sticker, user_latitude, user_longitude, got_message, channel_type, username, user_id
 
@@ -2639,15 +2647,27 @@ def main(request):
                 keyboard_coordinates_admin = [[b_set_topic_type], [b_back_to_start]]
                 # [b_set_pref_urgency], [b_set_forum_nick]
                 reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+            # FIXME ^^^
 
+            # FIXME – 17.11.2023 – playing with Inline buttons, trying to make them work in a nice way
             elif got_message.lower() == b_test_menu_2:
                 bot_message = 'Вы в СУПЕР-секретном тестовом разделе'
 
                 # reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
-                inline_keyboard = [[InlineKeyboardButton('b_urgency_high', callback_data='callback_data_1')],
+                inline_keyboard = [[InlineKeyboardButton('b_urgency_high', callback_data={"param1": "value1", "param2": "value2"})],
                                     [InlineKeyboardButton('b_urgency_med', callback_data='callback_data_2'),
                                  InlineKeyboardButton('b_urgency_low', callback_data='callback_data_3')]]
+                reply_markup = InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
+
+            elif got_message.lower() == 'test3':
+                bot_message = 'Вы в СУПЕР-секретном тестовом разделе 3'
+
+                # reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+
+                inline_keyboard = [[InlineKeyboardButton('b_high', callback_data={"param1": "value1", "param2": "value2"})],
+                                    [InlineKeyboardButton('b_med', callback_data='callback_data_2_ver3'),
+                                 InlineKeyboardButton('b_low', callback_data='callback_data_3_ver3')]]
                 reply_markup = InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
             # FIXME ^^^
 
