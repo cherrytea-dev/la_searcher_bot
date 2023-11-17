@@ -1590,7 +1590,7 @@ async def prepare_message_for_async(user_id, data, queue: Queue) -> None:
     bot_token = get_secrets("bot_api_token__prod")
     application = Application.builder().token(bot_token).build()
     job_queue = application.job_queue
-    job = job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id, context=application.context, queue=queue)
+    job = job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id, queue=queue)
 
     async with application:
         await application.initialize()
