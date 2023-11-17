@@ -2757,10 +2757,13 @@ def main(request):
 
                 # reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
-                inline_keyboard = [[InlineKeyboardButton('b_urgency_high', callback_data='{"param1": "value1", "param2": "value2"}')],
-                                    [InlineKeyboardButton('b_urgency_med', callback_data='callback_data_2'),
-                                 InlineKeyboardButton('b_urgency_low', callback_data='callback_data_3')]]
-                reply_markup = InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
+                reply_markup = {"keyboard": [
+                    ["but_1"],
+                    ["but_2", "but_3"],
+                    ["but_4"]],
+                    "resize_keyboard": True
+                }
+
 
             elif got_message.lower() == 'test3':
                 bot_message = 'Вы в СУПЕР-секретном тестовом разделе 3'
