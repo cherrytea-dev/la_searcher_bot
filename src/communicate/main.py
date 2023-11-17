@@ -1581,16 +1581,16 @@ def process_leaving_chat_async(user_id) -> None:
 
 
 async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
-    message_sent = await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
+    await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
 
-    return message_sent
+    return None
 
 
-async def prepare_message_for_async(user_id, data, queue: Queue) -> None:
+async def prepare_message_for_async(user_id, data):
     bot_token = get_secrets("bot_api_token__prod")
     application = Application.builder().token(bot_token).build()
     job_queue = application.job_queue
-    job = job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id, queue=queue)
+    job = job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
 
     async with application:
         await application.initialize()
@@ -1598,17 +1598,13 @@ async def prepare_message_for_async(user_id, data, queue: Queue) -> None:
         await application.stop()
         await application.shutdown()
 
+    return 'ok'
+
+
+def process_sending_message_async(user_id, data) -> None:
+    asyncio.run(prepare_message_for_async(user_id, data))
+
     return None
-
-
-def process_sending_message_async(user_id, data):
-    result_queue = Queue()
-    asyncio.run(prepare_message_for_async(user_id, data, result_queue))
-
-    message_sent = result_queue.get()
-
-    return message_sent
-
 
 def get_the_update(bot, request):
     """converts a request to an update"""
@@ -2640,8 +2636,7 @@ def main(request):
 
                         data = {'text': bot_message, 'reply_markup': reply_markup,
                                 'parse_mode': 'HTML', 'disable_web_page_preview': True}
-                        message_sent = process_sending_message_async(user_id=user_id, data=data)
-                        notify_admin(f'MSG SNT: {message_sent}')
+                        process_sending_message_async(user_id=user_id, data=data)
 
                         # saving the last message from bot
                         try:
