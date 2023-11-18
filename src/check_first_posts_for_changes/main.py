@@ -303,7 +303,8 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
             if title_reco_response and 'status' in title_reco_response.keys() \
                     and title_reco_response['status'] == 'ok':
                 title_reco_dict = title_reco_response['recognition']
-                status = title_reco_dict['status']
+                if 'status' in title_reco_dict.keys():
+                    status = title_reco_dict['status']
             else:
                 title_reco_dict = {'topic_type': 'UNRECOGNIZED'}
 
