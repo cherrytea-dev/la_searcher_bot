@@ -1749,8 +1749,8 @@ def get_basic_update_parameters(update):
     # FIXME – 17.11.2023 – playing with getting inline buttons interactions
     my_list = [user_new_status, timer_changed, photo, document, voice, contact, inline_query, sticker,
                user_latitude, user_longitude, got_message, channel_type, username, user_id]
-    callback_query = get_param_if_exists(update, 'callback_query')
-    notify_admin(f'initial set of attrs: {my_list}')
+    callback_query = get_param_if_exists(update, 'update.callback_query')
+    # notify_admin(f'initial set of attrs: {my_list}')
     if callback_query:
         notify_admin(f'{callback_query=}')
 
