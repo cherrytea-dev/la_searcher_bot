@@ -222,6 +222,7 @@ class GroupOfButtons:
 
         keyboard = []
         for key, value in self.__dict__.items():
+            curr_button = self.__getattribute__(key)
             if key in {'modifier_dict', 'any_text'}:
                 continue
             if hasattr(value, 'hide') and value.hide:
@@ -229,25 +230,29 @@ class GroupOfButtons:
             curr_button_is_in_existing_id_list = False
             curr_button_is_asked_to_change = False
             for id_item in act_list:
-                if self.__getattribute__(key).id == id_item:
+                if curr_button.id == id_item:
                     curr_button_is_in_existing_id_list = True
                     break
             for id_item in change_list:
-                if self.__getattribute__(key).id == id_item:
+                if curr_button.id == id_item:
                     curr_button_is_asked_to_change = True
                     break
 
             if curr_button_is_in_existing_id_list:
                 if not curr_button_is_asked_to_change:
-                    keyboard += [{"text": self.__getattribute__(key).on, "callback_data": self.__getattribute__(key).on}]
+                    keyboard += [
+                        {"text": curr_button.on, 'callback_data': str({'action': 'off', 'button': curr_button.text})}]
 
                 else:
-                    keyboard += [{"text": self.__getattribute__(key).off, "callback_data": self.__getattribute__(key).off}]
+                    keyboard += [
+                        {"text": curr_button.off, 'callback_data': str({'action': 'on', 'button': curr_button.text})}]
             else:
                 if not curr_button_is_asked_to_change:
-                    keyboard += [{"text": self.__getattribute__(key).off, "callback_data": self.__getattribute__(key).off}]
+                    keyboard += [
+                        {"text": curr_button.off, 'callback_data': str({'action': 'on', 'button': curr_button.text})}]
                 else:
-                    keyboard += [{"text": self.__getattribute__(key).on, "callback_data": self.__getattribute__(key).on}]
+                    keyboard += [
+                        {"text": curr_button.on, 'callback_data': str({'action': 'off', 'button': curr_button.text})}]
 
         keyboard = [[k] for k in keyboard]
 
@@ -1457,7 +1462,7 @@ def manage_topic_type_inline(cur, user_id, user_input, b) -> Union[tuple[None, N
                 delete_topic_type(user_id, topic_id)
 
     keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
-    # keyboard += [{"text": "в начало", "callback_data": "в начало"}]
+    keyboard += [[{"text": "в начало", "callback_data": "в начало"}]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     logging.info(f'{list_of_current_setting_ids=}')
@@ -1827,6 +1832,14 @@ def get_basic_update_parameters(update):
     # notify_admin(f'initial set of attrs: {my_list}')
     if callback_query:
         notify_admin(f'{callback_query=}')
+        callback_data = callback_query.data
+        notify_admin(f'{callback_data=}')
+        try:
+            callback_data = eval(callback_data)
+            notify_admin(f'{callback_data=}')
+        except Exception as e:
+            logging.exception(e)
+            notify_admin(f'callback dict was not recognized for {callback_data=}')
 
     # FIXME ^^^
 
