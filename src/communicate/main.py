@@ -1385,8 +1385,8 @@ def manage_topic_type(cur, user_id, user_input, b) -> Union[tuple[None, None], t
                 delete_topic_type(user_id, topic_id)
 
     keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
-    keyboard += [{"text": "в начало", "callback_data": "в начало"}]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    keyboard += [[b.core.to_start.text]]
+    reply_markup = InlineKeyboardMarkup(keyboard, resize_keyboard=True)
 
     logging.info(f'{list_of_current_setting_ids=}')
     logging.info(f'{user_input=}')
@@ -1457,8 +1457,8 @@ def manage_topic_type_inline(cur, user_id, user_input, b) -> Union[tuple[None, N
                 delete_topic_type(user_id, topic_id)
 
     keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
-    keyboard += [[b.core.to_start.text]]
-    reply_markup = InlineKeyboardMarkup(keyboard, resize_keyboard=True)
+    keyboard += [{"text": "в начало", "callback_data": "в начало"}]
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
     logging.info(f'{list_of_current_setting_ids=}')
     logging.info(f'{user_input=}')
