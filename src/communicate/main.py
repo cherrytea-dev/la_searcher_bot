@@ -239,14 +239,15 @@ class GroupOfButtons:
 
             if curr_button_is_in_existing_id_list:
                 if not curr_button_is_asked_to_change:
-                    keyboard += [self.__getattribute__(key).on]
+                    keyboard += [{"text": self.__getattribute__(key).on, "callback_data": self.__getattribute__(key).on}]
+
                 else:
-                    keyboard += [self.__getattribute__(key).off]
+                    keyboard += [{"text": self.__getattribute__(key).off, "callback_data": self.__getattribute__(key).off}]
             else:
                 if not curr_button_is_asked_to_change:
-                    keyboard += [self.__getattribute__(key).off]
+                    keyboard += [{"text": self.__getattribute__(key).off, "callback_data": self.__getattribute__(key).off}]
                 else:
-                    keyboard += [self.__getattribute__(key).on]
+                    keyboard += [{"text": self.__getattribute__(key).on, "callback_data": self.__getattribute__(key).on}]
 
         keyboard = [[k] for k in keyboard]
 
@@ -1323,6 +1324,7 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
     return bot_message, reply_markup, expect_after
 
 
+# FIXME – 27.11.2023 – to be deleted when manage_topic_type_inline will work
 def manage_topic_type(cur, user_id, user_input, b) -> Union[tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
     """Save user Topic Type preference and generate the actual topic type preference message"""
 
@@ -1383,8 +1385,80 @@ def manage_topic_type(cur, user_id, user_input, b) -> Union[tuple[None, None], t
                 delete_topic_type(user_id, topic_id)
 
     keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
+    keyboard += [{"text": "в начало", "callback_data": "в начало"}]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    logging.info(f'{list_of_current_setting_ids=}')
+    logging.info(f'{user_input=}')
+    logging.info(f'{list_of_ids_to_change_now=}')
+    logging.info(f'{keyboard=}')
+
+    return bot_message, reply_markup
+# FIXME ^^^
+
+
+def manage_topic_type_inline(cur, user_id, user_input, b) -> Union[tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
+    """Save user Topic Type preference and generate the actual topic type preference message"""
+
+    def check_saved_topic_types(user: int) -> list:
+        """check if user already has any preference"""
+
+        saved_pref = []
+        cur.execute("""SELECT topic_type_id FROM user_pref_topic_type WHERE user_id=%s ORDER BY 1;""", (user,))
+        raw_data = cur.fetchall()
+        if raw_data and str(raw_data) != 'None':
+            for line in raw_data:
+                saved_pref.append(line[0])
+
+        logging.info(f'{saved_pref=}')
+
+        return saved_pref
+
+    def delete_topic_type(user: int, type_id: int) -> None:
+        """Delete a certain topic_type for a certain user_id from the DB"""
+
+        cur.execute("""DELETE FROM user_pref_topic_type WHERE user_id=%s AND topic_type_id=%s;""", (user, type_id))
+        return None
+
+    def record_topic_type(user: int, type_id: int) -> None:
+        """Insert a certain topic_type for a certain user_id into the DB"""
+
+        cur.execute("""INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp) 
+                        VALUES (%s, %s, %s) ON CONFLICT (user_id, topic_type_id) DO NOTHING;""",
+                    (user, type_id, datetime.datetime.now()))
+        return None
+
+    if not user_input:
+        return None, None
+
+    list_of_current_setting_ids = check_saved_topic_types(user_id)
+
+    if user_input == b.set.topic_type.text:
+
+        bot_message = 'Вы можете выбрать, по каким типам поисков или мероприятий бот должен присылать ' \
+                      'вам уведомления. На данный моменты вы можете выбрать следующие виды поисков или ' \
+                      'мероприятий. Вы можете выбрать несколько значений. Выбор можно изменить в любой момент.'
+        list_of_ids_to_change_now = []
+    else:
+        topic_id = b.topic_types.button_by_text(user_input).id
+        list_of_ids_to_change_now = [topic_id]
+        user_wants_to_enable = if_user_enables(user_input)
+        if user_wants_to_enable is None:
+            bot_message = ''
+            pass
+        elif user_wants_to_enable == True:  # noqa. not a poor design – function can be: None, True, False
+            bot_message = f'Супер, мы включили уведомления по таким типам поисков / мероприятиям'
+            record_topic_type(user_id, topic_id)
+        else: # user_wants_to_enable == False:  # noqa. not a poor design – function can be: None, True, False
+            if len(list_of_current_setting_ids) == 1:
+                bot_message = 'Изменения не внесены. У вас должен быть включен хотя бы один тип поиска или мероприятия.'
+            else:
+                bot_message = f'Хорошо, мы изменили список настроек'
+                delete_topic_type(user_id, topic_id)
+
+    keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
     keyboard += [[b.core.to_start.text]]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    reply_markup = InlineKeyboardMarkup(keyboard, resize_keyboard=True)
 
     logging.info(f'{list_of_current_setting_ids=}')
     logging.info(f'{user_input=}')
@@ -2752,18 +2826,6 @@ def main(request):
             # FIXME ^^^
 
             # FIXME – 17.11.2023 – playing with Inline buttons, trying to make them work in a nice way
-            elif got_message.lower() == b_test_menu_2:
-                bot_message = 'Вы в СУПЕР-секретном тестовом разделе'
-
-                # reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
-
-                reply_markup = {"keyboard": [
-                    ["but_1"],
-                    ["but_2", "but_3"],
-                    ["but_4"]],
-                    "resize_keyboard": True
-                }
-
 
             elif got_message.lower() == 'test3':
                 bot_message = 'Вы в СУПЕР-секретном тестовом разделе 3'
@@ -2778,8 +2840,8 @@ def main(request):
 
             # FIXME ^^^
 
-            elif got_message == b.set.topic_type.text or  b.topic_types.contains(got_message):  # noqa
-                bot_message, reply_markup = manage_topic_type(cur, user_id, got_message, b)
+            elif got_message == b.set.topic_type.text or b.topic_types.contains(got_message):  # noqa
+                bot_message, reply_markup = manage_topic_type_inline(cur, user_id, got_message, b)
 
             elif got_message in {b_set_pref_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
                                  b_pref_age_7_13_deact, b_pref_age_14_20_act, b_pref_age_14_20_deact,
