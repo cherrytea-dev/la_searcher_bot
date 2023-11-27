@@ -3165,8 +3165,9 @@ def main(request):
                             'parse_mode': 'HTML', 'disable_web_page_preview': True}
                     process_sending_message_async(user_id=user_id, data=data)
                 else:
-                    params = {'parse_mode': 'HTML', 'disable_web_page_preview': True,
-                              'reply_markup': reply_markup.to_dict()}
+                    if not isinstance(reply_markup, dict):
+                        reply_markup = reply_markup.to_dict()
+                    params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup}
                     result = send_message_to_api(bot_token, user_id, bot_message, params)
                     notify_admin(f'RESULT {result}')
                 # FIXME ^^^
