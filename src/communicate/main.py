@@ -242,21 +242,21 @@ class GroupOfButtons:
                 if not curr_button_is_asked_to_change:
                     keyboard += [
                         {"text": curr_button.on,
-                         'callback_data': f'{{"action": "off" , "button": "{curr_button.text}"}}'}]
+                         'callback_data': f'off - {curr_button.text}'}]
 
                 else:
                     keyboard += [
                         {"text": curr_button.off,
-                         'callback_data': f'{{"action": "on" , "button": "{curr_button.text}"}}'}]
+                         'callback_data': f'off - {curr_button.text}'}]
             else:
                 if not curr_button_is_asked_to_change:
                     keyboard += [
                         {"text": curr_button.off,
-                         'callback_data': f'{{"action": "on" , "button": "{curr_button.text}"}}'}]
+                         'callback_data': f'{{"action": "on"}}'}]
                 else:
                     keyboard += [
                         {"text": curr_button.on,
-                         'callback_data': f'{{"action": "off" , "button": "{curr_button.text}"}}'}]
+                         'callback_data': f'{{"action": "off"}}'}]
 
         keyboard = [[k] for k in keyboard]
 
