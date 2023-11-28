@@ -3362,7 +3362,7 @@ def main(request):
                         last_user_message_id = get_last_user_inline_dialogue(cur, user_id)
                         notify_admin(f'{last_user_message_id=}')
                         params['message_id'] = last_user_message_id
-                        params = {'chat_id': user_id, 'text': f'{bot_message}\n\nНовая строка',
+                        params = {'chat_id': user_id, 'text': bot_message,
                                   'message_id': last_user_message_id}  #, 'reply_markup': reply_markup}
                         notify_admin(f'{reply_markup=}')
                         response = make_api_call('editMessageText', bot_token, params)
