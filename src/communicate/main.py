@@ -1935,19 +1935,14 @@ def get_basic_update_parameters(update):
                user_latitude, user_longitude, got_message, channel_type, username, user_id]
     callback_query = get_param_if_exists(update, 'update.callback_query')
     callback_query_id = get_param_if_exists(update, 'update.callback_query.id')
-    # notify_admin(f'initial set of attrs: {my_list}')
+
     got_hash = None
     got_callback = None
     if callback_query:
-        notify_admin(f'{callback_query=}')
         callback_data_text = callback_query.data
-        notify_admin(f'{callback_data_text=}')
         try:
             got_callback = eval(callback_data_text)
-            notify_admin(f'{got_callback=}')
             got_hash = got_callback['hash']
-            notify_admin(f'{got_hash=}')
-            notify_admin(f'{got_message=}')
         except Exception as e:
             logging.exception(e)
             notify_admin(f'callback dict was not recognized for {callback_data_text=}')
@@ -2970,7 +2965,6 @@ def main(request):
 
             elif got_message == b.set.topic_type.text or b.topic_types.contains(got_message) or b.topic_types.contains(
                     got_hash):  # noqa
-                notify_admin(f'we are in IF statement. {got_message=}. {got_hash=}')
                 bot_message, reply_markup = manage_topic_type_inline(cur, user_id, got_message, b, got_callback,
                                                                      callback_query_id, bot_token)
 
@@ -3368,6 +3362,7 @@ def main(request):
                         last_user_message_id = get_last_user_inline_dialogue(cur, user_id)
                         notify_admin(f'{last_user_message_id=}')
                         params['message_id'] = last_user_message_id
+                        params = {'chat_id': user_id, 'text': 'new text', 'message_id': last_user_message_id}
                         response = make_api_call('editMessageText', bot_token, params)
                     else:
                         response = make_api_call('sendMessage', bot_token, params)
