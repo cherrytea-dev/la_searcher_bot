@@ -1793,7 +1793,7 @@ def get_last_bot_message_id(response: requests.Response) -> int:
     return message_id
 
 
-def inline_processing(cur, bot_token, response, params):
+def inline_processing(cur, response, params) -> None:
     """process the response got from inline buttons interactions"""
 
     if not response or 'chat_id' not in params.keys():
@@ -1805,12 +1805,6 @@ def inline_processing(cur, bot_token, response, params):
     if 'reply_markup' in params.keys() and 'inline_keyboard' in params['reply_markup'].keys():
         prev_message_id = get_last_user_inline_dialogue(cur, chat_id)
         notify_admin(f'PREV MESSAGE ID = {prev_message_id}')
-        try:
-            new_params = {'chat_id': chat_id, 'message_id': prev_message_id, 'reply_markup': None}
-            make_api_call('editMessageReplyMarkup', bot_token, new_params)
-
-        except:  # noqa
-            pass
         save_last_user_inline_dialogue(cur, chat_id, sent_message_id)
 
     return None
@@ -3365,12 +3359,19 @@ def main(request):
                         reply_markup = reply_markup.to_dict()
                     params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
                               'chat_id': user_id, 'text': bot_message}
-                    # result = send_message_to_api(bot_token, user_id, bot_message, params)
-                    response = make_api_call('sendMessage', bot_token, params)
+
+                    user_used_inline_button = True if got_hash else False
+                    if user_used_inline_button:
+                        last_user_message_id = get_last_user_inline_dialogue(cur, user_id)
+                        params['message_id'] = last_user_message_id
+                        response = make_api_call('editMessageText', bot_token, params)
+                    else:
+                        response = make_api_call('sendMessage', bot_token, params)
                     result = process_response_of_api_call(user_id, response)
-                    inline_processing(cur, bot_token, response, params)
+                    inline_processing(cur, response, params)
 
                     notify_admin(f'RESPONSE {response}')
+                    notify_admin(f'RESULT {result}')
                 # FIXME ^^^
 
             # saving the last message from bot
