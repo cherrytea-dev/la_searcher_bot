@@ -159,7 +159,7 @@ class Button:
     def __init__(self, data=None, modifier=None):
 
         if modifier is None:
-            modifier = {'on': '☑ ', 'off': '☐ '}  # standard modifier
+            modifier = {'on': '✅ ', 'off': '☐ '}  # standard modifier
 
         self.modifier = modifier
         self.data = data
@@ -244,27 +244,23 @@ class GroupOfButtons:
             for id_item in change_list:
                 if curr_button.id == id_item:
                     curr_button_is_asked_to_change = True
+                    notify_admin(f'== ITER {curr_button_is_asked_to_change=}, {curr_button=}')
                     break
 
             if curr_button_is_in_existing_id_list:
                 if not curr_button_is_asked_to_change:
                     keyboard += [
-                        {"text": curr_button.on,
-                         'callback_data': f'{{"action":"off","hash": "{curr_button.hash}"}}'}]
-
+                        {"text": curr_button.on, 'callback_data': f'{{"action":"off","hash": "{curr_button.hash}"}}'}]
                 else:
                     keyboard += [
-                        {"text": curr_button.off,
-                         'callback_data': f'{{"action":"on","hash": "{curr_button.hash}"}}'}]
+                        {"text": curr_button.off, 'callback_data': f'{{"action":"on","hash": "{curr_button.hash}"}}'}]
             else:
                 if not curr_button_is_asked_to_change:
                     keyboard += [
-                        {"text": curr_button.off,
-                         'callback_data': f'{{"action":"on","hash": "{curr_button.hash}"}}'}]
+                        {"text": curr_button.off, 'callback_data': f'{{"action":"on","hash": "{curr_button.hash}"}}'}]
                 else:
                     keyboard += [
-                        {"text": curr_button.on,
-                         'callback_data': f'{{"action":"off","hash": "{curr_button.hash}"}}'}]
+                        {"text": curr_button.on, 'callback_data': f'{{"action":"off","hash": "{curr_button.hash}"}}'}]
 
         keyboard = [[k] for k in keyboard]
 
@@ -1412,7 +1408,6 @@ def manage_topic_type(cur, user_id, user_input, b) -> Union[tuple[None, None], t
                 delete_topic_type(user_id, topic_id)
 
     keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
-    keyboard += [[b.core.to_start.text]]
     reply_markup = InlineKeyboardMarkup(keyboard, resize_keyboard=True)
 
     logging.info(f'{list_of_current_setting_ids=}')
@@ -1934,8 +1929,6 @@ def get_basic_update_parameters(update):
         logging.info('failed to define user_id')
 
     # FIXME – 17.11.2023 – playing with getting inline buttons interactions
-    my_list = [user_new_status, timer_changed, photo, document, voice, contact, inline_query, sticker,
-               user_latitude, user_longitude, got_message, channel_type, username, user_id]
     callback_query = get_param_if_exists(update, 'update.callback_query')
     callback_query_id = get_param_if_exists(update, 'update.callback_query.id')
 
@@ -2319,7 +2312,7 @@ def main(request):
                      'search_training': b_topic_search_training,
                      'event': b_topic_event}
 
-    modifiers = {'y': '☑', 'n': '☐'}
+    # modifiers = {'y': '☑', 'n': '☐'} ✅
 
     # TODO ^^^
 
@@ -2963,21 +2956,6 @@ def main(request):
                 reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
             # FIXME ^^^
 
-            # FIXME – 17.11.2023 – playing with Inline buttons, trying to make them work in a nice way
-
-            elif got_message.lower() == 'test3':
-                bot_message = 'Вы в СУПЕР-секретном тестовом разделе 3'
-
-                reply_markup = {"inline_keyboard": [
-                    [{"text": "but_1", "callback_data": "but_1"}],
-                    [{"text": "but_2", "callback_data": "but_2"}, {"text": "but_3", "callback_data": "but_3"}],
-                    [{"text": "but_4", "callback_data": "but_4"}]
-                ]}
-
-                # reply_markup = {"inline_keyboard": [[{"text": "but_1", "callback_data": "but_1"}]]}
-
-            # FIXME ^^^
-
             elif got_message == b.set.topic_type.text or b.topic_types.contains(got_message) or b.topic_types.contains(
                     got_hash):  # noqa
                 bot_message, reply_markup = manage_topic_type_inline(cur, user_id, got_message, b, got_callback,
@@ -3375,20 +3353,18 @@ def main(request):
                     user_used_inline_button = True if got_hash else False
                     if user_used_inline_button:
                         last_user_message_id = get_last_user_inline_dialogue(cur, user_id)
-                        notify_admin(f'{last_user_message_id=}')
+                        logging.info(f'{last_user_message_id=}')
                         params['message_id'] = last_user_message_id
                         params = {'chat_id': user_id, 'text': bot_message,
                                   'message_id': last_user_message_id, 'reply_markup': reply_markup}
-                        notify_admin(f'{reply_markup=}')
-                        logging.info(f'{reply_markup=}')
                         response = make_api_call('editMessageText', bot_token, params)
                     else:
                         response = make_api_call('sendMessage', bot_token, params)
                     result = process_response_of_api_call(user_id, response)
                     inline_processing(cur, response, params)
 
-                    notify_admin(f'RESPONSE {response}')
-                    notify_admin(f'RESULT {result}')
+                    logging.info(f'RESPONSE {response}')
+                    logging.info(f'RESULT {result}')
                 # FIXME ^^^
 
             # saving the last message from bot
