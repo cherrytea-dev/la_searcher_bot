@@ -67,7 +67,7 @@ full_buttons_dict = {
                 'text': 'полезная информация',
                 'id': 20,
                 'hide': True},
-         },
+        },
     'roles':
         {
             'member': {
@@ -292,7 +292,6 @@ class GroupOfButtons:
 class AllButtons:
 
     def __init__(self, initial_dict):
-
         for key, value in initial_dict.items():
             setattr(self, key, GroupOfButtons(value))
 
@@ -476,7 +475,7 @@ def compose_msg_on_all_last_searches(cur, region):
     for line in database:
         search = SearchSummary()
         search.topic_id, search.start_time, search.display_name, search.new_status, \
-            search.status, search.name, search.age = list(line)
+        search.status, search.name, search.age = list(line)
 
         if not search.display_name:
             age_string = f' {age_writer(search.age)}' if search.age and search.age != 0 else ''
@@ -1404,7 +1403,7 @@ def manage_topic_type(cur, user_id, user_input, b) -> Union[tuple[None, None], t
         elif user_wants_to_enable == True:  # noqa. not a poor design – function can be: None, True, False
             bot_message = f'Супер, мы включили уведомления по таким типам поисков / мероприятиям'
             record_topic_type(user_id, topic_id)
-        else: # user_wants_to_enable == False:  # noqa. not a poor design – function can be: None, True, False
+        else:  # user_wants_to_enable == False:  # noqa. not a poor design – function can be: None, True, False
             if len(list_of_current_setting_ids) == 1:
                 bot_message = 'Изменения не внесены. У вас должен быть включен хотя бы один тип поиска или мероприятия.'
             else:
@@ -1421,10 +1420,13 @@ def manage_topic_type(cur, user_id, user_input, b) -> Union[tuple[None, None], t
     logging.info(f'{keyboard=}')
 
     return bot_message, reply_markup
+
+
 # FIXME ^^^
 
 
-def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callback_id) -> Union[tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
+def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callback_id, bot_token) -> Union[
+    tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
     """Save user Topic Type preference and generate the actual topic type preference message"""
 
     def check_saved_topic_types(user: int) -> list:
@@ -1475,15 +1477,15 @@ def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callbac
             pass
         elif user_wants_to_enable == True:  # noqa. not a poor design – function can be: None, True, False
             bot_message = f'Супер, мы включили уведомления по таким типам поисков / мероприятиям'
-            send_callback_answer_to_api(callback_id, bot_message)
+            send_callback_answer_to_api(bot_token, callback_id, bot_message)
             record_topic_type(user_id, topic_id)
-        else: # user_wants_to_enable == False:  # noqa. not a poor design – function can be: None, True, False
+        else:  # user_wants_to_enable == False:  # noqa. not a poor design – function can be: None, True, False
             if len(list_of_current_setting_ids) == 1:
                 bot_message = 'Изменения не внесены. У вас должен быть включен хотя бы один тип поиска или мероприятия.'
-                send_callback_answer_to_api(callback_id, bot_message)
+                send_callback_answer_to_api(bot_token, callback_id, bot_message)
             else:
                 bot_message = f'Хорошо, мы изменили список настроек'
-                send_callback_answer_to_api(callback_id, bot_message)
+                send_callback_answer_to_api(bot_token, callback_id, bot_message)
                 delete_topic_type(user_id, topic_id)
 
     keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
@@ -2119,17 +2121,17 @@ def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
                                 THEN TRUE ELSE FALSE END AS forum
                         FROM users WHERE user_id=%s;
                         """, (user_id, user_id, user_id, user_id, user_id,
-                              user_id, user_id, user_id, user_id, user_id, ))
+                              user_id, user_id, user_id, user_id, user_id,))
 
         raw_data = cur.fetchone()
         if not raw_data:
             return None
 
         _, pref_role, pref_age, pref_coords, pref_radius, pref_region, pref_topic_type, \
-            pref_urgency, pref_notif_type, pref_region_old, pref_forum = raw_data
+        pref_urgency, pref_notif_type, pref_region_old, pref_forum = raw_data
 
         list_of_settings = [pref_notif_type, pref_region_old, pref_coords, pref_radius, pref_age, pref_forum]
-        user_score = int(round(sum(list_of_settings)/len(list_of_settings)*100, 0))
+        user_score = int(round(sum(list_of_settings) / len(list_of_settings) * 100, 0))
 
         logging.info(f'{list_of_settings}')
         logging.info(f'{user_score}')
@@ -2137,7 +2139,7 @@ def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
         if user_score == 100:
             return None
 
-        user_score_emoji = f'{user_score//10}\U0000FE0F\U000020E3{user_score-(user_score//10)*10}\U0000FE0F\U000020E3'
+        user_score_emoji = f'{user_score // 10}\U0000FE0F\U000020E3{user_score - (user_score // 10) * 10}\U0000FE0F\U000020E3'
         message_text = f'Вы настроили бот на {user_score_emoji}%.\n\nЧтобы сделать бот максимально эффективным ' \
                        f'именно для вас, рекомендуем настроить следующие параметры:\n'
         if not pref_notif_type:
@@ -2207,8 +2209,8 @@ def main(request):
     update = get_the_update(bot, request)
 
     user_new_status, timer_changed, photo, document, voice, contact, inline_query, sticker, user_latitude, \
-        user_longitude, got_message, channel_type, username, user_id, got_hash, got_callback, \
-        callback_query_id = get_basic_update_parameters(update)
+    user_longitude, got_message, channel_type, username, user_id, got_hash, got_callback, \
+    callback_query_id = get_basic_update_parameters(update)
 
     if timer_changed or photo or document or voice or sticker or (channel_type and user_id < 0) or \
             contact or inline_query:
@@ -2747,7 +2749,7 @@ def main(request):
                                   'выполняют Поисковики "на месте поиска". Этот Бот как раз старается ' \
                                   'помогать именно Поисковикам. ' \
                                   'Есть хороший сайт, рассказывающий, как начать участвовать в поиске: ' \
-                                  'https://xn--b1afkdgwddgp9h.xn--p1ai/\n\n'\
+                                  'https://xn--b1afkdgwddgp9h.xn--p1ai/\n\n' \
                                   'В случае любых вопросов – не стесняйтесь, обращайтесь на общий телефон, ' \
                                   '8 800 700-54-52, где вам помогут с любыми вопросами при вступлении в отряд.\n\n' \
                                   'А если вы "из мира IT" и готовы помогать развитию этого Бота,' \
@@ -2904,15 +2906,17 @@ def main(request):
                     [{"text": "but_1", "callback_data": "but_1"}],
                     [{"text": "but_2", "callback_data": "but_2"}, {"text": "but_3", "callback_data": "but_3"}],
                     [{"text": "but_4", "callback_data": "but_4"}]
-                    ]}
+                ]}
 
                 # reply_markup = {"inline_keyboard": [[{"text": "but_1", "callback_data": "but_1"}]]}
 
             # FIXME ^^^
 
-            elif got_message == b.set.topic_type.text or b.topic_types.contains(got_message) or b.topic_types.contains(got_hash):  # noqa
+            elif got_message == b.set.topic_type.text or b.topic_types.contains(got_message) or b.topic_types.contains(
+                    got_hash):  # noqa
                 notify_admin(f'we are in IF statement. {got_message=}. {got_hash=}')
-                bot_message, reply_markup = manage_topic_type_inline(cur, user_id, got_message, b, got_callback, callback_query_id)
+                bot_message, reply_markup = manage_topic_type_inline(cur, user_id, got_message, b, got_callback,
+                                                                     callback_query_id, bot_token)
 
             elif got_message in {b_set_pref_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
                                  b_pref_age_7_13_deact, b_pref_age_14_20_act, b_pref_age_14_20_deact,
