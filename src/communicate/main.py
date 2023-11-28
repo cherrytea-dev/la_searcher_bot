@@ -10,7 +10,7 @@ import urllib.request
 import urllib.parse
 import requests
 import hashlib
-from typing import Union, Tuple
+from typing import Union, Tuple, Dict
 
 from google.cloud import secretmanager, pubsub_v1
 import google.cloud.logging
@@ -278,6 +278,16 @@ class GroupOfButtons:
             if hasattr(value, 'any_text') and given_text in value.any_text:
                 return value
         return None
+
+    def button_by_hash(self, given_hash):
+        """Return a Button which correspond to the given hash"""
+        for key, value in self.__dict__.items():
+            if not value:
+                continue
+            if hasattr(value, 'hash') and given_hash == value.hash:
+                return value
+        return None
+
 
 class AllButtons:
 
@@ -1414,7 +1424,7 @@ def manage_topic_type(cur, user_id, user_input, b) -> Union[tuple[None, None], t
 # FIXME ^^^
 
 
-def manage_topic_type_inline(cur, user_id, user_input, b) -> Union[tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
+def manage_topic_type_inline(cur, user_id, user_input, b, user_callback) -> Union[tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
     """Save user Topic Type preference and generate the actual topic type preference message"""
 
     def check_saved_topic_types(user: int) -> list:
@@ -1457,9 +1467,9 @@ def manage_topic_type_inline(cur, user_id, user_input, b) -> Union[tuple[None, N
                       'мероприятий. Вы можете выбрать несколько значений. Выбор можно изменить в любой момент.'
         list_of_ids_to_change_now = []
     else:
-        topic_id = b.topic_types.button_by_text(user_input).id
+        topic_id = b.topic_types.button_by_hash(user_callback['hash']).id
         list_of_ids_to_change_now = [topic_id]
-        user_wants_to_enable = if_user_enables(user_input)
+        user_wants_to_enable = if_user_enables(user_callback)
         if user_wants_to_enable is None:
             bot_message = ''
             pass
@@ -1843,14 +1853,15 @@ def get_basic_update_parameters(update):
     callback_query = get_param_if_exists(update, 'update.callback_query')
     # notify_admin(f'initial set of attrs: {my_list}')
     got_hash = None
+    got_callback = None
     if callback_query:
         notify_admin(f'{callback_query=}')
         callback_data_text = callback_query.data
         notify_admin(f'{callback_data_text=}')
         try:
-            callback_data = eval(callback_data_text)
-            notify_admin(f'{callback_data=}')
-            got_hash = callback_data['hash']
+            got_callback = eval(callback_data_text)
+            notify_admin(f'{got_callback=}')
+            got_hash = got_callback['hash']
             notify_admin(f'{got_hash=}')
             notify_admin(f'{got_message=}')
         except Exception as e:
@@ -1860,7 +1871,7 @@ def get_basic_update_parameters(update):
     # FIXME ^^^
 
     return user_new_status, timer_changed, photo, document, voice, contact, inline_query, \
-           sticker, user_latitude, user_longitude, got_message, channel_type, username, user_id, got_hash
+           sticker, user_latitude, user_longitude, got_message, channel_type, username, user_id, got_hash, got_callback
 
 
 def save_new_user(user_id, username):
@@ -2122,13 +2133,13 @@ def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
         return None
 
 
-def if_user_enables(text: str) -> Union[None, bool]:
+def if_user_enables(callback: Dict) -> Union[None, bool]:
     """check if user wants to enable or disable a feature"""
     user_wants_to_enable = None
 
-    if text.find('☐') > -1:
+    if callback['action'] == 'on':
         user_wants_to_enable = True
-    elif text.find('☑') > -1:
+    elif callback['action'] == 'off':
         user_wants_to_enable = False
 
     return user_wants_to_enable
@@ -2167,7 +2178,7 @@ def main(request):
     update = get_the_update(bot, request)
 
     user_new_status, timer_changed, photo, document, voice, contact, inline_query, sticker, user_latitude, \
-        user_longitude, got_message, channel_type, username, user_id, got_hash = get_basic_update_parameters(update)
+        user_longitude, got_message, channel_type, username, user_id, got_hash, got_callback = get_basic_update_parameters(update)
 
     if timer_changed or photo or document or voice or sticker or (channel_type and user_id < 0) or \
             contact or inline_query:
@@ -2871,7 +2882,7 @@ def main(request):
 
             elif got_message == b.set.topic_type.text or b.topic_types.contains(got_message) or b.topic_types.contains(got_hash):  # noqa
                 notify_admin(f'we are in IF statement. {got_message=}. {got_hash=}')
-                bot_message, reply_markup = manage_topic_type_inline(cur, user_id, got_message, b)
+                bot_message, reply_markup = manage_topic_type_inline(cur, user_id, got_message, b, got_callback)
 
             elif got_message in {b_set_pref_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
                                  b_pref_age_7_13_deact, b_pref_age_14_20_act, b_pref_age_14_20_deact,
