@@ -42,23 +42,23 @@ full_buttons_dict = {
             'regular': {
                 'text': 'стандартные активные поиски',
                 'id': 0},
+            'resonance': {
+                'text': 'резонансные поиски',
+                'id': 5,
+                'hide': False},
+            'info_support': {
+                'text': 'информационная поддержка',
+                'id': 4,
+                'hide': False},
             'reverse': {
                 'text': 'обратные поиски (поиск родных)',
                 'id': 1},
-            'patrol': {
-                'text': 'патруль (только для некоторых регионов)',
-                'id': 2,
-                'hide': False},
             'training': {
                 'text': 'учебные поиски',
                 'id': 3},
-            'info_support': {
-                'text': 'информационная поддержка поисков',
-                'id': 4,
-                'hide': False},
-            'resonance': {
-                'text': 'резонансные поиски в нескольких регионах',
-                'id': 5,
+            'patrol': {
+                'text': 'ночной патруль',
+                'id': 2,
                 'hide': False},
             'event': {
                 'text': 'мероприятия',
@@ -66,7 +66,7 @@ full_buttons_dict = {
             'info': {
                 'text': 'полезная информация',
                 'id': 20,
-                'hide': True},
+                'hide': True}
         },
     'roles':
         {
