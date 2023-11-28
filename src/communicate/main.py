@@ -1462,11 +1462,13 @@ def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callbac
 
     list_of_current_setting_ids = check_saved_topic_types(user_id)
 
-    if user_input == b.set.topic_type.text:
-
-        bot_message = 'Вы можете выбрать, по каким типам поисков или мероприятий бот должен присылать ' \
+    welcome_message = 'Вы можете выбрать, по каким типам поисков или мероприятий бот должен присылать ' \
                       'вам уведомления. На данный моменты вы можете выбрать следующие виды поисков или ' \
                       'мероприятий. Вы можете выбрать несколько значений. Выбор можно изменить в любой момент.'
+
+    if user_input == b.set.topic_type.text:
+
+        bot_message = welcome_message
         list_of_ids_to_change_now = []
     else:
         topic_id = b.topic_types.button_by_hash(user_callback['hash']).id
@@ -1498,7 +1500,7 @@ def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callbac
     logging.info(f'{keyboard=}')
 
     if user_input != b.set.topic_type.text:
-        bot_message, reply_markup = None, None
+        bot_message = welcome_message
 
     return bot_message, reply_markup
 
@@ -3362,7 +3364,7 @@ def main(request):
                         last_user_message_id = get_last_user_inline_dialogue(cur, user_id)
                         notify_admin(f'{last_user_message_id=}')
                         params['message_id'] = last_user_message_id
-                        params = {'chat_id': user_id, 'text': bot_message, 'message_id': last_user_message_id}
+                        params = {'chat_id': user_id, 'text': b.set.topic_type.text, 'message_id': last_user_message_id}
                         # , 'reply_markup': reply_markup}
                         notify_admin(f'{reply_markup=}')
                         logging.info(f'{reply_markup=}')
