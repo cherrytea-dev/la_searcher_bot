@@ -2247,6 +2247,9 @@ def get_last_user_inline_dialogue(cur, user_id: int) -> int:
                 (user_id,))
     message_id = cur.fetchone()
 
+    if message_id:
+        message_id = message_id[0]
+
     return message_id
 
 
