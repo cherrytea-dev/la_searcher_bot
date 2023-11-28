@@ -1801,7 +1801,7 @@ def inline_processing(cur, response, params) -> None:
 
     if 'reply_markup' in params.keys() and 'inline_keyboard' in params['reply_markup'].keys():
         prev_message_id = get_last_user_inline_dialogue(cur, chat_id)
-        notify_admin(f'PREV MESSAGE ID = {prev_message_id}')
+        logging.info(f'{prev_message_id=}')
         save_last_user_inline_dialogue(cur, chat_id, sent_message_id)
 
     return None
@@ -1829,7 +1829,7 @@ def send_message_to_api(bot_token, user_id, message, params):
 
         with requests.Session() as session:
             response = session.get(request_text)
-            notify_admin(str(response))
+            logging.info(str(response))
 
     except Exception as e:
         logging.exception(e)
@@ -1854,7 +1854,7 @@ def send_callback_answer_to_api(bot_token, callback_query_id, message):
 
         with requests.Session() as session:
             response = session.get(request_text)
-            notify_admin(str(response))
+            logging.info(f'{response}')
 
     except Exception as e:
         logging.exception(e)
@@ -2246,8 +2246,9 @@ def get_last_user_inline_dialogue(cur, user_id: int) -> int:
 def delete_last_user_inline_dialogue(cur, user_id: int) -> None:
     """Delete form DB the user's last interaction via inline buttons"""
 
-    cur.execute("""DELETE FROM communications_last_inline_msg WHERE user_id=%s;""", (user_id, ))
+    cur.execute("""DELETE FROM communications_last_inline_msg WHERE user_id=%s;""", (user_id,))
     return None
+
 
 def main(request):
     """Main function to orchestrate the whole script"""
@@ -2338,7 +2339,7 @@ def main(request):
     b_set_pref_role = 'настроить вашу роль'  # <-- TODO
     b_set_forum_nick = 'связать аккаунты бота и форума'
     b_change_forum_nick = 'изменить аккаунт форума'
-    b_set_topic_type = 'настроить вид интересующих поисков'  # <-- TODO
+    b_set_topic_type = 'настроить вид поисков'
 
     b_back_to_start = 'в начало'
 
@@ -2363,8 +2364,7 @@ def main(request):
     b_deact_first_post_change = 'отключить: об изменениях в первом посте'
 
     # Settings - coordinates
-    b_coords_auto_def = KeyboardButton(text='автоматически определить "домашние координаты"',
-                                       request_location=True)
+    b_coords_auto_def = KeyboardButton(text='автоматически определить "домашние координаты"', request_location=True)
     b_coords_man_def = 'ввести "домашние координаты" вручную'
     b_coords_check = 'посмотреть сохраненные "домашние координаты"'
     b_coords_del = 'удалить "домашние координаты"'
@@ -3338,32 +3338,33 @@ def main(request):
             if not msg_sent_by_specific_code:
 
                 # FIXME – 17.11.2023 – migrating from async to pure api call
+                """
                 admin_id = int(get_secrets('my_telegram_id'))
                 if user_id != admin_id:
                     data = {'text': bot_message, 'reply_markup': reply_markup,
                             'parse_mode': 'HTML', 'disable_web_page_preview': True}
                     process_sending_message_async(user_id=user_id, data=data)
+                else:"""
+                if reply_markup and not isinstance(reply_markup, dict):
+                    reply_markup = reply_markup.to_dict()
+                params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
+                          'chat_id': user_id, 'text': bot_message}
+
+                user_used_inline_button = True if got_hash else False
+                if user_used_inline_button:
+                    last_user_message_id = get_last_user_inline_dialogue(cur, user_id)
+                    logging.info(f'{last_user_message_id=}')
+                    params['message_id'] = last_user_message_id
+                    params = {'chat_id': user_id, 'text': bot_message,
+                              'message_id': last_user_message_id, 'reply_markup': reply_markup}
+                    response = make_api_call('editMessageText', bot_token, params)
                 else:
-                    if reply_markup and not isinstance(reply_markup, dict):
-                        reply_markup = reply_markup.to_dict()
-                    params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
-                              'chat_id': user_id, 'text': bot_message}
+                    response = make_api_call('sendMessage', bot_token, params)
+                result = process_response_of_api_call(user_id, response)
+                inline_processing(cur, response, params)
 
-                    user_used_inline_button = True if got_hash else False
-                    if user_used_inline_button:
-                        last_user_message_id = get_last_user_inline_dialogue(cur, user_id)
-                        logging.info(f'{last_user_message_id=}')
-                        params['message_id'] = last_user_message_id
-                        params = {'chat_id': user_id, 'text': bot_message,
-                                  'message_id': last_user_message_id, 'reply_markup': reply_markup}
-                        response = make_api_call('editMessageText', bot_token, params)
-                    else:
-                        response = make_api_call('sendMessage', bot_token, params)
-                    result = process_response_of_api_call(user_id, response)
-                    inline_processing(cur, response, params)
-
-                    logging.info(f'RESPONSE {response}')
-                    logging.info(f'RESULT {result}')
+                logging.info(f'RESPONSE {response}')
+                logging.info(f'RESULT {result}')
                 # FIXME ^^^
 
             # saving the last message from bot
