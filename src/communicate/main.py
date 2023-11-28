@@ -9,6 +9,7 @@ import psycopg2
 import urllib.request
 import urllib.parse
 import requests
+import hashlib
 from typing import Union, Tuple
 
 from google.cloud import secretmanager, pubsub_v1
@@ -165,6 +166,7 @@ class Button:
         self.text = None
         for key, value in self.data.items():
             setattr(self, key, value)
+        self.hash = hashlib.shake_128(self.text.encode("utf-8")).hexdigest(4)  # noqa
 
         self.any_text = [self.text]
         for key, value in modifier.items():
@@ -242,21 +244,21 @@ class GroupOfButtons:
                 if not curr_button_is_asked_to_change:
                     keyboard += [
                         {"text": curr_button.on,
-                         'callback_data': f'{{"a":"off","b": {curr_button.text}}}'}]
+                         'callback_data': f'{{"action":"off","hash": {curr_button.hash}}}'}]
 
                 else:
                     keyboard += [
                         {"text": curr_button.off,
-                         'callback_data': f'{{"a":"on","b": {curr_button.text}}}'}]
+                         'callback_data': f'{{"action":"on","hash": {curr_button.hash}}}'}]
             else:
                 if not curr_button_is_asked_to_change:
                     keyboard += [
                         {"text": curr_button.off,
-                         'callback_data': f'{{"a":"on","b": {curr_button.text}}}'}]
+                         'callback_data': f'{{"action":"on","hash": {curr_button.hash}}}'}]
                 else:
                     keyboard += [
                         {"text": curr_button.on,
-                         'callback_data': f'{{"a":"off","b": {curr_button.text}}}'}]
+                         'callback_data': f'{{"action":"off","hash": {curr_button.hash}}}'}]
 
         keyboard = [[k] for k in keyboard]
 
