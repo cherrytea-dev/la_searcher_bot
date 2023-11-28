@@ -191,21 +191,27 @@ class GroupOfButtons:
         self.modifier_dict = modifier_dict
 
         all_button_texts = []
+        all_button_hashes = []
         for key, value in button_dict.items():
             setattr(self, key, Button(value, modifier_dict))
             all_button_texts += self.__getattribute__(key).any_text
+            all_button_hashes.append(self.__getattribute__(key).hash)
         self.any_text = all_button_texts
+        self.any_hash = all_button_hashes
 
     def __str__(self):
         return self.any_text
 
     def contains(self, check):
-        """Check is the given text is used for any button in this group"""
+        """Check is the given text/hash is used for any button in this group"""
 
         if check in self.any_text:
             return True
-        else:
-            return False
+
+        if check in self.any_hash:
+            return True
+
+        return False
 
     def temp_all_keys(self):
         return [k for k, v in self.__dict__.items()]
@@ -225,7 +231,7 @@ class GroupOfButtons:
         keyboard = []
         for key, value in self.__dict__.items():
             curr_button = self.__getattribute__(key)
-            if key in {'modifier_dict', 'any_text'}:
+            if key in {'modifier_dict', 'any_text', 'any_hash'}:
                 continue
             if hasattr(value, 'hide') and value.hide:
                 continue
@@ -244,21 +250,21 @@ class GroupOfButtons:
                 if not curr_button_is_asked_to_change:
                     keyboard += [
                         {"text": curr_button.on,
-                         'callback_data': f'{{"action":"off","hash": {curr_button.hash}}}'}]
+                         'callback_data': f'{{"action":"off","hash": "{curr_button.hash}"}}'}]
 
                 else:
                     keyboard += [
                         {"text": curr_button.off,
-                         'callback_data': f'{{"action":"on","hash": {curr_button.hash}}}'}]
+                         'callback_data': f'{{"action":"on","hash": "{curr_button.hash}"}}'}]
             else:
                 if not curr_button_is_asked_to_change:
                     keyboard += [
                         {"text": curr_button.off,
-                         'callback_data': f'{{"action":"on","hash": {curr_button.hash}}}'}]
+                         'callback_data': f'{{"action":"on","hash": "{curr_button.hash}"}}'}]
                 else:
                     keyboard += [
                         {"text": curr_button.on,
-                         'callback_data': f'{{"action":"off","hash": {curr_button.hash}}}'}]
+                         'callback_data': f'{{"action":"off","hash": "{curr_button.hash}"}}'}]
 
         keyboard = [[k] for k in keyboard]
 
@@ -1836,21 +1842,25 @@ def get_basic_update_parameters(update):
                user_latitude, user_longitude, got_message, channel_type, username, user_id]
     callback_query = get_param_if_exists(update, 'update.callback_query')
     # notify_admin(f'initial set of attrs: {my_list}')
+    got_hash = None
     if callback_query:
         notify_admin(f'{callback_query=}')
-        callback_data = callback_query.data
-        notify_admin(f'{callback_data=}')
+        callback_data_text = callback_query.data
+        notify_admin(f'{callback_data_text=}')
         try:
-            callback_data = eval(callback_data)
+            callback_data = eval(callback_data_text)
             notify_admin(f'{callback_data=}')
+            got_hash = callback_data['hash']
+            notify_admin(f'{got_hash=}')
+            notify_admin(f'{got_message=}')
         except Exception as e:
             logging.exception(e)
-            notify_admin(f'callback dict was not recognized for {callback_data=}')
+            notify_admin(f'callback dict was not recognized for {callback_data_text=}')
 
     # FIXME ^^^
 
     return user_new_status, timer_changed, photo, document, voice, contact, inline_query, \
-           sticker, user_latitude, user_longitude, got_message, channel_type, username, user_id
+           sticker, user_latitude, user_longitude, got_message, channel_type, username, user_id, got_hash
 
 
 def save_new_user(user_id, username):
@@ -2157,7 +2167,7 @@ def main(request):
     update = get_the_update(bot, request)
 
     user_new_status, timer_changed, photo, document, voice, contact, inline_query, sticker, user_latitude, \
-        user_longitude, got_message, channel_type, username, user_id = get_basic_update_parameters(update)
+        user_longitude, got_message, channel_type, username, user_id, got_hash = get_basic_update_parameters(update)
 
     if timer_changed or photo or document or voice or sticker or (channel_type and user_id < 0) or \
             contact or inline_query:
@@ -2859,7 +2869,8 @@ def main(request):
 
             # FIXME ^^^
 
-            elif got_message == b.set.topic_type.text or b.topic_types.contains(got_message):  # noqa
+            elif got_message == b.set.topic_type.text or b.topic_types.contains(got_message) or b.topic_types.contains(got_hash):  # noqa
+                notify_admin(f'we are in IF statement. {got_message=}. {got_hash=}')
                 bot_message, reply_markup = manage_topic_type_inline(cur, user_id, got_message, b)
 
             elif got_message in {b_set_pref_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
