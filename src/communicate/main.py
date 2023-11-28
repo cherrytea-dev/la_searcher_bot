@@ -48,18 +48,18 @@ full_buttons_dict = {
             'patrol': {
                 'text': 'патруль (только для некоторых регионов)',
                 'id': 2,
-                'hide': True},
+                'hide': False},
             'training': {
                 'text': 'учебные поиски',
                 'id': 3},
             'info_support': {
                 'text': 'информационная поддержка поисков',
                 'id': 4,
-                'hide': True},
+                'hide': False},
             'resonance': {
                 'text': 'резонансные поиски в нескольких регионах',
                 'id': 5,
-                'hide': True},
+                'hide': False},
             'event': {
                 'text': 'мероприятия',
                 'id': 10},
@@ -89,7 +89,7 @@ full_buttons_dict = {
     'set':
         {
             'topic_type': {
-                'text': 'настроить вид интересующих поисков',
+                'text': 'настроить вид поисков',
                 'id': 'topic_type'}
         },
     'core':
