@@ -1497,6 +1497,9 @@ def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callbac
     logging.info(f'{list_of_ids_to_change_now=}')
     logging.info(f'{keyboard=}')
 
+    if user_input != b.set.topic_type.text:
+        bot_message, reply_markup = None, None
+
     return bot_message, reply_markup
 
 
@@ -1755,6 +1758,29 @@ def process_response_of_api_call(user_id, response):
         logging.info(f'Response is corrupted')
         logging.exception(e)
         return 'failed'
+
+
+def make_api_call(method: str, bot_api_token: str, params: dict) -> Union[requests.Response, None]:
+    """make an API call to telegram"""
+
+    if not params or not bot_api_token or not method or 'chat_id' not in params.keys():
+        return None
+
+    url = f'https://api.telegram.org/bot{bot_api_token}/{method}'  # e.g. sendMessage
+    headers = {'Content-Type': 'application/json'}
+    json_params = json.dumps(params)
+
+    with requests.Session() as session:
+        try:
+            response = session.post(url=url, data=json_params, headers=headers)
+        except Exception as e:
+            response = None
+            logging.info(f'Error in getting response from Telegram')
+            logging.exception(e)
+
+    return response
+
+
 
 
 def send_message_to_api(bot_token, user_id, message, params):
@@ -3305,8 +3331,10 @@ def main(request):
                     if not isinstance(reply_markup, dict):
                         reply_markup = reply_markup.to_dict()
                     params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup}
-                    result = send_message_to_api(bot_token, user_id, bot_message, params)
-                    notify_admin(f'RESULT {result}')
+                    # result = send_message_to_api(bot_token, user_id, bot_message, params)
+                    response = make_api_call('sendMessage', bot_token, params)
+                    
+                    notify_admin(f'RESPONSE {response}')
                 # FIXME ^^^
 
             # saving the last message from bot
