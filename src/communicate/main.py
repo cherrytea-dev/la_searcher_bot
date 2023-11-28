@@ -3366,6 +3366,7 @@ def main(request):
                     user_used_inline_button = True if got_hash else False
                     if user_used_inline_button:
                         last_user_message_id = get_last_user_inline_dialogue(cur, user_id)
+                        notify_admin(f'{last_user_message_id=}')
                         params['message_id'] = last_user_message_id
                         response = make_api_call('editMessageText', bot_token, params)
                     else:
