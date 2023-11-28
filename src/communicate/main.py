@@ -1401,11 +1401,12 @@ def manage_topic_type(cur, user_id, user_input, b) -> Union[tuple[None, None], t
             bot_message = ''
             pass
         elif user_wants_to_enable == True:  # noqa. not a poor design – function can be: None, True, False
-            bot_message = f'Супер, мы включили уведомления по таким типам поисков / мероприятиям'
+            bot_message = f'Супер, мы включили эти уведомления'
             record_topic_type(user_id, topic_id)
         else:  # user_wants_to_enable == False:  # noqa. not a poor design – function can be: None, True, False
             if len(list_of_current_setting_ids) == 1:
-                bot_message = 'Изменения не внесены. У вас должен быть включен хотя бы один тип поиска или мероприятия.'
+                bot_message = 'Изменения НЕ внесены. Необходима как минимум одна настройка'
+                list_of_ids_to_change_now = []
             else:
                 bot_message = f'Хорошо, мы изменили список настроек'
                 delete_topic_type(user_id, topic_id)
@@ -2650,7 +2651,6 @@ def main(request):
     cur = conn_psy.cursor()
 
     if got_message and not got_callback:
-        notify_admin(f'THIS SCENARIO - {got_message=}')
         last_inline_message_id = get_last_user_inline_dialogue(cur, user_id)
         if last_inline_message_id:
             params = {'chat_id': user_id, 'message_id': last_inline_message_id}
