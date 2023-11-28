@@ -244,7 +244,6 @@ class GroupOfButtons:
             for id_item in change_list:
                 if curr_button.id == id_item:
                     curr_button_is_asked_to_change = True
-                    notify_admin(f'== ITER {curr_button_is_asked_to_change=}, {curr_button=}')
                     break
 
             if curr_button_is_in_existing_id_list:
@@ -1474,12 +1473,13 @@ def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callbac
             bot_message = ''
             pass
         elif user_wants_to_enable == True:  # noqa. not a poor design – function can be: None, True, False
-            bot_message = f'Супер, мы включили уведомления по таким типам поисков / мероприятиям'
+            bot_message = 'Супер, мы включили эти уведомления'
             send_callback_answer_to_api(bot_token, callback_id, bot_message)
             record_topic_type(user_id, topic_id)
         else:  # user_wants_to_enable == False:  # noqa. not a poor design – function can be: None, True, False
             if len(list_of_current_setting_ids) == 1:
-                bot_message = 'Изменения не внесены. У вас должен быть включен хотя бы один тип поиска или мероприятия.'
+                bot_message = 'Изменения НЕ внесены. Необходима как минимум одна настройка'
+                list_of_ids_to_change_now = []
                 send_callback_answer_to_api(bot_token, callback_id, bot_message)
             else:
                 bot_message = f'Хорошо, мы изменили список настроек'
@@ -1487,7 +1487,6 @@ def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callbac
                 delete_topic_type(user_id, topic_id)
 
     keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
-    keyboard += [[{"text": "в начало", "callback_data": "в начало"}]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     logging.info(f'{list_of_current_setting_ids=}')
