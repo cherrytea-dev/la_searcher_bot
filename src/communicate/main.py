@@ -3330,10 +3330,11 @@ def main(request):
                 else:
                     if not isinstance(reply_markup, dict):
                         reply_markup = reply_markup.to_dict()
-                    params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup}
+                    params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
+                              'chat_id': user_id, 'text': bot_message}
                     # result = send_message_to_api(bot_token, user_id, bot_message, params)
                     response = make_api_call('sendMessage', bot_token, params)
-                    
+
                     notify_admin(f'RESPONSE {response}')
                 # FIXME ^^^
 
