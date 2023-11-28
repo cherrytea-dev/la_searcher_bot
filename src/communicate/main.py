@@ -1887,7 +1887,7 @@ def get_the_update(bot, request):
 
 
 def get_basic_update_parameters(update):
-    """de-fragment update to the key parameters"""
+    """decompose the incoming update into the key parameters"""
 
     user_new_status = get_param_if_exists(update, 'update.my_chat_member.new_chat_member.status')
     timer_changed = get_param_if_exists(update, 'update.message.message_auto_delete_timer_changed')
@@ -2249,6 +2249,12 @@ def get_last_user_inline_dialogue(cur, user_id: int) -> int:
 
     return message_id
 
+
+def delete_last_user_inline_dialogue(cur, user_id: int) -> None:
+    """Delete form DB the user's last interaction via inline buttons"""
+
+    cur.execute("""DELETE FROM communications_last_inline_msg WHERE user_id=%s;""", (user_id, ))
+    return None
 
 def main(request):
     """Main function to orchestrate the whole script"""
@@ -2616,7 +2622,6 @@ def main(request):
 
     b_admin_menu = 'admin'
     b_test_menu = 'test'
-    b_test_menu_2 = 'test2'
 
     b_pref_age_0_6_act = 'отключить: Маленькие Дети 0-6 лет'
     b_pref_age_0_6_deact = 'включить: Маленькие Дети 0-6 лет'
@@ -2643,6 +2648,14 @@ def main(request):
 
     conn_psy = sql_connect_by_psycopg2()
     cur = conn_psy.cursor()
+
+    if got_message and not got_callback:
+        notify_admin(f'THIS SCENARIO - {got_message=}')
+        last_inline_message_id = get_last_user_inline_dialogue(cur, user_id)
+        if last_inline_message_id:
+            params = {'chat_id': user_id, 'message_id': last_inline_message_id}
+            make_api_call('editMessageReplyMarkup', bot_token, params)
+            delete_last_user_inline_dialogue(cur, user_id)
 
     if got_message:
         save_user_message_to_bot(cur, user_id, got_message)
