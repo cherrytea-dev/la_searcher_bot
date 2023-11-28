@@ -1424,7 +1424,7 @@ def manage_topic_type(cur, user_id, user_input, b) -> Union[tuple[None, None], t
 # FIXME ^^^
 
 
-def manage_topic_type_inline(cur, user_id, user_input, b, user_callback) -> Union[tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
+def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callback_id) -> Union[tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
     """Save user Topic Type preference and generate the actual topic type preference message"""
 
     def check_saved_topic_types(user: int) -> list:
@@ -1475,12 +1475,15 @@ def manage_topic_type_inline(cur, user_id, user_input, b, user_callback) -> Unio
             pass
         elif user_wants_to_enable == True:  # noqa. not a poor design – function can be: None, True, False
             bot_message = f'Супер, мы включили уведомления по таким типам поисков / мероприятиям'
+            send_callback_answer_to_api(callback_id, bot_message)
             record_topic_type(user_id, topic_id)
         else: # user_wants_to_enable == False:  # noqa. not a poor design – function can be: None, True, False
             if len(list_of_current_setting_ids) == 1:
                 bot_message = 'Изменения не внесены. У вас должен быть включен хотя бы один тип поиска или мероприятия.'
+                send_callback_answer_to_api(callback_id, bot_message)
             else:
                 bot_message = f'Хорошо, мы изменили список настроек'
+                send_callback_answer_to_api(callback_id, bot_message)
                 delete_topic_type(user_id, topic_id)
 
     keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
@@ -1786,6 +1789,31 @@ def send_message_to_api(bot_token, user_id, message, params):
     return result
 
 
+def send_callback_answer_to_api(bot_token, callback_query_id, message):
+    """send a notification when inline button is pushed directly to Telegram API w/o any wrappers ar libraries"""
+
+    try:
+        # NB! only 200 characters
+        message = message[:200]
+        message_encoded = f'&text={urllib.parse.quote(message)}'
+
+        request_text = f'https://api.telegram.org/bot{bot_token}/answerCallbackQuery?callback_query_id=' \
+                       f'{callback_query_id}{message_encoded}'
+
+        with requests.Session() as session:
+            response = session.get(request_text)
+            notify_admin(str(response))
+
+    except Exception as e:
+        logging.exception(e)
+        logging.info(f'Error in getting response from Telegram')
+        response = None
+
+    result = process_response_of_api_call(callback_query_id, response)
+
+    return result
+
+
 def get_the_update(bot, request):
     """converts a request to an update"""
 
@@ -1851,6 +1879,7 @@ def get_basic_update_parameters(update):
     my_list = [user_new_status, timer_changed, photo, document, voice, contact, inline_query, sticker,
                user_latitude, user_longitude, got_message, channel_type, username, user_id]
     callback_query = get_param_if_exists(update, 'update.callback_query')
+    callback_query_id = get_param_if_exists(update, 'update.callback_query.id')
     # notify_admin(f'initial set of attrs: {my_list}')
     got_hash = None
     got_callback = None
@@ -1871,7 +1900,7 @@ def get_basic_update_parameters(update):
     # FIXME ^^^
 
     return user_new_status, timer_changed, photo, document, voice, contact, inline_query, \
-           sticker, user_latitude, user_longitude, got_message, channel_type, username, user_id, got_hash, got_callback
+           sticker, user_latitude, user_longitude, got_message, channel_type, username, user_id, got_hash, got_callback, callback_query_id
 
 
 def save_new_user(user_id, username):
@@ -2178,7 +2207,8 @@ def main(request):
     update = get_the_update(bot, request)
 
     user_new_status, timer_changed, photo, document, voice, contact, inline_query, sticker, user_latitude, \
-        user_longitude, got_message, channel_type, username, user_id, got_hash, got_callback = get_basic_update_parameters(update)
+        user_longitude, got_message, channel_type, username, user_id, got_hash, got_callback, \
+        callback_query_id = get_basic_update_parameters(update)
 
     if timer_changed or photo or document or voice or sticker or (channel_type and user_id < 0) or \
             contact or inline_query:
@@ -2882,7 +2912,7 @@ def main(request):
 
             elif got_message == b.set.topic_type.text or b.topic_types.contains(got_message) or b.topic_types.contains(got_hash):  # noqa
                 notify_admin(f'we are in IF statement. {got_message=}. {got_hash=}')
-                bot_message, reply_markup = manage_topic_type_inline(cur, user_id, got_message, b, got_callback)
+                bot_message, reply_markup = manage_topic_type_inline(cur, user_id, got_message, b, got_callback, callback_query_id)
 
             elif got_message in {b_set_pref_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
                                  b_pref_age_7_13_deact, b_pref_age_14_20_act, b_pref_age_14_20_deact,
