@@ -36,6 +36,8 @@ log_client.setup_logging()
 logging.getLogger("telegram.vendor.ptb_urllib3.urllib3").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
+
+standard_modifier = {'on': '✅ ', 'off': '☐ '}
 full_buttons_dict = {
     'topic_types':
         {
@@ -66,7 +68,11 @@ full_buttons_dict = {
             'info': {
                 'text': 'полезная информация',
                 'id': 20,
-                'hide': True}
+                'hide': True},
+            'about': {
+                'text': '💡 справка по типам поисков 💡',
+                'id': None
+            }
         },
     'roles':
         {
@@ -84,7 +90,11 @@ full_buttons_dict = {
                 'id': 'other'},
             'no_answer': {
                 'text': 'не хочу говорить',
-                'id': 'no_answer'}
+                'id': 'no_answer'},
+            'about': {
+                'text': '💡 справка по ролям 💡',
+                'id': None
+            }
         },
     'set':
         {
@@ -1421,7 +1431,7 @@ def manage_topic_type(cur, user_id, user_input, b) -> Union[tuple[None, None], t
 
 
 def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callback_id, bot_token) -> Union[
-    tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
+        tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
     """Save user Topic Type preference and generate the actual topic type preference message"""
 
     def check_saved_topic_types(user: int) -> list:
