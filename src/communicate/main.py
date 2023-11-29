@@ -3381,10 +3381,12 @@ def main(request):
                     last_user_message_id = get_last_user_inline_dialogue(cur, user_id)
                     logging.info(f'{last_user_message_id=}')
                     params['message_id'] = last_user_message_id
-                    params = {'chat_id': user_id, 'text': bot_message,
-                              'message_id': last_user_message_id, 'reply_markup': reply_markup}
+                    # params = {'chat_id': user_id, 'text': bot_message,
+                    #           'message_id': last_user_message_id, 'reply_markup': reply_markup}
                     response = make_api_call('editMessageText', bot_token, params)
                 else:
+                    notify_admin(f'{type(params)=}')
+                    notify_admin(f'{params=}')
                     response = make_api_call('sendMessage', bot_token, params)
                 result = process_response_of_api_call(user_id, response)
                 inline_processing(cur, response, params)
