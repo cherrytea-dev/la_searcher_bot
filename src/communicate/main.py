@@ -1474,6 +1474,7 @@ def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callbac
                       'вам уведомления. На данный моменты вы можете выбрать следующие виды поисков или ' \
                       'мероприятий. Вы можете выбрать несколько значений. Выбор можно изменить в любой момент.'
 
+    # when user push "ABOUT" button
     if user_callback and user_callback['action'] == 'about':
         about_text = 'Здесь идёт длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
                      'длинное-длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
@@ -1486,11 +1487,18 @@ def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callbac
                      ' описание, что же все типы поисков значат'
         about_params = {'chat_id': user_id, 'text': about_text}
         make_api_call('sendMessage', bot_token, about_params)
+        del_message_id = get_last_user_inline_dialogue(cur, user_id)
+        notify_admin(f'{del_message_id=}')
+        if del_message_id:
+            del_params = {'chat_id': user_id, 'message_id': del_message_id}
+            make_api_call('deleteMessage', bot_token, del_params)
 
+    # when user just enters the MENU for topic types
     if user_input == b.set.topic_type.text:
-
         bot_message = welcome_message
         list_of_ids_to_change_now = []
+
+    # when user pushed INLINE BUTTON for topic type
     else:
         topic_id = b.topic_types.button_by_hash(user_callback['hash']).id
         list_of_ids_to_change_now = [topic_id]
@@ -3373,18 +3381,18 @@ def main(request):
                 else:"""
                 if reply_markup and not isinstance(reply_markup, dict):
                     reply_markup = reply_markup.to_dict()
-                params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
-                          'chat_id': user_id, 'text': bot_message}
 
                 user_used_inline_button = True if got_hash else False
                 if user_used_inline_button:
                     last_user_message_id = get_last_user_inline_dialogue(cur, user_id)
                     logging.info(f'{last_user_message_id=}')
-                    params['message_id'] = last_user_message_id
-                    # params = {'chat_id': user_id, 'text': bot_message,
-                    #           'message_id': last_user_message_id, 'reply_markup': reply_markup}
+                    # params['message_id'] = last_user_message_id
+                    params = {'chat_id': user_id, 'text': bot_message,
+                              'message_id': last_user_message_id, 'reply_markup': reply_markup}
                     response = make_api_call('editMessageText', bot_token, params)
                 else:
+                    params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
+                              'chat_id': user_id, 'text': bot_message}
                     notify_admin(f'{type(params)=}')
                     notify_admin(f'{params=}')
                     response = make_api_call('sendMessage', bot_token, params)
