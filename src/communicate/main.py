@@ -1492,6 +1492,7 @@ def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callbac
         if del_message_id:
             del_params = {'chat_id': user_id, 'message_id': del_message_id}
             make_api_call('deleteMessage', bot_token, del_params)
+            user_input = b.set.topic_type.text  # to re-establish menu sending
 
     # when user just enters the MENU for topic types
     if user_input == b.set.topic_type.text:
