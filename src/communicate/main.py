@@ -1476,19 +1476,13 @@ def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callbac
 
     # when user push "ABOUT" button
     if user_callback and user_callback['action'] == 'about':
-        about_text = 'Здесь идёт длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
-                     'длинное-длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
-                     'длинное-длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
-                     'длинное-длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
-                     'длинное-длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
-                     'длинное-длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
-                     'длинное-длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
-                     'длинное-длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
-                     ' описание, что же все типы поисков значат'
+        # this scenario assumes three steps: 1. send the "ABOUT" message, 2. delete prev MENU message 3. send NEW MENU
+        about_text = 'ЛизаАлерт проводит несколько типов поисковых мероприятий. В Боте доступны следующие из ' \
+                     'них:\n\n' \
+                     ''
         about_params = {'chat_id': user_id, 'text': about_text}
         make_api_call('sendMessage', bot_token, about_params)
         del_message_id = get_last_user_inline_dialogue(cur, user_id)
-        notify_admin(f'{del_message_id=}')
         if del_message_id:
             del_params = {'chat_id': user_id, 'message_id': del_message_id}
             make_api_call('deleteMessage', bot_token, del_params)
@@ -1513,7 +1507,7 @@ def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callbac
             record_topic_type(user_id, topic_id)
         else:  # user_wants_to_enable == False:  # noqa. not a poor design – function can be: None, True, False
             if len(list_of_current_setting_ids) == 1:
-                bot_message = 'Изменения НЕ внесены. Необходима как минимум одна настройка'
+                bot_message = '❌ Необходима как минимум одна настройка'
                 list_of_ids_to_change_now = []
                 send_callback_answer_to_api(bot_token, callback_id, bot_message)
             else:
@@ -3383,7 +3377,11 @@ def main(request):
                 if reply_markup and not isinstance(reply_markup, dict):
                     reply_markup = reply_markup.to_dict()
 
-                user_used_inline_button = True if got_hash else False
+                if got_hash and got_callback and got_callback['action'] != 'about':
+                    user_used_inline_button = True
+                else:
+                    user_used_inline_button = False
+
                 if user_used_inline_button:
                     last_user_message_id = get_last_user_inline_dialogue(cur, user_id)
                     logging.info(f'{last_user_message_id=}')
