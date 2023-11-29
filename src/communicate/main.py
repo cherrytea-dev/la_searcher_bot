@@ -1474,7 +1474,7 @@ def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callbac
                       'вам уведомления. На данный моменты вы можете выбрать следующие виды поисков или ' \
                       'мероприятий. Вы можете выбрать несколько значений. Выбор можно изменить в любой момент.'
 
-    if user_callback['action'] == 'about':
+    if user_callback and user_callback['action'] == 'about':
         about_text = 'Здесь идёт длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
                      'длинное-длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
                      'длинное-длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
@@ -1486,7 +1486,7 @@ def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callbac
                      ' описание, что же все типы поисков значат'
         about_params = {'chat_id': user_id, 'text': about_text}
         make_api_call('sendMessage', bot_token, about_params)
-    
+
     if user_input == b.set.topic_type.text:
 
         bot_message = welcome_message
