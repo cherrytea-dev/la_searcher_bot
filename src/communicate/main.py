@@ -256,20 +256,23 @@ class GroupOfButtons:
                     curr_button_is_asked_to_change = True
                     break
 
-            if curr_button_is_in_existing_id_list:
+            if curr_button_is_in_existing_id_list and key not in {'about'}:
                 if not curr_button_is_asked_to_change:
                     keyboard += [
                         {"text": curr_button.on, 'callback_data': f'{{"action":"off","hash": "{curr_button.hash}"}}'}]
                 else:
                     keyboard += [
                         {"text": curr_button.off, 'callback_data': f'{{"action":"on","hash": "{curr_button.hash}"}}'}]
-            else:
+            elif key not in {'about'}:
                 if not curr_button_is_asked_to_change:
                     keyboard += [
                         {"text": curr_button.off, 'callback_data': f'{{"action":"on","hash": "{curr_button.hash}"}}'}]
                 else:
                     keyboard += [
                         {"text": curr_button.on, 'callback_data': f'{{"action":"off","hash": "{curr_button.hash}"}}'}]
+            else:  # case for 'about' button
+                keyboard += [
+                    {"text": curr_button, 'callback_data': f'{{"action":"about","hash": "{curr_button.hash}"}}'}]
 
         keyboard = [[k] for k in keyboard]
 
@@ -1471,6 +1474,19 @@ def manage_topic_type_inline(cur, user_id, user_input, b, user_callback, callbac
                       'вам уведомления. На данный моменты вы можете выбрать следующие виды поисков или ' \
                       'мероприятий. Вы можете выбрать несколько значений. Выбор можно изменить в любой момент.'
 
+    if user_callback['action'] == 'about':
+        about_text = 'Здесь идёт длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
+                     'длинное-длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
+                     'длинное-длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
+                     'длинное-длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
+                     'длинное-длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
+                     'длинное-длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
+                     'длинное-длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
+                     'длинное-длинное-длинное-длинное-длинное-длинное-длинное-длинное-' \
+                     ' описание, что же все типы поисков значат'
+        about_params = {'chat_id': user_id, 'text': about_text}
+        make_api_call('sendMessage', bot_token, about_params)
+    
     if user_input == b.set.topic_type.text:
 
         bot_message = welcome_message
