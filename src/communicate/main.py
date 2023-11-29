@@ -272,7 +272,7 @@ class GroupOfButtons:
                         {"text": curr_button.on, 'callback_data': f'{{"action":"off","hash": "{curr_button.hash}"}}'}]
             else:  # case for 'about' button
                 keyboard += [
-                    {"text": curr_button, 'callback_data': f'{{"action":"about","hash": "{curr_button.hash}"}}'}]
+                    {"text": curr_button.text, 'callback_data': f'{{"action":"about","hash": "{curr_button.hash}"}}'}]
 
         keyboard = [[k] for k in keyboard]
 
