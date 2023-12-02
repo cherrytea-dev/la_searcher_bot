@@ -529,7 +529,7 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
     for line in searches_list:
         search = SearchSummary()
         search.topic_id, search.start_time, search.display_name, search_lat, search_lon, \
-        search.topic_type, search.name, search.age = list(line)
+            search.topic_type, search.name, search.age = list(line)
 
         if time_counter_since_search_start(search.start_time)[1] >= 60:
             continue
@@ -2650,6 +2650,14 @@ def main(request):
             if got_message == c_start:
 
                 if user_is_new:
+                    # FIXME – 02.12.2023 – hiding menu button for the newcomers
+                    #  (in the future it should be done in manage_user script)
+                    method = 'setMyCommands'
+                    params = {'commands': [], 'scope': {'type': 'chat', 'chat_id': user_id}}
+                    response = make_api_call(method=method, bot_api_token=bot_token, params=params)
+                    result = process_response_of_api_call(user_id, response)
+                    # FIXME ^^^
+
                     bot_message = 'Привет! Это Бот Поисковика ЛизаАлерт. Он помогает Поисковикам ' \
                                   'оперативно получать информацию о новых поисках или об изменениях ' \
                                   'в текущих поисках.' \
@@ -2668,6 +2676,15 @@ def main(request):
 
             elif (onboarding_step_id == 20 and got_message in full_dict_of_regions) \
                     or got_message == b_reg_moscow:  # "moscow_replied"
+
+                # FIXME – 02.12.2023 – un-hiding menu button for the newcomers
+                #  (in the future it should be done in manage_user script)
+                method = 'deleteMyCommands'
+                params = {'scope': {'type': 'chat', 'chat_id': user_id}}
+                response = make_api_call(method=method, bot_api_token=bot_token, params=params)
+                result = process_response_of_api_call(user_id, response)
+                # FIXME ^^^
+
                 bot_message = '🎉 Отлично, вы завершили базовую настройку Бота.\n\n' \
                               'Список того, что сейчас умеет бот:\n' \
                               '- Высылает сводку по идущим поискам\n' \
