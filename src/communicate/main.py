@@ -53,7 +53,7 @@ full_buttons_dict = {
                 'id': 4,
                 'hide': False},
             'reverse': {
-                'text': 'обратные поиски (поиск родных)',
+                'text': 'обратные поиски',
                 'id': 1},
             'training': {
                 'text': 'учебные поиски',
@@ -1418,9 +1418,9 @@ def manage_topic_type(cur, user_id, user_input, b, user_callback, callback_id, b
                      'Учебных поисках, чтобы повышать свои навыки как поисковика.\n' \
                      '• <b>Ночной патруль</b> – в некоторых регионах проводятся ночные патрули в парках и других ' \
                      'общественных зонах.\n' \
-                     '• <b>Мероприятия</b> – это различные встречи, проводимые отрядами ЛизаАлерт. Тематика и календарь' \
-                     'проведения сильно варьируются от региона к региону. Рекомендуем подписаться, чтобы быть ' \
-                     'в курсе всех событий в отряде вашего региона. 💡'
+                     '• <b>Мероприятия</b> – это различные встречи, проводимые отрядами ЛизаАлерт. Тематика и ' \
+                     'календарь проведения сильно варьируются от региона к региону. Рекомендуем подписаться, ' \
+                     'чтобы быть в курсе всех событий в отряде вашего региона. 💡'
         about_params = {'chat_id': user_id, 'text': about_text, 'parse_mode': 'HTML'}
         make_api_call('sendMessage', bot_token, about_params)
         del_message_id = get_last_user_inline_dialogue(cur, user_id)
@@ -1428,6 +1428,7 @@ def manage_topic_type(cur, user_id, user_input, b, user_callback, callback_id, b
             del_params = {'chat_id': user_id, 'message_id': del_message_id}
             make_api_call('deleteMessage', bot_token, del_params)
             user_input = b.set.topic_type.text  # to re-establish menu sending
+            welcome_message = f'⬆️ Справка приведена выше. \n\n{welcome_message}'
 
     # when user just enters the MENU for topic types
     if user_input == b.set.topic_type.text:
@@ -1519,7 +1520,7 @@ def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_no
 def manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_to_start,
                             bot_request_bfr_usr_msg, b_admin_menu, b_test_menu, b_yes_its_me, b_no_its_not_me,
                             b_settings, reply_markup_main):
-    """manage all interactions re connection of telegram and forum user accounts"""
+    """manage all interactions regarding connection of telegram and forum user accounts"""
 
     bot_message, reply_markup, bot_request_aft_usr_msg = None, None, None
 
@@ -2249,7 +2250,11 @@ def main(request):
 
     # Buttons & Keyboards
     # Start & Main menu
-    b_start = '/start'
+    c_start = '/start'
+    c_view_act_searches = '/view_act_searches'
+    c_view_latest_searches = '/view_latest_searches'
+    c_settings = '/settings'
+    c_other = '/other'
 
     b_role_iam_la = 'я состою в ЛизаАлерт'
     b_role_want_to_be_la = 'я хочу помогать ЛизаАлерт'
@@ -2264,26 +2269,6 @@ def main(request):
     b_forum_check_nickname = 'указать свой nickname с форума'
     b_forum_dont_have = 'у меня нет аккаунта на форуме ЛА'
     b_forum_dont_want = 'пропустить / не хочу говорить'
-    # TODO ^^^
-
-    # TODO – WIP: TOPIC TYPE
-    b_topic_search_regular = 'стандартные активные поиски'
-    b_topic_search_resonance = 'резонансные поиски в нескольких регионах'
-    b_topic_search_info_support = 'информационная поддержка поисков'
-    b_topic_search_patrol = 'патруль (только для некоторых регионов)'
-    b_topic_search_reverse = 'обратные поиски (поиск родных)'
-    b_topic_search_training = 'учебные поиски'
-    b_topic_event = 'мероприятия'
-    bd_topic_type = {'search_regular': b_topic_search_regular,
-                     'search_resonance': b_topic_search_resonance,
-                     'search_info_support': b_topic_search_info_support,
-                     'search_patrol': b_topic_search_patrol,
-                     'search_reverse': b_topic_search_reverse,
-                     'search_training': b_topic_search_training,
-                     'event': b_topic_event}
-
-    # modifiers = {'y': '☑', 'n': '☐'} ✅
-
     # TODO ^^^
 
     b_pref_urgency_highest = 'самым первым (<2 минуты)'
@@ -2662,7 +2647,7 @@ def main(request):
         if got_message:
 
             # if pushed \start
-            if got_message == b_start:
+            if got_message == c_start:
 
                 if user_is_new:
                     bot_message = 'Привет! Это Бот Поисковика ЛизаАлерт. Он помогает Поисковикам ' \
@@ -2842,7 +2827,7 @@ def main(request):
             elif not user_regions \
                     and not (got_message in full_dict_of_regions or
                              got_message in dict_of_fed_dist or
-                             got_message in {b_menu_set_region, b_start, b_settings}):
+                             got_message in {b_menu_set_region, c_start, b_settings, c_settings}):
 
                 bot_message = 'Для корректной работы бота, пожалуйста, задайте свой регион. Для этого ' \
                               'с помощью кнопок меню выберите сначала ФО (федеральный округ), а затем и ' \
@@ -2856,11 +2841,13 @@ def main(request):
                 logging.info(f'user {user_id} is forced to fill in the region')
 
             # Send summaries
-            elif got_message in {b_view_latest_searches, b_view_act_searches}:
+            elif got_message in {b_view_latest_searches, b_view_act_searches,
+                                 c_view_latest_searches, c_view_act_searches}:
 
                 msg_sent_by_specific_code = True
 
-                temp_dict = {b_view_latest_searches: 'all', b_view_act_searches: 'active'}
+                temp_dict = {b_view_latest_searches: 'all', b_view_act_searches: 'active',
+                             c_view_latest_searches: 'all', c_view_act_searches: 'active', }
 
                 cur.execute(
                     """
@@ -2988,7 +2975,7 @@ def main(request):
             elif got_message.lower() == 'go':
                 publish_to_pubsub('topic_notify_admin', 'test_admin_check')
 
-            elif got_message == b_other:
+            elif got_message in {b_other, c_other}:
                 bot_message = 'Здесь можно посмотреть статистику по 20 последним поискам, перейти в ' \
                               'канал Коммъюнити или Прочитать важную информацию для Новичка и посмотреть ' \
                               'душевные фото с поисков'
@@ -3030,7 +3017,7 @@ def main(request):
                     save_onboarding_step(user_id, username, 'region_set')
                     save_user_pref_topic_type(cur, user_id, 'default', user_role)
 
-            elif got_message == b_settings:
+            elif got_message in {b_settings, c_settings}:
                 bot_message = 'Это раздел с настройками. Здесь вы можете выбрать удобные для вас ' \
                               'уведомления, а также ввести свои "домашние координаты", на основе которых ' \
                               'будет рассчитываться расстояние и направление до места поиска. Вы в любой ' \
