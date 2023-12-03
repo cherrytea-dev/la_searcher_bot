@@ -518,11 +518,15 @@ def enrich_new_record_from_searches(conn, r_line):
         # 60 days – is a compromise and can be reviewed if community votes for another setting
         try:
             latest_when_alert = r_line.start_time + datetime.timedelta(days=WINDOW_FOR_NOTIFICATIONS_DAYS)
-            if latest_when_alert < datetime.datetime.now():
+            if latest_when_alert < datetime.datetime.now() and r_line.forum_folder not in {333, 305, 334, 306, 190}:
                 r_line.ignore = 'y'
 
                 # DEBUG purposes only
                 notify_admin(f'ignoring old search upd {r_line.forum_search_num} with start time {r_line.start_time}')
+            # FIXME – 03.12.2023 – checking that Samara is not filtered by 60 days
+            if latest_when_alert < datetime.datetime.now() and r_line.forum_folder in {333, 305, 334, 306, 190}:
+                notify_admin(f'☀️ SAMARA >60 {r_line.link}')
+            # FIXME ^^^
 
         except:  # noqa
             pass
