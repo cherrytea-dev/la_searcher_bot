@@ -2106,12 +2106,8 @@ def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
     """Create a text of message, which describes the degree on how complete user's profile is.
     More settings set – more complete profile it. It's done to motivate users to set the most tailored settings."""
 
-    logging.info(f'>>>CHECK WE ARE HERE INSIDE 0')
-
     if not cur or not user_id:
         return None
-
-    logging.info(f'>>>CHECK WE ARE HERE INSIDE 1')
 
     try:
         cur.execute("""SELECT
@@ -2143,30 +2139,20 @@ def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
 
         raw_data = cur.fetchone()
 
-        logging.info(f'>>>CHECK WE ARE HERE INSIDE 2')
-
         if not raw_data:
             return None
 
-        logging.info(f'>>>CHECK WE ARE HERE INSIDE 3')
-
         _, pref_role, pref_age, pref_coords, pref_radius, pref_region, pref_topic_type, \
-        pref_urgency, pref_notif_type, pref_region_old, pref_forum = raw_data
+            pref_urgency, pref_notif_type, pref_region_old, pref_forum = raw_data
 
         list_of_settings = [pref_notif_type, pref_region_old, pref_coords, pref_radius, pref_age, pref_forum]
         user_score = int(round(sum(list_of_settings) / len(list_of_settings) * 100, 0))
 
-        logging.info(f'{list_of_settings}')
-        logging.info(f'{user_score}')
-
-        logging.info(f'>>>CHECK WE ARE HERE INSIDE 4')
-
+        logging.info(f'List of user settings activation: {list_of_settings=}')
         logging.info(f'User settings completeness score is {user_score}')
 
         if user_score == 100:
             return None
-
-        logging.info(f'>>>CHECK WE ARE HERE INSIDE 5')
 
         user_score_emoji = f'{user_score // 10}\U0000FE0F\U000020E3{user_score - (user_score // 10) * 10}\U0000FE0F\U000020E3'
         message_text = f'Вы настроили бот на {user_score_emoji}%.\n\nЧтобы сделать бот максимально эффективным ' \
@@ -3056,14 +3042,12 @@ def main(request):
                               'момент сможете изменить эти настройки.'
 
                 message_prefix = compose_msg_on_user_setting_fullness(cur, user_id)
-                logging.info(f'>>>CHECK WE ARE HERE 0 – {message_prefix}')
                 if message_prefix:
                     bot_message = f'{bot_message}\n\n{message_prefix}'
-                    logging.info(f'>>>CHECK WE ARE HERE 1 – {bot_message}')
 
-                keyboard_settings = [[b_set_pref_notif_type], [b_menu_set_region], [b_set_pref_coords],
-                                     [b_set_pref_radius], [b_set_pref_age], [b_set_forum_nick],
-                                     [b_back_to_start]]  # #AK added b_set_forum_nick for issue #6
+                keyboard_settings = [[b_set_pref_notif_type], [b_menu_set_region], [b_set_topic_type],
+                                     [b_set_pref_coords], [b_set_pref_radius], [b_set_pref_age],
+                                     [b_set_forum_nick], [b_back_to_start]]  # #AK added b_set_forum_nick for issue #6
                 reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
 
             elif got_message == b_set_pref_coords:
