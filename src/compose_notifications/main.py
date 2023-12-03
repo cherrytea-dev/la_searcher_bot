@@ -670,11 +670,13 @@ def compose_com_msg_on_new_topic(line):
     days_since_topic_start = (now - start).days
 
     # FIXME – temp limitation for only topics - cuz we don't want to filter event.
-    #  Once events messaging will go smooth, this limitation to be removed
-    if topic_type_id in {0, 1, 2, 3, 4, 5}:
-        # FIXME ^^^
-        if days_since_topic_start >= 2:  # we do not notify users on "new" searches appeared >=2 days ago:
-            return [None, None, None], None, 'y'  # topic to be ignored
+    #  Once events messaging will go smooth, this limitation to be removed.
+    #  03.12.2023 – Removed to check
+    # if topic_type_id in {0, 1, 2, 3, 4, 5}:
+    # FIXME ^^^
+
+    if days_since_topic_start >= 2:  # we do not notify users on "new" topics appeared >=2 days ago:
+        return [None, None, None], None, 'y'  # topic to be ignored
 
     message = MessageNewTopic()
 
