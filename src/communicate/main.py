@@ -1695,13 +1695,13 @@ def process_response_of_api_call(user_id, response):
 
     try:
 
-        if 'ok' not in response:
+        if 'ok' not in response.json():
             notify_admin(f'ALARM! "ok" is not in response: {response.json()}, user {user_id}')
+            return 'failed'
 
-        if 'ok' in response:
-            if response.ok:
-                logging.info(f'message to {user_id} was successfully sent')
-                return 'completed'
+        if response.ok:
+            logging.info(f'message to {user_id} was successfully sent')
+            return 'completed'
 
         elif response.status_code == 400:  # Bad Request
             logging.info(f'Bad Request: message to {user_id} was not sent, {response.reason=}')
