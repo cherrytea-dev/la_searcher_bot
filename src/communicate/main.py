@@ -1689,10 +1689,19 @@ def process_sending_message_async(user_id, data) -> None:
 def process_response_of_api_call(user_id, response):
     """process response received as a result of Telegram API call while sending message/location"""
 
+    if not response:
+        logging.info(f'response in None for {user_id=}')
+        return 'failed'
+
     try:
-        if response.ok:
-            logging.info(f'message to {user_id} was successfully sent')
-            return 'completed'
+
+        if 'ok' not in response:
+            notify_admin(f'ALARM! "ok" is not in response: {response.json()}, user {user_id}')
+
+        if 'ok' in response:
+            if response.ok:
+                logging.info(f'message to {user_id} was successfully sent')
+                return 'completed'
 
         elif response.status_code == 400:  # Bad Request
             logging.info(f'Bad Request: message to {user_id} was not sent, {response.reason=}')
@@ -1725,6 +1734,7 @@ def process_response_of_api_call(user_id, response):
     except Exception as e:
         logging.info(f'Response is corrupted')
         logging.exception(e)
+        logging.info(f'{response.json()=}')
         return 'failed'
 
 
@@ -1825,7 +1835,7 @@ def send_callback_answer_to_api(bot_token, callback_query_id, message):
 
         with requests.Session() as session:
             response = session.get(request_text)
-            logging.info(f'{response}')
+            logging.info(f'{response.json()=}')
 
     except Exception as e:
         logging.exception(e)
@@ -1877,11 +1887,8 @@ def get_basic_update_parameters(update):
     # chat_id is treated as user_id and vice versa (which is not true in general)
 
     username = get_param_if_exists(update, 'update.effective_user.username')
-
     if not username:
         username = get_param_if_exists(update, 'update.effective_message.from_user.username')
-        if username:
-            logging.exception(f'EFFECTIVE_USER.USERNAME IS NOT GIVEN! BUT WE\'VE GOT IT FROM EFF_MESSAGE!')
 
     user_id = get_param_if_exists(update, 'update.effective_user.id')
     if not user_id:
