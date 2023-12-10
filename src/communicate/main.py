@@ -2665,13 +2665,11 @@ def main(request):
                 if user_is_new:
                     # FIXME – 02.12.2023 – hiding menu button for the newcomers
                     #  (in the future it should be done in manage_user script)
-                    notify_admin(f'DDD -> {user_id}, we are in: 0')
                     method = 'setMyCommands'
                     params = {'commands': [], 'scope': {'type': 'chat', 'chat_id': user_id}}
                     response = make_api_call(method=method, bot_api_token=bot_token, params=params)
-                    notify_admin(f'DDD -> {user_id}, we are in: 1, {response=}')
                     result = process_response_of_api_call(user_id, response)
-                    notify_admin(f'DDD -> {user_id}, we are in: 2, {result=}')
+                    logging.info(f'hiding user {user_id} menu status = {result}')
                     # FIXME ^^^
 
                     bot_message = 'Привет! Это Бот Поисковика ЛизаАлерт. Он помогает Поисковикам ' \
