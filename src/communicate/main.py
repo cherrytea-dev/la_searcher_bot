@@ -606,6 +606,8 @@ def check_if_new_user(cur, user_id):
     else:
         user_is_new = False
 
+    notify_admin(f'DDD -> user {user_id} is new {user_is_new}')
+
     return user_is_new
 
 
@@ -2660,10 +2662,13 @@ def main(request):
                 if user_is_new:
                     # FIXME – 02.12.2023 – hiding menu button for the newcomers
                     #  (in the future it should be done in manage_user script)
+                    notify_admin(f'DDD -> {user_id}, we are in: 0')
                     method = 'setMyCommands'
                     params = {'commands': [], 'scope': {'type': 'chat', 'chat_id': user_id}}
                     response = make_api_call(method=method, bot_api_token=bot_token, params=params)
+                    notify_admin(f'DDD -> {user_id}, we are in: 1, {response=}')
                     result = process_response_of_api_call(user_id, response)
+                    notify_admin(f'DDD -> {user_id}, we are in: 2, {result=}')
                     # FIXME ^^^
 
                     bot_message = 'Привет! Это Бот Поисковика ЛизаАлерт. Он помогает Поисковикам ' \
