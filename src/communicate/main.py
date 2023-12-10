@@ -1743,7 +1743,10 @@ def process_response_of_api_call(user_id, response):
 def make_api_call(method: str, bot_api_token: str, params: dict) -> Union[requests.Response, None]:
     """make an API call to telegram"""
 
-    if not params or not bot_api_token or not method or 'chat_id' not in params.keys():
+    if not params or not bot_api_token or not method:
+        return None
+
+    if 'chat_id' not in params.keys() and ('scope' not in params.keys() or 'chat_id' not in params['scope'].keys()):
         return None
 
     url = f'https://api.telegram.org/bot{bot_api_token}/{method}'  # e.g. sendMessage
