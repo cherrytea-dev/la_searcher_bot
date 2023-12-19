@@ -606,8 +606,6 @@ def check_if_new_user(cur, user_id):
     else:
         user_is_new = False
 
-    notify_admin(f'DDD -> user {user_id} is new {user_is_new}')
-
     return user_is_new
 
 
