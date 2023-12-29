@@ -813,6 +813,7 @@ def parse_coordinates(db, search_num):
     # DEBUG - function execution time counter
     func_finish = datetime.now()
     func_execution_time_ms = func_finish - func_start
+    logging.info(f'the coordinates for {search_num=} are defined as {lat}, {lon}, {coord_type}')
     logging.info(f'DBG.P.5.parse_coordinates() exec time: {func_execution_time_ms}')
 
     return [lat, lon, coord_type]
@@ -820,6 +821,8 @@ def parse_coordinates(db, search_num):
 
 def update_coordinates(db, parsed_summary, list_of_search_objects):
     """Record search coordinates to PSQL"""
+
+    # TODO –what needs to be done: old-fashioned parsed_summary to be substituted by new "list_of_search_objects"
 
     for i in range(len(parsed_summary)):
 
@@ -837,10 +840,22 @@ def update_coordinates(db, parsed_summary, list_of_search_objects):
                 if_is_in_db = conn.execute(stmt, a=parsed_summary[i][1]).fetchone()
                 if if_is_in_db is None:
                     stmt = sqlalchemy.text(
-                        """INSERT INTO search_coordinates (search_id, latitude, longitude, coord_type) VALUES (:a, 
-                        :b, :c, :d); """
+                        """INSERT INTO search_coordinates (search_id, latitude, longitude, coord_type, upd_time) 
+                        VALUES (:a, :b, :c, :d, CURRENT_TIMESTAMP); """
                     )
                     conn.execute(stmt, a=parsed_summary[i][1], b=coords[0], c=coords[1], d=coords[2])
+                else:
+                    # when coords are in search_coordinates table
+                    old_lat, old_lon, old_type = if_is_in_db
+                    if not (old_type[0] != "4" and coords[2][0] == '4') or \
+                            (old_type[0] == "4" and coords[2][0] == '4'
+                             and (old_lat != coords[0] or old_lon != coords[1])):
+                        stmt = sqlalchemy.text(
+                            """UPDATE search_coordinates SET latitude=:a, longitude=:b, coord_type=:c, 
+                            upd_time=CURRENT_TIMESTAMP WHERE search_id=:d; """
+                        )
+                        conn.execute(stmt, a=coords[0], b=coords[1], c=coords[2], d=parsed_summary[i][1])
+
             conn.close()
 
     return None
