@@ -2936,9 +2936,16 @@ def main(request):
                 bot_message = 'Вы в секретном тестовом разделе, где всё может работать не так :) ' \
                               'Если что – пишите, пожалуйста, в телеграм-чат ' \
                               'https://t.me/joinchat/2J-kV0GaCgwxY2Ni'
-                keyboard_coordinates_admin = [[b_set_topic_type], [b_back_to_start]]
+                # keyboard_coordinates_admin = [[b_set_topic_type], [b_back_to_start]]
                 # [b_set_pref_urgency], [b_set_forum_nick]
-                reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+
+                map_button = {"text": "Показать карту поисков",
+                              "web_app": {
+                                  "url": "https://web_app.storage.googleapis.com/index_v3__28.html"
+                              }}
+                keyboard = [[map_button]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                # reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
             # FIXME ^^^
 
             elif got_message == b.set.topic_type.text or b.topic_types.contains(got_message) or b.topic_types.contains(
