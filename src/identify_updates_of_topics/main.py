@@ -835,7 +835,7 @@ def update_coordinates(db, parsed_summary, list_of_search_objects):
         if coords[0] != 0 and coords[1] != 0:
             with db.connect() as conn:
                 stmt = sqlalchemy.text(
-                    "SELECT search_id FROM search_coordinates WHERE search_id=:a LIMIT 1;"
+                    "SELECT latitude, longitude, coord_type FROM search_coordinates WHERE search_id=:a LIMIT 1;"
                 )
                 if_is_in_db = conn.execute(stmt, a=parsed_summary[i][1]).fetchone()
                 if if_is_in_db is None:
