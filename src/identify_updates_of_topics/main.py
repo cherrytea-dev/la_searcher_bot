@@ -847,7 +847,7 @@ def update_coordinates(db, parsed_summary, list_of_search_objects):
                 else:
                     # when coords are in search_coordinates table
                     old_lat, old_lon, old_type = if_is_in_db
-                    if not (old_type[0] != "4" and coords[2][0] == '4') or \
+                    if not old_type or not (old_type[0] != "4" and coords[2][0] == '4') or \
                             (old_type[0] == "4" and coords[2][0] == '4'
                              and (old_lat != coords[0] or old_lon != coords[1])):
                         stmt = sqlalchemy.text(
