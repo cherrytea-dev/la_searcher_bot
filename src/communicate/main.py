@@ -2941,7 +2941,7 @@ def main(request):
 
                 map_button = {"text": "Показать карту поисков",
                               "web_app": {
-                                  "url": "https://web_app.storage.googleapis.com/index_v3__28.html"
+                                  "url": get_secrets("web_app_url")
                               }}
                 keyboard = [[map_button]]
                 reply_markup = InlineKeyboardMarkup(keyboard)
