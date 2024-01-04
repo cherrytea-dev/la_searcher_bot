@@ -604,7 +604,8 @@ def main(event, context): # noqa
             # mark_up_onboarding_status_80_just_got_summaries(cur)
             # mark_up_onboarding_status_80_have_all_settings(cur)
             # mark_up_onboarding_status_80_self_deactivated(cur)
-            mark_up_onboarding_status_99(cur)
+            # mark_up_onboarding_status_99(cur)
+            pass
 
     except Exception as e:
         logging.error('User activation script failed')
