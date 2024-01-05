@@ -295,7 +295,7 @@ def get_user_data_from_db(user_id: int) -> dict:
             print(f'{update_freshness_days=}')
             print(f'{min(creation_freshness_days, update_freshness_days)=}')
             search_is_old = False
-            if min(creation_freshness_days, update_freshness_days) > 60:
+            if creation_freshness_days > 60 and update_freshness_days > 7:
                 search_is_old = True
 
             # define "exact_coords" – an variable showing if coordinates are explicityply provided ("exact") or geocoded (not "exact")
