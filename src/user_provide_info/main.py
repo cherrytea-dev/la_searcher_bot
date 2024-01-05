@@ -240,25 +240,43 @@ def get_user_data_from_db(user_id: int) -> dict:
         user_regions AS (
             select forum_folder_num from user_regional_preferences where user_id=%s),
         user_regions_filtered AS (
-            SELECT ur.* FROM user_regions AS ur LEFT JOIN folders AS f ON ur.forum_folder_num=f.folder_id WHERE f.folder_type='searches'), 
+            SELECT ur.* 
+            FROM user_regions AS ur 
+            LEFT JOIN folders AS f 
+            ON ur.forum_folder_num=f.folder_id 
+            WHERE f.folder_type='searches'), 
         s2 AS (SELECT search_forum_num, search_start_time, display_name, status, family_name,
             topic_type, topic_type_id, city_locations, age_min, age_max
             FROM searches
-            WHERE forum_folder_id IN (SELECT forum_folder_num FROM user_regions_filtered) AND status != 'НЖ' AND status != 'НП' AND status != 'Завершен' AND status != 'Найден' AND topic_type_id != 1
+            WHERE forum_folder_id IN (SELECT forum_folder_num FROM user_regions_filtered) 
+            AND status != 'НЖ' 
+            AND status != 'НП' 
+            AND status != 'Завершен' 
+            AND status != 'Найден' 
+            AND topic_type_id != 1
             ORDER BY search_start_time DESC
-            LIMIT 100),
+            LIMIT 30),
         s3 AS (SELECT s2.* 
             FROM s2 
             LEFT JOIN search_health_check shc
             ON s2.search_forum_num=shc.search_forum_num
-            WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+            WHERE (shc.status is NULL OR shc.status='ok' OR shc.status='regular') 
             ORDER BY s2.search_start_time DESC),
         s4 AS (SELECT s3.*, sfp.content 
             FROM s3 
             LEFT JOIN search_first_posts AS sfp 
             ON s3.search_forum_num=sfp.search_id
-            WHERE sfp.actual = True)
-        SELECT s4.*, sc.latitude, sc.longitude, sc.coord_type FROM s4 LEFT JOIN search_coordinates AS sc ON s4.search_forum_num=sc.search_id; """,
+            WHERE sfp.actual = True),
+        s5 AS (SELECT s4.*, sc.latitude, sc.longitude, sc.coord_type 
+            FROM s4 
+            LEFT JOIN search_coordinates AS sc 
+            ON s4.search_forum_num=sc.search_id)
+            
+        SELECT distinct s5.*, max(parsed_time) OVER (PARTITION BY cl.search_forum_num) AS last_change_time 
+            FROM s5 
+            LEFT JOIN change_log AS cl 
+            ON s5.search_forum_num=cl.search_forum_num 
+            ;""",
                 (user_id,))
     raw_data = cur.fetchall()
     if not raw_data:
@@ -266,10 +284,15 @@ def get_user_data_from_db(user_id: int) -> dict:
     else:
         user_searches = []
         for line in raw_data:
-            search_id, search_start_time, display_name, status, family_name, topic_type, topic_type_id, city_locations, age_min, age_max, first_post, lat, lon, coord_type = line
+            search_id, search_start_time, display_name, status, family_name, topic_type, topic_type_id, \
+                city_locations, age_min, age_max, first_post, lat, lon, coord_type, last_change_time = line
 
             # define "freshness" of the search
-            freshness, _ = time_counter_since_search_start(search_start_time)
+            creation_freshness, creation_freshness_days = time_counter_since_search_start(search_start_time)
+            update_freshness, update_freshness_days = time_counter_since_search_start(last_change_time)
+            search_is_old = False
+            if min(creation_freshness_days, update_freshness_days) > 60:
+                search_is_old = True
 
             # define "exact_coords" – an variable showing if coordinates are explicityply provided ("exact") or geocoded (not "exact")
             if not coord_type:
@@ -308,10 +331,11 @@ def get_user_data_from_db(user_id: int) -> dict:
                 "exact_coords": exact_coords,
                 "content": content,
                 "display_name": display_name,
-                "freshness": freshness,
+                "freshness": creation_freshness,
                 "link": link,
                 "search_status": status,
-                "search_type": search_type
+                "search_type": search_type,
+                "search_is_old": search_is_old
             }
 
             if coords[0]:
