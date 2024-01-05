@@ -290,6 +290,10 @@ def get_user_data_from_db(user_id: int) -> dict:
             # define "freshness" of the search
             creation_freshness, creation_freshness_days = time_counter_since_search_start(search_start_time)
             update_freshness, update_freshness_days = time_counter_since_search_start(last_change_time)
+            print(f'{search_id=}')
+            print(f'{creation_freshness_days=}')
+            print(f'{update_freshness_days=}')
+            print(f'{min(creation_freshness_days, update_freshness_days)=}')
             search_is_old = False
             if min(creation_freshness_days, update_freshness_days) > 60:
                 search_is_old = True
