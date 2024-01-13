@@ -391,15 +391,25 @@ def clean_up_content(init_content):
 
     def remove_irrelevant_content(content):
 
-        for line in content:
-            re.sub(r'(Карты|Ориентировка на печать|Ориентировка на репост|[+] Для СМИ)', '', line)
-            re.sub(r'\n\n', '\n', line)
+        # language=regexp
+        patterns = r'(Карты.*\n|' \
+                   r'Ориентировка на печать.*\n|' \
+                   r'Ориентировка на репост.*\n|' \
+                   r'\[\+] Для СМИ.*\n|' \
+                   r'ВНИМАНИЕ! Всем выезжающим иметь СИЗ.*\n|' \
+                   r'С признаками ОРВИ оставайтесь дома.*\n|' \
+                   r'Берегите себя и своих близких!.*\n|' \
+                   r'Если же представитель СМИ хочет.*\n|' \
+                   r'8\(800\)700-54-52 или.*\n|' \
+                   r'Написать инфоргу.*в Telegram(\n|(\s*)?$))'
+        content = re.sub(patterns, '', content)
+        content = re.sub(r'\n\n', r'\n', content)
+        content = re.sub(r'\n\n', r'\n', content)
 
         return content
 
     def make_html(content):
-
-        re.sub(r'\n', '<br>', content)
+        content = re.sub(r'\n', '<br>', content)
 
         return content
 
