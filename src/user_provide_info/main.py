@@ -391,7 +391,7 @@ def clean_up_content(init_content):
 
     def remove_irrelevant_content(content):
 
-        for line in reco_content:
+        for line in content:
             re.sub(r'(Карты|Ориентировка на печать|Ориентировка на репост|[+] Для СМИ)', '', line)
             re.sub(r'\n\n', '\n', line)
 
@@ -399,7 +399,7 @@ def clean_up_content(init_content):
 
     def make_html(content):
 
-        re.sub(r'\n', '<br>', reco_content)
+        re.sub(r'\n', '<br>', content)
 
         return content
 
