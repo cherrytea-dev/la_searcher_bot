@@ -389,6 +389,20 @@ def clean_up_content(init_content):
 
         return content
 
+    def remove_irrelevant_content(content):
+
+        for line in reco_content:
+            re.sub(r'(Карты|Ориентировка на печать|Ориентировка на репост|[+] Для СМИ)', '', line)
+            re.sub(r'\n\n', '\n', line)
+
+        return content
+
+    def make_html(content):
+
+        re.sub(r'\n', '<br>', reco_content)
+
+        return content
+
     if not init_content or re.search(r'Для просмотра этого форума вы должны быть авторизованы', init_content):
         return None
 
@@ -396,6 +410,9 @@ def clean_up_content(init_content):
     reco_content = prettify_soup(reco_content)
     reco_content = remove_links(reco_content)
     reco_content = reco_content.text
+    reco_content = remove_irrelevant_content(reco_content)
+    reco_content = make_html(reco_content)
+    print(f'{reco_content=}')
 
     return reco_content
 
