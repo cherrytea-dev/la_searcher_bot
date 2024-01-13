@@ -392,7 +392,7 @@ def clean_up_content(init_content):
     def remove_irrelevant_content(content):
 
         # language=regexp
-        patterns = r'(Карты.*\n|' \
+        patterns = r'(?i)(Карты.*\n|' \
                    r'Ориентировка на печать.*\n|' \
                    r'Ориентировка на репост.*\n|' \
                    r'\[\+] Для СМИ.*\n|' \
@@ -401,8 +401,14 @@ def clean_up_content(init_content):
                    r'Берегите себя и своих близких!.*\n|' \
                    r'Если же представитель СМИ хочет.*\n|' \
                    r'8\(800\)700-54-52 или.*\n|' \
-                   r'Написать инфоргу.*в Telegram(\n|(\s*)?$))'
+                   r'Предоставлять комментарии по поиску.*\n|' \
+                   r'Запрос на согласование фото.*(\n|(\s*)?$)|' \
+                   r'Все фото- и видеосъемки.*(\n|(\s*)?$)|' \
+                   r'Написать инфоргу.*в (Telegram|Телеграм)(\n|(\s*)?$)|' \
+                   r'Горячая линия отряда:.*(\n|(\s*)?$))'
+
         content = re.sub(patterns, '', content)
+        content = re.sub(r'[\n_-]*$', '', content)
         content = re.sub(r'\n\n', r'\n', content)
         content = re.sub(r'\n\n', r'\n', content)
 
