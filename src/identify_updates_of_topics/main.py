@@ -824,26 +824,29 @@ def update_coordinates(db, parsed_summary, list_of_search_objects):
 
     # TODO –what needs to be done: old-fashioned parsed_summary to be substituted by new "list_of_search_objects"
 
-    for i in range(len(parsed_summary)):
+    for search in parsed_summary:
 
-        if parsed_summary[i][2] != 'Ищем':
+        search_id = search[1]
+        search_status = search[2]
+
+        if search_status not in {'Ищем', 'СТОП'}:
             continue
 
-        logging.info(f'search coordinates should be saved {parsed_summary[i][1]}')
-        coords = parse_coordinates(db, parsed_summary[i][1])
+        logging.info(f'search coordinates should be saved {search_id}')
+        coords = parse_coordinates(db, search_id)
 
         if coords[0] != 0 and coords[1] != 0:
             with db.connect() as conn:
                 stmt = sqlalchemy.text(
                     "SELECT latitude, longitude, coord_type FROM search_coordinates WHERE search_id=:a LIMIT 1;"
                 )
-                if_is_in_db = conn.execute(stmt, a=parsed_summary[i][1]).fetchone()
+                if_is_in_db = conn.execute(stmt, a=search_id).fetchone()
                 if if_is_in_db is None:
                     stmt = sqlalchemy.text(
                         """INSERT INTO search_coordinates (search_id, latitude, longitude, coord_type, upd_time) 
                         VALUES (:a, :b, :c, :d, CURRENT_TIMESTAMP); """
                     )
-                    conn.execute(stmt, a=parsed_summary[i][1], b=coords[0], c=coords[1], d=coords[2])
+                    conn.execute(stmt, a=search_id, b=coords[0], c=coords[1], d=coords[2])
                 else:
                     # when coords are in search_coordinates table
                     old_lat, old_lon, old_type = if_is_in_db
@@ -854,7 +857,7 @@ def update_coordinates(db, parsed_summary, list_of_search_objects):
                             """UPDATE search_coordinates SET latitude=:a, longitude=:b, coord_type=:c, 
                             upd_time=CURRENT_TIMESTAMP WHERE search_id=:d; """
                         )
-                        conn.execute(stmt, a=coords[0], b=coords[1], c=coords[2], d=parsed_summary[i][1])
+                        conn.execute(stmt, a=coords[0], b=coords[1], c=coords[2], d=search_id)
 
             conn.close()
 
