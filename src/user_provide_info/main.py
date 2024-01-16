@@ -295,7 +295,7 @@ def get_user_data_from_db(user_id: int) -> dict:
             print(f'{update_freshness_days=}')
             print(f'{min(creation_freshness_days, update_freshness_days)=}')
             search_is_old = False
-            if creation_freshness_days > 60 and update_freshness_days > 7:
+            if creation_freshness_days > 3 and update_freshness_days > 3:
                 search_is_old = True
 
             # define "exact_coords" – an variable showing if coordinates are explicityply provided ("exact") or geocoded (not "exact")
@@ -396,6 +396,7 @@ def clean_up_content(init_content):
                    r'Ориентировка на печать.*\n|' \
                    r'Ориентировка на репост.*\n|' \
                    r'\[\+] Для СМИ.*\n|' \
+                   r'Задача на поиске с которой может помочь каждый.*\n|' \
                    r'ВНИМАНИЕ! Всем выезжающим иметь СИЗ.*\n|' \
                    r'С признаками ОРВИ оставайтесь дома.*\n|' \
                    r'Берегите себя и своих близких!.*\n|' \
@@ -403,12 +404,12 @@ def clean_up_content(init_content):
                    r'8\(800\)700-54-52 или.*\n|' \
                    r'Предоставлять комментарии по поиску.*\n|' \
                    r'Запрос на согласование фото.*(\n|(\s*)?$)|' \
-                   r'Все фото- и видеосъемки.*(\n|(\s*)?$)|' \
-                   r'Написать инфоргу.*в (Telegram|Телеграм)(\n|(\s*)?$)|' \
+                   r'Все фото.*(\n|(\s*)?$)|' \
+                   r'Написать инфоргу.*в (Telegram|Телеграмм?)(\n|(\s*)?$)|' \
                    r'Горячая линия отряда:.*(\n|(\s*)?$))'
 
         content = re.sub(patterns, '', content)
-        content = re.sub(r'[\n_-]*$', '', content)
+        content = re.sub(r'[\s_-]*$', '', content)
         content = re.sub(r'\n\n', r'\n', content)
         content = re.sub(r'\n\n', r'\n', content)
 
