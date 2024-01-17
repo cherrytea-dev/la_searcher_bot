@@ -1387,30 +1387,24 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
 
         users_list_outcome = users_list_incoming
 
-        # FIXME -------- INFORG 2x -------------
         # 1. INFORG 2X notifications. crop the list of users, excluding Users who receives all types of notifications
         # (otherwise it will be doubling for them)
-        try:
-            temp_user_list = []
-            if record.change_type != 4:
-                for user_line in users_list_outcome:
-                    # if this record is about inforg_comments and user already subscribed to all comments
-                    if not user_line.all_notifs:
-                        temp_user_list.append(user_line)
-                        logging.info(f'Inforg 2x CHECK for {user_line.user_id} is OK, record {record.change_type}, '
-                                     f'user {user_line.user_id} {user_line.all_notifs}. '
-                                     f'record {record.forum_search_num}')
-                    else:
-                        logging.info(f'Inforg 2x CHECK for {user_line.user_id} is FAILED, record {record.change_type}, '
-                                     f'user {user_line.user_id} {user_line.all_notifs}. '
-                                     f'record {record.forum_search_num}')
+        temp_user_list = []
+        if record.change_type != 4:
+            for user_line in users_list_outcome:
+                # if this record is about inforg_comments and user already subscribed to all comments
+                if not user_line.all_notifs:
+                    temp_user_list.append(user_line)
+                    logging.info(f'Inforg 2x CHECK for {user_line.user_id} is OK, record {record.change_type}, '
+                                 f'user {user_line.user_id} {user_line.all_notifs}. '
+                                 f'record {record.forum_search_num}')
+                else:
+                    logging.info(f'Inforg 2x CHECK for {user_line.user_id} is FAILED, record {record.change_type}, '
+                                 f'user {user_line.user_id} {user_line.all_notifs}. '
+                                 f'record {record.forum_search_num}')
 
-            logging.info(f'User List crop due to Inforg 2x [DEMO]: {len(users_list_outcome)} --> {len(temp_user_list)}')
-            # users_list_outcome = temp_user_list
-
-        except Exception as e:
-            logging.info(f'TEMP - exception CROP Inforg 2X: {repr(e)}')
-        # FIXME ^^^ ----------------------
+        logging.info(f'User List crop due to Inforg 2x: {len(users_list_outcome)} --> {len(temp_user_list)}')
+        users_list_outcome = temp_user_list
 
         # 2. AGES. crop the list of users, excluding Users who does not want to receive notifications for such Ages
         temp_user_list = []
