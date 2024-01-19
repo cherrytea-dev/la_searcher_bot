@@ -1391,6 +1391,8 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
         # (otherwise it will be doubling for them)
         temp_user_list = []
         if record.change_type != 4:
+            logging.info(f'User List crop due to Inforg 2x: {len(users_list_outcome)} --> {len(users_list_outcome)}')
+        else:
             for user_line in users_list_outcome:
                 # if this record is about inforg_comments and user already subscribed to all comments
                 if not user_line.all_notifs:
@@ -1402,9 +1404,8 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                     logging.info(f'Inforg 2x CHECK for {user_line.user_id} is FAILED, record {record.change_type}, '
                                  f'user {user_line.user_id} {user_line.all_notifs}. '
                                  f'record {record.forum_search_num}')
-
-        logging.info(f'User List crop due to Inforg 2x: {len(users_list_outcome)} --> {len(temp_user_list)}')
-        users_list_outcome = temp_user_list
+            logging.info(f'User List crop due to Inforg 2x: {len(users_list_outcome)} --> {len(temp_user_list)}')
+            users_list_outcome = temp_user_list
 
         # 2. AGES. crop the list of users, excluding Users who does not want to receive notifications for such Ages
         temp_user_list = []
