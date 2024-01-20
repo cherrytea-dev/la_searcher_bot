@@ -2295,7 +2295,7 @@ def main(request):
     b_settings = 'настроить бот'
     b_other = 'другие возможности'
     b_map = 'карта поисков'
-    keyboard_main = [[b_view_act_searches], [b_settings], [b_other]]
+    keyboard_main = [[b_view_act_searches], [b_map], [b_settings], [b_other]]
     reply_markup_main = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
 
     # Settings menu
@@ -2954,10 +2954,11 @@ def main(request):
                               'На карте вы сможете увидеть все активные поиски, ' \
                               'построить к каждому из них маршрут с учетом пробок, ' \
                               'а также открыть этот маршрут в сервисах Яндекс.\n\n' \
-                              'Карта находится в тестовом режиме.\n' \
+                              'Карта работает в тестовом режиме.\n' \
                               'Если карта будет работать некорректно, или вы видите, как ее необходимо ' \
-                              'доработать – напишите нам в чат разработчиков' \
-                              'https://t.me/joinchat/2J-kV0GaCgwxY2Ni'
+                              'доработать – напишите в ' \
+                              '<a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">чат разработчиков</a>.' \
+                              ''
 
                 map_button = {"text": "Открыть карту поисков",
                               "web_app": {
