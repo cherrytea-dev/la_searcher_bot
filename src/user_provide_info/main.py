@@ -352,6 +352,28 @@ def get_user_data_from_db(user_id: int) -> dict:
     return user_params
 
 
+def save_user_statistics_to_db(user_id: int, response: bool) -> None:
+    """save user's interaction into DB"""
+
+    json_to_save = {"ok": response}
+
+    conn_psy = sql_connect_by_psycopg2()
+    cur = conn_psy.cursor()
+
+    try:
+        cur.execute("""INSERT INTO stat_map_usage 
+                        (user_id, timestamp, response) 
+                        VALUES (%s, CURRENT_TIMESTAMP, %s);""",
+                    (user_id, json_to_save))
+    except Exception as e:
+        print(repr(e))
+
+
+    cur.close()
+    conn_psy.close()
+
+    return None
+
 def clean_up_content(init_content):
     def cook_soup(content):
 
@@ -395,7 +417,8 @@ def clean_up_content(init_content):
         patterns = r'(?i)(Карты.*\n|' \
                    r'Ориентировка на печать.*\n|' \
                    r'Ориентировка на репост.*\n|' \
-                   r'\[\+] Для СМИ.*\n|' \
+                   r'\[\+] СМИ.*\n|' \
+                   r'СМИ\s.*\n|' \
                    r'Задача на поиске с которой может помочь каждый.*\n|' \
                    r'ВНИМАНИЕ! Всем выезжающим иметь СИЗ.*\n|' \
                    r'С признаками ОРВИ оставайтесь дома.*\n|' \
@@ -403,6 +426,7 @@ def clean_up_content(init_content):
                    r'Если же представитель СМИ хочет.*\n|' \
                    r'8\(800\)700-54-52 или.*\n|' \
                    r'Предоставлять комментарии по поиску.*\n|' \
+                   r'Таблица прозвона больниц.*\n|' \
                    r'Запрос на согласование фото.*(\n|(\s*)?$)|' \
                    r'Все фото.*(\n|(\s*)?$)|' \
                    r'Написать инфоргу.*в (Telegram|Телеграмм?)(\n|(\s*)?$)|' \
@@ -504,6 +528,8 @@ def main(request):
     if reason:
         print(reason)
         response['reason'] = reason
+        # MEMO - below we use "0" only to track number of unsuccessful api calls
+        save_user_statistics_to_db(0, False)
         return (response, 200, headers)
 
     if not isinstance(request_json, str):
@@ -518,5 +544,7 @@ def main(request):
     response = {'ok': True, 'user_id': user_id, 'params': params}
 
     print(f'the RESULT {response}')
+
+    save_user_statistics_to_db(user_id, True)
 
     return (json.dumps(response), 200, headers)
