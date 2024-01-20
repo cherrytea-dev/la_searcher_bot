@@ -355,7 +355,7 @@ def get_user_data_from_db(user_id: int) -> dict:
 def save_user_statistics_to_db(user_id: int, response: bool) -> None:
     """save user's interaction into DB"""
 
-    json_to_save = {"ok": response}
+    json_to_save = json.dumps({"ok": response})
 
     conn_psy = sql_connect_by_psycopg2()
     cur = conn_psy.cursor()
