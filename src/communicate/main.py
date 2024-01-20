@@ -2266,6 +2266,7 @@ def main(request):
     c_view_latest_searches = '/view_latest_searches'
     c_settings = '/settings'
     c_other = '/other'
+    c_map = '/map'
 
     b_role_iam_la = 'я состою в ЛизаАлерт'
     b_role_want_to_be_la = 'я хочу помогать ЛизаАлерт'
@@ -2293,6 +2294,7 @@ def main(request):
     b_view_act_searches = 'посмотреть актуальные поиски'
     b_settings = 'настроить бот'
     b_other = 'другие возможности'
+    b_map = 'карта поисков'
     keyboard_main = [[b_view_act_searches], [b_settings], [b_other]]
     reply_markup_main = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
 
@@ -2939,14 +2941,30 @@ def main(request):
                 # keyboard_coordinates_admin = [[b_set_topic_type], [b_back_to_start]]
                 # [b_set_pref_urgency], [b_set_forum_nick]
 
-                map_button = {"text": "Показать карту поисков",
+                map_button = {"text": "Открыть карту поисков",
+                              "web_app": {
+                                  "url": get_secrets("web_app_url_test")
+                              }}
+                keyboard = [[map_button]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+            # FIXME ^^^
+
+            elif got_message in {b_map, c_map}:
+                bot_message = 'В Боте Поисковика теперь можно посмотреть 🗺️Карту Поисков📍.\n\n' \
+                              'На карте вы сможете увидеть все активные поиски, ' \
+                              'построить к каждому из них маршрут с учетом пробок, ' \
+                              'а также открыть этот маршрут в сервисах Яндекс.\n\n' \
+                              'Карта находится в тестовом режиме.\n' \
+                              'Если карта будет работать некорректно, или вы видите, как ее необходимо ' \
+                              'доработать – напишите нам в чат разработчиков' \
+                              'https://t.me/joinchat/2J-kV0GaCgwxY2Ni'
+
+                map_button = {"text": "Открыть карту поисков",
                               "web_app": {
                                   "url": get_secrets("web_app_url")
                               }}
                 keyboard = [[map_button]]
                 reply_markup = InlineKeyboardMarkup(keyboard)
-                # reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
-            # FIXME ^^^
 
             elif got_message == b.set.topic_type.text or b.topic_types.contains(got_message) or b.topic_types.contains(
                     got_hash):  # noqa
