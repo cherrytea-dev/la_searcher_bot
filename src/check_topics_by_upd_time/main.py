@@ -33,25 +33,26 @@ def check_updates_in_folder_with_folders(requests_session, start_folder_num):
     else:
         url = 'https://lizaalert.org/forum/viewforum.php?f=' + str(start_folder_num)
 
+    logging.info(f'url {url}')
     try:
         r = requests_session.get(url, timeout=20)  # timeout is required to mitigate daily night forum update
         # FIXME - debug only – 21.01.24
-        print(f'DEBUG 001')
+        logging.info(f'DEBUG 001')
         logging.info(f'{r=}')
-        print(f'DEBUG 002')
+        logging.info(f'DEBUG 002')
         logging.info(f'{r.content=}')
-        print(f'DEBUG 003')
-        logging.info(f'{r.content.decode("utf-8")=}')
-        print(f'DEBUG 004')
+        logging.info(f'DEBUG 003')
+        # logging.info(f'{r.content.decode("utf-8")=}')
+        logging.info(f'DEBUG 004')
         # FIXME ^^^
 
         only_tag = SoupStrainer('div', {'class': 'forabg'})
         soup = BeautifulSoup(r.content, features='lxml', parse_only=only_tag)
-        print(f'DEBUG 005')
+        logging.info(f'DEBUG 005')
         del r  # trying to free up memory
         search_code_blocks = soup.find_all('div', {'class': 'forabg'})
         del soup  # trying to free up memory
-        print(f'DEBUG 006')
+        logging.info(f'DEBUG 006')
 
         # if we parse the main page - we're interested in the first 3 blocks only
         if not start_folder_num:
@@ -67,7 +68,7 @@ def check_updates_in_folder_with_folders(requests_session, start_folder_num):
                 search_code_blocks = search_code_blocks[0:3]
                 # final list is: 1st, 2nd and pre-last blocks
                 search_code_blocks.append(temp_block)
-                print(f'DEBUG 007')
+                logging.info(f'DEBUG 007')
 
 
     except Exception as e:
@@ -78,22 +79,22 @@ def check_updates_in_folder_with_folders(requests_session, start_folder_num):
 
     #    if e.__class__.__name__ == Exception:
     #        logging.exception(e)
-        print(f'DEBUG 007-ex')
+        logging.info(f'DEBUG 007-ex')
 
         logging.info(f'[che_topics]: site unavailable:')
         logging.exception(e)
         logging.info(e)
 
-    print(f'DEBUG 008')
+    logging.info(f'DEBUG 008')
     if search_code_blocks:
-        print(f'DEBUG 009')
+        logging.info(f'DEBUG 009')
         for block in search_code_blocks:
-            print(f'DEBUG 010')
+            logging.info(f'DEBUG 010')
 
             folders = block.find_all('li', {'class': 'row'})
-            print(f'DEBUG 011')
+            logging.info(f'DEBUG 011')
             for folder in folders:
-                print(f'DEBUG 012')
+                logging.info(f'DEBUG 012')
 
                 # found no cases where there can be more than 1 topic name or date, so find i/o find_all is used
                 folder_num_str = folder.find('a', {'class': 'forumtitle'})['href']
@@ -178,12 +179,13 @@ def notify_admin(message):
 def main(event, context): # noqa
     """main function that starts first"""
 
+    logging.info('START')
     now = datetime.datetime.now()
     folder_num_to_check = None
     requests_session = requests.Session()
 
     list_of_folders_and_times, last_update_time = check_updates_in_folder_with_folders(requests_session, folder_num_to_check)
-    print('DEBUG 000')
+    logging.info('DEBUG 000')
     time_diff_in_min = time_delta(now, last_update_time)
 
     if last_update_time != datetime.datetime(1, 1, 1, 0, 0):
