@@ -2294,8 +2294,8 @@ def main(request):
     b_view_act_searches = 'посмотреть актуальные поиски'
     b_settings = 'настроить бот'
     b_other = 'другие возможности'
-    b_map = 'карта поисков'
-    keyboard_main = [[b_view_act_searches], [b_map], [b_settings], [b_other]]
+    b_map = '🔥Карта Поисков 🔥'
+    keyboard_main = [[b_map], [b_view_act_searches], [b_settings], [b_other]]
     reply_markup_main = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
 
     # Settings menu
