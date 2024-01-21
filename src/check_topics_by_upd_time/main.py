@@ -21,7 +21,7 @@ log_client = google.cloud.logging.Client()
 log_client.setup_logging()
 
 
-def check_updates_in_folder_with_folders(start_folder_num):
+def check_updates_in_folder_with_folders(requests_session, start_folder_num):
     """Check if there are changes in folder that contain other folders"""
 
     last_folder_update = datetime.datetime(1, 1, 1, 0, 0)
@@ -34,7 +34,12 @@ def check_updates_in_folder_with_folders(start_folder_num):
         url = 'https://lizaalert.org/forum/viewforum.php?f=' + str(start_folder_num)
 
     try:
-        r = requests.Session().get(url, timeout=20)  # timeout is required to mitigate daily night forum update
+        r = requests_session.get(url, timeout=20)  # timeout is required to mitigate daily night forum update
+        # FIXME - debug only – 21.01.24
+        logging.info(f'{r=}')
+        logging.info(f'{r.content=}')
+        logging.info(f'{r.content.decode("utf-8")=}')
+        # FIXME ^^^
 
         only_tag = SoupStrainer('div', {'class': 'forabg'})
         soup = BeautifulSoup(r.content, features='lxml', parse_only=only_tag)
@@ -155,8 +160,9 @@ def main(event, context): # noqa
 
     now = datetime.datetime.now()
     folder_num_to_check = None
+    requests_session = requests.Session()
 
-    list_of_folders_and_times, last_update_time = check_updates_in_folder_with_folders(folder_num_to_check)
+    list_of_folders_and_times, last_update_time = check_updates_in_folder_with_folders(requests_session, folder_num_to_check)
 
     time_diff_in_min = time_delta(now, last_update_time)
 
@@ -178,5 +184,8 @@ def main(event, context): # noqa
             list_for_pubsub.append([line[0], line[1]])
 
         publish_to_pubsub('topic_update_identified', str(list_for_pubsub))
+
+    # Close the open session
+    requests_session.close()
 
     return None
