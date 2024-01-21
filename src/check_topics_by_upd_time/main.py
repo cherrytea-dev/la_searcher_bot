@@ -62,12 +62,18 @@ def check_updates_in_folder_with_folders(requests_session, start_folder_num):
                 # final list is: 1st, 2nd and pre-last blocks
                 search_code_blocks.append(temp_block)
 
-    except (requests.exceptions.ReadTimeout, requests.exceptions.Timeout, requests.exceptions.ProxyError,
-            ConnectionError, Exception) as e:
-        logging.info(f'[che_topics]: site unavailable: {e.__class__.__name__}')
-        notify_admin(f'[che_topics]: site unavailable: {e.__class__.__name__}')
-        if e.__class__.__name__ == Exception:
-            logging.exception(e)
+    except Exception as e:
+    #except (requests.exceptions.ReadTimeout, requests.exceptions.Timeout, requests.exceptions.ProxyError,
+    #        ConnectionError, Exception) as e:
+    #    logging.info(f'[che_topics]: site unavailable: {e.__class__.__name__}')
+    #    notify_admin(f'[che_topics]: site unavailable: {e.__class__.__name__}')
+
+    #    if e.__class__.__name__ == Exception:
+    #        logging.exception(e)
+
+        logging.info(f'[che_topics]: site unavailable:')
+        logging.exception(e)
+        logging.info(e)
 
     if search_code_blocks:
         for block in search_code_blocks:
