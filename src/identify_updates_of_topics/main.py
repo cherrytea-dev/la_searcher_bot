@@ -835,12 +835,13 @@ def update_coordinates(db, parsed_summary, list_of_search_objects):
         logging.info(f'search coordinates should be saved {search_id}')
         coords = parse_coordinates(db, search_id)
 
-        if coords[0] != 0 and coords[1] != 0:
-            with db.connect() as conn:
-                stmt = sqlalchemy.text(
-                    "SELECT latitude, longitude, coord_type FROM search_coordinates WHERE search_id=:a LIMIT 1;"
-                )
-                if_is_in_db = conn.execute(stmt, a=search_id).fetchone()
+        with db.connect() as conn:
+            stmt = sqlalchemy.text(
+                "SELECT latitude, longitude, coord_type FROM search_coordinates WHERE search_id=:a LIMIT 1;"
+            )
+            if_is_in_db = conn.execute(stmt, a=search_id).fetchone()
+
+            if coords[0] != 0 and coords[1] != 0:
                 if if_is_in_db is None:
                     stmt = sqlalchemy.text(
                         """INSERT INTO search_coordinates (search_id, latitude, longitude, coord_type, upd_time) 
@@ -850,14 +851,28 @@ def update_coordinates(db, parsed_summary, list_of_search_objects):
                 else:
                     # when coords are in search_coordinates table
                     old_lat, old_lon, old_type = if_is_in_db
-                    if not old_type or not (old_type[0] != "4" and coords[2][0] == '4') or \
-                            (old_type[0] == "4" and coords[2][0] == '4'
-                             and (old_lat != coords[0] or old_lon != coords[1])):
+                    do_update = False
+                    if not old_type:
+                        do_update = True
+                    elif not (old_type[0] != "4" and coords[2][0] == '4'):
+                        do_update = True
+                    elif (old_type[0] == "4" and coords[2][0] == '4' and (old_lat != coords[0] or old_lon != coords[1])):
+                        do_update = True
+
+                    if do_update:
                         stmt = sqlalchemy.text(
                             """UPDATE search_coordinates SET latitude=:a, longitude=:b, coord_type=:c, 
                             upd_time=CURRENT_TIMESTAMP WHERE search_id=:d; """
                         )
                         conn.execute(stmt, a=coords[0], b=coords[1], c=coords[2], d=search_id)
+
+            # case when coords are not defined, but there were saved coords type 1 or 2 – so we need to mark as deleted
+            elif if_is_in_db and if_is_in_db[2] and if_is_in_db[2][0] in {'1', '2'}:
+                stmt = sqlalchemy.text(
+                    """UPDATE search_coordinates SET coord_type=:a, upd_time=CURRENT_TIMESTAMP 
+                       WHERE search_id=:b; """
+                )
+                conn.execute(stmt, a=coords[2], b=search_id)
 
             conn.close()
 
