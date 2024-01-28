@@ -58,12 +58,12 @@ notification for every user.
 
 This repository covers only python scripts, which are sent to Google 
 Cloud Functions and GitHub Actions Workflow files.
-[Architecture of Google Cloud Functions](https://htmlpreview.github.io/?https://github.com/Mikkdrasil/la_searcher_bot/blob/main/doc/cloud_functions_architecture.html)
+[Architecture of Google Cloud Functions](https://htmlpreview.github.io/?https://github.com/cherrytea-dev/la_searcher_bot/blob/main/doc/cloud_functions_architecture.html)
 
 ## Contribution
 
 See a dedicated LA Searcher Bot 
-[contribution page](https://github.com/Mikkdrasil/la_searcher_bot/blob/main/CONTRIBUTING.md).
+[contribution page](https://github.com/cherrytea-dev/la_searcher_bot/blob/main/CONTRIBUTING.md).
 
 TL;DR: 
 * contributions to the current Python-based repo are welcome via pull requests
