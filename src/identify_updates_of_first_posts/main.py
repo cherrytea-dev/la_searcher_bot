@@ -177,7 +177,7 @@ def get_the_list_of_coords_out_of_text(initial_text):
                         nums = re.findall(r'0?[2-8]\d\.\d{1,10}', line_2)
                         for line_3 in list_of_all_coord_mentions:
                             if float(nums[0]) == line_3[0] and float(nums[1]) == line_3[1]:
-                                line_3[2] = '4. boxed coord'
+                                line_3[2] = '5. boxed coord'
 
         # remove duplicates
         if list_of_all_coord_mentions:
@@ -562,74 +562,6 @@ def save_new_record_into_change_log(conn, search_id, coords_change_list, changed
     change_log_id = raw_data[0]
 
     return change_log_id
-
-
-def get_the_search_status_out_of_text(initial_text):
-    """get the status of coordinates in the given text"""
-
-    list_of_all_coord_mentions = []
-    resulting_list = []
-
-    if initial_text:
-        # remove blank spaces and newlines in the initial text
-        initial_text = initial_text.replace('<br>', ' ')
-        initial_text = initial_text.replace('\n', ' ')
-
-        # get the list of all mentions of coords at all
-        # majority of coords in RU: lat in [40-80], long in [20-180], expected minimal format = XX.XXX
-        list_of_all_coords = re.findall(r'0?[3-8]\d\.\d{1,10}.{0,10}(?:0,1)?[2-8]\d\.\d{1,10}', initial_text)
-        if list_of_all_coords:
-            for line in list_of_all_coords:
-                nums = re.findall(r'0?[2-8]\d\.\d{1,10}', line)
-                list_of_all_coord_mentions.append([float(nums[0]), float(nums[1]), '2. coordinates w/o word coord'])
-
-        # get the list of all mentions with word 'Coordinates'
-        list_of_all_mentions_of_word_coord = re.findall(r'[Кк]оординат[^ор].{0,150}', initial_text)
-        if list_of_all_mentions_of_word_coord:
-            for line in list_of_all_mentions_of_word_coord:
-                list_of_coords = re.findall(r'0?[3-8]\d\.\d{1,10}.{0,10}(?:0,1)?[2-8]\d\.\d{1,10}', line)
-                if list_of_coords:
-                    for line_2 in list_of_coords:
-                        nums = re.findall(r'0?[2-8]\d\.\d{1,10}', line_2)
-                        for line_3 in list_of_all_coord_mentions:
-                            if float(nums[0]) == line_3[0] and float(nums[1]) == line_3[1]:
-                                line_3[2] = '1. coordinates w/ word coord'
-
-        # get the deleted coordinates
-        soup = BeautifulSoup(initial_text, features="html.parser")
-        deleted_text = soup.find_all('span', {'style': 'text-decoration:line-through'})
-        if deleted_text:
-            for line in deleted_text:
-                line = str(line)
-                list_of_coords = re.findall(r'0?[3-8]\d\.\d{1,10}.{0,10}(?:0,1)?[2-8]\d\.\d{1,10}', line)
-                if list_of_coords:
-                    for line_2 in list_of_coords:
-                        nums = re.findall(r'0?[2-8]\d\.\d{1,10}', line_2)
-                        for line_3 in list_of_all_coord_mentions:
-                            if float(nums[0]) == line_3[0] and float(nums[1]) == line_3[1]:
-                                line_3[2] = '3. deleted coord'
-
-        # TODO: can be simplified by removing duplication with deleted coords
-        # get the boxed coordinates (like in https://lizaalert.org/forum/viewtopic.php?f=276&t=54417 )
-        boxed_text = soup.find_all('dl', {'class': 'codebox'})
-        if boxed_text:
-            for line in boxed_text:
-                line = str(line)
-                list_of_coords = re.findall(r'0?[3-8]\d\.\d{1,10}.{0,10}(?:0,1)?[2-8]\d\.\d{1,10}', line)
-                if list_of_coords:
-                    for line_2 in list_of_coords:
-                        nums = re.findall(r'0?[2-8]\d\.\d{1,10}', line_2)
-                        for line_3 in list_of_all_coord_mentions:
-                            if float(nums[0]) == line_3[0] and float(nums[1]) == line_3[1]:
-                                line_3[2] = '4. boxed coord'
-
-        # remove duplicates
-        if list_of_all_coord_mentions:
-            for line in list_of_all_coord_mentions:
-                if line not in resulting_list:
-                    resulting_list.append(line)
-
-    return resulting_list
 
 
 def parse_search_folder(search_num):
