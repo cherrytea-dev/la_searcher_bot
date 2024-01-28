@@ -206,7 +206,7 @@ def clean_up_content(init_content):
                 if s.attrs['style'] and s['style'] and len(s['style']) > 5 and s['style'][0:5] == 'color':
                     s.unwrap()
             except Exception as e:
-                print(repr(e))
+                logging.exception(e)
                 continue
 
         deleted_text = content.find_all('span', {'style': 'text-decoration:line-through'})
