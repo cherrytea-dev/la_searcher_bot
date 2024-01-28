@@ -35,8 +35,8 @@ There is the enthusiasts [Community](https://t.me/+56GrL4LQ-og2NGEy)
 for discussion of ideas and issues in the Bot.
 
 Bot was created in mid 2021.
-As of November 2022 bot has +4000 active users, DAU (daily active users) +2500,
-daily messages +20000. Annual Growth Rate is 3X.
+As of January 2023 bot has +9700 active users, DAU (daily active users) +6000,
+daily messages +30000. Annual Growth Rate is 2X.
 
 Bot is built as a parser of phpbb [LA Forum](https://lizaalert.org/forum/), 
 which wraps phpbb-styled information into customized 
@@ -44,8 +44,8 @@ notification for every user.
 
 ## Technological stack
 
-* UI: Telegram (API)
-* Language: Python 3.7 
+* UI: Telegram + Web-app [LA Map](https://github.com/cherrytea-dev/la_map)
+* Language: Python 3.10 
 * Git: GitHub
 * CI/CD: GitHub Actions
 * Infra: Google Cloud Platform
