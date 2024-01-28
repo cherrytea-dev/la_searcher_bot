@@ -819,30 +819,28 @@ def parse_coordinates(db, search_num):
     return [lat, lon, coord_type]
 
 
-def update_coordinates(db, parsed_summary, list_of_search_objects):
+def update_coordinates(db, list_of_search_objects):
     """Record search coordinates to PSQL"""
 
-    # TODO –what needs to be done: old-fashioned parsed_summary to be substituted by new "list_of_search_objects"
+    for search in list_of_search_objects:
 
-    for search in parsed_summary:
-
-        search_id = search[1]
-        search_status = search[2]
+        search_id = search.topic_id
+        search_status = search.new_status
 
         if search_status not in {'Ищем', 'СТОП'}:
             continue
 
-        logging.info(f'search coordinates should be saved {search_id}')
+        logging.info(f'search coordinates should be saved for {search_id=}')
         coords = parse_coordinates(db, search_id)
 
         with db.connect() as conn:
             stmt = sqlalchemy.text(
                 "SELECT latitude, longitude, coord_type FROM search_coordinates WHERE search_id=:a LIMIT 1;"
             )
-            if_is_in_db = conn.execute(stmt, a=search_id).fetchone()
+            old_coords = conn.execute(stmt, a=search_id).fetchone()
 
             if coords[0] != 0 and coords[1] != 0:
-                if if_is_in_db is None:
+                if old_coords is None:
                     stmt = sqlalchemy.text(
                         """INSERT INTO search_coordinates (search_id, latitude, longitude, coord_type, upd_time) 
                         VALUES (:a, :b, :c, :d, CURRENT_TIMESTAMP); """
@@ -850,13 +848,14 @@ def update_coordinates(db, parsed_summary, list_of_search_objects):
                     conn.execute(stmt, a=search_id, b=coords[0], c=coords[1], d=coords[2])
                 else:
                     # when coords are in search_coordinates table
-                    old_lat, old_lon, old_type = if_is_in_db
+                    old_lat, old_lon, old_type = old_coords
                     do_update = False
                     if not old_type:
                         do_update = True
                     elif not (old_type[0] != "4" and coords[2][0] == '4'):
                         do_update = True
-                    elif (old_type[0] == "4" and coords[2][0] == '4' and (old_lat != coords[0] or old_lon != coords[1])):
+                    elif (old_type[0] == "4" and coords[2][0] == '4' and
+                          (old_lat != coords[0] or old_lon != coords[1])):
                         do_update = True
 
                     if do_update:
@@ -867,7 +866,7 @@ def update_coordinates(db, parsed_summary, list_of_search_objects):
                         conn.execute(stmt, a=coords[0], b=coords[1], c=coords[2], d=search_id)
 
             # case when coords are not defined, but there were saved coords type 1 or 2 – so we need to mark as deleted
-            elif if_is_in_db and if_is_in_db[2] and if_is_in_db[2][0] in {'1', '2'}:
+            elif old_coords and old_coords[2] and old_coords[2][0] in {'1', '2'}:
                 stmt = sqlalchemy.text(
                     """UPDATE search_coordinates SET coord_type=:a, upd_time=CURRENT_TIMESTAMP 
                        WHERE search_id=:b; """
@@ -1230,6 +1229,8 @@ def parse_one_folder(db, folder_id):
 
     topic_type_dict = {'search': 0, 'search reverse': 1, 'search patrol': 2, 'search training': 3, 'event': 10}
 
+    # TODO - "topics_summary_in_folder" – is an old type of list, which was deprecated as an outcome of this script,
+    #  now we need to delete it completely
     topics_summary_in_folder = []
     titles_and_num_of_replies = []
     folder_summary = []
@@ -1347,11 +1348,11 @@ def parse_one_folder(db, folder_id):
 
     logging.info(f'folder = {folder_id}, old_topics_summary = {topics_summary_in_folder}')
 
-    return topics_summary_in_folder, titles_and_num_of_replies, folder_summary
+    return titles_and_num_of_replies, folder_summary
 
 
 def visibility_check(r, topic_id):
-    """TODO"""
+    """check topic's visibility: if hidden or deleted"""
 
     check_content = copy.copy(r.content)
     check_content = check_content.decode("utf-8")
@@ -1810,7 +1811,7 @@ def process_one_folder(db, folder_to_parse):
     change_log_ids = []
 
     # parse a new version of summary page from the chosen folder
-    old_folder_summary_full, titles_and_num_of_replies, new_folder_summary = parse_one_folder(db, folder_to_parse)
+    titles_and_num_of_replies, new_folder_summary = parse_one_folder(db, folder_to_parse)
 
     update_trigger = False
     debug_message = f'folder {folder_to_parse} has NO new updates'
@@ -1833,7 +1834,7 @@ def process_one_folder(db, folder_to_parse):
             logging.info(f'starting updating change_log and searches tables for folder {folder_to_parse}')
 
             change_log_ids = update_change_log_and_searches(db, folder_to_parse)
-            update_coordinates(db, old_folder_summary_full, new_folder_summary)
+            update_coordinates(db, new_folder_summary)
 
     logging.info(debug_message)
 
