@@ -1576,6 +1576,15 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                 message_params = {'parse_mode': 'HTML',
                                   'disable_web_page_preview': 'True'}
 
+                # FIXME ! – experiment as of 30.01.24
+                if change_type == 2:
+                    map_button = {"text": "Открыть карту поисков",
+                                  "web_app": {
+                                      "url": get_secrets("web_app_url")
+                                  }}
+                    message_params['inline_keyboard'] = [[map_button]]
+                # FIXME ^^^
+
                 # TODO: Debug only - to delete
                 print(f'what we are saving to SQL: {mailing_id}, {user.user_id}, {message_without_html}, '
                       f'{message_params}, {msg_group_id}, {change_log_id}')
