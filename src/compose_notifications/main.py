@@ -1576,13 +1576,14 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                 message_params = {'parse_mode': 'HTML',
                                   'disable_web_page_preview': 'True'}
 
-                # FIXME ! – experiment as of 30.01.24
+                # FIXME ! – experiment as of 30.01.24 UPD 06.02.24
                 if change_type == 2:
                     map_button = {"text": "Открыть карту поисков",
                                   "web_app": {
                                       "url": get_secrets("web_app_url")
                                   }}
-                    message_params['inline_keyboard'] = [[map_button]]
+                    # message_params['inline_keyboard'] = [[map_button]]
+                    message_params['reply_markup'] = {"inline_keyboard": [[map_button]]}
                 # FIXME ^^^
 
                 # TODO: Debug only - to delete
@@ -1736,7 +1737,8 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
 
     final_message = re.sub(r'\s{3,}', '\n\n', final_message)  # clean excessive blank lines
     final_message = re.sub(r'\s*$', '', final_message)  # clean blank symbols in the end of file
-    logging.info(f'TEMP - FINAL NEW MESSAGE FOR NEW SEARCH {final_message}')
+    logging.info(f'OLD - FINAL NEW MESSAGE FOR NEW SEARCH: {message}')
+    logging.info(f'NEW - FINAL NEW MESSAGE FOR NEW SEARCH: {final_message}')
     # TODO ^^^
 
     return message
