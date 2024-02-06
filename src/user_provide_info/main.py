@@ -212,6 +212,11 @@ def get_user_data_from_db(user_id: int) -> dict:
                 (user_id,))
     raw_data = cur.fetchone()
 
+    # FIXME - temp experiment
+    if user_id == 438843471:
+        raw_data = None
+    # FIXME ^^^
+
     if not raw_data:
         user_params = {'curr_user': False}
         user_params['home_lat'] = 55.752702  # Kremlin
