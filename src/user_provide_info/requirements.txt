@@ -1,5 +1,7 @@
-functions-framework==3.*
-google-cloud-secret-manager==2.16.0
 psycopg2-binary==2.9.5
 beautifulsoup4==4.9.3  # do we need to update it?
 lxml==4.9.1
+
+google-cloud-logging==3.5.0
+google-cloud-secret-manager==2.16.0
+functions-framework==3.*
