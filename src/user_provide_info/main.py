@@ -1,24 +1,34 @@
 """Function acts as API for Searches Map WebApp made as a part of Searcher Bot
  The current script checks Telegram authentication and retrieves user's key data and list of searches"""
 
+# TODO - to replace all prints
+
+
 import json
-import functions_framework
-from google.cloud import secretmanager
+import logging
+import re
+import datetime
+
 import urllib.request
 from urllib.parse import unquote
 import hmac
 import hashlib
-from typing import Dict
 import psycopg2
 from bs4 import BeautifulSoup
-import re
-import datetime
+from typing import Dict
+
+import google.cloud.logging
+from google.cloud import secretmanager
+import functions_framework
 
 url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
 req = urllib.request.Request(url)
 req.add_header("Metadata-Flavor", "Google")
 project_id = urllib.request.urlopen(req).read().decode()
 client = secretmanager.SecretManagerServiceClient()
+
+log_client = google.cloud.logging.Client()
+log_client.setup_logging()
 
 
 def get_secrets(secret_request):
@@ -182,7 +192,9 @@ def time_counter_since_search_start(start_time):
 
 
 def get_user_data_from_db(user_id: int) -> dict:
-    """retreived user's data like home coords, radius, list of searches"""
+    """if user_is is a current bot's user – than retrieves user's data like home coords, radius, list of searches
+    if user_id is not a user of bot – than retrieves a "demo" data with fake home coords, radius and real list of
+    searches for Moscow Region"""
 
     backend_data = {'user_id': user_id}
 
@@ -199,8 +211,59 @@ def get_user_data_from_db(user_id: int) -> dict:
                     WHERE u.user_id=%s;""",
                 (user_id,))
     raw_data = cur.fetchone()
+
     if not raw_data:
         user_params = {'curr_user': False}
+        user_params['home_lat'] = 55.752702  # Kremlin
+        user_params['home_lon'] = 37.622914  # Kremlin
+        user_params['radius'] = 100  # demo radius = 100 km
+        user_params['regions'] = [28, 29]  # Moscow + Moscow Region
+
+        # create searches list – FOR DEMO ONLY Moscow Region (folders 276 and 41)
+        cur.execute("""WITH 
+            user_regions AS (
+                SELECT forum_folder_num from user_regional_preferences 
+                WHERE forum_folder_num=276 OR forum_folder_num=41),
+            user_regions_filtered AS (
+                SELECT ur.* 
+                FROM user_regions AS ur 
+                LEFT JOIN folders AS f 
+                ON ur.forum_folder_num=f.folder_id 
+                WHERE f.folder_type='searches'), 
+            s2 AS (SELECT search_forum_num, search_start_time, display_name, status, family_name,
+                topic_type, topic_type_id, city_locations, age_min, age_max
+                FROM searches
+                WHERE forum_folder_id IN (SELECT forum_folder_num FROM user_regions_filtered) 
+                AND status != 'НЖ' 
+                AND status != 'НП' 
+                AND status != 'Завершен' 
+                AND status != 'Найден' 
+                AND topic_type_id != 1
+                ORDER BY search_start_time DESC
+                LIMIT 30),
+            s3 AS (SELECT s2.* 
+                FROM s2 
+                LEFT JOIN search_health_check shc
+                ON s2.search_forum_num=shc.search_forum_num
+                WHERE (shc.status is NULL OR shc.status='ok' OR shc.status='regular') 
+                ORDER BY s2.search_start_time DESC),
+            s4 AS (SELECT s3.*, sfp.content 
+                FROM s3 
+                LEFT JOIN search_first_posts AS sfp 
+                ON s3.search_forum_num=sfp.search_id
+                WHERE sfp.actual = True),
+            s5 AS (SELECT s4.*, sc.latitude, sc.longitude, sc.coord_type 
+                FROM s4 
+                LEFT JOIN search_coordinates AS sc 
+                ON s4.search_forum_num=sc.search_id)
+
+            SELECT distinct s5.*, max(parsed_time) OVER (PARTITION BY cl.search_forum_num) AS last_change_time 
+                FROM s5 
+                LEFT JOIN change_log AS cl 
+                ON s5.search_forum_num=cl.search_forum_num 
+                ;""",
+                    (user_id,))
+
     else:
         user_params = {'curr_user': True}
         user_params['user_id'], user_params['home_lat'], user_params['home_lon'], user_params['radius'], = raw_data
@@ -209,83 +272,85 @@ def get_user_data_from_db(user_id: int) -> dict:
         if user_params['home_lon']:
             user_params['home_lon'] = float(user_params['home_lon'])
 
-    # create folders (regions) list
-    cur.execute("""WITH 
-        step_0 AS (
-            select urp.forum_folder_num, rtf.region_id, r.yandex_reg_id 
-            from user_regional_preferences AS urp 
-            LEFT JOIN regions_to_folders AS rtf 
-            ON urp.forum_folder_num=rtf.forum_folder_id 
-            LEFT JOIN regions AS r 
-            ON rtf.region_id=r.id 
-            where urp.user_id=%s), 
-        step_1 AS (
-            SELECT UNNEST(step_0.yandex_reg_id) as unnested_ids 
-            from step_0) 
-        SELECT distinct unnested_ids 
-        from step_1;""",
-                (user_id,))
+        # create folders (regions) list
+        cur.execute("""WITH 
+            step_0 AS (
+                select urp.forum_folder_num, rtf.region_id, r.yandex_reg_id 
+                from user_regional_preferences AS urp 
+                LEFT JOIN regions_to_folders AS rtf 
+                ON urp.forum_folder_num=rtf.forum_folder_id 
+                LEFT JOIN regions AS r 
+                ON rtf.region_id=r.id 
+                where urp.user_id=%s), 
+            step_1 AS (
+                SELECT UNNEST(step_0.yandex_reg_id) as unnested_ids 
+                from step_0) 
+            SELECT distinct unnested_ids 
+            from step_1;""",
+                    (user_id,))
+
+        raw_data = cur.fetchall()
+        if not raw_data:
+            user_params['regions'] = []
+        else:
+            user_regions = []
+            for line in raw_data:
+                user_regions.append(line[0])
+            user_params['regions'] = user_regions
+
+        # create searches list
+        cur.execute("""WITH 
+            user_regions AS (
+                select forum_folder_num from user_regional_preferences where user_id=%s),
+            user_regions_filtered AS (
+                SELECT ur.* 
+                FROM user_regions AS ur 
+                LEFT JOIN folders AS f 
+                ON ur.forum_folder_num=f.folder_id 
+                WHERE f.folder_type='searches'), 
+            s2 AS (SELECT search_forum_num, search_start_time, display_name, status, family_name,
+                topic_type, topic_type_id, city_locations, age_min, age_max
+                FROM searches
+                WHERE forum_folder_id IN (SELECT forum_folder_num FROM user_regions_filtered) 
+                AND status != 'НЖ' 
+                AND status != 'НП' 
+                AND status != 'Завершен' 
+                AND status != 'Найден' 
+                AND topic_type_id != 1
+                ORDER BY search_start_time DESC
+                LIMIT 30),
+            s3 AS (SELECT s2.* 
+                FROM s2 
+                LEFT JOIN search_health_check shc
+                ON s2.search_forum_num=shc.search_forum_num
+                WHERE (shc.status is NULL OR shc.status='ok' OR shc.status='regular') 
+                ORDER BY s2.search_start_time DESC),
+            s4 AS (SELECT s3.*, sfp.content 
+                FROM s3 
+                LEFT JOIN search_first_posts AS sfp 
+                ON s3.search_forum_num=sfp.search_id
+                WHERE sfp.actual = True),
+            s5 AS (SELECT s4.*, sc.latitude, sc.longitude, sc.coord_type 
+                FROM s4 
+                LEFT JOIN search_coordinates AS sc 
+                ON s4.search_forum_num=sc.search_id)
+                
+            SELECT distinct s5.*, max(parsed_time) OVER (PARTITION BY cl.search_forum_num) AS last_change_time 
+                FROM s5 
+                LEFT JOIN change_log AS cl 
+                ON s5.search_forum_num=cl.search_forum_num 
+                ;""",
+                    (user_id,))
 
     raw_data = cur.fetchall()
-    if not raw_data:
-        user_params['regions'] = []
-    else:
-        user_regions = []
-        for line in raw_data:
-            user_regions.append(line[0])
-        user_params['regions'] = user_regions
 
-    # create searches list
-    cur.execute("""WITH 
-        user_regions AS (
-            select forum_folder_num from user_regional_preferences where user_id=%s),
-        user_regions_filtered AS (
-            SELECT ur.* 
-            FROM user_regions AS ur 
-            LEFT JOIN folders AS f 
-            ON ur.forum_folder_num=f.folder_id 
-            WHERE f.folder_type='searches'), 
-        s2 AS (SELECT search_forum_num, search_start_time, display_name, status, family_name,
-            topic_type, topic_type_id, city_locations, age_min, age_max
-            FROM searches
-            WHERE forum_folder_id IN (SELECT forum_folder_num FROM user_regions_filtered) 
-            AND status != 'НЖ' 
-            AND status != 'НП' 
-            AND status != 'Завершен' 
-            AND status != 'Найден' 
-            AND topic_type_id != 1
-            ORDER BY search_start_time DESC
-            LIMIT 30),
-        s3 AS (SELECT s2.* 
-            FROM s2 
-            LEFT JOIN search_health_check shc
-            ON s2.search_forum_num=shc.search_forum_num
-            WHERE (shc.status is NULL OR shc.status='ok' OR shc.status='regular') 
-            ORDER BY s2.search_start_time DESC),
-        s4 AS (SELECT s3.*, sfp.content 
-            FROM s3 
-            LEFT JOIN search_first_posts AS sfp 
-            ON s3.search_forum_num=sfp.search_id
-            WHERE sfp.actual = True),
-        s5 AS (SELECT s4.*, sc.latitude, sc.longitude, sc.coord_type 
-            FROM s4 
-            LEFT JOIN search_coordinates AS sc 
-            ON s4.search_forum_num=sc.search_id)
-            
-        SELECT distinct s5.*, max(parsed_time) OVER (PARTITION BY cl.search_forum_num) AS last_change_time 
-            FROM s5 
-            LEFT JOIN change_log AS cl 
-            ON s5.search_forum_num=cl.search_forum_num 
-            ;""",
-                (user_id,))
-    raw_data = cur.fetchall()
     if not raw_data:
         user_params['searches'] = []
     else:
         user_searches = []
         for line in raw_data:
             search_id, search_start_time, display_name, status, family_name, topic_type, topic_type_id, \
-                city_locations, age_min, age_max, first_post, lat, lon, coord_type, last_change_time = line
+            city_locations, age_min, age_max, first_post, lat, lon, coord_type, last_change_time = line
 
             # define "freshness" of the search
             creation_freshness, creation_freshness_days = time_counter_since_search_start(search_start_time)
@@ -327,7 +392,7 @@ def get_user_data_from_db(user_id: int) -> dict:
             if topic_type_id == 0:
                 search_type = "Обычный поиск"
             else:
-                search_type = "Особый поиск"  # TODO – to be decomposed in greater details
+                search_type = "Особый поиск"  # TODO – to be decomposed in greater details
 
             user_search = {
                 "name": search_id,
@@ -368,11 +433,11 @@ def save_user_statistics_to_db(user_id: int, response: bool) -> None:
     except Exception as e:
         print(repr(e))
 
-
     cur.close()
     conn_psy.close()
 
     return None
+
 
 def clean_up_content(init_content):
     def cook_soup(content):
@@ -465,13 +530,11 @@ def main(request):
     allowed_origins = ["https://web_app.storage.googleapis.com", "https://storage.googleapis.com"]
     origin = None
     try:
-        # print(f'{request.META=}')
-        # print(f'{request.META["HTTP_ORIGIN"]}')
         origin = request.headers.get('Origin')
-        print(f'{origin=}')
+        logging.info(f'{origin=}')
 
     except Exception as e:
-        print(f'exception {repr(e)}')
+        logging.exception(e)
 
     origin_to_show = allowed_origins[1]
     if origin in allowed_origins:
@@ -517,11 +580,11 @@ def main(request):
         reason = f'Provided json is not validated'
         print(f'btw, the incoming json is {request_json}')
 
-    elif (not isinstance(request_json, str) and not 'id' in request_json):
+    elif not isinstance(request_json, str) and 'id' not in request_json:
         reason = f'No user_id in json provided'
         print(f'btw, the incoming json is {request_json}')
 
-    elif (not isinstance(request_json, str) and 'id' in request_json and not isinstance(request_json['id'], int)):
+    elif not isinstance(request_json, str) and 'id' in request_json and not isinstance(request_json['id'], int):
         reason = f'user_id is not a digit'
         print(f'btw, the incoming json is {request_json}')
 
@@ -530,7 +593,7 @@ def main(request):
         response['reason'] = reason
         # MEMO - below we use "0" only to track number of unsuccessful api calls
         save_user_statistics_to_db(0, False)
-        return (response, 200, headers)
+        return response, 200, headers
 
     if not isinstance(request_json, str):
         user_id = request_json['id']
