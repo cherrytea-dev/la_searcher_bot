@@ -136,24 +136,18 @@ def send_message_to_api(session, bot_token, user_id, message, params):
             if 'disable_web_page_preview' in params.keys():
                 disable_web_page_preview = f'&disable_web_page_preview={params["disable_web_page_preview"]}'
             if 'reply_markup' in params.keys():
-                # FIXME – 07.02.24 – experimenting
+
                 reply_markup_temp = params['reply_markup']
-                logging.info(f'{reply_markup_temp=}')
-
                 reply_markup_json = json.dumps(reply_markup_temp)
-                logging.info(f'{reply_markup_json=}')
-
                 reply_markup_string = str(reply_markup_json)
-                logging.info(f'{reply_markup_string=}')
-
                 reply_markup_encoded = urllib.parse.quote(reply_markup_string)
-                logging.info(f'{reply_markup_encoded=}')
+                reply_markup = f'&reply_markup={reply_markup_encoded}'
 
-                if user_id == 438843471:
-                    reply_markup = f'&reply_markup={reply_markup_encoded}'
-                    logging.info(f'{reply_markup=}')
-                    notify_admin(f'{reply_markup=}')
-                # FIXME ^^^
+                logging.info(f'{reply_markup_temp=}')
+                logging.info(f'{reply_markup_json=}')
+                logging.info(f'{reply_markup_string=}')
+                logging.info(f'{reply_markup_encoded=}')
+                logging.info(f'{reply_markup=}')
 
         message_encoded = urllib.parse.quote(message)
 
