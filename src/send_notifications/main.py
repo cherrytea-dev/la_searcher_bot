@@ -129,6 +129,7 @@ def send_message_to_api(session, bot_token, user_id, message, params):
     try:
         parse_mode = ''
         disable_web_page_preview = ''
+        reply_markup = ''
         if params:
             if 'parse_mode' in params.keys():
                 parse_mode = f'&parse_mode={params["parse_mode"]}'
@@ -138,22 +139,26 @@ def send_message_to_api(session, bot_token, user_id, message, params):
                 # FIXME – 07.02.24 – experimenting
                 reply_markup_temp = params['reply_markup']
                 logging.info(f'{reply_markup_temp=}')
+
                 reply_markup_json = json.dumps(reply_markup_temp)
                 logging.info(f'{reply_markup_json=}')
+
                 reply_markup_string = str(reply_markup_json)
                 logging.info(f'{reply_markup_string=}')
-                reply_markup = f'&reply_markup={{{reply_markup_string}}}'
-                logging.info(f'{reply_markup=}')
-                reply_markup_encoded = urllib.parse.quote(reply_markup)
+
+                reply_markup_encoded = urllib.parse.quote(reply_markup_string)
                 logging.info(f'{reply_markup_encoded=}')
+
                 if user_id == 438843471:
+                    reply_markup = f'&reply_markup={reply_markup_encoded}'
+                    logging.info(f'{reply_markup=}')
                     notify_admin(f'{reply_markup=}')
                 # FIXME ^^^
 
         message_encoded = urllib.parse.quote(message)
 
         request_text = f'https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={user_id}' \
-                       f'{parse_mode}{disable_web_page_preview}&text={message_encoded}'
+                       f'{parse_mode}{disable_web_page_preview}{reply_markup}&text={message_encoded}'
 
         r = session.get(request_text)
 
