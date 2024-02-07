@@ -1576,15 +1576,13 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                 message_params = {'parse_mode': 'HTML',
                                   'disable_web_page_preview': 'True'}
 
-                # FIXME ! – experiment as of 30.01.24 UPD 06.02.24
-                if change_type == 2:
-                    map_button = {"text": "Открыть карту поисков",
+                # for the new searches we add a link to web_app map
+                if change_type == 0:
+                    map_button = {"text": "Смотреть на Карте Поисков",
                                   "web_app": {
                                       "url": get_secrets("web_app_url")
                                   }}
-                    # message_params['inline_keyboard'] = [[map_button]]
                     message_params['reply_markup'] = {"inline_keyboard": [[map_button]]}
-                # FIXME ^^^
 
                 # TODO: Debug only - to delete
                 print(f'what we are saving to SQL: {mailing_id}, {user.user_id}, {message_without_html}, '
