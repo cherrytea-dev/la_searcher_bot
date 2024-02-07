@@ -1,8 +1,8 @@
 """Function acts as API for Searches Map WebApp made as a part of Searcher Bot
  The current script checks Telegram authentication and retrieves user's key data and list of searches"""
 
-# TODO - to replace all prints
-
+# TODO - add functions descriptions
+# TODO – add functions typing hints
 
 import json
 import logging
@@ -111,6 +111,7 @@ def verify_telegram_data_string(user_input, token):
 
 
 def verify_telegram_data(user_input, token):
+    """verify if u"""
     if isinstance(user_input, str):
         result = verify_telegram_data_string(user_input, token)
     else:
@@ -121,29 +122,29 @@ def verify_telegram_data(user_input, token):
 
 def evaluate_city_locations(city_locations):
     if not city_locations:
-        print('no city_locations')
+        logging.info('no city_locations')
         return None
 
     cl_eval = eval(city_locations)
     if not cl_eval:
-        print('no eval of city_locations')
+        logging.info('no eval of city_locations')
         return None
 
     if not isinstance(cl_eval, list):
-        print('eval of city_locations is not list')
+        logging.info('eval of city_locations is not list')
         return None
 
     first_coords = cl_eval[0]
 
     if not first_coords:
-        print('no first coords in city_locations')
+        logging.info('no first coords in city_locations')
         return None
 
     if not isinstance(first_coords, list):
-        print('fist coords in city_locations is not list')
+        logging.info('fist coords in city_locations is not list')
         return None
 
-    print(f'city_locations has coords {first_coords}')
+    logging.info(f'city_locations has coords {first_coords}')
 
     return [first_coords]
 
@@ -355,10 +356,10 @@ def get_user_data_from_db(user_id: int) -> dict:
             # define "freshness" of the search
             creation_freshness, creation_freshness_days = time_counter_since_search_start(search_start_time)
             update_freshness, update_freshness_days = time_counter_since_search_start(last_change_time)
-            print(f'{search_id=}')
-            print(f'{creation_freshness_days=}')
-            print(f'{update_freshness_days=}')
-            print(f'{min(creation_freshness_days, update_freshness_days)=}')
+            logging.info(f'{search_id=}')
+            logging.info(f'{creation_freshness_days=}')
+            logging.info(f'{update_freshness_days=}')
+            logging.info(f'{min(creation_freshness_days, update_freshness_days)=}')
             search_is_old = False
             if creation_freshness_days > 3 and update_freshness_days > 3:
                 search_is_old = True
@@ -431,7 +432,7 @@ def save_user_statistics_to_db(user_id: int, response: bool) -> None:
                         VALUES (%s, CURRENT_TIMESTAMP, %s);""",
                     (user_id, json_to_save))
     except Exception as e:
-        print(repr(e))
+        logging.exception(e)
 
     cur.close()
     conn_psy.close()
@@ -456,7 +457,7 @@ def clean_up_content(init_content):
                 if s.attrs['style'] and s['style'] and len(s['style']) > 5 and s['style'][0:5] == 'color':
                     s.unwrap()
             except Exception as e:
-                print(repr(e))
+                logging.exception(e)
                 continue
 
         deleted_text = content.find_all('span', {'style': 'text-decoration:line-through'})
@@ -518,7 +519,7 @@ def clean_up_content(init_content):
     reco_content = reco_content.text
     reco_content = remove_irrelevant_content(reco_content)
     reco_content = make_html(reco_content)
-    print(f'{reco_content=}')
+    logging.info(f'{reco_content=}')
 
     return reco_content
 
@@ -539,8 +540,7 @@ def main(request):
     origin_to_show = allowed_origins[1]
     if origin in allowed_origins:
         origin_to_show = origin
-    print(f'{origin=}')
-    print(f'{origin_to_show=}')
+    logging.info(f'{origin_to_show=}')
 
     # Set CORS headers for the preflight request
     if request.method == "OPTIONS":
@@ -553,17 +553,17 @@ def main(request):
             "Access-Control-Max-Age": "3600",
         }  # https://storage.googleapis.com
 
-        print(f'{headers=}')
+        logging.info(f'{headers=}')
 
         return ("", 204, headers)
 
     # Set CORS headers for the main request
     headers = {"Access-Control-Allow-Origin": origin_to_show}
-    print(f'{headers=}')
+    logging.info(f'{headers=}')
 
-    print(request)
+    logging.info(request)
     request_json = request.get_json(silent=True)
-    print(request_json)
+    logging.info(request_json)
     request_args = request.args
     response = {'ok': False}
     ok = False
@@ -571,25 +571,25 @@ def main(request):
 
     if not request_json:
         reason = f'No json/string received'
-        print(request_args)
+        logging.info(request_args)
 
     bot_token = get_secrets('bot_api_token__prod')
     process_the_data = verify_telegram_data(request_json, bot_token)
 
     if not process_the_data:
         reason = f'Provided json is not validated'
-        print(f'btw, the incoming json is {request_json}')
+        logging.info(f'the incoming json is {request_json}')
 
     elif not isinstance(request_json, str) and 'id' not in request_json:
         reason = f'No user_id in json provided'
-        print(f'btw, the incoming json is {request_json}')
+        logging.info(f'the incoming json is {request_json}')
 
     elif not isinstance(request_json, str) and 'id' in request_json and not isinstance(request_json['id'], int):
         reason = f'user_id is not a digit'
-        print(f'btw, the incoming json is {request_json}')
+        logging.info(f'the incoming json is {request_json}')
 
     if reason:
-        print(reason)
+        logging.info(f'{reason=}')
         response['reason'] = reason
         # MEMO - below we use "0" only to track number of unsuccessful api calls
         save_user_statistics_to_db(0, False)
@@ -600,13 +600,13 @@ def main(request):
     else:
         user_item = unquote(request_json)
         user_id = int(re.findall(r'(?<="id":)\d{3,20}', user_item)[0])
-    print(f'YES, {user_id=} is received!')
-    print(f'btw, the incoming json is {request_json}')
+    logging.info(f'YES, {user_id=} is received!')
+    logging.info(f'the incoming json is {request_json}')
     params = get_user_data_from_db(user_id)
 
     response = {'ok': True, 'user_id': user_id, 'params': params}
 
-    print(f'the RESULT {response}')
+    logging.info(f'the RESULT {response}')
 
     save_user_statistics_to_db(user_id, True)
 
