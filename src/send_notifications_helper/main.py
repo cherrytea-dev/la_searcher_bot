@@ -128,21 +128,36 @@ def send_message_to_api(session, bot_token, user_id, message, params):
     try:
         parse_mode = ''
         disable_web_page_preview = ''
+        reply_markup = ''
         if params:
             if 'parse_mode' in params.keys():
                 parse_mode = f'&parse_mode={params["parse_mode"]}'
             if 'disable_web_page_preview' in params.keys():
                 disable_web_page_preview = f'&disable_web_page_preview={params["disable_web_page_preview"]}'
+            if 'reply_markup' in params.keys():
+
+                reply_markup_temp = params['reply_markup']
+                reply_markup_json = json.dumps(reply_markup_temp)
+                reply_markup_string = str(reply_markup_json)
+                reply_markup_encoded = urllib.parse.quote(reply_markup_string)
+                reply_markup = f'&reply_markup={reply_markup_encoded}'
+
+                logging.info(f'{reply_markup_temp=}')
+                logging.info(f'{reply_markup_json=}')
+                logging.info(f'{reply_markup_string=}')
+                logging.info(f'{reply_markup_encoded=}')
+                logging.info(f'{reply_markup=}')
+
         message_encoded = urllib.parse.quote(message)
 
         request_text = f'https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={user_id}' \
-                       f'{parse_mode}{disable_web_page_preview}&text={message_encoded}'
+                       f'{parse_mode}{disable_web_page_preview}{reply_markup}&text={message_encoded}'
 
         r = session.get(request_text)
 
     except Exception as e:
         logging.exception(e)
-        logging.info(f'THIS BAD EXCEPTION HAPPENED')
+        logging.info(f'Error in getting response from Telegram')
         r = None
 
     return r
