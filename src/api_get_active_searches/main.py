@@ -44,8 +44,6 @@ def sql_connect_by_psycopg2():
     db_conn = get_secrets("cloud-postgres-connection-name")
     db_host = '/cloudsql/' + db_conn
 
-    logging.info(f'LENGTHS {len(db_user)=}, {len(db_pass)=}, {len(db_name)=}, {len(db_conn)=}')
-
     conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
     conn_psy.autocommit = True
 
@@ -357,14 +355,10 @@ def save_user_statistics_to_db(user_input, response) -> None:
     cur = conn_psy.cursor()
 
     try:
-        # cur.execute("""INSERT INTO stat_api_usage_actual_searches
-        #                (request, timestamp, response)
-        #                VALUES (%s, CURRENT_TIMESTAMP, %s);""",
-        #            (None, None))
-
-        cur.execute("""select * from stat_api_usage_actual_searches;""")
-        raw_data = cur.fetchone()
-        logging.info(raw_data)
+        cur.execute("""INSERT INTO stat_api_usage_actual_searches
+                       (request, timestamp, response)
+                       VALUES (%s, CURRENT_TIMESTAMP, %s);""",
+                        (str(user_input), json_to_save))
 
     except Exception as e:
         logging.exception(e)
@@ -509,10 +503,8 @@ def main(request):
     if reason_not_to_process_json:
 
         response_json = json.dumps({"ok": False, "reason": reason_not_to_process_json})
-        try:
-            save_user_statistics_to_db(None, response_json)
-        except Exception as e:
-            logging.exception(e)
+
+        save_user_statistics_to_db(request_json, response_json)
 
         return response_json, 200, headers
 
@@ -521,10 +513,7 @@ def main(request):
 
     response_json = json.dumps({'ok': True, 'searches': searches})
 
-    try:
-        save_user_statistics_to_db(None, response_json)
-    except Exception as e:
-        logging.exception(e)
+    save_user_statistics_to_db(request_json, response_json)
 
     logging.info(request)
     logging.info(request_json)
