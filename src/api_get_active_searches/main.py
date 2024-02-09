@@ -36,7 +36,7 @@ def get_secrets(secret_request):
 
 
 def sql_connect_by_psycopg2():
-    """connect to GCP SLQ via PsycoPG2"""
+    """connect to GCP SQL via PsycoPG2"""
 
     db_user = get_secrets("cloud-postgres-username")
     db_pass = get_secrets("cloud-postgres-password")
@@ -358,7 +358,7 @@ def save_user_statistics_to_db(user_input, response) -> None:
         cur.execute("""INSERT INTO stat_api_usage_actual_searches 
                         (request, timestamp, response) 
                         VALUES (%s, CURRENT_TIMESTAMP, %s);""",
-                    (None, json_to_save))
+                    (None, None))
     except Exception as e:
         logging.exception(e)
 
