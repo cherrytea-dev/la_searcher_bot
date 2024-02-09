@@ -355,10 +355,15 @@ def save_user_statistics_to_db(user_input, response) -> None:
     cur = conn_psy.cursor()
 
     try:
-        cur.execute("""INSERT INTO stat_api_usage_actual_searches 
-                        (request, timestamp, response) 
-                        VALUES (%s, CURRENT_TIMESTAMP, %s);""",
-                    (None, None))
+        # cur.execute("""INSERT INTO stat_api_usage_actual_searches
+        #                (request, timestamp, response)
+        #                VALUES (%s, CURRENT_TIMESTAMP, %s);""",
+        #            (None, None))
+
+        cur.execute("""select * from stat_api_usage_actual_searches;""")
+        raw_data = cur.fetchone()
+        logging.info(raw_data)
+
     except Exception as e:
         logging.exception(e)
 
