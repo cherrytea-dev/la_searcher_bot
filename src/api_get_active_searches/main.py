@@ -502,7 +502,10 @@ def main(request):
     if reason_not_to_process_json:
 
         response_json = json.dumps({"ok": False, "reason": reason_not_to_process_json})
-        save_user_statistics_to_db(request_json, response_json)
+        try:
+            save_user_statistics_to_db(None, response_json)
+        except Exception as e:
+            logging.exception(e)
 
         return response_json, 200, headers
 
