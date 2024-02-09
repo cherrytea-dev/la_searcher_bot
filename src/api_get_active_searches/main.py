@@ -358,7 +358,7 @@ def save_user_statistics_to_db(user_input, response) -> None:
         cur.execute("""INSERT INTO stat_api_usage_actual_searches 
                         (request, timestamp, response) 
                         VALUES (%s, CURRENT_TIMESTAMP, %s);""",
-                    (str(user_input), json_to_save))
+                    (None, json_to_save))
     except Exception as e:
         logging.exception(e)
 
@@ -514,10 +514,13 @@ def main(request):
 
     response_json = json.dumps({'ok': True, 'searches': searches})
 
-    save_user_statistics_to_db(request_json, response_json)
+    try:
+        save_user_statistics_to_db(None, response_json)
+    except Exception as e:
+        logging.exception(e)
 
     logging.info(request)
     logging.info(request_json)
     logging.info(f'the RESULT {response_json}')
 
-    return (response_json, 200, headers)
+    return response_json, 200, headers
