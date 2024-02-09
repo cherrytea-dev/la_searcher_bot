@@ -122,7 +122,7 @@ def time_counter_since_search_start(start_time):
     return [phrase, diff.days]
 
 
-def get_list_of_active_searches_from_db(request: json) -> dict:
+def get_list_of_active_searches_from_db(request: json) -> tuple:
     """retrieves a list of recent searches"""
 
     depth_days = 10000
@@ -131,14 +131,13 @@ def get_list_of_active_searches_from_db(request: json) -> dict:
     logging.info(f'{depth_days=}')
 
     folders_list = []
-    if 'forum_folder_id_list' in request.keys() and isinstance(request['forum_folder_id_list'], tuple):
+    if 'forum_folder_id_list' in request.keys() and isinstance(request['forum_folder_id_list'], list):
         folders_list = request['forum_folder_id_list']
     logging.info(f'{folders_list=}')
 
+    searches_data = []
     conn_psy = sql_connect_by_psycopg2()
     cur = conn_psy.cursor()
-
-    searches_data = {'curr_user': True}
 
     if folders_list:
         cur.execute("""WITH 
@@ -205,14 +204,11 @@ def get_list_of_active_searches_from_db(request: json) -> dict:
                 WHERE sfp.actual = True
             )    
             SELECT * FROM s4;""",
-                    (folders_list, depth_days))
+                    (depth_days, ))
 
     raw_data = cur.fetchall()
 
-    if not raw_data:
-        searches_data = []
-    else:
-        user_searches = []
+    if raw_data:
         for line in raw_data:
             search_start_time, forum_folder_id, topic_type, search_id, status, display_name, family_name, \
             age_min, age_max, first_post = line
@@ -235,12 +231,10 @@ def get_list_of_active_searches_from_db(request: json) -> dict:
                 "family_name": family_name,
                 "age_min": age_min,
                 "age_max": age_max,
-                "content": content,
+                "content": content
             }
 
-            user_searches.append(user_search)
-
-        searches_data = user_searches
+            searches_data.append(user_search)
 
     cur.close()
     conn_psy.close()
@@ -392,7 +386,7 @@ def main(request):
 
         logging.info(f'{headers=}')
 
-        return ("", 204, headers)
+        return "", 204, headers
 
     # Set CORS headers for the main request
     headers = {"Access-Control-Allow-Origin": "*"}
