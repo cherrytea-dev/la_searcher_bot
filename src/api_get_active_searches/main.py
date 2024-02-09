@@ -231,7 +231,7 @@ def get_list_of_active_searches_from_db(request: json) -> tuple:
                 "family_name": family_name,
                 "age_min": age_min,
                 "age_max": age_max,
-                "content": content
+                "content": "content"
             }
 
             searches_data.append(user_search)
@@ -245,7 +245,7 @@ def get_list_of_active_searches_from_db(request: json) -> tuple:
 def save_user_statistics_to_db(user_input, response) -> None:
     """save user's interaction into DB"""
 
-    json_to_save = json.dumps(response)
+    json_to_save = json.dumps(response, default=str)
 
     conn_psy = sql_connect_by_psycopg2()
     cur = conn_psy.cursor()
@@ -403,9 +403,11 @@ def main(request):
         return json.dumps(response), 200, headers
 
     searches = get_list_of_active_searches_from_db(request_json)
-    # searches = ['test_1', 'test_2']
+    logging.info(f'{searches=}')
 
     response = {'ok': True, 'searches': searches}
+    logging.info(f'{response=}')
+    logging.info(f'{json.dumps(response, default=str)=}')
 
     save_user_statistics_to_db(request_json, response)
 
@@ -413,4 +415,4 @@ def main(request):
     logging.info(request_json)
     logging.info(f'the RESULT {response}')
 
-    return json.dumps(response), 200, headers
+    return json.dumps(response, default=str), 200, headers
