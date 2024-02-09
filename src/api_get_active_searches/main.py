@@ -231,7 +231,7 @@ def get_list_of_active_searches_from_db(request: json) -> tuple:
                 "family_name": family_name,
                 "age_min": age_min,
                 "age_max": age_max,
-                "content": "content"
+                "content": content
             }
 
             searches_data.append(user_search)
@@ -403,11 +403,7 @@ def main(request):
         return json.dumps(response), 200, headers
 
     searches = get_list_of_active_searches_from_db(request_json)
-    logging.info(f'{searches=}')
-
     response = {'ok': True, 'searches': searches}
-    logging.info(f'{response=}')
-    logging.info(f'{json.dumps(response, default=str)=}')
 
     save_user_statistics_to_db(request_json, response)
 
