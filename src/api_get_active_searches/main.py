@@ -122,234 +122,136 @@ def time_counter_since_search_start(start_time):
     return [phrase, diff.days]
 
 
-def get_list_of_active_searches_from_db(user_id: int) -> dict:
+def get_list_of_active_searches_from_db(request: json) -> dict:
     """retrieves a list of recent searches"""
 
-    backend_data = {'user_id': user_id}
+    depth_days = 10000
+    if 'depth_days' in request.keys() and isinstance(request['depth_days'], int):
+        depth_days = request['depth_days']
+    logging.info(f'{depth_days=}')
+
+    folders_list = []
+    if 'forum_folder_id_list' in request.keys() and isinstance(request['forum_folder_id_list'], tuple):
+        folders_list = request['forum_folder_id_list']
+    logging.info(f'{folders_list=}')
 
     conn_psy = sql_connect_by_psycopg2()
     cur = conn_psy.cursor()
 
-    # create user basic parameters
-    cur.execute("""SELECT u.user_id, uc.latitude, uc.longitude, ur.radius 
-                    FROM users AS u 
-                    LEFT JOIN user_coordinates AS uc 
-                    ON u.user_id=uc.user_id 
-                    LEFT JOIN user_pref_radius AS ur 
-                    ON uc.user_id=ur.user_id 
-                    WHERE u.user_id=%s;""",
-                (user_id,))
-    raw_data = cur.fetchone()
+    searches_data = {'curr_user': True}
 
-    if not raw_data:
-        user_params = {'curr_user': False}
-        user_params['home_lat'] = 55.752702  # Kremlin
-        user_params['home_lon'] = 37.622914  # Kremlin
-        user_params['radius'] = 100  # demo radius = 100 km
-        user_params['regions'] = [28, 29]  # Moscow + Moscow Region
-
-        # create searches list – FOR DEMO ONLY Moscow Region (folders 276 and 41)
+    if folders_list:
         cur.execute("""WITH 
-            user_regions AS (
-                SELECT forum_folder_num from user_regional_preferences 
-                WHERE forum_folder_num=276 OR forum_folder_num=41),
             user_regions_filtered AS (
-                SELECT ur.* 
-                FROM user_regions AS ur 
-                LEFT JOIN folders AS f 
-                ON ur.forum_folder_num=f.folder_id 
-                WHERE f.folder_type='searches'), 
-            s2 AS (SELECT search_forum_num, search_start_time, display_name, status, family_name,
-                topic_type, topic_type_id, city_locations, age_min, age_max
+                SELECT DISTINCT folder_id AS forum_folder_num
+                FROM folders
+                WHERE folder_type='searches' AND folder_id = ANY(%s)
+            ), 
+            s2 AS (
+                SELECT search_start_time, forum_folder_id, topic_type, search_forum_num, 
+                        status, display_name, family_name,
+                age_min, age_max
                 FROM searches
-                WHERE forum_folder_id IN (SELECT forum_folder_num FROM user_regions_filtered) 
-                AND status != 'НЖ' 
-                AND status != 'НП' 
-                AND status != 'Завершен' 
-                AND status != 'Найден' 
+                WHERE forum_folder_id IN (SELECT forum_folder_num FROM user_regions_filtered)
+                AND status NOT IN ('НЖ', 'НП', 'Завершен', 'Найден') 
                 AND topic_type_id != 1
+                AND search_start_time >= CURRENT_TIMESTAMP - INTERVAL '%s days'
                 ORDER BY search_start_time DESC
-                LIMIT 30),
+            ),
             s3 AS (SELECT s2.* 
                 FROM s2 
                 LEFT JOIN search_health_check shc
                 ON s2.search_forum_num=shc.search_forum_num
                 WHERE (shc.status is NULL OR shc.status='ok' OR shc.status='regular') 
-                ORDER BY s2.search_start_time DESC),
+                ORDER BY s2.search_start_time DESC
+            ),
             s4 AS (SELECT s3.*, sfp.content 
                 FROM s3 
                 LEFT JOIN search_first_posts AS sfp 
                 ON s3.search_forum_num=sfp.search_id
-                WHERE sfp.actual = True),
-            s5 AS (SELECT s4.*, sc.latitude, sc.longitude, sc.coord_type 
-                FROM s4 
-                LEFT JOIN search_coordinates AS sc 
-                ON s4.search_forum_num=sc.search_id)
-
-            SELECT distinct s5.*, max(parsed_time) OVER (PARTITION BY cl.search_forum_num) AS last_change_time 
-                FROM s5 
-                LEFT JOIN change_log AS cl 
-                ON s5.search_forum_num=cl.search_forum_num 
-                ;""",
-                    (user_id,))
-
+                WHERE sfp.actual = True
+            )    
+            SELECT * FROM s4;""",
+                    (folders_list, depth_days))
     else:
-        user_params = {'curr_user': True}
-        user_params['user_id'], user_params['home_lat'], user_params['home_lon'], user_params['radius'], = raw_data
-        if user_params['home_lat']:
-            user_params['home_lat'] = float(user_params['home_lat'])
-        if user_params['home_lon']:
-            user_params['home_lon'] = float(user_params['home_lon'])
-
-        # create folders (regions) list
         cur.execute("""WITH 
-            step_0 AS (
-                select urp.forum_folder_num, rtf.region_id, r.yandex_reg_id 
-                from user_regional_preferences AS urp 
-                LEFT JOIN regions_to_folders AS rtf 
-                ON urp.forum_folder_num=rtf.forum_folder_id 
-                LEFT JOIN regions AS r 
-                ON rtf.region_id=r.id 
-                where urp.user_id=%s), 
-            step_1 AS (
-                SELECT UNNEST(step_0.yandex_reg_id) as unnested_ids 
-                from step_0) 
-            SELECT distinct unnested_ids 
-            from step_1;""",
-                    (user_id,))
-
-        raw_data = cur.fetchall()
-        if not raw_data:
-            user_params['regions'] = []
-        else:
-            user_regions = []
-            for line in raw_data:
-                user_regions.append(line[0])
-            user_params['regions'] = user_regions
-
-        # create searches list
-        cur.execute("""WITH 
-            user_regions AS (
-                select forum_folder_num from user_regional_preferences where user_id=%s),
             user_regions_filtered AS (
-                SELECT ur.* 
-                FROM user_regions AS ur 
-                LEFT JOIN folders AS f 
-                ON ur.forum_folder_num=f.folder_id 
-                WHERE f.folder_type='searches'), 
-            s2 AS (SELECT search_forum_num, search_start_time, display_name, status, family_name,
-                topic_type, topic_type_id, city_locations, age_min, age_max
+                SELECT DISTINCT folder_id AS forum_folder_num
+                FROM folders
+                WHERE folder_type='searches'
+            ), 
+            s2 AS (
+                SELECT search_start_time, forum_folder_id, topic_type, search_forum_num, 
+                        status, display_name, family_name,
+                age_min, age_max
                 FROM searches
-                WHERE forum_folder_id IN (SELECT forum_folder_num FROM user_regions_filtered) 
-                AND status != 'НЖ' 
-                AND status != 'НП' 
-                AND status != 'Завершен' 
-                AND status != 'Найден' 
+                WHERE forum_folder_id IN (SELECT forum_folder_num FROM user_regions_filtered)
+                AND status NOT IN ('НЖ', 'НП', 'Завершен', 'Найден') 
                 AND topic_type_id != 1
+                AND search_start_time >= CURRENT_TIMESTAMP - INTERVAL '%s days'
                 ORDER BY search_start_time DESC
-                LIMIT 30),
+            ),
             s3 AS (SELECT s2.* 
                 FROM s2 
                 LEFT JOIN search_health_check shc
                 ON s2.search_forum_num=shc.search_forum_num
                 WHERE (shc.status is NULL OR shc.status='ok' OR shc.status='regular') 
-                ORDER BY s2.search_start_time DESC),
+                ORDER BY s2.search_start_time DESC
+            ),
             s4 AS (SELECT s3.*, sfp.content 
                 FROM s3 
                 LEFT JOIN search_first_posts AS sfp 
                 ON s3.search_forum_num=sfp.search_id
-                WHERE sfp.actual = True),
-            s5 AS (SELECT s4.*, sc.latitude, sc.longitude, sc.coord_type 
-                FROM s4 
-                LEFT JOIN search_coordinates AS sc 
-                ON s4.search_forum_num=sc.search_id)
-                
-            SELECT distinct s5.*, max(parsed_time) OVER (PARTITION BY cl.search_forum_num) AS last_change_time 
-                FROM s5 
-                LEFT JOIN change_log AS cl 
-                ON s5.search_forum_num=cl.search_forum_num 
-                ;""",
-                    (user_id,))
+                WHERE sfp.actual = True
+            )    
+            SELECT * FROM s4;""",
+                    (folders_list, depth_days))
 
     raw_data = cur.fetchall()
 
     if not raw_data:
-        user_params['searches'] = []
+        searches_data = []
     else:
         user_searches = []
         for line in raw_data:
-            search_id, search_start_time, display_name, status, family_name, topic_type, topic_type_id, \
-            city_locations, age_min, age_max, first_post, lat, lon, coord_type, last_change_time = line
+            search_start_time, forum_folder_id, topic_type, search_id, status, display_name, family_name, \
+            age_min, age_max, first_post = line
 
-            # define "freshness" of the search
-            creation_freshness, creation_freshness_days = time_counter_since_search_start(search_start_time)
-            update_freshness, update_freshness_days = time_counter_since_search_start(last_change_time)
+            # search_id, search_start_time, display_name, status, family_name, topic_type, topic_type_id, \
+            # city_locations, age_min, age_max, first_post, lat, lon, coord_type, last_change_time = line
+
             logging.info(f'{search_id=}')
-            logging.info(f'{creation_freshness_days=}')
-            logging.info(f'{update_freshness_days=}')
-            logging.info(f'{min(creation_freshness_days, update_freshness_days)=}')
-            search_is_old = False
-            if creation_freshness_days > 3 and update_freshness_days > 3:
-                search_is_old = True
-
-            # define "exact_coords" – an variable showing if coordinates are explicityply provided ("exact") or geocoded (not "exact")
-            if not coord_type:
-                exact_coords = False
-            elif coord_type not in {'1. coordinates w/ word coord', '2. coordinates w/o word coord'}:
-                exact_coords = False
-            else:
-                exact_coords = True
-
-            # define "coords"
-            if exact_coords:
-                coords = [[eval(lat), eval(lon)]]
-            else:
-                coords = evaluate_city_locations(city_locations)
-
-                if not coords and lat and lon:
-                    coords = [[eval(lat), eval(lon)]]
-                elif not coords:
-                    coords = [[]]
-
-            # define "link"
-            link = f"https://lizaalert.org/forum/viewtopic.php?t={search_id}"
 
             # define "content"
             content = clean_up_content(first_post)
 
-            # define "search_type"
-            if topic_type_id == 0:
-                search_type = "Обычный поиск"
-            else:
-                search_type = "Особый поиск"  # TODO – to be decomposed in greater details
-
             user_search = {
-                "name": search_id,
-                "coords": coords,
-                "exact_coords": exact_coords,
-                "content": content,
-                "display_name": display_name,
-                "freshness": creation_freshness,
-                "link": link,
+                "search_start_time": search_start_time,
+                "forum_folder_id": forum_folder_id,
+                "search_type": topic_type,
+                "search_id": search_id,
                 "search_status": status,
-                "search_type": search_type,
-                "search_is_old": search_is_old
+                "display_name": display_name,
+                "family_name": family_name,
+                "age_min": age_min,
+                "age_max": age_max,
+                "content": content,
             }
 
-            if coords[0]:
-                user_searches.append(user_search)
-        user_params['searches'] = user_searches
+            user_searches.append(user_search)
+
+        searches_data = user_searches
 
     cur.close()
     conn_psy.close()
 
-    return user_params
+    return searches_data
 
 
 def save_user_statistics_to_db(user_input, response) -> None:
     """save user's interaction into DB"""
 
-    json_to_save = json.dumps({"ok": response})
+    json_to_save = json.dumps(response)
 
     conn_psy = sql_connect_by_psycopg2()
     cur = conn_psy.cursor()
@@ -358,7 +260,7 @@ def save_user_statistics_to_db(user_input, response) -> None:
         cur.execute("""INSERT INTO stat_api_usage_actual_searches
                        (request, timestamp, response)
                        VALUES (%s, CURRENT_TIMESTAMP, %s);""",
-                        (str(user_input), json_to_save))
+                    (str(user_input), json_to_save))
 
     except Exception as e:
         logging.exception(e)
@@ -458,7 +360,7 @@ def verify_json_validity(user_input):
 
     reason = None
 
-    if not user_input or not isinstance(user_input, dict): # or 'hash' not in user_input.keys():
+    if not user_input or not isinstance(user_input, dict):  # or 'hash' not in user_input.keys():
         reason = 'No request or request is not a dict/json'
 
     elif 'app_id' not in user_input.keys():
@@ -497,26 +399,24 @@ def main(request):
 
     request_json = request.get_json(silent=True)
 
-
     reason_not_to_process_json = verify_json_validity(request_json)
 
     if reason_not_to_process_json:
+        response = {"ok": False, "reason": reason_not_to_process_json}
 
-        response_json = json.dumps({"ok": False, "reason": reason_not_to_process_json})
+        save_user_statistics_to_db(request_json, response)
 
-        save_user_statistics_to_db(request_json, response_json)
+        return json.dumps(response), 200, headers
 
-        return response_json, 200, headers
+    searches = get_list_of_active_searches_from_db(request_json)
+    # searches = ['test_1', 'test_2']
 
-    # searches = get_list_of_active_searches_from_db(request_json)
-    searches = ['test_1', 'test_2']
+    response = {'ok': True, 'searches': searches}
 
-    response_json = json.dumps({'ok': True, 'searches': searches})
-
-    save_user_statistics_to_db(request_json, response_json)
+    save_user_statistics_to_db(request_json, response)
 
     logging.info(request)
     logging.info(request_json)
-    logging.info(f'the RESULT {response_json}')
+    logging.info(f'the RESULT {response}')
 
-    return response_json, 200, headers
+    return json.dumps(response), 200, headers
