@@ -44,10 +44,10 @@ def sql_connect_by_psycopg2():
     db_conn = get_secrets("cloud-postgres-connection-name")
     db_host = '/cloudsql/' + db_conn
 
+    logging.info(f'LENGTHS {len(db_user)=}, {len(db_pass)=}, {len(db_name)=}, {len(db_conn)=}')
+
     conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
     conn_psy.autocommit = True
-
-    logging.info(f'LENGTHS {len(db_user)=}, {len(db_pass)=}, {len(db_name)=}, {len(db_conn)=}')
 
     return conn_psy
 
