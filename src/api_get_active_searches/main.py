@@ -1,8 +1,5 @@
-"""Function acts as API for Searches Map WebApp made as a part of Searcher Bot
- The current script checks Telegram authentication and retrieves user's key data and list of searches"""
-
-# TODO - add functions descriptions
-# TODO – add functions typing hints
+"""Function acts as API for the App designed to support LizaAlert Group of Phone Calls.
+ The current script retrieves an actual list active searches"""
 
 import json
 import logging
@@ -11,8 +8,6 @@ import datetime
 
 import urllib.request
 from urllib.parse import unquote
-import hmac
-import hashlib
 import psycopg2
 from bs4 import BeautifulSoup
 from typing import Dict
@@ -41,7 +36,7 @@ def get_secrets(secret_request):
 
 
 def sql_connect_by_psycopg2():
-    """connect to GCP SLQ via PsycoPG2"""
+    """connect to GCP SQL via PsycoPG2"""
 
     db_user = get_secrets("cloud-postgres-username")
     db_pass = get_secrets("cloud-postgres-password")
@@ -52,72 +47,9 @@ def sql_connect_by_psycopg2():
     conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
     conn_psy.autocommit = True
 
+    logging.info(f'LENGTHS {len(db_user)=}, {len(db_pass)=}, {len(db_name)=}, {len(db_conn)=}')
+
     return conn_psy
-
-
-def verify_telegram_data_json(user_input, token):
-    """verify the received dict is issued by telegram, which means user is authenticated with telegram"""
-
-    if not user_input or not isinstance(user_input, dict) or 'hash' not in user_input.keys() or not token:
-        return False
-
-    hash_from_telegram = user_input['hash']
-    sorted_dict = {key: value for key, value in sorted(user_input.items())}
-
-    data_array = []
-    for key, value in sorted_dict.items():
-        if key != 'hash':
-            data_array.append(f'{key}={value}')
-    data_check_string = "\n".join(data_array)
-
-    # Convert bot_token to bytes and compute its SHA256 hash
-    secret_key = hashlib.sha256(token.encode()).digest()
-
-    # Compute the HMAC-SHA-256 signature of the data_check_string
-    hmac_signature = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-
-    # Compare the computed signature with the received hash
-    if hmac_signature == hash_from_telegram:
-        # Data is from Telegram
-        return True
-    else:
-        # Data is not from Telegram
-        return False
-
-
-def verify_telegram_data_string(user_input, token):
-    """verify the received dict is issued by telegram, which means user is authenticated with telegram"""
-
-    data_check_string = unquote(user_input)
-
-    data_check_arr = data_check_string.split('&')
-    needle = 'hash='
-    hash_item = ''
-    telegram_hash = ''
-    for item in data_check_arr:
-        if item[0:len(needle)] == needle:
-            telegram_hash = item[len(needle):]
-            hash_item = item
-    data_check_arr.remove(hash_item)
-    data_check_arr.sort()
-    data_check_string = "\n".join(data_check_arr)
-    secret_key = hmac.new("WebAppData".encode(), token.encode(), hashlib.sha256).digest()
-    calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-
-    if calculated_hash == telegram_hash:
-        return True
-    else:
-        return False
-
-
-def verify_telegram_data(user_input, token):
-    """verify if u"""
-    if isinstance(user_input, str):
-        result = verify_telegram_data_string(user_input, token)
-    else:
-        result = verify_telegram_data_json(user_input, token)
-
-    return result
 
 
 def evaluate_city_locations(city_locations):
@@ -192,10 +124,8 @@ def time_counter_since_search_start(start_time):
     return [phrase, diff.days]
 
 
-def get_user_data_from_db(user_id: int) -> dict:
-    """if user_is is a current bot's user – than retrieves user's data like home coords, radius, list of searches
-    if user_id is not a user of bot – than retrieves a "demo" data with fake home coords, radius and real list of
-    searches for Moscow Region"""
+def get_list_of_active_searches_from_db(user_id: int) -> dict:
+    """retrieves a list of recent searches"""
 
     backend_data = {'user_id': user_id}
 
@@ -418,7 +348,7 @@ def get_user_data_from_db(user_id: int) -> dict:
     return user_params
 
 
-def save_user_statistics_to_db(user_id: int, response: bool) -> None:
+def save_user_statistics_to_db(user_input, response) -> None:
     """save user's interaction into DB"""
 
     json_to_save = json.dumps({"ok": response})
@@ -427,10 +357,15 @@ def save_user_statistics_to_db(user_id: int, response: bool) -> None:
     cur = conn_psy.cursor()
 
     try:
-        cur.execute("""INSERT INTO stat_map_usage 
-                        (user_id, timestamp, response) 
-                        VALUES (%s, CURRENT_TIMESTAMP, %s);""",
-                    (user_id, json_to_save))
+        # cur.execute("""INSERT INTO stat_api_usage_actual_searches
+        #                (request, timestamp, response)
+        #                VALUES (%s, CURRENT_TIMESTAMP, %s);""",
+        #            (None, None))
+
+        cur.execute("""select * from stat_api_usage_actual_searches;""")
+        raw_data = cur.fetchone()
+        logging.info(raw_data)
+
     except Exception as e:
         logging.exception(e)
 
@@ -524,23 +459,29 @@ def clean_up_content(init_content):
     return reco_content
 
 
+def verify_json_validity(user_input):
+    """verify the received message is eligible to be processed"""
+
+    reason = None
+
+    if not user_input or not isinstance(user_input, dict): # or 'hash' not in user_input.keys():
+        reason = 'No request or request is not a dict/json'
+
+    elif 'app_id' not in user_input.keys():
+        reason = 'No app_id provided'
+
+    elif user_input['app_id'] != '123ABC':
+        reason = 'Incorrect app_id'
+
+    logging.info(f'the incoming json is {user_input=}, {reason=}')
+
+    return reason
+
+
 @functions_framework.http
 def main(request):
     # For more information about CORS and CORS preflight requests, see:
     # https://developer.mozilla.org/en-US/docs/Glossary/Preflight_request
-    allowed_origins = ["https://web_app.storage.googleapis.com", "https://storage.googleapis.com"]
-    origin = None
-    try:
-        origin = request.headers.get('Origin')
-        logging.info(f'{origin=}')
-
-    except Exception as e:
-        logging.exception(e)
-
-    origin_to_show = allowed_origins[1]
-    if origin in allowed_origins:
-        origin_to_show = origin
-    logging.info(f'{origin_to_show=}')
 
     # Set CORS headers for the preflight request
     if request.method == "OPTIONS":
@@ -548,66 +489,45 @@ def main(request):
         # header and caches preflight response for an 3600s
         headers = {
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": ["GET", "POST", "OPTIONS"],
+            "Access-Control-Allow-Methods": ["GET", "OPTIONS"],
             "Access-Control-Allow-Headers": "Content-Type",
             "Access-Control-Max-Age": "3600",
-        }  # https://storage.googleapis.com
+        }
 
         logging.info(f'{headers=}')
 
         return ("", 204, headers)
 
     # Set CORS headers for the main request
-    headers = {"Access-Control-Allow-Origin": origin_to_show}
-    logging.info(f'{headers=}')
+    headers = {"Access-Control-Allow-Origin": "*"}
+
+    request_json = request.get_json(silent=True)
+
+
+    reason_not_to_process_json = verify_json_validity(request_json)
+
+    if reason_not_to_process_json:
+
+        response_json = json.dumps({"ok": False, "reason": reason_not_to_process_json})
+        try:
+            save_user_statistics_to_db(None, response_json)
+        except Exception as e:
+            logging.exception(e)
+
+        return response_json, 200, headers
+
+    # searches = get_list_of_active_searches_from_db(request_json)
+    searches = ['test_1', 'test_2']
+
+    response_json = json.dumps({'ok': True, 'searches': searches})
+
+    try:
+        save_user_statistics_to_db(None, response_json)
+    except Exception as e:
+        logging.exception(e)
 
     logging.info(request)
-    request_json = request.get_json(silent=True)
     logging.info(request_json)
-    request_args = request.args
-    response = {'ok': False}
-    ok = False
-    reason = None
+    logging.info(f'the RESULT {response_json}')
 
-    if not request_json:
-        reason = f'No json/string received'
-        logging.info(request_args)
-
-    bot_token = get_secrets('bot_api_token__prod')
-    process_the_data = verify_telegram_data(request_json, bot_token)
-
-    if not process_the_data:
-        reason = f'Provided json is not validated'
-        logging.info(f'the incoming json is {request_json}')
-
-    elif not isinstance(request_json, str) and 'id' not in request_json:
-        reason = f'No user_id in json provided'
-        logging.info(f'the incoming json is {request_json}')
-
-    elif not isinstance(request_json, str) and 'id' in request_json and not isinstance(request_json['id'], int):
-        reason = f'user_id is not a digit'
-        logging.info(f'the incoming json is {request_json}')
-
-    if reason:
-        logging.info(f'{reason=}')
-        response['reason'] = reason
-        # MEMO - below we use "0" only to track number of unsuccessful api calls
-        save_user_statistics_to_db(0, False)
-        return response, 200, headers
-
-    if not isinstance(request_json, str):
-        user_id = request_json['id']
-    else:
-        user_item = unquote(request_json)
-        user_id = int(re.findall(r'(?<="id":)\d{3,20}', user_item)[0])
-    logging.info(f'YES, {user_id=} is received!')
-    logging.info(f'the incoming json is {request_json}')
-    params = get_user_data_from_db(user_id)
-
-    response = {'ok': True, 'user_id': user_id, 'params': params}
-
-    logging.info(f'the RESULT {response}')
-
-    save_user_statistics_to_db(user_id, True)
-
-    return (json.dumps(response), 200, headers)
+    return response_json, 200, headers
