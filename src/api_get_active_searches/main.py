@@ -176,7 +176,7 @@ def get_list_of_active_searches_from_db(request: json) -> tuple:
         cur.execute("""WITH 
             user_regions_filtered AS (
                 SELECT DISTINCT folder_id AS forum_folder_num
-                FROM folders
+                FROM geo_folders
                 WHERE folder_type='searches'
             ), 
             s2 AS (
