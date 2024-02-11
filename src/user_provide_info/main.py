@@ -274,23 +274,22 @@ def get_user_data_from_db(user_id: int) -> dict:
             user_params['home_lon'] = float(user_params['home_lon'])
 
         # create folders (regions) list
-        cur.execute("""WITH 
-            step_0 AS (
-                SELECT 
-                    urp.forum_folder_num, 
-                    f.division_id AS region_id, 
-                    r.yandex_reg_id
-                FROM user_regional_preferences AS urp
-                LEFT JOIN geo_folders AS f
-                ON urp.forum_folder_num=f.folder_id
-                LEFT JOIN regions AS r
-                ON f.division_id=r.id
-                WHERE urp.user_id=%s), 
-            step_1 AS (
-                SELECT UNNEST(step_0.yandex_reg_id) as unnested_ids 
-                from step_0) 
-            SELECT distinct unnested_ids 
-            from step_1;""",
+        cur.execute("""WITH
+                        step_0 AS (
+                            SELECT
+                                urp.forum_folder_num,
+                                f.division_id AS region_id,
+                                r.polygon_id
+                            FROM user_regional_preferences AS urp
+                            LEFT JOIN geo_folders AS f
+                            ON urp.forum_folder_num=f.folder_id
+                            JOIN geo_regions AS r
+                            ON f.division_id=r.division_id
+                            WHERE urp.user_id=%s
+                        )
+                        SELECT distinct polygon_id
+                        FROM step_0
+                        ORDER BY 1;""",
                     (user_id,))
 
         raw_data = cur.fetchall()
