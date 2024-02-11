@@ -276,13 +276,16 @@ def get_user_data_from_db(user_id: int) -> dict:
         # create folders (regions) list
         cur.execute("""WITH 
             step_0 AS (
-                select urp.forum_folder_num, rtf.region_id, r.yandex_reg_id 
-                from user_regional_preferences AS urp 
-                LEFT JOIN regions_to_folders AS rtf 
-                ON urp.forum_folder_num=rtf.forum_folder_id 
-                LEFT JOIN regions AS r 
-                ON rtf.region_id=r.id 
-                where urp.user_id=%s), 
+                SELECT 
+                    urp.forum_folder_num, 
+                    f.division_id AS region_id, 
+                    r.yandex_reg_id
+                FROM user_regional_preferences AS urp
+                LEFT JOIN geo_folders AS f
+                ON urp.forum_folder_num=f.folder_id
+                LEFT JOIN regions AS r
+                ON f.division_id=r.id
+                WHERE urp.user_id=%s), 
             step_1 AS (
                 SELECT UNNEST(step_0.yandex_reg_id) as unnested_ids 
                 from step_0) 
