@@ -339,7 +339,7 @@ def update_first_posts_and_statuses():
                 s AS (SELECT search_forum_num, search_start_time, forum_folder_id FROM searches 
                     WHERE status = 'Ищем'),
                 h AS (SELECT search_forum_num, status FROM search_health_check),
-                f AS (SELECT folder_id, folder_type FROM folders 
+                f AS (SELECT folder_id, folder_type FROM geo_folders 
                     WHERE folder_type IS NULL OR folder_type = 'searches')
                 
                 SELECT s.search_forum_num, s.search_start_time FROM s 

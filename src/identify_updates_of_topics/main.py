@@ -1847,7 +1847,7 @@ def get_the_list_of_ignored_folders(db):
     conn = db.connect()
 
     sql_text = sqlalchemy.text(
-        """SELECT folder_id FROM folders WHERE folder_type != 'searches' AND folder_type != 'events';"""
+        """SELECT folder_id FROM geo_folders WHERE folder_type != 'searches' AND folder_type != 'events';"""
     )
     raw_list = conn.execute(sql_text).fetchall()
 

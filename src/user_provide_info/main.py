@@ -228,7 +228,7 @@ def get_user_data_from_db(user_id: int) -> dict:
             user_regions_filtered AS (
                 SELECT ur.* 
                 FROM user_regions AS ur 
-                LEFT JOIN folders AS f 
+                LEFT JOIN geo_folders AS f 
                 ON ur.forum_folder_num=f.folder_id 
                 WHERE f.folder_type='searches'), 
             s2 AS (SELECT search_forum_num, search_start_time, display_name, status, family_name,
@@ -309,7 +309,7 @@ def get_user_data_from_db(user_id: int) -> dict:
             user_regions_filtered AS (
                 SELECT ur.* 
                 FROM user_regions AS ur 
-                LEFT JOIN folders AS f 
+                LEFT JOIN geo_folders AS f 
                 ON ur.forum_folder_num=f.folder_id 
                 WHERE f.folder_type='searches'), 
             s2 AS (SELECT search_forum_num, search_start_time, display_name, status, family_name,
