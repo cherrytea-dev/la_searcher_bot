@@ -2882,7 +2882,7 @@ def main(request):
 
                 cur.execute(
                     """
-                    select forum_folder_id, folder_description from regions_to_folders;
+                    SELECT folder_id, folder_display_name FROM geo_folders_view WHERE folder_type='searches';
                     """
                 )
 

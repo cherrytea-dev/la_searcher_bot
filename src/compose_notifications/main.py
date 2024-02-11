@@ -472,10 +472,10 @@ def enrich_new_record_from_searches(conn, r_line):
                 LEFT JOIN search_coordinates as sa 
                 ON s.search_forum_num=sa.search_id
             )
-            SELECT ns.*, rtf.folder_description 
-            FROM ns 
-            LEFT JOIN regions_to_folders rtf 
-            ON ns.forum_folder_id = rtf.forum_folder_id;""")
+            SELECT ns.*, f.folder_display_name
+            FROM ns
+            LEFT JOIN geo_folders_view AS f
+            ON ns.forum_folder_id = f.folder_id;""")
 
         s_line = conn.execute(sql_text, a=r_line.forum_search_num).fetchone()
 
