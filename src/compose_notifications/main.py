@@ -1008,7 +1008,7 @@ def compose_users_list_from_users(conn, new_record):
                     user_notif_type_pref AS (
                         SELECT user_id, CASE WHEN 30 = ANY(agg) THEN True ELSE False END AS all_notifs 
                         FROM user_notif_pref_prep 
-                        WHERE 30 = ANY(agg) OR :a = ANY(agg)),     
+                        WHERE (30 = ANY(agg) OR :a = ANY(agg))) and not(2 = ANY(agg) and :a = 2),/*AK20240409:issue13*/     
                     user_folders_prep AS (
                         SELECT user_id, forum_folder_num, 
                             CASE WHEN count(forum_folder_num) OVER (PARTITION BY user_id) > 1 
