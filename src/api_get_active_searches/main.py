@@ -365,7 +365,7 @@ def clean_up_content(init_content):
     return reco_content
 
 
-def verify_json_validity(user_input):
+def verify_json_validity(user_input, list_of_allowed_apps):
     """verify the received message is eligible to be processed"""
 
     reason = None
@@ -376,7 +376,7 @@ def verify_json_validity(user_input):
     elif 'app_id' not in user_input.keys():
         reason = 'No app_id provided'
 
-    elif user_input['app_id'] != '123ABC':
+    elif user_input['app_id'] not in list_of_allowed_apps:
         reason = 'Incorrect app_id'
 
     logging.info(f'the incoming json is {user_input=}, {reason=}')
@@ -410,9 +410,7 @@ def main(request):
     request_json = request.get_json(silent=True)
     list_of_allowed_apps = get_list_of_allowed_apps()
     logging.info(f'{list_of_allowed_apps=}')
-    logging.info(f'{type(list_of_allowed_apps)=}')
-
-    reason_not_to_process_json = verify_json_validity(request_json)
+    reason_not_to_process_json = verify_json_validity(request_json, list_of_allowed_apps)
 
     if reason_not_to_process_json:
         response = {"ok": False, "reason": reason_not_to_process_json}
