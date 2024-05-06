@@ -122,6 +122,22 @@ def time_counter_since_search_start(start_time):
     return [phrase, diff.days]
 
 
+def get_list_of_allowed_apps():
+    """get the list of app_ids approved by admin"""
+
+    approved_app_ids = None
+
+    try:
+        data_string = get_secrets('api_clients')
+        approved_app_ids = eval(data_string)
+
+    except Exception as e:
+        logging.exception(e)
+        logging.info('exception happened in getting list of allowed app_ids')
+
+    return approved_app_ids
+
+
 def get_list_of_active_searches_from_db(request: json) -> tuple:
     """retrieves a list of recent searches"""
 
@@ -392,6 +408,9 @@ def main(request):
     headers = {"Access-Control-Allow-Origin": "*"}
 
     request_json = request.get_json(silent=True)
+    list_of_allowed_apps = get_list_of_allowed_apps()
+    logging.info(f'{list_of_allowed_apps=}')
+    logging.info(f'{type(list_of_allowed_apps)=}')
 
     reason_not_to_process_json = verify_json_validity(request_json)
 
