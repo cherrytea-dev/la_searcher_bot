@@ -408,6 +408,7 @@ def main(request):
     headers = {"Access-Control-Allow-Origin": "*"}
 
     request_json = request.get_json(silent=True)
+    logging.info(f'{request_json}')
     list_of_allowed_apps = get_list_of_allowed_apps()
     logging.info(f'{list_of_allowed_apps=}')
     reason_not_to_process_json = verify_json_validity(request_json, list_of_allowed_apps)
