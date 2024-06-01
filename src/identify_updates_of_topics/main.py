@@ -1263,8 +1263,9 @@ def parse_one_folder(db, folder_id):
             search_replies_num = int(data_block.find('dd', 'posts').next_element)
             start_datetime = define_start_time_of_search(data_block)
 
+            data = {"title": search_title}
             try:
-                data = {"title": search_title}
+
                 title_reco_response = make_api_call('title_recognize', data)
 
                 if title_reco_response and 'status' in title_reco_response.keys() \
@@ -1333,8 +1334,8 @@ def parse_one_folder(db, folder_id):
                     titles_and_num_of_replies.append(parsed_wo_date)
 
             except Exception as e:
-                logging.info(f'TEMP - THIS BIG ERROR HAPPENED')
-                notify_admin(f'TEMP - THIS BIG ERROR HAPPENED')
+                logging.info(f'TEMP - THIS BIG ERROR HAPPENED, {data=}')
+                notify_admin(f'TEMP - THIS BIG ERROR HAPPENED, {data=}, {type(data)=}')
                 logging.error(e)
                 logging.exception(e)
 
