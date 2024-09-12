@@ -1401,7 +1401,7 @@ def parse_one_comment(db, search_num, comment_num):
             logging.exception(e)
             comment_author_nickname = 'unidentified_username'
 
-        if comment_author_nickname[:6].lower() == 'инфорг':
+        if comment_author_nickname[:6].lower() == 'инфорг' and comment_author_nickname != 'Инфорг кинологов':
             there_are_inforg_comments = True
 
         # finding LINK to user profile
