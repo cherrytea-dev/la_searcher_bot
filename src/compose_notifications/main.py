@@ -608,7 +608,8 @@ def enrich_new_record_with_comments(conn, type_of_comments, r_line):
                                         comment_url, comment_text, comment_author_nickname, comment_author_link,
                                         search_forum_num, comment_num, comment_global_num
                                     FROM comments WHERE notif_sent_inforg IS NULL 
-                                    AND LOWER(LEFT(comment_author_nickname,6))='инфорг';""").fetchall()
+                                    AND LOWER(LEFT(comment_author_nickname,6))='инфорг'
+                                    AND comment_author_nickname!='Инфорг кинологов';""").fetchall()
         else:
             comments = None
 
