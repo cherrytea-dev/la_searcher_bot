@@ -499,6 +499,54 @@ def compose_msg_on_all_last_searches(cur, region):
 
     return text
 
+def compose_msg_on_all_last_searches_ikb(cur, region):
+    """Compose a part of message on the list of recent searches"""
+    #issue#425 it is ikb variant of the above function, returns data formated for inline keyboard
+    #1st element of returned list is general info and should be popped
+    #rest elements are searches to be showed as inline buttons
+
+    pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='
+    ikb = []
+
+    # download the list from SEARCHES sql table
+    cur.execute(
+        """SELECT s2.* FROM 
+            (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
+            FROM searches 
+            WHERE forum_folder_id=%s 
+            ORDER BY search_start_time DESC 
+            LIMIT 20) s2 
+        LEFT JOIN search_health_check shc 
+        ON s2.search_forum_num=shc.search_forum_num 
+        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+        ORDER BY s2.search_start_time DESC;""", (region,))
+
+    database = cur.fetchall()
+
+    for line in database:
+        search = SearchSummary()
+        search.topic_id, search.start_time, search.display_name, search.new_status, \
+        search.status, search.name, search.age = list(line)
+
+        if not search.display_name:
+            age_string = f' {age_writer(search.age)}' if search.age != 0 else ''
+            search.display_name = f'{search.name}{age_string}'
+
+        if not search.new_status:
+            search.new_status = search.status
+
+        if search.new_status in {'Ищем', 'Возобновлен'}:
+            search.new_status = f'Ищем {time_counter_since_search_start(search.start_time)[0]}'
+
+        text = f'{search.new_status} {search.display_name}\n'
+        text_with_ref = f'{search.new_status} <a href="{pre_url}{search.topic_id}">{search.display_name}</a>\n'
+
+        ikb += [
+            {"text": text,
+            'callback_data': f'{{"action":"search_form", "hash":"{search.topic_id}", "text":"{text_with_ref}"}}'
+            }]
+    return ikb
+
 
 def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
     """Compose a part of message on the list of active searches in the given region with relation to user's coords"""
@@ -550,6 +598,64 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
 
     return text
 
+def compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data):
+    """Compose a part of message on the list of active searches in the given region with relation to user's coords"""
+    #issue#425 it is ikb variant of the above function, returns data formated for inline keyboard
+    #1st element of returned list is general info and should be popped
+    #rest elements are searches to be showed as inline buttons
+
+    pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='
+    ikb = []
+
+    cur.execute(
+        """SELECT s2.* FROM 
+            (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
+            s.topic_type, s.family_name, s.age 
+            FROM searches s 
+            LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
+            WHERE (s.status='Ищем' OR s.status='Возобновлен') 
+                AND s.forum_folder_id=%s ORDER BY s.search_start_time DESC) s2 
+        LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
+        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+        ORDER BY s2.search_start_time DESC;""", (region,))
+    searches_list = cur.fetchall()
+
+    user_lat = None
+    user_lon = None
+
+    if user_data:
+        user_lat = user_data[0]
+        user_lon = user_data[1]
+
+    for line in searches_list:
+        search = SearchSummary()
+        search.topic_id, search.start_time, search.display_name, search_lat, search_lon, \
+        search.topic_type, search.name, search.age = list(line)
+
+        if time_counter_since_search_start(search.start_time)[1] >= 60:
+            continue
+
+        time_since_start = time_counter_since_search_start(search.start_time)[0]
+
+        if user_lat and search_lat:
+            dist = distance_to_search(search_lat, search_lon, user_lat, user_lon)
+            dist_and_dir = f' {dist[1]} {dist[0]} км'
+        else:
+            dist_and_dir = ''
+
+        if not search.display_name:
+            age_string = f' {age_writer(search.age)}' if search.age != 0 else ''
+            search.display_name = f'{search.name}{age_string}'
+
+        text = f'{time_since_start}{dist_and_dir} {search.display_name}\n'
+        text_with_ref = f'{time_since_start}{dist_and_dir} <a href="{pre_url}{search.topic_id}">{search.display_name}</a>\n'
+
+        ikb += [
+            {"text": text,
+            'callback_data': f'{{"action":"search_form", "hash":"{search.topic_id}", "text":"{text_with_ref}"}}'
+            }]
+    return ikb
+
 
 def compose_full_message_on_list_of_searches(cur, list_type, user_id, region, region_name):
     """Compose a Final message on the list of searches in the given region"""
@@ -592,6 +698,54 @@ def compose_full_message_on_list_of_searches(cur, list_type, user_id, region, re
                   + str(region) + '">' + region_name + '</a> все поиски за последние 60 дней завершены.'
 
     return msg
+
+def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region, region_name):
+    """Compose a Final message on the list of searches in the given region"""
+    #issue#425 This variant of the above function returns data in format used to compose inline keyboard
+    #1st element is caption
+    #rest elements are searches in format to be showed as inline buttons
+
+    ikb = []
+
+    cur.execute(
+        "SELECT latitude, longitude FROM user_coordinates WHERE user_id=%s LIMIT 1;", (user_id,)
+    )
+
+    user_data = cur.fetchone()
+
+    # combine the list of last 20 searches
+    if list_type == 'all':
+
+        ikb += compose_msg_on_all_last_searches_ikb(cur, region)
+
+        if len(ikb)>0:
+            msg = 'Последние 20 поисков в разделе <a href="https://lizaalert.org/forum/viewforum.php?f=' + str(region) \
+                  + '">' + region_name + '</a>:\n'
+            ikb.insert(0, {"text": msg})
+        else:
+            msg = 'Не получается отобразить последние поиски в разделе ' \
+                  '<a href="https://lizaalert.org/forum/viewforum.php?f=' + str(region) \
+                  + '">' + region_name + '</a>, что-то пошло не так, простите. Напишите об этом разработчику ' \
+                                         'в <a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">Специальном Чате ' \
+                                         'в телеграм</a>, пожалуйста.'
+            ikb = [{"text": msg}]
+            
+
+    # Combine the list of the latest active searches
+    else:
+
+        ikb += compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data)
+
+        if len(ikb)>0:
+            msg = 'Актуальные поиски за 60 дней в разделе <a href="https://lizaalert.org/forum/viewforum.php?f=' \
+                  + str(region) + '">' + region_name + '</a>:\n'
+            ikb.insert(0, {"text": msg})
+        else:
+            msg = 'В разделе <a href="https://lizaalert.org/forum/viewforum.php?f=' \
+                  + str(region) + '">' + region_name + '</a> все поиски за последние 60 дней завершены.'
+            ikb = [{"text": msg}]
+
+    return ikb
 
 
 def check_if_new_user(cur, user_id):
@@ -801,6 +955,24 @@ def get_user_role(cur, user_id):
         logging.exception(e)
 
     return user_role
+
+#issue#425
+def get_user_sys_roles(cur, user_id):
+    """Return user's roles in system"""
+
+    user_roles = ['']
+
+    try:
+        cur.execute("SELECT role FROM user_roles WHERE user_id=%s;", (user_id,))
+        lines = cur.fetchall()
+        for line in lines:
+            user_roles.append(line[0])
+        logging.info(f'user {user_id} role has role {line[0]}')
+    except Exception as e:
+        logging.info(f'failed to get from user_roles for user {user_id}')
+        logging.exception(e)
+
+    return user_roles
 
 
 def save_preference(cur, user_id, preference):
@@ -2898,6 +3070,25 @@ def main(request):
 
                     # check if region – is an archive folder: if so – it can be sent only to 'all'
                     if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
+                        if 'tester' in get_user_sys_roles(cur, user_id):
+                            #issue#425 make inline keyboard - list of searches
+                            keyboard = compose_full_message_on_list_of_searches_ikb(cur,
+                                                                                temp_dict[got_message],
+                                                                                user_id,
+                                                                                region, region_name)
+                            header_text = keyboard[0].text
+                            keyboard.pop(0)
+                            # keyboard = [
+                            # {"text": "кнопка поиска 1", 'callback_data': f'{{"action":"search_form","hash": "1"}}'}]
+                            # keyboard += [
+                            # {"text": "кнопка поиска 2", 'callback_data': f'{{"action":"search_form","hash": "2"}}'}]
+                            keyboard = [[k] for k in keyboard]
+                            
+                            #issue#425 show the inline keyboard
+                            reply_markup = InlineKeyboardMarkup(keyboard)
+                            data = {'text': 'Выберите интересующий Вас поиск:', 'reply_markup': reply_markup,
+                                    'parse_mode': 'HTML', 'disable_web_page_preview': True}
+                            process_sending_message_async(user_id=user_id, data=data)
 
                         bot_message = compose_full_message_on_list_of_searches(cur,
                                                                                temp_dict[got_message],
@@ -2905,7 +3096,8 @@ def main(request):
                                                                                region, region_name)
                         reply_markup = reply_markup_main
 
-                        data = {'text': bot_message, 'reply_markup': reply_markup,
+                        #issue#425 Old output of seaches temporarily remains too, with modified text
+                        data = {'text': 'или нажмите одну из кнопок главного меню ниже \n'+bot_message, 'reply_markup': reply_markup,
                                 'parse_mode': 'HTML', 'disable_web_page_preview': True}
                         process_sending_message_async(user_id=user_id, data=data)
 
