@@ -538,13 +538,10 @@ def compose_msg_on_all_last_searches_ikb(cur, region):
         if search.new_status in {'Ищем', 'Возобновлен'}:
             search.new_status = f'Ищем {time_counter_since_search_start(search.start_time)[0]}'
 
-        text = f'{search.new_status} {search.display_name}\n'
-        text_with_ref = f'{search.new_status} <a href="{pre_url}{search.topic_id}">{search.display_name}</a>\n'
-
-        ikb += [
-            {"text": text,
-            'callback_data': f'{{"action":"search_form", "hash":"{search.topic_id}", "text":"{text_with_ref}"}}'
-            }]
+        ikb += [[
+            {"text": "", 'callback_data': f'{{"action":"search_follow_mode", "hash":"{search.topic_id}", "value": true}}'},##left button to on/off follow
+            {"text": f'{search.new_status} {search.display_name}', "url": f'{pre_url}{search.topic_id}'} ##right button - link to the search on the forum
+            ]]
     return ikb
 
 
@@ -647,13 +644,10 @@ def compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data):
             age_string = f' {age_writer(search.age)}' if search.age != 0 else ''
             search.display_name = f'{search.name}{age_string}'
 
-        text = f'{time_since_start}{dist_and_dir} {search.display_name}\n'
-        text_with_ref = f'{time_since_start}{dist_and_dir} <a href="{pre_url}{search.topic_id}">{search.display_name}</a>\n'
-
-        ikb += [
-            {"text": text,
-            'callback_data': f'{{"action":"search_form", "hash":"{search.topic_id}", "text":"{text_with_ref}"}}'
-            }]
+        ikb += [[
+            {"text": "", 'callback_data': f'{{"action":"search_follow_mode", "hash":"{search.topic_id}", "value": true}}'},##left button to on/off follow
+            {"text": f'{time_since_start}{dist_and_dir} {search.display_name}\n', "url": f'{pre_url}{search.topic_id}'} ##right button - link to the search on the forum
+            ]]
     return ikb
 
 
@@ -3078,15 +3072,10 @@ def main(request):
                                                                                 region, region_name)
                             header_text = keyboard[0].text
                             keyboard.pop(0)
-                            # keyboard = [
-                            # {"text": "кнопка поиска 1", 'callback_data': f'{{"action":"search_form","hash": "1"}}'}]
-                            # keyboard += [
-                            # {"text": "кнопка поиска 2", 'callback_data': f'{{"action":"search_form","hash": "2"}}'}]
-                            keyboard = [[k] for k in keyboard]
                             
                             #issue#425 show the inline keyboard
                             reply_markup = InlineKeyboardMarkup(keyboard)
-                            data = {'text': 'Выберите интересующий Вас поиск:', 'reply_markup': reply_markup,
+                            data = {'text': header_text, 'reply_markup': reply_markup,
                                     'parse_mode': 'HTML', 'disable_web_page_preview': True}
                             process_sending_message_async(user_id=user_id, data=data)
 
