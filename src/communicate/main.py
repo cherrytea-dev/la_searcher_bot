@@ -3096,8 +3096,7 @@ def main(request):
                                                                                region, region_name)
                         reply_markup = reply_markup_main
 
-                        #issue#425 Old output of seaches temporarily remains too, with modified text
-                        data = {'text': 'или нажмите одну из кнопок главного меню ниже \n'+bot_message, 'reply_markup': reply_markup,
+                        data = {'text': bot_message, 'reply_markup': reply_markup,
                                 'parse_mode': 'HTML', 'disable_web_page_preview': True}
                         process_sending_message_async(user_id=user_id, data=data)
 
