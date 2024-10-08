@@ -1637,6 +1637,57 @@ def manage_topic_type(cur, user_id, user_input, b, user_callback, callback_id, b
     return bot_message, reply_markup
 
 
+#issue#425 manage_search_whiteness inspired by manage_topic_type
+def manage_search_whiteness(cur, user_id, user_input, b, user_callback, callback_id, callback_query, bot_token) -> Union[
+        tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
+    """Saves search_whiteness (accordingly to user's choice of search to follow) and regenerates the search list keyboard"""
+
+    def delete_search_whiteness(user: int, search_id: int) -> None:
+        """Delete a certain user_pref_search_whitelist for a certain user_id from the DB"""
+
+        cur.execute("""DELETE FROM user_pref_search_whitelist WHERE user_id=%s AND search_id=%s;""", (user, type_id))
+        return None
+
+    def record_search_whiteness(user: int, search_id: int) -> None:
+        """Delete all and then Insert a certain user_pref_search_whitelist for a certain user_id into the DB"""
+
+        cur.execute("""DELETE FROM user_pref_search_whitelist WHERE user_id=%s;""", (user))
+        cur.execute("""INSERT INTO user_pref_search_whitelist (user_id, search_id, timestamp) 
+                        VALUES (%s, %s, %s) ON CONFLICT (user_id, search_id) DO NOTHING;""",
+                    (user, search_id, datetime.datetime.now()))
+        return None
+
+    if not user_input:
+        return None, None
+
+    # when user pushed INLINE BUTTON for topic following
+    if user_callback and user_callback.action == "search_follow_mode":
+        if user_callback['action']=='search_follow_mode':
+            ikb = callback_query.message.reply_markup
+            i=-1
+            for row in ikb:
+                i=i+1
+                if int(row[0]['callback_data']['hash'])==int(user_callback['hash']):
+                    ikb[i][0]['text']='👀'
+                else:
+                    ikb[i][0]['text']='  '
+
+            # Edit the message with the new inline keyboard
+            edit_data = {
+                'chat_id': callback_query['message']['chat']['id'],
+                'message_id': callback_query['message']['message_id'],
+                'text': callback_query.message.text,
+                'reply_markup': ikb
+            }
+            api_callback_edit_inline_keyboard(bot_token, callback_id, edit_data)
+            record_search_whiteness(user_id, int(user_callback['hash']))
+
+    logging.info(f'{list_of_current_setting_ids=}')
+    logging.info(f'{user_input=}')
+    logging.info(f'{list_of_ids_to_change_now=}')
+    logging.info(f'{keyboard=}')
+
+
 def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_not_moscow,
                      reply_markup, keyboard_fed_dist_set, bot_message, user_role):
     """act if user replied either user from Moscow region or from another one"""
