@@ -539,7 +539,7 @@ def compose_msg_on_all_last_searches_ikb(cur, region):
             search.new_status = f'Ищем {time_counter_since_search_start(search.start_time)[0]}'
 
         ikb += [[
-            {"text": "", 'callback_data': f'{{"action":"search_follow_mode", "hash":"{search.topic_id}", "value": true}}'},##left button to on/off follow
+            {"text": "  ", 'callback_data': f'{{"action":"search_follow_mode", "hash":"{search.topic_id}"}}'},##left button to on/off follow
             {"text": f'{search.new_status} {search.display_name}', "url": f'{pre_url}{search.topic_id}'} ##right button - link to the search on the forum
             ]]
     return ikb
@@ -645,7 +645,7 @@ def compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data):
             search.display_name = f'{search.name}{age_string}'
 
         ikb += [[
-            {"text": "", 'callback_data': f'{{"action":"search_follow_mode", "hash":"{search.topic_id}", "value": true}}'},##left button to on/off follow
+            {"text": "  ", 'callback_data': f'{{"action":"search_follow_mode", "hash":"{search.topic_id}"}}'},##left button to on/off follow
             {"text": f'{time_since_start}{dist_and_dir} {search.display_name}\n', "url": f'{pre_url}{search.topic_id}'} ##right button - link to the search on the forum
             ]]
     return ikb
