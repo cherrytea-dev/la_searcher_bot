@@ -3122,7 +3122,7 @@ def main(request):
 
                     # check if region – is an archive folder: if so – it can be sent only to 'all'
                     if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
-                        if ##'tester' in get_user_sys_roles(cur, user_id):
+                        if username=='AnatolyK1975': ##'tester' in get_user_sys_roles(cur, user_id):
                             #issue#425 make inline keyboard - list of searches
                             keyboard = compose_full_message_on_list_of_searches_ikb(cur,
                                                                                 temp_dict[got_message],
