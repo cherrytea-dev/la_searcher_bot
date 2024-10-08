@@ -1638,54 +1638,41 @@ def manage_topic_type(cur, user_id, user_input, b, user_callback, callback_id, b
 
 
 #issue#425 manage_search_whiteness inspired by manage_topic_type
-def manage_search_whiteness(cur, user_id, user_input, b, user_callback, callback_id, callback_query, bot_token) -> Union[
-        tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
+def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_query, bot_token):
     """Saves search_whiteness (accordingly to user's choice of search to follow) and regenerates the search list keyboard"""
 
     def delete_search_whiteness(user: int, search_id: int) -> None:
         """Delete a certain user_pref_search_whitelist for a certain user_id from the DB"""
-
         cur.execute("""DELETE FROM user_pref_search_whitelist WHERE user_id=%s AND search_id=%s;""", (user, type_id))
         return None
 
     def record_search_whiteness(user: int, search_id: int) -> None:
         """Delete all and then Insert a certain user_pref_search_whitelist for a certain user_id into the DB"""
-
         cur.execute("""DELETE FROM user_pref_search_whitelist WHERE user_id=%s;""", (user))
         cur.execute("""INSERT INTO user_pref_search_whitelist (user_id, search_id, timestamp) 
                         VALUES (%s, %s, %s) ON CONFLICT (user_id, search_id) DO NOTHING;""",
                     (user, search_id, datetime.datetime.now()))
         return None
 
-    if not user_input:
-        return None, None
-
+    logging.info('manage_search_whiteness..callback_query='+str(callback_query))
+    logging.info(f'{user_id=}')
     # when user pushed INLINE BUTTON for topic following
     if user_callback and user_callback.action == "search_follow_mode":
-        if user_callback['action']=='search_follow_mode':
-            ikb = callback_query.message.reply_markup
-            i=-1
-            for row in ikb:
-                i=i+1
-                if int(row[0]['callback_data']['hash'])==int(user_callback['hash']):
-                    ikb[i][0]['text']='👀'
-                else:
-                    ikb[i][0]['text']='  '
+        ikb = callback_query.message.reply_markup
+        logging.info(f'{ikb=}')
+        i=-1
+        for row in ikb:
+            i=i+1
+            if int(row[0]['callback_data']['hash'])==int(user_callback['hash']):
+                ikb[i][0]['text']='👀'
+            else:
+                ikb[i][0]['text']='  '
 
-            # Edit the message with the new inline keyboard
-            edit_data = {
-                'chat_id': callback_query['message']['chat']['id'],
-                'message_id': callback_query['message']['message_id'],
-                'text': callback_query.message.text,
-                'reply_markup': ikb
-            }
-            api_callback_edit_inline_keyboard(bot_token, callback_id, edit_data)
-            record_search_whiteness(user_id, int(user_callback['hash']))
+        logging.info(f'{ikb=}')
+        send_callback_answer_to_api(bot_token, callback_id, 'text for send_callback_answer_to_api')
+        api_callback_edit_inline_keyboard(bot_token, callback_query, ikb)
+        record_search_whiteness(user_id, int(user_callback['hash']))
 
-    logging.info(f'{list_of_current_setting_ids=}')
-    logging.info(f'{user_input=}')
-    logging.info(f'{list_of_ids_to_change_now=}')
-    logging.info(f'{keyboard=}')
 
 
 def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_not_moscow,
@@ -2064,6 +2051,26 @@ def send_callback_answer_to_api(bot_token, callback_query_id, message):
 
     result = process_response_of_api_call(callback_query_id, response)
 
+    return result
+
+def api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup):
+    """send a notification when inline button is pushed directly to Telegram API w/o any wrappers ar libraries"""
+    params = {
+        'chat_id': callback_query['message']['chat']['id'],
+        'message_id': callback_query['message']['message_id'],
+        'text': callback_query['message']['text'],
+        'reply_markup': reply_markup
+    }
+
+    try:
+        response = requests.post(f'https://api.telegram.org/bot{bot_token}/editMessageText', verify=True, data=params)
+    except Exception as e:
+        logging.exception(e)
+        logging.info(f'Error on requests.post in api_callback_edit_inline_keyboard')
+        response = None
+        return False
+
+    result = process_response_of_api_call(user_id, response)
     return result
 
 
@@ -3115,7 +3122,7 @@ def main(request):
 
                     # check if region – is an archive folder: if so – it can be sent only to 'all'
                     if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
-                        if 'tester' in get_user_sys_roles(cur, user_id):
+                        if ##'tester' in get_user_sys_roles(cur, user_id):
                             #issue#425 make inline keyboard - list of searches
                             keyboard = compose_full_message_on_list_of_searches_ikb(cur,
                                                                                 temp_dict[got_message],
@@ -3126,6 +3133,8 @@ def main(request):
                             
                             #issue#425 show the inline keyboard
                             reply_markup = InlineKeyboardMarkup(keyboard)
+                            logging.info('compose_full_message_on_list_of_searches_ikb=>InlineKeyboardMarkup(keyboard) => reply_markup='+str(reply_markup))
+
                             data = {'text': header_text, 'reply_markup': reply_markup,
                                     'parse_mode': 'HTML', 'disable_web_page_preview': True}
                             process_sending_message_async(user_id=user_id, data=data)
@@ -3203,6 +3212,9 @@ def main(request):
                 bot_message, reply_markup = manage_topic_type(cur, user_id, got_message, b, got_callback,
                                                               callback_query_id, bot_token)
 
+            elif got_callback and got_callback['action']=='search_follow_mode': #issue#425
+                manage_search_whiteness(cur, user_id, got_callback, callback_query_id, callback_query, bot_token)
+            
             elif got_message in {b_set_pref_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
                                  b_pref_age_7_13_deact, b_pref_age_14_20_act, b_pref_age_14_20_deact,
                                  b_pref_age_21_50_act, b_pref_age_21_50_deact, b_pref_age_51_80_act,
