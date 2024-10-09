@@ -693,7 +693,20 @@ def compose_full_message_on_list_of_searches(cur, list_type, user_id, region, re
 
     return msg
 
-def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region, region_name):
+def set_followed_search_in_ikb(ikb, user_id): #issue#425
+    """Take the list of searches and set eyes in it for the search stored in user_pref_search_whitelist for this user"""
+    cur.execute("SELECT search_id FROM user_pref_search_whitelist WHERE user_id=%s LIMIT 1;", (user_id,))
+    user_data = cur.fetchone()
+    followed_search_id = int(user_data[0]) if user_data else 0
+
+    i=-1
+    for row in ikb:
+        i=i+1
+        ikb[i][0]['text'] = '👀' if int(row[0]['callback_data']['hash'])==followed_search_id else '  '
+    
+    return ikb
+
+def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region, region_name): #issue#425
     """Compose a Final message on the list of searches in the given region"""
     #issue#425 This variant of the above function returns data in format used to compose inline keyboard
     #1st element is caption
@@ -713,6 +726,7 @@ def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region
         ikb += compose_msg_on_all_last_searches_ikb(cur, region)
 
         if len(ikb)>0:
+            ikb = set_followed_search_in_ikb(ikb, user_id)
             msg = 'Последние 20 поисков в разделе <a href="https://lizaalert.org/forum/viewforum.php?f=' + str(region) \
                   + '">' + region_name + '</a>:\n'
             ikb.insert(0, {"text": msg})
@@ -731,6 +745,7 @@ def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region
         ikb += compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data)
 
         if len(ikb)>0:
+            ikb = set_followed_search_in_ikb(ikb, user_id)
             msg = 'Актуальные поиски за 60 дней в разделе <a href="https://lizaalert.org/forum/viewforum.php?f=' \
                   + str(region) + '">' + region_name + '</a>:\n'
             ikb.insert(0, {"text": msg})
