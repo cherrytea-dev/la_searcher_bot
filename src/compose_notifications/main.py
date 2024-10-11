@@ -1476,10 +1476,30 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
             logging.exception(e)
 
         # 4. DOUBLING. crop the list of users, excluding Users who were already notified on this change_log_id
-        temp_user_list = []
         for user_line in users_list_outcome:
             if user_line.user_id not in users_should_not_be_informed:
                 temp_user_list.append(user_line)
+        logging.info(f'User List crop due to doubling: {len(users_list_outcome)} --> {len(temp_user_list)}')
+        users_list_outcome = temp_user_list
+
+        # 5. FOLLOW SEARCH. crop the list of users, excluding Users who is not following this search
+        temp_user_list = []
+        sql_text_ = sqlalchemy.text("""
+        SELECT user_id FROM users u
+        where exist (select 1 from user_pref_search_whitelist upswl WHERE upswl.user_id=u.user_id and upswl.search_id=:a)
+        or not exist(select 1 from user_pref_search_whitelist upswl WHERE upswl.user_id=u.user_id)
+        """)
+        rows = conn.execute(sql_text_, a=record.forum_search_num).fetchall()
+        
+        users_following = []
+        for row in rows:
+            users_following.append(row[0])
+
+        temp_user_list = []
+        for user_line in users_list_outcome:
+            if user_line.user_id in users_following:
+                temp_user_list.append(user_line)
+
         logging.info(f'User List crop due to doubling: {len(users_list_outcome)} --> {len(temp_user_list)}')
         users_list_outcome = temp_user_list
 
