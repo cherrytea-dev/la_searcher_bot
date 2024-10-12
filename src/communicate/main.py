@@ -1686,6 +1686,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         send_callback_answer_to_api(bot_token, callback_id, 'Обновлено.')
         api_callback_edit_inline_keyboard(bot_token, callback_query, )
 
+    return None
 
 
 def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_not_moscow,
