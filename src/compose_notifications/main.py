@@ -2000,6 +2000,12 @@ def get_triggering_function(message_from_pubsub):
 
     return triggered_by_func_id
 
+def delete_ended_search_following(conn, new_record) #issue425
+    """Delete from user_pref_search_whitelist if the search goes to one of ending statuses"""
+    if new_record.change_type==1 and new_record.status in['Завершен', 'НЖ', 'НП', 'Найден']:
+        stmt = sqlalchemy.text("""DELETE FROM user_pref_search_whitelist WHERE search_id=:a;""")
+        conn.execute(stmt, a=new_record.forum_search_num)
+        logging.info(f'Search id={new_record.forum_search_num} with status {new_record.status} is been deleted from user_pref_search_whitelist.')
 
 def main(event, context):  # noqa
     """key function which is initiated by Pub/Sub"""
@@ -2025,6 +2031,7 @@ def main(event, context):  # noqa
 
         # compose New Records List: the delta from Change log
         new_record = compose_new_records_from_change_log(conn)
+        delete_ended_search_following(conn, new_record)#issue425
 
         # only if there are updates in Change Log
         if new_record:
