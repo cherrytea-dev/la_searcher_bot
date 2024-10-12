@@ -3137,7 +3137,7 @@ def main(request):
                     if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
                         if username=='AnatolyK1975': ##'tester' in get_user_sys_roles(cur, user_id):
                             #issue#425 make inline keyboard - list of searches
-                            keyboard = compose_full_message_on_list_of_searches_(cur,
+                            keyboard = compose_full_message_on_list_of_searches_ikb(cur,
                                                                                 temp_dict[got_message],
                                                                                 user_id,
                                                                                 region, region_name)
