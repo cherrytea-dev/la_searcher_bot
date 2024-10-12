@@ -1681,9 +1681,11 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
                 ##toggle the search following
                 ikb[i][0]['text'] = '👀' if ikb[i][0]['text']=='  ' else '  '
                 record_search_whiteness(user_id, int(user_callback['hash']), ikb[i][0]['text'])
+                to_send_callback_answer = (i < 2) ##DEBUG feature to see how it will work with send_callback_answer_to_api and without
 
         logging.info(f'{ikb=}')
-        send_callback_answer_to_api(bot_token, callback_id, 'Обновлено.')
+        if to_send_callback_answer:
+            send_callback_answer_to_api(bot_token, callback_id, 'Обновлено.')
         api_callback_edit_inline_keyboard(bot_token, callback_query, )
 
     return None
