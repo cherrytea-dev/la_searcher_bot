@@ -1682,6 +1682,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
                 ikb[i][0]['text'] = '👀' if ikb[i][0]['text']=='  ' else '  '
                 record_search_whiteness(user_id, int(user_callback['hash']), ikb[i][0]['text'])
                 to_send_callback_answer = (i < 2) ##DEBUG feature to see how it will work with send_callback_answer_to_api and without
+                break ##because only one button supposed to be pushed
 
         logging.info(f'{ikb=}')
         if to_send_callback_answer:
