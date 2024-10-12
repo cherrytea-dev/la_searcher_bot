@@ -1476,6 +1476,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
             logging.exception(e)
 
         # 4. DOUBLING. crop the list of users, excluding Users who were already notified on this change_log_id
+        temp_user_list = []
         for user_line in users_list_outcome:
             if user_line.user_id not in users_should_not_be_informed:
                 temp_user_list.append(user_line)
@@ -2000,8 +2001,10 @@ def get_triggering_function(message_from_pubsub):
 
     return triggered_by_func_id
 
+
 def delete_ended_search_following(conn, new_record) #issue425
-    """Delete from user_pref_search_whitelist if the search goes to one of ending statuses"""
+"""Delete from user_pref_search_whitelist if the search goes to one of ending statuses"""
+    
     if new_record.change_type==1 and new_record.status in['Завершен', 'НЖ', 'НП', 'Найден']:
         stmt = sqlalchemy.text("""DELETE FROM user_pref_search_whitelist WHERE search_id=:a;""")
         conn.execute(stmt, a=new_record.forum_search_num)
