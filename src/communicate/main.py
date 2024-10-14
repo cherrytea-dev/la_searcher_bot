@@ -499,6 +499,13 @@ def compose_msg_on_all_last_searches(cur, region):
 
     return text
 
+def search_button_row_ikb(search_following_mark, search_status, search_id, search_display_name, url):
+    ikb_row = [[
+            {"text": f'{search_following_mark} {search_status}', 'callback_data': f'{{"action":"search_follow_mode", "hash":"{search_id}"}}'},##left button to on/off follow
+            {"text": search_display_name, "url": url} ##right button - link to the search on the forum
+            ]]
+    return ikb_row
+
 def compose_msg_on_all_last_searches_ikb(cur, region, user_id):
     """Compose a part of message on the list of recent searches"""
     #issue#425 it is ikb variant of the above function, returns data formated for inline keyboard
@@ -537,13 +544,10 @@ def compose_msg_on_all_last_searches_ikb(cur, region, user_id):
 
         if search.new_status in {'Ищем', 'Возобновлен'}:
             search.new_status = f'Ищем {time_counter_since_search_start(search.start_time)[0]}'
-
+        
         search_following_mark = '👀' if search_following_id else '  '
-        ikb += [[
-            {"text": search_following_mark, 'callback_data': f'{{"action":"search_follow_mode", "hash":"{search.topic_id}"}}'},##left button to on/off follow
-            {"text": f'{search.new_status} {search.display_name}', "url": f'{pre_url}{search.topic_id}'} ##right button - link to the search on the forum
-            ]]
-    return ikb
+        ikb += search_button_row_ikb(search_following_mark, search.new_status, search.topic_id, search.display_name, f'{pre_url}{search.topic_id}') 
+return ikb
 
 
 def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
@@ -647,10 +651,7 @@ def compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_i
             search.display_name = f'{search.name}{age_string}'
 
         search_following_mark = '👀' if search_following_id else '  '
-        ikb += [[
-            {"text": search_following_mark, 'callback_data': f'{{"action":"search_follow_mode", "hash":"{search.topic_id}"}}'},##left button to on/off follow
-            {"text": f'{time_since_start}{dist_and_dir} {search.display_name}\n', "url": f'{pre_url}{search.topic_id}'} ##right button - link to the search on the forum
-            ]]
+        ikb += search_button_row_ikb(search_following_mark, f'{time_since_start}{dist_and_dir}', search.topic_id, search.display_name, f'{pre_url}{search.topic_id}') 
     return ikb
 
 
@@ -695,20 +696,6 @@ def compose_full_message_on_list_of_searches(cur, list_type, user_id, region, re
                   + str(region) + '">' + region_name + '</a> все поиски за последние 60 дней завершены.'
 
     return msg
-
-#issue425 the set_followed_search_in_ikb to be deleted because search_following_mark is used instead
-def set_followed_search_in_ikb(ikb, user_id): #issue#425
-    """Take the list of searches and set eyes in it for the search stored in user_pref_search_whitelist for this user"""
-    cur.execute("SELECT search_id FROM user_pref_search_whitelist WHERE user_id=%s LIMIT 1;", (user_id,))
-    user_data = cur.fetchone()
-    followed_search_id = int(user_data[0]) if user_data else 0
-
-    i=-1
-    for row in ikb:
-        i=i+1
-        ikb[i][0]['text'] = '👀' if int(row[0]['callback_data']['hash'])==followed_search_id else '  '
-    
-    return ikb
 
 def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region, region_name): #issue#425
     """Compose a Final message on the list of searches in the given region"""
@@ -1658,9 +1645,9 @@ def manage_topic_type(cur, user_id, user_input, b, user_callback, callback_id, b
 def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_query, bot_token):
     """Saves search_whiteness (accordingly to user's choice of search to follow) and regenerates the search list keyboard"""
 
-    def record_search_whiteness(user: int, search_id: int, seach_following_mark) -> None:
+    def record_search_whiteness(user: int, search_id: int, seach_following_flag) -> None:
         """Save a certain user_pref_search_whitelist for a certain user_id into the DB"""
-        if seach_following_mark=='👀':
+        if seach_following_flag:
             cur.execute("""INSERT INTO user_pref_search_whitelist (user_id, search_id, timestamp) 
                             VALUES (%s, %s, %s) ON CONFLICT (user_id, search_id) DO NOTHING;""",
                         (user, search_id, datetime.datetime.now()))
@@ -1678,9 +1665,10 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         for row in ikb:
             i=i+1
             if int(row[0]['callback_data']['hash'])==int(user_callback['hash']):##if this button was pushed
-                ##toggle the search following
-                ikb[i][0]['text'] = '👀' if ikb[i][0]['text']=='  ' else '  '
-                record_search_whiteness(user_id, int(user_callback['hash']), ikb[i][0]['text'])
+                ##toggle the search following mark that is left 2 symbols in the left button's text in the ikb[i] row
+                new_mark_value = '👀' if ikb[i][0]['text'][:2]=='  ' else '  '
+                ikb[i][0]['text'] = new_mark_value + ikb[i][0]['text'][2:] ##new 2 symbols + rest of the text
+                record_search_whiteness(user_id, int(user_callback['hash']), new_mark_value=='👀')
                 to_send_callback_answer = (i < 2) ##DEBUG feature to see how it will work with send_callback_answer_to_api and without
                 break ##because only one button supposed to be pushed
 
