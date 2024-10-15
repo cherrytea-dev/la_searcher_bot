@@ -499,6 +499,56 @@ def compose_msg_on_all_last_searches(cur, region):
 
     return text
 
+def search_button_row_ikb(search_following_mark, search_status, search_id, search_display_name, url):
+    ikb_row = [[
+            {"text": f'{search_following_mark} {search_status}', 'callback_data': f'{{"action":"search_follow_mode", "hash":"{search_id}"}}'},##left button to on/off follow
+            {"text": search_display_name, "url": url} ##right button - link to the search on the forum
+            ]]
+    return ikb_row
+
+def compose_msg_on_all_last_searches_ikb(cur, region, user_id):
+    """Compose a part of message on the list of recent searches"""
+    #issue#425 it is ikb variant of the above function, returns data formated for inline keyboard
+    #1st element of returned list is general info and should be popped
+    #rest elements are searches to be showed as inline buttons
+
+    pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='
+    ikb = []
+
+    # download the list from SEARCHES sql table
+    cur.execute(
+        """SELECT s2.*, upswl.id as upswl_id FROM 
+            (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
+            FROM searches 
+            WHERE forum_folder_id=:a 
+            ORDER BY search_start_time DESC 
+            LIMIT 20) s2 
+        LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
+        LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=:b
+        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+        ORDER BY s2.search_start_time DESC;""", a=region, b=user_id)
+
+    database = cur.fetchall()
+
+    for line in database:
+        search = SearchSummary()
+        search.topic_id, search.start_time, search.display_name, search.new_status, \
+        search.status, search.name, search.age, search_following_id = list(line)
+
+        if not search.display_name:
+            age_string = f' {age_writer(search.age)}' if search.age != 0 else ''
+            search.display_name = f'{search.name}{age_string}'
+
+        if not search.new_status:
+            search.new_status = search.status
+
+        if search.new_status in {'Ищем', 'Возобновлен'}:
+            search.new_status = f'Ищем {time_counter_since_search_start(search.start_time)[0]}'
+        
+        search_following_mark = '👀' if search_following_id else '  '
+        ikb += search_button_row_ikb(search_following_mark, search.new_status, search.topic_id, search.display_name, f'{pre_url}{search.topic_id}') 
+return ikb
+
 
 def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
     """Compose a part of message on the list of active searches in the given region with relation to user's coords"""
@@ -550,6 +600,60 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
 
     return text
 
+def compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_id):
+    """Compose a part of message on the list of active searches in the given region with relation to user's coords"""
+    #issue#425 it is ikb variant of the above function, returns data formated for inline keyboard
+    #1st element of returned list is general info and should be popped
+    #rest elements are searches to be showed as inline buttons
+
+    pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='
+    ikb = []
+
+    cur.execute(
+        """SELECT s2.*, upswl.id as upswl_id FROM 
+            (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
+            s.topic_type, s.family_name, s.age 
+            FROM searches s 
+            LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
+            WHERE (s.status='Ищем' OR s.status='Возобновлен') 
+                AND s.forum_folder_id=:a ORDER BY s.search_start_time DESC) s2 
+        LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
+        LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=:b
+        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+        ORDER BY s2.search_start_time DESC;""", a=region, b=user_id)
+    searches_list = cur.fetchall()
+
+    user_lat = None
+    user_lon = None
+
+    if user_data:
+        user_lat = user_data[0]
+        user_lon = user_data[1]
+
+    for line in searches_list:
+        search = SearchSummary()
+        search.topic_id, search.start_time, search.display_name, search_lat, search_lon, \
+        search.topic_type, search.name, search.age, search_following_id = list(line)
+
+        if time_counter_since_search_start(search.start_time)[1] >= 60:
+            continue
+
+        time_since_start = time_counter_since_search_start(search.start_time)[0]
+
+        if user_lat and search_lat:
+            dist = distance_to_search(search_lat, search_lon, user_lat, user_lon)
+            dist_and_dir = f' {dist[1]} {dist[0]} км'
+        else:
+            dist_and_dir = ''
+
+        if not search.display_name:
+            age_string = f' {age_writer(search.age)}' if search.age != 0 else ''
+            search.display_name = f'{search.name}{age_string}'
+
+        search_following_mark = '👀' if search_following_id else '  '
+        ikb += search_button_row_ikb(search_following_mark, f'{time_since_start}{dist_and_dir}', search.topic_id, search.display_name, f'{pre_url}{search.topic_id}') 
+    return ikb
+
 
 def compose_full_message_on_list_of_searches(cur, list_type, user_id, region, region_name):
     """Compose a Final message on the list of searches in the given region"""
@@ -592,6 +696,54 @@ def compose_full_message_on_list_of_searches(cur, list_type, user_id, region, re
                   + str(region) + '">' + region_name + '</a> все поиски за последние 60 дней завершены.'
 
     return msg
+
+def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region, region_name): #issue#425
+    """Compose a Final message on the list of searches in the given region"""
+    #issue#425 This variant of the above function returns data in format used to compose inline keyboard
+    #1st element is caption
+    #rest elements are searches in format to be showed as inline buttons
+
+    ikb = []
+
+    cur.execute(
+        "SELECT latitude, longitude FROM user_coordinates WHERE user_id=%s LIMIT 1;", (user_id,)
+    )
+
+    user_data = cur.fetchone()
+
+    # combine the list of last 20 searches
+    if list_type == 'all':
+
+        ikb += compose_msg_on_all_last_searches_ikb(cur, region)
+
+        if len(ikb)>0:
+            msg = 'Последние 20 поисков в разделе <a href="https://lizaalert.org/forum/viewforum.php?f=' + str(region) \
+                  + '">' + region_name + '</a>:\n'
+            ikb.insert(0, {"text": msg})
+        else:
+            msg = 'Не получается отобразить последние поиски в разделе ' \
+                  '<a href="https://lizaalert.org/forum/viewforum.php?f=' + str(region) \
+                  + '">' + region_name + '</a>, что-то пошло не так, простите. Напишите об этом разработчику ' \
+                                         'в <a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">Специальном Чате ' \
+                                         'в телеграм</a>, пожалуйста.'
+            ikb = [{"text": msg}]
+            
+
+    # Combine the list of the latest active searches
+    else:
+
+        ikb += compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_id)
+
+        if len(ikb)>0:
+            msg = 'Актуальные поиски за 60 дней в разделе <a href="https://lizaalert.org/forum/viewforum.php?f=' \
+                  + str(region) + '">' + region_name + '</a>:\n'
+            ikb.insert(0, {"text": msg})
+        else:
+            msg = 'В разделе <a href="https://lizaalert.org/forum/viewforum.php?f=' \
+                  + str(region) + '">' + region_name + '</a> все поиски за последние 60 дней завершены.'
+            ikb = [{"text": msg}]
+
+    return ikb
 
 
 def check_if_new_user(cur, user_id):
@@ -801,6 +953,24 @@ def get_user_role(cur, user_id):
         logging.exception(e)
 
     return user_role
+
+#issue#425
+def get_user_sys_roles(cur, user_id):
+    """Return user's roles in system"""
+
+    user_roles = ['']
+
+    try:
+        cur.execute("SELECT role FROM user_roles WHERE user_id=%s;", (user_id,))
+        lines = cur.fetchall()
+        for line in lines:
+            user_roles.append(line[0])
+        logging.info(f'user {user_id} role has role {line[0]}')
+    except Exception as e:
+        logging.info(f'failed to get from user_roles for user {user_id}')
+        logging.exception(e)
+
+    return user_roles
 
 
 def save_preference(cur, user_id, preference):
@@ -1471,6 +1641,45 @@ def manage_topic_type(cur, user_id, user_input, b, user_callback, callback_id, b
     return bot_message, reply_markup
 
 
+#issue#425 manage_search_whiteness inspired by manage_topic_type
+def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_query, bot_token):
+    """Saves search_whiteness (accordingly to user's choice of search to follow) and regenerates the search list keyboard"""
+
+    def record_search_whiteness(user: int, search_id: int, seach_following_flag) -> None:
+        """Save a certain user_pref_search_whitelist for a certain user_id into the DB"""
+        if seach_following_flag:
+            cur.execute("""INSERT INTO user_pref_search_whitelist (user_id, search_id, timestamp) 
+                            VALUES (%s, %s, %s) ON CONFLICT (user_id, search_id) DO NOTHING;""",
+                        (user, search_id, datetime.datetime.now()))
+        else:
+            cur.execute("""DELETE FROM user_pref_search_whitelist WHERE user_id=:a and search_id=:b;""", a=user, b=search_id)
+        return None
+
+    logging.info('manage_search_whiteness..callback_query='+str(callback_query))
+    logging.info(f'{user_id=}')
+    # when user pushed INLINE BUTTON for topic following
+    if user_callback and user_callback.action == "search_follow_mode":
+        ikb = callback_query.message.reply_markup
+        logging.info(f'{ikb=}')
+        i=-1
+        for row in ikb:
+            i=i+1
+            if int(row[0]['callback_data']['hash'])==int(user_callback['hash']):##if this button was pushed
+                ##toggle the search following mark that is left 2 symbols in the left button's text in the ikb[i] row
+                new_mark_value = '👀' if ikb[i][0]['text'][:2]=='  ' else '  '
+                ikb[i][0]['text'] = new_mark_value + ikb[i][0]['text'][2:] ##new 2 symbols + rest of the text
+                record_search_whiteness(user_id, int(user_callback['hash']), new_mark_value=='👀')
+                to_send_callback_answer = (i < 2) ##DEBUG feature to see how it will work with send_callback_answer_to_api and without
+                break ##because only one button supposed to be pushed
+
+        logging.info(f'{ikb=}')
+        if to_send_callback_answer:
+            send_callback_answer_to_api(bot_token, callback_id, 'Обновлено.')
+        api_callback_edit_inline_keyboard(bot_token, callback_query, )
+
+    return None
+
+
 def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_not_moscow,
                      reply_markup, keyboard_fed_dist_set, bot_message, user_role):
     """act if user replied either user from Moscow region or from another one"""
@@ -1847,6 +2056,26 @@ def send_callback_answer_to_api(bot_token, callback_query_id, message):
 
     result = process_response_of_api_call(callback_query_id, response)
 
+    return result
+
+def api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup):
+    """send a notification when inline button is pushed directly to Telegram API w/o any wrappers ar libraries"""
+    params = {
+        'chat_id': callback_query['message']['chat']['id'],
+        'message_id': callback_query['message']['message_id'],
+        'text': callback_query['message']['text'],
+        'reply_markup': reply_markup
+    }
+
+    try:
+        response = requests.post(f'https://api.telegram.org/bot{bot_token}/editMessageText', verify=True, data=params)
+    except Exception as e:
+        logging.exception(e)
+        logging.info(f'Error on requests.post in api_callback_edit_inline_keyboard')
+        response = None
+        return False
+
+    result = process_response_of_api_call(user_id, response)
     return result
 
 
@@ -2898,6 +3127,22 @@ def main(request):
 
                     # check if region – is an archive folder: if so – it can be sent only to 'all'
                     if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
+                        if username=='AnatolyK1975': ##'tester' in get_user_sys_roles(cur, user_id):
+                            #issue#425 make inline keyboard - list of searches
+                            keyboard = compose_full_message_on_list_of_searches_ikb(cur,
+                                                                                temp_dict[got_message],
+                                                                                user_id,
+                                                                                region, region_name)
+                            header_text = keyboard[0].text
+                            keyboard.pop(0)
+                            
+                            #issue#425 show the inline keyboard
+                            reply_markup = InlineKeyboardMarkup(keyboard)
+                            logging.info('compose_full_message_on_list_of_searches_ikb=>InlineKeyboardMarkup(keyboard) => reply_markup='+str(reply_markup))
+
+                            data = {'text': header_text, 'reply_markup': reply_markup,
+                                    'parse_mode': 'HTML', 'disable_web_page_preview': True}
+                            process_sending_message_async(user_id=user_id, data=data)
 
                         bot_message = compose_full_message_on_list_of_searches(cur,
                                                                                temp_dict[got_message],
@@ -2972,6 +3217,9 @@ def main(request):
                 bot_message, reply_markup = manage_topic_type(cur, user_id, got_message, b, got_callback,
                                                               callback_query_id, bot_token)
 
+            elif got_callback and got_callback['action']=='search_follow_mode': #issue#425
+                manage_search_whiteness(cur, user_id, got_callback, callback_query_id, callback_query, bot_token)
+            
             elif got_message in {b_set_pref_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
                                  b_pref_age_7_13_deact, b_pref_age_14_20_act, b_pref_age_14_20_deact,
                                  b_pref_age_21_50_act, b_pref_age_21_50_deact, b_pref_age_51_80_act,
