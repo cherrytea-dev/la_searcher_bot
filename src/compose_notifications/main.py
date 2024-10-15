@@ -1483,6 +1483,27 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
         logging.info(f'User List crop due to doubling: {len(users_list_outcome)} --> {len(temp_user_list)}')
         users_list_outcome = temp_user_list
 
+        # 5. FOLLOW SEARCH. crop the list of users, excluding Users who is not following this search
+        temp_user_list = []
+        sql_text_ = sqlalchemy.text("""
+        SELECT user_id FROM users u
+        where exist (select 1 from user_pref_search_whitelist upswl WHERE upswl.user_id=u.user_id and upswl.search_id=:a)
+        or not exist(select 1 from user_pref_search_whitelist upswl WHERE upswl.user_id=u.user_id)
+        """)
+        rows = conn.execute(sql_text_, a=record.forum_search_num).fetchall()
+        
+        users_following = []
+        for row in rows:
+            users_following.append(row[0])
+
+        temp_user_list = []
+        for user_line in users_list_outcome:
+            if user_line.user_id in users_following:
+                temp_user_list.append(user_line)
+
+        logging.info(f'User List crop due to doubling: {len(users_list_outcome)} --> {len(temp_user_list)}')
+        users_list_outcome = temp_user_list
+
         return users_list_outcome
 
     global stat_list_of_recipients
@@ -1981,6 +2002,15 @@ def get_triggering_function(message_from_pubsub):
     return triggered_by_func_id
 
 
+def delete_ended_search_following(conn, new_record) #issue425
+### Delete from user_pref_search_whitelist if the search goes to one of ending statuses
+    
+    if new_record.change_type==1 and new_record.status in['Завершен', 'НЖ', 'НП', 'Найден']:
+        stmt = sqlalchemy.text("""DELETE FROM user_pref_search_whitelist WHERE search_id=:a;""")
+        conn.execute(stmt, a=new_record.forum_search_num)
+        logging.info(f'Search id={new_record.forum_search_num} with status {new_record.status} is been deleted from user_pref_search_whitelist.')
+    return None
+
 def main(event, context):  # noqa
     """key function which is initiated by Pub/Sub"""
 
@@ -2005,6 +2035,7 @@ def main(event, context):  # noqa
 
         # compose New Records List: the delta from Change log
         new_record = compose_new_records_from_change_log(conn)
+        delete_ended_search_following(conn, new_record)#issue425
 
         # only if there are updates in Change Log
         if new_record:
