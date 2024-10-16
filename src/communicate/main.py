@@ -520,13 +520,13 @@ def compose_msg_on_all_last_searches_ikb(cur, region, user_id):
         """SELECT s2.*, upswl.id as upswl_id FROM 
             (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
             FROM searches 
-            WHERE forum_folder_id=:a 
+            WHERE forum_folder_id=%(region)s 
             ORDER BY search_start_time DESC 
             LIMIT 20) s2 
         LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
-        LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=:b
+        LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=%(user_id)s
         WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
-        ORDER BY s2.search_start_time DESC;""", a=region, b=user_id)
+        ORDER BY s2.search_start_time DESC;""", {'region':region, 'user_id':user_id})
 
     database = cur.fetchall()
 
@@ -616,11 +616,11 @@ def compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_i
             FROM searches s 
             LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
             WHERE (s.status='Ищем' OR s.status='Возобновлен') 
-                AND s.forum_folder_id=:a ORDER BY s.search_start_time DESC) s2 
+                AND s.forum_folder_id=%(region)s ORDER BY s.search_start_time DESC) s2 
         LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
-        LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=:b
+        LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=%(user_id)s
         WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
-        ORDER BY s2.search_start_time DESC;""", a=region, b=user_id)
+        ORDER BY s2.search_start_time DESC;""", {'region':region, 'user_id':user_id})
     searches_list = cur.fetchall()
 
     user_lat = None
@@ -1654,7 +1654,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
                             VALUES (%s, %s, %s) ON CONFLICT (user_id, search_id) DO NOTHING;""",
                         (user, search_id, datetime.datetime.now()))
         else:
-            cur.execute("""DELETE FROM user_pref_search_whitelist WHERE user_id=:a and search_id=:b;""", a=user, b=search_id)
+            cur.execute("""DELETE FROM user_pref_search_whitelist WHERE user_id=%(user)s and search_id=%(search_id)s;""", {'user':user, 'search_id':search_id})
         return None
 
     logging.info('manage_search_whiteness..callback_query='+str(callback_query))
