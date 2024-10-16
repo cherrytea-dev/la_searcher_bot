@@ -715,6 +715,7 @@ def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region
     if list_type == 'all':
 
         ikb += compose_msg_on_all_last_searches_ikb(cur, region)
+        logging.info('ikb += compose_msg_on_all_last_searches_ikb == '+str(ikb))
 
         if len(ikb)>0:
             msg = 'Последние 20 поисков в разделе <a href="https://lizaalert.org/forum/viewforum.php?f=' + str(region) \
@@ -733,6 +734,7 @@ def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region
     else:
 
         ikb += compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_id)
+        logging.info('ikb += compose_msg_on_active_searches_in_one_reg_ikb == '+str(ikb))
 
         if len(ikb)>0:
             msg = 'Актуальные поиски за 60 дней в разделе <a href="https://lizaalert.org/forum/viewforum.php?f=' \
@@ -3127,6 +3129,7 @@ def main(request):
 
                     # check if region – is an archive folder: if so – it can be sent only to 'all'
                     if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
+                        logging.info('communicate..if region_name.find => username=='+str(username))
                         if username=='AnatolyK1975': ##'tester' in get_user_sys_roles(cur, user_id):
                             #issue#425 make inline keyboard - list of searches
                             keyboard = compose_full_message_on_list_of_searches_ikb(cur,
