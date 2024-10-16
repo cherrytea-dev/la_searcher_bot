@@ -2002,7 +2002,7 @@ def get_triggering_function(message_from_pubsub):
     return triggered_by_func_id
 
 
-def delete_ended_search_following(conn, new_record) #issue425
+def delete_ended_search_following(conn, new_record): #issue425
 ### Delete from user_pref_search_whitelist if the search goes to one of ending statuses
     
     if new_record.change_type==1 and new_record.status in['Завершен', 'НЖ', 'НП', 'Найден']:
