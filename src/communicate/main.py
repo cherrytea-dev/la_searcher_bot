@@ -3136,7 +3136,7 @@ def main(request):
                                                                                 temp_dict[got_message],
                                                                                 user_id,
                                                                                 region, region_name)
-                            header_text = keyboard[0].text
+                            header_text = keyboard[0]["text"]
                             keyboard.pop(0)
                             
                             #issue#425 show the inline keyboard
