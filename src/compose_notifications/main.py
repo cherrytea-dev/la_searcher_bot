@@ -2042,11 +2042,10 @@ def main(event, context):  # noqa
 
         # compose New Records List: the delta from Change log
         new_record = compose_new_records_from_change_log(conn)
-        delete_ended_search_following(conn, new_record)#issue425
 
         # only if there are updates in Change Log
         if new_record:
-
+            delete_ended_search_following(conn, new_record)#issue425
             # enrich New Records List with all the updates that should be in notifications
             new_record = enrich_new_record_from_searches(conn, new_record)
             new_record = enrich_new_record_with_search_activities(conn, new_record)
