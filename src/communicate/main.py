@@ -3141,6 +3141,7 @@ def main(request):
                             
                             #issue#425 show the inline keyboard
                             reply_markup = InlineKeyboardMarkup(keyboard)
+                            logging.info('compose_full_message_on_list_of_searches_ikb..keyboard =='+str(keyboard))
                             logging.info('compose_full_message_on_list_of_searches_ikb=>InlineKeyboardMarkup(keyboard) => reply_markup='+str(reply_markup))
 
                             data = {'text': header_text, 'reply_markup': reply_markup,
