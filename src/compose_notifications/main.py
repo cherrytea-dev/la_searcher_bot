@@ -1484,14 +1484,16 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
         users_list_outcome = temp_user_list
 
         # 5. FOLLOW SEARCH. crop the list of users, excluding Users who is not following this search
+        logging.info(f'Crop user list step 5: forum_search_num=={record.forum_search_num}')
         try:
             temp_user_list = []
             sql_text_ = sqlalchemy.text("""
-            SELECT user_id FROM users u
-            where exist (select 1 from user_pref_search_whitelist upswl WHERE upswl.user_id=u.user_id and upswl.search_id=:a)
-            or not exist(select 1 from user_pref_search_whitelist upswl WHERE upswl.user_id=u.user_id)
+            SELECT u.user_id FROM users u
+            WHERE exists(select 1 from user_pref_search_whitelist upswls WHERE upswls.user_id=u.user_id and upswls.search_id=:a)
+            OR not exists(select 1 from user_pref_search_whitelist upswl WHERE upswl.user_id=u.user_id);
             """)
             rows = conn.execute(sql_text_, a=record.forum_search_num).fetchall()
+            logging.info(f'Crop user list step 5: len(rows)=={len(rows)}')
             
             users_following = []
             for row in rows:
@@ -1502,7 +1504,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                 if user_line.user_id in users_following:
                     temp_user_list.append(user_line)
     
-            logging.info(f'User List crop due to whitelisting: {len(users_list_outcome)} --> {len(temp_user_list)}')
+            logging.info(f'Crop user list step 5: User List crop due to whitelisting: {len(users_list_outcome)} --> {len(temp_user_list)}')
             users_list_outcome = temp_user_list
         except Exception as ee:
             logging.info('exception happened')
@@ -2040,11 +2042,10 @@ def main(event, context):  # noqa
 
         # compose New Records List: the delta from Change log
         new_record = compose_new_records_from_change_log(conn)
-        delete_ended_search_following(conn, new_record)#issue425
 
         # only if there are updates in Change Log
         if new_record:
-
+            delete_ended_search_following(conn, new_record)#issue425
             # enrich New Records List with all the updates that should be in notifications
             new_record = enrich_new_record_from_searches(conn, new_record)
             new_record = enrich_new_record_with_search_activities(conn, new_record)
