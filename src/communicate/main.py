@@ -1660,7 +1660,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
     logging.info('manage_search_whiteness..callback_query='+str(callback_query))
     logging.info(f'{user_id=}')
     # when user pushed INLINE BUTTON for topic following
-    if user_callback and user_callback.action == "search_follow_mode":
+    if user_callback and user_callback["action"] == "search_follow_mode":
         ikb = callback_query.message.reply_markup
         logging.info(f'{ikb=}')
         i=-1
