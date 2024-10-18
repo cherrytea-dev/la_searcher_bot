@@ -2143,6 +2143,7 @@ def get_basic_update_parameters(update):
     callback_query = get_param_if_exists(update, 'update.callback_query')
     callback_query_id = get_param_if_exists(update, 'update.callback_query.id')
 
+    logging.info(f'get_basic_update_parameters..callback_query==, {str(callback_query)}')
     got_hash = None
     got_callback = None
     if callback_query:
@@ -2153,7 +2154,7 @@ def get_basic_update_parameters(update):
         except Exception as e:
             logging.exception(e)
             notify_admin(f'callback dict was not recognized for {callback_data_text=}')
-    logging.info(f'get_basic_update_parameters..{got_callback=}, {got_hash=} from {callback_data_text=}')
+        logging.info(f'get_basic_update_parameters..{got_callback=}, {got_hash=} from {callback_data_text=}')
     # FIXME ^^^
 
     return user_new_status, timer_changed, photo, document, voice, contact, inline_query, \
