@@ -1677,7 +1677,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         logging.info(f'{ikb=}')
         if to_send_callback_answer:
             send_callback_answer_to_api(bot_token, callback_id, 'Обновлено.')
-        api_callback_edit_inline_keyboard(bot_token, callback_query, )
+        api_callback_edit_inline_keyboard(bot_token, callback_query, ikb)
 
     return None
 
@@ -2158,7 +2158,7 @@ def get_basic_update_parameters(update):
     # FIXME ^^^
 
     return user_new_status, timer_changed, photo, document, voice, contact, inline_query, \
-           sticker, user_latitude, user_longitude, got_message, channel_type, username, user_id, got_hash, got_callback, callback_query_id
+           sticker, user_latitude, user_longitude, got_message, channel_type, username, user_id, got_hash, got_callback, callback_query_id, callback_query
 
 
 def save_new_user(user_id, username):
@@ -2477,7 +2477,7 @@ def main(request):
 
     user_new_status, timer_changed, photo, document, voice, contact, inline_query, sticker, user_latitude, \
     user_longitude, got_message, channel_type, username, user_id, got_hash, got_callback, \
-    callback_query_id = get_basic_update_parameters(update)
+    callback_query_id, callback_query = get_basic_update_parameters(update)
 
     if timer_changed or photo or document or voice or sticker or (channel_type and user_id < 0) or \
             contact or inline_query:
