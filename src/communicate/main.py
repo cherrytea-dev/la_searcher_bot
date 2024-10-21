@@ -1665,7 +1665,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         ikb = callback_query.message.reply_markup.inline_keyboard
         logging.info(f'manage_search_whiteness before for index, row: {ikb=}')
         for index, row in enumerate(ikb):
-            button_data = row[0]['callback_data']
+            button_data = eval(row[0]['callback_data'])
             
             # Check if the pushed button matches the one in the callback
             if int(button_data['hash']) == int(user_callback['hash']):
