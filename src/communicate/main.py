@@ -1661,15 +1661,15 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
     logging.info(f'{user_id=}')
     # when user pushed INLINE BUTTON for topic following
     if user_callback and user_callback["action"] == "search_follow_mode":
-        ikb = callback_query.message.reply_markup
+        ikb = callback_query.message.reply_markup.inline_keyboard
         logging.info(f'{ikb=}')
         i=-1
         for row in ikb:
             i=i+1
             if int(row[0]['callback_data']['hash'])==int(user_callback['hash']):##if this button was pushed
                 ##toggle the search following mark that is left 2 symbols in the left button's text in the ikb[i] row
-                new_mark_value = '👀' if ikb[i][0]['text'][:2]=='  ' else '  '
-                ikb[i][0]['text'] = new_mark_value + ikb[i][0]['text'][2:] ##new 2 symbols + rest of the text
+                new_mark_value = '👀' if row[0]['text'][:2]=='  ' else '  '
+                row[0]['text'] = new_mark_value + row[0]['text'][2:] ##new 2 symbols + rest of the text
                 record_search_whiteness(user_id, int(user_callback['hash']), new_mark_value=='👀')
                 to_send_callback_answer = (i < 2) ##DEBUG feature to see how it will work with send_callback_answer_to_api and without
                 break ##because only one button supposed to be pushed
