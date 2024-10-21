@@ -1663,16 +1663,24 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
     if user_callback and user_callback["action"] == "search_follow_mode":
         ikb = callback_query.message.reply_markup.inline_keyboard
         logging.info(f'{ikb=}')
-        i=-1
-        for row in ikb:
-            i=i+1
-            if int(row[0]['callback_data']['hash'])==int(user_callback['hash']):##if this button was pushed
-                ##toggle the search following mark that is left 2 symbols in the left button's text in the ikb[i] row
-                new_mark_value = '👀' if row[0]['text'][:2]=='  ' else '  '
-                row[0]['text'] = new_mark_value + row[0]['text'][2:] ##new 2 symbols + rest of the text
-                record_search_whiteness(user_id, int(user_callback['hash']), new_mark_value=='👀')
-                to_send_callback_answer = (i < 2) ##DEBUG feature to see how it will work with send_callback_answer_to_api and without
-                break ##because only one button supposed to be pushed
+        for index, row in enumerate(inline_keyboard):
+            button_data = row[0]['callback_data']
+            
+            # Check if the pushed button matches the one in the callback
+            if int(button_data['hash']) == int(user_callback['hash']):
+              
+                # Toggle the search following mark ('👀' or blank)
+                is_marked = row[0]['text'][:2] == '👀'
+                new_mark_value = '👀' if not is_marked else '  '
+                row[0]['text'] = new_mark_value + row[0]['text'][2:]
+                
+                # Update the search 'whiteness' (tracking state)
+                record_search_whiteness(user_id, int(user_callback['hash']), new_mark_value == '👀')
+                
+                # Set flag to determine whether to send callback answer (for debugging)
+                to_send_callback_answer = (index < 2)
+                
+                break  # Only one button should be affected, exit loop
 
         logging.info(f'{ikb=}')
         if to_send_callback_answer:
