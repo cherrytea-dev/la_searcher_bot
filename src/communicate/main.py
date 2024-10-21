@@ -1661,9 +1661,10 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
     logging.info(f'{user_id=}')
     # when user pushed INLINE BUTTON for topic following
     if user_callback and user_callback["action"] == "search_follow_mode":
+        #get inline keyboard from previous message to upadate it
         ikb = callback_query.message.reply_markup.inline_keyboard
-        logging.info(f'{ikb=}')
-        for index, row in enumerate(inline_keyboard):
+        logging.info(f'manage_search_whiteness before for index, row: {ikb=}')
+        for index, row in enumerate(ikb):
             button_data = row[0]['callback_data']
             
             # Check if the pushed button matches the one in the callback
@@ -1682,7 +1683,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
                 
                 break  # Only one button should be affected, exit loop
 
-        logging.info(f'{ikb=}')
+        logging.info(f'manage_search_whiteness before if to_send_callback_answer: {ikb=}')
         if to_send_callback_answer:
             send_callback_answer_to_api(bot_token, callback_id, 'Обновлено.')
         api_callback_edit_inline_keyboard(bot_token, callback_query, ikb)
