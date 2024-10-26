@@ -1673,7 +1673,8 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
                 # Toggle the search following mark ('👀' or blank)
                 is_marked = row[0]['text'][:2] == '👀'
                 new_mark_value = '👀' if not is_marked else '  '
-                row[0]['text'] = new_mark_value + row[0]['text'][2:]
+                logging.info(f'manage_search_whiteness..{index=}')
+                ikb[index][0]['text'] = new_mark_value + row[0]['text'][2:]
                 
                 # Update the search 'whiteness' (tracking state)
                 record_search_whiteness(user_id, int(user_callback['hash']), new_mark_value == '👀')
