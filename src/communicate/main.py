@@ -1663,6 +1663,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
     if user_callback and user_callback["action"] == "search_follow_mode":
         #get inline keyboard from previous message to upadate it
         ikb = callback_query.message.reply_markup.inline_keyboard
+        new_ikb = []
         logging.info(f'manage_search_whiteness: {ikb=}')
         for index, row in enumerate(ikb):
             new_ikb += [[
