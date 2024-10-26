@@ -1666,9 +1666,8 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         new_ikb = []
         logging.info(f'manage_search_whiteness: {ikb=}')
         for index, row in enumerate(ikb):
-            logging.info(f'manage_search_whiteness: {row[0]['callback_data']=}')
-            logging.info(f'manage_search_whiteness: {type(row[0]['callback_data'])=}')
-            logging.info('type == ' + type(row[0]['callback_data']))
+            logging.info('manage_search_whiteness..row[0]['callback_data']=='+str(row[0]['callback_data']) )
+            logging.info('manage_search_whiteness..type(row[0]['callback_data'])=='+str(type(row[0]['callback_data'])) )
             new_ikb += [[
                     {"text": row[0]['text'], 'callback_data': row[0]['callback_data']},##left button to on/off follow
                     {"text": row[1]['text'], 'callback_data': row[1]['callback_data']} ##right button - link to the search on the forum
