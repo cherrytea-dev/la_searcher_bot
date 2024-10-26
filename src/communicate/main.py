@@ -1663,7 +1663,14 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
     if user_callback and user_callback["action"] == "search_follow_mode":
         #get inline keyboard from previous message to upadate it
         ikb = callback_query.message.reply_markup.inline_keyboard
-        logging.info(f'manage_search_whiteness before for index, row: {ikb=}')
+        logging.info(f'manage_search_whiteness: {ikb=}')
+        for index, row in enumerate(ikb):
+            new_ikb += [[
+                    {"text": row[0]['text'], 'callback_data': eval(row[0]['callback_data'])},##left button to on/off follow
+                    {"text": row[1]['text'], 'callback_data': eval(row[1]['callback_data'])} ##right button - link to the search on the forum
+                    ]]
+        logging.info(f'manage_search_whiteness before for index, row: {new_ikb=}')
+
         for index, row in enumerate(ikb):
             button_data = eval(row[0]['callback_data'])
             
@@ -1674,14 +1681,14 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
                 is_marked = row[0]['text'][:2] == '👀'
                 new_mark_value = '👀' if not is_marked else '  '
                 logging.info(f'manage_search_whiteness..{index=}')
-                ikb[index][0]['text'] = new_mark_value + row[0]['text'][2:]
+                new_ikb[index][0]['text'] = new_mark_value + row[0]['text'][2:]
                 
                 # Update the search 'whiteness' (tracking state)
                 record_search_whiteness(user_id, int(user_callback['hash']), new_mark_value == '👀')
                 
                 # Set flag to determine whether to send callback answer (for debugging)
                 to_send_callback_answer = (index < 2)
-                
+
                 break  # Only one button should be affected, exit loop
 
         logging.info(f'manage_search_whiteness before if to_send_callback_answer: {ikb=}')
