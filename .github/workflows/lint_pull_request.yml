@@ -10,6 +10,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch all history for all branches
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -28,7 +30,7 @@ jobs:
       - name: Run Flake8 on changed files
         run: |
           if [ -s changed_files.txt ]; then
-            flake8 $(cat changed_files.txt) --max-line-length=88 --exit-zero
+            flake8 --config=.flake8/.flake8 $(cat changed_files.txt) --exit-zero
           else
             echo "No Python files changed."
           fi
