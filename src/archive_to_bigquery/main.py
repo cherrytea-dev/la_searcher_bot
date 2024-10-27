@@ -80,8 +80,7 @@ def archive_notif_by_user(client):
 
     # 2. Get the initial row count of cloud sql table
     query = '''
-                SELECT
-                    *
+                SELECT *
                 FROM
                     EXTERNAL_QUERY("projects/lizaalert-bot-01/locations/europe-west3/connections/bq_to_cloud_sql",
                 """SELECT count(*) AS count FROM notif_by_user__history;""")
