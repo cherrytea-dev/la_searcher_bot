@@ -1697,7 +1697,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         logging.info(f'manage_search_whiteness before if to_send_callback_answer: {ikb=}')
         if to_send_callback_answer:
             send_callback_answer_to_api(bot_token, callback_id, 'Обновлено.')
-        api_callback_edit_inline_keyboard(bot_token, callback_query, ikb)
+        api_callback_edit_inline_keyboard(bot_token, callback_query, ikb, user_id)
 
     return None
 
@@ -2080,7 +2080,7 @@ def send_callback_answer_to_api(bot_token, callback_query_id, message):
 
     return result
 
-def api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup):
+def api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, user_id):
     """send a notification when inline button is pushed directly to Telegram API w/o any wrappers ar libraries"""
     params = {
         'chat_id': callback_query['message']['chat']['id'],
