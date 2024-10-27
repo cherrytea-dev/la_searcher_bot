@@ -1,4 +1,4 @@
-"""Function acts as API for the App designed to support LizaAlert Group of Phone Calls.                                                                                     dfgdgf
+"""Function acts as API for the App designed to support LizaAlert Group of Phone Calls.
  The current script retrieves an actual list active searches"""
 
 import json
@@ -87,7 +87,7 @@ def time_counter_since_search_start(start_time):
 
     first_word_parameter = ''
 
-    # <20 minutes -> "Начинаем искать"                                                                                                                                                                                                                                                                                                                                     a
+    # <20 minutes -> "Начинаем искать"
     if (diff.total_seconds() / 60) < 20:
         phrase = 'Начинаем искать'
 
