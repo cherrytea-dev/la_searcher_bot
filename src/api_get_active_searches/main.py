@@ -225,7 +225,7 @@ def get_list_of_active_searches_from_db(request: json) -> tuple:
     if raw_data:
         for line in raw_data:
             search_start_time, forum_folder_id, topic_type, search_id, status, display_name, family_name, \
-            age_min, age_max, first_post = line
+                age_min, age_max, first_post = line
 
             # search_id, search_start_time, display_name, status, family_name, topic_type, topic_type_id, \
             # city_locations, age_min, age_max, first_post, lat, lon, coord_type, last_change_time = line
