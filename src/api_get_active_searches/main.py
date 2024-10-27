@@ -7,10 +7,8 @@ import re
 import datetime
 
 import urllib.request
-from urllib.parse import unquote
 import psycopg2
 from bs4 import BeautifulSoup
-from typing import Dict
 
 import google.cloud.logging
 from google.cloud import secretmanager
