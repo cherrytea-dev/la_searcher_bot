@@ -273,7 +273,7 @@ def mark_up_onboarding_status_10_2(cur):
                             ;""",
                     (user_id_to_update,))
     else:
-        logging.info('There are no users to assign onboarding pref_id=10.')
+        logging.info(f'There are no users to assign onboarding pref_id=10.')
 
     return None
 

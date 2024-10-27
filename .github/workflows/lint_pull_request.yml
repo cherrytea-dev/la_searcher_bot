@@ -1,8 +1,12 @@
-name: Lint-Pull-Request # UPD HERE!
+name: Lint-Pull-Request
 
 on:
   pull_request:
-    branches : [main, dev]
+    branches: [main, dev]
+
+permissions:
+  pull-requests: write
+  contents: read
 
 jobs:
   lint:
@@ -18,8 +22,13 @@ jobs:
         with:
           python-version: 3.11
 
-      - name: Install Flake8
-        run: pip install flake8
+      - name: Install dependencies
+        run: |
+          pip install flake8
+
+      - name: Download Reviewdog
+        run: |
+          curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b ./ latest
 
       - name: Get list of changed files
         id: changed_files
@@ -27,10 +36,13 @@ jobs:
           git diff --name-only origin/main...HEAD | grep '\.py$' > changed_files.txt
           cat changed_files.txt
 
-      - name: Run Flake8 on changed files
+      - name: Run Flake8 with Reviewdog on changed files
+        if: success()
         run: |
           if [ -s changed_files.txt ]; then
-            flake8 --config=.flake8/.flake8 $(cat changed_files.txt) --exit-zero
+            ./reviewdog -f=flake8 -name="Flake8" -reporter=github-pr-review -level=error < <(flake8 $(cat changed_files.txt))
           else
             echo "No Python files changed."
           fi
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
