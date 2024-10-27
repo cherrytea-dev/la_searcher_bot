@@ -48,6 +48,16 @@ jobs:
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get install -y gh
+
+      - name: Authenticate GitHub CLI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "${GITHUB_TOKEN}" | gh auth login --with-token
+
       - name: Run Pylint and summarize issues
         if: success()
         run: |
@@ -66,15 +76,15 @@ jobs:
           else
             echo "No Python files changed." > pylint_summary.txt
           fi
-        env:
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Post summary comment to PR
         if: success()
-        run: |
-          ./reviewdog -f=plain -name="Pylint Summary" -reporter=github-pr-review -filter-mode=nofilter -level=info < pylint_summary.txt
         env:
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          comment_body=$(<pylint_summary.txt)
+          gh pr comment ${{ github.event.pull_request.number }} --body "$comment_body"
+
 
 
 
