@@ -1,0 +1,34 @@
+name: Lint-Pull-Request # UPD HERE!
+
+on:
+  pull_request:
+    branches : [main, dev]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Install Flake8
+        run: pip install flake8
+
+      - name: Get list of changed files
+        id: changed_files
+        run: |
+          git diff --name-only origin/main...HEAD | grep '\.py$' > changed_files.txt
+          cat changed_files.txt
+
+      - name: Run Flake8 on changed files
+        run: |
+          if [ -s changed_files.txt ]; then
+            flake8 $(cat changed_files.txt) --max-line-length=88 --exit-zero
+          else
+            echo "No Python files changed."
+          fi
