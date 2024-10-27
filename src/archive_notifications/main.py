@@ -64,8 +64,6 @@ def sql_connect():
 def publish_to_pubsub(topic_name, message):
     """publish a new message to pub/sub"""
 
-    # global project_id
-
     topic_path = publisher.topic_path(project_id, topic_name)
     message_json = json.dumps({'data': {'message': message}, })
     message_bytes = message_json.encode('utf-8')
