@@ -1148,7 +1148,7 @@ def profile_get_managers(text_of_managers):
         logging.info('DBG.P.101.Managers_list:')
         for manager in managers:
             logging.info(manager)
-        # FIXME ^^^
+        # FIXME ^^^ 
 
     except Exception as e:
         logging.info('DBG.P.102.EXC:')

@@ -47,22 +47,19 @@ jobs:
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install additional dependencies
-        run: |
-          pip install pylint-json2sarif
-
       - name: Run Pylint with Reviewdog on changed files
         if: success()
         run: |
           if [ -s changed_files.txt ]; then
             pylint --rcfile=.pylint/.pylintrc $(cat changed_files.txt) --output-format=json \
-            | pylint-json2sarif \
+            | jq -r '.[] | "\(.path):\(.line):\(.column): \(.message-id): \(.message)"' \
             | ./reviewdog -f=rdjson -name="Pylint" -reporter=github-pr-review -level=warning
           else
             echo "No Python files changed."
           fi
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
 
