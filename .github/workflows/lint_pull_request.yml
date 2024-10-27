@@ -24,7 +24,7 @@ jobs:
 
       - name: Download Reviewdog
         run: |
-          curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b ./ reviewdog
+          curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b ./ latest
 
       - name: Get list of changed files
         id: changed_files
