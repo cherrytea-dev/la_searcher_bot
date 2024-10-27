@@ -1,7 +1,6 @@
 import base64
 
 import json
-import datetime
 import logging
 import urllib.request
 
@@ -541,6 +540,7 @@ def mark_up_onboarding_status_80_self_deactivated(cur):
         logging.info(f'There are no users to assign onboarding pref_id=80.')
 
     return None
+
 
 def mark_up_onboarding_status_99(cur):
     """marks up Onboarding step_id=99 for existing old users"""
