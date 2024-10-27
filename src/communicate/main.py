@@ -641,7 +641,7 @@ def compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_i
         time_since_start = time_counter_since_search_start(search.start_time)[0]
 
         if user_lat and search_lat:
-            dist = distance_to_search(search_lat, search_lon, user_lat, user_lon)
+            dist = distance_to_search(search_lat, search_lon, user_lat, user_lon, False)
             dist_and_dir = f' {dist[1]} {dist[0]} км'
         else:
             dist_and_dir = ''
@@ -863,7 +863,7 @@ def delete_user_coordinates(cur, user_id):
     return None
 
 
-def distance_to_search(search_lat, search_lon, user_let, user_lon):
+def distance_to_search(search_lat, search_lon, user_let, user_lon, coded_style=True):
     """Return the distance and direction from user "home" coordinates to the search coordinates"""
 
     r = 6373.0  # radius of the Earth
@@ -898,10 +898,14 @@ def distance_to_search(search_lat, search_lon, user_let, user_lon):
 
         return bearing
 
-    def calc_nsew(lat_1, lon_1, lat_2, lon_2):
+    def calc_nsew(lat_1, lon_1, lat_2, lon_2, coded_style=True):
         # indicators of the direction, like ↖︎
-        points = ['&#8593;&#xFE0E;', '&#8599;&#xFE0F;', '&#8594;&#xFE0E;', '&#8600;&#xFE0E;',
-                  '&#8595;&#xFE0E;', '&#8601;&#xFE0E;', '&#8592;&#xFE0E;', '&#8598;&#xFE0E;']
+        if coded_style:
+            points = ['&#8593;&#xFE0E;', '&#8599;&#xFE0F;', '&#8594;&#xFE0E;', '&#8600;&#xFE0E;',
+                    '&#8595;&#xFE0E;', '&#8601;&#xFE0E;', '&#8592;&#xFE0E;', '&#8598;&#xFE0E;']
+        else:
+            points = ['⬆️', '↗️', '➡️', '↘️',
+                    '⬇️', '↙️', '⬅️', '↖️']
 
         bearing = calc_bearing(lat_1, lon_1, lat_2, lon_2)
         bearing += 22.5
@@ -911,7 +915,7 @@ def distance_to_search(search_lat, search_lon, user_let, user_lon):
 
         return nsew
 
-    direction = calc_nsew(lat1, lon1, lat2, lon2)
+    direction = calc_nsew(lat1, lon1, lat2, lon2, coded_style)
 
     return [dist, direction]
 
@@ -1681,10 +1685,10 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
             if int(button_data['hash']) == int(user_callback['hash']):
               
                 # Toggle the search following mark ('👀' or blank)
-                is_marked = row[0]['text'][:2] == '👀'
+                is_marked = row[0]['text'][:1] == '👀'
                 new_mark_value = '👀' if not is_marked else '  '
-                logging.info(f'manage_search_whiteness..{index=}')
-                new_ikb[index][0]['text'] = new_mark_value + row[0]['text'][2:]
+                logging.info(f'manage_search_whiteness..{index=}, {new_mark_value=}.')
+                new_ikb[index][0]['text'] = new_mark_value + row[0]['text'][len(new_mark_value):]
                 
                 # Update the search 'whiteness' (tracking state)
                 record_search_whiteness(user_id, int(user_callback['hash']), new_mark_value == '👀')
