@@ -366,7 +366,8 @@ def get_user_data_from_db(user_id: int) -> dict:
             if creation_freshness_days > 3 and update_freshness_days > 3:
                 search_is_old = True
 
-            # define "exact_coords" – an variable showing if coordinates are explicityply provided ("exact") or geocoded (not "exact")
+            # define "exact_coords" – an variable showing if coordinates are explicityply provided ("exact")
+            # or geocoded (not "exact")
             if not coord_type:
                 exact_coords = False
             elif coord_type not in {'1. coordinates w/ word coord', '2. coordinates w/o word coord'}:

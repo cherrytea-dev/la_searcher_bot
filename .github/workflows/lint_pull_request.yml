@@ -24,7 +24,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install flake8
+          pip install flake8 pylint
 
       - name: Download Reviewdog
         run: |
@@ -40,10 +40,51 @@ jobs:
         if: success()
         run: |
           if [ -s changed_files.txt ]; then
-            flake8 --config=.flake8/.flake8 $(cat changed_files.txt) | ./reviewdog -f=flake8 -name="Flake8" -reporter=github-pr-review -level=error
+            flake8 --config=.flake8/.flake8 $(cat changed_files.txt) | ./reviewdog -f=flake8 -name="Flake8" \
+          -reporter=github-pr-review -level=warning
           else
             echo "No Python files changed."
           fi
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get install -y gh
+
+      - name: Run Pylint and summarize issues
+        if: success()
+        run: |
+          if [ -s changed_files.txt ]; then
+            echo "Running pylint on changed files..."
+            pylint --rcfile=.pylint/.pylintrc $(cat changed_files.txt) > pylint_output.txt || true
+            
+            # Count the number of issues found
+            issue_count=$(grep -c "^[CRWEF]" pylint_output.txt || echo 0)
+
+            if [ "$issue_count" -gt 0 ]; then
+              echo "Pylint found $issue_count issues in the code." > pylint_summary.txt
+            else
+              echo "Pylint found no issues in the code." > pylint_summary.txt
+            fi
+          else
+            echo "No Python files changed." > pylint_summary.txt
+          fi
+
+      - name: Post summary comment to PR
+        if: success()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          comment_body=$(<pylint_summary.txt)
+          gh pr comment ${{ github.event.pull_request.number }} --body "$comment_body"
+
+
+
+
+
+
+
+
+
 

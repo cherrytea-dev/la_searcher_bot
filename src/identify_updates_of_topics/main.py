@@ -150,7 +150,6 @@ def read_yaml_from_cloud_storage(bucket_to_read, folder_num):
     try:
         blob = set_cloud_storage(bucket_to_read, folder_num)
         contents_as_bytes = blob.download_as_string()
-        # contents = str(contents_as_bytes, 'utf-8')
         contents = contents_as_bytes
     except:  # noqa
         contents = None
@@ -1122,8 +1121,8 @@ def profile_get_managers(text_of_managers):
                         break
 
         # replace telegram contacts with nice links
-        for i in range(len(managers)):
-            for word in managers[i].split(' '):
+        for manager in managers:
+            for word in manager.split(' '):
 
                 nickname = None
 
@@ -1143,13 +1142,13 @@ def profile_get_managers(text_of_managers):
                     while nickname[-1:] in {'.', ',', ' '}:
                         nickname = nickname[:-1]
 
-                    managers[i] = managers[i].replace(word, f'<a href="https://t.me/{nickname}">@{nickname}</a>')
+                    manager = manager.replace(word, f'<a href="https://t.me/{nickname}">@{nickname}</a>')
 
-        """DBG"""
+        # FIXME – for debug
         logging.info('DBG.P.101.Managers_list:')
         for manager in managers:
             logging.info(manager)
-        """DBG"""
+        # FIXME ^^^
 
     except Exception as e:
         logging.info('DBG.P.102.EXC:')
@@ -1289,7 +1288,7 @@ def parse_one_folder(db, folder_id):
                             logging.exception(ex)
                             notify_admin(repr(ex))
                             person_fam_name = 'БВП'
-                        # FIXME ^^^
+                    # FIXME ^^^
 
                     search_summary_object = SearchSummary(parsed_time=current_datetime, topic_id=search_id,
                                                           title=search_title,
@@ -1623,7 +1622,6 @@ def update_change_log_and_searches(db, folder_num):
         change_log_new_topics_list = []
 
         for snapshot_line in new_topics_from_snapshot_list:
-            topic_type_id = snapshot_line.topic_type_id
             change_type_id = 0
             change_type_name = 'new_search'
 
