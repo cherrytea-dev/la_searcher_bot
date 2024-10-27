@@ -150,7 +150,6 @@ def read_yaml_from_cloud_storage(bucket_to_read, folder_num):
     try:
         blob = set_cloud_storage(bucket_to_read, folder_num)
         contents_as_bytes = blob.download_as_string()
-        # contents = str(contents_as_bytes, 'utf-8')
         contents = contents_as_bytes
     except:  # noqa
         contents = None
