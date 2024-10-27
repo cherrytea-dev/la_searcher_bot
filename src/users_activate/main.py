@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logging.warning(f'it is a synthetic warning')
 
+
 def process_pubsub_message(event):
     """convert incoming pub/sub message into regular data"""
 
