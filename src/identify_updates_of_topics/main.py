@@ -1121,8 +1121,8 @@ def profile_get_managers(text_of_managers):
                         break
 
         # replace telegram contacts with nice links
-        for i in range(len(managers)):
-            for word in managers[i].split(' '):
+        for manager in managers:
+            for word in manager.split(' '):
 
                 nickname = None
 
@@ -1142,13 +1142,13 @@ def profile_get_managers(text_of_managers):
                     while nickname[-1:] in {'.', ',', ' '}:
                         nickname = nickname[:-1]
 
-                    managers[i] = managers[i].replace(word, f'<a href="https://t.me/{nickname}">@{nickname}</a>')
+                    manager = manager.replace(word, f'<a href="https://t.me/{nickname}">@{nickname}</a>')
 
         # FIXME – for debug
         logging.info('DBG.P.101.Managers_list:')
         for manager in managers:
             logging.info(manager)
-        # FIXME ^^^ 
+        # FIXME ^^^
 
     except Exception as e:
         logging.info('DBG.P.102.EXC:')
