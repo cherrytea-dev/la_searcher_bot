@@ -72,13 +72,13 @@ def check_updates_in_folder_with_folders(requests_session, start_folder_num):
 
 
     except Exception as e:
-    #except (requests.exceptions.ReadTimeout, requests.exceptions.Timeout, requests.exceptions.ProxyError,
-    #        ConnectionError, Exception) as e:
-    #    logging.info(f'[che_topics]: site unavailable: {e.__class__.__name__}')
-    #    notify_admin(f'[che_topics]: site unavailable: {e.__class__.__name__}')
+        # except (requests.exceptions.ReadTimeout, requests.exceptions.Timeout, requests.exceptions.ProxyError,
+        #        ConnectionError, Exception) as e:
+        #    logging.info(f'[che_topics]: site unavailable: {e.__class__.__name__}')
+        #    notify_admin(f'[che_topics]: site unavailable: {e.__class__.__name__}')
 
-    #    if e.__class__.__name__ == Exception:
-    #        logging.exception(e)
+        #    if e.__class__.__name__ == Exception:
+        #        logging.exception(e)
         logging.info(f'DEBUG 007-ex')
 
         logging.info(f'[che_topics]: site unavailable:')
