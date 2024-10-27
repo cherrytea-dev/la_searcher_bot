@@ -3,7 +3,6 @@ import base64
 import json
 import logging
 import urllib.request
-
 import psycopg2
 
 from google.cloud import pubsub_v1
