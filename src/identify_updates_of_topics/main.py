@@ -1144,11 +1144,11 @@ def profile_get_managers(text_of_managers):
 
                     managers[i] = managers[i].replace(word, f'<a href="https://t.me/{nickname}">@{nickname}</a>')
 
-        """DBG"""
+        # FIXME – for debug
         logging.info('DBG.P.101.Managers_list:')
         for manager in managers:
             logging.info(manager)
-        """DBG"""
+        # FIXME ^^^
 
     except Exception as e:
         logging.info('DBG.P.102.EXC:')
