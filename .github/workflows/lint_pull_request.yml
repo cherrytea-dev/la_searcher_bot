@@ -40,7 +40,7 @@ jobs:
         if: success()
         run: |
           if [ -s changed_files.txt ]; then
-            flake8 $(cat changed_files.txt) | ./reviewdog -efm="%f:%l:%c: %m" -name="Flake8" -reporter=github-pr-review -level=error
+            flake8 --config=.flake8/.flake8 $(cat changed_files.txt) | ./reviewdog -f=flake8 -name="Flake8" -reporter=github-pr-review -level=error
           else
             echo "No Python files changed."
           fi

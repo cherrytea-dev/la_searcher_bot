@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 import psycopg2
 
 import asyncio
-from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove, error
+from telegram import ReplyKeyboardMarkup, Bot, Update, ReplyKeyboardRemove, error
 from telegram.ext import ContextTypes, Application
 
 from google.cloud import secretmanager

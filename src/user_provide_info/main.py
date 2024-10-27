@@ -568,7 +568,6 @@ def main(request):
     logging.info(request_json)
     request_args = request.args
     response = {'ok': False}
-    ok = False
     reason = None
 
     if not request_json:
