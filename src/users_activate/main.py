@@ -112,7 +112,7 @@ def mark_up_onboarding_status_0(cur):
 
     # add the New User into table users
     cur.execute("""
-                    WITH 
+                    WITH
                         onb AS (
                             select user_id, MAX(step_id) AS onb_step
                             from user_onboarding GROUP BY 1),
@@ -168,7 +168,7 @@ def mark_up_onboarding_status_0_2(cur):
 
     # add the New User into table users
     cur.execute("""
-                    with 
+                    with
                         reg_setting AS (
                             select distinct user_id, 'yes' folder_setting
                             from user_regional_preferences),
@@ -243,7 +243,7 @@ def mark_up_onboarding_status_10_2(cur):
 
     # add the New User into table users
     cur.execute("""
-                    with 
+                    with
                         reg_setting AS (
                             select distinct user_id, 'yes' folder_setting
                             from user_regional_preferences),
@@ -273,7 +273,7 @@ def mark_up_onboarding_status_10_2(cur):
                             ;""",
                     (user_id_to_update,))
     else:
-        logging.info(f'There are no users to assign onboarding pref_id=10.')
+        logging.info('There are no users to assign onboarding pref_id=10.')
 
     return None
 
