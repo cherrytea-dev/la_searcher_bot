@@ -48,18 +48,34 @@ jobs:
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run Pylint on changed files and post results
+      - name: Run Pylint and summarize issues
         if: success()
         run: |
           if [ -s changed_files.txt ]; then
             echo "Running pylint on changed files..."
             pylint --rcfile=.pylint/.pylintrc $(cat changed_files.txt) > pylint_output.txt || true
-            cat pylint_output.txt | ./reviewdog -name="Pylint" -reporter=github-pr-review -level=warning
+            
+            # Count the number of issues found
+            issue_count=$(grep -c "^[CRWEF]" pylint_output.txt || echo 0)
+
+            if [ "$issue_count" -gt 0 ]; then
+              echo "Pylint found $issue_count issues in the code." > pylint_summary.txt
+            else
+              echo "Pylint found no issues in the code." > pylint_summary.txt
+            fi
           else
-            echo "No Python files changed."
+            echo "No Python files changed." > pylint_summary.txt
           fi
         env:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Post summary comment to PR
+        if: success()
+        run: |
+          cat pylint_summary.txt | ./reviewdog -name="Pylint Summary" -reporter=github-pr-review -filter-mode=nofilter -level=info
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
 
