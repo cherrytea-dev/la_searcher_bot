@@ -52,7 +52,6 @@ jobs:
         if: success()
         run: |
           if [ -s changed_files.txt ]; then
-            echo "Running pylint on changed files..."
             pylint --rcfile=.pylint/.pylintrc $(cat changed_files.txt) --output-format=json > pylint_output.json || true
             cat pylint_output.json | jq -r '.[] | "\(.path):\(.line):\(.column): \(.message_id): \(.message)"' \
             | ./reviewdog -f=rdjson -name="Pylint" -reporter=github-pr-review -level=warning
