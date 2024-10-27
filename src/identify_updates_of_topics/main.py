@@ -1289,7 +1289,7 @@ def parse_one_folder(db, folder_id):
                             logging.exception(ex)
                             notify_admin(repr(ex))
                             person_fam_name = 'БВП'
-                        # FIXME ^^^
+                    # FIXME ^^^
 
                     search_summary_object = SearchSummary(parsed_time=current_datetime, topic_id=search_id,
                                                           title=search_title,
