@@ -33,7 +33,7 @@ jobs:
       - name: Get list of changed files
         id: changed_files
         run: |
-          git diff --name-only origin/main...HEAD | grep '\.py$' > changed_files.txt
+          git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '\.py$' > changed_files.txt
           cat changed_files.txt
 
       - name: Run Flake8 with Reviewdog on changed files
@@ -78,13 +78,3 @@ jobs:
         run: |
           comment_body=$(<pylint_summary.txt)
           gh pr comment ${{ github.event.pull_request.number }} --body "$comment_body"
-
-
-
-
-
-
-
-
-
-
