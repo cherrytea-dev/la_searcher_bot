@@ -40,7 +40,7 @@ jobs:
         if: success()
         run: |
           if [ -s changed_files.txt ]; then
-            flake8 --config=.flake8/.flake8 $(cat changed_files.txt) | ./reviewdog -f=flake8 -name="Flake8" -reporter=github-pr-review -level=error
+            flake8 --config=.flake8/.flake8 $(cat changed_files.txt) | ./reviewdog -f=flake8 -name="Flake8" -reporter=github-pr-review -level=warning
           else
             echo "No Python files changed."
           fi
@@ -51,7 +51,7 @@ jobs:
         if: success()
         run: |
           if [ -s changed_files.txt ]; then
-            pylint --rcfile=.pylint/.pylintrc $(cat changed_files.txt) | ./reviewdog -f=pylint -name="Pylint" -reporter=github-pr-review -level=error
+            pylint --rcfile=.pylint/.pylintrc $(cat changed_files.txt) | ./reviewdog -f=gcc -name="Pylint" -reporter=github-pr-review -level=warning
           else
             echo "No Python files changed."
           fi

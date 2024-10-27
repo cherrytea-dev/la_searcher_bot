@@ -1623,7 +1623,6 @@ def update_change_log_and_searches(db, folder_num):
         change_log_new_topics_list = []
 
         for snapshot_line in new_topics_from_snapshot_list:
-            topic_type_id = snapshot_line.topic_type_id
             change_type_id = 0
             change_type_name = 'new_search'
 
