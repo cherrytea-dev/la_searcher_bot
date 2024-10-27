@@ -269,7 +269,7 @@ def mark_up_onboarding_status_10_2(cur):
         cur.execute("""
                             INSERT INTO user_onboarding
                             (user_id, step_name, step_id, timestamp)
-                            VALUES (%s, 'role_set', 10, '2023-05-14 12:39:00.000000') 
+                            VALUES (%s, 'role_set', 10, '2023-05-14 12:39:00.000000')
                             ;""",
                     (user_id_to_update,))
     else:
