@@ -2091,7 +2091,9 @@ def api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, u
     }
 
     try:
+        logging.info(f'api_callback_edit_inline_keyboard: {params=}')
         response = requests.post(f'https://api.telegram.org/bot{bot_token}/editMessageText', verify=True, data=params)
+        logging.info(f'api_callback_edit_inline_keyboard: {response.json()=}')
     except Exception as e:
         logging.exception(e)
         logging.info(f'Error on requests.post in api_callback_edit_inline_keyboard')
