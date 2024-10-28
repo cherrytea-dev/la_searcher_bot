@@ -1668,7 +1668,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         #get inline keyboard from previous message to upadate it
         ikb = callback_query.message.reply_markup.inline_keyboard
         new_ikb = []
-        logging.info(f'manage_search_whiteness: {ikb=}')
+        logging.debug(f'manage_search_whiteness: {ikb=}')
         for index, row in enumerate(ikb):
             logging.info("manage_search_whiteness..row[0]['callback_data']==" + str(row[0]['callback_data']) )
             logging.info("manage_search_whiteness..type(row[0]['callback_data'])==" + str(type(row[0]['callback_data'])) )
@@ -1676,7 +1676,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
                     {"text": row[0]['text'], 'callback_data': row[0]['callback_data']},##left button to on/off follow
                     {"text": row[1]['text'], 'callback_data': row[1]['callback_data']} ##right button - link to the search on the forum
                     ]]
-        logging.info(f'manage_search_whiteness before for index, row: {new_ikb=}')
+        logging.debug(f'manage_search_whiteness before for index, row: {new_ikb=}')
 
         for index, row in enumerate(ikb):
             button_data = eval(row[0]['callback_data'])
@@ -1687,7 +1687,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
                 # Toggle the search following mark ('👀' or blank)
                 is_marked = row[0]['text'][:1] == '👀'
                 new_mark_value = '👀' if not is_marked else '  '
-                logging.info(f'manage_search_whiteness..{index=}, {new_mark_value=}.')
+                logging.debug(f'manage_search_whiteness..{index=}, {new_mark_value=}.')
                 new_ikb[index][0]['text'] = new_mark_value + row[0]['text'][len(new_mark_value):]
                 
                 # Update the search 'whiteness' (tracking state)
@@ -1698,10 +1698,10 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
 
                 break  # Only one button should be affected, exit loop
 
-        logging.info(f'manage_search_whiteness before if to_send_callback_answer: {ikb=}')
+        logging.debug(f'manage_search_whiteness before if to_send_callback_answer: {new_ikb=}')
         if to_send_callback_answer:
             send_callback_answer_to_api(bot_token, callback_id, 'Обновлено.')
-        api_callback_edit_inline_keyboard(bot_token, callback_query, ikb, user_id)
+        api_callback_edit_inline_keyboard(bot_token, callback_query, new_ikb, user_id)
 
     return None
 
