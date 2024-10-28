@@ -1670,8 +1670,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         new_ikb = []
         logging.debug(f'manage_search_whiteness: {ikb=}')
         for index, row in enumerate(ikb):
-            logging.info("manage_search_whiteness..row[0]['callback_data']==" + str(row[0]['callback_data']) )
-            logging.info("manage_search_whiteness..type(row[0]['callback_data'])==" + str(type(row[0]['callback_data'])) )
+            # logging.debug("manage_search_whiteness..row[0]['callback_data']==" + str(row[0]['callback_data']) )
             new_ikb += [[
                     {"text": row[0]['text'], 'callback_data': row[0]['callback_data']},##left button to on/off follow
                     {"text": row[1]['text'], 'callback_data': row[1]['callback_data']} ##right button - link to the search on the forum
@@ -1694,13 +1693,11 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
                 record_search_whiteness(user_id, int(user_callback['hash']), new_mark_value == '👀')
                 
                 # Set flag to determine whether to send callback answer (for debugging)
-                to_send_callback_answer = (index < 2)
 
                 break  # Only one button should be affected, exit loop
 
         logging.debug(f'manage_search_whiteness before if to_send_callback_answer: {new_ikb=}')
-        if to_send_callback_answer:
-            send_callback_answer_to_api(bot_token, callback_id, 'Обновлено.')
+        send_callback_answer_to_api(bot_token, callback_id, 'Обновлено.')
         api_callback_edit_inline_keyboard(bot_token, callback_query, new_ikb, user_id)
 
     return None
@@ -2503,6 +2500,9 @@ def main(request):
     user_longitude, got_message, channel_type, username, user_id, got_hash, got_callback, \
     callback_query_id, callback_query = get_basic_update_parameters(update)
 
+    if username=='AnatolyK1975':
+        logging.getLogger("telegram.vendor.ptb_urllib3.urllib3").setLevel(logging.DEBUG)
+
     if timer_changed or photo or document or voice or sticker or (channel_type and user_id < 0) or \
             contact or inline_query:
         process_unneeded_messages(update, user_id, timer_changed, photo, document, voice, sticker, channel_type,
@@ -3246,9 +3246,6 @@ def main(request):
                 bot_message, reply_markup = manage_topic_type(cur, user_id, got_message, b, got_callback,
                                                               callback_query_id, bot_token)
 
-            elif got_callback and got_callback['action']=='search_follow_mode': #issue#425
-                manage_search_whiteness(cur, user_id, got_callback, callback_query_id, callback_query, bot_token)
-            
             elif got_message in {b_set_pref_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
                                  b_pref_age_7_13_deact, b_pref_age_14_20_act, b_pref_age_14_20_deact,
                                  b_pref_age_21_50_act, b_pref_age_21_50_deact, b_pref_age_51_80_act,
@@ -3677,6 +3674,9 @@ def main(request):
             except Exception as e:
                 logging.info(f'failed updates of table msg_from_bot for user={user_id}')
                 logging.exception(e)
+
+        elif got_callback and got_callback['action']=='search_follow_mode': #issue#425
+            manage_search_whiteness(cur, user_id, got_callback, callback_query_id, callback_query, bot_token)
 
         # all other cases when bot was not able to understand the message from user
         else:
