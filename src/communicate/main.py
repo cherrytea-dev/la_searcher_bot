@@ -2500,6 +2500,9 @@ def main(request):
     user_longitude, got_message, channel_type, username, user_id, got_hash, got_callback, \
     callback_query_id, callback_query = get_basic_update_parameters(update)
 
+    logging.info(f'after get_basic_update_parameters:  {got_callback=}')
+
+    
     if timer_changed or photo or document or voice or sticker or (channel_type and user_id < 0) or \
             contact or inline_query:
         process_unneeded_messages(update, user_id, timer_changed, photo, document, voice, sticker, channel_type,
@@ -2863,6 +2866,8 @@ def main(request):
     conn_psy = sql_connect_by_psycopg2()
     cur = conn_psy.cursor()
 
+    logging.info(f'Before if got_message and not got_callback: {got_message=}')
+
     if got_message and not got_callback:
         last_inline_message_id = get_last_user_inline_dialogue(cur, user_id)
         if last_inline_message_id:
@@ -2877,6 +2882,7 @@ def main(request):
     msg_sent_by_specific_code = False
 
     user_is_new = check_if_new_user(cur, user_id)
+    logging.info(f'After check_if_new_user: {user_is_new=}')
     if user_is_new:
         save_new_user(user_id, username)
 
@@ -2909,6 +2915,9 @@ def main(request):
 
     try:
 
+        if got_callback and got_callback['action']=='search_follow_mode': #issue#425
+            manage_search_whiteness(cur, user_id, got_callback, callback_query_id, callback_query, bot_token)
+            
         # if there is a text message from user
         if got_message:
 
@@ -3671,9 +3680,6 @@ def main(request):
             except Exception as e:
                 logging.info(f'failed updates of table msg_from_bot for user={user_id}')
                 logging.exception(e)
-
-        elif got_callback and got_callback['action']=='search_follow_mode': #issue#425
-            manage_search_whiteness(cur, user_id, got_callback, callback_query_id, callback_query, bot_token)
 
         # all other cases when bot was not able to understand the message from user
         else:
