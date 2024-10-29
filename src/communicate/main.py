@@ -2081,13 +2081,13 @@ def send_callback_answer_to_api(bot_token, callback_query_id, message):
 
     return result
 
-def api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, user_id):
+def api_callback_edit_inline_keyboard(bot_token, callback_query, new_ikb, user_id):
     """send a notification when inline button is pushed directly to Telegram API w/o any wrappers ar libraries"""
     params = {
         'chat_id': callback_query['message']['chat']['id'],
         'message_id': callback_query['message']['message_id'],
         'text': callback_query['message']['text'],
-        'reply_markup': reply_markup
+        'reply_markup': InlineKeyboardMarkup(new_ikb)
     }
 
     try:
