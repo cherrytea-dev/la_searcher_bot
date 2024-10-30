@@ -1673,7 +1673,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
             # logging.info("manage_search_whiteness..row[0]['callback_data']==" + str(row[0]['callback_data']) )
             new_ikb += [[
                     {"text": row[0]['text'], 'callback_data': row[0]['callback_data']},##left button to on/off follow
-                    {"text": row[1]['text']} ##right button - link to the search on the forum
+                    {"text": row[1]['text'], "url": row[1]['url']} ##right button - link to the search on the forum
                     ]]
         logging.info(f'manage_search_whiteness before for index, row: {new_ikb=}')
 
@@ -1698,7 +1698,6 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
 
         logging.info(f'manage_search_whiteness before if to_send_callback_answer: {new_ikb=}')
         send_callback_answer_to_api(bot_token, callback_id, 'Обновлено.')
-        make_api_call('editMessageReplyMarkup', bot_token, params)
         api_callback_edit_inline_keyboard(bot_token, callback_query, InlineKeyboardMarkup(new_ikb), user_id)
 
     return None
