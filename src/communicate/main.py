@@ -1671,8 +1671,9 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         logging.info(f'manage_search_whiteness: {ikb=}')
         for index, row in enumerate(ikb):
             # logging.info("manage_search_whiteness..row[0]['callback_data']==" + str(row[0]['callback_data']) )
+            new_callback_data = row[0]['callback_data'].replace('\"','"')#deserialize callback_data because it was already passed through reply_markup
             new_ikb += [[
-                    {"text": row[0]['text'], 'callback_data': row[0]['callback_data']},##left button to on/off follow
+                    {"text": row[0]['text'], 'callback_data': new_callback_data},##left button to on/off follow, 
                     {"text": row[1]['text'], "url": row[1]['url']} ##right button - link to the search on the forum
                     ]]
         logging.info(f'manage_search_whiteness before for index, row: {new_ikb=}')
