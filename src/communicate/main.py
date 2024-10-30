@@ -1673,7 +1673,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
             # logging.info("manage_search_whiteness..row[0]['callback_data']==" + str(row[0]['callback_data']) )
             new_ikb += [[
                     {"text": row[0]['text'], 'callback_data': row[0]['callback_data']},##left button to on/off follow
-                    {"text": row[1]['text'], 'callback_data': row[1]['callback_data']} ##right button - link to the search on the forum
+                    {"text": row[1]['text']} ##right button - link to the search on the forum
                     ]]
         logging.info(f'manage_search_whiteness before for index, row: {new_ikb=}')
 
@@ -1698,7 +1698,8 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
 
         logging.info(f'manage_search_whiteness before if to_send_callback_answer: {new_ikb=}')
         send_callback_answer_to_api(bot_token, callback_id, 'Обновлено.')
-        api_callback_edit_inline_keyboard(bot_token, callback_query, new_ikb, user_id)
+        make_api_call('editMessageReplyMarkup', bot_token, params)
+        api_callback_edit_inline_keyboard(bot_token, callback_query, InlineKeyboardMarkup(new_ikb), user_id)
 
     return None
 
@@ -2081,25 +2082,25 @@ def send_callback_answer_to_api(bot_token, callback_query_id, message):
 
     return result
 
-def api_callback_edit_inline_keyboard(bot_token, callback_query, new_ikb, user_id):
+def api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, user_id):
     """send a notification when inline button is pushed directly to Telegram API w/o any wrappers ar libraries"""
     params = {
         'chat_id': callback_query['message']['chat']['id'],
         'message_id': callback_query['message']['message_id'],
         'text': callback_query['message']['text'],
-        'reply_markup': InlineKeyboardMarkup(new_ikb)
+        'reply_markup': reply_markup
     }
 
-    try:
-        logging.info(f'api_callback_edit_inline_keyboard: {params=}')
-        response = requests.post(f'https://api.telegram.org/bot{bot_token}/editMessageText', verify=True, data=params)
-        logging.info(f'api_callback_edit_inline_keyboard: {response.json()=}')
-    except Exception as e:
-        logging.exception(e)
-        logging.info(f'Error on requests.post in api_callback_edit_inline_keyboard')
-        response = None
-        return False
-
+    # try:
+    #     logging.info(f'api_callback_edit_inline_keyboard: {params=}')
+    #     response = requests.post(f'https://api.telegram.org/bot{bot_token}/editMessageText', verify=True, data=params)
+    #     logging.info(f'api_callback_edit_inline_keyboard: {response.json()=}')
+    # except Exception as e:
+    #     logging.exception(e)
+    #     logging.info(f'Error on requests.post in api_callback_edit_inline_keyboard')
+    #     response = None
+    #     return False
+    response = make_api_call('editMessageText', bot_token, params)
     result = process_response_of_api_call(user_id, response)
     return result
 
