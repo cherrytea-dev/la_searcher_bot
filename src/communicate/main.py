@@ -1676,28 +1676,32 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
 
         new_ikb = []
         logging.info(f'manage_search_whiteness: {ikb=}')
-        for index, row in enumerate(ikb):
-            # logging.info("manage_search_whiteness..row[0]['callback_data']==" + str(row[0]['callback_data']) )
+        for index, ikb_row in enumerate(ikb):
+            # logging.info("manage_search_whiteness..ikb_row[0]['callback_data']==" + str(ikb_row[0]['callback_data']) )
  ##'callback_data': f'{{"action":"search_follow_mode", "hash":"{search_id}"}}'
-            callback_data =eval(row[0]['callback_data']) 
+            callback_data =eval(ikb_row[0]['callback_data'])
+            to_use_eyes_emo = (pushed_row_index>1)
             if pushed_row_index % 2 == 0: #DEBUG different methods depending on which button was pushed by user
                 new_callback_data = callback_data    
             else:
                 new_callback_data = f'{{"action":"{callback_data['action']}", "hash":"{callback_data['hash']}"}}'
-            new_ikb += [[
-                    {"text": row[0]['text'], 'callback_data': new_callback_data},##left button to on/off follow, 
-                    {"text": row[1]['text'], "url": row[1]['url']} ##right button - link to the search on the forum
-                    ]]
-        logging.info(f'manage_search_whiteness before row = ikb[pushed_row_index]: {new_ikb=}')
 
-        row = ikb[pushed_row_index]
+            new_text = ikb_row[0]['text'] if to_use_eyes_emo else ikb_row[0]['text'].replace('👀','!!')    
+            new_ikb += [[
+                    {"text": new_text, 'callback_data': new_callback_data},##left button to on/off follow, 
+                    {"text": ikb_row[1]['text'], "url": ikb_row[1]['url']} ##right button - link to the search on the forum
+                    ]]
+
+        logging.info(f'manage_search_whiteness before ikb_row = ikb[pushed_row_index]: {new_ikb=}')
+        ikb_row = ikb[pushed_row_index]
         # Toggle the search following mark ('👀' or blank)
-        is_marked = row[0]['text'][:1] == '👀'
-        new_mark_value = '👀' if not is_marked else '  '
+        do_mark = not (ikb_row[0]['text'][:1] == '👀')
+        mark_str = '👀' if to_use_eyes_emo else '!!'
+        new_mark_value = mark_str if do_mark else '  '
         logging.info(f'manage_search_whiteness..{pushed_row_index=}, {new_mark_value=}.')
-        new_ikb[index][0]['text'] = new_mark_value + row[0]['text'][len(new_mark_value):]
+        new_ikb[index][0]['text'] = new_mark_value + new_ikb[index][0]['text'][len(new_mark_value):]
         # Update the search 'whiteness' (tracking state)
-        record_search_whiteness(user_id, int(user_callback['hash']), new_mark_value == '👀')
+        record_search_whiteness(user_id, int(user_callback['hash']), do_mark)
            
 
         logging.info(f'manage_search_whiteness before if to_send_callback_answer: {new_ikb=}')
