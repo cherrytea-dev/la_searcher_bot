@@ -2923,6 +2923,7 @@ def main(request):
 
         if got_callback and got_callback['action']=='search_follow_mode': #issue#425
             manage_search_whiteness(cur, user_id, got_callback, callback_query_id, callback_query, bot_token)
+            return 'finished successfully. It was a search_follow_mode inline button callback.'
             
         # if there is a text message from user
         if got_message:
