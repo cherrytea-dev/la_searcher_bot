@@ -1684,7 +1684,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
             if pushed_row_index % 2 == 0: #DEBUG different methods depending on which button was pushed by user
                 new_callback_data = callback_data    
             else:
-                new_callback_data = f'{{"action":"{callback_data['action']}", "hash":"{callback_data['hash']}"}}'
+                new_callback_data = f'{{"action":"{callback_data["action"]}", "hash":"{callback_data["hash"]}"}}'
 
             new_text = ikb_row[0]['text'] if to_use_eyes_emo else ikb_row[0]['text'].replace('👀','!!')    
             new_ikb += [[
@@ -2079,7 +2079,7 @@ def send_callback_answer_to_api(bot_token, callback_query_id, message):
 
         with requests.Session() as session:
             response = session.get(request_text)
-            logging.info(f'{response.json()=}')
+            logging.info(f'send_callback_answer_to_api..{response.json()=}')
 
     except Exception as e:
         logging.exception(e)
