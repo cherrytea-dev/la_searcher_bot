@@ -1990,6 +1990,7 @@ def make_api_call(method: str, bot_api_token: str, params: dict) -> Union[reques
 
     url = f'https://api.telegram.org/bot{bot_api_token}/{method}'  # e.g. sendMessage
     headers = {'Content-Type': 'application/json'}
+    logging.info(f'make_api_call..before json_params = json.dumps(params) {params=}; {type(params)=}')
     json_params = json.dumps(params)
 
     with requests.Session() as session:
@@ -2092,22 +2093,16 @@ def send_callback_answer_to_api(bot_token, callback_query_id, message):
 
 def api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, user_id):
     """send a notification when inline button is pushed directly to Telegram API w/o any wrappers ar libraries"""
+    if reply_markup and not isinstance(reply_markup, dict):
+        reply_markup_dict = reply_markup.to_dict()
+
     params = {
         'chat_id': callback_query['message']['chat']['id'],
         'message_id': callback_query['message']['message_id'],
         'text': callback_query['message']['text'],
-        'reply_markup': reply_markup
+        'reply_markup': reply_markup_dict
     }
 
-    # try:
-    #     logging.info(f'api_callback_edit_inline_keyboard: {params=}')
-    #     response = requests.post(f'https://api.telegram.org/bot{bot_token}/editMessageText', verify=True, data=params)
-    #     logging.info(f'api_callback_edit_inline_keyboard: {response.json()=}')
-    # except Exception as e:
-    #     logging.exception(e)
-    #     logging.info(f'Error on requests.post in api_callback_edit_inline_keyboard')
-    #     response = None
-    #     return False
     response = make_api_call('editMessageText', bot_token, params)
     result = process_response_of_api_call(user_id, response)
     return result
