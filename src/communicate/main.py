@@ -1598,7 +1598,7 @@ def manage_topic_type(cur, user_id, user_input, b, user_callback, callback_id, b
                      'календарь проведения сильно варьируются от региона к региону. Рекомендуем подписаться, ' \
                      'чтобы быть в курсе всех событий в отряде вашего региона. 💡'
         about_params = {'chat_id': user_id, 'text': about_text, 'parse_mode': 'HTML'}
-        make_api_call('sendMessage', bot_token, about_params)
+        make_api_call('sendMessage', bot_token, about_params, "main() if ... user_callback['action'] == 'about'")
         del_message_id = get_last_user_inline_dialogue(cur, user_id)
         if del_message_id:
             del_params = {'chat_id': user_id, 'message_id': del_message_id}
@@ -1647,8 +1647,9 @@ def manage_topic_type(cur, user_id, user_input, b, user_callback, callback_id, b
     return bot_message, reply_markup
 
 
-#issue#425 manage_search_whiteness inspired by manage_topic_type
-def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_query, bot_token):
+#issue#425 inspired by manage_topic_type
+def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_query, bot_token) -> Union[
+        tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
     """Saves search_whiteness (accordingly to user's choice of search to follow) and regenerates the search list keyboard"""
 
     def record_search_whiteness(user: int, search_id: int, seach_following_flag) -> None:
@@ -1661,7 +1662,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
             cur.execute("""DELETE FROM user_pref_search_whitelist WHERE user_id=%(user)s and search_id=%(search_id)s;""", {'user':user, 'search_id':search_id})
         return None
 
-    logging.info('manage_search_whiteness..callback_query='+str(callback_query))
+    logging.info('callback_query='+str(callback_query))
     logging.info(f'{user_id=}')
     # when user pushed INLINE BUTTON for topic following
     if user_callback and user_callback["action"] == "search_follow_mode":
@@ -1675,7 +1676,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
                 break
 
         new_ikb = []
-        logging.info(f'manage_search_whiteness: {ikb=}')
+        logging.info(f'before for index, ikb_row in enumerate(ikb): {ikb=}')
         for index, ikb_row in enumerate(ikb):##ToDo merge this for into the for above
             # logging.info("manage_search_whiteness..ikb_row[0]['callback_data']==" + str(ikb_row[0]['callback_data']) )
             callback_data =eval(ikb_row[0]['callback_data'])
@@ -1691,24 +1692,24 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
                     {"text": ikb_row[1]['text'], "url": ikb_row[1]['url']} ##right button - link to the search on the forum
                     ]]
 
-        logging.info(f'manage_search_whiteness before ikb_row = ikb[pushed_row_index]: {new_ikb=}')
+        logging.info(f'before ikb_row = ikb[pushed_row_index]: {new_ikb=}')
         ikb_row = ikb[pushed_row_index]
         # Toggle the search following mark ('👀' or blank)
         do_mark = not (ikb_row[0]['text'][:1] == '👀')
         ### mark_str = '👀' if to_use_eyes_emo else '!!'
         new_mark_value = '👀' if do_mark else '  '
-        logging.info(f'manage_search_whiteness..{pushed_row_index=}, {new_mark_value=}.')
+        logging.info(f'before assign new_mark_value: {pushed_row_index=}, {new_mark_value=}.')
         new_ikb[pushed_row_index][0]['text'] = new_mark_value + new_ikb[pushed_row_index][0]['text'][len(new_mark_value):]
         # Update the search 'whiteness' (tracking state)
         record_search_whiteness(user_id, int(user_callback['hash']), do_mark)
-
-        logging.info(f'manage_search_whiteness before send_callback_answer_to_api: {new_ikb=}')
-        send_callback_answer_to_api(bot_token, callback_id, 'Обновлено.')
+        bot_message = 'Наблюдение' + ('включено' if do_mark else 'выключено')
+        logging.info(f'before send_callback_answer_to_api: {new_ikb=}')
+        send_callback_answer_to_api(bot_token, callback_id, bot_message)
         reply_markup = InlineKeyboardMarkup(new_ikb)
-        logging.info(f'manage_search_whiteness before api_callback_edit_inline_keyboard: {reply_markup=}')
-        api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, user_id)
+        logging.info(f'before api_callback_edit_inline_keyboard: {reply_markup=}')
+        # api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, user_id)
 
-    return None
+    return bot_message, reply_markup
 
 
 def manage_if_moscow(cur, user_id, username, got_message, b_reg_moscow, b_reg_not_moscow,
@@ -1978,7 +1979,7 @@ def process_response_of_api_call(user_id, response):
         return 'failed'
 
 
-def make_api_call(method: str, bot_api_token: str, params: dict) -> Union[requests.Response, None]:
+def make_api_call(method: str, bot_api_token: str, params: dict, call_source='') -> Union[requests.Response, None]:
     """make an API call to telegram"""
 
     if not params or not bot_api_token or not method:
@@ -1989,7 +1990,7 @@ def make_api_call(method: str, bot_api_token: str, params: dict) -> Union[reques
 
     url = f'https://api.telegram.org/bot{bot_api_token}/{method}'  # e.g. sendMessage
     headers = {'Content-Type': 'application/json'}
-    logging.info(f'make_api_call(method={method})..before json_params = json.dumps(params) {params=}; {type(params)=}')
+    logging.info(f'make_api_call({method=}, {call_source=})..before json_params = json.dumps(params) {params=}; {type(params)=}')
     json_params = json.dumps(params)
 
     with requests.Session() as session:
@@ -2102,7 +2103,8 @@ def api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, u
         'reply_markup': reply_markup_dict
     }
 
-    response = make_api_call('editMessageText', bot_token, params)
+    response = make_api_call('editMessageText', bot_token, params, 'api_callback_edit_inline_keyboard')
+    logging.info(f'After make_api_call(editMessageText): {response.json()=}')
     result = process_response_of_api_call(user_id, response)
     return result
 
@@ -2877,7 +2879,7 @@ def main(request):
         last_inline_message_id = get_last_user_inline_dialogue(cur, user_id)
         if last_inline_message_id:
             params = {'chat_id': user_id, 'message_id': last_inline_message_id}
-            make_api_call('editMessageReplyMarkup', bot_token, params)
+            make_api_call('editMessageReplyMarkup', bot_token, params, 'main() if got_message and not got_callback')
             delete_last_user_inline_dialogue(cur, user_id)
 
     if got_message:
@@ -2931,7 +2933,7 @@ def main(request):
                     #  (in the future it should be done in manage_user script)
                     method = 'setMyCommands'
                     params = {'commands': [], 'scope': {'type': 'chat', 'chat_id': user_id}}
-                    response = make_api_call(method=method, bot_api_token=bot_token, params=params)
+                    response = make_api_call(method=method, bot_api_token=bot_token, params=params, call_source='if user_is_new')
                     result = process_response_of_api_call(user_id, response)
                     logging.info(f'hiding user {user_id} menu status = {result}')
                     # FIXME ^^^
@@ -3657,12 +3659,12 @@ def main(request):
                     # params['message_id'] = last_user_message_id
                     params = {'chat_id': user_id, 'text': bot_message,
                               'message_id': last_user_message_id, 'reply_markup': reply_markup}
-                    response = make_api_call('editMessageText', bot_token, params)
+                    response = make_api_call('editMessageText', bot_token, params, 'main() if user_used_inline_button')
                 else:
                     params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
                               'chat_id': user_id, 'text': bot_message}
 
-                    response = make_api_call('sendMessage', bot_token, params)
+                    response = make_api_call('sendMessage', bot_token, params, 'main() if user_used_inline_button: else')
                 result = process_response_of_api_call(user_id, response)
                 inline_processing(cur, response, params)
 
