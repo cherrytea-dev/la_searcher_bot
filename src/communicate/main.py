@@ -1699,7 +1699,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         mark_str = '👀' if to_use_eyes_emo else '!!'
         new_mark_value = mark_str if do_mark else '  '
         logging.info(f'manage_search_whiteness..{pushed_row_index=}, {new_mark_value=}.')
-        new_ikb[index][0]['text'] = new_mark_value + new_ikb[index][0]['text'][len(new_mark_value):]
+        new_ikb[pushed_row_index][0]['text'] = new_mark_value + new_ikb[pushed_row_index][0]['text'][len(new_mark_value):]
         # Update the search 'whiteness' (tracking state)
         record_search_whiteness(user_id, int(user_callback['hash']), do_mark)
 
@@ -2921,10 +2921,6 @@ def main(request):
 
     try:
 
-        if got_callback and got_callback['action']=='search_follow_mode': #issue#425
-            manage_search_whiteness(cur, user_id, got_callback, callback_query_id, callback_query, bot_token)
-            return 'finished successfully. It was a search_follow_mode inline button callback.'
-            
         # if there is a text message from user
         if got_message:
 
@@ -3139,6 +3135,10 @@ def main(request):
                 reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
                 logging.info(f'user {user_id} is forced to fill in the region')
+
+            elif got_callback and got_callback['action']=='search_follow_mode': #issue#425
+                manage_search_whiteness(cur, user_id, got_callback, callback_query_id, callback_query, bot_token)
+#to delete#                return 'finished successfully. It was a search_follow_mode inline button callback.'
 
             # Send summaries
             elif got_message in {b_view_latest_searches, b_view_act_searches,
