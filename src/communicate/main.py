@@ -3138,7 +3138,7 @@ def main(request):
                 logging.info(f'user {user_id} is forced to fill in the region')
 
             elif got_callback and got_callback['action']=='search_follow_mode': #issue#425
-                manage_search_whiteness(cur, user_id, got_callback, callback_query_id, callback_query, bot_token)
+                bot_message, reply_markup = manage_search_whiteness(cur, user_id, got_callback, callback_query_id, callback_query, bot_token)
 #to delete#                return 'finished successfully. It was a search_follow_mode inline button callback.'
 
             # Send summaries
