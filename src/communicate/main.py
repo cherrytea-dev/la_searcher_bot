@@ -1927,11 +1927,12 @@ def process_sending_message_async(user_id, data) -> None:
     return None
 
 
-def process_response_of_api_call(user_id, response):
+def process_response_of_api_call(user_id, response, call_context=''):
     """process response received as a result of Telegram API call while sending message/location"""
 
+    logging.info(f'{response=}; {call_context=}')
     if not response:
-        logging.info(f'response in None for {user_id=}')
+        logging.info(f'response is None for {user_id=}')
         return 'failed'
 
     try:
@@ -1979,7 +1980,7 @@ def process_response_of_api_call(user_id, response):
         return 'failed'
 
 
-def make_api_call(method: str, bot_api_token: str, params: dict, call_source='') -> Union[requests.Response, None]:
+def make_api_call(method: str, bot_api_token: str, params: dict, call_context='') -> Union[requests.Response, None]:
     """make an API call to telegram"""
 
     if not params or not bot_api_token or not method:
@@ -1991,19 +1992,19 @@ def make_api_call(method: str, bot_api_token: str, params: dict, call_source='')
 
     url = f'https://api.telegram.org/bot{bot_api_token}/{method}'  # e.g. sendMessage
     headers = {'Content-Type': 'application/json'}
-    logging.info(f'make_api_call({method=}, {call_source=})..before json_params = json.dumps(params) {params=}; {type(params)=}')
+    logging.info(f'make_api_call({method=}, {call_context=})..before json_params = json.dumps(params) {params=}; {type(params)=}')
     json_params = json.dumps(params)
 
     with requests.Session() as session:
         try:
             response = session.post(url=url, data=json_params, headers=headers)
-            logging.info(f'After session.post: {response=}')
+            logging.info(f'After session.post: {response=}; {call_context=}')
         except Exception as e:
             response = None
             logging.info(f'Error in getting response from Telegram')
             logging.exception(e)
 
-    logging.info(f'Before return: {response=}')
+    logging.info(f'Before return: {response=}; {call_context=}')
     return response
 
 
@@ -2936,7 +2937,7 @@ def main(request):
                     #  (in the future it should be done in manage_user script)
                     method = 'setMyCommands'
                     params = {'commands': [], 'scope': {'type': 'chat', 'chat_id': user_id}}
-                    response = make_api_call(method=method, bot_api_token=bot_token, params=params, call_source='if user_is_new')
+                    response = make_api_call(method=method, bot_api_token=bot_token, params=params, call_context='if user_is_new')
                     result = process_response_of_api_call(user_id, response)
                     logging.info(f'hiding user {user_id} menu status = {result}')
                     # FIXME ^^^
@@ -3662,12 +3663,27 @@ def main(request):
                     # params['message_id'] = last_user_message_id
                     params = {'chat_id': user_id, 'text': bot_message,
                               'message_id': last_user_message_id, 'reply_markup': reply_markup}
-                    response = make_api_call('editMessageText', bot_token, params, 'main() if user_used_inline_button')
+                    context_step='1a1'
+                    context=f'main() if user_used_inline_button: {user_id=}, {context_step=}'
+                    response = make_api_call('editMessageText', bot_token, params, context)
+                    context_step='1a2'
+                    context=f'main() if user_used_inline_button: {user_id=}, {context_step=}'
+                    logging.info(f'{response=}; {context=}')
                 else:
                     params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
                               'chat_id': user_id, 'text': bot_message}
+                    context_step='1b1'
+                    context=f'main() if user_used_inline_button: else: {user_id=}, {context_step=}'
+                    response = make_api_call('sendMessage', bot_token, params, context)
+                    context_step='1b2'
+                    context=f'main() if user_used_inline_button: else: {user_id=}, {context_step=}'
+                    logging.info(f'{response=}; {context=}')
 
-                    response = make_api_call('sendMessage', bot_token, params, 'main() if user_used_inline_button: else')
+                context_step='2'
+                context=f'main() if user_used_inline_button: {user_id=}, {context_step=}'
+                logging.info(f'{response=}; {context=}')
+                context_step='3'
+                context=f'main() if user_used_inline_button: {user_id=}, {context_step=}'
                 result = process_response_of_api_call(user_id, response)
                 inline_processing(cur, response, params)
 
