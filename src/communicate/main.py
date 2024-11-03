@@ -1983,6 +1983,7 @@ def make_api_call(method: str, bot_api_token: str, params: dict, call_source='')
     """make an API call to telegram"""
 
     if not params or not bot_api_token or not method:
+        logging.warning(f'not params or not bot_api_token or not method: {method=}; {len(bot_api_token)=}; {len(params)=}')
         return None
 
     if 'chat_id' not in params.keys() and ('scope' not in params.keys() or 'chat_id' not in params['scope'].keys()):
@@ -1996,12 +1997,13 @@ def make_api_call(method: str, bot_api_token: str, params: dict, call_source='')
     with requests.Session() as session:
         try:
             response = session.post(url=url, data=json_params, headers=headers)
+            logging.info(f'After session.post: {response=}')
         except Exception as e:
             response = None
             logging.info(f'Error in getting response from Telegram')
             logging.exception(e)
 
-        logging.info(f'Before return: {response=}')
+    logging.info(f'Before return: {response=}')
     return response
 
 
