@@ -2001,6 +2001,7 @@ def make_api_call(method: str, bot_api_token: str, params: dict, call_source='')
             logging.info(f'Error in getting response from Telegram')
             logging.exception(e)
 
+        logging.info(f'Before return: {response=}')
     return response
 
 
