@@ -1702,12 +1702,13 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         new_ikb[pushed_row_index][0]['text'] = new_mark_value + new_ikb[pushed_row_index][0]['text'][len(new_mark_value):]
         # Update the search 'whiteness' (tracking state)
         record_search_whiteness(user_id, int(user_callback['hash']), do_mark)
-        bot_message = 'Наблюдение' + ('включено' if do_mark else 'выключено')
+        bot_message = 'Наблюдение ' + ('включено' if do_mark else 'выключено')
         logging.info(f'before send_callback_answer_to_api: {new_ikb=}')
         send_callback_answer_to_api(bot_token, callback_id, bot_message)
         reply_markup = InlineKeyboardMarkup(new_ikb)
         logging.info(f'before api_callback_edit_inline_keyboard: {reply_markup=}')
-        # api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, user_id)
+        if pushed_row_index %2 ==0:
+            api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, user_id)
 
     return bot_message, reply_markup
 
@@ -1930,11 +1931,6 @@ def process_sending_message_async(user_id, data) -> None:
 def process_response_of_api_call(user_id, response, call_context=''):
     """process response received as a result of Telegram API call while sending message/location"""
 
-    logging.info(f'Before if not response: {user_id=}; {response=}; {response.json()=}; {call_context=}')
-    if not response:
-        logging.info(f'response is None for {user_id=}; {call_context=}')
-        return 'failed'
-
     try:
 
         if 'ok' not in response.json():
@@ -1967,6 +1963,11 @@ def process_response_of_api_call(user_id, response, call_context=''):
             logging.info(f'Flood Control: message to {user_id} was not sent, {response.reason=}')
             logging.exception('FLOOD CONTROL')
             return 'failed_flood_control'
+
+#issue425 if not response moved here from the 1st place because it reacted even on response 400
+        elif not response:
+            logging.info(f'response is None for {user_id=}; {call_context=}')
+            return 'failed'
 
         else:
             logging.info(f'UNKNOWN ERROR: message to {user_id} was not sent, {response.reason=}')
@@ -3649,8 +3650,13 @@ def main(request):
                             'parse_mode': 'HTML', 'disable_web_page_preview': True}
                     process_sending_message_async(user_id=user_id, data=data)
                 else:"""
+
+                context_step='01a1'
+                context=f'if reply_markup and not isinstance(reply_markup, dict): {reply_markup=}, {context_step=}'
                 if reply_markup and not isinstance(reply_markup, dict):
                     reply_markup = reply_markup.to_dict()
+                    context_step='02a1'
+                    context=f'After reply_markup.to_dict(): {reply_markup=}, {context_step=}'
 
                 if got_hash and got_callback and got_callback['action'] != 'about':
                     user_used_inline_button = True
