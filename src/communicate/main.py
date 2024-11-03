@@ -1942,7 +1942,7 @@ def process_response_of_api_call(user_id, response, call_context=''):
             return 'completed'
 
         elif response.status_code == 400:  # Bad Request
-            logging.info(f'Bad Request: message to {user_id} was not sent, {response.reason=}')
+            logging.info(f'Bad Request: message to {user_id} was not sent, {response.json()=}')
             logging.exception('BAD REQUEST')
             return 'cancelled_bad_request'
 
@@ -1993,8 +1993,10 @@ def make_api_call(method: str, bot_api_token: str, params: dict, call_context=''
 
     url = f'https://api.telegram.org/bot{bot_api_token}/{method}'  # e.g. sendMessage
     headers = {'Content-Type': 'application/json'}
-    logging.info(f'make_api_call({method=}, {call_context=})..before json_params = json.dumps(params) {params=}; {type(params)=}')
+    logging.info(f'({method=}, {call_context=})..before json_params = json.dumps(params) {params=}; {type(params)=}')
     json_params = json.dumps(params)
+    logging.info(f'({method=}, {call_context=})..after json.dumps(params): {json_params=}; {type(json_params)=}')
+
 
     with requests.Session() as session:
         try:
