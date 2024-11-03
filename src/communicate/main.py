@@ -1930,9 +1930,9 @@ def process_sending_message_async(user_id, data) -> None:
 def process_response_of_api_call(user_id, response, call_context=''):
     """process response received as a result of Telegram API call while sending message/location"""
 
-    logging.info(f'{response=}; {call_context=}')
+    logging.info(f'Before if not response: {user_id=}; {response=}; {response.json()=}; {call_context=}')
     if not response:
-        logging.info(f'response is None for {user_id=}')
+        logging.info(f'response is None for {user_id=}; {call_context=}')
         return 'failed'
 
     try:
