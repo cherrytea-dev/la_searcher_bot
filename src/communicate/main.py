@@ -3194,15 +3194,16 @@ def main(request):
                                     'parse_mode': 'HTML', 'disable_web_page_preview': True}
                             process_sending_message_async(user_id=user_id, data=data)
 
-                        bot_message = compose_full_message_on_list_of_searches(cur,
-                                                                               temp_dict[got_message],
-                                                                               user_id,
-                                                                               region, region_name)
-                        reply_markup = reply_markup_main
+                        else: #for all users except AnatolyK1975
+                            bot_message = compose_full_message_on_list_of_searches(cur,
+                                                                                temp_dict[got_message],
+                                                                                user_id,
+                                                                                region, region_name)
+                            reply_markup = reply_markup_main
 
-                        data = {'text': bot_message, 'reply_markup': reply_markup,
-                                'parse_mode': 'HTML', 'disable_web_page_preview': True}
-                        process_sending_message_async(user_id=user_id, data=data)
+                            data = {'text': bot_message, 'reply_markup': reply_markup,
+                                    'parse_mode': 'HTML', 'disable_web_page_preview': True}
+                            process_sending_message_async(user_id=user_id, data=data)
 
                         # saving the last message from bot
                         try:
@@ -3655,10 +3656,12 @@ def main(request):
 
                 context_step='01a1'
                 context=f'if reply_markup and not isinstance(reply_markup, dict): {reply_markup=}, {context_step=}'
+                logging.info(f'{context=}: {reply_markup=}')
                 if reply_markup and not isinstance(reply_markup, dict):
                     reply_markup = reply_markup.to_dict()
                     context_step='02a1'
                     context=f'After reply_markup.to_dict(): {reply_markup=}, {context_step=}'
+                    logging.info(f'{context=}: {reply_markup=}')
 
                 if got_hash and got_callback and got_callback['action'] != 'about':
                     user_used_inline_button = True
