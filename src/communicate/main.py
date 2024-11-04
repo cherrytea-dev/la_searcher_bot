@@ -1678,8 +1678,8 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         new_ikb = []
         logging.info(f'before for index, ikb_row in enumerate(ikb): {ikb=}')
         for index, ikb_row in enumerate(ikb):##ToDo merge this for into the for above
-            # logging.info("manage_search_whiteness..ikb_row[0]['callback_data']==" + str(ikb_row[0]['callback_data']) )
-            callback_data =eval(ikb_row[0]['callback_data'])
+            logging.info(f'{ikb_row=}')
+            callback_data =ikb_row[0]['callback_data']
             ### to_use_eyes_emo = (pushed_row_index>1)
             # if pushed_row_index % 2 == 0: #DEBUG different methods depending on which button was pushed by user
             #     new_callback_data = callback_data    
