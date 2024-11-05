@@ -717,7 +717,7 @@ def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region
         ikb += compose_msg_on_all_last_searches_ikb(cur, region)
         logging.info('ikb += compose_msg_on_all_last_searches_ikb == '+str(ikb))
 
-        if len(ikb)>0:
+        if len(ikb)>=0:
             msg = f'Посл. 20 поисков в {region_name}'
             ikb.insert(0, [{"text": msg, "url": url}])
         else:
@@ -734,7 +734,7 @@ def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region
         ikb += compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_id)
         logging.info(f'ikb += compose_msg_on_active_searches_in_one_reg_ikb == {ikb}; ({region=})')
 
-        if len(ikb)>0:
+        if len(ikb)>=0:
             msg = f'Акт. поиски за 60 дней в {region_name}'
             ikb.insert(0, [{"text": msg, "url": url}])
         else:
@@ -3180,6 +3180,7 @@ def main(request):
                                                                                 temp_dict[got_message],
                                                                                 user_id,
                                                                                 region, region_name)
+                            logging.info(f'After += compose_full_message_on_list_of_searches_ikb: {keyboard=}')
 
                     ##msg_sent_by_specific_code for combined ikb start
                     if len(keyboard)==0:
