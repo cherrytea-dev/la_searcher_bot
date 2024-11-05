@@ -711,39 +711,35 @@ def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region
 
     user_data = cur.fetchone()
 
+    url = f'https://lizaalert.org/forum/viewforum.php?f={region}'
     # combine the list of last 20 searches
     if list_type == 'all':
-
         ikb += compose_msg_on_all_last_searches_ikb(cur, region)
         logging.info('ikb += compose_msg_on_all_last_searches_ikb == '+str(ikb))
 
         if len(ikb)>0:
-            msg = 'Последние 20 поисков в разделе <a href="https://lizaalert.org/forum/viewforum.php?f=' + str(region) \
-                  + '">' + region_name + '</a>:\n'
-            ikb.insert(0, {"text": msg})
+            msg = f'Посл. 20 поисков в {region_name}'
+            ikb.insert(0, [{"text": msg, "url": url}])
         else:
             msg = 'Не получается отобразить последние поиски в разделе ' \
                   '<a href="https://lizaalert.org/forum/viewforum.php?f=' + str(region) \
                   + '">' + region_name + '</a>, что-то пошло не так, простите. Напишите об этом разработчику ' \
                                          'в <a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">Специальном Чате ' \
                                          'в телеграм</a>, пожалуйста.'
-            ikb = [{"text": msg}]
+            ikb = [[{"text": msg, "url": url}]]
             
 
     # Combine the list of the latest active searches
     else:
-
         ikb += compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_id)
         logging.info('ikb += compose_msg_on_active_searches_in_one_reg_ikb == '+str(ikb))
 
         if len(ikb)>0:
-            msg = 'Актуальные поиски за 60 дней в разделе <a href="https://lizaalert.org/forum/viewforum.php?f=' \
-                  + str(region) + '">' + region_name + '</a>:\n'
-            ikb.insert(0, {"text": msg})
+            msg = f'Акт. поиски за 60 дней в {region_name}'
+            ikb.insert(0, [{"text": msg, "url": url}])
         else:
-            msg = 'В разделе <a href="https://lizaalert.org/forum/viewforum.php?f=' \
-                  + str(region) + '">' + region_name + '</a> все поиски за последние 60 дней завершены.'
-            ikb = [{"text": msg}]
+            msg = f'Нет акт. поисков за 60 дней в {region_name}'
+            ikb = [[{"text": msg, "url": url}]]
 
     return ikb
 
@@ -3182,17 +3178,35 @@ def main(request):
                                                                                 temp_dict[got_message],
                                                                                 user_id,
                                                                                 region, region_name)
-                            header_text = keyboard[0]["text"]
-                            keyboard.pop(0)
-                            
-                            #issue#425 show the inline keyboard
-                            reply_markup = InlineKeyboardMarkup(keyboard)
-                            logging.info('compose_full_message_on_list_of_searches_ikb..keyboard =='+str(keyboard))
-                            logging.info('compose_full_message_on_list_of_searches_ikb=>InlineKeyboardMarkup(keyboard) => reply_markup='+str(reply_markup))
+                            header_text = keyboard[0][0]["text"]
+                            if header_text.find('что-то пошло не так')>0:
+                                bot_message = header_text
+                                reply_markup = None
+                            else:
+                                #issue#425 show the inline keyboard
+                                bot_message = 'Каждый поиск ниже дан строкой из двух кнопок: кнопка отслеживания и кнопка перехода на форум.'
+                                reply_markup = InlineKeyboardMarkup(keyboard)
+                                logging.info(f'{bot_message=}; {keyboard=}; context_step=b00')
+                                #process_sending_message_async(user_id=user_id, data=data)
 
-                            data = {'text': header_text, 'reply_markup': reply_markup,
-                                    'parse_mode': 'HTML', 'disable_web_page_preview': True}
-                            process_sending_message_async(user_id=user_id, data=data)
+##msg_sent_by_specific_code start
+                            context=f'Before if reply_markup and not isinstance(reply_markup, dict): {reply_markup=}, context_step=b01'
+                            logging.info(f'{context=}: {reply_markup=}')
+                            if reply_markup and not isinstance(reply_markup, dict):
+                                reply_markup = reply_markup.to_dict()
+                                context=f'After reply_markup.to_dict(): {reply_markup=}; {user_id=}; context_step=b02'
+                                logging.info(f'{context=}: {reply_markup=}')
+
+                            params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
+                                    'chat_id': user_id, 'text': bot_message}
+                            context=f'{user_id=}, context_step=b1'
+                            response = make_api_call('sendMessage', bot_token, params, context)
+                            logging.info(f'{response=}; {user_id=}; context_step=b2')
+                            result = process_response_of_api_call(user_id, response)
+                            logging.info(f'{result=}; {user_id=}; context_step=b3')
+                            inline_processing(cur, response, params)
+##msg_sent_by_specific_code end
+
 
                         else: #for all users except AnatolyK1975
                             bot_message = compose_full_message_on_list_of_searches(cur,
