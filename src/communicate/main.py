@@ -717,7 +717,7 @@ def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region
         ikb += compose_msg_on_all_last_searches_ikb(cur, region)
         logging.info('ikb += compose_msg_on_all_last_searches_ikb == '+str(ikb))
 
-        if len(ikb)>=0:
+        if len(ikb)>0:
             msg = f'Посл. 20 поисков в {region_name}'
             ikb.insert(0, [{"text": msg, "url": url}])
         else:
@@ -3163,7 +3163,7 @@ def main(request):
 
                 if username=='AnatolyK1975': ##'tester' in get_user_sys_roles(cur, user_id):
                     #issue#425 make inline keyboard - list of searches
-                    keyboard = [[]] #to combine monolit ikb for all user's regions
+                    keyboard = [] #to combine monolit ikb for all user's regions
 
                     region_name = ''
                     for region in user_regions:
