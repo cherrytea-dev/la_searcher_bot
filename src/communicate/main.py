@@ -3182,9 +3182,9 @@ def main(request):
                                                                                 region, region_name)
 
                     ##msg_sent_by_specific_code for combined ikb start
-                    if len(keyboard)=0:
+                    if len(keyboard)==0:
                         bot_message = 'Незавершенные поиски в соответствии с Вашей настройкой видов поисков не найдены.'
-                    elif keyboard[0][0]["text"].find('что-то пошло не так')>0:
+                    elif keyboard[0][0]["text"].find('что-то пошло не так')>=0:
                         bot_message = keyboard[0][0]["text"]
                         reply_markup = None
                     else:
