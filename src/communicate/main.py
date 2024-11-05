@@ -732,7 +732,7 @@ def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region
     # Combine the list of the latest active searches
     else:
         ikb += compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_id)
-        logging.info('ikb += compose_msg_on_active_searches_in_one_reg_ikb == '+str(ikb))
+        logging.info(f'ikb += compose_msg_on_active_searches_in_one_reg_ikb == {ikb}; ({region=})')
 
         if len(ikb)>0:
             msg = f'Акт. поиски за 60 дней в {region_name}'
@@ -3173,6 +3173,7 @@ def main(request):
                                 region_name = line[1]
                                 break
 
+                        logging.info(f'Before if region_name.find...: {bot_message=}; {keyboard=}')
                         # check if region – is an archive folder: if so – it can be sent only to 'all'
                         if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
                             keyboard += compose_full_message_on_list_of_searches_ikb(cur,
@@ -3181,9 +3182,10 @@ def main(request):
                                                                                 region, region_name)
 
                     ##msg_sent_by_specific_code for combined ikb start
-                    header_text = keyboard[0][0]["text"]
-                    if header_text.find('что-то пошло не так')>0:
-                        bot_message = header_text
+                    if len(keyboard)=0:
+                        bot_message = 'Незавершенные поиски в соответствии с Вашей настройкой видов поисков не найдены.'
+                    elif keyboard[0][0]["text"].find('что-то пошло не так')>0:
+                        bot_message = keyboard[0][0]["text"]
                         reply_markup = None
                     else:
                         #issue#425 show the inline keyboard
