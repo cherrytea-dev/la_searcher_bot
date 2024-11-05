@@ -3161,77 +3161,91 @@ def main(request):
 
                 folders_list = cur.fetchall()
 
-                region_name = ''
-                for region in user_regions:
-                    for line in folders_list:
+                if username=='AnatolyK1975': ##'tester' in get_user_sys_roles(cur, user_id):
+                    #issue#425 make inline keyboard - list of searches
+                    keyboard = [[]] #to combine monolit ikb for all user's regions
 
-                        if line[0] == region:
-                            region_name = line[1]
-                            break
+                    region_name = ''
+                    for region in user_regions:
 
-                    # check if region – is an archive folder: if so – it can be sent only to 'all'
-                    if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
-                        logging.info('communicate..if region_name.find => username=='+str(username))
-                        if username=='AnatolyK1975': ##'tester' in get_user_sys_roles(cur, user_id):
-                            #issue#425 make inline keyboard - list of searches
-                            keyboard = compose_full_message_on_list_of_searches_ikb(cur,
+                        for line in folders_list:
+                            if line[0] == region:
+                                region_name = line[1]
+                                break
+
+                        # check if region – is an archive folder: if so – it can be sent only to 'all'
+                        if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
+                            keyboard += compose_full_message_on_list_of_searches_ikb(cur,
                                                                                 temp_dict[got_message],
                                                                                 user_id,
                                                                                 region, region_name)
-                            header_text = keyboard[0][0]["text"]
-                            if header_text.find('что-то пошло не так')>0:
-                                bot_message = header_text
-                                reply_markup = None
-                            else:
-                                #issue#425 show the inline keyboard
-                                bot_message = 'Каждый поиск ниже дан строкой из двух кнопок: кнопка отслеживания и кнопка перехода на форум.'
-                                reply_markup = InlineKeyboardMarkup(keyboard)
-                                logging.info(f'{bot_message=}; {keyboard=}; context_step=b00')
-                                #process_sending_message_async(user_id=user_id, data=data)
 
-##msg_sent_by_specific_code start
-                            context=f'Before if reply_markup and not isinstance(reply_markup, dict): {reply_markup=}, context_step=b01'
+                    ##msg_sent_by_specific_code for combined ikb start
+                    header_text = keyboard[0][0]["text"]
+                    if header_text.find('что-то пошло не так')>0:
+                        bot_message = header_text
+                        reply_markup = None
+                    else:
+                        #issue#425 show the inline keyboard
+                        bot_message = 'Каждый поиск ниже дан строкой из двух кнопок: кнопка отслеживания и кнопка перехода на форум.'
+                        reply_markup = InlineKeyboardMarkup(keyboard)
+                        logging.info(f'{bot_message=}; {keyboard=}; context_step=b00')
+                        #process_sending_message_async(user_id=user_id, data=data)
+                        context=f'Before if reply_markup and not isinstance(reply_markup, dict): {reply_markup=}, context_step=b01'
+                        logging.info(f'{context=}: {reply_markup=}')
+                        if reply_markup and not isinstance(reply_markup, dict):
+                            reply_markup = reply_markup.to_dict()
+                            context=f'After reply_markup.to_dict(): {reply_markup=}; {user_id=}; context_step=b02'
                             logging.info(f'{context=}: {reply_markup=}')
-                            if reply_markup and not isinstance(reply_markup, dict):
-                                reply_markup = reply_markup.to_dict()
-                                context=f'After reply_markup.to_dict(): {reply_markup=}; {user_id=}; context_step=b02'
-                                logging.info(f'{context=}: {reply_markup=}')
 
-                            params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
-                                    'chat_id': user_id, 'text': bot_message}
-                            context=f'{user_id=}, context_step=b1'
-                            response = make_api_call('sendMessage', bot_token, params, context)
-                            logging.info(f'{response=}; {user_id=}; context_step=b2')
-                            result = process_response_of_api_call(user_id, response)
-                            logging.info(f'{result=}; {user_id=}; context_step=b3')
-                            inline_processing(cur, response, params)
-##msg_sent_by_specific_code end
+                    params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
+                            'chat_id': user_id, 'text': bot_message}
+                    context=f'{user_id=}, context_step=b1'
+                    response = make_api_call('sendMessage', bot_token, params, context)
+                    logging.info(f'{response=}; {user_id=}; context_step=b2')
+                    result = process_response_of_api_call(user_id, response)
+                    logging.info(f'{result=}; {user_id=}; context_step=b3')
+                    inline_processing(cur, response, params)
+                    ##msg_sent_by_specific_code for combined ikb end
+
+                    # saving the last message from bot
+                    try:
+                        cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
+                        cur.execute("INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);",
+                                    (user_id, datetime.datetime.now(), 'report'))
+                    except Exception as e:
+                        logging.info('failed to save the last message from bot')
+                        logging.exception(e)
 
 
-                        else: #for all users except AnatolyK1975
+                else: #of if username=='AnatolyK1975'
+                    region_name = ''
+                    for region in user_regions:
+
+                        for line in folders_list:
+                            if line[0] == region:
+                                region_name = line[1]
+                                break
+
+                        # check if region – is an archive folder: if so – it can be sent only to 'all'
+                        if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
                             bot_message = compose_full_message_on_list_of_searches(cur,
                                                                                 temp_dict[got_message],
                                                                                 user_id,
                                                                                 region, region_name)
                             reply_markup = reply_markup_main
-
                             data = {'text': bot_message, 'reply_markup': reply_markup,
                                     'parse_mode': 'HTML', 'disable_web_page_preview': True}
                             process_sending_message_async(user_id=user_id, data=data)
 
-                        # saving the last message from bot
-                        try:
-                            cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
-
-                            cur.execute(
-                                """
-                                INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
-                                """,
-                                (user_id, datetime.datetime.now(), 'report'))
-
-                        except Exception as e:
-                            logging.info('failed to save the last message from bot')
-                            logging.exception(e)
+                            # saving the last message from bot
+                            try:
+                                cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
+                                cur.execute("INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);",
+                                            (user_id, datetime.datetime.now(), 'report'))
+                            except Exception as e:
+                                logging.info('failed to save the last message from bot')
+                                logging.exception(e)
 
             # Perform individual replies
 
