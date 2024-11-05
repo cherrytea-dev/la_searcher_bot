@@ -734,7 +734,7 @@ def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region
         ikb += compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_id)
         logging.info(f'ikb += compose_msg_on_active_searches_in_one_reg_ikb == {ikb}; ({region=})')
 
-        if len(ikb)>=0:
+        if len(ikb)>0:
             msg = f'Акт. поиски за 60 дней в {region_name}'
             ikb.insert(0, [{"text": msg, "url": url}])
         else:
