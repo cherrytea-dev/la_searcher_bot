@@ -1663,18 +1663,27 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
     # when user pushed INLINE BUTTON for topic following
     if user_callback and user_callback["action"] == "search_follow_mode":
         #get inline keyboard from previous message to upadate it
-        ikb = callback_query.message.reply_markup.inline_keyboard
-        for index, row in enumerate(ikb):
-            button_data = eval(row[0]['callback_data'])
-            # Check if the pushed button matches the one in the callback
-            if int(button_data['hash']) == int(user_callback['hash']):
-                pushed_row_index = index
-                break
+        reply_markup = callback_query.message.reply_markup
+        if reply_markup and not isinstance(reply_markup, dict):
+            ikb = reply_markup.to_dict()
+        else:
+            ikb = callback_query.message.reply_markup.inline_keyboard
+        logging.info(f'before for index, row in enumerate(ikb): {ikb=}')
+        # for index, row in enumerate(ikb):
+        #     button_data = eval(row[0]['callback_data'])
+        #     # Check if the pushed button matches the one in the callback
+        #     if int(button_data['hash']) == int(user_callback['hash']):
+        #         pushed_row_index = index
+        #         break
 
         new_ikb = []
         logging.info(f'before for index, ikb_row in enumerate(ikb): {ikb=}')
         for index, ikb_row in enumerate(ikb):##ToDo merge this for into the for above
             logging.info(f'{ikb_row=}')
+            button_data = eval(ikb_row[0]['callback_data'])
+            # Check if the pushed button matches the one in the callback
+            if int(button_data['hash']) == int(user_callback['hash']):
+                pushed_row_index = index
             callback_data =ikb_row[0]['callback_data']
             ### to_use_eyes_emo = (pushed_row_index>1)
             # if pushed_row_index % 2 == 0: #DEBUG different methods depending on which button was pushed by user
