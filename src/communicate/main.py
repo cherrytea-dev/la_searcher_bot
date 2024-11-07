@@ -1718,6 +1718,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         if pushed_row_index %2 ==0:
             api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, user_id)
 
+        bot_message = 'МЕНЮ АКТУАЛЬНЫХ ПОИСКОВ ДЛЯ ОТСЛЕЖИВАНИЯ.'
     return bot_message, reply_markup
 
 
@@ -3202,7 +3203,7 @@ def main(request):
                         reply_markup = None
                     else:
                         #issue#425 show the inline keyboard
-                        bot_message = 'Каждый поиск ниже дан строкой из двух кнопок: кнопка отслеживания и кнопка перехода на форум.'
+                        bot_message = 'МЕНЮ АКТУАЛЬНЫХ ПОИСКОВ ДЛЯ ОТСЛЕЖИВАНИЯ.\nКаждый поиск ниже дан строкой из двух кнопок: кнопка отслеживания и кнопка перехода на форум.'
                         reply_markup = InlineKeyboardMarkup(keyboard)
                         logging.info(f'{bot_message=}; {keyboard=}; context_step=b00')
                         #process_sending_message_async(user_id=user_id, data=data)
