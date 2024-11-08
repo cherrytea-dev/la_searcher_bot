@@ -2508,6 +2508,19 @@ def delete_last_user_inline_dialogue(cur, user_id: int) -> None:
     cur.execute("""DELETE FROM communications_last_inline_msg WHERE user_id=%s;""", (user_id,))
     return None
 
+def get_search_follow_mode(cur, user_id: int):
+    cur.execute("""SELECT search_follow_mode FROM user_pref_search_filtering WHERE user_id=%s LIMIT 1;""", (user_id,))
+    result_fetched = cur.fetchone()
+    return (result_fetched=='whitelist')
+
+def set_search_follow_mode(cur, user_id: int, new_value):
+    filter_name_value = 'whitelist' if new_value else ''
+    cur.execute("""INSERT INTO user_pref_search_filtering 
+                    (user_id, timestamp, filter_name) values (%s, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', %s)
+                    ON CONFLICT (user_id) DO 
+                    UPDATE SET timestamp=CURRENT_TIMESTAMP AT TIME ZONE 'UTC', search_follow_mode=%s;""",
+                (user_id, new_value, new_value))
+    return None
 
 def main(request):
     """Main function to orchestrate the whole script"""
@@ -2863,6 +2876,8 @@ def main(request):
 
     b_admin_menu = 'admin'
     b_test_menu = 'test'
+    b_test_search_follow_mode_on = 'test search follow mode on'
+    b_test_search_follow_mode_off = 'test search follow mode off'
 
     b_pref_age_0_6_act = 'отключить: Маленькие Дети 0-6 лет'
     b_pref_age_0_6_deact = 'включить: Маленькие Дети 0-6 лет'
@@ -3175,7 +3190,7 @@ def main(request):
 
                 folders_list = cur.fetchall()
 
-                if username=='AnatolyK1975': ##'tester' in get_user_sys_roles(cur, user_id):
+                if username=='AnatolyK1975' and get_search_follow_mode(cur, user_id): ##'tester' in get_user_sys_roles(cur, user_id):
                     #issue#425 make inline keyboard - list of searches
                     keyboard = [] #to combine monolit ikb for all user's regions
 
@@ -3237,7 +3252,7 @@ def main(request):
                         logging.exception(e)
 
 
-                else: #of if username=='AnatolyK1975'
+                else: #of if username=='AnatolyK1975' and get_search_follow_mode(cur, user_id)
                     region_name = ''
                     for region in user_regions:
 
@@ -3291,6 +3306,16 @@ def main(request):
                 keyboard = [[map_button]]
                 reply_markup = InlineKeyboardMarkup(keyboard)
             # FIXME ^^^
+
+            elif got_message.lower() == b_test_search_follow_mode_on:
+                set_search_follow_mode(cur, user_id, True)
+                bot_message = 'Возможность отслеживания поисков включена. Возвращаемся в главное меню.'
+                reply_markup = reply_markup_main
+
+            elif got_message.lower() == b_test_search_follow_mode_off:
+                set_search_follow_mode(cur, user_id, False)
+                bot_message = 'Возможность отслеживания поисков вЫключена. Возвращаемся в главное меню.'
+                reply_markup = reply_markup_main
 
             elif got_message in {b_map, c_map}:
                 bot_message = 'В Боте Поисковика теперь можно посмотреть 🗺️Карту Поисков📍.\n\n' \
