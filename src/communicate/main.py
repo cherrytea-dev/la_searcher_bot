@@ -2514,7 +2514,7 @@ def get_search_follow_mode(cur, user_id: int):
     return (result_fetched and 'whitelist' in result_fetched)
 
 def set_search_follow_mode(cur, user_id: int, new_value):
-    filter_name_value = ['whitelist'] if new_value else ''
+    filter_name_value = ['whitelist'] if new_value else ['']
     logging.info(f'{filter_name_value=}')
     cur.execute("""INSERT INTO user_pref_search_filtering (user_id, filter_name) values (%s, %s)
                     ON CONFLICT (user_id) DO UPDATE SET filter_name=%s;""",
