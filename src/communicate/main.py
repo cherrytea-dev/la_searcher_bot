@@ -2509,16 +2509,16 @@ def delete_last_user_inline_dialogue(cur, user_id: int) -> None:
     return None
 
 def get_search_follow_mode(cur, user_id: int):
-    cur.execute("""SELECT search_follow_mode FROM user_pref_search_filtering WHERE user_id=%s LIMIT 1;""", (user_id,))
+    cur.execute("""SELECT filter_name FROM user_pref_search_filtering WHERE user_id=%s LIMIT 1;""", (user_id,))
     result_fetched = cur.fetchone()
     return (result_fetched=='whitelist')
 
 def set_search_follow_mode(cur, user_id: int, new_value):
     filter_name_value = 'whitelist' if new_value else ''
     cur.execute("""INSERT INTO user_pref_search_filtering 
-                    (user_id, timestamp, filter_name) values (%s, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', %s)
+                    (user_id, filter_name) values (%s, %s)
                     ON CONFLICT (user_id) DO 
-                    UPDATE SET timestamp=CURRENT_TIMESTAMP AT TIME ZONE 'UTC', search_follow_mode=%s;""",
+                    UPDATE SET search_follow_mode=%s;""",
                 (user_id, new_value, new_value))
     return None
 
