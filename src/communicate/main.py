@@ -2511,7 +2511,10 @@ def delete_last_user_inline_dialogue(cur, user_id: int) -> None:
 def get_search_follow_mode(cur, user_id: int):
     cur.execute("""SELECT filter_name FROM user_pref_search_filtering WHERE user_id=%s LIMIT 1;""", (user_id,))
     result_fetched = cur.fetchone()
-    return (result_fetched and 'whitelist' in result_fetched)
+    logging.info(f'{result_fetched=}')
+    result = (result_fetched and 'whitelist' in result_fetched)
+    logging.info(f'{result=}')
+    return result
 
 def set_search_follow_mode(cur, user_id: int, new_value):
     filter_name_value = ['whitelist'] if new_value else ['']
