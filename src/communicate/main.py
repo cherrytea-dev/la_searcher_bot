@@ -1729,11 +1729,11 @@ def manage_search_follow_mode(cur, user_id, user_callback, callback_id, callback
     logging.info(f'{callback_query=}, {user_id=}')
     # when user pushed INLINE BUTTON for topic following
     if user_callback and user_callback["action"] == "search_follow_mode_on":
-        set_search_follow_mode(cur, user_id: int, True)
+        set_search_follow_mode(cur, user_id, True)
         bot_message = 'Режим выбора поисков для отслеживания включен.'
 
     elif user_callback and user_callback["action"] == "search_follow_mode_off":
-        set_search_follow_mode(cur, user_id: int, False)
+        set_search_follow_mode(cur, user_id, False)
         bot_message = 'Режим выбора поисков для отслеживания отключен.'
 
     send_callback_answer_to_api(bot_token, callback_id, bot_message)
@@ -3305,26 +3305,27 @@ def main(request):
                                 logging.info('failed to save the last message from bot')
                                 logging.exception(e)
                 #issue425 Button for turn on search following mode
-                try:
-                    search_follow_mode_ikb = [[{"text": f'Включить выбор поисков для отслеживания', 'callback_data': f'{{"action":"search_follow_mode_on"}}'}]]
-                    reply_markup = InlineKeyboardMarkup(search_follow_mode_ikb)
-                    if reply_markup and not isinstance(reply_markup, dict):
-                        reply_markup = reply_markup.to_dict()
-                        context=f'After reply_markup.to_dict(): {reply_markup=}; {user_id=}; context_step=a00'
-                        logging.info(f'{context=}: {reply_markup=}')
-                    params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
-                            'chat_id': user_id, 'text': '''Вы можете переключить бота в режим выбора поисков для отслеживания, 
-чтобы получать уведомления не со всех актуальных поисков, 
-а только с выбранных Вами.'''}
-                    context=f'{user_id=}, context_step=a01'
-                    response = make_api_call('sendMessage', bot_token, params, context)
-                    logging.info(f'{response=}; {user_id=}; context_step=a02')
-                    result = process_response_of_api_call(user_id, response)
-                    logging.info(f'{result=}; {user_id=}; context_step=a03')
-                    inline_processing(cur, response, params)
-                except Exception as e:
-                    logging.info('failed to show button for turn on search following mode')
-                    logging.exception(e)
+                if username=='AnatolyK1975':
+                    try:
+                        search_follow_mode_ikb = [[{"text": f'Включить выбор поисков для отслеживания', 'callback_data': f'{{"action":"search_follow_mode_on"}}'}]]
+                        reply_markup = InlineKeyboardMarkup(search_follow_mode_ikb)
+                        if reply_markup and not isinstance(reply_markup, dict):
+                            reply_markup = reply_markup.to_dict()
+                            context=f'After reply_markup.to_dict(): {reply_markup=}; {user_id=}; context_step=a00'
+                            logging.info(f'{context=}: {reply_markup=}')
+                        params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
+                                'chat_id': user_id, 'text': '''Вы можете переключить бота в режим выбора поисков для отслеживания, 
+    чтобы получать уведомления не со всех актуальных поисков, 
+    а только с выбранных Вами.'''}
+                        context=f'{user_id=}, context_step=a01'
+                        response = make_api_call('sendMessage', bot_token, params, context)
+                        logging.info(f'{response=}; {user_id=}; context_step=a02')
+                        result = process_response_of_api_call(user_id, response)
+                        logging.info(f'{result=}; {user_id=}; context_step=a03')
+                        inline_processing(cur, response, params)
+                    except Exception as e:
+                        logging.info('failed to show button for turn on search following mode')
+                        logging.exception(e)
 
             # Perform individual replies
 
