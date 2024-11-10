@@ -1490,8 +1490,8 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
             sql_text_ = sqlalchemy.text("""
             SELECT u.user_id FROM users u
             INNER JOIN user_pref_search_filtering upsf on upsf.user_id=u.user_id AND not 'whitelist' = ANY(upsf.filter_name
-            WHERE exists(select 1 from user_pref_search_whitelist upswls WHERE upswls.user_id=u.user_id and upswls.search_id=123)
-            OR not exists(select 1 from user_pref_search_whitelist upswl WHERE upswl.user_id=u.user_id)
+            WHERE exists(select 1 from user_pref_search_whitelist upswls WHERE upswls.user_id=u.user_id and upswls.search_id=:a)
+            OR not exists(select 1 from user_pref_search_whitelist upswl WHERE upswl.user_id=u.user_id);
             ;
             """)
             rows = conn.execute(sql_text_, a=record.forum_search_num).fetchall()
