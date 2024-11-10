@@ -1489,8 +1489,11 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
             temp_user_list = []
             sql_text_ = sqlalchemy.text("""
             SELECT u.user_id FROM users u
-            WHERE exists(select 1 from user_pref_search_whitelist upswls WHERE upswls.user_id=u.user_id and upswls.search_id=:a)
-            OR not exists(select 1 from user_pref_search_whitelist upswl WHERE upswl.user_id=u.user_id);
+            INNER JOIN user_pref_search_filtering upsf on upsf.user_id=u.user_id
+            WHERE (exists(select 1 from user_pref_search_whitelist upswls WHERE upswls.user_id=u.user_id and upswls.search_id=:a)
+            OR not exists(select 1 from user_pref_search_whitelist upswl WHERE upswl.user_id=u.user_id))
+            AND 'whitelist' = ANY(upsf.filter_name)
+            ;
             """)
             rows = conn.execute(sql_text_, a=record.forum_search_num).fetchall()
             logging.info(f'Crop user list step 5: len(rows)=={len(rows)}')
