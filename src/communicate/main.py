@@ -1668,37 +1668,17 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
             ikb = reply_markup.to_dict()['inline_keyboard']
         else:
             ikb = callback_query.message.reply_markup.inline_keyboard
-        # logging.info(f'before for index, row in enumerate(ikb): {ikb=}')
-        # for index, row in enumerate(ikb):
-        #     button_data = eval(row[0]['callback_data'])
-        #     # Check if the pushed button matches the one in the callback
-        #     if int(button_data['hash']) == int(user_callback['hash']):
-        #         pushed_row_index = index
-        #         break
 
         new_ikb = []
         logging.info(f'before for index, ikb_row in enumerate(ikb): {ikb=}')
-        for index, ikb_row in enumerate(ikb):##ToDo merge this for into the for above
+        for index, ikb_row in enumerate(ikb):
+            new_ikb += [ikb_row]
             logging.info(f'{ikb_row=}')
-            if ikb_row[0].get('callback_data') and ikb_row[0]['callback_data'].get('hash'):
+            if ikb_row[0].get('callback_data'):
                 button_data = eval(ikb_row[0]['callback_data'])
                 # Check if the pushed button matches the one in the callback
-                if int(button_data['hash']) == int(user_callback['hash']):
+                if button_data.get('hash') and int(button_data['hash']) == int(user_callback['hash']):
                     pushed_row_index = index
-                callback_data =ikb_row[0]['callback_data']
-                ### to_use_eyes_emo = (pushed_row_index>1)
-                # if pushed_row_index % 2 == 0: #DEBUG different methods depending on which button was pushed by user
-                #     new_callback_data = callback_data    
-                # else:
-                #     new_callback_data = f'{{"action":"{callback_data["action"]}", "hash":"{callback_data["hash"]}"}}'
-
-                new_text = ikb_row[0]['text'] ###if to_use_eyes_emo else ikb_row[0]['text'].replace('👀','!!')    
-                new_ikb += [[
-                        {"text": new_text, 'callback_data': callback_data},##left button to on/off follow, 
-                        {"text": ikb_row[1]['text'], "url": ikb_row[1]['url']} ##right button - link to the search on the forum
-                        ]]
-            else:
-                new_ikb += [ikb_row]
 
         logging.info(f'before ikb_row = ikb[pushed_row_index]: {new_ikb=}')
         ikb_row = ikb[pushed_row_index]
