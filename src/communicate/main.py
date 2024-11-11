@@ -3294,9 +3294,9 @@ def main(request):
                                 context=f'After reply_markup.to_dict(): {reply_markup=}; {user_id=}; context_step=a00'
                                 logging.info(f'{context=}: {reply_markup=}')
                             params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
-                                    'chat_id': user_id, 'text': '''Вы можете переключить бота в режим выбора поисков для отслеживания, 
-        чтобы получать уведомления не со всех актуальных поисков, 
-        а только с выбранных Вами.'''}
+                                    'chat_id': user_id, 'text': '''Вы можете включить возможность выбора поисков для отслеживания, 
+чтобы получать уведомления не со всех актуальных поисков, 
+а только с выбранных Вами.'''}
                             context=f'{user_id=}, context_step=a01'
                             response = make_api_call('sendMessage', bot_token, params, context)
                             logging.info(f'{response=}; {user_id=}; context_step=a02')
