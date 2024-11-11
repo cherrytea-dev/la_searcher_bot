@@ -1680,7 +1680,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         logging.info(f'before for index, ikb_row in enumerate(ikb): {ikb=}')
         for index, ikb_row in enumerate(ikb):##ToDo merge this for into the for above
             logging.info(f'{ikb_row=}')
-            if ikb_row[0].get('callback_data'):
+            if ikb_row[0].get('callback_data') and ikb_row[0]['callback_data'].get('hash'):
                 button_data = eval(ikb_row[0]['callback_data'])
                 # Check if the pushed button matches the one in the callback
                 if int(button_data['hash']) == int(user_callback['hash']):
