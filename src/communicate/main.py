@@ -2192,7 +2192,7 @@ def get_basic_update_parameters(update):
         callback_data_text = callback_query.data
         try:
             got_callback = eval(callback_data_text)
-            got_hash = got_callback['hash']
+            got_hash = got_callback.get('hash')
         except Exception as e:
             logging.exception(e)
             notify_admin(f'callback dict was not recognized for {callback_data_text=}')
@@ -3361,8 +3361,8 @@ def main(request):
                 keyboard = [[map_button]]
                 reply_markup = InlineKeyboardMarkup(keyboard)
 
-            elif got_message == b.set.topic_type.text or b.topic_types.contains(got_message) or b.topic_types.contains(
-                    got_hash):  # noqa
+            elif got_message == b.set.topic_type.text or b.topic_types.contains(got_message) or (got_hash and b.topic_types.contains(
+                    got_hash)):  # noqa
                 bot_message, reply_markup = manage_topic_type(cur, user_id, got_message, b, got_callback,
                                                               callback_query_id, bot_token)
 
