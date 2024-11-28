@@ -3767,7 +3767,9 @@ def main(request):
                     user_used_inline_button = False
 
                 if user_used_inline_button:
-                    last_user_message_id = get_last_user_inline_dialogue(cur, user_id)
+                    #call editMessageText to edit inline keyboard
+                    #in the message where inline button was pushed 
+                    last_user_message_id = callback_query.message.id ##was get_last_user_inline_dialogue(cur, user_id)
                     logging.info(f'{last_user_message_id=}')
                     # params['message_id'] = last_user_message_id
                     params = {'chat_id': user_id, 'text': bot_message,
