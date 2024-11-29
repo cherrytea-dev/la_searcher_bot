@@ -1530,7 +1530,7 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
     return bot_message, reply_markup, expect_after
 
 
-def manage_topic_type(cur, user_id, user_input, b, user_callback, callback_id, bot_token) -> Union[
+def manage_topic_type(cur, user_id, user_input, b, user_callback, callback_id, bot_token, callback_query_msg_id) -> Union[
         tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
     """Save user Topic Type preference and generate the actual topic type preference message"""
 
@@ -1595,7 +1595,7 @@ def manage_topic_type(cur, user_id, user_input, b, user_callback, callback_id, b
                      'чтобы быть в курсе всех событий в отряде вашего региона. 💡'
         about_params = {'chat_id': user_id, 'text': about_text, 'parse_mode': 'HTML'}
         make_api_call('sendMessage', bot_token, about_params, "main() if ... user_callback['action'] == 'about'")
-        del_message_id = get_last_user_inline_dialogue(cur, user_id)
+        del_message_id = callback_query_msg_id ###was get_last_user_inline_dialogue(cur, user_id)
         if del_message_id:
             del_params = {'chat_id': user_id, 'message_id': del_message_id}
             make_api_call('deleteMessage', bot_token, del_params)
@@ -2480,23 +2480,25 @@ def save_last_user_inline_dialogue(cur, user_id: int, message_id: int) -> None:
 
     cur.execute("""INSERT INTO communications_last_inline_msg 
                     (user_id, timestamp, message_id) values (%s, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', %s)
-                    ON CONFLICT (user_id) DO 
-                    UPDATE SET timestamp=CURRENT_TIMESTAMP AT TIME ZONE 'UTC', message_id=%s;""",
-                (user_id, message_id, message_id))
+                    ON CONFLICT (user_id, message_id) DO 
+                    UPDATE SET timestamp=CURRENT_TIMESTAMP AT TIME ZONE 'UTC';""",
+                (user_id, message_id))
     return None
 
 
-def get_last_user_inline_dialogue(cur, user_id: int) -> int:
+def get_last_user_inline_dialogue(cur, user_id: int) -> list:
     """Get from DB the user's last interaction via inline buttons"""
 
-    cur.execute("""SELECT message_id FROM communications_last_inline_msg WHERE user_id=%s LIMIT 1;""",
+    cur.execute("""SELECT message_id FROM communications_last_inline_msg WHERE user_id=%s;""",
                 (user_id,))
-    message_id = cur.fetchone()
+    message_id_lines = cur.fetchall()
 
-    if message_id:
-        message_id = message_id[0]
+    message_id_list = []
+    if message_id_lines and len(message_id_lines) > 0:
+        for message_id_line in message_id_lines:
+            message_id_list.append(message_id_line[0])
 
-    return message_id
+    return message_id_list
 
 
 def delete_last_user_inline_dialogue(cur, user_id: int) -> None:
@@ -2907,10 +2909,11 @@ def main(request):
     logging.info(f'Before if got_message and not got_callback: {got_message=}')
 
     if got_message and not got_callback:
-        last_inline_message_id = get_last_user_inline_dialogue(cur, user_id)
-        if last_inline_message_id:
-            params = {'chat_id': user_id, 'message_id': last_inline_message_id}
-            make_api_call('editMessageReplyMarkup', bot_token, params, 'main() if got_message and not got_callback')
+        last_inline_message_ids = get_last_user_inline_dialogue(cur, user_id)
+        if last_inline_message_ids:
+            for last_inline_message_id in last_inline_message_ids:
+                params = {'chat_id': user_id, 'message_id': last_inline_message_id}
+                make_api_call('editMessageReplyMarkup', bot_token, params, 'main() if got_message and not got_callback')
             delete_last_user_inline_dialogue(cur, user_id)
 
     if got_message:
@@ -3364,7 +3367,7 @@ def main(request):
             elif got_message == b.set.topic_type.text or b.topic_types.contains(got_message) or (got_hash and b.topic_types.contains(
                     got_hash)):  # noqa
                 bot_message, reply_markup = manage_topic_type(cur, user_id, got_message, b, got_callback,
-                                                              callback_query_id, bot_token)
+                                                              callback_query_id, bot_token, callback_query.message.id)
 
             elif got_message in {b_set_pref_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
                                  b_pref_age_7_13_deact, b_pref_age_14_20_act, b_pref_age_14_20_deact,
@@ -3791,10 +3794,10 @@ def main(request):
                     logging.info(f'{response=}; {context=}')
 
                 context_step='2'
-                context=f'main() if user_used_inline_button: {user_id=}, {context_step=}'
+                context=f'main() after if user_used_inline_button: {user_id=}, {context_step=}'
                 logging.info(f'{response=}; {context=}')
                 context_step='3'
-                context=f'main() if user_used_inline_button: {user_id=}, {context_step=}'
+                context=f'main() after if user_used_inline_button: {user_id=}, {context_step=}'
                 result = process_response_of_api_call(user_id, response)
                 inline_processing(cur, response, params)
 
