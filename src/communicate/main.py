@@ -1851,11 +1851,11 @@ def check_onboarding_step(cur, user_id):
         if raw_data:
             step_id = list(raw_data)
         else:
-            step_id
+            step_id = 99
 
     except Exception as e:
         logging.exception(e)
-        step_id
+        step_id = 99
 
     return step_id
 
