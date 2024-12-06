@@ -819,15 +819,11 @@ def save_user_pref_urgency(cur, user_id, urgency_value,
 def save_user_coordinates(cur, user_id, input_latitude, input_longitude):
     """Save / update user "home" coordinates"""
 
-    cur.execute(
-        "DELETE FROM user_coordinates WHERE user_id=%s;", (user_id,)
-    )
+    cur.execute("DELETE FROM user_coordinates WHERE user_id=%s;", (user_id,))
 
     now = datetime.datetime.now()
     cur.execute("""INSERT INTO user_coordinates (user_id, latitude, longitude, upd_time) values (%s, %s, %s, %s);""",
                 (user_id, input_latitude, input_longitude, now))
-
-    return None
 
 
 def show_user_coordinates(cur, user_id):
