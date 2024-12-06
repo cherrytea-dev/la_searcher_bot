@@ -1840,27 +1840,24 @@ def save_onboarding_step(user_id, username, step):
     publish_to_pubsub('topic_for_user_management', message_for_pubsub)
 
 
-def check_onboarding_step(cur, user_id, user_is_new):
+def check_onboarding_step(cur, user_id):
     """checks the latest step of onboarding"""
 
-    if user_is_new:
-        return 0, 'start'
-
     try:
-        cur.execute("""SELECT step_id, step_name, timestamp FROM user_onboarding
+        cur.execute("""SELECT step_id FROM user_onboarding
                                WHERE user_id=%s ORDER BY step_id DESC;""",
                     (user_id,))
         raw_data = cur.fetchone()
         if raw_data:
-            step_id, step_name, time = list(raw_data)
+            step_id = list(raw_data)
         else:
-            step_id, step_name = 99, None
+            step_id
 
     except Exception as e:
         logging.exception(e)
-        step_id, step_name = 99, None
+        step_id
 
-    return step_id, step_name
+    return step_id
 
 
 async def leave_chat_async(context: ContextTypes.DEFAULT_TYPE):
@@ -2905,8 +2902,10 @@ def main(request):
     logging.info(f'After check_if_new_user: {user_is_new=}')
     if user_is_new:
         save_new_user(user_id, username)
+        onboarding_step_id = 0
+    else:
+        onboarding_step_id = check_onboarding_step(cur, user_id)
 
-    onboarding_step_id, onboarding_step_name = check_onboarding_step(cur, user_id, user_is_new)
     user_regions = get_user_reg_folders_preferences(cur, user_id)
     user_role = get_user_role(cur, user_id)
 
