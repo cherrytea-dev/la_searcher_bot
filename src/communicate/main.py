@@ -844,11 +844,7 @@ def show_user_coordinates(cur, user_id):
 def delete_user_coordinates(cur, user_id):
     """Delete the saved user "home" coordinates"""
 
-    cur.execute(
-        "DELETE FROM user_coordinates WHERE user_id=%s;", (user_id,)
-    )
-
-    return None
+    cur.execute("DELETE FROM user_coordinates WHERE user_id=%s;", (user_id,))
 
 
 def distance_to_search(search_lat, search_lon, user_let, user_lon, coded_style=True):
