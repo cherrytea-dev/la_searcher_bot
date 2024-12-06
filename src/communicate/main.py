@@ -363,46 +363,42 @@ def notify_admin(message):
 
 
 def time_counter_since_search_start(start_time):
-    """Count timedelta since the beginning of search till now, return phrase in Russian and diff in days """
-
-    start_diff = datetime.timedelta(hours=0)
+    """Count timedelta since the beginning of search till now, return phrase in Russian and diff in days"""
 
     now = datetime.datetime.now()
-    diff = now - start_time - start_diff
+    diff = now - start_time
 
-    first_word_parameter = ''
+    if diff.total_seconds() / 60 < 20:
+        return ['Начинаем искать', 0]
 
-    # <20 minutes -> "Начинаем искать"
-    if (diff.total_seconds() / 60) < 20:
-        phrase = 'Начинаем искать'
+    minutes = round(diff.total_seconds() / 60)
+    hours = int(diff.seconds // 3600)
 
-    # 20 min - 1 hour -> "Ищем ХХ минут"
-    elif (diff.total_seconds() / 3600) < 1:
-        phrase = first_word_parameter + str(round(int(diff.total_seconds() / 60), -1)) + ' минут'
-
-    # 1-24 hours -> "Ищем ХХ часов"
-    elif diff.days < 1:
-        phrase = first_word_parameter + str(int(diff.total_seconds() / 3600))
-        if int(diff.total_seconds() / 3600) in {1, 21}:
-            phrase += ' час'
-        elif int(diff.total_seconds() / 3600) in {2, 3, 4, 22, 23}:
-            phrase += ' часа'
-        else:
-            phrase += ' часов'
-
-    # >24 hours -> "Ищем Х дней"
+    if (diff.total_seconds() / 3600) < 1:
+        phrase = f'{minutes} минут'
+    elif diff.days == 0:
+        phrase = time_counter_func_get_hour_phrase(hours)
     else:
-        phrase = first_word_parameter + str(diff.days)
-        if str(int(diff.days))[-1] == '1' and (int(diff.days)) != 11:
-            phrase += ' день'
-        elif int(diff.days) in {12, 13, 14}:
-            phrase += ' дней'
-        elif str(int(diff.days))[-1] in {'2', '3', '4'}:
-            phrase += ' дня'
-        else:
-            phrase += ' дней'
+        days = diff.days
+        phrase = time_counter_func_get_day_phrase(days)
 
     return [phrase, diff.days]
+
+def time_counter_func_get_hour_phrase(hours):
+    if hours in {1, 21}:
+        return f'{hours} час'
+    elif hours in {2, 3, 4, 22, 23}:
+        return f'{hours} часа'
+    else:
+        return f'{hours} часов'
+
+def time_counter_func_get_day_phrase(days):
+    if days == 1:
+        return '1 день'
+    elif 2 <= days <= 4 or (days % 10 in {2, 3, 4} and days not in {12, 13, 14}):
+        return f'{days} дня'
+    else:
+        return f'{days} дней'
 
 
 def age_writer(age):
@@ -467,15 +463,15 @@ def compose_msg_on_all_last_searches(cur, region):
 
     # download the list from SEARCHES sql table
     cur.execute(
-        """SELECT s2.* FROM 
-            (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
-            FROM searches 
-            WHERE forum_folder_id=%s 
-            ORDER BY search_start_time DESC 
-            LIMIT 20) s2 
-        LEFT JOIN search_health_check shc 
-        ON s2.search_forum_num=shc.search_forum_num 
-        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+        """SELECT s2.* FROM
+            (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age
+            FROM searches
+            WHERE forum_folder_id=%s
+            ORDER BY search_start_time DESC
+            LIMIT 20) s2
+        LEFT JOIN search_health_check shc
+        ON s2.search_forum_num=shc.search_forum_num
+        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular')
         ORDER BY s2.search_start_time DESC;""", (region,))
 
     database = cur.fetchall()
@@ -517,15 +513,15 @@ def compose_msg_on_all_last_searches_ikb(cur, region, user_id):
 
     # download the list from SEARCHES sql table
     cur.execute(
-        """SELECT s2.*, upswl.id as upswl_id FROM 
-            (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
-            FROM searches 
-            WHERE forum_folder_id=%(region)s 
-            ORDER BY search_start_time DESC 
-            LIMIT 20) s2 
+        """SELECT s2.*, upswl.id as upswl_id FROM
+            (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age
+            FROM searches
+            WHERE forum_folder_id=%(region)s
+            ORDER BY search_start_time DESC
+            LIMIT 20) s2
         LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
         LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=%(user_id)s
-        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular')
         ORDER BY s2.search_start_time DESC;""", {'region':region, 'user_id':user_id})
 
     database = cur.fetchall()
@@ -544,9 +540,9 @@ def compose_msg_on_all_last_searches_ikb(cur, region, user_id):
 
         if search.new_status in {'Ищем', 'Возобновлен'}:
             search.new_status = f'Ищем {time_counter_since_search_start(search.start_time)[0]}'
-        
+
         search_following_mark = '👀' if search_following_id else '  '
-        ikb += search_button_row_ikb(search_following_mark, search.new_status, search.topic_id, search.display_name, f'{pre_url}{search.topic_id}') 
+        ikb += search_button_row_ikb(search_following_mark, search.new_status, search.topic_id, search.display_name, f'{pre_url}{search.topic_id}')
     return ikb
 
 
@@ -557,15 +553,15 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
     text = ''
 
     cur.execute(
-        """SELECT s2.* FROM 
-            (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
-            s.topic_type, s.family_name, s.age 
-            FROM searches s 
-            LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
-            WHERE (s.status='Ищем' OR s.status='Возобновлен') 
-                AND s.forum_folder_id=%s ORDER BY s.search_start_time DESC) s2 
+        """SELECT s2.* FROM
+            (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude,
+            s.topic_type, s.family_name, s.age
+            FROM searches s
+            LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id
+            WHERE (s.status='Ищем' OR s.status='Возобновлен')
+                AND s.forum_folder_id=%s ORDER BY s.search_start_time DESC) s2
         LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
-        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular')
         ORDER BY s2.search_start_time DESC;""", (region,))
     searches_list = cur.fetchall()
 
@@ -610,16 +606,16 @@ def compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_i
     ikb = []
 
     cur.execute(
-        """SELECT s2.*, upswl.id as upswl_id FROM 
-            (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
-            s.topic_type, s.family_name, s.age 
-            FROM searches s 
-            LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
-            WHERE (s.status='Ищем' OR s.status='Возобновлен') 
-                AND s.forum_folder_id=%(region)s ORDER BY s.search_start_time DESC) s2 
+        """SELECT s2.*, upswl.id as upswl_id FROM
+            (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude,
+            s.topic_type, s.family_name, s.age
+            FROM searches s
+            LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id
+            WHERE (s.status='Ищем' OR s.status='Возобновлен')
+                AND s.forum_folder_id=%(region)s ORDER BY s.search_start_time DESC) s2
         LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
         LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=%(user_id)s
-        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular')
         ORDER BY s2.search_start_time DESC;""", {'region':region, 'user_id':user_id})
     searches_list = cur.fetchall()
 
@@ -651,7 +647,7 @@ def compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_i
             search.display_name = f'{search.name}{age_string}'
 
         search_following_mark = '👀' if search_following_id else '  '
-        ikb += search_button_row_ikb(search_following_mark, f'{time_since_start}{dist_and_dir}', search.topic_id, search.display_name, f'{pre_url}{search.topic_id}') 
+        ikb += search_button_row_ikb(search_following_mark, f'{time_since_start}{dist_and_dir}', search.topic_id, search.display_name, f'{pre_url}{search.topic_id}')
     return ikb
 
 
@@ -727,7 +723,7 @@ def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region
                                          'в <a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">Специальном Чате ' \
                                          'в телеграм</a>, пожалуйста.'
             ikb = [[{"text": msg, "url": url}]]
-            
+
 
     # Combine the list of the latest active searches
     else:
@@ -1007,9 +1003,9 @@ def save_preference(cur, user_id, preference):
         """execute SQL INSERT command"""
 
         preference_id = pref_dict[preference_name]
-        cur.execute("""INSERT INTO user_preferences 
-                        (user_id, preference, pref_id) 
-                        VALUES (%s, %s, %s) 
+        cur.execute("""INSERT INTO user_preferences
+                        (user_id, preference, pref_id)
+                        VALUES (%s, %s, %s)
                         ON CONFLICT DO NOTHING;""",
                     (user, preference_name, preference_id))
 
@@ -1380,7 +1376,7 @@ def manage_age(cur, user_id, user_input):
                 break
 
         if user_want_activate:
-            cur.execute("""INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
+            cur.execute("""INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max)
                         values (%s, %s, %s, %s, %s) ON CONFLICT (user_id, period_min, period_max) DO NOTHING;""",
                         (user_id, chosen_setting.name, datetime.datetime.now(), chosen_setting.min, chosen_setting.max))
         else:
@@ -1404,7 +1400,7 @@ def manage_age(cur, user_id, user_input):
         for line_a in age_list:
             line_a.now = True
         for line in age_list:
-            cur.execute("""INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
+            cur.execute("""INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max)
                         values (%s, %s, %s, %s, %s) ON CONFLICT (user_id, period_min, period_max) DO NOTHING;""",
                         (user_id, line.name, datetime.datetime.now(), line.min, line.max))
 
@@ -1420,7 +1416,7 @@ def manage_age(cur, user_id, user_input):
 
 def save_user_pref_topic_type(cur, user_id, pref_id, user_role):
     def save(pref_type_id):
-        cur.execute("""INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp) 
+        cur.execute("""INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp)
                                             values (%s, %s, %s) ON CONFLICT (user_id, topic_type_id) DO NOTHING;""",
                     (user_id, pref_type_id, datetime.datetime.now()))
         return None
@@ -1509,7 +1505,7 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
             if number:
                 number = int(number.group())
             if number and number > 0:
-                cur.execute("""INSERT INTO user_pref_radius (user_id, radius) 
+                cur.execute("""INSERT INTO user_pref_radius (user_id, radius)
                                VALUES (%s, %s) ON CONFLICT (user_id) DO
                                UPDATE SET radius=%s;""", (user_id, number, number))
                 saved_radius = check_saved_radius(user_id)
@@ -1557,7 +1553,7 @@ def manage_topic_type(cur, user_id, user_input, b, user_callback, callback_id, b
     def record_topic_type(user: int, type_id: int) -> None:
         """Insert a certain topic_type for a certain user_id into the DB"""
 
-        cur.execute("""INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp) 
+        cur.execute("""INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp)
                         VALUES (%s, %s, %s) ON CONFLICT (user_id, topic_type_id) DO NOTHING;""",
                     (user, type_id, datetime.datetime.now()))
         return None
@@ -1651,7 +1647,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
     def record_search_whiteness(user: int, search_id: int, seach_following_flag) -> None:
         """Save a certain user_pref_search_whitelist for a certain user_id into the DB"""
         if seach_following_flag:
-            cur.execute("""INSERT INTO user_pref_search_whitelist (user_id, search_id, timestamp) 
+            cur.execute("""INSERT INTO user_pref_search_whitelist (user_id, search_id, timestamp)
                             VALUES (%s, %s, %s) ON CONFLICT (user_id, search_id) DO NOTHING;""",
                         (user, search_id, datetime.datetime.now()))
         else:
@@ -1698,7 +1694,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         if pushed_row_index %2 ==0:
             api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, user_id)
 
-        bot_message = '''МЕНЮ АКТУАЛЬНЫХ ПОИСКОВ ДЛЯ ОТСЛЕЖИВАНИЯ. 
+        bot_message = '''МЕНЮ АКТУАЛЬНЫХ ПОИСКОВ ДЛЯ ОТСЛЕЖИВАНИЯ.
 👀 - знак пометки поиска для отслеживания. Если помеченных поисков нет, то уведомления будут приходить по всем.'''
     return bot_message, reply_markup
 
@@ -1776,10 +1772,10 @@ def manage_linking_to_forum(cur, got_message, user_id, b_set_forum_nick, b_back_
     if got_message == b_set_forum_nick:
 
         # TODO: if user_is linked to forum so
-        cur.execute("""SELECT forum_username, forum_user_id 
-                       FROM user_forum_attributes 
-                       WHERE status='verified' AND user_id=%s 
-                       ORDER BY timestamp DESC 
+        cur.execute("""SELECT forum_username, forum_user_id
+                       FROM user_forum_attributes
+                       WHERE status='verified' AND user_id=%s
+                       ORDER BY timestamp DESC
                        LIMIT 1;""",
                     (user_id,))
         saved_forum_user = cur.fetchone()
@@ -1865,7 +1861,7 @@ def check_onboarding_step(cur, user_id, user_is_new):
         return 0, 'start'
 
     try:
-        cur.execute("""SELECT step_id, step_name, timestamp FROM user_onboarding 
+        cur.execute("""SELECT step_id, step_name, timestamp FROM user_onboarding
                                WHERE user_id=%s ORDER BY step_id DESC;""",
                     (user_id,))
         raw_data = cur.fetchone()
@@ -2395,27 +2391,27 @@ def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
 
     try:
         cur.execute("""SELECT
-                            user_id 
-                            , CASE WHEN role IS NOT NULL THEN TRUE ELSE FALSE END as role 
-                            , CASE WHEN (SELECT TRUE FROM user_pref_age WHERE user_id=%s LIMIT 1) 
+                            user_id
+                            , CASE WHEN role IS NOT NULL THEN TRUE ELSE FALSE END as role
+                            , CASE WHEN (SELECT TRUE FROM user_pref_age WHERE user_id=%s LIMIT 1)
                                 THEN TRUE ELSE FALSE END AS age
-                            , CASE WHEN (SELECT TRUE FROM user_coordinates WHERE user_id=%s LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS coords    
-                            , CASE WHEN (SELECT TRUE FROM user_pref_radius WHERE user_id=%s LIMIT 1) 
+                            , CASE WHEN (SELECT TRUE FROM user_coordinates WHERE user_id=%s LIMIT 1)
+                                THEN TRUE ELSE FALSE END AS coords
+                            , CASE WHEN (SELECT TRUE FROM user_pref_radius WHERE user_id=%s LIMIT 1)
                                 THEN TRUE ELSE FALSE END AS radius
-                            , CASE WHEN (SELECT TRUE FROM user_pref_region WHERE user_id=%s LIMIT 1) 
+                            , CASE WHEN (SELECT TRUE FROM user_pref_region WHERE user_id=%s LIMIT 1)
                                 THEN TRUE ELSE FALSE END AS region
-                            , CASE WHEN (SELECT TRUE FROM user_pref_topic_type WHERE user_id=%s LIMIT 1) 
+                            , CASE WHEN (SELECT TRUE FROM user_pref_topic_type WHERE user_id=%s LIMIT 1)
                                 THEN TRUE ELSE FALSE END AS topic_type
-                            , CASE WHEN (SELECT TRUE FROM user_pref_urgency WHERE user_id=%s LIMIT 1) 
+                            , CASE WHEN (SELECT TRUE FROM user_pref_urgency WHERE user_id=%s LIMIT 1)
                                 THEN TRUE ELSE FALSE END AS urgency
-                            , CASE WHEN (SELECT TRUE FROM user_preferences WHERE user_id=%s 
-                                AND preference!='bot_news' LIMIT 1) 
+                            , CASE WHEN (SELECT TRUE FROM user_preferences WHERE user_id=%s
+                                AND preference!='bot_news' LIMIT 1)
                                 THEN TRUE ELSE FALSE END AS notif_type
-                            , CASE WHEN (SELECT TRUE FROM user_regional_preferences WHERE user_id=%s LIMIT 1) 
+                            , CASE WHEN (SELECT TRUE FROM user_regional_preferences WHERE user_id=%s LIMIT 1)
                                 THEN TRUE ELSE FALSE END AS region_old
                             , CASE WHEN (SELECT TRUE FROM user_forum_attributes WHERE user_id=%s
-                                AND status = 'verified' LIMIT 1) 
+                                AND status = 'verified' LIMIT 1)
                                 THEN TRUE ELSE FALSE END AS forum
                         FROM users WHERE user_id=%s;
                         """, (user_id, user_id, user_id, user_id, user_id,
@@ -2478,9 +2474,9 @@ def if_user_enables(callback: Dict) -> Union[None, bool]:
 def save_last_user_inline_dialogue(cur, user_id: int, message_id: int) -> None:
     """Save to DB the user's last interaction via inline buttons"""
 
-    cur.execute("""INSERT INTO communications_last_inline_msg 
+    cur.execute("""INSERT INTO communications_last_inline_msg
                     (user_id, timestamp, message_id) values (%s, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', %s)
-                    ON CONFLICT (user_id) DO 
+                    ON CONFLICT (user_id) DO
                     UPDATE SET timestamp=CURRENT_TIMESTAMP AT TIME ZONE 'UTC', message_id=%s;""",
                 (user_id, message_id, message_id))
     return None
@@ -2538,7 +2534,7 @@ def main(request):
 
     logging.info(f'after get_basic_update_parameters:  {got_callback=}')
 
-    
+
     if timer_changed or photo or document or voice or sticker or (channel_type and user_id < 0) or \
             contact or inline_query:
         process_unneeded_messages(update, user_id, timer_changed, photo, document, voice, sticker, channel_type,
@@ -3294,8 +3290,8 @@ def main(request):
                                 context=f'After reply_markup.to_dict(): {reply_markup=}; {user_id=}; context_step=a00'
                                 logging.info(f'{context=}: {reply_markup=}')
                             params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
-                                    'chat_id': user_id, 'text': '''Вы можете включить возможность выбора поисков для отслеживания, 
-чтобы получать уведомления не со всех актуальных поисков, 
+                                    'chat_id': user_id, 'text': '''Вы можете включить возможность выбора поисков для отслеживания,
+чтобы получать уведомления не со всех актуальных поисков,
 а только с выбранных Вами.'''}
                             context=f'{user_id=}, context_step=a01'
                             response = make_api_call('sendMessage', bot_token, params, context)
@@ -3768,7 +3764,7 @@ def main(request):
 
                 if user_used_inline_button:
                     #call editMessageText to edit inline keyboard
-                    #in the message where inline button was pushed 
+                    #in the message where inline button was pushed
                     last_user_message_id = callback_query.message.id ##was get_last_user_inline_dialogue(cur, user_id)
                     logging.info(f'{last_user_message_id=}')
                     # params['message_id'] = last_user_message_id
