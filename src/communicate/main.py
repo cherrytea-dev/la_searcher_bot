@@ -1001,7 +1001,6 @@ def save_preference(cur, user_id, preference):
                         ON CONFLICT DO NOTHING;""",
                     (user, preference_name, preference_id))
 
-        return None
 
     def execute_delete(user, list_of_prefs):
         """execute SQL DELETE command"""
@@ -1013,7 +1012,6 @@ def save_preference(cur, user_id, preference):
         else:
             cur.execute("""DELETE FROM user_preferences WHERE user_id=%s;""", (user,))
 
-        return None
 
     def execute_check(user, pref_list):
         """execute SQL SELECT command and returns TRUE / FALSE if something found"""
@@ -1073,8 +1071,6 @@ def save_preference(cur, user_id, preference):
 
         preference = preference[1:]
         execute_delete(user_id, [preference])
-
-    return None
 
 
 def update_and_download_list_of_regions(cur, user_id, got_message, b_menu_set_region, b_fed_dist_pick_other):
@@ -1842,8 +1838,6 @@ def save_onboarding_step(user_id, username, step):
                           'time': str(datetime.datetime.now()),
                           'step': step}
     publish_to_pubsub('topic_for_user_management', message_for_pubsub)
-
-    return None
 
 
 def check_onboarding_step(cur, user_id, user_is_new):
