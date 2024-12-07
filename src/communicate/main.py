@@ -1,3 +1,5 @@
+#ToDo later: user_callback["action"] == "search_follow_mode" заменить на "sfmw", "sfmb"
+
 """receives telegram messages from users, acts accordingly and sends back the reply"""
 
 import datetime
@@ -495,7 +497,8 @@ def compose_msg_on_all_last_searches(cur, region):
 
     return text
 
-def search_button_row_ikb(search_following_mark, search_status, search_id, search_display_name, url):
+def search_button_row_ikb(search_following_mode, search_status, search_id, search_display_name, url):
+    search_following_mark = search_following_mode if search_following_mode else '  '
     ikb_row = [[
             {"text": f'{search_following_mark} {search_status}', 'callback_data': f'{{"action":"search_follow_mode", "hash":"{search_id}"}}'},##left button to on/off follow
             {"text": search_display_name, "url": url} ##right button - link to the search on the forum
@@ -529,7 +532,7 @@ def compose_msg_on_all_last_searches_ikb(cur, region, user_id):
     for line in database:
         search = SearchSummary()
         search.topic_id, search.start_time, search.display_name, search.new_status, \
-        search.status, search.name, search.age, search_following_id = list(line)
+        search.status, search.name, search.age, search_following_mode = list(line)
 
         if not search.display_name:
             age_string = f' {age_writer(search.age)}' if search.age != 0 else ''
@@ -629,7 +632,7 @@ def compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_i
     for line in searches_list:
         search = SearchSummary()
         search.topic_id, search.start_time, search.display_name, search_lat, search_lon, \
-        search.topic_type, search.name, search.age, search_following_id = list(line)
+        search.topic_type, search.name, search.age, search_following_mode = list(line)
 
         if time_counter_since_search_start(search.start_time)[1] >= 60:
             continue
@@ -1514,7 +1517,7 @@ def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_
     return bot_message, reply_markup, expect_after
 
 
-def manage_topic_type(cur, user_id, user_input, b, user_callback, callback_id, bot_token) -> Union[
+def manage_topic_type(cur, user_id, user_input, b, user_callback, callback_id, bot_token, callback_query_msg_id) -> Union[
         tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
     """Save user Topic Type preference and generate the actual topic type preference message"""
 
@@ -1579,7 +1582,7 @@ def manage_topic_type(cur, user_id, user_input, b, user_callback, callback_id, b
                      'чтобы быть в курсе всех событий в отряде вашего региона. 💡'
         about_params = {'chat_id': user_id, 'text': about_text, 'parse_mode': 'HTML'}
         make_api_call('sendMessage', bot_token, about_params, "main() if ... user_callback['action'] == 'about'")
-        del_message_id = get_last_user_inline_dialogue(cur, user_id)
+        del_message_id = callback_query_msg_id ###was get_last_user_inline_dialogue(cur, user_id)
         if del_message_id:
             del_params = {'chat_id': user_id, 'message_id': del_message_id}
             make_api_call('deleteMessage', bot_token, del_params)
@@ -1632,7 +1635,9 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
     """Saves search_whiteness (accordingly to user's choice of search to follow) and regenerates the search list keyboard"""
 
-    def record_search_whiteness(user: int, search_id: int, seach_following_flag) -> None:
+    ################# ToDo further: modify select in compose_notifications
+
+    def record_search_whiteness(user: int, search_id: int, new_mark_value) -> None:
         """Save a certain user_pref_search_whitelist for a certain user_id into the DB"""
         if seach_following_flag:
             cur.execute("""INSERT INTO user_pref_search_whitelist (user_id, search_id, timestamp)
@@ -1666,21 +1671,25 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
 
         logging.info(f'before ikb_row = ikb[pushed_row_index]: {new_ikb=}')
         ikb_row = ikb[pushed_row_index]
-        # Toggle the search following mark ('👀' or blank)
-        do_mark = not (ikb_row[0]['text'][:1] == '👀')
-        ### mark_str = '👀' if to_use_eyes_emo else '!!'
-        new_mark_value = '👀' if do_mark else '  '
+        old_mark_value = (ikb_row[0]['text'][:1] )
+        ### mark_str = '‼️' if to_use_eyes_emo else '!!'
+        new_mark_value = '‼️' if old_mark_value = '  ' else '❌ ' if old_mark_value == '‼️' else '  '
         logging.info(f'before assign new_mark_value: {pushed_row_index=}, {new_mark_value=}.')
         new_ikb[pushed_row_index][0]['text'] = new_mark_value + new_ikb[pushed_row_index][0]['text'][len(new_mark_value):]
         # Update the search 'whiteness' (tracking state)
-        record_search_whiteness(user_id, int(user_callback['hash']), do_mark)
-        bot_message = 'Наблюдение ' + ('включено' if do_mark else 'выключено')
+        record_search_whiteness(user_id, int(user_callback['hash']), new_mark_value)
+        if new_mark_value=='‼️':
+            bot_message = 'Поиск добавлен в белый список.'
+        elif new_mark_value=='❌ ':
+            bot_message = 'Поиск добавлен в черный список.'
+        else:
+            bot_message = 'Пометка снята.'
         logging.info(f'before send_callback_answer_to_api: {new_ikb=}')
         send_callback_answer_to_api(bot_token, callback_id, bot_message)
         reply_markup = InlineKeyboardMarkup(new_ikb)
         logging.info(f'before api_callback_edit_inline_keyboard: {reply_markup=}')
-        if pushed_row_index %2 ==0:
-            api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, user_id)
+#        if pushed_row_index %2 ==0:##redundant because there is if user_used_inline_button
+#            api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, user_id)
 
         bot_message = '''МЕНЮ АКТУАЛЬНЫХ ПОИСКОВ ДЛЯ ОТСЛЕЖИВАНИЯ.
 👀 - знак пометки поиска для отслеживания. Если помеченных поисков нет, то уведомления будут приходить по всем.'''
@@ -2465,17 +2474,19 @@ def save_last_user_inline_dialogue(cur, user_id: int, message_id: int) -> None:
     return None
 
 
-def get_last_user_inline_dialogue(cur, user_id: int) -> int:
+def get_last_user_inline_dialogue(cur, user_id: int) -> list:
     """Get from DB the user's last interaction via inline buttons"""
 
-    cur.execute("""SELECT message_id FROM communications_last_inline_msg WHERE user_id=%s LIMIT 1;""",
+    cur.execute("""SELECT message_id FROM communications_last_inline_msg WHERE user_id=%s;""",
                 (user_id,))
-    message_id = cur.fetchone()
+    message_id_lines = cur.fetchall()
 
-    if message_id:
-        message_id = message_id[0]
+    message_id_list = []
+    if message_id_lines and len(message_id_lines) > 0:
+        for message_id_line in message_id_lines:
+            message_id_list.append(message_id_line[0])
 
-    return message_id
+    return message_id_list
 
 
 def delete_last_user_inline_dialogue(cur, user_id: int) -> None:
@@ -2886,10 +2897,11 @@ def main(request):
     logging.info(f'Before if got_message and not got_callback: {got_message=}')
 
     if got_message and not got_callback:
-        last_inline_message_id = get_last_user_inline_dialogue(cur, user_id)
-        if last_inline_message_id:
-            params = {'chat_id': user_id, 'message_id': last_inline_message_id}
-            make_api_call('editMessageReplyMarkup', bot_token, params, 'main() if got_message and not got_callback')
+        last_inline_message_ids = get_last_user_inline_dialogue(cur, user_id)
+        if last_inline_message_ids:
+            for last_inline_message_id in last_inline_message_ids:
+                params = {'chat_id': user_id, 'message_id': last_inline_message_id}
+                make_api_call('editMessageReplyMarkup', bot_token, params, 'main() if got_message and not got_callback')
             delete_last_user_inline_dialogue(cur, user_id)
 
     if got_message:
@@ -3177,6 +3189,7 @@ def main(request):
                 if username=='AnatolyK1975' and get_search_follow_mode(cur, user_id): ##'tester' in get_user_sys_roles(cur, user_id):
                     #issue#425 make inline keyboard - list of searches
                     keyboard = [] #to combine monolit ikb for all user's regions
+                    ikb_regions_count = 0
 
                     region_name = ''
                     for region in user_regions:
@@ -3189,42 +3202,68 @@ def main(request):
                         logging.info(f'Before if region_name.find...: {bot_message=}; {keyboard=}')
                         # check if region – is an archive folder: if so – it can be sent only to 'all'
                         if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
-                            keyboard += compose_full_message_on_list_of_searches_ikb(cur,
+
+                            new_region_ikb_list = compose_full_message_on_list_of_searches_ikb(cur,
                                                                                 temp_dict[got_message],
                                                                                 user_id,
                                                                                 region, region_name)
+                            keyboard.append(new_region_ikb_list)
+                            ikb_regions_count += len(new_region_ikb_list)-1 ##number of searches in the region
                             logging.info(f'After += compose_full_message_on_list_of_searches_ikb: {keyboard=}')
 
                     ##msg_sent_by_specific_code for combined ikb start
-                    if len(keyboard)==0:
+                    if ikb_regions_count==0:
                         bot_message = 'Незавершенные поиски в соответствии с Вашей настройкой видов поисков не найдены.'
-                    elif keyboard[0][0]["text"].find('что-то пошло не так')>=0:
-                        bot_message = keyboard[0][0]["text"]
-                        reply_markup = None
+                        params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
+                                'chat_id': user_id, 'text': bot_message}
+                        context=f'{user_id=}, context_step=b1'
+                        response = make_api_call('sendMessage', bot_token, params, context)
+                        logging.info(f'{response=}; {user_id=}; context_step=b2')
+                        result = process_response_of_api_call(user_id, response)
+                        logging.info(f'{result=}; {user_id=}; context_step=b3')
+                        inline_processing(cur, response, params)
                     else:
                         #issue#425 show the inline keyboard
-                        bot_message = '''МЕНЮ АКТУАЛЬНЫХ ПОИСКОВ ДЛЯ ОТСЛЕЖИВАНИЯ.
-Каждый поиск ниже дан строкой из двух кнопок: кнопка пометки для отслеживания и кнопка перехода на форум.
-👀 - знак пометки поиска для отслеживания. Если помеченных поисков нет, то уведомления будут приходить по всем.'''
-                        keyboard += [[{"text": f'Отключить выбор поисков для отслеживания', 'callback_data': f'{{"action":"search_follow_mode_off"}}'}]]
-                        reply_markup = InlineKeyboardMarkup(keyboard)
-                        logging.info(f'{bot_message=}; {keyboard=}; context_step=b00')
-                        #process_sending_message_async(user_id=user_id, data=data)
-                        context=f'Before if reply_markup and not isinstance(reply_markup, dict): {reply_markup=}, context_step=b01'
-                        logging.info(f'{context=}: {reply_markup=}')
-                        if reply_markup and not isinstance(reply_markup, dict):
-                            reply_markup = reply_markup.to_dict()
-                            context=f'After reply_markup.to_dict(): {reply_markup=}; {user_id=}; context_step=b02'
-                            logging.info(f'{context=}: {reply_markup=}')
 
-                    params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
-                            'chat_id': user_id, 'text': bot_message}
-                    context=f'{user_id=}, context_step=b1'
-                    response = make_api_call('sendMessage', bot_token, params, context)
-                    logging.info(f'{response=}; {user_id=}; context_step=b2')
-                    result = process_response_of_api_call(user_id, response)
-                    logging.info(f'{result=}; {user_id=}; context_step=b3')
-                    inline_processing(cur, response, params)
+                        searches_marked = 0
+                        for region_keyboard in keyboard:
+                            for ikb_line in region_keyboard:
+                                if ikb_line[0].get("callback_data") and not ikb_line[0][text][:1]=='  ':
+                                    searches_marked += 1
+                        if searches_marked == 0:
+                            for region_keyboard in keyboard:
+                                for ikb_line in region_keyboard:
+                                    if ikb_line[0].get("callback_data"):
+                                        ikb_line[0][text] = '• ' + ikb_line[0][text][2:]
+
+                        for i, region_keyboard in enumerate(keyboard):
+                            if i==0:
+                                bot_message = '''МЕНЮ АКТУАЛЬНЫХ ПОИСКОВ ДЛЯ ОТСЛЕЖИВАНИЯ.
+        Каждый поиск ниже дан строкой из пары кнопок: кнопка пометки для отслеживания и кнопка перехода на форум.
+        ‼️ - знак пометки поиска для отслеживания. Если помеченных поисков нет, то уведомления будут приходить по всем поискам.'''
+                            else:
+                                bot_message = ''
+                            if i==(len(keyboard)-1):
+                                region_keyboard += [[{"text": f'Отключить выбор поисков для отслеживания', 'callback_data': f'{{"action":"search_follow_mode_off"}}'}]]
+
+                            reply_markup = InlineKeyboardMarkup(region_keyboard)
+                            logging.info(f'{bot_message=}; {region_keyboard=}; context_step=b00')
+                            #process_sending_message_async(user_id=user_id, data=data)
+                            context=f'Before if reply_markup and not isinstance(reply_markup, dict): {reply_markup=}, context_step=b01'
+                            logging.info(f'{context=}: {reply_markup=}')
+                            if reply_markup and not isinstance(reply_markup, dict):
+                                reply_markup = reply_markup.to_dict()
+                                context=f'After reply_markup.to_dict(): {reply_markup=}; {user_id=}; context_step=b02a'
+                                logging.info(f'{context=}: {reply_markup=}')
+
+                            params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
+                                    'chat_id': user_id, 'text': bot_message}
+                            context=f'{user_id=}, context_step=b1'
+                            response = make_api_call('sendMessage', bot_token, params, context)
+                            logging.info(f'{response=}; {user_id=}; context_step=b2')
+                            result = process_response_of_api_call(user_id, response)
+                            logging.info(f'{result=}; {user_id=}; context_step=b3')
+                            inline_processing(cur, response, params)
                     ##msg_sent_by_specific_code for combined ikb end
 
                     # saving the last message from bot
@@ -3345,7 +3384,7 @@ def main(request):
             elif got_message == b.set.topic_type.text or b.topic_types.contains(got_message) or (got_hash and b.topic_types.contains(
                     got_hash)):  # noqa
                 bot_message, reply_markup = manage_topic_type(cur, user_id, got_message, b, got_callback,
-                                                              callback_query_id, bot_token)
+                                                              callback_query_id, bot_token, callback_query.message.id)
 
             elif got_message in {b_set_pref_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
                                  b_pref_age_7_13_deact, b_pref_age_14_20_act, b_pref_age_14_20_deact,
@@ -3761,6 +3800,7 @@ def main(request):
                     context_step='1a2'
                     context=f'main() if user_used_inline_button: {user_id=}, {context_step=}'
                     logging.info(f'{response=}; {context=}')
+
                 else:
                     params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
                               'chat_id': user_id, 'text': bot_message}
@@ -3772,10 +3812,10 @@ def main(request):
                     logging.info(f'{response=}; {context=}')
 
                 context_step='2'
-                context=f'main() if user_used_inline_button: {user_id=}, {context_step=}'
+                context=f'main() after if user_used_inline_button: {user_id=}, {context_step=}'
                 logging.info(f'{response=}; {context=}')
                 context_step='3'
-                context=f'main() if user_used_inline_button: {user_id=}, {context_step=}'
+                context=f'main() after if user_used_inline_button: {user_id=}, {context_step=}'
                 result = process_response_of_api_call(user_id, response)
                 inline_processing(cur, response, params)
 
