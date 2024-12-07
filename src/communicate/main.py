@@ -1,6 +1,4 @@
-ToDo: 
-user_pref_search_whitelist - добавить поле mark_kind
-user_callback["action"] == "search_follow_mode" заменить на "sfmw", "sfmb"
+#user_callback["action"] == "search_follow_mode" заменить на "sfmw", "sfmb"
 
 """receives telegram messages from users, acts accordingly and sends back the reply"""
 
@@ -522,7 +520,7 @@ def compose_msg_on_all_last_searches_ikb(cur, region, user_id):
 
     # download the list from SEARCHES sql table
     cur.execute(
-        """SELECT s2.*, upswl.mode as search_following_mode FROM 
+        """SELECT s2.*, upswl.search_following_mode FROM 
             (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
             FROM searches 
             WHERE forum_folder_id=%(region)s 
@@ -614,7 +612,7 @@ def compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_i
     ikb = []
 
     cur.execute(
-        """SELECT s2.*, upswl.mode as search_following_mode FROM 
+        """SELECT s2.*, upswl.search_following_mode FROM 
             (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
             s.topic_type, s.family_name, s.age 
             FROM searches s 
@@ -1656,8 +1654,8 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
     def record_search_whiteness(user: int, search_id: int, new_mark_value) -> None:
         """Save a certain user_pref_search_whitelist for a certain user_id into the DB"""
         if new_mark_value in['‼️', '❌ ']:
-            cur.execute("""INSERT INTO user_pref_search_whitelist (user_id, search_id, timestamp, mode) 
-                            VALUES (%s, %s, %s, %s) ON CONFLICT (user_id, search_id) DO UPDATE SET timestamp=%s, mode=%s;""",
+            cur.execute("""INSERT INTO user_pref_search_whitelist (user_id, search_id, timestamp, search_following_mode) 
+                            VALUES (%s, %s, %s, %s) ON CONFLICT (user_id, search_id) DO UPDATE SET timestamp=%s, search_following_mode=%s;""",
                         (user, search_id, datetime.datetime.now(), new_mark_value, datetime.datetime.now(), new_mark_value))
         else:
             cur.execute("""DELETE FROM user_pref_search_whitelist WHERE user_id=%(user)s and search_id=%(search_id)s;""", {'user':user, 'search_id':search_id})
