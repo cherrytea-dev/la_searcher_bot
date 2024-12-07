@@ -1,4 +1,4 @@
-#user_callback["action"] == "search_follow_mode" заменить на "sfmw", "sfmb"
+#ToDo later: user_callback["action"] == "search_follow_mode" заменить на "sfmw", "sfmb"
 
 """receives telegram messages from users, acts accordingly and sends back the reply"""
 
