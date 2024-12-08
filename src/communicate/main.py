@@ -3257,6 +3257,12 @@ def main(request):
 '❌ ' - пометка поиска для игнорирования ("черный список") - уведомления по таким поискам не будут приходить в любом случае.'''
                             else:
                                 bot_message = ''
+                            
+                            #Pop region caption from the region_keyboard and put it into bot-message
+                            bot_message += '\n' if len(bot_message)>0 else ''
+                            bot_message += f'<a href="{region_keyboard[0][0]["url"]}">{region_keyboard[0][0]["text"]}</a>'
+                            region_keyboard.pop(0)
+
                             if i==(len(keyboard)-1):
                                 region_keyboard += [[{"text": f'Отключить выбор поисков для отслеживания', 'callback_data': f'{{"action":"search_follow_mode_off"}}'}]]
                             
