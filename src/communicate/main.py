@@ -1705,8 +1705,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
 #        if pushed_row_index %2 ==0:##redundant because there is if user_used_inline_button
 #            api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, user_id)
 
-        bot_message = '''МЕНЮ АКТУАЛЬНЫХ ПОИСКОВ ДЛЯ ОТСЛЕЖИВАНИЯ. 
-👀 - знак пометки поиска для отслеживания. Если помеченных поисков нет, то уведомления будут приходить по всем.'''
+        bot_message = callback_query.message.text
     return bot_message, reply_markup
 
 #issue#425
@@ -3242,22 +3241,20 @@ def main(request):
                     else:
                         #issue#425 show the inline keyboard
 
-                        searches_marked = 0
-                        for region_keyboard in keyboard:
-                            for ikb_line in region_keyboard:
-                                if ikb_line[0].get("callback_data") and not ikb_line[0][text][:1]=='  ':
-                                    searches_marked += 1
-                        if searches_marked == 0:
-                            for region_keyboard in keyboard:
-                                for ikb_line in region_keyboard:
-                                    if ikb_line[0].get("callback_data"):
-                                        ikb_line[0][text] = '• ' + ikb_line[0][text][2:]
+##TBD. May be will be useful to show quantity of marked searches
+#                        searches_marked = 0
+#                        for region_keyboard in keyboard:
+#                            for ikb_line in region_keyboard:
+#                                if ikb_line[0].get("callback_data") and not ikb_line[0]["text"][:1]=='  ':
+#                                    searches_marked += 1
 
                         for i, region_keyboard in enumerate(keyboard):
                             if i==0:
                                 bot_message = '''МЕНЮ АКТУАЛЬНЫХ ПОИСКОВ ДЛЯ ОТСЛЕЖИВАНИЯ.
-        Каждый поиск ниже дан строкой из пары кнопок: кнопка пометки для отслеживания и кнопка перехода на форум.
-        👀 - знак пометки поиска для отслеживания. Если помеченных поисков нет, то уведомления будут приходить по всем поискам.'''
+Каждый поиск ниже дан строкой из пары кнопок: кнопка пометки для отслеживания и кнопка перехода на форум.
+👀 - знак пометки поиска для отслеживания, уведомления будут приходить только по помеченным поискам. 
+Если таких нет, то уведомления будут приходить по всем поискам согласно настройкам.
+'❌ ' - пометка поиска для игнорирования ("черный список") - уведомления по таким поискам не будут приходить в любом случае.'''
                             else:
                                 bot_message = ''
                             if i==(len(keyboard)-1):
