@@ -1653,7 +1653,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
 
     def record_search_whiteness(user: int, search_id: int, new_mark_value) -> None:
         """Save a certain user_pref_search_whitelist for a certain user_id into the DB"""
-        if new_mark_value in['‼️', '❌ ']:
+        if new_mark_value in['👀', '❌ ']:
             cur.execute("""INSERT INTO user_pref_search_whitelist (user_id, search_id, timestamp, search_following_mode) 
                             VALUES (%s, %s, %s, %s) ON CONFLICT (user_id, search_id) DO UPDATE SET timestamp=%s, search_following_mode=%s;""",
                         (user, search_id, datetime.datetime.now(), new_mark_value, datetime.datetime.now(), new_mark_value))
@@ -1686,13 +1686,13 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         logging.info(f'before ikb_row = ikb[pushed_row_index]: {new_ikb=}')
         ikb_row = ikb[pushed_row_index]
         old_mark_value = (ikb_row[0]['text'][:1] )
-        ### mark_str = '‼️' if to_use_eyes_emo else '!!'
-        new_mark_value = '‼️' if old_mark_value = '  ' else '❌ ' if old_mark_value == '‼️' else '  '
+        ### mark_str = '👀' if to_use_eyes_emo else '!!'
+        new_mark_value = '👀' if old_mark_value == '  ' else '❌ ' if old_mark_value == '👀' else '  '
         logging.info(f'before assign new_mark_value: {pushed_row_index=}, {new_mark_value=}.')
         new_ikb[pushed_row_index][0]['text'] = new_mark_value + new_ikb[pushed_row_index][0]['text'][len(new_mark_value):]
         # Update the search 'whiteness' (tracking state)
         record_search_whiteness(user_id, int(user_callback['hash']), new_mark_value)
-        if new_mark_value=='‼️':
+        if new_mark_value=='👀':
             bot_message = 'Поиск добавлен в белый список.' 
         elif new_mark_value=='❌ ':
             bot_message = 'Поиск добавлен в черный список.' 
@@ -1706,7 +1706,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
 #            api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, user_id)
 
         bot_message = '''МЕНЮ АКТУАЛЬНЫХ ПОИСКОВ ДЛЯ ОТСЛЕЖИВАНИЯ. 
-‼️ - знак пометки поиска для отслеживания. Если помеченных поисков нет, то уведомления будут приходить по всем.'''
+👀 - знак пометки поиска для отслеживания. Если помеченных поисков нет, то уведомления будут приходить по всем.'''
     return bot_message, reply_markup
 
 #issue#425
@@ -3206,7 +3206,7 @@ def main(request):
                 if username=='AnatolyK1975' and get_search_follow_mode(cur, user_id): ##'tester' in get_user_sys_roles(cur, user_id):
                     #issue#425 make inline keyboard - list of searches
                     keyboard = [] #to combine monolit ikb for all user's regions
-                    ikb_regions_count = 0
+                    ikb_searches_count = 0
 
                     region_name = ''
                     for region in user_regions:
@@ -3225,11 +3225,11 @@ def main(request):
                                                                                 user_id,
                                                                                 region, region_name)
                             keyboard.append(new_region_ikb_list)
-                            ikb_regions_count += len(new_region_ikb_list)-1 ##number of searches in the region
+                            ikb_searches_count += len(new_region_ikb_list)-1 ##number of searches in the region
                             logging.info(f'After += compose_full_message_on_list_of_searches_ikb: {keyboard=}')
 
                     ##msg_sent_by_specific_code for combined ikb start
-                    if ikb_regions_count==0:
+                    if ikb_searches_count==0:
                         bot_message = 'Незавершенные поиски в соответствии с Вашей настройкой видов поисков не найдены.'
                         params = {'parse_mode': 'HTML', 'disable_web_page_preview': True, 'reply_markup': reply_markup,
                                 'chat_id': user_id, 'text': bot_message}
@@ -3257,7 +3257,7 @@ def main(request):
                             if i==0:
                                 bot_message = '''МЕНЮ АКТУАЛЬНЫХ ПОИСКОВ ДЛЯ ОТСЛЕЖИВАНИЯ.
         Каждый поиск ниже дан строкой из пары кнопок: кнопка пометки для отслеживания и кнопка перехода на форум.
-        ‼️ - знак пометки поиска для отслеживания. Если помеченных поисков нет, то уведомления будут приходить по всем поискам.'''
+        👀 - знак пометки поиска для отслеживания. Если помеченных поисков нет, то уведомления будут приходить по всем поискам.'''
                             else:
                                 bot_message = ''
                             if i==(len(keyboard)-1):
