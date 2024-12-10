@@ -1653,7 +1653,7 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
 
     def record_search_whiteness(user: int, search_id: int, new_mark_value) -> None:
         """Save a certain user_pref_search_whitelist for a certain user_id into the DB"""
-        if new_mark_value in['👀', '❌ ']:
+        if new_mark_value in['👀 ', '❌ ']:
             cur.execute("""INSERT INTO user_pref_search_whitelist (user_id, search_id, timestamp, search_following_mode) 
                             VALUES (%s, %s, %s, %s) ON CONFLICT (user_id, search_id) DO UPDATE SET timestamp=%s, search_following_mode=%s;""",
                         (user, search_id, datetime.datetime.now(), new_mark_value, datetime.datetime.now(), new_mark_value))
@@ -1687,9 +1687,9 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         ikb_row = ikb[pushed_row_index]
         old_mark_value = (ikb_row[0]['text'][:2] )
         if old_mark_value == '  ':
-            new_mark_value = '👀'
+            new_mark_value = '👀 '
             bot_message = 'Поиск добавлен в белый список.' 
-        elif old_mark_value == '👀':
+        elif old_mark_value == '👀 ':
             new_mark_value = '❌ '
             bot_message = 'Поиск добавлен в черный список.' 
         else:
