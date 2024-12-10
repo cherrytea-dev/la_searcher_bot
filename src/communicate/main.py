@@ -1686,18 +1686,19 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
         logging.info(f'before ikb_row = ikb[pushed_row_index]: {new_ikb=}')
         ikb_row = ikb[pushed_row_index]
         old_mark_value = (ikb_row[0]['text'][:2] )
-        ### mark_str = '👀' if to_use_eyes_emo else '!!'
-        new_mark_value = '👀' if old_mark_value == '  ' else '❌ ' if old_mark_value == '👀' else '  '
-        logging.info(f'before assign new_mark_value: {pushed_row_index=}, {new_mark_value=},')
+        if old_mark_value == '  ':
+            new_mark_value = '👀'
+            bot_message = 'Поиск добавлен в белый список.' 
+        elif old_mark_value == '👀':
+            new_mark_value = '❌ '
+            bot_message = 'Поиск добавлен в черный список.' 
+        else:
+            new_mark_value = '  '
+            bot_message = 'Пометка снята.' 
+        logging.info(f'before assign new_mark_value: {pushed_row_index=}, {old_mark_value=}, {new_mark_value=}')
         new_ikb[pushed_row_index][0]['text'] = new_mark_value + new_ikb[pushed_row_index][0]['text'][2:]
         # Update the search 'whiteness' (tracking state)
         record_search_whiteness(user_id, int(user_callback['hash']), new_mark_value)
-        if new_mark_value=='👀':
-            bot_message = 'Поиск добавлен в белый список.' 
-        elif new_mark_value=='❌ ':
-            bot_message = 'Поиск добавлен в черный список.' 
-        else:
-            bot_message = 'Пометка снята.' 
         logging.info(f'before send_callback_answer_to_api: {new_ikb=}')
         send_callback_answer_to_api(bot_token, callback_id, bot_message)
         reply_markup = InlineKeyboardMarkup(new_ikb)
