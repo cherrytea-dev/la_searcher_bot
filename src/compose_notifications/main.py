@@ -1489,11 +1489,17 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
             temp_user_list = []
             sql_text_ = sqlalchemy.text("""
             SELECT u.user_id FROM users u
-            WHERE exists(select 1 from user_pref_search_whitelist upswls WHERE upswls.user_id=u.user_id and upswls.search_id=:a)
-            OR not exists(select 1 from user_pref_search_whitelist upswl WHERE upswl.user_id=u.user_id)
-            OR not exists(select 1 from user_pref_search_filtering upsf WHERE upsf.user_id=u.user_id and 'whitelist' = ANY(upsf.filter_name));
+            LEFT JOIN user_pref_search_filtering upsf ON upsf.user_id=u.user_id and 'whitelist' = ANY(upsf.filter_name)
+            WHERE upsf.filter_name is not null AND NOT
+            (
+                exists(select 1 from user_pref_search_whitelist upswls WHERE upswls.user_id=u.user_id and upswls.search_id != :a and upswls.search_following_mode=:b)
+                OR
+                exists(select 1 from user_pref_search_whitelist upswls WHERE upswls.user_id=u.user_id and upswls.search_id = :a and upswls.search_following_mode=:c)
+            )
+            OR upsf.filter_name is null
+            ;
             """)
-            rows = conn.execute(sql_text_, a=record.forum_search_num).fetchall()
+            rows = conn.execute(sql_text_, a=record.forum_search_num, b='👀 ', c='❌ ').fetchall()
             logging.info(f'Crop user list step 5: len(rows)=={len(rows)}')
 
             users_following = []
