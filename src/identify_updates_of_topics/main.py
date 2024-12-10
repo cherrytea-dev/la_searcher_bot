@@ -240,7 +240,7 @@ def get_coordinates(db, address):
 
         with db2.connect() as conn:
             stmt = sqlalchemy.text(
-                """SELECT address, status, latitude, longitude, geocoder from geocoding WHERE address=:a 
+                """SELECT address, status, latitude, longitude, geocoder from geocoding WHERE address=:a
                 ORDER BY id DESC LIMIT 1; """
             )
             saved_result = conn.execute(stmt, a=address_string).fetchone()
@@ -269,10 +269,10 @@ def get_coordinates(db, address):
         try:
             with db2.connect() as conn:
                 stmt = sqlalchemy.text(
-                    """INSERT INTO geocoding (address, status, latitude, longitude, geocoder, timestamp) VALUES 
-                    (:a, :b, :c, :d, :e, :f) 
-                    ON CONFLICT(address) DO 
-                    UPDATE SET status=EXCLUDED.status, latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude, 
+                    """INSERT INTO geocoding (address, status, latitude, longitude, geocoder, timestamp) VALUES
+                    (:a, :b, :c, :d, :e, :f)
+                    ON CONFLICT(address) DO
+                    UPDATE SET status=EXCLUDED.status, latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude,
                     geocoder=EXCLUDED.geocoder, timestamp=EXCLUDED.timestamp;"""
                 )
                 conn.execute(stmt, a=address_string, b=status, c=latitude, d=longitude,
@@ -607,7 +607,7 @@ def parse_coordinates(db, search_num):
             with db2.connect() as conn:
                 # check if this record already exists
                 stmt = sqlalchemy.text(
-                    """SELECT search_id FROM search_places 
+                    """SELECT search_id FROM search_places
                     WHERE search_id=:a AND address=:b;"""
                 )
                 prev_data = conn.execute(stmt, a=search_num, b=address_string).fetchone()
@@ -615,7 +615,7 @@ def parse_coordinates(db, search_num):
                 # if it's a new info
                 if not prev_data:
                     stmt = sqlalchemy.text(
-                        """INSERT INTO search_places (search_id, address, timestamp) 
+                        """INSERT INTO search_places (search_id, address, timestamp)
                         VALUES (:a, :b, :c); """
                     )
                     conn.execute(stmt, a=search_num, b=address_string, c=datetime.now())
@@ -841,7 +841,7 @@ def update_coordinates(db, list_of_search_objects):
             if coords[0] != 0 and coords[1] != 0:
                 if old_coords is None:
                     stmt = sqlalchemy.text(
-                        """INSERT INTO search_coordinates (search_id, latitude, longitude, coord_type, upd_time) 
+                        """INSERT INTO search_coordinates (search_id, latitude, longitude, coord_type, upd_time)
                         VALUES (:a, :b, :c, :d, CURRENT_TIMESTAMP); """
                     )
                     conn.execute(stmt, a=search_id, b=coords[0], c=coords[1], d=coords[2])
@@ -859,7 +859,7 @@ def update_coordinates(db, list_of_search_objects):
 
                     if do_update:
                         stmt = sqlalchemy.text(
-                            """UPDATE search_coordinates SET latitude=:a, longitude=:b, coord_type=:c, 
+                            """UPDATE search_coordinates SET latitude=:a, longitude=:b, coord_type=:c,
                             upd_time=CURRENT_TIMESTAMP WHERE search_id=:d; """
                         )
                         conn.execute(stmt, a=coords[0], b=coords[1], c=coords[2], d=search_id)
@@ -867,7 +867,7 @@ def update_coordinates(db, list_of_search_objects):
             # case when coords are not defined, but there were saved coords type 1 or 2 – so we need to mark as deleted
             elif old_coords and old_coords[2] and old_coords[2][0] in {'1', '2'}:
                 stmt = sqlalchemy.text(
-                    """UPDATE search_coordinates SET coord_type=:a, upd_time=CURRENT_TIMESTAMP 
+                    """UPDATE search_coordinates SET coord_type=:a, upd_time=CURRENT_TIMESTAMP
                        WHERE search_id=:b; """
                 )
                 conn.execute(stmt, a=coords[2], b=search_id)
@@ -1443,16 +1443,16 @@ def parse_one_comment(db, search_num, comment_num):
             if comment_text:
                 if not ignore:
                     stmt = sqlalchemy.text(
-                        """INSERT INTO comments (comment_url, comment_text, comment_author_nickname, 
-                        comment_author_link, search_forum_num, comment_num, comment_global_num) 
+                        """INSERT INTO comments (comment_url, comment_text, comment_author_nickname,
+                        comment_author_link, search_forum_num, comment_num, comment_global_num)
                         VALUES (:a, :b, :c, :d, :e, :f, :g); """
                     )
                     conn.execute(stmt, a=comment_url, b=comment_text, c=comment_author_nickname,
                                  d=comment_author_link, e=search_num, f=comment_num, g=comment_forum_global_id)
                 else:
                     stmt = sqlalchemy.text(
-                        """INSERT INTO comments (comment_url, comment_text, comment_author_nickname, 
-                        comment_author_link, search_forum_num, comment_num, notification_sent) 
+                        """INSERT INTO comments (comment_url, comment_text, comment_author_nickname,
+                        comment_author_link, search_forum_num, comment_num, notification_sent)
                         VALUES (:a, :b, :c, :d, :e, :f, :g); """
                     )
                     conn.execute(stmt, a=comment_url, b=comment_text, c=comment_author_nickname,
@@ -1494,10 +1494,10 @@ def update_change_log_and_searches(db, folder_num):
     with db.connect() as conn:
 
         sql_text = sqlalchemy.text(
-            """SELECT search_forum_num, parsed_time, status, forum_search_title, search_start_time, 
+            """SELECT search_forum_num, parsed_time, status, forum_search_title, search_start_time,
             num_of_replies, family_name, age, id, forum_folder_id, topic_type, display_name, age_min, age_max,
             status, city_locations, topic_type_id
-            FROM forum_summary_snapshot WHERE 
+            FROM forum_summary_snapshot WHERE
             forum_folder_id = :a; """
         )
         snapshot = conn.execute(sql_text, a=folder_num).fetchall()
@@ -1515,8 +1515,8 @@ def update_change_log_and_searches(db, folder_num):
 
         # TODO - in future: should the number of searches be limited? Probably to JOIN change_log and WHERE folder=...
         searches_full_list = conn.execute(
-            """SELECT search_forum_num, parsed_time, status, forum_search_title, search_start_time, 
-            num_of_replies, family_name, age, id, forum_folder_id, 
+            """SELECT search_forum_num, parsed_time, status, forum_search_title, search_start_time,
+            num_of_replies, family_name, age, id, forum_folder_id,
             topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id FROM searches;"""
         ).fetchall()
         prev_searches_list = []
@@ -1597,7 +1597,7 @@ def update_change_log_and_searches(db, folder_num):
         if change_log_updates_list:
 
             stmt = sqlalchemy.text(
-                """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters, 
+                """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters,
                 change_type) values (:a, :b, :c, :d, :e, :f) RETURNING id;"""
             )
 
@@ -1635,7 +1635,7 @@ def update_change_log_and_searches(db, folder_num):
 
         if change_log_new_topics_list:
             stmt = sqlalchemy.text(
-                """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type) 
+                """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type)
                 values (:a, :b, :c, :d, :e) RETURNING id;"""
             )
             for line in change_log_new_topics_list:
@@ -1646,9 +1646,9 @@ def update_change_log_and_searches(db, folder_num):
         '''3. ADD to Searches'''
         if new_topics_from_snapshot_list:
             stmt = sqlalchemy.text(
-                """INSERT INTO searches (search_forum_num, parsed_time, forum_search_title, 
-                search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, 
-                display_name, age_min, age_max, status, city_locations, topic_type_id) 
+                """INSERT INTO searches (search_forum_num, parsed_time, forum_search_title,
+                search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type,
+                display_name, age_min, age_max, status, city_locations, topic_type_id)
                 VALUES (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
             )
             for line in new_topics_from_snapshot_list:
@@ -1673,7 +1673,7 @@ def update_change_log_and_searches(db, folder_num):
                 # add the latest activities for the search
                 for activity_line in search_activities:
                     sql_text = sqlalchemy.text(
-                        """INSERT INTO search_activities (search_forum_num, activity_type, activity_status, 
+                        """INSERT INTO search_activities (search_forum_num, activity_type, activity_status,
                         timestamp) values ( :a, :b, :c, :d); """
                     )
                     conn.execute(sql_text, a=search_num, b=activity_line, c='ongoing', d=datetime.now())
@@ -1686,7 +1686,7 @@ def update_change_log_and_searches(db, folder_num):
                 if managers:
                     try:
                         sql_text = sqlalchemy.text(
-                            """INSERT INTO search_attributes (search_forum_num, attribute_name, attribute_value, 
+                            """INSERT INTO search_attributes (search_forum_num, attribute_name, attribute_value,
                             timestamp) values ( :a, :b, :c, :d); """
                         )
                         conn.execute(sql_text, a=search_num, b='managers', c=str(managers), d=datetime.now())
@@ -1713,7 +1713,7 @@ def update_change_log_and_searches(db, folder_num):
 
         '''5. UPD added to Searches'''
         searches_full_list = conn.execute(
-            """SELECT search_forum_num, parsed_time, status, forum_search_title, search_start_time, 
+            """SELECT search_forum_num, parsed_time, status, forum_search_title, search_start_time,
             num_of_replies, family_name, age, id, forum_folder_id FROM searches;"""
         ).fetchall()
         curr_searches_list = []
@@ -1736,9 +1736,9 @@ def update_change_log_and_searches(db, folder_num):
                 new_topics_from_snapshot_list.append(snapshot_line)
         if new_topics_from_snapshot_list:
             stmt = sqlalchemy.text(
-                """INSERT INTO searches (search_forum_num, parsed_time, forum_search_title, 
-                search_start_time, num_of_replies, age, family_name, forum_folder_id, 
-                topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id) values 
+                """INSERT INTO searches (search_forum_num, parsed_time, forum_search_title,
+                search_start_time, num_of_replies, age, family_name, forum_folder_id,
+                topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id) values
                 (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
             )
             for line in new_topics_from_snapshot_list:
@@ -1792,9 +1792,9 @@ def process_one_folder(db, folder_to_parse):
             conn.execute(sql_text, a=folder_num)
 
             sql_text = sqlalchemy.text(
-                """INSERT INTO forum_summary_snapshot (search_forum_num, parsed_time, forum_search_title, 
-                search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, display_name, age_min, 
-                age_max, status, city_locations, topic_type_id) 
+                """INSERT INTO forum_summary_snapshot (search_forum_num, parsed_time, forum_search_title,
+                search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, display_name, age_min,
+                age_max, status, city_locations, topic_type_id)
                 VALUES (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
             )
             # FIXME – add status
@@ -1874,7 +1874,7 @@ def save_function_into_register(db, context, start_time, function_id, change_log
 
         with db.connect() as conn:
             sql_text = sqlalchemy.text("""INSERT INTO functions_registry
-                                                      (event_id, time_start, cloud_function_name, function_id, 
+                                                      (event_id, time_start, cloud_function_name, function_id,
                                                       time_finish, params)
                                                       VALUES (:a, :b, :c, :d, :e, :f)
                                                       /*action='save_ide_topics_function' */;""")

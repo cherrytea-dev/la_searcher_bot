@@ -1248,7 +1248,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
         [optional, only for search] avia = True / False,
         [optional, only for search / search reverse] status,
         [optional, only for search] persons =
-            {   
+            {
             total_persons = [1-9] / group / undefined
             age_min = [0-199]
             age_max = [0-199]
@@ -1256,9 +1256,9 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
             total_display_name = display name + age (age range)
             person =
                [
-                [optional] person = 
+                [optional] person =
                     {
-                    name = one-word description,    
+                    name = one-word description,
                     [optional] age = [0-199] in years,
                     [optional] age_min = [0-199] in years,
                     [optional] age_max = [0-199] in years,

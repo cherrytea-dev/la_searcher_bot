@@ -445,7 +445,7 @@ def clean_up_content(init_content):
         reco_content = [re.sub(pattern, '', line) for line in reco_content]
 
     reco_content = [re.sub('ё', 'е', line) for line in reco_content]
-    
+
     translate_table = str.maketrans({'{': r'\{', '}': r'\}'})
     reco_content = [line.translate(translate_table) for line in reco_content]
 
@@ -495,7 +495,7 @@ def process_first_page_comparison(conn, search_id, first_page_content_prev, firs
     """compare first post content to identify any diffs"""
 
     # check the latest status on this search
-    sql_text = sqlalchemy.text("""SELECT display_name, status, family_name, age, status 
+    sql_text = sqlalchemy.text("""SELECT display_name, status, family_name, age, status
                                       FROM searches WHERE search_forum_num=:a;""")
 
     what_is_saved_in_psql = conn.execute(sql_text, a=search_id).fetchone()
@@ -819,7 +819,7 @@ def save_function_into_register(conn, context, start_time, function_id, change_l
         json_of_params = json.dumps({"ch_id": change_log_ids})
 
         sql_text = sqlalchemy.text("""INSERT INTO functions_registry
-                                                  (event_id, time_start, cloud_function_name, function_id, 
+                                                  (event_id, time_start, cloud_function_name, function_id,
                                                   time_finish, params)
                                                   VALUES (:a, :b, :c, :d, :e, :f)
                                                   /*action='save_ide_f_posts_function' */;""")
@@ -867,16 +867,16 @@ def main(event, context):  # noqa
                     if not first_page_content_curr_compact:
                         content_compact = get_compressed_first_post(first_page_content_curr)
                         sql_text = sqlalchemy.text("""
-                                        UPDATE search_first_posts SET content_compact=:a 
+                                        UPDATE search_first_posts SET content_compact=:a
                                         WHERE search_id=:b AND actual = True;
                                         """)
                         conn.execute(sql_text, a=content_compact, b=search_id)
 
                     # get the Previous First Page Content
                     sql_text = sqlalchemy.text("""
-                                   SELECT content 
-                                   FROM search_first_posts 
-                                   WHERE search_id=:a AND actual=False 
+                                   SELECT content
+                                   FROM search_first_posts
+                                   WHERE search_id=:a AND actual=False
                                    ORDER BY timestamp DESC;
                                    """)
                     first_page_content_prev = conn.execute(sql_text, a=search_id).fetchone()[0]

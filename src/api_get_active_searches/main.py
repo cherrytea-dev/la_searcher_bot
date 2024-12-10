@@ -154,69 +154,69 @@ def get_list_of_active_searches_from_db(request: json) -> tuple:
     cur = conn_psy.cursor()
 
     if folders_list:
-        cur.execute("""WITH 
+        cur.execute("""WITH
             user_regions_filtered AS (
                 SELECT DISTINCT folder_id AS forum_folder_num
                 FROM geo_folders
                 WHERE folder_type='searches' AND folder_id = ANY(%s)
-            ), 
+            ),
             s2 AS (
-                SELECT search_start_time, forum_folder_id, topic_type, search_forum_num, 
+                SELECT search_start_time, forum_folder_id, topic_type, search_forum_num,
                         status, display_name, family_name,
                 age_min, age_max
                 FROM searches
                 WHERE forum_folder_id IN (SELECT forum_folder_num FROM user_regions_filtered)
-                AND status NOT IN ('НЖ', 'НП', 'Завершен', 'Найден') 
+                AND status NOT IN ('НЖ', 'НП', 'Завершен', 'Найден')
                 AND topic_type_id != 1
                 AND search_start_time >= CURRENT_TIMESTAMP - INTERVAL '%s days'
                 ORDER BY search_start_time DESC
             ),
-            s3 AS (SELECT s2.* 
-                FROM s2 
+            s3 AS (SELECT s2.*
+                FROM s2
                 LEFT JOIN search_health_check shc
                 ON s2.search_forum_num=shc.search_forum_num
-                WHERE (shc.status is NULL OR shc.status='ok' OR shc.status='regular') 
+                WHERE (shc.status is NULL OR shc.status='ok' OR shc.status='regular')
                 ORDER BY s2.search_start_time DESC
             ),
-            s4 AS (SELECT s3.*, sfp.content 
-                FROM s3 
-                LEFT JOIN search_first_posts AS sfp 
+            s4 AS (SELECT s3.*, sfp.content
+                FROM s3
+                LEFT JOIN search_first_posts AS sfp
                 ON s3.search_forum_num=sfp.search_id
                 WHERE sfp.actual = True
-            )    
+            )
             SELECT * FROM s4;""",
                     (folders_list, depth_days))
     else:
-        cur.execute("""WITH 
+        cur.execute("""WITH
             user_regions_filtered AS (
                 SELECT DISTINCT folder_id AS forum_folder_num
                 FROM geo_folders
                 WHERE folder_type='searches'
-            ), 
+            ),
             s2 AS (
-                SELECT search_start_time, forum_folder_id, topic_type, search_forum_num, 
+                SELECT search_start_time, forum_folder_id, topic_type, search_forum_num,
                         status, display_name, family_name,
                 age_min, age_max
                 FROM searches
                 WHERE forum_folder_id IN (SELECT forum_folder_num FROM user_regions_filtered)
-                AND status NOT IN ('НЖ', 'НП', 'Завершен', 'Найден') 
+                AND status NOT IN ('НЖ', 'НП', 'Завершен', 'Найден')
                 AND topic_type_id != 1
                 AND search_start_time >= CURRENT_TIMESTAMP - INTERVAL '%s days'
                 ORDER BY search_start_time DESC
             ),
-            s3 AS (SELECT s2.* 
-                FROM s2 
+            s3 AS (SELECT s2.*
+                FROM s2
                 LEFT JOIN search_health_check shc
                 ON s2.search_forum_num=shc.search_forum_num
-                WHERE (shc.status is NULL OR shc.status='ok' OR shc.status='regular') 
+                WHERE (shc.status is NULL OR shc.status='ok' OR shc.status='regular')
                 ORDER BY s2.search_start_time DESC
             ),
-            s4 AS (SELECT s3.*, sfp.content 
-                FROM s3 
-                LEFT JOIN search_first_posts AS sfp 
+            s4 AS (SELECT s3.*, sfp.content
+                FROM s3
+                LEFT JOIN search_first_posts AS sfp
                 ON s3.search_forum_num=sfp.search_id
                 WHERE sfp.actual = True
-            )    
+            )
             SELECT * FROM s4;""",
                     (depth_days, ))
 
