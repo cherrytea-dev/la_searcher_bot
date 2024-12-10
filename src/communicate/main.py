@@ -1685,11 +1685,11 @@ def manage_search_whiteness(cur, user_id, user_callback, callback_id, callback_q
 
         logging.info(f'before ikb_row = ikb[pushed_row_index]: {new_ikb=}')
         ikb_row = ikb[pushed_row_index]
-        old_mark_value = (ikb_row[0]['text'][:1] )
+        old_mark_value = (ikb_row[0]['text'][:2] )
         ### mark_str = '👀' if to_use_eyes_emo else '!!'
         new_mark_value = '👀' if old_mark_value == '  ' else '❌ ' if old_mark_value == '👀' else '  '
-        logging.info(f'before assign new_mark_value: {pushed_row_index=}, {new_mark_value=}.')
-        new_ikb[pushed_row_index][0]['text'] = new_mark_value + new_ikb[pushed_row_index][0]['text'][len(new_mark_value):]
+        logging.info(f'before assign new_mark_value: {pushed_row_index=}, {new_mark_value=},')
+        new_ikb[pushed_row_index][0]['text'] = new_mark_value + new_ikb[pushed_row_index][0]['text'][2:]
         # Update the search 'whiteness' (tracking state)
         record_search_whiteness(user_id, int(user_callback['hash']), new_mark_value)
         if new_mark_value=='👀':
@@ -3403,8 +3403,9 @@ def main(request):
 
             elif got_message == b.set.topic_type.text or b.topic_types.contains(got_message) or (got_hash and b.topic_types.contains(
                     got_hash)):  # noqa
+                callback_query_message_id = callback_query.message.id if callback_query else None
                 bot_message, reply_markup = manage_topic_type(cur, user_id, got_message, b, got_callback,
-                                                              callback_query_id, bot_token, callback_query.message.id)
+                                                              callback_query_id, bot_token, callback_query_message_id)
 
             elif got_message in {b_set_pref_age, b_pref_age_0_6_act, b_pref_age_0_6_deact, b_pref_age_7_13_act,
                                  b_pref_age_7_13_deact, b_pref_age_14_20_act, b_pref_age_14_20_deact,
