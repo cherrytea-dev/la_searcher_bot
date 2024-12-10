@@ -203,12 +203,12 @@ def get_user_data_from_db(user_id: int) -> dict:
     cur = conn_psy.cursor()
 
     # create user basic parameters
-    cur.execute("""SELECT u.user_id, uc.latitude, uc.longitude, ur.radius 
-                    FROM users AS u 
-                    LEFT JOIN user_coordinates AS uc 
-                    ON u.user_id=uc.user_id 
-                    LEFT JOIN user_pref_radius AS ur 
-                    ON uc.user_id=ur.user_id 
+    cur.execute("""SELECT u.user_id, uc.latitude, uc.longitude, ur.radius
+                    FROM users AS u
+                    LEFT JOIN user_coordinates AS uc
+                    ON u.user_id=uc.user_id
+                    LEFT JOIN user_pref_radius AS ur
+                    ON uc.user_id=ur.user_id
                     WHERE u.user_id=%s;""",
                 (user_id,))
     raw_data = cur.fetchone()
@@ -221,47 +221,47 @@ def get_user_data_from_db(user_id: int) -> dict:
         user_params['regions'] = [28, 29]  # Moscow + Moscow Region
 
         # create searches list – FOR DEMO ONLY Moscow Region (folders 276 and 41)
-        cur.execute("""WITH 
+        cur.execute("""WITH
             user_regions AS (
-                SELECT forum_folder_num from user_regional_preferences 
+                SELECT forum_folder_num from user_regional_preferences
                 WHERE forum_folder_num=276 OR forum_folder_num=41),
             user_regions_filtered AS (
-                SELECT ur.* 
-                FROM user_regions AS ur 
-                LEFT JOIN geo_folders AS f 
-                ON ur.forum_folder_num=f.folder_id 
-                WHERE f.folder_type='searches'), 
+                SELECT ur.*
+                FROM user_regions AS ur
+                LEFT JOIN geo_folders AS f
+                ON ur.forum_folder_num=f.folder_id
+                WHERE f.folder_type='searches'),
             s2 AS (SELECT search_forum_num, search_start_time, display_name, status, family_name,
                 topic_type, topic_type_id, city_locations, age_min, age_max
                 FROM searches
-                WHERE forum_folder_id IN (SELECT forum_folder_num FROM user_regions_filtered) 
-                AND status != 'НЖ' 
-                AND status != 'НП' 
-                AND status != 'Завершен' 
-                AND status != 'Найден' 
+                WHERE forum_folder_id IN (SELECT forum_folder_num FROM user_regions_filtered)
+                AND status != 'НЖ'
+                AND status != 'НП'
+                AND status != 'Завершен'
+                AND status != 'Найден'
                 AND topic_type_id != 1
                 ORDER BY search_start_time DESC
                 LIMIT 30),
-            s3 AS (SELECT s2.* 
-                FROM s2 
+            s3 AS (SELECT s2.*
+                FROM s2
                 LEFT JOIN search_health_check shc
                 ON s2.search_forum_num=shc.search_forum_num
-                WHERE (shc.status is NULL OR shc.status='ok' OR shc.status='regular') 
+                WHERE (shc.status is NULL OR shc.status='ok' OR shc.status='regular')
                 ORDER BY s2.search_start_time DESC),
-            s4 AS (SELECT s3.*, sfp.content 
-                FROM s3 
-                LEFT JOIN search_first_posts AS sfp 
+            s4 AS (SELECT s3.*, sfp.content
+                FROM s3
+                LEFT JOIN search_first_posts AS sfp
                 ON s3.search_forum_num=sfp.search_id
                 WHERE sfp.actual = True),
-            s5 AS (SELECT s4.*, sc.latitude, sc.longitude, sc.coord_type 
-                FROM s4 
-                LEFT JOIN search_coordinates AS sc 
+            s5 AS (SELECT s4.*, sc.latitude, sc.longitude, sc.coord_type
+                FROM s4
+                LEFT JOIN search_coordinates AS sc
                 ON s4.search_forum_num=sc.search_id)
 
-            SELECT distinct s5.*, max(parsed_time) OVER (PARTITION BY cl.search_forum_num) AS last_change_time 
-                FROM s5 
-                LEFT JOIN change_log AS cl 
-                ON s5.search_forum_num=cl.search_forum_num 
+            SELECT distinct s5.*, max(parsed_time) OVER (PARTITION BY cl.search_forum_num) AS last_change_time
+                FROM s5
+                LEFT JOIN change_log AS cl
+                ON s5.search_forum_num=cl.search_forum_num
                 ;""",
                     (user_id,))
 
@@ -302,46 +302,46 @@ def get_user_data_from_db(user_id: int) -> dict:
             user_params['regions'] = user_regions
 
         # create searches list
-        cur.execute("""WITH 
+        cur.execute("""WITH
             user_regions AS (
                 select forum_folder_num from user_regional_preferences where user_id=%s),
             user_regions_filtered AS (
-                SELECT ur.* 
-                FROM user_regions AS ur 
-                LEFT JOIN geo_folders AS f 
-                ON ur.forum_folder_num=f.folder_id 
-                WHERE f.folder_type='searches'), 
+                SELECT ur.*
+                FROM user_regions AS ur
+                LEFT JOIN geo_folders AS f
+                ON ur.forum_folder_num=f.folder_id
+                WHERE f.folder_type='searches'),
             s2 AS (SELECT search_forum_num, search_start_time, display_name, status, family_name,
                 topic_type, topic_type_id, city_locations, age_min, age_max
                 FROM searches
-                WHERE forum_folder_id IN (SELECT forum_folder_num FROM user_regions_filtered) 
-                AND status != 'НЖ' 
-                AND status != 'НП' 
-                AND status != 'Завершен' 
-                AND status != 'Найден' 
+                WHERE forum_folder_id IN (SELECT forum_folder_num FROM user_regions_filtered)
+                AND status != 'НЖ'
+                AND status != 'НП'
+                AND status != 'Завершен'
+                AND status != 'Найден'
                 AND topic_type_id != 1
                 ORDER BY search_start_time DESC
                 LIMIT 30),
-            s3 AS (SELECT s2.* 
-                FROM s2 
+            s3 AS (SELECT s2.*
+                FROM s2
                 LEFT JOIN search_health_check shc
                 ON s2.search_forum_num=shc.search_forum_num
-                WHERE (shc.status is NULL OR shc.status='ok' OR shc.status='regular') 
+                WHERE (shc.status is NULL OR shc.status='ok' OR shc.status='regular')
                 ORDER BY s2.search_start_time DESC),
-            s4 AS (SELECT s3.*, sfp.content 
-                FROM s3 
-                LEFT JOIN search_first_posts AS sfp 
+            s4 AS (SELECT s3.*, sfp.content
+                FROM s3
+                LEFT JOIN search_first_posts AS sfp
                 ON s3.search_forum_num=sfp.search_id
                 WHERE sfp.actual = True),
-            s5 AS (SELECT s4.*, sc.latitude, sc.longitude, sc.coord_type 
-                FROM s4 
-                LEFT JOIN search_coordinates AS sc 
+            s5 AS (SELECT s4.*, sc.latitude, sc.longitude, sc.coord_type
+                FROM s4
+                LEFT JOIN search_coordinates AS sc
                 ON s4.search_forum_num=sc.search_id)
-                
-            SELECT distinct s5.*, max(parsed_time) OVER (PARTITION BY cl.search_forum_num) AS last_change_time 
-                FROM s5 
-                LEFT JOIN change_log AS cl 
-                ON s5.search_forum_num=cl.search_forum_num 
+
+            SELECT distinct s5.*, max(parsed_time) OVER (PARTITION BY cl.search_forum_num) AS last_change_time
+                FROM s5
+                LEFT JOIN change_log AS cl
+                ON s5.search_forum_num=cl.search_forum_num
                 ;""",
                     (user_id,))
 
@@ -430,8 +430,8 @@ def save_user_statistics_to_db(user_id: int, response: bool) -> None:
     cur = conn_psy.cursor()
 
     try:
-        cur.execute("""INSERT INTO stat_map_usage 
-                        (user_id, timestamp, response) 
+        cur.execute("""INSERT INTO stat_map_usage
+                        (user_id, timestamp, response)
                         VALUES (%s, CURRENT_TIMESTAMP, %s);""",
                     (user_id, json_to_save))
     except Exception as e:

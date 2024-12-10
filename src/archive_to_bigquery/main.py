@@ -68,7 +68,7 @@ def archive_notif_by_user(client):
     query = """
             SELECT
                 count(*) AS count
-            FROM 
+            FROM
                 notif_archive.notif_by_user__archive
             """
 
@@ -96,15 +96,15 @@ def archive_notif_by_user(client):
     # 3. Copy all the new rows from psql to bq
     query = '''
                 INSERT INTO
-                    notif_archive.notif_by_user__archive (message_id, mailing_id, user_id, message_content, 
-                    message_text, message_type, message_params, message_group_id, change_log_id, created, completed, 
+                    notif_archive.notif_by_user__archive (message_id, mailing_id, user_id, message_content,
+                    message_text, message_type, message_params, message_group_id, change_log_id, created, completed,
                     cancelled, failed, num_of_fails)
                 SELECT *
                 FROM
                     EXTERNAL_QUERY("projects/lizaalert-bot-01/locations/europe-west3/connections/bq_to_cloud_sql",
                     """SELECT * FROM notif_by_user__history;""")
-                WHERE NOT message_id IN 
-                    (SELECT message_id FROM notif_archive.notif_by_user__archive) 
+                WHERE NOT message_id IN
+                    (SELECT message_id FROM notif_archive.notif_by_user__archive)
                 '''
 
     query_move = client.query(query)
@@ -116,7 +116,7 @@ def archive_notif_by_user(client):
     query = """
             SELECT
                 count(*) AS count
-            FROM 
+            FROM
                 notif_archive.notif_by_user__archive
             """
 
@@ -131,7 +131,7 @@ def archive_notif_by_user(client):
     query = """
             SELECT
                 message_id, count(*) AS count
-            FROM 
+            FROM
                 notif_archive.notif_by_user__archive
             GROUP BY 1
             HAVING count(*) > 1
@@ -196,9 +196,9 @@ def save_sql_stat_table_sizes(client):
             FROM
               EXTERNAL_QUERY("projects/lizaalert-bot-01/locations/europe-west3/connections/bq_to_cloud_sql",
                 """
-                  SELECT 
-                    NOW() AS timestamp, * 
-                  FROM 
+                  SELECT
+                    NOW() AS timestamp, *
+                  FROM
                     (
                     SELECT
                       table_name, round(pg_relation_size(quote_ident(table_name))/1024/1024, 1) AS size_mb
@@ -206,10 +206,10 @@ def save_sql_stat_table_sizes(client):
                       information_schema.tables
                     WHERE
                       table_schema = 'public'
-                    ) AS s1  
-                  WHERE 
+                    ) AS s1
+                  WHERE
                     s1.size_mb > 1
-                  ORDER BY 
+                  ORDER BY
                     2 DESC
                   ;
                 """

@@ -85,10 +85,10 @@ def move_notifications_to_history_in_psql(conn):
 
     # checker – gives us a minimal date in notif_by_user, which is at least 2 hours older than current
     stmt = sqlalchemy.text("""
-                        SELECT MIN(cl.parsed_time) 
-                        FROM notif_by_user AS nm 
-                        LEFT JOIN change_log AS cl 
-                        ON nm.change_log_id=cl.id 
+                        SELECT MIN(cl.parsed_time)
+                        FROM notif_by_user AS nm
+                        LEFT JOIN change_log AS cl
+                        ON nm.change_log_id=cl.id
                         WHERE cl.parsed_time < NOW() - INTERVAL '2 hour' ORDER BY 1 LIMIT 1;
                         """)
     oldest_date_nbu = conn.execute(stmt).fetchone()
@@ -107,7 +107,7 @@ def move_notifications_to_history_in_psql(conn):
         # migrate all records with "lowest" mailing_id from notif_by_user to notif_by_user__history
         stmt = sqlalchemy.text("""
             INSERT INTO notif_by_user__history
-            SELECT * FROM notif_by_user 
+            SELECT * FROM notif_by_user
             WHERE mailing_id = (
                     SELECT MIN(mailing_id) FROM notif_by_user
                 );
@@ -116,7 +116,7 @@ def move_notifications_to_history_in_psql(conn):
 
         # delete the old stuff
         stmt = sqlalchemy.text("""
-                DELETE FROM notif_by_user 
+                DELETE FROM notif_by_user
                 WHERE mailing_id = (
                     SELECT MIN(mailing_id) FROM notif_by_user
                 )
@@ -131,10 +131,10 @@ def move_notifications_to_history_in_psql(conn):
 
         # checker – gives us a minimal date in notif_by_user_status, which is at least 2 days older than current
         stmt = sqlalchemy.text("""
-                                    SELECT MIN(cl.parsed_time) 
-                                    FROM notif_by_user_status AS nm 
-                                    LEFT JOIN change_log AS cl 
-                                    ON nm.change_log_id=cl.id 
+                                    SELECT MIN(cl.parsed_time)
+                                    FROM notif_by_user_status AS nm
+                                    LEFT JOIN change_log AS cl
+                                    ON nm.change_log_id=cl.id
                                     WHERE cl.parsed_time < NOW() - INTERVAL '2 hour' ORDER BY 1 LIMIT 1;
                                     """)
         oldest_date_nbus = conn.execute(stmt).fetchone()
@@ -154,7 +154,7 @@ def move_notifications_to_history_in_psql(conn):
             # migrate all records with "lowest" mailing_id from notif_by_user_status to notif_by_user__history
             stmt = sqlalchemy.text("""
                             INSERT INTO notif_by_user_status__history
-                            SELECT * FROM notif_by_user_status 
+                            SELECT * FROM notif_by_user_status
                             WHERE mailing_id = (
                                     SELECT MIN(mailing_id) FROM notif_by_user_status
                                 );
@@ -163,7 +163,7 @@ def move_notifications_to_history_in_psql(conn):
 
             # delete the old stuff
             stmt = sqlalchemy.text("""
-                                DELETE FROM notif_by_user_status 
+                                DELETE FROM notif_by_user_status
                                 WHERE mailing_id = (
                                     SELECT MIN(mailing_id) FROM notif_by_user_status
                                 )
@@ -186,20 +186,20 @@ def move_first_posts_to_history_in_psql(conn):
     # 1. COMPLETED SEARCHES
     # take all the first_posts for "completed" searches and copy it to __history table
     stmt = sqlalchemy.text("""
-                        INSERT INTO 
-                            search_first_posts__history 
+                        INSERT INTO
+                            search_first_posts__history
                         (
                             SELECT
                                 sfp.*
                             FROM
-                                search_first_posts AS sfp 
-                            INNER JOIN 
-                                searches AS s 
-                            ON sfp.search_id=s.search_forum_num 
-                            WHERE s.status = 'НЖ' or s.status = 'НП' or s.status = 'Найден' 
+                                search_first_posts AS sfp
+                            INNER JOIN
+                                searches AS s
+                            ON sfp.search_id=s.search_forum_num
+                            WHERE s.status = 'НЖ' or s.status = 'НП' or s.status = 'Найден'
                                 OR s.status = 'Завершен'
                         )
-                        
+
                         ;""")
     # number_of_copied_rows = conn.execute(stmt).fetchone()
     conn.execute(stmt)
@@ -208,21 +208,21 @@ def move_first_posts_to_history_in_psql(conn):
 
     # delete all the copied info from search_first_posts table
     stmt = sqlalchemy.text("""
-        DELETE FROM 
-            search_first_posts 
-        WHERE 
+        DELETE FROM
+            search_first_posts
+        WHERE
             id in (
                 SELECT
                     sfp.id
                 FROM
-                    search_first_posts AS sfp 
-                INNER JOIN 
-                    searches AS s 
-                ON 
-                    sfp.search_id=s.search_forum_num 
-                WHERE s.status = 'НЖ' or s.status = 'НП' or s.status = 'Найден' 
+                    search_first_posts AS sfp
+                INNER JOIN
+                    searches AS s
+                ON
+                    sfp.search_id=s.search_forum_num
+                WHERE s.status = 'НЖ' or s.status = 'НП' or s.status = 'Найден'
                     OR s.status = 'Завершен'
-        
+
         );""")
     # number_of_deleted_rows = conn.execute(stmt).fetchone()
     conn.execute(stmt)
@@ -232,19 +232,19 @@ def move_first_posts_to_history_in_psql(conn):
     # 2. ELDER FIRST POSTS snapshots
     # take all the first_posts for "completed" searches and copy it to __history table
     stmt = sqlalchemy.text("""
-                            INSERT INTO 
-                                search_first_posts__history 
+                            INSERT INTO
+                                search_first_posts__history
                             (
                                 SELECT
-                                    s1.id, s1.search_id, s1.timestamp, s1.actual, s1.content_hash, s1.content, 
-                                    s1.num_of_checks, s1.coords, s1.field_trip, s1.content_compact 
+                                    s1.id, s1.search_id, s1.timestamp, s1.actual, s1.content_hash, s1.content,
+                                    s1.num_of_checks, s1.coords, s1.field_trip, s1.content_compact
                                 FROM (
-                                    SELECT 
-                                        *, RANK() OVER (PARTITION BY search_id ORDER BY timestamp DESC) AS rank 
+                                    SELECT
+                                        *, RANK() OVER (PARTITION BY search_id ORDER BY timestamp DESC) AS rank
                                     FROM
-                                        search_first_posts 
-                                    ORDER BY 
-                                        1, 2 DESC) as s1 
+                                        search_first_posts
+                                    ORDER BY
+                                        1, 2 DESC) as s1
                                 WHERE rank > 2
                             )
                             ;""")
@@ -255,19 +255,19 @@ def move_first_posts_to_history_in_psql(conn):
 
     # delete all the copied info from search_first_posts table
     stmt = sqlalchemy.text("""
-            DELETE FROM 
-                search_first_posts 
-            WHERE 
+            DELETE FROM
+                search_first_posts
+            WHERE
                 id in (
                     SELECT
-                        s1.id 
+                        s1.id
                     FROM (
-                        SELECT 
-                            *, RANK() OVER (PARTITION BY search_id ORDER BY timestamp DESC) AS rank 
+                        SELECT
+                            *, RANK() OVER (PARTITION BY search_id ORDER BY timestamp DESC) AS rank
                         FROM
-                            search_first_posts 
-                        ORDER BY 
-                            1, 2 DESC) as s1 
+                            search_first_posts
+                        ORDER BY
+                            1, 2 DESC) as s1
                     WHERE rank > 2
             );""")
     # number_of_deleted_rows = conn.execute(stmt).fetchone()

@@ -186,7 +186,7 @@ def update_one_topic_visibility(search_id):
             stmt = sqlalchemy.text("""DELETE FROM search_health_check WHERE search_forum_num=:a;""")
             conn.execute(stmt, a=search_id)
 
-            stmt = sqlalchemy.text("""INSERT INTO search_health_check (search_forum_num, timestamp, status) 
+            stmt = sqlalchemy.text("""INSERT INTO search_health_check (search_forum_num, timestamp, status)
                                       VALUES (:a, :b, :c);""")
             conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=visibility)
 
@@ -213,10 +213,10 @@ def update_visibility_for_one_hidden_topic():
 
     try:
         hidden_topic = conn.execute("""
-            SELECT h.search_forum_num, s.status 
-            FROM search_health_check AS h LEFT JOIN searches AS s 
-            ON h.search_forum_num=s.search_forum_num 
-            WHERE h.status = 'hidden' ORDER BY RANDOM() LIMIT 1; 
+            SELECT h.search_forum_num, s.status
+            FROM search_health_check AS h LEFT JOIN searches AS s
+            ON h.search_forum_num=s.search_forum_num
+            WHERE h.status = 'hidden' ORDER BY RANDOM() LIMIT 1;
             /*action='get_one_hidden_topic' */;""").fetchone()
 
         hidden_topic_id = int(hidden_topic[0])
@@ -334,20 +334,20 @@ def update_first_posts_and_statuses():
         conn_2 = pool_2.connect()
 
         try:
-            raw_sql_extract = conn_2.execute("""   
-                WITH 
-                s AS (SELECT search_forum_num, search_start_time, forum_folder_id FROM searches 
+            raw_sql_extract = conn_2.execute("""
+                WITH
+                s AS (SELECT search_forum_num, search_start_time, forum_folder_id FROM searches
                     WHERE status = 'Ищем'),
                 h AS (SELECT search_forum_num, status FROM search_health_check),
-                f AS (SELECT folder_id, folder_type FROM geo_folders 
+                f AS (SELECT folder_id, folder_type FROM geo_folders
                     WHERE folder_type IS NULL OR folder_type = 'searches')
-                
-                SELECT s.search_forum_num, s.search_start_time FROM s 
-                LEFT JOIN h ON s.search_forum_num=h.search_forum_num 
-                JOIN f ON s.forum_folder_id=f.folder_id 
+
+                SELECT s.search_forum_num, s.search_start_time FROM s
+                LEFT JOIN h ON s.search_forum_num=h.search_forum_num
+                JOIN f ON s.forum_folder_id=f.folder_id
                 WHERE (h.status != 'deleted' AND h.status != 'hidden') or h.status IS NULL
                 ORDER BY 2 DESC
-                /*action='get_list_of_searches_for_first_post_and_status_update 3.0' */        
+                /*action='get_list_of_searches_for_first_post_and_status_update 3.0' */
                 ;""").fetchall()
 
             # form the list-like table
@@ -499,7 +499,7 @@ def update_first_posts_and_statuses():
 
                     # check the latest hash
                     stmt = sqlalchemy.text("""
-                            SELECT content_hash, num_of_checks, content from search_first_posts WHERE search_id=:a 
+                            SELECT content_hash, num_of_checks, content from search_first_posts WHERE search_id=:a
                             AND actual = TRUE;
                             """)
                     raw_data = conn.execute(stmt, a=topic_id).fetchone()
@@ -520,8 +520,8 @@ def update_first_posts_and_statuses():
 
                             # add new record
                             stmt = sqlalchemy.text("""
-                                    INSERT INTO search_first_posts 
-                                    (search_id, timestamp, actual, content_hash, content, num_of_checks) 
+                                    INSERT INTO search_first_posts
+                                    (search_id, timestamp, actual, content_hash, content, num_of_checks)
                                     VALUES (:a, :b, TRUE, :c, :d, :e);
                                     """)
                             conn.execute(stmt, a=topic_id, b=datetime.datetime.now(), c=act_hash,
@@ -531,8 +531,8 @@ def update_first_posts_and_statuses():
 
                     # if record for this search – does not exist – add a new record
                     else:
-                        stmt = sqlalchemy.text("""INSERT INTO search_first_posts 
-                                                  (search_id, timestamp, actual, content_hash, content, num_of_checks) 
+                        stmt = sqlalchemy.text("""INSERT INTO search_first_posts
+                                                  (search_id, timestamp, actual, content_hash, content, num_of_checks)
                                                   VALUES (:a, :b, TRUE, :c, :d, :e);""")
                         conn.execute(stmt, a=topic_id, b=datetime.datetime.now(), c=act_hash, d=act_content, e=1)
 

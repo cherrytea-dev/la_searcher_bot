@@ -416,8 +416,8 @@ def compose_new_records_from_change_log(conn):
     """compose the New Records list of the unique New Records in Change Log: one Record = One line in Change Log"""
 
     delta_in_cl = conn.execute(
-        """SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log 
-        WHERE notification_sent is NULL 
+        """SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log
+        WHERE notification_sent is NULL
         OR notification_sent='s' ORDER BY id LIMIT 1; """
     ).fetchall()
 
@@ -456,20 +456,20 @@ def enrich_new_record_from_searches(conn, r_line):
 
     try:
         sql_text = sqlalchemy.text(
-            """WITH 
+            """WITH
             s AS (
-                SELECT search_forum_num, forum_search_title, num_of_replies, family_name, age, 
-                    forum_folder_id, search_start_time, display_name, age_min, age_max, status, city_locations, 
-                    topic_type_id 
+                SELECT search_forum_num, forum_search_title, num_of_replies, family_name, age,
+                    forum_folder_id, search_start_time, display_name, age_min, age_max, status, city_locations,
+                    topic_type_id
                 FROM searches
                 WHERE search_forum_num = :a
             ),
             ns AS (
-                SELECT s.search_forum_num, s.status, s.forum_search_title, s.num_of_replies, s.family_name, 
-                    s.age, s.forum_folder_id, sa.latitude, sa.longitude, s.search_start_time, s.display_name, 
-                    s.age_min, s.age_max, s.status, s.city_locations, s.topic_type_id 
-                FROM s 
-                LEFT JOIN search_coordinates as sa 
+                SELECT s.search_forum_num, s.status, s.forum_search_title, s.num_of_replies, s.family_name,
+                    s.age, s.forum_folder_id, sa.latitude, sa.longitude, s.search_start_time, s.display_name,
+                    s.age_min, s.age_max, s.status, s.city_locations, s.topic_type_id
+                FROM s
+                LEFT JOIN search_coordinates as sa
                 ON s.search_forum_num=sa.search_id
             )
             SELECT ns.*, f.folder_display_name
@@ -544,11 +544,11 @@ def enrich_new_record_with_search_activities(conn, r_line):
     """add the lists of current searches' activities to New Record"""
 
     try:
-        list_of_activities = conn.execute("""SELECT sa.search_forum_num, dsa.activity_name from search_activities sa 
-        LEFT JOIN dict_search_activities dsa ON sa.activity_type=dsa.activity_id 
-        WHERE 
+        list_of_activities = conn.execute("""SELECT sa.search_forum_num, dsa.activity_name from search_activities sa
+        LEFT JOIN dict_search_activities dsa ON sa.activity_type=dsa.activity_id
+        WHERE
         sa.activity_type <> '9 - hq closed' AND
-        sa.activity_type <> '8 - info' AND        
+        sa.activity_type <> '8 - info' AND
         sa.activity_status = 'ongoing' ORDER BY sa.id; """).fetchall()
 
         # look for matching Forum Search Numbers in New Records List & Search Activities
@@ -573,9 +573,9 @@ def enrich_new_record_with_managers(conn, r_line):
 
     try:
         list_of_managers = conn.execute("""
-        SELECT search_forum_num, attribute_name, attribute_value 
+        SELECT search_forum_num, attribute_name, attribute_value
         FROM search_attributes
-        WHERE attribute_name='managers' 
+        WHERE attribute_name='managers'
         ORDER BY id; """).fetchall()
 
         # look for matching Forum Search Numbers in New Records List & Search Managers
@@ -598,8 +598,8 @@ def enrich_new_record_with_comments(conn, type_of_comments, r_line):
 
     try:
         if type_of_comments == 'all':
-            comments = conn.execute("""SELECT 
-                                          comment_url, comment_text, comment_author_nickname, comment_author_link, 
+            comments = conn.execute("""SELECT
+                                          comment_url, comment_text, comment_author_nickname, comment_author_link,
                                           search_forum_num, comment_num, comment_global_num
                                        FROM comments WHERE notification_sent IS NULL;""").fetchall()
 
@@ -607,7 +607,7 @@ def enrich_new_record_with_comments(conn, type_of_comments, r_line):
             comments = conn.execute("""SELECT
                                         comment_url, comment_text, comment_author_nickname, comment_author_link,
                                         search_forum_num, comment_num, comment_global_num
-                                    FROM comments WHERE notif_sent_inforg IS NULL 
+                                    FROM comments WHERE notif_sent_inforg IS NULL
                                     AND LOWER(LEFT(comment_author_nickname,6))='инфорг'
                                     AND comment_author_nickname!='Инфорг кинологов';""").fetchall()
         else:
@@ -999,58 +999,58 @@ def compose_users_list_from_users(conn, new_record):
         analytics_start = datetime.datetime.now()
 
         sql_text_psy = sqlalchemy.text("""
-                WITH 
+                WITH
                     user_list AS (
-                        SELECT user_id, username_telegram, role 
-                        FROM users WHERE status IS NULL or status='unblocked'), 
+                        SELECT user_id, username_telegram, role
+                        FROM users WHERE status IS NULL or status='unblocked'),
                     user_notif_pref_prep AS (
-                        SELECT user_id, array_agg(pref_id) aS agg 
+                        SELECT user_id, array_agg(pref_id) aS agg
                         FROM user_preferences GROUP BY user_id),
                     user_notif_type_pref AS (
-                        SELECT user_id, CASE WHEN 30 = ANY(agg) THEN True ELSE False END AS all_notifs 
-                        FROM user_notif_pref_prep 
-                        WHERE (30 = ANY(agg) OR :a = ANY(agg)) 
-                            AND NOT (4/*topic_inforg_comment_new*/ = ANY(agg) 
-                                AND :a = 2/*topic_title_change*/)),/*AK20240409:issue13*/     
+                        SELECT user_id, CASE WHEN 30 = ANY(agg) THEN True ELSE False END AS all_notifs
+                        FROM user_notif_pref_prep
+                        WHERE (30 = ANY(agg) OR :a = ANY(agg))
+                            AND NOT (4/*topic_inforg_comment_new*/ = ANY(agg)
+                                AND :a = 2/*topic_title_change*/)),/*AK20240409:issue13*/
                     user_folders_prep AS (
-                        SELECT user_id, forum_folder_num, 
-                            CASE WHEN count(forum_folder_num) OVER (PARTITION BY user_id) > 1 
+                        SELECT user_id, forum_folder_num,
+                            CASE WHEN count(forum_folder_num) OVER (PARTITION BY user_id) > 1
                                 THEN TRUE ELSE FALSE END as multi_folder
                         FROM user_regional_preferences),
                     user_folders AS (
-                        SELECT user_id, forum_folder_num, multi_folder 
-                        FROM user_folders_prep WHERE forum_folder_num= :b), 
+                        SELECT user_id, forum_folder_num, multi_folder
+                        FROM user_folders_prep WHERE forum_folder_num= :b),
                     user_topic_pref_prep AS (
-                        SELECT user_id, array_agg(topic_type_id) aS agg 
+                        SELECT user_id, array_agg(topic_type_id) aS agg
                         FROM user_pref_topic_type GROUP BY user_id),
                     user_topic_type_pref AS (
                         SELECT user_id, agg AS all_types
-                        FROM user_topic_pref_prep 
+                        FROM user_topic_pref_prep
                         WHERE 30 = ANY(agg) OR :c = ANY(agg)),
                     user_short_list AS (
                         SELECT ul.user_id, ul.username_telegram, ul.role , uf.multi_folder, up.all_notifs
-                        FROM user_list as ul 
-                        LEFT JOIN user_notif_type_pref AS up 
-                        ON ul.user_id=up.user_id 
-                        LEFT JOIN user_folders AS uf 
-                        ON ul.user_id=uf.user_id 
+                        FROM user_list as ul
+                        LEFT JOIN user_notif_type_pref AS up
+                        ON ul.user_id=up.user_id
+                        LEFT JOIN user_folders AS uf
+                        ON ul.user_id=uf.user_id
                         LEFT JOIN user_topic_type_pref AS ut
                         ON ul.user_id=ut.user_id
-                        WHERE 
-                            uf.forum_folder_num IS NOT NULL AND 
-                            up.all_notifs IS NOT NULL AND 
+                        WHERE
+                            uf.forum_folder_num IS NOT NULL AND
+                            up.all_notifs IS NOT NULL AND
                             ut.all_types IS NOT NULL),
                     user_with_loc AS (
-                        SELECT u.user_id, u.username_telegram, uc.latitude, uc.longitude, 
-                            u.role, u.multi_folder, u.all_notifs 
-                        FROM user_short_list AS u 
-                        LEFT JOIN user_coordinates as uc 
+                        SELECT u.user_id, u.username_telegram, uc.latitude, uc.longitude,
+                            u.role, u.multi_folder, u.all_notifs
+                        FROM user_short_list AS u
+                        LEFT JOIN user_coordinates as uc
                         ON u.user_id=uc.user_id)
-                    
-                SELECT ns.user_id, ns.username_telegram, ns.latitude, ns.longitude, ns.role, 
-                    st.num_of_new_search_notifs, ns.multi_folder, ns.all_notifs 
-                FROM user_with_loc AS ns 
-                LEFT JOIN user_stat st 
+
+                SELECT ns.user_id, ns.username_telegram, ns.latitude, ns.longitude, ns.role,
+                    st.num_of_new_search_notifs, ns.multi_folder, ns.all_notifs
+                FROM user_with_loc AS ns
+                LEFT JOIN user_stat st
                 ON ns.user_id=st.user_id
                 /*action='get_user_list_filtered_by_folder_and_notif_type' */;""")
 
@@ -1183,11 +1183,11 @@ def record_notification_statistics(conn):
             number_to_add = dict_of_user_and_number_of_new_notifs[user_id]
 
             sql_text = sqlalchemy.text("""
-            INSERT INTO user_stat (user_id, num_of_new_search_notifs) 
+            INSERT INTO user_stat (user_id, num_of_new_search_notifs)
             VALUES(:a, :b)
-            ON CONFLICT (user_id) DO 
-            UPDATE SET num_of_new_search_notifs = :b + 
-            (SELECT num_of_new_search_notifs from user_stat WHERE user_id = :a) 
+            ON CONFLICT (user_id) DO
+            UPDATE SET num_of_new_search_notifs = :b +
+            (SELECT num_of_new_search_notifs from user_stat WHERE user_id = :a)
             WHERE user_stat.user_id = :a;
             """)
             conn.execute(sql_text, a=int(user_id), b=int(number_to_add))
@@ -1209,15 +1209,15 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
         # record into SQL table notif_by_user
         sql_text_ = sqlalchemy.text("""
                             INSERT INTO notif_by_user (
-                                mailing_id, 
-                                user_id, 
-                                message_content, 
-                                message_text, 
-                                message_type, 
+                                mailing_id,
+                                user_id,
+                                message_content,
+                                message_text,
+                                message_type,
                                 message_params,
                                 message_group_id,
                                 change_log_id,
-                                created) 
+                                created)
                             VALUES (:a, :b, :c, :d, :e, :f, :g, :h, :i);
                             """)
 
@@ -1241,13 +1241,13 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
 
         sql_text_ = sqlalchemy.text("""
             SELECT EXISTS (
-                SELECT 
-                    message_id 
-                FROM 
-                    notif_by_user 
-                WHERE 
+                SELECT
+                    message_id
+                FROM
+                    notif_by_user
+                WHERE
                     completed IS NOT NULL AND
-                    user_id=:b AND 
+                    user_id=:b AND
                     message_type=:c AND
                     change_log_id=:a
             )
@@ -1267,11 +1267,11 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
         """check what is the list of users for whom we already composed messages for the given change_log record"""
 
         sql_text_ = sqlalchemy.text("""
-            SELECT 
-                user_id 
-            FROM 
-                notif_by_user 
-            WHERE 
+            SELECT
+                user_id
+            FROM
+                notif_by_user
+            WHERE
                 created IS NOT NULL AND
                 change_log_id=:a
 
@@ -1318,7 +1318,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
 
         # record into SQL table notif_mailings
         sql_text = sqlalchemy.text("""
-                        INSERT INTO notif_mailings (topic_id, source_script, mailing_type, change_log_id) 
+                        INSERT INTO notif_mailings (topic_id, source_script, mailing_type, change_log_id)
                         VALUES (:a, :b, :c, :d)
                         RETURNING mailing_id;
                         """)
@@ -1340,7 +1340,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
         # TODO: do we need this table at all?
         # record into SQL table notif_mailings_status
         sql_text = sqlalchemy.text("""
-                                            INSERT INTO notif_mailing_status (mailing_id, event, event_timestamp) 
+                                            INSERT INTO notif_mailing_status (mailing_id, event, event_timestamp)
                                             VALUES (:a, :b, :c);
                                             """)
         conn.execute(sql_text,
@@ -1495,22 +1495,22 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
             """)
             rows = conn.execute(sql_text_, a=record.forum_search_num).fetchall()
             logging.info(f'Crop user list step 5: len(rows)=={len(rows)}')
-            
+
             users_following = []
             for row in rows:
                 users_following.append(row[0])
-    
+
             temp_user_list = []
             for user_line in users_list_outcome:
                 if user_line.user_id in users_following:
                     temp_user_list.append(user_line)
-    
+
             logging.info(f'Crop user list step 5: User List crop due to whitelisting: {len(users_list_outcome)} --> {len(temp_user_list)}')
             users_list_outcome = temp_user_list
         except Exception as ee:
             logging.info('exception happened')
             logging.exception(ee)
-            
+
 
         return users_list_outcome
 
@@ -1834,7 +1834,7 @@ def mark_new_record_as_processed(conn, new_record):
         # FIXME – should be a smarter way to re-process the record instead of just marking everything as processed
         # For Safety's Sake – Update Change_log SQL table, setting 'y' everywhere
         conn.execute(
-            """UPDATE change_log SET notification_sent = 'y' WHERE notification_sent is NULL 
+            """UPDATE change_log SET notification_sent = 'y' WHERE notification_sent is NULL
             OR notification_sent='s';"""
         )
 
@@ -1870,7 +1870,7 @@ def mark_new_comments_as_processed(conn, record):
     except Exception as e:
 
         # TODO – seems a vary vague solution: to mark all
-        sql_text = sqlalchemy.text("""UPDATE comments SET notification_sent = 'y' WHERE notification_sent is Null 
+        sql_text = sqlalchemy.text("""UPDATE comments SET notification_sent = 'y' WHERE notification_sent is Null
                                       OR notification_sent = 's';""")
         conn.execute(sql_text)
         sql_text = sqlalchemy.text("""UPDATE comments SET notif_sent_inforg = 'y' WHERE notif_sent_inforg is Null;""")
@@ -1893,7 +1893,7 @@ def check_and_save_event_id(context, event, conn, new_record, function_id, trigg
         """Check in PSQL in there's the same function 'compose_notifications' working in parallel"""
 
         sql_text_psy = sqlalchemy.text("""
-                        SELECT event_id 
+                        SELECT event_id
                         FROM functions_registry
                         WHERE
                             time_start > NOW() - interval '130 seconds' AND
@@ -1924,8 +1924,8 @@ def check_and_save_event_id(context, event, conn, new_record, function_id, trigg
     def record_finish_of_function(event_num, params_json):
         """Record into PSQL that this function finished working (id = id of the respective pub/sub event)"""
 
-        sql_text_psy = sqlalchemy.text("""UPDATE functions_registry 
-                                          SET time_finish = :a, params = :c 
+        sql_text_psy = sqlalchemy.text("""UPDATE functions_registry
+                                          SET time_finish = :a, params = :c
                                           WHERE event_id = :b
                                           /*action='save_finish_of_compose_function' */;""")
 
@@ -1969,8 +1969,8 @@ def check_and_save_event_id(context, event, conn, new_record, function_id, trigg
 def check_if_need_compose_more(conn, function_id):
     """check if there are any notifications remained to be composed"""
 
-    check = conn.execute("""SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log 
-                            WHERE notification_sent is NULL 
+    check = conn.execute("""SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log
+                            WHERE notification_sent is NULL
                             OR notification_sent='s' LIMIT 1; """).fetchall()
     if check:
         logging.info('we checked – there is still something to compose: re-initiating [compose_notification]')
@@ -2012,7 +2012,7 @@ def get_triggering_function(message_from_pubsub):
 
 def delete_ended_search_following(conn, new_record): #issue425
 ### Delete from user_pref_search_whitelist if the search goes to one of ending statuses
-    
+
     if new_record.change_type==1 and new_record.status in['Завершен', 'НЖ', 'НП', 'Найден']:
         stmt = sqlalchemy.text("""DELETE FROM user_pref_search_whitelist WHERE search_id=:a;""")
         conn.execute(stmt, a=new_record.forum_search_num)

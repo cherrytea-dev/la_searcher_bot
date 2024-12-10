@@ -357,9 +357,9 @@ def main(event, context):
         conn_psy.commit()
 
         # Add new record for this user
-        cur.execute("""INSERT INTO user_forum_attributes 
-        (user_id, forum_user_id, status, timestamp, forum_username, forum_age, forum_sex, forum_region, 
-        forum_auto_num, forum_callsign, forum_phone, forum_reg_date) 
+        cur.execute("""INSERT INTO user_forum_attributes
+        (user_id, forum_user_id, status, timestamp, forum_username, forum_age, forum_sex, forum_region,
+        forum_auto_num, forum_callsign, forum_phone, forum_reg_date)
         values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);""",
                     (tg_user_id, f_usr_id, 'non-varified', datetime.datetime.now(), f_username, user.age, user.sex,
                      user.region, user.auto_num, user.callsign, user.phone, user.reg_date))

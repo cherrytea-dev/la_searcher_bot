@@ -198,23 +198,23 @@ def check_first_notif_to_send(cur):
                     WITH notification AS (
                     SELECT
                         message_id,
-                        message_type, 
-                        (CASE 
+                        message_type,
+                        (CASE
                             WHEN DENSE_RANK() OVER (
-                                PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id) + 
+                                PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id) +
                                 DENSE_RANK() OVER (
-                                PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id DESC) 
-                                -1 = 1 
-                            THEN 'no_doubling' 
-                            ELSE 'doubling' 
+                                PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id DESC)
+                                -1 = 1
+                            THEN 'no_doubling'
+                            ELSE 'doubling'
                         END) AS doubling
                     FROM
                         notif_by_user
-                    WHERE 
+                    WHERE
                         completed IS NULL AND
                         cancelled IS NULL
                     ORDER BY 1
-                    LIMIT 1 
+                    LIMIT 1
                     OFFSET {OFFSET_VS_INITIAL_FUNCTION})
 
                     SELECT * FROM notification WHERE doubling = 'no_doubling'
@@ -250,26 +250,26 @@ def check_for_notifs_to_send(cur, first_message):
                         user_id,
                         created,
                         completed,
-                        cancelled, 
-                        message_content, 
-                        message_type, 
-                        message_params, 
+                        cancelled,
+                        message_content,
+                        message_type,
+                        message_params,
                         message_group_id,
                         change_log_id,
                         mailing_id,
-                        (CASE 
+                        (CASE
                             WHEN DENSE_RANK() OVER (
-                                PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id) + 
+                                PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id) +
                                 DENSE_RANK() OVER (
-                                PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id DESC) 
-                                -1 = 1 
-                            THEN 'no_doubling' 
-                            ELSE 'doubling' 
-                        END) AS doubling, 
-                        failed 
+                                PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id DESC)
+                                -1 = 1
+                            THEN 'no_doubling'
+                            ELSE 'doubling'
+                        END) AS doubling,
+                        failed
                     FROM
                         notif_by_user
-                    WHERE 
+                    WHERE
                         completed IS NULL AND
                         cancelled IS NULL AND
                         message_id >= {first_message}
@@ -277,7 +277,7 @@ def check_for_notifs_to_send(cur, first_message):
                     LIMIT 1)
 
                     SELECT
-                        n.*, 
+                        n.*,
                         s.status AS status,
                         cl.change_type
                     FROM
@@ -290,7 +290,7 @@ def check_for_notifs_to_send(cur, first_message):
                         searches AS s
                     ON
                         cl.search_forum_num = s.search_forum_num
- 
+
                     /*action='check_for_notifs_to_send_helper' */
                     ;
                     """
@@ -417,8 +417,8 @@ def get_change_log_update_time(cur, change_log_id):
         return None
 
     sql_text_psy = f"""
-                    SELECT parsed_time 
-                    FROM change_log 
+                    SELECT parsed_time
+                    FROM change_log
                     WHERE id = %s;
                     /*action='getting_change_log_parsing_time' */;"""
     cur.execute(sql_text_psy, (change_log_id,))
@@ -589,8 +589,8 @@ def check_and_save_event_id(context, event, function_id, changed_ids, triggered_
         cur = conn_psy.cursor()
 
         sql_text_psy = f"""
-                        SELECT 
-                            event_id 
+                        SELECT
+                            event_id
                         FROM
                             functions_registry
                         WHERE
@@ -618,7 +618,7 @@ def check_and_save_event_id(context, event, function_id, changed_ids, triggered_
         cur = conn_psy.cursor()
 
         sql_text_psy = f"""
-                        INSERT INTO 
+                        INSERT INTO
                             functions_registry
                         (event_id, time_start, cloud_function_name, function_id, triggered_by_func_id)
                         VALUES
@@ -644,7 +644,7 @@ def check_and_save_event_id(context, event, function_id, changed_ids, triggered_
         json_of_params = json.dumps({"ch_id": list_of_changed_ids})
 
         sql_text_psy = f"""
-                        UPDATE 
+                        UPDATE
                             functions_registry
                         SET
                             time_finish = %s,

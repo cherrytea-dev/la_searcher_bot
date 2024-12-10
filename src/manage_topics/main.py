@@ -131,7 +131,7 @@ def save_visibility_for_topic(topic_id, visibility):
                 conn.execute(stmt, a=topic_id)
 
                 # set the new visibility status
-                stmt = sqlalchemy.text("""INSERT INTO search_health_check (search_forum_num, timestamp, status) 
+                stmt = sqlalchemy.text("""INSERT INTO search_health_check (search_forum_num, timestamp, status)
                                                 VALUES (:a, :b, :c);""")
                 conn.execute(stmt, a=topic_id, b=datetime.datetime.now(), c=visibility)
 
@@ -172,7 +172,7 @@ def save_status_for_topic(topic_id, status):
 
         # update status in change_log table
         stmt = sqlalchemy.text(
-            """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters, 
+            """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters,
             change_type) values (:a, :b, :c, :d, :e, :f) RETURNING id;""")
         raw_data = conn.execute(stmt, a=datetime.datetime.now(), b=topic_id, c='status_change', d=status, e='',
                                 f=1).fetchone()
@@ -208,7 +208,7 @@ def save_function_into_register(context, start_time, function_id, change_log_id)
         with pool.connect() as conn:
 
             sql_text = sqlalchemy.text("""INSERT INTO functions_registry
-                                                      (event_id, time_start, cloud_function_name, function_id, 
+                                                      (event_id, time_start, cloud_function_name, function_id,
                                                       time_finish, params)
                                                       VALUES (:a, :b, :c, :d, :e, :f)
                                                       /*action='save_manage_topics_function' */;""")
