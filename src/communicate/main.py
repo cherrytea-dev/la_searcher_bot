@@ -975,6 +975,34 @@ def get_user_sys_roles(cur, user_id):
 
     return user_roles
 
+def add_user_sys_role(cur, user_id, sys_role_name):
+    """Saves user's role in system"""
+
+    try:
+        cur.execute("""INSERT INTO user_roles (user_id, role) 
+                    VALUES (%s, %s) ON CONFLICT DO NOTHING;""",
+                    (user_id, sys_role_name))
+
+    except Exception as e:
+        logging.info(f'failed to insert into user_roles for user {user_id}')
+        logging.exception(e)
+
+    return None
+
+def delete_user_sys_role(cur, user_id, sys_role_name):
+    """Deletes user's role in system"""
+
+    try:
+        cur.execute("""DELETE FROM user_roles 
+                    WHERE user_id=%s and role=%s);""",
+                    (user_id, sys_role_name))
+
+    except Exception as e:
+        logging.info(f'failed to insert into user_roles for user {user_id}')
+        logging.exception(e)
+
+    return None
+
 
 def save_preference(cur, user_id, preference):
     """Save user preference on types of notifications to be sent by bot"""
@@ -3203,7 +3231,7 @@ def main(request):
 
                 folders_list = cur.fetchall()
 
-                if username=='AnatolyK1975' and get_search_follow_mode(cur, user_id): ##'tester' in get_user_sys_roles(cur, user_id):
+                if get_search_follow_mode(cur, user_id):
                     #issue#425 make inline keyboard - list of searches
                     keyboard = [] #to combine monolit ikb for all user's regions
                     ikb_searches_count = 0
@@ -3297,7 +3325,7 @@ def main(request):
                         logging.exception(e)
 
 
-                else: #of if username=='AnatolyK1975' and get_search_follow_mode(cur, user_id)
+                else:
                     region_name = ''
                     for region in user_regions:
 
@@ -3326,7 +3354,7 @@ def main(request):
                                 logging.info('failed to save the last message from bot')
                                 logging.exception(e)
                     #issue425 Button for turn on search following mode
-                    if username=='AnatolyK1975':
+                    if 'tester' in get_user_sys_roles(cur, user_id):
                         try:
                             search_follow_mode_ikb = [[{"text": f'Включить выбор поисков для отслеживания', 'callback_data': f'{{"action":"search_follow_mode_on"}}'}]]
                             reply_markup = InlineKeyboardMarkup(search_follow_mode_ikb)
@@ -3360,9 +3388,12 @@ def main(request):
 
             # FIXME - WIP
             elif got_message.lower() == b_test_menu:
+                add_user_sys_role(cur, user_id, 'tester')
                 bot_message = 'Вы в секретном тестовом разделе, где всё может работать не так :) ' \
                               'Если что – пишите, пожалуйста, в телеграм-чат ' \
-                              'https://t.me/joinchat/2J-kV0GaCgwxY2Ni'
+                              'https://t.me/joinchat/2J-kV0GaCgwxY2Ni' \
+                              'А еще Вам добавлена роль tester - некоторые тестовые функции включены автоматически.' \
+                              'Для отказа от роли tester нужно отправить команду notest'
                 # keyboard_coordinates_admin = [[b_set_topic_type], [b_back_to_start]]
                 # [b_set_pref_urgency], [b_set_forum_nick]
 
@@ -3373,6 +3404,12 @@ def main(request):
                 keyboard = [[map_button]]
                 reply_markup = InlineKeyboardMarkup(keyboard)
             # FIXME ^^^
+
+            elif got_message.lower() == 'notest':
+                delete_user_sys_role(cur, user_id, 'tester')
+                bot_message = "Роль tester удалена. Приходите еще! :-) Возвращаемся в главное меню."
+                reply_markup = reply_markup_main
+
 
             elif got_message.lower() == b_test_search_follow_mode_on:
                 set_search_follow_mode(cur, user_id, True)
