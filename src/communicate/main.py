@@ -998,7 +998,7 @@ def delete_user_sys_role(cur, user_id, sys_role_name):
                     (user_id, sys_role_name))
 
     except Exception as e:
-        logging.info(f'failed to insert into user_roles for user {user_id}')
+        logging.info(f'failed to delete from user_roles for user {user_id}')
         logging.exception(e)
 
     return None
