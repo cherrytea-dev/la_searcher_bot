@@ -1,0 +1,5 @@
+## disable folders:
+# for local tests
+temp
+# each developer can use own settings for vscode
+.vscode
