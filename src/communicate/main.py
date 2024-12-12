@@ -968,7 +968,7 @@ def get_user_sys_roles(cur, user_id):
         lines = cur.fetchall()
         for line in lines:
             user_roles.append(line[0])
-        logging.info(f'user {user_id} role has role {line[0]}')
+        logging.info(f'user {user_id} role has roles {user_roles=}')
     except Exception as e:
         logging.info(f'failed to get from user_roles for user {user_id}')
         logging.exception(e)
