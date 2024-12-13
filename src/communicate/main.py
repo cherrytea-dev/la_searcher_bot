@@ -715,7 +715,7 @@ def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region
     url = f'https://lizaalert.org/forum/viewforum.php?f={region}'
     # combine the list of last 20 searches
     if list_type == 'all':
-        ikb += compose_msg_on_all_last_searches_ikb(cur, region)
+        ikb += compose_msg_on_all_last_searches_ikb(cur, region, user_id)
         logging.info('ikb += compose_msg_on_all_last_searches_ikb == '+str(ikb))
 
         if len(ikb)>0:
