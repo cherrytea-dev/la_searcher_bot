@@ -2910,8 +2910,8 @@ def main(request):
 
     b_admin_menu = 'admin'
     b_test_menu = 'test'
-###    b_test_search_follow_mode_on = 'test search follow mode on'
-###    b_test_search_follow_mode_off = 'test search follow mode off'
+    b_test_search_follow_mode_on = 'test search follow mode on'
+    b_test_search_follow_mode_off = 'test search follow mode off'
 
     b_pref_age_0_6_act = 'отключить: Маленькие Дети 0-6 лет'
     b_pref_age_0_6_deact = 'включить: Маленькие Дети 0-6 лет'
