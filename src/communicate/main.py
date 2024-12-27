@@ -539,7 +539,7 @@ def compose_msg_on_all_last_searches_ikb(cur, region, user_id):
         search.status, search.name, search.age, search_following_mode = list(line)
 
         if not search.display_name:
-            age_string = f' {age_writer(search.age)}' if search.age != 0 else ''
+            age_string = f' {age_writer(search.age)}' if search.age and search.age != 0 else ''
             search.display_name = f'{search.name}{age_string}'
 
         if not search.new_status:
