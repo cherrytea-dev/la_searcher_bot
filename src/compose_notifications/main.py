@@ -1518,7 +1518,8 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                     temp_user_list.append(user_line)
 
             logging.info(f'Crop user list step 5: User List crop due to whitelisting: {len(users_list_outcome)} --> {len(temp_user_list)}')
-            logging.info(f'Crop user list step 5: cropped users: {users_list_outcome - temp_user_list}')
+            if len(users_list_outcome) - len(temp_user_list) <=20:
+                logging.info(f'Crop user list step 5: cropped users: {users_list_outcome - temp_user_list}')
             users_list_outcome = temp_user_list
         except Exception as ee:
             logging.info('exception happened')
