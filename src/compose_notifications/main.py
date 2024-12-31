@@ -1492,8 +1492,14 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
             LEFT JOIN user_pref_search_filtering upsf ON upsf.user_id=u.user_id and 'whitelist' = ANY(upsf.filter_name)
             WHERE upsf.filter_name is not null AND NOT
             (
-                exists(select 1 from user_pref_search_whitelist upswls WHERE upswls.user_id=u.user_id and upswls.search_id != :a and upswls.search_following_mode=:b)
-                OR
+                (	exists(select 1 from user_pref_search_whitelist upswls
+                        JOIN searches s ON search_forum_num=upswls.search_id 
+                        WHERE upswls.user_id=u.user_id and upswls.search_id != :a and upswls.search_following_mode=:b
+                        and s.status != 'СТОП')
+					AND
+					not exists(select 1 from user_pref_search_whitelist upswls WHERE upswls.user_id=u.user_id and upswls.search_id = :a and upswls.search_following_mode=:b)
+				) 
+				OR
                 exists(select 1 from user_pref_search_whitelist upswls WHERE upswls.user_id=u.user_id and upswls.search_id = :a and upswls.search_following_mode=:c)
             )
             OR upsf.filter_name is null
