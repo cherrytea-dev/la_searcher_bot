@@ -5,3 +5,7 @@
 !.vscode/settings.template.json
 build/
 .coverage
+.idea/
+venv/
+.sandbox/
+.DS_Store
