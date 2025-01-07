@@ -1,0 +1,7 @@
+*.pyc
+.env
+.vscode/*
+!.vscode/launch.template.json
+!.vscode/settings.template.json
+build/
+.coverage
