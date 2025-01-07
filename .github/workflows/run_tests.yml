@@ -28,6 +28,7 @@ jobs:
       - name: Run pytest
         if: success()
         run: |
+          export PYTHONPATH=src
           cp .env.example .env
           make test
         env:
