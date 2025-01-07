@@ -1,0 +1,6 @@
+pytest>=7.0
+polyfactory>=2.18
+pytest-cov>=6.0
+python-dotenv>=1.0
+flake8>=7.0
+pylint>=3.3
