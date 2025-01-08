@@ -1730,11 +1730,11 @@ def manage_topic_type(
         if user_wants_to_enable is None:
             bot_message = ""
             pass
-        elif user_wants_to_enable == True:  # noqa. not a poor design – function can be: None, True, False
+        elif user_wants_to_enable is True:  # not a poor design – function can be: None, True, False   # noqa
             bot_message = "Супер, мы включили эти уведомления"
             send_callback_answer_to_api(bot_token, callback_id, bot_message)
             record_topic_type(user_id, topic_id)
-        else:  # user_wants_to_enable == False:  # noqa. not a poor design – function can be: None, True, False
+        else:  # user_wants_to_enable == False:  # not a poor design – function can be: None, True, False # noqa
             if len(list_of_current_setting_ids) == 1:
                 bot_message = "❌ Необходима как минимум одна настройка"
                 list_of_ids_to_change_now = []
@@ -2059,7 +2059,7 @@ async def prepare_message_for_leave_chat_async(user_id):
     bot_token = get_secrets("bot_api_token__prod")
     application = Application.builder().token(bot_token).build()
     job_queue = application.job_queue
-    job = job_queue.run_once(leave_chat_async, 0, chat_id=user_id)
+    job_queue.run_once(leave_chat_async, 0, chat_id=user_id)
 
     async with application:
         await application.initialize()
@@ -2086,7 +2086,7 @@ async def prepare_message_for_async(user_id, data):
     bot_token = get_secrets("bot_api_token__prod")
     application = Application.builder().token(bot_token).build()
     job_queue = application.job_queue
-    job = job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
+    job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
 
     async with application:
         await application.initialize()
@@ -2841,9 +2841,9 @@ def main(request):
     b_orders_tbd = "нет, но я хочу продолжить"
 
     # TODO - WIP: FORUM
-    b_forum_check_nickname = "указать свой nickname с форума"
-    b_forum_dont_have = "у меня нет аккаунта на форуме ЛА"
-    b_forum_dont_want = "пропустить / не хочу говорить"
+    b_forum_check_nickname = "указать свой nickname с форума"  # noqa
+    b_forum_dont_have = "у меня нет аккаунта на форуме ЛА"  # noqa
+    b_forum_dont_want = "пропустить / не хочу говорить"  # noqa
     # TODO ^^^
 
     b_pref_urgency_highest = "самым первым (<2 минуты)"
@@ -2867,9 +2867,9 @@ def main(request):
     b_set_pref_radius = "настроить максимальный радиус"
     b_set_pref_age = "настроить возрастные группы БВП"
     b_set_pref_urgency = "настроить скорость уведомлений"  # <-- TODO: likely to be removed as redundant
-    b_set_pref_role = "настроить вашу роль"  # <-- TODO
+    b_set_pref_role = "настроить вашу роль"  # <-- TODO # noqa
     b_set_forum_nick = "связать аккаунты бота и форума"
-    b_change_forum_nick = "изменить аккаунт форума"
+    b_change_forum_nick = "изменить аккаунт форума"  # noqa
     b_set_topic_type = "настроить вид поисков"
 
     b_back_to_start = "в начало"
@@ -3176,7 +3176,7 @@ def main(request):
 
     b_admin_menu = "admin"
     b_test_menu = "test"
-    b_test_search_follow_mode_on = "test search follow mode on"
+    b_test_search_follow_mode_on = "test search follow mode on"  # noqa
     b_test_search_follow_mode_off = "test search follow mode off"
 
     b_pref_age_0_6_act = "отключить: Маленькие Дети 0-6 лет"

@@ -110,7 +110,7 @@ def main(event, context):  # noqa
         button_3 = ["настроить уведомления"]
         button_4 = ["в начало"]
         keyboard = [button_1, button_2, button_3, button_4]
-        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)  # noqa
 
         # send the message:
         for user in list_of_users:

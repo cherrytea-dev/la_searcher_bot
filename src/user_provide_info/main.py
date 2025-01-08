@@ -196,8 +196,6 @@ def get_user_data_from_db(user_id: int) -> dict:
     if user_id is not a user of bot – than retrieves a "demo" data with fake home coords, radius and real list of
     searches for Moscow Region"""
 
-    backend_data = {"user_id": user_id}
-
     conn_psy = sql_connect_by_psycopg2()
     cur = conn_psy.cursor()
 

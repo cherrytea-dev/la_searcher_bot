@@ -106,7 +106,7 @@ async def prepare_message_for_async(user_id, data):
     bot_token = get_secrets("bot_api_token__prod")
     application = Application.builder().token(bot_token).build()
     job_queue = application.job_queue
-    job = job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
+    job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
 
     async with application:
         await application.initialize()
@@ -322,7 +322,7 @@ def main(event, context):
 
     # initiate Prod Bot
     bot_token = get_secrets("bot_api_token__prod")
-    bot = Bot(token=bot_token)
+    bot = Bot(token=bot_token)  # noqa
 
     # log in to forum
     bot_forum_pass = get_secrets("forum_bot_password")
@@ -391,9 +391,8 @@ def main(event, context):
         user_has_region_set = True if cur.fetchone() else False
         logging.info(f"user_has_region_set = {user_has_region_set}")
 
-        resulting_region_in_bot = None
         if not user_has_region_set and user.region:
-            resulting_region_in_bot = match_user_region_from_forum_to_bot(user.region)
+            resulting_region_in_bot = match_user_region_from_forum_to_bot(user.region)  # noqa
 
         # TODO - here should be a block for saving user region pref. now we cannot do it, cuz user prefs are
         #  on folder level

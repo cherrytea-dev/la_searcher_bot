@@ -142,7 +142,7 @@ def archive_notif_by_user(client):
     validation_on_bq_lines = new_bq_count - moved_lines - init_bq_count
 
     # 5.3 should be zero
-    validation_on_psql_lines = init_psql_count - moved_lines
+    validation_on_psql_lines = init_psql_count - moved_lines  # noqa
 
     # 6. Delete data from cloud sql
     # TODO: validations disabled because once the doubling in BQ happened -> and then all the iterations are failing

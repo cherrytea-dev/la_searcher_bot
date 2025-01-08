@@ -504,7 +504,7 @@ def process_first_page_comparison(conn, search_id, first_page_content_prev, firs
         # FIXME – just to double-check
         print(f" we print that what_is_saved_in_psql = {what_is_saved_in_psql}")
         print(f' we print "not what_is_saved_in_psql" = {not what_is_saved_in_psql}')
-        print(f' we print "what_is_saved_in_psql == None" = {what_is_saved_in_psql == None}')
+        print(f' we print "what_is_saved_in_psql == None" = {what_is_saved_in_psql is None}')
         print(f' we print "what_is_saved_in_psql == Null" = {what_is_saved_in_psql == "Null"}')
         # FIXME ^^^
 

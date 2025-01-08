@@ -92,7 +92,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
             per_list=None,  # noqa
             loc_list=None,  # noqa
         ):
-            blocks_of_pers_and_locs, groups_of_pers_and_locs, per_list, loc_list = [], [], [], []
+            blocks_of_pers_and_locs, groups_of_pers_and_locs, per_list, loc_list = [], [], [], []  # noqa
 
             self.init = initial_title
             self.pretty = prettified_title
