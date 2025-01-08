@@ -9,9 +9,9 @@ from google.cloud import pubsub_v1
 from google.cloud import secretmanager
 import google.cloud.logging
 
-url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
 req = urllib.request.Request(url)
-req.add_header("Metadata-Flavor", "Google")
+req.add_header('Metadata-Flavor', 'Google')
 project_id = urllib.request.urlopen(req).read().decode()
 
 publisher = pubsub_v1.PublisherClient()
@@ -21,34 +21,34 @@ log_client.setup_logging()
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-logging.warning("it is a synthetic warning")
+logging.warning('it is a synthetic warning')
 
 
 def process_pubsub_message(event):
     """convert incoming pub/sub message into regular data"""
 
     # FIXME
-    logging.info(f"RECEIVED EVENT {event}")
+    logging.info(f'RECEIVED EVENT {event}')
     # FIXME ^^^
     # receiving message text from pub/sub
-    if "data" in event:
-        received_message_from_pubsub = base64.b64decode(event["data"]).decode("utf-8")
-        print(f"DECODED DATA from EVENT {received_message_from_pubsub}")
+    if 'data' in event:
+        received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
+        print(f'DECODED DATA from EVENT {received_message_from_pubsub}')
         try:
-            received_message_from_pubsub.replace("null", "None")
+            received_message_from_pubsub.replace('null', 'None')
             encoded_to_ascii = eval(received_message_from_pubsub)
-            data_in_ascii = encoded_to_ascii["data"]
-            message_in_ascii = data_in_ascii["message"]
+            data_in_ascii = encoded_to_ascii['data']
+            message_in_ascii = data_in_ascii['message']
         except Exception as e:
             logging.exception(e)
             message_in_ascii = None
 
     else:
-        received_message_from_pubsub = "I cannot read message from pub/sub"
+        received_message_from_pubsub = 'I cannot read message from pub/sub'
         message_in_ascii = None
 
-    logging.info(f"received from pubsub {received_message_from_pubsub}")
-    logging.info(f"message in ascii {message_in_ascii}")
+    logging.info(f'received from pubsub {received_message_from_pubsub}')
+    logging.info(f'message in ascii {message_in_ascii}')
 
     return message_in_ascii
 
@@ -61,17 +61,17 @@ def publish_to_pubsub(topic_name, message):
     topic_path = publisher.topic_path(project_id, topic_name)
     message_json = json.dumps(
         {
-            "data": {"message": message},
+            'data': {'message': message},
         }
     )
-    message_bytes = message_json.encode("utf-8")
+    message_bytes = message_json.encode('utf-8')
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publishing succeeded
-        logging.info("Pub/sub message published from User Management: " + message)
+        logging.info('Pub/sub message published from User Management: ' + message)
 
     except Exception as e:
-        logging.error("Publish to pub/sub from User Management failed: " + repr(e))
+        logging.error('Publish to pub/sub from User Management failed: ' + repr(e))
         logging.exception(e)
 
     return None
@@ -80,7 +80,7 @@ def publish_to_pubsub(topic_name, message):
 def notify_admin(message):
     """send the pub/sub message to Debug to Admin"""
 
-    publish_to_pubsub("topic_notify_admin", message)
+    publish_to_pubsub('topic_notify_admin', message)
 
     return None
 
@@ -88,22 +88,22 @@ def notify_admin(message):
 def get_secrets(secret_request):
     """get secret from GCP Secret Manager"""
 
-    name = f"projects/{project_id}/secrets/{secret_request}/versions/latest"
+    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
     client = secretmanager.SecretManagerServiceClient()
 
     response = client.access_secret_version(name=name)
 
-    return response.payload.data.decode("UTF-8")
+    return response.payload.data.decode('UTF-8')
 
 
 def sql_connect_by_psycopg2():
     """set the connection to psql via psycopg2"""
 
-    db_user = get_secrets("cloud-postgres-username")
-    db_pass = get_secrets("cloud-postgres-password")
-    db_name = get_secrets("cloud-postgres-db-name")
-    db_conn = get_secrets("cloud-postgres-connection-name")
-    db_host = "/cloudsql/" + db_conn
+    db_user = get_secrets('cloud-postgres-username')
+    db_pass = get_secrets('cloud-postgres-password')
+    db_name = get_secrets('cloud-postgres-db-name')
+    db_conn = get_secrets('cloud-postgres-connection-name')
+    db_host = '/cloudsql/' + db_conn
 
     conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
     conn_psy.autocommit = True
@@ -151,7 +151,7 @@ def mark_up_onboarding_status_0(cur):
 
     if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
-        logging.info(f"User {user_id_to_update}, will be assigned with onboarding pref_id=0")
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=0')
 
         # save onboarding start
         cur.execute(
@@ -164,7 +164,7 @@ def mark_up_onboarding_status_0(cur):
         )
 
     else:
-        logging.info("There are no users to assign onboarding pref_id=0.")
+        logging.info('There are no users to assign onboarding pref_id=0.')
 
     return None
 
@@ -194,7 +194,7 @@ def mark_up_onboarding_status_0_2(cur):
 
     if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
-        logging.info(f"User {user_id_to_update}, will be assigned with onboarding pref_id=0")
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=0')
 
         # save onboarding start
         cur.execute(
@@ -207,7 +207,7 @@ def mark_up_onboarding_status_0_2(cur):
         )
 
     else:
-        logging.info("There are no users to assign onboarding pref_id=0.")
+        logging.info('There are no users to assign onboarding pref_id=0.')
 
     return None
 
@@ -230,7 +230,7 @@ def mark_up_onboarding_status_10(cur):
 
     if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
-        logging.info(f"User {user_id_to_update}, will be assigned with onboarding pref_id=10")
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=10')
 
         # save onboarding start
         cur.execute(
@@ -243,7 +243,7 @@ def mark_up_onboarding_status_10(cur):
         )
 
     else:
-        logging.info("There are no users to assign onboarding pref_id=10.")
+        logging.info('There are no users to assign onboarding pref_id=10.')
 
     return None
 
@@ -273,7 +273,7 @@ def mark_up_onboarding_status_10_2(cur):
 
     if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
-        logging.info(f"User {user_id_to_update}, will be assigned with onboarding pref_id=10")
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=10')
 
         # save onboarding start
         cur.execute(
@@ -285,7 +285,7 @@ def mark_up_onboarding_status_10_2(cur):
             (user_id_to_update,),
         )
     else:
-        logging.info("There are no users to assign onboarding pref_id=10.")
+        logging.info('There are no users to assign onboarding pref_id=10.')
 
     return None
 
@@ -308,7 +308,7 @@ def mark_up_onboarding_status_20(cur):
 
     if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
-        logging.info(f"User {user_id_to_update}, will be assigned with onboarding pref_id=20")
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=20')
 
         # save onboarding start
         cur.execute(
@@ -321,7 +321,7 @@ def mark_up_onboarding_status_20(cur):
         )
 
     else:
-        logging.info("There are no users to assign onboarding pref_id=20.")
+        logging.info('There are no users to assign onboarding pref_id=20.')
 
     return None
 
@@ -339,7 +339,7 @@ def mark_up_onboarding_status_21(cur):
 
     if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
-        logging.info(f"User {user_id_to_update}, will be assigned with onboarding pref_id=21")
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=21')
 
         # save onboarding start
         cur.execute(
@@ -352,7 +352,7 @@ def mark_up_onboarding_status_21(cur):
         )
 
     else:
-        logging.info("There are no users to assign onboarding pref_id=21.")
+        logging.info('There are no users to assign onboarding pref_id=21.')
 
     return None
 
@@ -375,7 +375,7 @@ def mark_up_onboarding_status_80(cur):
 
     if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
-        logging.info(f"User {user_id_to_update}, will be assigned with onboarding pref_id=80")
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
 
         # save onboarding start
         cur.execute(
@@ -388,7 +388,7 @@ def mark_up_onboarding_status_80(cur):
         )
 
     else:
-        logging.info("There are no users to assign onboarding pref_id=80.")
+        logging.info('There are no users to assign onboarding pref_id=80.')
 
     return None
 
@@ -409,7 +409,7 @@ def mark_up_onboarding_status_80_patch(cur):
 
     if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
-        logging.info(f"User {user_id_to_update}, will be assigned with onboarding pref_id=80")
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
 
         # save onboarding start
         cur.execute(
@@ -422,7 +422,7 @@ def mark_up_onboarding_status_80_patch(cur):
         )
 
     else:
-        logging.info("There are no users to assign onboarding pref_id=80.")
+        logging.info('There are no users to assign onboarding pref_id=80.')
 
     return None
 
@@ -440,7 +440,7 @@ def mark_up_onboarding_status_80_wo_dialogs(cur):
 
     if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
-        logging.info(f"User {user_id_to_update}, will be assigned with onboarding pref_id=80")
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
 
         # save onboarding start
         cur.execute(
@@ -453,7 +453,7 @@ def mark_up_onboarding_status_80_wo_dialogs(cur):
         )
 
     else:
-        logging.info("There are no users to assign onboarding pref_id=80.")
+        logging.info('There are no users to assign onboarding pref_id=80.')
 
     return None
 
@@ -472,7 +472,7 @@ def mark_up_onboarding_status_80_just_got_summaries(cur):
 
     if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
-        logging.info(f"User {user_id_to_update}, will be assigned with onboarding pref_id=80")
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
 
         # save onboarding start
         cur.execute(
@@ -485,7 +485,7 @@ def mark_up_onboarding_status_80_just_got_summaries(cur):
         )
 
     else:
-        logging.info("There are no users to assign onboarding pref_id=80.")
+        logging.info('There are no users to assign onboarding pref_id=80.')
 
     return None
 
@@ -504,7 +504,7 @@ def mark_up_onboarding_status_80_have_all_settings(cur):
 
     if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
-        logging.info(f"User {user_id_to_update}, will be assigned with onboarding pref_id=80")
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
 
         # save onboarding start
         cur.execute(
@@ -517,7 +517,7 @@ def mark_up_onboarding_status_80_have_all_settings(cur):
         )
 
     else:
-        logging.info("There are no users to assign onboarding pref_id=80.")
+        logging.info('There are no users to assign onboarding pref_id=80.')
 
     return None
 
@@ -542,7 +542,7 @@ def mark_up_onboarding_status_80_self_deactivated(cur):
 
     if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
-        logging.info(f"User {user_id_to_update}, will be assigned with onboarding pref_id=80")
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
 
         # save onboarding start
         cur.execute(
@@ -563,7 +563,7 @@ def mark_up_onboarding_status_80_self_deactivated(cur):
         )
 
     else:
-        logging.info("There are no users to assign onboarding pref_id=80.")
+        logging.info('There are no users to assign onboarding pref_id=80.')
 
     return None
 
@@ -581,7 +581,7 @@ def mark_up_onboarding_status_99(cur):
 
     if user_id_to_update and isinstance(user_id_to_update, tuple) and len(user_id_to_update) > 0:
         user_id_to_update = user_id_to_update[0]
-        logging.info(f"User {user_id_to_update}, will be assigned with onboarding pref_id=80")
+        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
 
         # save onboarding start
         cur.execute(
@@ -602,7 +602,7 @@ def mark_up_onboarding_status_99(cur):
         )
 
     else:
-        logging.info("There are no users to assign onboarding pref_id=80.")
+        logging.info('There are no users to assign onboarding pref_id=80.')
 
     return None
 
@@ -611,8 +611,8 @@ def main(event, context):  # noqa
     """main function"""
 
     # FIXME –testing logging, which, seems, disappeared
-    logging.info("this is 1st logging line")
-    print("this is 1st print line")
+    logging.info('this is 1st logging line')
+    print('this is 1st print line')
     # FIXME ^^^
 
     # set PSQL connection & cursor
@@ -638,11 +638,11 @@ def main(event, context):  # noqa
             pass
 
     except Exception as e:
-        logging.error("User activation script failed")
+        logging.error('User activation script failed')
         logging.exception(e)
 
     # close connection & cursor
     cur.close()
     conn.close()
 
-    return "ok"
+    return 'ok'

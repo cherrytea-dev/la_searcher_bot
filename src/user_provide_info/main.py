@@ -20,9 +20,9 @@ import google.cloud.logging
 from google.cloud import secretmanager
 import functions_framework
 
-url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
 req = urllib.request.Request(url)
-req.add_header("Metadata-Flavor", "Google")
+req.add_header('Metadata-Flavor', 'Google')
 project_id = urllib.request.urlopen(req).read().decode()
 client = secretmanager.SecretManagerServiceClient()
 
@@ -33,20 +33,20 @@ log_client.setup_logging()
 def get_secrets(secret_request):
     """Get GCP secret"""
 
-    name = f"projects/{project_id}/secrets/{secret_request}/versions/latest"
+    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
     response = client.access_secret_version(name=name)
 
-    return response.payload.data.decode("UTF-8")
+    return response.payload.data.decode('UTF-8')
 
 
 def sql_connect_by_psycopg2():
     """connect to GCP SLQ via PsycoPG2"""
 
-    db_user = get_secrets("cloud-postgres-username")
-    db_pass = get_secrets("cloud-postgres-password")
-    db_name = get_secrets("cloud-postgres-db-name")
-    db_conn = get_secrets("cloud-postgres-connection-name")
-    db_host = "/cloudsql/" + db_conn
+    db_user = get_secrets('cloud-postgres-username')
+    db_pass = get_secrets('cloud-postgres-password')
+    db_name = get_secrets('cloud-postgres-db-name')
+    db_conn = get_secrets('cloud-postgres-connection-name')
+    db_host = '/cloudsql/' + db_conn
 
     conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
     conn_psy.autocommit = True
@@ -57,17 +57,17 @@ def sql_connect_by_psycopg2():
 def verify_telegram_data_json(user_input, token):
     """verify the received dict is issued by telegram, which means user is authenticated with telegram"""
 
-    if not user_input or not isinstance(user_input, dict) or "hash" not in user_input.keys() or not token:
+    if not user_input or not isinstance(user_input, dict) or 'hash' not in user_input.keys() or not token:
         return False
 
-    hash_from_telegram = user_input["hash"]
+    hash_from_telegram = user_input['hash']
     sorted_dict = {key: value for key, value in sorted(user_input.items())}
 
     data_array = []
     for key, value in sorted_dict.items():
-        if key != "hash":
-            data_array.append(f"{key}={value}")
-    data_check_string = "\n".join(data_array)
+        if key != 'hash':
+            data_array.append(f'{key}={value}')
+    data_check_string = '\n'.join(data_array)
 
     # Convert bot_token to bytes and compute its SHA256 hash
     secret_key = hashlib.sha256(token.encode()).digest()
@@ -89,18 +89,18 @@ def verify_telegram_data_string(user_input, token):
 
     data_check_string = unquote(user_input)
 
-    data_check_arr = data_check_string.split("&")
-    needle = "hash="
-    hash_item = ""
-    telegram_hash = ""
+    data_check_arr = data_check_string.split('&')
+    needle = 'hash='
+    hash_item = ''
+    telegram_hash = ''
     for item in data_check_arr:
         if item[0 : len(needle)] == needle:
             telegram_hash = item[len(needle) :]
             hash_item = item
     data_check_arr.remove(hash_item)
     data_check_arr.sort()
-    data_check_string = "\n".join(data_check_arr)
-    secret_key = hmac.new("WebAppData".encode(), token.encode(), hashlib.sha256).digest()
+    data_check_string = '\n'.join(data_check_arr)
+    secret_key = hmac.new('WebAppData'.encode(), token.encode(), hashlib.sha256).digest()
     calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
 
     if calculated_hash == telegram_hash:
@@ -121,29 +121,29 @@ def verify_telegram_data(user_input, token):
 
 def evaluate_city_locations(city_locations):
     if not city_locations:
-        logging.info("no city_locations")
+        logging.info('no city_locations')
         return None
 
     cl_eval = eval(city_locations)
     if not cl_eval:
-        logging.info("no eval of city_locations")
+        logging.info('no eval of city_locations')
         return None
 
     if not isinstance(cl_eval, list):
-        logging.info("eval of city_locations is not list")
+        logging.info('eval of city_locations is not list')
         return None
 
     first_coords = cl_eval[0]
 
     if not first_coords:
-        logging.info("no first coords in city_locations")
+        logging.info('no first coords in city_locations')
         return None
 
     if not isinstance(first_coords, list):
-        logging.info("fist coords in city_locations is not list")
+        logging.info('fist coords in city_locations is not list')
         return None
 
-    logging.info(f"city_locations has coords {first_coords}")
+    logging.info(f'city_locations has coords {first_coords}')
 
     return [first_coords]
 
@@ -156,37 +156,37 @@ def time_counter_since_search_start(start_time):
     now = datetime.datetime.now()
     diff = now - start_time - start_diff
 
-    first_word_parameter = ""
+    first_word_parameter = ''
 
     # <20 minutes -> "Начинаем искать"
     if (diff.total_seconds() / 60) < 20:
-        phrase = "Начинаем искать"
+        phrase = 'Начинаем искать'
 
     # 20 min - 1 hour -> "Ищем ХХ минут"
     elif (diff.total_seconds() / 3600) < 1:
-        phrase = first_word_parameter + str(round(int(diff.total_seconds() / 60), -1)) + " минут"
+        phrase = first_word_parameter + str(round(int(diff.total_seconds() / 60), -1)) + ' минут'
 
     # 1-24 hours -> "Ищем ХХ часов"
     elif diff.days < 1:
         phrase = first_word_parameter + str(int(diff.total_seconds() / 3600))
         if int(diff.total_seconds() / 3600) in {1, 21}:
-            phrase += " час"
+            phrase += ' час'
         elif int(diff.total_seconds() / 3600) in {2, 3, 4, 22, 23}:
-            phrase += " часа"
+            phrase += ' часа'
         else:
-            phrase += " часов"
+            phrase += ' часов'
 
     # >24 hours -> "Ищем Х дней"
     else:
         phrase = first_word_parameter + str(diff.days)
-        if str(int(diff.days))[-1] == "1" and (int(diff.days)) != 11:
-            phrase += " день"
+        if str(int(diff.days))[-1] == '1' and (int(diff.days)) != 11:
+            phrase += ' день'
         elif int(diff.days) in {12, 13, 14}:
-            phrase += " дней"
-        elif str(int(diff.days))[-1] in {"2", "3", "4"}:
-            phrase += " дня"
+            phrase += ' дней'
+        elif str(int(diff.days))[-1] in {'2', '3', '4'}:
+            phrase += ' дня'
         else:
-            phrase += " дней"
+            phrase += ' дней'
 
     return [phrase, diff.days]
 
@@ -213,11 +213,11 @@ def get_user_data_from_db(user_id: int) -> dict:
     raw_data = cur.fetchone()
 
     if not raw_data:
-        user_params = {"curr_user": False}
-        user_params["home_lat"] = 55.752702  # Kremlin
-        user_params["home_lon"] = 37.622914  # Kremlin
-        user_params["radius"] = 100  # demo radius = 100 km
-        user_params["regions"] = [28, 29]  # Moscow + Moscow Region
+        user_params = {'curr_user': False}
+        user_params['home_lat'] = 55.752702  # Kremlin
+        user_params['home_lon'] = 37.622914  # Kremlin
+        user_params['radius'] = 100  # demo radius = 100 km
+        user_params['regions'] = [28, 29]  # Moscow + Moscow Region
 
         # create searches list – FOR DEMO ONLY Moscow Region (folders 276 and 41)
         cur.execute(
@@ -267,17 +267,17 @@ def get_user_data_from_db(user_id: int) -> dict:
         )
 
     else:
-        user_params = {"curr_user": True}
+        user_params = {'curr_user': True}
         (
-            user_params["user_id"],
-            user_params["home_lat"],
-            user_params["home_lon"],
-            user_params["radius"],
+            user_params['user_id'],
+            user_params['home_lat'],
+            user_params['home_lon'],
+            user_params['radius'],
         ) = raw_data
-        if user_params["home_lat"]:
-            user_params["home_lat"] = float(user_params["home_lat"])
-        if user_params["home_lon"]:
-            user_params["home_lon"] = float(user_params["home_lon"])
+        if user_params['home_lat']:
+            user_params['home_lat'] = float(user_params['home_lat'])
+        if user_params['home_lon']:
+            user_params['home_lon'] = float(user_params['home_lon'])
 
         # create folders (regions) list
         cur.execute(
@@ -302,12 +302,12 @@ def get_user_data_from_db(user_id: int) -> dict:
 
         raw_data = cur.fetchall()
         if not raw_data:
-            user_params["regions"] = []
+            user_params['regions'] = []
         else:
             user_regions = []
             for line in raw_data:
                 user_regions.append(line[0])
-            user_params["regions"] = user_regions
+            user_params['regions'] = user_regions
 
         # create searches list
         cur.execute(
@@ -358,7 +358,7 @@ def get_user_data_from_db(user_id: int) -> dict:
     raw_data = cur.fetchall()
 
     if not raw_data:
-        user_params["searches"] = []
+        user_params['searches'] = []
     else:
         user_searches = []
         for line in raw_data:
@@ -383,10 +383,10 @@ def get_user_data_from_db(user_id: int) -> dict:
             # define "freshness" of the search
             creation_freshness, creation_freshness_days = time_counter_since_search_start(search_start_time)
             update_freshness, update_freshness_days = time_counter_since_search_start(last_change_time)
-            logging.info(f"{search_id=}")
-            logging.info(f"{creation_freshness_days=}")
-            logging.info(f"{update_freshness_days=}")
-            logging.info(f"{min(creation_freshness_days, update_freshness_days)=}")
+            logging.info(f'{search_id=}')
+            logging.info(f'{creation_freshness_days=}')
+            logging.info(f'{update_freshness_days=}')
+            logging.info(f'{min(creation_freshness_days, update_freshness_days)=}')
             search_is_old = False
             if creation_freshness_days > 3 and update_freshness_days > 3:
                 search_is_old = True
@@ -395,7 +395,7 @@ def get_user_data_from_db(user_id: int) -> dict:
             # or geocoded (not "exact")
             if not coord_type:
                 exact_coords = False
-            elif coord_type not in {"1. coordinates w/ word coord", "2. coordinates w/o word coord"}:
+            elif coord_type not in {'1. coordinates w/ word coord', '2. coordinates w/o word coord'}:
                 exact_coords = False
             else:
                 exact_coords = True
@@ -412,33 +412,33 @@ def get_user_data_from_db(user_id: int) -> dict:
                     coords = [[]]
 
             # define "link"
-            link = f"https://lizaalert.org/forum/viewtopic.php?t={search_id}"
+            link = f'https://lizaalert.org/forum/viewtopic.php?t={search_id}'
 
             # define "content"
             content = clean_up_content(first_post)
 
             # define "search_type"
             if topic_type_id == 0:
-                search_type = "Обычный поиск"
+                search_type = 'Обычный поиск'
             else:
-                search_type = "Особый поиск"  # TODO – to be decomposed in greater details
+                search_type = 'Особый поиск'  # TODO – to be decomposed in greater details
 
             user_search = {
-                "name": search_id,
-                "coords": coords,
-                "exact_coords": exact_coords,
-                "content": content,
-                "display_name": display_name,
-                "freshness": creation_freshness,
-                "link": link,
-                "search_status": status,
-                "search_type": search_type,
-                "search_is_old": search_is_old,
+                'name': search_id,
+                'coords': coords,
+                'exact_coords': exact_coords,
+                'content': content,
+                'display_name': display_name,
+                'freshness': creation_freshness,
+                'link': link,
+                'search_status': status,
+                'search_type': search_type,
+                'search_is_old': search_is_old,
             }
 
             if coords[0]:
                 user_searches.append(user_search)
-        user_params["searches"] = user_searches
+        user_params['searches'] = user_searches
 
     cur.close()
     conn_psy.close()
@@ -449,7 +449,7 @@ def get_user_data_from_db(user_id: int) -> dict:
 def save_user_statistics_to_db(user_id: int, response: bool) -> None:
     """save user's interaction into DB"""
 
-    json_to_save = json.dumps({"ok": response})
+    json_to_save = json.dumps({'ok': response})
 
     conn_psy = sql_connect_by_psycopg2()
     cur = conn_psy.cursor()
@@ -472,34 +472,34 @@ def save_user_statistics_to_db(user_id: int, response: bool) -> None:
 
 def clean_up_content(init_content):
     def cook_soup(content):
-        content = BeautifulSoup(content, "lxml")
+        content = BeautifulSoup(content, 'lxml')
 
         return content
 
     def prettify_soup(content):
-        for s in content.find_all("strong", {"class": "text-strong"}):
+        for s in content.find_all('strong', {'class': 'text-strong'}):
             s.unwrap()
 
-        for s in content.find_all("span"):
+        for s in content.find_all('span'):
             try:
-                if s.attrs["style"] and s["style"] and len(s["style"]) > 5 and s["style"][0:5] == "color":
+                if s.attrs['style'] and s['style'] and len(s['style']) > 5 and s['style'][0:5] == 'color':
                     s.unwrap()
             except Exception as e:
                 logging.exception(e)
                 continue
 
-        deleted_text = content.find_all("span", {"style": "text-decoration:line-through"})
+        deleted_text = content.find_all('span', {'style': 'text-decoration:line-through'})
         for case in deleted_text:
             case.decompose()
 
-        for dd in content.find_all("dd", style="display:none"):
-            del dd["style"]
+        for dd in content.find_all('dd', style='display:none'):
+            del dd['style']
 
         return content
 
     def remove_links(content):
-        for tag in content.find_all("a"):
-            if tag.name == "a" and not re.search(r"\[[+−]]", tag.text):
+        for tag in content.find_all('a'):
+            if tag.name == 'a' and not re.search(r'\[[+−]]', tag.text):
                 tag.unwrap()
 
         return content
@@ -507,38 +507,38 @@ def clean_up_content(init_content):
     def remove_irrelevant_content(content):
         # language=regexp
         patterns = (
-            r"(?i)(Карты.*\n|"
-            r"Ориентировка на печать.*\n|"
-            r"Ориентировка на репост.*\n|"
-            r"\[\+] СМИ.*\n|"
-            r"СМИ\s.*\n|"
-            r"Задача на поиске с которой может помочь каждый.*\n|"
-            r"ВНИМАНИЕ! Всем выезжающим иметь СИЗ.*\n|"
-            r"С признаками ОРВИ оставайтесь дома.*\n|"
-            r"Берегите себя и своих близких!.*\n|"
-            r"Если же представитель СМИ хочет.*\n|"
-            r"8\(800\)700-54-52 или.*\n|"
-            r"Предоставлять комментарии по поиску.*\n|"
-            r"Таблица прозвона больниц.*\n|"
-            r"Запрос на согласование фото.*(\n|(\s*)?$)|"
-            r"Все фото.*(\n|(\s*)?$)|"
-            r"Написать инфоргу.*в (Telegram|Телеграмм?)(\n|(\s*)?$)|"
-            r"Горячая линия отряда:.*(\n|(\s*)?$))"
+            r'(?i)(Карты.*\n|'
+            r'Ориентировка на печать.*\n|'
+            r'Ориентировка на репост.*\n|'
+            r'\[\+] СМИ.*\n|'
+            r'СМИ\s.*\n|'
+            r'Задача на поиске с которой может помочь каждый.*\n|'
+            r'ВНИМАНИЕ! Всем выезжающим иметь СИЗ.*\n|'
+            r'С признаками ОРВИ оставайтесь дома.*\n|'
+            r'Берегите себя и своих близких!.*\n|'
+            r'Если же представитель СМИ хочет.*\n|'
+            r'8\(800\)700-54-52 или.*\n|'
+            r'Предоставлять комментарии по поиску.*\n|'
+            r'Таблица прозвона больниц.*\n|'
+            r'Запрос на согласование фото.*(\n|(\s*)?$)|'
+            r'Все фото.*(\n|(\s*)?$)|'
+            r'Написать инфоргу.*в (Telegram|Телеграмм?)(\n|(\s*)?$)|'
+            r'Горячая линия отряда:.*(\n|(\s*)?$))'
         )
 
-        content = re.sub(patterns, "", content)
-        content = re.sub(r"[\s_-]*$", "", content)
-        content = re.sub(r"\n\n", r"\n", content)
-        content = re.sub(r"\n\n", r"\n", content)
+        content = re.sub(patterns, '', content)
+        content = re.sub(r'[\s_-]*$', '', content)
+        content = re.sub(r'\n\n', r'\n', content)
+        content = re.sub(r'\n\n', r'\n', content)
 
         return content
 
     def make_html(content):
-        content = re.sub(r"\n", "<br>", content)
+        content = re.sub(r'\n', '<br>', content)
 
         return content
 
-    if not init_content or re.search(r"Для просмотра этого форума вы должны быть авторизованы", init_content):
+    if not init_content or re.search(r'Для просмотра этого форума вы должны быть авторизованы', init_content):
         return None
 
     reco_content = cook_soup(init_content)
@@ -547,7 +547,7 @@ def clean_up_content(init_content):
     reco_content = reco_content.text
     reco_content = remove_irrelevant_content(reco_content)
     reco_content = make_html(reco_content)
-    logging.info(f"{reco_content=}")
+    logging.info(f'{reco_content=}')
 
     return reco_content
 
@@ -556,11 +556,11 @@ def clean_up_content(init_content):
 def main(request):
     # For more information about CORS and CORS preflight requests, see:
     # https://developer.mozilla.org/en-US/docs/Glossary/Preflight_request
-    allowed_origins = ["https://web_app.storage.googleapis.com", "https://storage.googleapis.com"]
+    allowed_origins = ['https://web_app.storage.googleapis.com', 'https://storage.googleapis.com']
     origin = None
     try:
-        origin = request.headers.get("Origin")
-        logging.info(f"{origin=}")
+        origin = request.headers.get('Origin')
+        logging.info(f'{origin=}')
 
     except Exception as e:
         logging.exception(e)
@@ -568,72 +568,72 @@ def main(request):
     origin_to_show = allowed_origins[1]
     if origin in allowed_origins:
         origin_to_show = origin
-    logging.info(f"{origin_to_show=}")
+    logging.info(f'{origin_to_show=}')
 
     # Set CORS headers for the preflight request
-    if request.method == "OPTIONS":
+    if request.method == 'OPTIONS':
         # Allows GET requests from any origin with the Content-Type
         # header and caches preflight response for an 3600s
         headers = {
-            "Access-Control-Allow-Origin": origin_to_show,
-            "Access-Control-Allow-Methods": ["GET", "POST", "OPTIONS"],
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Access-Control-Max-Age": "3600",
+            'Access-Control-Allow-Origin': origin_to_show,
+            'Access-Control-Allow-Methods': ['GET', 'POST', 'OPTIONS'],
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Max-Age': '3600',
         }  # https://storage.googleapis.com
 
-        logging.info(f"{headers=}")
+        logging.info(f'{headers=}')
 
-        return ("", 204, headers)
+        return ('', 204, headers)
 
     # Set CORS headers for the main request
-    headers = {"Access-Control-Allow-Origin": origin_to_show}
-    logging.info(f"{headers=}")
+    headers = {'Access-Control-Allow-Origin': origin_to_show}
+    logging.info(f'{headers=}')
 
     logging.info(request)
     request_json = request.get_json(silent=True)
     logging.info(request_json)
     request_args = request.args
-    response = {"ok": False}
+    response = {'ok': False}
     reason = None
 
     if not request_json:
-        reason = "No json/string received"
+        reason = 'No json/string received'
         logging.info(request_args)
 
-    bot_token = get_secrets("bot_api_token__prod")
+    bot_token = get_secrets('bot_api_token__prod')
     process_the_data = verify_telegram_data(request_json, bot_token)
 
     if not process_the_data:
-        reason = "Provided json is not validated"
-        logging.info(f"the incoming json is {request_json}")
+        reason = 'Provided json is not validated'
+        logging.info(f'the incoming json is {request_json}')
 
-    elif not isinstance(request_json, str) and "id" not in request_json:
-        reason = "No user_id in json provided"
-        logging.info(f"the incoming json is {request_json}")
+    elif not isinstance(request_json, str) and 'id' not in request_json:
+        reason = 'No user_id in json provided'
+        logging.info(f'the incoming json is {request_json}')
 
-    elif not isinstance(request_json, str) and "id" in request_json and not isinstance(request_json["id"], int):
-        reason = "user_id is not a digit"
-        logging.info(f"the incoming json is {request_json}")
+    elif not isinstance(request_json, str) and 'id' in request_json and not isinstance(request_json['id'], int):
+        reason = 'user_id is not a digit'
+        logging.info(f'the incoming json is {request_json}')
 
     if reason:
-        logging.info(f"{reason=}")
-        response["reason"] = reason
+        logging.info(f'{reason=}')
+        response['reason'] = reason
         # MEMO - below we use "0" only to track number of unsuccessful api calls
         save_user_statistics_to_db(0, False)
         return response, 200, headers
 
     if not isinstance(request_json, str):
-        user_id = request_json["id"]
+        user_id = request_json['id']
     else:
         user_item = unquote(request_json)
         user_id = int(re.findall(r'(?<="id":)\d{3,20}', user_item)[0])
-    logging.info(f"YES, {user_id=} is received!")
-    logging.info(f"the incoming json is {request_json}")
+    logging.info(f'YES, {user_id=} is received!')
+    logging.info(f'the incoming json is {request_json}')
     params = get_user_data_from_db(user_id)
 
-    response = {"ok": True, "user_id": user_id, "params": params}
+    response = {'ok': True, 'user_id': user_id, 'params': params}
 
-    logging.info(f"the RESULT {response}")
+    logging.info(f'the RESULT {response}')
 
     save_user_statistics_to_db(user_id, True)
 

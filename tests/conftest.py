@@ -16,7 +16,7 @@ def patch_logging():
 
     """
 
-    with patch("google.cloud.logging.Client") as mock:
+    with patch('google.cloud.logging.Client') as mock:
         yield mock
 
 
@@ -26,9 +26,9 @@ def common_patches():
     Common patch for all tests to enable imports
     """
     with (
-        patch.object(urllib.request, "urlopen") as urllib_request_mock,
-        patch("google.cloud.secretmanager.SecretManagerServiceClient"),
-        patch("google.cloud.pubsub_v1.PublisherClient"),
+        patch.object(urllib.request, 'urlopen') as urllib_request_mock,
+        patch('google.cloud.secretmanager.SecretManagerServiceClient'),
+        patch('google.cloud.pubsub_v1.PublisherClient'),
     ):
-        urllib_request_mock.return_value = io.BytesIO(b"1")
+        urllib_request_mock.return_value = io.BytesIO(b'1')
         yield
