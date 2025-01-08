@@ -27,7 +27,7 @@ def sql_connect_by_psycopg2():
     db_pass = get_secrets("cloud-postgres-password")
     db_name = get_secrets("cloud-postgres-db-name")
     db_conn = get_secrets("cloud-postgres-connection-name")
-    db_host = '/cloudsql/' + db_conn
+    db_host = "/cloudsql/" + db_conn
 
     conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
     cur = conn_psy.cursor()
@@ -51,7 +51,7 @@ def set_basic_parameters():
     global admin_user_id
 
     # check if script is run locally or on cloud server
-    if 'GCLOUD_PROJECT' in os.environ:
+    if "GCLOUD_PROJECT" in os.environ:
         local_development = False
     else:
         local_development = True
@@ -76,7 +76,7 @@ def set_basic_parameters():
         pass
 
 
-def main(event, context): # noqa
+def main(event, context):  # noqa
     global project_id  # can be deleted?
     global client  # can be deleted?
     global cur
@@ -105,23 +105,22 @@ def main(event, context): # noqa
         print(list_of_users)
 
         # prepare the keyboard
-        button_1 = ['настроить регион поисков']
+        button_1 = ["настроить регион поисков"]
         button_2 = ['настроить "домашние координаты"']
-        button_3 = ['настроить уведомления']
-        button_4 = ['в начало']
+        button_3 = ["настроить уведомления"]
+        button_4 = ["в начало"]
         keyboard = [button_1, button_2, button_3, button_4]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
         # send the message:
         for user in list_of_users:
             try:
-
                 # bot.sendMessage(user, news_text, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
                 bot.sendMessage(user, news_text, parse_mode=ParseMode.HTML)
-                print('DBG.A.1.message_set_to_user:', user)
+                print("DBG.A.1.message_set_to_user:", user)
 
             except Exception as e:
-                print('DBG.A.3.EXC:', repr(e))
+                print("DBG.A.3.EXC:", repr(e))
 
         # set the news as published
         cur.execute("UPDATE news SET status='published' WHERE id=%s;", (news_number,))
@@ -129,4 +128,4 @@ def main(event, context): # noqa
 
     conn_psy.close()
 
-    return 'ok'
+    return "ok"

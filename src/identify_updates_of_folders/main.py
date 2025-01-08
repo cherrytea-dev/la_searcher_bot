@@ -8,7 +8,7 @@ import requests
 import logging
 import urllib.request
 
-from bs4 import BeautifulSoup, SoupStrainer # noqa
+from bs4 import BeautifulSoup, SoupStrainer  # noqa
 
 from google.cloud import pubsub_v1
 from google.cloud import storage
@@ -29,13 +29,13 @@ def process_pubsub_message(event):
     """convert incoming pub/sub message into regular data"""
 
     # receiving message text from pub/sub
-    if 'data' in event:
-        received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
+    if "data" in event:
+        received_message_from_pubsub = base64.b64decode(event["data"]).decode("utf-8")
     else:
-        received_message_from_pubsub = 'I cannot read message from pub/sub'
+        received_message_from_pubsub = "I cannot read message from pub/sub"
     encoded_to_ascii = eval(received_message_from_pubsub)
-    data_in_ascii = encoded_to_ascii['data']
-    message_in_ascii = data_in_ascii['message']
+    data_in_ascii = encoded_to_ascii["data"]
+    message_in_ascii = data_in_ascii["message"]
 
     return message_in_ascii
 
@@ -48,16 +48,20 @@ def publish_to_pubsub(topic_name, message):
     # Preparing to turn to the existing pub/sub topic
     topic_path = publisher.topic_path(project_id, topic_name)
     # Preparing the message
-    message_json = json.dumps({'data': {'message': message}, })
-    message_bytes = message_json.encode('utf-8')
+    message_json = json.dumps(
+        {
+            "data": {"message": message},
+        }
+    )
+    message_bytes = message_json.encode("utf-8")
     # Publishes a message
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify that the publishing succeeded
-        logging.info('Pub/sub message was published successfully')
+        logging.info("Pub/sub message was published successfully")
 
     except Exception as e:
-        logging.info('Pub/sub message was NOT published, fired an error')
+        logging.info("Pub/sub message was NOT published, fired an error")
         logging.exception(e)
 
     return None
@@ -65,8 +69,8 @@ def publish_to_pubsub(topic_name, message):
 
 def set_cloud_storage(folder_num):
     """sets the basic parameters for connection to txt file in cloud storage, which stores searches snapshots"""
-    bucket_name = 'bucket_for_folders_snapshots'
-    blob_name = str(folder_num) + '.txt'
+    bucket_name = "bucket_for_folders_snapshots"
+    blob_name = str(folder_num) + ".txt"
 
     storage_client = storage.Client()
     bucket = storage_client.get_bucket(bucket_name)
@@ -88,10 +92,10 @@ def read_snapshot_from_cloud_storage(folder_num):
     try:
         blob = set_cloud_storage(folder_num)
         contents_as_bytes = blob.download_as_string()
-        contents = str(contents_as_bytes, 'utf-8')
-        if contents == 'None':
+        contents = str(contents_as_bytes, "utf-8")
+        if contents == "None":
             contents = None
-    except: # noqa
+    except:  # noqa
         contents = None
     return contents
 
@@ -115,7 +119,7 @@ def compare_old_and_new_folder_hash_and_give_list_of_upd_folders(new_str, old_st
         comparison_matrix = []
 
         for o_line in old_list:
-            comparison_matrix.append([o_line[0], o_line[1], ''])
+            comparison_matrix.append([o_line[0], o_line[1], ""])
         for n_line in new_list:
             new_folder_trigger = True
             for m_line in comparison_matrix:
@@ -123,7 +127,7 @@ def compare_old_and_new_folder_hash_and_give_list_of_upd_folders(new_str, old_st
                     new_folder_trigger = False
                     m_line[2] = n_line[1]
             if new_folder_trigger:
-                comparison_matrix.append([n_line[0], '', n_line[1]])
+                comparison_matrix.append([n_line[0], "", n_line[1]])
 
         for line in comparison_matrix:
             if line[1] != line[2]:
@@ -140,22 +144,22 @@ def decompose_folder_to_subfolders_and_searches(start_folder_num):
     page_full_extract_searches = []
     folder_name = None
 
-    url = 'https://lizaalert.org/forum/viewforum.php?f=' + str(start_folder_num)
+    url = "https://lizaalert.org/forum/viewforum.php?f=" + str(start_folder_num)
 
     try:
         r = requests.Session().get(url)
-        only_tag = SoupStrainer('div', {'class': 'page-body'})
-        soup = BeautifulSoup(r.content, features='lxml', parse_only=only_tag)
+        only_tag = SoupStrainer("div", {"class": "page-body"})
+        soup = BeautifulSoup(r.content, features="lxml", parse_only=only_tag)
         del r  # trying to free up memory
-        folder_name = soup.find('h2', {'class': 'forum-title'}).next_element.next_element
+        folder_name = soup.find("h2", {"class": "forum-title"}).next_element.next_element
         logging.info(folder_name)
 
-        search_code_blocks_folders = soup.find_all('div', {'class': 'forabg'})
-        search_code_blocks_searches = soup.find_all('div', {'class': 'forumbg'})
+        search_code_blocks_folders = soup.find_all("div", {"class": "forabg"})
+        search_code_blocks_searches = soup.find_all("div", {"class": "forumbg"})
         del soup  # trying to free up memory
 
     except Exception as e1:
-        logging.info(f'Request to forum was unsuccessful for url {url}')
+        logging.info(f"Request to forum was unsuccessful for url {url}")
         logging.exception(e1)
         search_code_blocks_folders = None
         search_code_blocks_searches = None
@@ -163,22 +167,20 @@ def decompose_folder_to_subfolders_and_searches(start_folder_num):
     try:
         if search_code_blocks_folders:
             for block in search_code_blocks_folders:
-
-                folders = block.find_all('li', {'class': 'row'})
+                folders = block.find_all("li", {"class": "row"})
                 for folder in folders:
-
                     # found no cases where there can be more than 1 topic name or date, so find i/o find_all is used
-                    folder_num_str = folder.find('a', {'class': 'forumtitle'})['href']
+                    folder_num_str = folder.find("a", {"class": "forumtitle"})["href"]
 
-                    start_symb_to_del = folder_num_str.find('&sid=')
+                    start_symb_to_del = folder_num_str.find("&sid=")
                     if start_symb_to_del != -1:
                         folder_num = int(folder_num_str[18:start_symb_to_del])
                     else:
                         folder_num = int(folder_num_str[18:])
 
                     try:
-                        folder_time_str = folder.find('time')['datetime']
-                    except: # noqa
+                        folder_time_str = folder.find("time")["datetime"]
+                    except:  # noqa
                         folder_time_str = None
 
                     # remove useless folders: Справочники, Снаряжение, Постскриптум and all from Обучение и Тренировки
@@ -190,53 +192,51 @@ def decompose_folder_to_subfolders_and_searches(start_folder_num):
                         page_summary_folders.append([folder_num, folder_time_str])
 
     except Exception as e2:
-        logging.info(f'Folder code blocks identification was not successful, fired an error for {start_folder_num}')
+        logging.info(f"Folder code blocks identification was not successful, fired an error for {start_folder_num}")
         logging.exception(e2)
 
     try:
         if search_code_blocks_searches:
-
             for block in search_code_blocks_searches:
+                searches = block.find_all("dl", "row-item")  # memo: w/o "class:row-item" - to catch diff "row-items"
 
-                searches = block.find_all('dl', 'row-item')  # memo: w/o "class:row-item" - to catch diff "row-items"
-
-                for i in range(len(searches)-1):
-
-                    page_full_extract_searches.append(str(searches[i+1]))
+                for i in range(len(searches) - 1):
+                    page_full_extract_searches.append(str(searches[i + 1]))
 
                     # only title + time of the last reply
-                    search_title_block = searches[i+1].find('a', 'topictitle')
+                    search_title_block = searches[i + 1].find("a", "topictitle")
                     search_title = search_title_block.next_element
 
                     try:
-                        search_time_str = searches[i+1].find('time')['datetime']
-                    except: # noqa
+                        search_time_str = searches[i + 1].find("time")["datetime"]
+                    except:  # noqa
                         search_time_str = None
 
                     page_summary_searches.append([search_title, search_time_str])
 
     except Exception as e3:
-        logging.info(f'Searches code blocks identification was not successful, fired an error for {start_folder_num}')
+        logging.info(f"Searches code blocks identification was not successful, fired an error for {start_folder_num}")
         logging.exception(e3)
 
-    logging.info(f'Page summary searches: {str(page_summary_searches)}')
+    logging.info(f"Page summary searches: {str(page_summary_searches)}")
 
     return page_summary_folders, page_summary_searches, page_full_extract_searches, folder_name
 
 
 class FolderForDecompose:
-    def __init__(self,
-                 mother_folder_num=None,
-                 mother_folder_name=None,
-                 old_child_folders_str=None,
-                 old_child_searches_str=None,
-                 new_child_folders_str=None,
-                 new_child_searches_str=None,
-                 decomposition_status=None,
-                 mother_file_folders=None,
-                 mother_file_searches=None,
-                 searches_extract=None
-                 ):
+    def __init__(
+        self,
+        mother_folder_num=None,
+        mother_folder_name=None,
+        old_child_folders_str=None,
+        old_child_searches_str=None,
+        new_child_folders_str=None,
+        new_child_searches_str=None,
+        decomposition_status=None,
+        mother_file_folders=None,
+        mother_file_searches=None,
+        searches_extract=None,
+    ):
         self.mother_folder_num = mother_folder_num
         self.mother_folder_name = mother_folder_name
         self.old_child_folders_str = old_child_folders_str
@@ -249,12 +249,21 @@ class FolderForDecompose:
         self.searches_extract = searches_extract
 
     def __str__(self):
-        return str([self.mother_folder_num, self.old_child_searches_str, self.new_child_searches_str,
-                    self.old_child_folders_str, self.new_child_folders_str,
-                    self.decomposition_status, self.mother_file_folders, self.mother_file_searches])
+        return str(
+            [
+                self.mother_folder_num,
+                self.old_child_searches_str,
+                self.new_child_searches_str,
+                self.old_child_folders_str,
+                self.new_child_folders_str,
+                self.decomposition_status,
+                self.mother_file_folders,
+                self.mother_file_searches,
+            ]
+        )
 
 
-def main(event, context): # noqa
+def main(event, context):  # noqa
     """main function"""
 
     list_of_updates = []
@@ -263,55 +272,57 @@ def main(event, context): # noqa
     # check the initial 000 folder: what pub/sub sent & what is in storage
 
     folder_root = FolderForDecompose()
-    folder_root.mother_folder_num = '000'
+    folder_root.mother_folder_num = "000"
 
     list_of_updates.append(folder_root)
 
     for folder in list_of_updates:
-
         # if folder was not decomposed yet - we need to do it (if was, we're just skipping it)
         if not folder.decomposition_status:
-
-            folder.mother_file_folders = str(folder.mother_folder_num) + '_folders'
-            folder.mother_file_searches = str(folder.mother_folder_num) + '_searches'
+            folder.mother_file_folders = str(folder.mother_folder_num) + "_folders"
+            folder.mother_file_searches = str(folder.mother_folder_num) + "_searches"
             folder.old_child_folders_str = read_snapshot_from_cloud_storage(folder.mother_file_folders)
             folder.old_child_searches_str = read_snapshot_from_cloud_storage(folder.mother_file_searches)
 
-            if folder.mother_folder_num == '000':
+            if folder.mother_folder_num == "000":
                 folder.new_child_folders_str = process_pubsub_message(event)
                 folder.new_child_searches_str = None
             else:
-                list_of_decomposed_folders, list_of_decomposed_searches, list_of_searches_details, mother_folder_name \
-                    = decompose_folder_to_subfolders_and_searches(folder.mother_folder_num)
+                (
+                    list_of_decomposed_folders,
+                    list_of_decomposed_searches,
+                    list_of_searches_details,
+                    mother_folder_name,
+                ) = decompose_folder_to_subfolders_and_searches(folder.mother_folder_num)
                 folder.new_child_folders_str = str(list_of_decomposed_folders)
                 folder.new_child_searches_str = str(list_of_decomposed_searches)
                 folder.searches_extract = str(list_of_searches_details)
                 folder.mother_folder_name = mother_folder_name
 
             list_of_new_folders = compare_old_and_new_folder_hash_and_give_list_of_upd_folders(
-                folder.new_child_folders_str, folder.old_child_folders_str)
+                folder.new_child_folders_str, folder.old_child_folders_str
+            )
 
-            logging.info(f'List of new folders in {str(folder.mother_folder_num)}: {str(list_of_new_folders)}')
+            logging.info(f"List of new folders in {str(folder.mother_folder_num)}: {str(list_of_new_folders)}")
 
             for line in list_of_new_folders:
                 child_folder = FolderForDecompose()
                 child_folder.mother_folder_num = str(line)
                 list_of_updates.append(child_folder)
 
-            folder.decomposition_status = 'decomposed'
+            folder.decomposition_status = "decomposed"
             write_snapshot_to_cloud_storage(folder.new_child_folders_str, folder.mother_file_folders)
             write_snapshot_to_cloud_storage(folder.new_child_searches_str, folder.mother_file_searches)
 
     for line in list_of_updates:
         if line.new_child_searches_str != line.old_child_searches_str:
-            list_of_updated_low_level_folders.append([line.mother_folder_num,
-                                                      line.mother_folder_name])
+            list_of_updated_low_level_folders.append([line.mother_folder_num, line.mother_folder_name])
 
     logging.info('The below list is to be sent to "Identify updates of topics" script via pub/sub')
     for line in list_of_updated_low_level_folders:
         logging.info(line)
 
     if list_of_updated_low_level_folders:
-        publish_to_pubsub('topic_to_run_parsing_script', str(list_of_updated_low_level_folders))
+        publish_to_pubsub("topic_to_run_parsing_script", str(list_of_updated_low_level_folders))
 
     return None

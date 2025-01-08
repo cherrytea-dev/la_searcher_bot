@@ -36,24 +36,22 @@ bad_gateway_counter = 0
 
 
 class Search:
-
-    def __init__(self,
-                 topic_id=None):
+    def __init__(self, topic_id=None):
         self.topic_id = topic_id
 
 
 class PercentGroup:
-
-    def __init__(self,
-                 n=None,
-                 start_percent=None,
-                 finish_percent=None,
-                 start_num=None,
-                 finish_num=None,
-                 frequency=None,
-                 first_delay=None,
-                 searches=None # noqa
-                 ):
+    def __init__(
+        self,
+        n=None,
+        start_percent=None,
+        finish_percent=None,
+        start_num=None,
+        finish_num=None,
+        frequency=None,
+        first_delay=None,
+        searches=None,  # noqa
+    ):
         searches = []
         self.n = n
         self.sp = start_percent
@@ -65,9 +63,11 @@ class PercentGroup:
         self.s = searches
 
     def __str__(self):
-        days = f' or {int(self.f // 1440)} day(s)' if self.f >= 1440 else f''
-        return f'N{self.n: <2}: {self.sp}%–{self.fp}%. Updated every {self.f} minute(s){days}. ' \
-               f'First delay = {self.d} minutes. nums {self.sn}-{self.fn}. num of searches {len(self.s)}'
+        days = f" or {int(self.f // 1440)} day(s)" if self.f >= 1440 else ""
+        return (
+            f"N{self.n: <2}: {self.sp}%–{self.fp}%. Updated every {self.f} minute(s){days}. "
+            f"First delay = {self.d} minutes. nums {self.sn}-{self.fn}. num of searches {len(self.s)}"
+        )
 
 
 def get_secrets(secret_request):
@@ -101,13 +101,9 @@ def sql_connect():
             username=db_user,
             password=db_pass,
             database=db_name,
-            query={
-                "unix_sock": "{}/{}/.s.PGSQL.5432".format(
-                    db_socket_dir,
-                    db_conn)
-            }
+            query={"unix_sock": "{}/{}/.s.PGSQL.5432".format(db_socket_dir, db_conn)},
         ),
-        **db_config
+        **db_config,
     )
     pool.dialect.description_encoding = None
 
@@ -118,17 +114,23 @@ def publish_to_pubsub(topic_name, message):
     """publish a new message to pub/sub"""
 
     topic_path = publisher.topic_path(project_id, topic_name)
-    message_json = json.dumps({'data': {'message': message}, })
-    message_bytes = message_json.encode('utf-8')
+    message_json = json.dumps(
+        {
+            "data": {"message": message},
+        }
+    )
+    message_bytes = message_json.encode("utf-8")
 
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publishing succeeded
-        logging.info(f'Pub/sub message to topic {topic_name} with event_id = {publish_future.result()} has '
-                     f'been triggered. Content: {message}')
+        logging.info(
+            f"Pub/sub message to topic {topic_name} with event_id = {publish_future.result()} has "
+            f"been triggered. Content: {message}"
+        )
 
     except Exception as e:
-        logging.info(f'Not able to send pub/sub message: {message}')
+        logging.info(f"Not able to send pub/sub message: {message}")
         logging.exception(e)
 
     return None
@@ -137,7 +139,7 @@ def publish_to_pubsub(topic_name, message):
 def notify_admin(message):
     """send the pub/sub message to Debug to Admin"""
 
-    publish_to_pubsub('topic_notify_admin', message)
+    publish_to_pubsub("topic_notify_admin", message)
 
     return None
 
@@ -145,12 +147,12 @@ def notify_admin(message):
 def define_topic_visibility_by_content(content):
     """define visibility for the topic's content: regular, hidden or deleted"""
 
-    if content.find('Запрошенной темы не существует.') > -1:
-        visibility = 'deleted'
-    elif content.find('Для просмотра этого форума вы должны быть авторизованы') > -1:
-        visibility = 'hidden'
+    if content.find("Запрошенной темы не существует.") > -1:
+        visibility = "deleted"
+    elif content.find("Для просмотра этого форума вы должны быть авторизованы") > -1:
+        visibility = "hidden"
     else:
-        visibility = 'regular'
+        visibility = "regular"
 
     return visibility
 
@@ -165,7 +167,7 @@ def define_topic_visibility_by_topic_id(search_num):
 
     topic_visibility = define_topic_visibility_by_content(content)
 
-    logging.info(f'visibility for search {search_num} is defined as {topic_visibility}')
+    logging.info(f"visibility for search {search_num} is defined as {topic_visibility}")
 
     return site_unavailable, topic_visibility
 
@@ -174,14 +176,13 @@ def update_one_topic_visibility(search_id):
     """record in psql the visibility of one topic: regular, deleted or hidden"""
 
     forum_unavailable, visibility = define_topic_visibility_by_topic_id(search_id)
-    logging.info(f'Visibility checked for {search_id}: visibility = {visibility}')
+    logging.info(f"Visibility checked for {search_id}: visibility = {visibility}")
 
     if forum_unavailable or not visibility:
         return None
 
     pool = sql_connect()
     with pool.connect() as conn:
-
         try:
             stmt = sqlalchemy.text("""DELETE FROM search_health_check WHERE search_forum_num=:a;""")
             conn.execute(stmt, a=search_id)
@@ -190,11 +191,11 @@ def update_one_topic_visibility(search_id):
                                       VALUES (:a, :b, :c);""")
             conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=visibility)
 
-            logging.info(f'Visibility updated for {search_id} and set as {visibility}')
-            logging.info('---------------')
+            logging.info(f"Visibility updated for {search_id} and set as {visibility}")
+            logging.info("---------------")
 
         except Exception as e:
-            logging.info('exception in update_one_topic_visibility')
+            logging.info("exception in update_one_topic_visibility")
             logging.exception(e)
 
         conn.close()
@@ -221,12 +222,12 @@ def update_visibility_for_one_hidden_topic():
 
         hidden_topic_id = int(hidden_topic[0])
         current_status = hidden_topic[1]
-        if current_status in {'Ищем', 'Возобновлен'}:
-            logging.info(f'we start checking visibility for topic {hidden_topic_id}')
+        if current_status in {"Ищем", "Возобновлен"}:
+            logging.info(f"we start checking visibility for topic {hidden_topic_id}")
             update_one_topic_visibility(hidden_topic_id)
 
     except Exception as e:
-        logging.info('exception in update_visibility_for_one_hidden_topic')
+        logging.info("exception in update_visibility_for_one_hidden_topic")
         logging.exception(e)
 
     conn.close()
@@ -242,14 +243,14 @@ def parse_search(search_num):
     global bad_gateway_counter
 
     try:
-        url = f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
+        url = f"https://lizaalert.org/forum/viewtopic.php?t={search_num}"
         r = requests_session.get(url, timeout=10)  # seconds – not sure if it is efficient in this case
         content = r.content.decode("utf-8")
-        content = None if content.find('502 Bad Gateway') > 0 else content
+        content = None if content.find("502 Bad Gateway") > 0 else content
         site_unavailable = False if content else True
 
     except (requests.exceptions.ReadTimeout, Exception) as e:
-        logging.info(f'[che_posts]: site unavailable: {e.__class__.__name__}')
+        logging.info(f"[che_posts]: site unavailable: {e.__class__.__name__}")
         content = None
         site_unavailable = True
 
@@ -260,13 +261,13 @@ def make_api_call(function: str, data: dict) -> dict:
     """makes an API call to another Google Cloud Function"""
 
     # function we're turing to "title_recognize"
-    endpoint = f'https://europe-west3-lizaalert-bot-01.cloudfunctions.net/{function}'
+    endpoint = f"https://europe-west3-lizaalert-bot-01.cloudfunctions.net/{function}"
 
     # required magic for Google Cloud Functions Gen2 to invoke each other
     audience = endpoint
     auth_req = google.auth.transport.requests.Request()
     id_token = google.oauth2.id_token.fetch_id_token(auth_req, audience)
-    headers = {"Authorization": f"Bearer {id_token}", 'Content-Type': 'application/json'}
+    headers = {"Authorization": f"Bearer {id_token}", "Content-Type": "application/json"}
 
     r = requests.post(endpoint, json=data, headers=headers)
     content = r.json()
@@ -287,7 +288,7 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
         return None
 
     # language=regexp
-    patterns = [[r'(?i)(^\W{0,2}|(?<=\W))(пропал[аи]?\W{1,3})', 'Ищем']]
+    patterns = [[r"(?i)(^\W{0,2}|(?<=\W))(пропал[аи]?\W{1,3})", "Ищем"]]
 
     status = None
     for pattern in patterns:
@@ -298,26 +299,25 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
     if not status:
         try:
             data = {"title": title, "reco_type": "status_only"}
-            title_reco_response = make_api_call('title_recognize', data)
+            title_reco_response = make_api_call("title_recognize", data)
 
-            if title_reco_response and 'status' in title_reco_response.keys() \
-                    and title_reco_response['status'] == 'ok':
-                title_reco_dict = title_reco_response['recognition']
-                if 'status' in title_reco_dict.keys():
-                    status = title_reco_dict['status']
+            if title_reco_response and "status" in title_reco_response.keys() and title_reco_response["status"] == "ok":
+                title_reco_dict = title_reco_response["recognition"]
+                if "status" in title_reco_dict.keys():
+                    status = title_reco_dict["status"]
             else:
-                title_reco_dict = {'topic_type': 'UNRECOGNIZED'}
+                title_reco_dict = {"topic_type": "UNRECOGNIZED"}
 
-            logging.info(f'{title_reco_dict=}')
+            logging.info(f"{title_reco_dict=}")
 
         except Exception as ex:
             logging.exception(ex)
             notify_admin(repr(ex))
 
-    if not status or status == 'Ищем':
+    if not status or status == "Ищем":
         return None
 
-    publish_to_pubsub('topic_for_topic_management', {'topic_id': topic_id, 'status': status})
+    publish_to_pubsub("topic_for_topic_management", {"topic_id": topic_id, "status": status})
 
     return None
 
@@ -357,7 +357,7 @@ def update_first_posts_and_statuses():
                     base_table_of_objects.append(new_object)
 
         except Exception as e2:
-            logging.info('exception in get_list_of_searches_for_first_post_update')
+            logging.info("exception in get_list_of_searches_for_first_post_update")
             logging.exception(e2)
 
         conn_2.close()
@@ -374,11 +374,13 @@ def update_first_posts_and_statuses():
 
         while current_percent < 100:
             n = int(current_percent / percent_step)
-            new_group = PercentGroup(n=n,
-                                     start_percent=current_percent,
-                                     finish_percent=min(100, current_percent + percent_step - 1),
-                                     frequency=2 ** n,
-                                     first_delay=2 ** (n - 1) - 1 if n != 0 else 0)
+            new_group = PercentGroup(
+                n=n,
+                start_percent=current_percent,
+                finish_percent=min(100, current_percent + percent_step - 1),
+                frequency=2**n,
+                first_delay=2 ** (n - 1) - 1 if n != 0 else 0,
+            )
             list_of_groups.append(new_group)
             current_percent += percent_step
 
@@ -394,7 +396,7 @@ def update_first_posts_and_statuses():
         for group_2 in list_of_groups:
             if not ((curr_minute - group_2.d) % group_2.f):
                 curr_minute_list.append(group_2)
-                logging.info(f'Group to be checked {group_2}')
+                logging.info(f"Group to be checked {group_2}")
 
         return curr_minute_list
 
@@ -420,34 +422,35 @@ def update_first_posts_and_statuses():
         # TODO - seems can be much simplified with regex
         # cut the wording of the first post
         start = content.find('<div class="content">')
-        content = content[(start + 21):]
+        content = content[(start + 21) :]
 
         # find the next block and limit the content till this block
         next_block = content.find('<div class="back2top">')
-        content = content[:(next_block - 12)]
+        content = content[: (next_block - 12)]
 
         # cut out div closure
-        fin_div = content.rfind('</div>')
+        fin_div = content.rfind("</div>")
         content = content[:fin_div]
 
         # cut blank symbols in the end of code
-        finish = content.rfind('>')
-        content = content[:(finish + 1)]
+        finish = content.rfind(">")
+        content = content[: (finish + 1)]
 
         # exclude dynamic info – views of the pictures
-        patterns = re.findall(r'\) \d+ просмотр(?:а|ов)?', content)
+        patterns = re.findall(r"\) \d+ просмотр(?:а|ов)?", content)
         if patterns:
             for word in patterns:
                 content = content.replace(word, ")")
 
         # exclude dynamic info - token / creation time / sid / etc / footer
-        patterns_list = [r'value="\S{10}"',
-                         r'value="\S{32}"',
-                         r'value="\S{40}"',
-                         r'sid=\S{32}&amp;',
-                         r'всего редактировалось \d+ раз.',  # AK:issue#9
-                         r'<span class="footer-info"><span title="SQL time:.{120,130}</span></span>'
-                         ]
+        patterns_list = [
+            r'value="\S{10}"',
+            r'value="\S{32}"',
+            r'value="\S{40}"',
+            r"sid=\S{32}&amp;",
+            r"всего редактировалось \d+ раз.",  # AK:issue#9
+            r'<span class="footer-info"><span title="SQL time:.{120,130}</span></span>',
+        ]
 
         patterns = []
         for pat in patterns_list:
@@ -455,7 +458,7 @@ def update_first_posts_and_statuses():
 
         if patterns:
             for word in patterns:
-                content = content.replace(word, '')
+                content = content.replace(word, "")
 
         return content
 
@@ -463,7 +466,7 @@ def update_first_posts_and_statuses():
         """parse the first post of search"""
 
         cont, forum_unavailable = parse_search(search_num)
-        not_found = True if cont and re.search(r'Запрошенной темы не существует', cont) else False
+        not_found = True if cont and re.search(r"Запрошенной темы не существует", cont) else False
 
         if forum_unavailable or not_found:
             hash_num = None
@@ -496,7 +499,6 @@ def update_first_posts_and_statuses():
                 act_hash, act_content, site_unavailable, topic_not_found, topic_visibility = get_first_post(topic_id)
 
                 if not site_unavailable and not topic_not_found:
-
                     # check the latest hash
                     stmt = sqlalchemy.text("""
                             SELECT content_hash, num_of_checks, content from search_first_posts WHERE search_id=:a
@@ -506,12 +508,10 @@ def update_first_posts_and_statuses():
 
                     # if record for this search – exists
                     if raw_data:
-
                         last_hash = raw_data[0]
 
                         # if record for this search – outdated
-                        if act_hash != last_hash and topic_visibility == 'regular':
-
+                        if act_hash != last_hash and topic_visibility == "regular":
                             # set all prev records as Actual = False
                             stmt = sqlalchemy.text("""
                                     UPDATE search_first_posts SET actual = FALSE WHERE search_id = :a;
@@ -524,8 +524,7 @@ def update_first_posts_and_statuses():
                                     (search_id, timestamp, actual, content_hash, content, num_of_checks)
                                     VALUES (:a, :b, TRUE, :c, :d, :e);
                                     """)
-                            conn.execute(stmt, a=topic_id, b=datetime.datetime.now(), c=act_hash,
-                                         d=act_content, e=1)
+                            conn.execute(stmt, a=topic_id, b=datetime.datetime.now(), c=act_hash, d=act_content, e=1)
 
                             list_of_searches_with_updated_f_posts.append(topic_id)
 
@@ -538,22 +537,22 @@ def update_first_posts_and_statuses():
 
                 elif site_unavailable:
                     num_of_site_errors_counter += 1
-                    logging.info(f'forum unavailable for search {topic_id}')
+                    logging.info(f"forum unavailable for search {topic_id}")
                     if num_of_site_errors_counter > 3:
-                        notify_admin(f'LA FORUM UNAVAILABLE, che_posts tried {num_of_site_errors_counter} times.')
+                        notify_admin(f"LA FORUM UNAVAILABLE, che_posts tried {num_of_site_errors_counter} times.")
                         break
 
                 elif topic_not_found:
                     update_one_topic_visibility(topic_id)
 
         except Exception as e:
-            logging.info('exception in update_first_posts_and_statuses')
+            logging.info("exception in update_first_posts_and_statuses")
             logging.exception(e)
 
         conn.close()
         pool.dispose()
 
-        logging.info(f'first posts checked for {num_of_searches_counter} searches')
+        logging.info(f"first posts checked for {num_of_searches_counter} searches")
 
         return list_of_searches_with_updated_f_posts
 
@@ -574,12 +573,12 @@ def update_first_posts_and_statuses():
     if not list_of_topics_with_updated_first_posts:
         return None
 
-    publish_to_pubsub('topic_for_first_post_processing', list_of_topics_with_updated_first_posts)
+    publish_to_pubsub("topic_for_first_post_processing", list_of_topics_with_updated_first_posts)
 
     return None
 
 
-def main(event, context): # noqa
+def main(event, context):  # noqa
     """main function"""
 
     # to avoid function invocation except when it was initiated by scheduler (and pub/sub message was not doubled)
@@ -597,7 +596,7 @@ def main(event, context): # noqa
     update_visibility_for_one_hidden_topic()
 
     if bad_gateway_counter > 3:
-        publish_to_pubsub('topic_notify_admin', f'[che_posts]: Bad Gateway {bad_gateway_counter} times')
+        publish_to_pubsub("topic_notify_admin", f"[che_posts]: Bad Gateway {bad_gateway_counter} times")
 
     # Close the open session
     requests_session.close()

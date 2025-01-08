@@ -7,7 +7,6 @@ import logging
 import urllib.request
 
 import asyncio
-from telegram import ReplyKeyboardMarkup, KeyboardButton, Bot, Update, ReplyKeyboardRemove
 from telegram.ext import ContextTypes, Application
 
 from google.cloud import secretmanager
@@ -40,13 +39,13 @@ def process_pubsub_message(event):
     """get the text message from pubsub"""
 
     # receiving message text from pub/sub
-    if 'data' in event:
-        received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
+    if "data" in event:
+        received_message_from_pubsub = base64.b64decode(event["data"]).decode("utf-8")
         encoded_to_ascii = eval(received_message_from_pubsub)
-        data_in_ascii = encoded_to_ascii['data']
-        message_in_ascii = data_in_ascii['message']
+        data_in_ascii = encoded_to_ascii["data"]
+        message_in_ascii = data_in_ascii["message"]
     else:
-        message_in_ascii = 'ERROR: I cannot read message from pub/sub'
+        message_in_ascii = "ERROR: I cannot read message from pub/sub"
 
     return message_in_ascii
 
@@ -69,7 +68,7 @@ async def prepare_message_for_async(user_id, data):
         await application.stop()
         await application.shutdown()
 
-    return 'ok'
+    return "ok"
 
 
 def process_sending_message_async(user_id, data) -> None:
@@ -80,22 +79,21 @@ def send_message(admin_user_id, message):
     """send individual notification message to telegram (debug)"""
 
     try:
-
         # to avoid 4000 symbols restriction for telegram message
         if len(message) > 3500:
             message = message[:1500]
 
-        data = {'text': message}
+        data = {"text": message}
         process_sending_message_async(user_id=admin_user_id, data=data)
 
     except Exception as e:
-        logging.info('[send_debug]: send debug to telegram failed')
+        logging.info("[send_debug]: send debug to telegram failed")
         logging.exception(e)
 
         try:
-            debug_message = f'ERROR! {datetime.datetime.now()}: {e}'
+            debug_message = f"ERROR! {datetime.datetime.now()}: {e}"
 
-            data = {'text': debug_message}
+            data = {"text": debug_message}
             process_sending_message_async(user_id=admin_user_id, data=data)
 
         except Exception as e2:
@@ -104,11 +102,11 @@ def send_message(admin_user_id, message):
     return None
 
 
-def main(event, context): # noqa
-    """main function, envoked by pub/sub, which sends the notification to Admin""" # noqa
+def main(event, context):  # noqa
+    """main function, envoked by pub/sub, which sends the notification to Admin"""  # noqa
 
-    pubsub_message = base64.b64decode(event['data']).decode('utf-8')
-    logging.info('[send_debug]: received from pubsub: {}'.format(pubsub_message)) # noqa
+    pubsub_message = base64.b64decode(event["data"]).decode("utf-8")
+    logging.info("[send_debug]: received from pubsub: {}".format(pubsub_message))  # noqa
 
     message_from_pubsub = process_pubsub_message(event)
 

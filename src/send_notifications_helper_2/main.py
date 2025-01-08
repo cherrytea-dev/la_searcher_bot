@@ -46,17 +46,17 @@ def process_pubsub_message(event):
 
     # receiving message text from pub/sub
     try:
-        if 'data' in event:
-            received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
+        if "data" in event:
+            received_message_from_pubsub = base64.b64decode(event["data"]).decode("utf-8")
             encoded_to_ascii = eval(received_message_from_pubsub)
-            data_in_ascii = encoded_to_ascii['data']
-            message_in_ascii = data_in_ascii['message']
+            data_in_ascii = encoded_to_ascii["data"]
+            message_in_ascii = data_in_ascii["message"]
         else:
-            message_in_ascii = 'ERROR: I cannot read message from pub/sub'
+            message_in_ascii = "ERROR: I cannot read message from pub/sub"
     except:  # noqa
-        message_in_ascii = 'ERROR: I cannot read message from pub/sub'
+        message_in_ascii = "ERROR: I cannot read message from pub/sub"
 
-    logging.info(f'received message from pub/sub: {message_in_ascii}')
+    logging.info(f"received message from pub/sub: {message_in_ascii}")
 
     return message_in_ascii
 
@@ -78,15 +78,15 @@ def sql_connect_by_psycopg2():
         db_pass = get_secrets("cloud-postgres-password")
         db_name = get_secrets("cloud-postgres-db-name")
         db_conn = get_secrets("cloud-postgres-connection-name")
-        db_host = '/cloudsql/' + db_conn
+        db_host = "/cloudsql/" + db_conn
 
         conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
         conn_psy.autocommit = True
 
-        logging.info('sql connection set via psycopg2')
+        logging.info("sql connection set via psycopg2")
 
     except Exception as e:
-        logging.error('failed to set sql connection by psycopg2')
+        logging.error("failed to set sql connection by psycopg2")
         logging.exception(e)
         conn_psy = None
 
@@ -99,16 +99,20 @@ def publish_to_pubsub(topic_name, message):
     global project_id
 
     topic_path = publisher.topic_path(project_id, topic_name)
-    message_json = json.dumps({'data': {'message': message}, })
-    message_bytes = message_json.encode('utf-8')
+    message_json = json.dumps(
+        {
+            "data": {"message": message},
+        }
+    )
+    message_bytes = message_json.encode("utf-8")
 
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publishing succeeded
-        logging.info(f'Sent pub/sub message: {str(message)}')
+        logging.info(f"Sent pub/sub message: {str(message)}")
 
     except Exception as e:
-        logging.error('Not able to send pub/sub message: ' + repr(e))
+        logging.error("Not able to send pub/sub message: " + repr(e))
         logging.exception(e)
 
     return None
@@ -117,7 +121,7 @@ def publish_to_pubsub(topic_name, message):
 def notify_admin(message):
     """send the pub/sub message to Debug to Admin"""
 
-    publish_to_pubsub('topic_notify_admin', message)
+    publish_to_pubsub("topic_notify_admin", message)
 
     return None
 
@@ -126,38 +130,39 @@ def send_message_to_api(session, bot_token, user_id, message, params):
     """send message directly to Telegram API w/o any wrappers ar libraries"""
 
     try:
-        parse_mode = ''
-        disable_web_page_preview = ''
-        reply_markup = ''
+        parse_mode = ""
+        disable_web_page_preview = ""
+        reply_markup = ""
         if params:
-            if 'parse_mode' in params.keys():
+            if "parse_mode" in params.keys():
                 parse_mode = f'&parse_mode={params["parse_mode"]}'
-            if 'disable_web_page_preview' in params.keys():
+            if "disable_web_page_preview" in params.keys():
                 disable_web_page_preview = f'&disable_web_page_preview={params["disable_web_page_preview"]}'
-            if 'reply_markup' in params.keys():
-
-                reply_markup_temp = params['reply_markup']
+            if "reply_markup" in params.keys():
+                reply_markup_temp = params["reply_markup"]
                 reply_markup_json = json.dumps(reply_markup_temp)
                 reply_markup_string = str(reply_markup_json)
                 reply_markup_encoded = urllib.parse.quote(reply_markup_string)
-                reply_markup = f'&reply_markup={reply_markup_encoded}'
+                reply_markup = f"&reply_markup={reply_markup_encoded}"
 
-                logging.info(f'{reply_markup_temp=}')
-                logging.info(f'{reply_markup_json=}')
-                logging.info(f'{reply_markup_string=}')
-                logging.info(f'{reply_markup_encoded=}')
-                logging.info(f'{reply_markup=}')
+                logging.info(f"{reply_markup_temp=}")
+                logging.info(f"{reply_markup_json=}")
+                logging.info(f"{reply_markup_string=}")
+                logging.info(f"{reply_markup_encoded=}")
+                logging.info(f"{reply_markup=}")
 
         message_encoded = urllib.parse.quote(message)
 
-        request_text = f'https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={user_id}' \
-                       f'{parse_mode}{disable_web_page_preview}{reply_markup}&text={message_encoded}'
+        request_text = (
+            f"https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={user_id}"
+            f"{parse_mode}{disable_web_page_preview}{reply_markup}&text={message_encoded}"
+        )
 
         r = session.get(request_text)
 
     except Exception as e:
         logging.exception(e)
-        logging.info(f'Error in getting response from Telegram')
+        logging.info("Error in getting response from Telegram")
         r = None
 
     return r
@@ -167,25 +172,26 @@ def send_location_to_api(session, bot_token, user_id, params):
     """send location directly to Telegram API w/o any wrappers ar libraries"""
 
     try:
-        latitude = ''
-        longitude = ''
+        latitude = ""
+        longitude = ""
         if params:
-            if 'latitude' in params.keys():
+            if "latitude" in params.keys():
                 latitude = f'&latitude={params["latitude"]}'
-            if 'longitude' in params.keys():
+            if "longitude" in params.keys():
                 longitude = f'&longitude={params["longitude"]}'
 
         logging.info(latitude)
         logging.info(longitude)
 
-        request_text = f'https://api.telegram.org/bot{bot_token}/sendLocation?chat_id={user_id}' \
-                       f'{latitude}{longitude}'
+        request_text = (
+            f"https://api.telegram.org/bot{bot_token}/sendLocation?chat_id={user_id}" f"{latitude}{longitude}"
+        )
 
         r = session.get(request_text)
 
     except Exception as e:
         logging.exception(e)
-        logging.info(f'THIS BAD EXCEPTION HAPPENED')
+        logging.info("THIS BAD EXCEPTION HAPPENED")
         r = None
 
     return r
@@ -229,7 +235,7 @@ def check_first_notif_to_send(cur):
 
     try:
         message_id, message_type, doubling = notification
-        if message_type == 'coords':
+        if message_type == "coords":
             message_id += 1
 
     except Exception as e:
@@ -306,42 +312,42 @@ def process_response(user_id, response):
 
     try:
         if response.ok:
-            logging.info(f'message to {user_id} was successfully sent')
-            return 'completed'
+            logging.info(f"message to {user_id} was successfully sent")
+            return "completed"
 
         elif response.status_code == 400:  # Bad Request
-            logging.info(f'Bad Request: message to {user_id} was not sent, {response.reason=}')
-            logging.exception('BAD REQUEST')
-            return 'cancelled_bad_request'
+            logging.info(f"Bad Request: message to {user_id} was not sent, {response.reason=}")
+            logging.exception("BAD REQUEST")
+            return "cancelled_bad_request"
 
         elif response.status_code == 403:  # FORBIDDEN
-            logging.info(f'Forbidden: message to {user_id} was not sent, {response.reason=}')
+            logging.info(f"Forbidden: message to {user_id} was not sent, {response.reason=}")
             action = None
-            if response.text.find('bot was blocked by the user') != -1:
-                action = 'block_user'
-            if response.text.find('user is deactivated') != -1:
-                action = 'delete_user'
+            if response.text.find("bot was blocked by the user") != -1:
+                action = "block_user"
+            if response.text.find("user is deactivated") != -1:
+                action = "delete_user"
             if action:
-                message_for_pubsub = {'action': action, 'info': {'user': user_id}}
-                publish_to_pubsub('topic_for_user_management', message_for_pubsub)
-                logging.info(f'Identified user id {user_id} to do {action}')
-            return 'cancelled'
+                message_for_pubsub = {"action": action, "info": {"user": user_id}}
+                publish_to_pubsub("topic_for_user_management", message_for_pubsub)
+                logging.info(f"Identified user id {user_id} to do {action}")
+            return "cancelled"
 
         elif 420 <= response.status_code <= 429:  # 'Flood Control':
-            logging.info(f'Flood Control: message to {user_id} was not sent, {response.reason=}')
-            logging.exception('FLOOD CONTROL')
+            logging.info(f"Flood Control: message to {user_id} was not sent, {response.reason=}")
+            logging.exception("FLOOD CONTROL")
             time.sleep(5)  # to mitigate flood control
-            return 'failed_flood_control'
+            return "failed_flood_control"
 
         else:
-            logging.info(f'UNKNOWN ERROR: message to {user_id} was not sent, {response.reason=}')
-            logging.exception('UNKNOWN ERROR')
-            return 'cancelled'
+            logging.info(f"UNKNOWN ERROR: message to {user_id} was not sent, {response.reason=}")
+            logging.exception("UNKNOWN ERROR")
+            return "cancelled"
 
     except Exception as e:
-        logging.info(f'Response is corrupted')
+        logging.info("Response is corrupted")
         logging.exception(e)
-        return 'failed'
+        return "failed"
 
 
 def send_single_message(bot_token, user_id, message_content, message_params, message_type, admin_id, session):
@@ -349,41 +355,41 @@ def send_single_message(bot_token, user_id, message_content, message_params, mes
 
     if message_params:
         # convert string to bool
-        if 'disable_web_page_preview' in message_params:
-            message_params['disable_web_page_preview'] = (message_params['disable_web_page_preview'] == 'True')
+        if "disable_web_page_preview" in message_params:
+            message_params["disable_web_page_preview"] = message_params["disable_web_page_preview"] == "True"
 
     try:
-
         response = None
-        if message_type == 'text':
+        if message_type == "text":
             response = send_message_to_api(session, bot_token, user_id, message_content, message_params)
 
-        elif message_type == 'coords':
+        elif message_type == "coords":
             response = send_location_to_api(session, bot_token, user_id, message_params)
 
         result = process_response(user_id, response)
 
     except Exception as e:  # when sending to telegram fails by other reasons
-
         error_description = str(e)
 
         # if user blocked the bot OR user is deactivated (deleted telegram account)
-        if error_description.find('bot was blocked by the user') != -1 \
-                or error_description.find('user is deactivated') != -1:
-            if error_description.find('bot was blocked by the user') != -1:
-                action = 'block_user'
+        if (
+            error_description.find("bot was blocked by the user") != -1
+            or error_description.find("user is deactivated") != -1
+        ):
+            if error_description.find("bot was blocked by the user") != -1:
+                action = "block_user"
             else:
-                action = 'delete_user'
-            message_for_pubsub = {'action': action, 'info': {'user': user_id}}
-            publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+                action = "delete_user"
+            message_for_pubsub = {"action": action, "info": {"user": user_id}}
+            publish_to_pubsub("topic_for_user_management", message_for_pubsub)
 
-            logging.info(f'Identified user id {user_id} to do {action}')
-            result = 'cancelled'
+            logging.info(f"Identified user id {user_id} to do {action}")
+            result = "cancelled"
 
         else:
-            result = 'failed'
+            result = "failed"
 
-            logging.info(f'failed sending to telegram user={user_id}, message={message_content}')
+            logging.info(f"failed sending to telegram user={user_id}, message={message_content}")
             logging.exception(error_description)
 
     return result
@@ -392,12 +398,12 @@ def send_single_message(bot_token, user_id, message_content, message_params, mes
 def save_sending_status_to_notif_by_user(cur, message_id, result):
     """save the telegram sending status to sql table notif_by_user"""
 
-    if result[0:9] == 'cancelled':
+    if result[0:9] == "cancelled":
         result = result[0:9]
-    elif result[0:6] == 'failed':
+    elif result[0:6] == "failed":
         result = result[0:6]
 
-    if result in {'completed', 'cancelled', 'failed'}:
+    if result in {"completed", "cancelled", "failed"}:
         sql_text_psy = f"""
                     UPDATE notif_by_user
                     SET {result} = %s
@@ -416,7 +422,7 @@ def get_change_log_update_time(cur, change_log_id):
     if not change_log_id:
         return None
 
-    sql_text_psy = f"""
+    sql_text_psy = """
                     SELECT parsed_time
                     FROM change_log
                     WHERE id = %s;
@@ -438,7 +444,6 @@ def iterate_over_notifications(bot_token, admin_id, script_start_time, session, 
     set_of_change_ids = set()
 
     with sql_connect_by_psycopg2() as conn_psy, conn_psy.cursor() as cur:
-
         trigger_to_continue_iterations = True
 
         message_id_of_first_message = check_first_notif_to_send(cur)
@@ -446,7 +451,6 @@ def iterate_over_notifications(bot_token, admin_id, script_start_time, session, 
             trigger_to_continue_iterations = False
 
         while trigger_to_continue_iterations:
-
             # analytics on sending speed - start for every user/notification
             analytics_sm_start = datetime.datetime.now()
             analytics_iteration_start = datetime.datetime.now()
@@ -458,9 +462,9 @@ def iterate_over_notifications(bot_token, admin_id, script_start_time, session, 
             analytics_sql_finish = datetime.datetime.now()
             analytics_sql_duration = round((analytics_sql_finish - analytics_sql_start).total_seconds(), 2)
 
-            logging.info('time: -------------- loop start -------------')
-            logging.info(f'{message_to_send}')
-            logging.info(f'time: {analytics_sql_duration:.2f} – reading sql')
+            logging.info("time: -------------- loop start -------------")
+            logging.info(f"{message_to_send}")
+            logging.info(f"time: {analytics_sql_duration:.2f} – reading sql")
 
             if message_to_send:
                 doubling_trigger = message_to_send[11]
@@ -468,8 +472,7 @@ def iterate_over_notifications(bot_token, admin_id, script_start_time, session, 
                 change_log_id = message_to_send[9]
                 change_log_upd_time = get_change_log_update_time(cur, change_log_id)
 
-                if doubling_trigger == 'no_doubling':
-
+                if doubling_trigger == "no_doubling":
                     user_id = message_to_send[1]
                     message_type = message_to_send[6]
                     message_params = ast.literal_eval(message_to_send[7]) if message_to_send[7] else {}
@@ -477,7 +480,7 @@ def iterate_over_notifications(bot_token, admin_id, script_start_time, session, 
                     message_content = message_to_send[5]
                     # limitation to avoid telegram "message too long"
                     if message_content and len(message_content) > 3000:
-                        message_content = f'{message_content[:1500]}...{message_content[-1000:]}'
+                        message_content = f"{message_content[:1500]}...{message_content[-1000:]}"
 
                     analytics_pre_sending_msg = datetime.datetime.now()
 
@@ -485,20 +488,22 @@ def iterate_over_notifications(bot_token, admin_id, script_start_time, session, 
                     change_type = message_to_send[14]
 
                     # if notif is about field trips or coords change and search is inactive – no need to send it
-                    if change_type in {5, 6, 7, 8} and status != 'Ищем':
-                        result = 'cancelled'
+                    if change_type in {5, 6, 7, 8} and status != "Ищем":
+                        result = "cancelled"
                     else:
-                        result = send_single_message(bot_token, user_id, message_content, message_params,
-                                                     message_type, admin_id, session)
+                        result = send_single_message(
+                            bot_token, user_id, message_content, message_params, message_type, admin_id, session
+                        )
 
                     analytics_send_finish = datetime.datetime.now()
-                    analytics_send_start_finish = round((analytics_send_finish -
-                                                         analytics_pre_sending_msg).total_seconds(), 2)
-                    logging.info(f'time: {analytics_send_start_finish:.2f} – sending msg')
+                    analytics_send_start_finish = round(
+                        (analytics_send_finish - analytics_pre_sending_msg).total_seconds(), 2
+                    )
+                    logging.info(f"time: {analytics_send_start_finish:.2f} – sending msg")
 
                 else:
-                    result = 'cancelled_due_to_doubling'
-                    notify_admin(f'cancelled_due_to_doubling!')
+                    result = "cancelled_due_to_doubling"
+                    notify_admin("cancelled_due_to_doubling!")
                     analytics_pre_sending_msg = datetime.datetime.now()
 
                 analytics_save_sql_start = datetime.datetime.now()
@@ -507,30 +512,34 @@ def iterate_over_notifications(bot_token, admin_id, script_start_time, session, 
                 save_sending_status_to_notif_by_user(cur, message_id, result)
 
                 # save metric: how long does it took from creation to completion
-                if result == 'completed':
+                if result == "completed":
                     creation_time = message_to_send[2]
 
                     set_of_change_ids.add(change_log_id)
 
                     completion_time = datetime.datetime.now()
-                    duration_complete_vs_create_minutes = round((completion_time - creation_time).total_seconds() / 60,
-                                                                2)
-                    logging.info(f'metric: creation to completion time – {duration_complete_vs_create_minutes} min')
+                    duration_complete_vs_create_minutes = round(
+                        (completion_time - creation_time).total_seconds() / 60, 2
+                    )
+                    logging.info(f"metric: creation to completion time – {duration_complete_vs_create_minutes} min")
                     analytics_delays.append(duration_complete_vs_create_minutes)
 
-                    duration_complete_vs_parsed_time_minutes = \
-                        round((completion_time - change_log_upd_time).total_seconds() / 60, 2)
-                    logging.info(f'metric: parsing to completion time – {duration_complete_vs_parsed_time_minutes} min')
+                    duration_complete_vs_parsed_time_minutes = round(
+                        (completion_time - change_log_upd_time).total_seconds() / 60, 2
+                    )
+                    logging.info(f"metric: parsing to completion time – {duration_complete_vs_parsed_time_minutes} min")
                     analytics_parsed_times.append(duration_complete_vs_parsed_time_minutes)
 
                 analytics_after_double_saved_in_sql = datetime.datetime.now()
-                analytics_save_sql_duration = round((analytics_after_double_saved_in_sql -
-                                                     analytics_save_sql_start).total_seconds(), 2)
-                logging.info(f'time: {analytics_save_sql_duration:.2f} – saving to sql')
+                analytics_save_sql_duration = round(
+                    (analytics_after_double_saved_in_sql - analytics_save_sql_start).total_seconds(), 2
+                )
+                logging.info(f"time: {analytics_save_sql_duration:.2f} – saving to sql")
 
-                analytics_doubling_checked_saved_to_sql = round((analytics_after_double_saved_in_sql -
-                                                                 analytics_pre_sending_msg).total_seconds(), 2)
-                logging.info(f'time: {analytics_doubling_checked_saved_to_sql:.2f} – check -> save to sql')
+                analytics_doubling_checked_saved_to_sql = round(
+                    (analytics_after_double_saved_in_sql - analytics_pre_sending_msg).total_seconds(), 2
+                )
+                logging.info(f"time: {analytics_doubling_checked_saved_to_sql:.2f} – check -> save to sql")
 
                 # analytics on sending speed - finish for every user/notification
                 analytics_sm_finish = datetime.datetime.now()
@@ -566,9 +575,10 @@ def iterate_over_notifications(bot_token, admin_id, script_start_time, session, 
                 publish_to_pubsub('topic_to_send_notifications', message_for_pubsub)"""
 
             analytics_end_of_iteration = datetime.datetime.now()
-            analytics_iteration_duration = round((analytics_end_of_iteration -
-                                                  analytics_iteration_start).total_seconds(), 2)
-            logging.info(f'time: {analytics_iteration_duration:.2f} – iteration duration')
+            analytics_iteration_duration = round(
+                (analytics_end_of_iteration - analytics_iteration_start).total_seconds(), 2
+            )
+            logging.info(f"time: {analytics_iteration_duration:.2f} – iteration duration")
 
         cur.close()
     conn_psy.close()
@@ -617,7 +627,7 @@ def check_and_save_event_id(context, event, function_id, changed_ids, triggered_
         conn_psy = sql_connect_by_psycopg2()
         cur = conn_psy.cursor()
 
-        sql_text_psy = f"""
+        sql_text_psy = """
                         INSERT INTO
                             functions_registry
                         (event_id, time_start, cloud_function_name, function_id, triggered_by_func_id)
@@ -626,9 +636,11 @@ def check_and_save_event_id(context, event, function_id, changed_ids, triggered_
                         /*action='save_start_of_notif_helper_function_2' */
                         ;"""
 
-        cur.execute(sql_text_psy, (event_num, datetime.datetime.now(), 'send_notifications_helper_2',
-                                   function_num, triggered_by_func_num))
-        logging.info(f'function was triggered by event {event_num}, we assigned a function_id = {function_num}')
+        cur.execute(
+            sql_text_psy,
+            (event_num, datetime.datetime.now(), "send_notifications_helper_2", function_num, triggered_by_func_num),
+        )
+        logging.info(f"function was triggered by event {event_num}, we assigned a function_id = {function_num}")
 
         cur.close()
         conn_psy.close()
@@ -643,7 +655,7 @@ def check_and_save_event_id(context, event, function_id, changed_ids, triggered_
 
         json_of_params = json.dumps({"ch_id": list_of_changed_ids})
 
-        sql_text_psy = f"""
+        sql_text_psy = """
                         UPDATE
                             functions_registry
                         SET
@@ -671,7 +683,7 @@ def check_and_save_event_id(context, event, function_id, changed_ids, triggered_
         return False
 
     # if this functions is triggered in the very beginning of the Google Cloud Function execution
-    if event == 'start':
+    if event == "start":
         if check_if_other_functions_are_working():
             record_start_of_function(event_id, function_id, triggered_by_func_id)
             return True
@@ -680,7 +692,7 @@ def check_and_save_event_id(context, event, function_id, changed_ids, triggered_
         return False
 
     # if this functions is triggered in the very end of the Google Cloud Function execution
-    elif event == 'finish':
+    elif event == "finish":
         record_finish_of_function(event_id, changed_ids)
         return False
 
@@ -708,8 +720,10 @@ def finish_time_analytics(notif_times, delays, parsed_times, list_of_change_ids)
         min_parse_time = int(min(parsed_times))
         max_parse_time = int(max(parsed_times))
 
-    message = f'[s2] {len_n} x {round(average, 2)} = {int(ttl_time)} ' \
-              f'| {min_delay}–{max_delay} | {min_parse_time}–{max_parse_time} | {list_of_change_ids}'
+    message = (
+        f"[s2] {len_n} x {round(average, 2)} = {int(ttl_time)} "
+        f"| {min_delay}–{max_delay} | {min_parse_time}–{max_parse_time} | {list_of_change_ids}"
+    )
     if len_n >= 10:  # FIXME – a temp deactivation to understand the sending speed. # and average > 0.3:
         notify_admin(message)
     logging.info(message)
@@ -719,7 +733,7 @@ def finish_time_analytics(notif_times, delays, parsed_times, list_of_change_ids)
     cur = conn_psy.cursor()
 
     try:
-        sql_text_psy = f"""
+        sql_text_psy = """
                         INSERT INTO notif_stat_sending_speed
                         (timestamp, num_of_msgs, speed, ttl_time)
                         VALUES
@@ -750,17 +764,20 @@ def get_triggering_function(message_from_pubsub):
 
     triggered_by_func_id = None
     try:
-        if message_from_pubsub and isinstance(message_from_pubsub, dict) and \
-                'triggered_by_func_id' in message_from_pubsub.keys():
-            triggered_by_func_id = message_from_pubsub['triggered_by_func_id']
+        if (
+            message_from_pubsub
+            and isinstance(message_from_pubsub, dict)
+            and "triggered_by_func_id" in message_from_pubsub.keys()
+        ):
+            triggered_by_func_id = message_from_pubsub["triggered_by_func_id"]
 
     except Exception as e:
         logging.exception(e)
 
     if triggered_by_func_id:
-        logging.info(f'this function is triggered by func-id {triggered_by_func_id}')
+        logging.info(f"this function is triggered by func-id {triggered_by_func_id}")
     else:
-        logging.info(f'triggering func_id was not determined')
+        logging.info("triggering func_id was not determined")
 
     return triggered_by_func_id
 
@@ -780,12 +797,13 @@ def main(event, context):
     message_from_pubsub = process_pubsub_message(event)
     triggered_by_func_id = get_triggering_function(message_from_pubsub)
 
-    there_is_function_working_in_parallel = check_and_save_event_id(context, 'start', function_id, None,
-                                                                    triggered_by_func_id)
+    there_is_function_working_in_parallel = check_and_save_event_id(
+        context, "start", function_id, None, triggered_by_func_id
+    )
     if there_is_function_working_in_parallel:
-        logging.info(f'function execution stopped due to parallel run with another function')
-        check_and_save_event_id(context, 'finish', function_id, None, None)
-        logging.info('script finished')
+        logging.info("function execution stopped due to parallel run with another function")
+        check_and_save_event_id(context, "finish", function_id, None, None)
+        logging.info("script finished")
         return None
 
     bot_token = get_secrets("bot_api_token__prod")
@@ -800,7 +818,7 @@ def main(event, context):
     analytics_delays = []
     analytics_parsed_times = []
 
-    check_and_save_event_id(context, 'finish', function_id, changed_ids, None)
-    logging.info('script finished')
+    check_and_save_event_id(context, "finish", function_id, changed_ids, None)
+    logging.info("script finished")
 
-    return 'ok'
+    return "ok"

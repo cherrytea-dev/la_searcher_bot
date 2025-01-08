@@ -1,4 +1,3 @@
-import os
 import logging
 import sqlalchemy
 import json
@@ -48,13 +47,9 @@ def sql_connect():
             username=db_user,
             password=db_pass,
             database=db_name,
-            query={
-                "unix_sock": "{}/{}/.s.PGSQL.5432".format(
-                    db_socket_dir,
-                    db_conn)
-            }
+            query={"unix_sock": "{}/{}/.s.PGSQL.5432".format(db_socket_dir, db_conn)},
         ),
-        **db_config
+        **db_config,
     )
     pool.dialect.description_encoding = None
 
@@ -65,16 +60,20 @@ def publish_to_pubsub(topic_name, message):
     """publish a new message to pub/sub"""
 
     topic_path = publisher.topic_path(project_id, topic_name)
-    message_json = json.dumps({'data': {'message': message}, })
-    message_bytes = message_json.encode('utf-8')
+    message_json = json.dumps(
+        {
+            "data": {"message": message},
+        }
+    )
+    message_bytes = message_json.encode("utf-8")
 
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publishing succeeded
-        logging.info('Sent pub/sub message: ' + str(message))
+        logging.info("Sent pub/sub message: " + str(message))
 
     except Exception as e:
-        logging.error('Not able to send pub/sub message: ' + repr(e))
+        logging.error("Not able to send pub/sub message: " + repr(e))
         logging.exception(e)
 
     return None
@@ -94,15 +93,14 @@ def move_notifications_to_history_in_psql(conn):
     oldest_date_nbu = conn.execute(stmt).fetchone()
 
     if oldest_date_nbu[0]:
-
-        logging.info('The oldest date in notif_by_user: {}'.format(oldest_date_nbu[0]))
+        logging.info("The oldest date in notif_by_user: {}".format(oldest_date_nbu[0]))
 
         # DEBUG 1
         stmt = sqlalchemy.text("""
                     SELECT MIN(mailing_id) FROM notif_by_user;
                     """)
         query_result = conn.execute(stmt).fetchone()
-        logging.info('The mailing_id to be updated in nbu: {}'.format(query_result[0]))
+        logging.info("The mailing_id to be updated in nbu: {}".format(query_result[0]))
 
         # migrate all records with "lowest" mailing_id from notif_by_user to notif_by_user__history
         stmt = sqlalchemy.text("""
@@ -123,11 +121,10 @@ def move_notifications_to_history_in_psql(conn):
             """)
         conn.execute(stmt)
 
-        result = 'topic_to_archive_notifs'
+        result = "topic_to_archive_notifs"
 
     else:
-
-        logging.info('nothing to migrate in notif_by_user')
+        logging.info("nothing to migrate in notif_by_user")
 
         # checker – gives us a minimal date in notif_by_user_status, which is at least 2 days older than current
         stmt = sqlalchemy.text("""
@@ -138,18 +135,17 @@ def move_notifications_to_history_in_psql(conn):
                                     WHERE cl.parsed_time < NOW() - INTERVAL '2 hour' ORDER BY 1 LIMIT 1;
                                     """)
         oldest_date_nbus = conn.execute(stmt).fetchone()
-        logging.info('The oldest date in notif_by_user_status: {}'.format(oldest_date_nbus[0]))
+        logging.info("The oldest date in notif_by_user_status: {}".format(oldest_date_nbus[0]))
 
         if oldest_date_nbus[0]:
-
-            logging.info('The oldest date in notif_by_user_status: {}'.format(oldest_date_nbus[0]))
+            logging.info("The oldest date in notif_by_user_status: {}".format(oldest_date_nbus[0]))
 
             # DEBUG 1
             stmt = sqlalchemy.text("""
                                     SELECT MIN(mailing_id) FROM notif_by_user_status;
                                     """)
             query_result = conn.execute(stmt).fetchone()
-            logging.info('The mailing_id to be updated in nbus: {}'.format(query_result[0]))
+            logging.info("The mailing_id to be updated in nbus: {}".format(query_result[0]))
 
             # migrate all records with "lowest" mailing_id from notif_by_user_status to notif_by_user__history
             stmt = sqlalchemy.text("""
@@ -170,12 +166,11 @@ def move_notifications_to_history_in_psql(conn):
                             """)
             conn.execute(stmt)
 
-            result = 'topic_to_archive_notifs'
+            result = "topic_to_archive_notifs"
 
         else:
-
-            result = 'topic_to_archive_to_bigquery'
-            logging.info('nothing to migrate in notif_by_user_status')
+            result = "topic_to_archive_to_bigquery"
+            logging.info("nothing to migrate in notif_by_user_status")
 
     return result
 
@@ -204,7 +199,7 @@ def move_first_posts_to_history_in_psql(conn):
     # number_of_copied_rows = conn.execute(stmt).fetchone()
     conn.execute(stmt)
 
-    logging.info(f'first_posts for completed searches are copied to __history')
+    logging.info("first_posts for completed searches are copied to __history")
 
     # delete all the copied info from search_first_posts table
     stmt = sqlalchemy.text("""
@@ -227,7 +222,7 @@ def move_first_posts_to_history_in_psql(conn):
     # number_of_deleted_rows = conn.execute(stmt).fetchone()
     conn.execute(stmt)
 
-    logging.info(f'first_posts for completed searches are deleted from search_first_posts')
+    logging.info("first_posts for completed searches are deleted from search_first_posts")
 
     # 2. ELDER FIRST POSTS snapshots
     # take all the first_posts for "completed" searches and copy it to __history table
@@ -251,7 +246,7 @@ def move_first_posts_to_history_in_psql(conn):
     # number_of_copied_rows = conn.execute(stmt).fetchone()
     conn.execute(stmt)
 
-    logging.info(f'first_posts for elder snapshots are copied to __history')
+    logging.info("first_posts for elder snapshots are copied to __history")
 
     # delete all the copied info from search_first_posts table
     stmt = sqlalchemy.text("""
@@ -273,7 +268,7 @@ def move_first_posts_to_history_in_psql(conn):
     # number_of_deleted_rows = conn.execute(stmt).fetchone()
     conn.execute(stmt)
 
-    logging.info(f'first_posts for elder snapshots are deleted from search_first_posts')
+    logging.info("first_posts for elder snapshots are deleted from search_first_posts")
 
     return None
 
@@ -287,8 +282,8 @@ def main(event, context):  # noqa
     result = move_notifications_to_history_in_psql(conn)
 
     if result:
-        publish_to_pubsub(result, 'go')
-    if result == 'topic_to_archive_to_bigquery':
+        publish_to_pubsub(result, "go")
+    if result == "topic_to_archive_to_bigquery":
         move_first_posts_to_history_in_psql(conn)
 
     conn.close()
