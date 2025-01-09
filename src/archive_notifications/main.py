@@ -1,4 +1,3 @@
-import os
 import logging
 import sqlalchemy
 import json
@@ -8,9 +7,9 @@ from google.cloud import secretmanager
 from google.cloud import pubsub_v1
 
 
-url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
 req = urllib.request.Request(url)
-req.add_header("Metadata-Flavor", "Google")
+req.add_header('Metadata-Flavor', 'Google')
 project_id = urllib.request.urlopen(req).read().decode()
 
 client = secretmanager.SecretManagerServiceClient()
@@ -20,41 +19,37 @@ publisher = pubsub_v1.PublisherClient()
 def get_secrets(secret_request):
     """get GCP secret"""
 
-    name = f"projects/{project_id}/secrets/{secret_request}/versions/latest"
+    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
     response = client.access_secret_version(name=name)
 
-    return response.payload.data.decode("UTF-8")
+    return response.payload.data.decode('UTF-8')
 
 
 def sql_connect():
     """connect to GCP PSQL"""
 
-    db_user = get_secrets("cloud-postgres-username")
-    db_pass = get_secrets("cloud-postgres-password")
-    db_name = get_secrets("cloud-postgres-db-name")
-    db_conn = get_secrets("cloud-postgres-connection-name")
-    db_socket_dir = "/cloudsql"
+    db_user = get_secrets('cloud-postgres-username')
+    db_pass = get_secrets('cloud-postgres-password')
+    db_name = get_secrets('cloud-postgres-db-name')
+    db_conn = get_secrets('cloud-postgres-connection-name')
+    db_socket_dir = '/cloudsql'
 
     db_config = {
-        "pool_size": 20,
-        "max_overflow": 0,
-        "pool_timeout": 0,  # seconds
-        "pool_recycle": 0,  # seconds
+        'pool_size': 20,
+        'max_overflow': 0,
+        'pool_timeout': 0,  # seconds
+        'pool_recycle': 0,  # seconds
     }
 
     pool = sqlalchemy.create_engine(
         sqlalchemy.engine.url.URL(
-            "postgresql+pg8000",
+            'postgresql+pg8000',
             username=db_user,
             password=db_pass,
             database=db_name,
-            query={
-                "unix_sock": "{}/{}/.s.PGSQL.5432".format(
-                    db_socket_dir,
-                    db_conn)
-            }
+            query={'unix_sock': '{}/{}/.s.PGSQL.5432'.format(db_socket_dir, db_conn)},
         ),
-        **db_config
+        **db_config,
     )
     pool.dialect.description_encoding = None
 
@@ -65,7 +60,11 @@ def publish_to_pubsub(topic_name, message):
     """publish a new message to pub/sub"""
 
     topic_path = publisher.topic_path(project_id, topic_name)
-    message_json = json.dumps({'data': {'message': message}, })
+    message_json = json.dumps(
+        {
+            'data': {'message': message},
+        }
+    )
     message_bytes = message_json.encode('utf-8')
 
     try:
@@ -94,7 +93,6 @@ def move_notifications_to_history_in_psql(conn):
     oldest_date_nbu = conn.execute(stmt).fetchone()
 
     if oldest_date_nbu[0]:
-
         logging.info('The oldest date in notif_by_user: {}'.format(oldest_date_nbu[0]))
 
         # DEBUG 1
@@ -126,7 +124,6 @@ def move_notifications_to_history_in_psql(conn):
         result = 'topic_to_archive_notifs'
 
     else:
-
         logging.info('nothing to migrate in notif_by_user')
 
         # checker – gives us a minimal date in notif_by_user_status, which is at least 2 days older than current
@@ -141,7 +138,6 @@ def move_notifications_to_history_in_psql(conn):
         logging.info('The oldest date in notif_by_user_status: {}'.format(oldest_date_nbus[0]))
 
         if oldest_date_nbus[0]:
-
             logging.info('The oldest date in notif_by_user_status: {}'.format(oldest_date_nbus[0]))
 
             # DEBUG 1
@@ -173,7 +169,6 @@ def move_notifications_to_history_in_psql(conn):
             result = 'topic_to_archive_notifs'
 
         else:
-
             result = 'topic_to_archive_to_bigquery'
             logging.info('nothing to migrate in notif_by_user_status')
 
@@ -204,7 +199,7 @@ def move_first_posts_to_history_in_psql(conn):
     # number_of_copied_rows = conn.execute(stmt).fetchone()
     conn.execute(stmt)
 
-    logging.info(f'first_posts for completed searches are copied to __history')
+    logging.info('first_posts for completed searches are copied to __history')
 
     # delete all the copied info from search_first_posts table
     stmt = sqlalchemy.text("""
@@ -227,7 +222,7 @@ def move_first_posts_to_history_in_psql(conn):
     # number_of_deleted_rows = conn.execute(stmt).fetchone()
     conn.execute(stmt)
 
-    logging.info(f'first_posts for completed searches are deleted from search_first_posts')
+    logging.info('first_posts for completed searches are deleted from search_first_posts')
 
     # 2. ELDER FIRST POSTS snapshots
     # take all the first_posts for "completed" searches and copy it to __history table
@@ -251,7 +246,7 @@ def move_first_posts_to_history_in_psql(conn):
     # number_of_copied_rows = conn.execute(stmt).fetchone()
     conn.execute(stmt)
 
-    logging.info(f'first_posts for elder snapshots are copied to __history')
+    logging.info('first_posts for elder snapshots are copied to __history')
 
     # delete all the copied info from search_first_posts table
     stmt = sqlalchemy.text("""
@@ -273,7 +268,7 @@ def move_first_posts_to_history_in_psql(conn):
     # number_of_deleted_rows = conn.execute(stmt).fetchone()
     conn.execute(stmt)
 
-    logging.info(f'first_posts for elder snapshots are deleted from search_first_posts')
+    logging.info('first_posts for elder snapshots are deleted from search_first_posts')
 
     return None
 

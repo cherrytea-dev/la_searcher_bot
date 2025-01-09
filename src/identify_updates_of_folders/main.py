@@ -8,15 +8,15 @@ import requests
 import logging
 import urllib.request
 
-from bs4 import BeautifulSoup, SoupStrainer # noqa
+from bs4 import BeautifulSoup, SoupStrainer  # noqa
 
 from google.cloud import pubsub_v1
 from google.cloud import storage
 import google.cloud.logging
 
-url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
 req = urllib.request.Request(url)
-req.add_header("Metadata-Flavor", "Google")
+req.add_header('Metadata-Flavor', 'Google')
 project_id = urllib.request.urlopen(req).read().decode()
 
 publisher = pubsub_v1.PublisherClient()
@@ -48,7 +48,11 @@ def publish_to_pubsub(topic_name, message):
     # Preparing to turn to the existing pub/sub topic
     topic_path = publisher.topic_path(project_id, topic_name)
     # Preparing the message
-    message_json = json.dumps({'data': {'message': message}, })
+    message_json = json.dumps(
+        {
+            'data': {'message': message},
+        }
+    )
     message_bytes = message_json.encode('utf-8')
     # Publishes a message
     try:
@@ -79,7 +83,7 @@ def write_snapshot_to_cloud_storage(what_to_write, folder_num):
     """writes current snapshot to txt file in cloud storage"""
 
     blob = set_cloud_storage(folder_num)
-    blob.upload_from_string(str(what_to_write), content_type="text/plain")
+    blob.upload_from_string(str(what_to_write), content_type='text/plain')
 
 
 def read_snapshot_from_cloud_storage(folder_num):
@@ -91,7 +95,7 @@ def read_snapshot_from_cloud_storage(folder_num):
         contents = str(contents_as_bytes, 'utf-8')
         if contents == 'None':
             contents = None
-    except: # noqa
+    except:  # noqa
         contents = None
     return contents
 
@@ -163,10 +167,8 @@ def decompose_folder_to_subfolders_and_searches(start_folder_num):
     try:
         if search_code_blocks_folders:
             for block in search_code_blocks_folders:
-
                 folders = block.find_all('li', {'class': 'row'})
                 for folder in folders:
-
                     # found no cases where there can be more than 1 topic name or date, so find i/o find_all is used
                     folder_num_str = folder.find('a', {'class': 'forumtitle'})['href']
 
@@ -178,7 +180,7 @@ def decompose_folder_to_subfolders_and_searches(start_folder_num):
 
                     try:
                         folder_time_str = folder.find('time')['datetime']
-                    except: # noqa
+                    except:  # noqa
                         folder_time_str = None
 
                     # remove useless folders: Справочники, Снаряжение, Постскриптум and all from Обучение и Тренировки
@@ -195,22 +197,19 @@ def decompose_folder_to_subfolders_and_searches(start_folder_num):
 
     try:
         if search_code_blocks_searches:
-
             for block in search_code_blocks_searches:
-
                 searches = block.find_all('dl', 'row-item')  # memo: w/o "class:row-item" - to catch diff "row-items"
 
-                for i in range(len(searches)-1):
-
-                    page_full_extract_searches.append(str(searches[i+1]))
+                for i in range(len(searches) - 1):
+                    page_full_extract_searches.append(str(searches[i + 1]))
 
                     # only title + time of the last reply
-                    search_title_block = searches[i+1].find('a', 'topictitle')
+                    search_title_block = searches[i + 1].find('a', 'topictitle')
                     search_title = search_title_block.next_element
 
                     try:
-                        search_time_str = searches[i+1].find('time')['datetime']
-                    except: # noqa
+                        search_time_str = searches[i + 1].find('time')['datetime']
+                    except:  # noqa
                         search_time_str = None
 
                     page_summary_searches.append([search_title, search_time_str])
@@ -225,18 +224,19 @@ def decompose_folder_to_subfolders_and_searches(start_folder_num):
 
 
 class FolderForDecompose:
-    def __init__(self,
-                 mother_folder_num=None,
-                 mother_folder_name=None,
-                 old_child_folders_str=None,
-                 old_child_searches_str=None,
-                 new_child_folders_str=None,
-                 new_child_searches_str=None,
-                 decomposition_status=None,
-                 mother_file_folders=None,
-                 mother_file_searches=None,
-                 searches_extract=None
-                 ):
+    def __init__(
+        self,
+        mother_folder_num=None,
+        mother_folder_name=None,
+        old_child_folders_str=None,
+        old_child_searches_str=None,
+        new_child_folders_str=None,
+        new_child_searches_str=None,
+        decomposition_status=None,
+        mother_file_folders=None,
+        mother_file_searches=None,
+        searches_extract=None,
+    ):
         self.mother_folder_num = mother_folder_num
         self.mother_folder_name = mother_folder_name
         self.old_child_folders_str = old_child_folders_str
@@ -249,12 +249,21 @@ class FolderForDecompose:
         self.searches_extract = searches_extract
 
     def __str__(self):
-        return str([self.mother_folder_num, self.old_child_searches_str, self.new_child_searches_str,
-                    self.old_child_folders_str, self.new_child_folders_str,
-                    self.decomposition_status, self.mother_file_folders, self.mother_file_searches])
+        return str(
+            [
+                self.mother_folder_num,
+                self.old_child_searches_str,
+                self.new_child_searches_str,
+                self.old_child_folders_str,
+                self.new_child_folders_str,
+                self.decomposition_status,
+                self.mother_file_folders,
+                self.mother_file_searches,
+            ]
+        )
 
 
-def main(event, context): # noqa
+def main(event, context):  # noqa
     """main function"""
 
     list_of_updates = []
@@ -268,10 +277,8 @@ def main(event, context): # noqa
     list_of_updates.append(folder_root)
 
     for folder in list_of_updates:
-
         # if folder was not decomposed yet - we need to do it (if was, we're just skipping it)
         if not folder.decomposition_status:
-
             folder.mother_file_folders = str(folder.mother_folder_num) + '_folders'
             folder.mother_file_searches = str(folder.mother_folder_num) + '_searches'
             folder.old_child_folders_str = read_snapshot_from_cloud_storage(folder.mother_file_folders)
@@ -281,15 +288,20 @@ def main(event, context): # noqa
                 folder.new_child_folders_str = process_pubsub_message(event)
                 folder.new_child_searches_str = None
             else:
-                list_of_decomposed_folders, list_of_decomposed_searches, list_of_searches_details, mother_folder_name \
-                    = decompose_folder_to_subfolders_and_searches(folder.mother_folder_num)
+                (
+                    list_of_decomposed_folders,
+                    list_of_decomposed_searches,
+                    list_of_searches_details,
+                    mother_folder_name,
+                ) = decompose_folder_to_subfolders_and_searches(folder.mother_folder_num)
                 folder.new_child_folders_str = str(list_of_decomposed_folders)
                 folder.new_child_searches_str = str(list_of_decomposed_searches)
                 folder.searches_extract = str(list_of_searches_details)
                 folder.mother_folder_name = mother_folder_name
 
             list_of_new_folders = compare_old_and_new_folder_hash_and_give_list_of_upd_folders(
-                folder.new_child_folders_str, folder.old_child_folders_str)
+                folder.new_child_folders_str, folder.old_child_folders_str
+            )
 
             logging.info(f'List of new folders in {str(folder.mother_folder_num)}: {str(list_of_new_folders)}')
 
@@ -304,8 +316,7 @@ def main(event, context): # noqa
 
     for line in list_of_updates:
         if line.new_child_searches_str != line.old_child_searches_str:
-            list_of_updated_low_level_folders.append([line.mother_folder_num,
-                                                      line.mother_folder_name])
+            list_of_updated_low_level_folders.append([line.mother_folder_num, line.mother_folder_name])
 
     logging.info('The below list is to be sent to "Identify updates of topics" script via pub/sub')
     for line in list_of_updated_low_level_folders:

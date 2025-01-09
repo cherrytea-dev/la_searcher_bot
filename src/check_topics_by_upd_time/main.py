@@ -1,18 +1,17 @@
-
 import json
 import datetime
 import requests
 import logging
 import urllib.request
 
-from bs4 import BeautifulSoup, SoupStrainer # noqa
+from bs4 import BeautifulSoup, SoupStrainer  # noqa
 
 from google.cloud import pubsub_v1
 import google.cloud.logging
 
-url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
 req = urllib.request.Request(url)
-req.add_header("Metadata-Flavor", "Google")
+req.add_header('Metadata-Flavor', 'Google')
 project_id = urllib.request.urlopen(req).read().decode()
 
 publisher = pubsub_v1.PublisherClient()
@@ -37,28 +36,26 @@ def check_updates_in_folder_with_folders(requests_session, start_folder_num):
     try:
         r = requests_session.get(url, timeout=20)  # timeout is required to mitigate daily night forum update
         # FIXME - debug only – 21.01.24
-        logging.info(f'DEBUG 001')
+        logging.info('DEBUG 001')
         logging.info(f'{r=}')
-        logging.info(f'DEBUG 002')
+        logging.info('DEBUG 002')
         logging.info(f'{r.content=}')
-        logging.info(f'DEBUG 003')
+        logging.info('DEBUG 003')
         # logging.info(f'{r.content.decode("utf-8")=}')
-        logging.info(f'DEBUG 004')
+        logging.info('DEBUG 004')
         # FIXME ^^^
 
         only_tag = SoupStrainer('div', {'class': 'forabg'})
         soup = BeautifulSoup(r.content, features='lxml', parse_only=only_tag)
-        logging.info(f'DEBUG 005')
+        logging.info('DEBUG 005')
         del r  # trying to free up memory
         search_code_blocks = soup.find_all('div', {'class': 'forabg'})
         del soup  # trying to free up memory
-        logging.info(f'DEBUG 006')
+        logging.info('DEBUG 006')
 
         # if we parse the main page - we're interested in the first 3 blocks only
         if not start_folder_num:
-
             if search_code_blocks:
-
                 # first 2 blocks (sometimes it's, surprisingly, 3) + block with archive folders
                 # search_code_blocks = [search_code_blocks[i] for i in {0, 1, 2,-2}]
 
@@ -68,8 +65,7 @@ def check_updates_in_folder_with_folders(requests_session, start_folder_num):
                 search_code_blocks = search_code_blocks[0:3]
                 # final list is: 1st, 2nd and pre-last blocks
                 search_code_blocks.append(temp_block)
-                logging.info(f'DEBUG 007')
-
+                logging.info('DEBUG 007')
 
     except Exception as e:
         # except (requests.exceptions.ReadTimeout, requests.exceptions.Timeout, requests.exceptions.ProxyError,
@@ -79,22 +75,22 @@ def check_updates_in_folder_with_folders(requests_session, start_folder_num):
 
         #    if e.__class__.__name__ == Exception:
         #        logging.exception(e)
-        logging.info(f'DEBUG 007-ex')
+        logging.info('DEBUG 007-ex')
 
-        logging.info(f'[che_topics]: site unavailable:')
+        logging.info('[che_topics]: site unavailable:')
         logging.exception(e)
         logging.info(e)
 
-    logging.info(f'DEBUG 008')
+    logging.info('DEBUG 008')
     if search_code_blocks:
-        logging.info(f'DEBUG 009')
+        logging.info('DEBUG 009')
         for block in search_code_blocks:
-            logging.info(f'DEBUG 010')
+            logging.info('DEBUG 010')
 
             folders = block.find_all('li', {'class': 'row'})
-            logging.info(f'DEBUG 011')
+            logging.info('DEBUG 011')
             for folder in folders:
-                logging.info(f'DEBUG 012')
+                logging.info('DEBUG 012')
 
                 # found no cases where there can be more than 1 topic name or date, so find i/o find_all is used
                 folder_num_str = folder.find('a', {'class': 'forumtitle'})['href']
@@ -115,7 +111,6 @@ def check_updates_in_folder_with_folders(requests_session, start_folder_num):
                 # remove useless folders: Справочники, Снаряжение, Постскриптум and all from Обучение и Тренировки
                 # MEMO: this limitation is just a pre-check. The final check to be done by other scripts basing on psql
                 if folder_num not in {84, 113, 112, 270, 86, 87, 88, 165, 365, 89, 172, 91, 90}:
-
                     page_summary.append([folder_num, folder_time_str, folder_time])
 
                     if last_folder_update < folder_time:
@@ -152,14 +147,20 @@ def publish_to_pubsub(topic_name, message):
     """publish a new message to pub/sub"""
 
     topic_path = publisher.topic_path(project_id, topic_name)
-    message_json = json.dumps({'data': {'message': message}, })
+    message_json = json.dumps(
+        {
+            'data': {'message': message},
+        }
+    )
     message_bytes = message_json.encode('utf-8')
 
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publishing succeeded
-        logging.info(f'Pub/sub message to topic {topic_name} with event_id = {publish_future.result()} has '
-                     f'been triggered. Content: {message}')
+        logging.info(
+            f'Pub/sub message to topic {topic_name} with event_id = {publish_future.result()} has '
+            f'been triggered. Content: {message}'
+        )
 
     except Exception as e:
         logging.info(f'Not able to send pub/sub message: {message}')
@@ -176,7 +177,7 @@ def notify_admin(message):
     return None
 
 
-def main(event, context): # noqa
+def main(event, context):  # noqa
     """main function that starts first"""
 
     logging.info('START')
@@ -184,7 +185,9 @@ def main(event, context): # noqa
     folder_num_to_check = None
     requests_session = requests.Session()
 
-    list_of_folders_and_times, last_update_time = check_updates_in_folder_with_folders(requests_session, folder_num_to_check)
+    list_of_folders_and_times, last_update_time = check_updates_in_folder_with_folders(
+        requests_session, folder_num_to_check
+    )
     logging.info('DEBUG 000')
     time_diff_in_min = time_delta(now, last_update_time)
 
@@ -197,7 +200,6 @@ def main(event, context): # noqa
     delay = 2  # minutes
 
     if time_diff_in_min <= delay:
-
         list_of_updated_folders = get_the_list_folders_to_update(list_of_folders_and_times, now, delay)
         logging.info(f'Folders with new info WITHOUT snapshot checks: {str(list_of_updated_folders)}')
 

@@ -1,6 +1,5 @@
 """move data from Cloud SQL to BigQuery for long-term storage & analysis"""
 
-import os
 import logging
 import urllib.request
 
@@ -9,52 +8,48 @@ import sqlalchemy
 from google.cloud import bigquery
 from google.cloud import secretmanager
 
-url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
 req = urllib.request.Request(url)
-req.add_header("Metadata-Flavor", "Google")
+req.add_header('Metadata-Flavor', 'Google')
 project_id = urllib.request.urlopen(req).read().decode()
 
 
 def get_secrets(secret_request):
     """get secret from GCP Secret Manager"""
 
-    name = f"projects/{project_id}/secrets/{secret_request}/versions/latest"
+    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
     client = secretmanager.SecretManagerServiceClient()
 
     response = client.access_secret_version(name=name)
 
-    return response.payload.data.decode("UTF-8")
+    return response.payload.data.decode('UTF-8')
 
 
 def sql_connect():
     """connect to PSQL in GCP"""
 
-    db_user = get_secrets("cloud-postgres-username")
-    db_pass = get_secrets("cloud-postgres-password")
-    db_name = get_secrets("cloud-postgres-db-name")
-    db_conn = get_secrets("cloud-postgres-connection-name")
-    db_socket_dir = "/cloudsql"
+    db_user = get_secrets('cloud-postgres-username')
+    db_pass = get_secrets('cloud-postgres-password')
+    db_name = get_secrets('cloud-postgres-db-name')
+    db_conn = get_secrets('cloud-postgres-connection-name')
+    db_socket_dir = '/cloudsql'
 
     db_config = {
-        "pool_size": 5,
-        "max_overflow": 0,
-        "pool_timeout": 0,  # seconds
-        "pool_recycle": 5,  # seconds
+        'pool_size': 5,
+        'max_overflow': 0,
+        'pool_timeout': 0,  # seconds
+        'pool_recycle': 5,  # seconds
     }
 
     pool = sqlalchemy.create_engine(
         sqlalchemy.engine.url.URL(
-            "postgresql+pg8000",
+            'postgresql+pg8000',
             username=db_user,
             password=db_pass,
             database=db_name,
-            query={
-                "unix_sock": "{}/{}/.s.PGSQL.5432".format(
-                    db_socket_dir,
-                    db_conn)
-            }
+            query={'unix_sock': '{}/{}/.s.PGSQL.5432'.format(db_socket_dir, db_conn)},
         ),
-        **db_config
+        **db_config,
     )
     pool.dialect.description_encoding = None
 
@@ -147,7 +142,7 @@ def archive_notif_by_user(client):
     validation_on_bq_lines = new_bq_count - moved_lines - init_bq_count
 
     # 5.3 should be zero
-    validation_on_psql_lines = init_psql_count - moved_lines
+    validation_on_psql_lines = init_psql_count - moved_lines  # noqa
 
     # 6. Delete data from cloud sql
     # TODO: validations disabled because once the doubling in BQ happened -> and then all the iterations are failing
@@ -165,7 +160,7 @@ def archive_notif_by_user(client):
         conn.close()
         pool.dispose()
 
-        logging.info(f'deletion from cloud sql executed')
+        logging.info('deletion from cloud sql executed')
     else:
         logging.info('validations for deletion failed')
 
@@ -224,7 +219,7 @@ def save_sql_stat_table_sizes(client):
     return None
 
 
-def main(event, context): # noqa
+def main(event, context):  # noqa
     """main function"""
 
     client = bigquery.Client()

@@ -20,9 +20,9 @@ from google.cloud import pubsub_v1
 from google.cloud import secretmanager
 import google.cloud.logging
 
-url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
 req = urllib.request.Request(url)
-req.add_header("Metadata-Flavor", "Google")
+req.add_header('Metadata-Flavor', 'Google')
 project_id = urllib.request.urlopen(req).read().decode()
 
 publisher = pubsub_v1.PublisherClient()
@@ -37,39 +37,37 @@ requests_session = requests.Session()
 def get_secrets(secret_request):
     """get GCP secret"""
 
-    name = f"projects/{project_id}/secrets/{secret_request}/versions/latest"
+    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
     response = client.access_secret_version(name=name)
 
-    return response.payload.data.decode("UTF-8")
+    return response.payload.data.decode('UTF-8')
 
 
 def sql_connect():
     """connect to PSQL in GCP"""
 
-    db_user = get_secrets("cloud-postgres-username")
-    db_pass = get_secrets("cloud-postgres-password")
-    db_name = get_secrets("cloud-postgres-db-name")
-    db_conn = get_secrets("cloud-postgres-connection-name")
-    db_socket_dir = "/cloudsql"
+    db_user = get_secrets('cloud-postgres-username')
+    db_pass = get_secrets('cloud-postgres-password')
+    db_name = get_secrets('cloud-postgres-db-name')
+    db_conn = get_secrets('cloud-postgres-connection-name')
+    db_socket_dir = '/cloudsql'
 
     db_config = {
-        "pool_size": 5,
-        "max_overflow": 0,
-        "pool_timeout": 0,  # seconds
-        "pool_recycle": 30,  # seconds
+        'pool_size': 5,
+        'max_overflow': 0,
+        'pool_timeout': 0,  # seconds
+        'pool_recycle': 30,  # seconds
     }
 
     pool = sqlalchemy.create_engine(
         sqlalchemy.engine.url.URL(
-            "postgresql+pg8000",
+            'postgresql+pg8000',
             username=db_user,
             password=db_pass,
             database=db_name,
-            query={
-                "unix_sock": f"{db_socket_dir}/{db_conn}/.s.PGSQL.5432"
-            }
+            query={'unix_sock': f'{db_socket_dir}/{db_conn}/.s.PGSQL.5432'},
         ),
-        **db_config
+        **db_config,
     )
     pool.dialect.description_encoding = None
 
@@ -97,7 +95,11 @@ def publish_to_pubsub(topic_name, message):
     """publish a new message to pub/sub"""
 
     topic_path = publisher.topic_path(project_id, topic_name)
-    message_json = json.dumps({'data': {'message': message}, })
+    message_json = json.dumps(
+        {
+            'data': {'message': message},
+        }
+    )
     message_bytes = message_json.encode('utf-8')
 
     try:
@@ -152,7 +154,7 @@ def get_the_list_of_coords_out_of_text(initial_text):
                                 line_3[2] = '1. coordinates w/ word coord'
 
         # get the deleted coordinates
-        soup = BeautifulSoup(initial_text, features="html.parser")
+        soup = BeautifulSoup(initial_text, features='html.parser')
         deleted_text = soup.find_all('span', {'style': 'text-decoration:line-through'})
         if deleted_text:
             for line in deleted_text:
@@ -191,13 +193,11 @@ def get_the_list_of_coords_out_of_text(initial_text):
 
 def clean_up_content(init_content):
     def cook_soup(content):
-
         content = BeautifulSoup(content, 'lxml')
 
         return content
 
     def prettify_soup(content):
-
         for s in content.find_all('strong', {'class': 'text-strong'}):
             s.unwrap()
 
@@ -219,7 +219,6 @@ def clean_up_content(init_content):
         return content
 
     def remove_links(content):
-
         for tag in content.find_all('a'):
             if tag.name == 'a' and not re.search(r'\[[+−]]', tag.text):
                 tag.unwrap()
@@ -227,35 +226,34 @@ def clean_up_content(init_content):
         return content
 
     def delete_sorted_out_one_tag(content, tag):
-
         # language=regexp
         patterns = [
-
             [r'(?i)Всем выезжающим иметь СИЗ', 'sort_out'],
-
             # INFO SUPPORT
             [r'(?i)ТРЕБУЕТСЯ ПОМОЩЬ В РАСПРОСТРАНЕНИИ ИНФОРМАЦИИ ПО СЕТИ', 'sort_out'],
             [r'(?i)Задача на поиске,? с которой может помочь каждый', 'sort_out'],
             [r'(?i)Помочь может каждый из вас', 'sort_out'],
             [r'(?i)таблица прозвона', 'sort_out'],
-
             # PERSON – REASON
             [r'(?i)(местонахождение неизвестно|не выходит на связь)', 'sort_out'],
             [r'(?i)[^\n]{0,1000}(вы|у)ш(ла|[её]л).{1,200}не вернул(ся|ась)', 'sort_out'],
             [r'(?i)(пропал[аи]? во время|не вернул(ся|[аи]сь) с) прогулки', 'sort_out'],
             [r'не дошел до школы', 'sort_out'],
             [r'уш(ёл|ел|ла|ли) (из дома )?в неизвестном направлении', 'sort_out'],
-            [r'(вы|у)ш(ёл|ел|ла|ли) (из дома )?(и пропал[аи]?|и не вернул(ся|ась)|в неизвестном направлении)',
-             'sort_out'],
+            [
+                r'(вы|у)ш(ёл|ел|ла|ли) (из дома )?(и пропал[аи]?|и не вернул(ся|ась)|в неизвестном направлении)',
+                'sort_out',
+            ],
             [r'уш(ёл|ел|ла|ли) из медицинского учреждения', 'sort_out'],
-
             # PERSON – DETAILS
             [r'(?i)МОЖЕТ НАХОДИТЬСЯ В ВАШЕМ (РАЙОНЕ|городе)', 'sort_out'],
             [r'(?i)((НУЖДАЕТСЯ|МОЖЕТ НУЖДАТЬСЯ) В МЕДИЦИНСКОЙ ПОМОЩИ|Отставание в развити|потеря памяти)', 'sort_out'],
-            [r'(?i)(приметы|был[аи]? одет[аы]?|рост\W|телосложени|цвет глаз|'
-             r'(^|\W)(куртка|шапка|сумка|волосы|глаза)($|\W))', 'sort_out'],
+            [
+                r'(?i)(приметы|был[аи]? одет[аы]?|рост\W|телосложени|цвет глаз|'
+                r'(^|\W)(куртка|шапка|сумка|волосы|глаза)($|\W))',
+                'sort_out',
+            ],
             [r'(?i)(^|\W)оджеда(?!.{1,3}(лес|город))', 'sort_out'],
-
             # GENERAL PHRASES
             [r'(?i)С признаками ОРВИ оставайтесь дома', 'sort_out'],
             [r'(?i)Берегите себя и своих близких', 'sort_out'],
@@ -287,12 +285,10 @@ def clean_up_content(init_content):
             [r'(?i)Рассылка Вконтакте', 'sort_out'],
             [r'(?i)Телеграм-канал ПСО', 'sort_out'],
             [r'(?i)Рекомендуемый список оборудования', 'sort_out'],
-
             # MANAGERS
             [r'(?i)(инфорги?( поиска| выезда)?:|снм\W|^ОД\W|^ДИ\W|Старш(ая|ий) на месте)', 'sort_out'],
             [r'(?i)Коорд(инатор)?([-\s]консультант)?(?!инат)', 'sort_out'],
             [r'(?i)написать .{0,50}в (телеграм|telegram)', 'sort_out'],
-
             [r'(?i)Лимура \(Наталья\)', 'sort_out'],
             [r'(?i)Тутси \(Светлана\)', 'sort_out'],
             [r'(?i)(Герда Ольга|Ольга Герда)', 'sort_out'],
@@ -372,11 +368,6 @@ def clean_up_content(init_content):
             [r'(?i)XXX', 'sort_out'],
             [r'(?i)XXX', 'sort_out'],
             [r'(?i)XXX', 'sort_out'],
-
-
-
-
-
             # EXCEPTIONS
             [r'(?i)автономн.{2,4} округ', 'sort_out'],
             [r'(?i)ид[ёе]т сбор информации', 'sort_out'],
@@ -386,9 +377,8 @@ def clean_up_content(init_content):
             [r'(?i)XXX', 'sort_out'],
             [r'(?i)XXX', 'sort_out'],
             [r'(?i)XXX', 'sort_out'],
-
             [r'(?i)XXX', 'sort_out'],
-            [r'(?i)XXX', 'sort_out']
+            [r'(?i)XXX', 'sort_out'],
         ]
 
         if not tag:
@@ -401,16 +391,21 @@ def clean_up_content(init_content):
                 tag.decompose()
 
         if not isinstance(tag, NavigableString):
-            if tag.name == 'span' and tag.attrs in [{"style": "font-size:140%;line-height:116%"},
-                                                    {"style": "font-size: 140%;line-height:116%"},
-                                                    {"style": "font-size: 140%;line-height: 116%"}] \
-                    or tag.name == 'img':
+            if (
+                tag.name == 'span'
+                and tag.attrs
+                in [
+                    {'style': 'font-size:140%;line-height:116%'},
+                    {'style': 'font-size: 140%;line-height:116%'},
+                    {'style': 'font-size: 140%;line-height: 116%'},
+                ]
+                or tag.name == 'img'
+            ):
                 tag.decompose()
 
         return content
 
     def delete_sorted_out_all_tags(content):
-
         elements = content.body
         for tag in elements:
             content = delete_sorted_out_one_tag(content, tag)
@@ -435,11 +430,12 @@ def clean_up_content(init_content):
     reco_content = reco_content.split('\n')
 
     # language=regexp
-    patterns = [r'(\[/?[biu]]|\[/?color.{0,8}]|\[/?quote]|\[/?size.{0,8}]|\[/?spoiler=?]?)',
-                r'(?i)последний раз редактировалось.{1,200}',
-                r'(?i).{1,200}\d\d:\d\d, всего редактировалось.{1,200}',
-                r'^\s+'
-                ]
+    patterns = [
+        r'(\[/?[biu]]|\[/?color.{0,8}]|\[/?quote]|\[/?size.{0,8}]|\[/?spoiler=?]?)',
+        r'(?i)последний раз редактировалось.{1,200}',
+        r'(?i).{1,200}\d\d:\d\d, всего редактировалось.{1,200}',
+        r'^\s+',
+    ]
 
     for pattern in patterns:
         reco_content = [re.sub(pattern, '', line) for line in reco_content]
@@ -501,20 +497,20 @@ def process_first_page_comparison(conn, search_id, first_page_content_prev, firs
     what_is_saved_in_psql = conn.execute(sql_text, a=search_id).fetchone()
 
     if not what_is_saved_in_psql:
-        logging.info(f'first page comparison failed – nothing is searches psql table')
+        logging.info('first page comparison failed – nothing is searches psql table')
         return None, None
 
     try:
         # FIXME – just to double-check
         print(f' we print that what_is_saved_in_psql = {what_is_saved_in_psql}')
         print(f' we print "not what_is_saved_in_psql" = {not what_is_saved_in_psql}')
-        print(f' we print "what_is_saved_in_psql == None" = {what_is_saved_in_psql == None}')
+        print(f' we print "what_is_saved_in_psql == None" = {what_is_saved_in_psql is None}')
         print(f' we print "what_is_saved_in_psql == Null" = {what_is_saved_in_psql == "Null"}')
         # FIXME ^^^
 
         display_name, status, name, age, status_old = list(what_is_saved_in_psql)
     except Exception as e:
-        notify_admin(f'this strange exception happened, check [ide_posts]')
+        notify_admin('this strange exception happened, check [ide_posts]')
         logging.exception(e)
         return None, None
 
@@ -538,10 +534,12 @@ def process_first_page_comparison(conn, search_id, first_page_content_prev, firs
         changes = re.sub(r'\D', '', changes, count=1)  # changes for only one letter – irrelevant (but not for digit)
         if not changes:
             try:
-                notify_admin(f'[ide_posts]: IGNORED MINOR CHANGE: \ninit message: {message}'
-                             f'\ndel: {list_of_del}\nadd: {list_of_add}')
+                notify_admin(
+                    f'[ide_posts]: IGNORED MINOR CHANGE: \ninit message: {message}'
+                    f'\ndel: {list_of_del}\nadd: {list_of_add}'
+                )
             except:  # noqa
-                notify_admin(f'THIS ERROR')
+                notify_admin('THIS ERROR')
             return '', None
 
     message_dict = {'del': list_of_del, 'add': list_of_add, 'message': message}
@@ -557,8 +555,9 @@ def save_new_record_into_change_log(conn, search_id, coords_change_list, changed
         values (:a, :b, :c, :d, :e) RETURNING id;"""
     )
 
-    raw_data = conn.execute(stmt, a=datetime.datetime.now(), b=search_id, c=changed_field, d=str(coords_change_list),
-                            e=change_type).fetchone()
+    raw_data = conn.execute(
+        stmt, a=datetime.datetime.now(), b=search_id, c=changed_field, d=str(coords_change_list), e=change_type
+    ).fetchone()
     change_log_id = raw_data[0]
 
     return change_log_id
@@ -571,9 +570,9 @@ def parse_search_folder(search_num):
 
     url = 'https://lizaalert.org/forum/viewtopic.php?t=' + str(search_num)
     r = requests_session.get(url)  # 10 seconds – do we need it in this script?
-    content = r.content.decode("utf-8")
+    content = r.content.decode('utf-8')
 
-    soup = BeautifulSoup(content, features="html.parser")
+    soup = BeautifulSoup(content, features='html.parser')
     spans = soup.find_all('span', {'class': 'crumb'})
 
     for line in spans:
@@ -591,8 +590,7 @@ def get_compressed_first_post(initial_text):
     compressed_string = ''
 
     if initial_text:
-
-        text_to_soup = BeautifulSoup(initial_text, features="html.parser")
+        text_to_soup = BeautifulSoup(initial_text, features='html.parser')
 
         basic_text_string = text_to_soup.text
         basic_text_string = basic_text_string.replace('\n', ' ')
@@ -600,8 +598,9 @@ def get_compressed_first_post(initial_text):
         # width of text block in symbols
         block_width = 50
 
-        list_from_string = [basic_text_string[i: i + block_width] for i in
-                            range(0, len(basic_text_string), block_width)]
+        list_from_string = [
+            basic_text_string[i : i + block_width] for i in range(0, len(basic_text_string), block_width)
+        ]
 
         for list_line in list_from_string:
             compressed_string += list_line + '\n'
@@ -612,7 +611,7 @@ def get_compressed_first_post(initial_text):
 def split_text_to_deleted_and_regular_parts(text):
     """split text into two strings: one for deleted (line-through) text and second for regular"""
 
-    soup = BeautifulSoup(text, features="html.parser")
+    soup = BeautifulSoup(text, features='html.parser')
 
     soup_without_deleted = copy.copy(soup)
     deleted_text = soup_without_deleted.find_all('span', {'style': 'text-decoration:line-through'})
@@ -651,18 +650,18 @@ def get_field_trip_details_from_text(text):
                                      }"""
 
     class FieldTrip:
-
-        def __init__(self,
-                     field_trip=False,
-                     camp=False,
-                     now=False,
-                     urgent=False,
-                     repeat=False,
-                     coordinates=None,
-                     date_and_time=None,
-                     place=None,
-                     blocks=None
-                     ):
+        def __init__(
+            self,
+            field_trip=False,
+            camp=False,
+            now=False,
+            urgent=False,
+            repeat=False,
+            coordinates=None,
+            date_and_time=None,
+            place=None,
+            blocks=None,
+        ):
             coordinates = []
             blocks = []
             self.trip = field_trip
@@ -676,34 +675,30 @@ def get_field_trip_details_from_text(text):
             self.b = blocks
 
     class Block:
-
-        def __init__(self,
-                     type=None,
-                     title=None,
-                     time=None,
-                     place=None,
-                     coords=None
-                     ):
+        def __init__(self, type=None, title=None, time=None, place=None, coords=None):
             self.type = type
             self.title = title
             self.time = time
             self.place = place
             self.coords = coords
 
-    field_trip_vyezd = re.findall(r'(?i)(?:внимание.{0,3}|)'
-                                  r'(?:скоро.{0,3}|срочно.{0,3}|)'
-                                  r'(?:планируется.{0,3}|ожидается.{0,3}|готовится.{0,3}|запланирован.{0,3}|)'
-                                  r'(?:повторный.{0,3}|срочный.{0,3}|активный.{0,3})?'
-                                  r'(?:выезд|вылет|cбор на поиск|сбор)'
-                                  r'(?:.{0,3}срочно|сейчас|)'
-                                  r'(?:.{0,3}планируется|.{0,3}ожидается|.{0,3}готовится|.{0,3}запланирован|)'
-                                  r'(?:.{0,4}\d\d\.\d\d\.\d\d(?:\d\d|)|)'
-                                  r'.{0,3}(?:[\r\n]+|.){0,1000}',
-                                  text)
+    field_trip_vyezd = re.findall(
+        r'(?i)(?:внимание.{0,3}|)'
+        r'(?:скоро.{0,3}|срочно.{0,3}|)'
+        r'(?:планируется.{0,3}|ожидается.{0,3}|готовится.{0,3}|запланирован.{0,3}|)'
+        r'(?:повторный.{0,3}|срочный.{0,3}|активный.{0,3})?'
+        r'(?:выезд|вылет|cбор на поиск|сбор)'
+        r'(?:.{0,3}срочно|сейчас|)'
+        r'(?:.{0,3}планируется|.{0,3}ожидается|.{0,3}готовится|.{0,3}запланирован|)'
+        r'(?:.{0,4}\d\d\.\d\d\.\d\d(?:\d\d|)|)'
+        r'.{0,3}(?:[\r\n]+|.){0,1000}',
+        text,
+    )
 
     # TODO: to be deleted
-    field_trip_sbor = re.findall(r'(?:место.{0,3}|время.{0,3}|координаты.{0,3}(?:места.{0,3}|)|)сбор(?:а|)',
-                                 text.lower())
+    field_trip_sbor = re.findall(
+        r'(?:место.{0,3}|время.{0,3}|координаты.{0,3}(?:места.{0,3}|)|)сбор(?:а|)', text.lower()
+    )
     # TODO: to be deleted
 
     resulting_field_trip_dict = {'vyezd': False}
@@ -724,7 +719,6 @@ def get_field_trip_details_from_text(text):
 
     # now / urgent / secondary
     for phrase in field_trip_vyezd:
-
         # now
         if re.findall(r'(планируется|ожидается|готовится)', phrase.lower()):
             resulting_field_trip_dict['now'] = False
@@ -777,7 +771,8 @@ def get_field_trip_details_from_text(text):
 
             r = re.search(
                 r'(?i)^(?!.*мест. сбор).{0,10}(?:время|сбор.{1,3}(?:в\s|к\s|с\s|.{1,10}\d{2}.{1,3}\d{2})).{0,100}',
-                list_line)
+                list_line,
+            )
             if r:
                 resulting_field_trip_dict['date_and_time'] = re.sub(re.compile('<.*?>'), '', r.group())
 
@@ -792,11 +787,11 @@ def age_writer(age):
         b = (age - a * 100) // 10
         c = age - a * 100 - b * 10
         if c == 1 and b != 1:
-            wording = str(age) + " год"
+            wording = str(age) + ' год'
         elif c in {2, 3, 4} and b != 1:
-            wording = str(age) + " года"
+            wording = str(age) + ' года'
         else:
-            wording = str(age) + " лет"
+            wording = str(age) + ' лет'
     else:
         wording = ''
 
@@ -816,15 +811,22 @@ def save_function_into_register(conn, context, start_time, function_id, change_l
 
     try:
         event_id = context.event_id
-        json_of_params = json.dumps({"ch_id": change_log_ids})
+        json_of_params = json.dumps({'ch_id': change_log_ids})
 
         sql_text = sqlalchemy.text("""INSERT INTO functions_registry
                                                   (event_id, time_start, cloud_function_name, function_id,
                                                   time_finish, params)
                                                   VALUES (:a, :b, :c, :d, :e, :f)
                                                   /*action='save_ide_f_posts_function' */;""")
-        conn.execute(sql_text, a=event_id, b=start_time, c='identify_updates_of_f_posts', d=function_id,
-                     e=datetime.datetime.now(), f=json_of_params)
+        conn.execute(
+            sql_text,
+            a=event_id,
+            b=start_time,
+            c='identify_updates_of_f_posts',
+            d=function_id,
+            e=datetime.datetime.now(),
+            f=json_of_params,
+        )
         logging.info(f'function {function_id} was saved in functions_registry')
 
     except Exception as e:
@@ -853,7 +855,6 @@ def main(event, context):  # noqa
                 list_of_folders_with_upd_searches = []
 
                 for search_id in list_of_updated_searches:
-
                     # get the Current First Page Content
                     sql_text = sqlalchemy.text("""
                     SELECT content, content_compact FROM search_first_posts WHERE search_id=:a AND actual = True;
@@ -888,16 +889,15 @@ def main(event, context):  # noqa
                     # TODO: DEBUG try
                     try:
                         if first_page_content_curr and first_page_content_prev:
-
                             # check the difference b/w first posts for current and previous version
-                            message_on_first_posts_diff, diff_dict = \
-                                process_first_page_comparison(conn, search_id,
-                                                              first_page_content_prev, first_page_content_curr)
+                            message_on_first_posts_diff, diff_dict = process_first_page_comparison(
+                                conn, search_id, first_page_content_prev, first_page_content_curr
+                            )
                             if message_on_first_posts_diff:
                                 message_on_first_posts_diff = str(diff_dict)
-                                change_log_id = save_new_record_into_change_log(conn, search_id,
-                                                                                message_on_first_posts_diff,
-                                                                                'topic_first_post_change', 8)
+                                change_log_id = save_new_record_into_change_log(
+                                    conn, search_id, message_on_first_posts_diff, 'topic_first_post_change', 8
+                                )
                                 change_log_ids.append(change_log_id)
 
                     except Exception as e:
@@ -919,8 +919,10 @@ def main(event, context):  # noqa
                     save_function_into_register(conn, context, analytics_func_start, function_id, change_log_ids)
 
                     publish_to_pubsub('topic_to_run_parsing_script', str(list_of_folders_with_upd_searches))
-                    message_for_pubsub = {'triggered_by_func_id': function_id,
-                                          'text': str(list_of_folders_with_upd_searches)}
+                    message_for_pubsub = {
+                        'triggered_by_func_id': function_id,
+                        'text': str(list_of_folders_with_upd_searches),
+                    }
                     publish_to_pubsub('topic_for_notification', message_for_pubsub)
 
             except Exception as e:

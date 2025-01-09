@@ -1,4 +1,3 @@
-import os
 import base64
 import urllib.request
 import datetime
@@ -12,15 +11,15 @@ from bs4 import BeautifulSoup
 import psycopg2
 
 import asyncio
-from telegram import ReplyKeyboardMarkup, Bot, Update, ReplyKeyboardRemove, error
+from telegram import ReplyKeyboardMarkup, Bot
 from telegram.ext import ContextTypes, Application
 
 from google.cloud import secretmanager
 import google.cloud.logging
 
-url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
 req = urllib.request.Request(url)
-req.add_header("Metadata-Flavor", "Google")
+req.add_header('Metadata-Flavor', 'Google')
 project_id = urllib.request.urlopen(req).read().decode()
 
 client = secretmanager.SecretManagerServiceClient()
@@ -33,19 +32,20 @@ log_client.setup_logging()
 
 
 class ForumUser:
-    def __init__(self,
-                 user_id=None,
-                 username=None,
-                 callsign=None,
-                 region=None,
-                 phone=None,
-                 auto_num=None,
-                 age=None,
-                 sex=None,
-                 reg_date=None,
-                 firstname=None,
-                 lastname=None
-                 ):
+    def __init__(
+        self,
+        user_id=None,
+        username=None,
+        callsign=None,
+        region=None,
+        phone=None,
+        auto_num=None,
+        age=None,
+        sex=None,
+        reg_date=None,
+        firstname=None,
+        lastname=None,
+    ):
         self.user_id = user_id
         self.username = username
         self.callsign = callsign
@@ -59,25 +59,37 @@ class ForumUser:
         self.lastname = lastname
 
     def __str__(self):
-        return str([self.user_id, self.username, self.firstname, self.lastname, self.callsign, self.region, self.phone,
-                    self.auto_num, self.age,
-                    self.sex, self.reg_date])
+        return str(
+            [
+                self.user_id,
+                self.username,
+                self.firstname,
+                self.lastname,
+                self.callsign,
+                self.region,
+                self.phone,
+                self.auto_num,
+                self.age,
+                self.sex,
+                self.reg_date,
+            ]
+        )
 
 
 def get_secrets(secret_request):
-    name = f"projects/{project_id}/secrets/{secret_request}/versions/latest"
+    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
     response = client.access_secret_version(name=name)
-    return response.payload.data.decode("UTF-8")
+    return response.payload.data.decode('UTF-8')
 
 
 def sql_connect_by_psycopg2():
     global cur
     global conn_psy
 
-    db_user = get_secrets("cloud-postgres-username")
-    db_pass = get_secrets("cloud-postgres-password")
-    db_name = get_secrets("cloud-postgres-db-name")
-    db_conn = get_secrets("cloud-postgres-connection-name")
+    db_user = get_secrets('cloud-postgres-username')
+    db_pass = get_secrets('cloud-postgres-password')
+    db_name = get_secrets('cloud-postgres-db-name')
+    db_conn = get_secrets('cloud-postgres-connection-name')
     db_host = '/cloudsql/' + db_conn
 
     conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
@@ -91,10 +103,10 @@ async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def prepare_message_for_async(user_id, data):
-    bot_token = get_secrets("bot_api_token__prod")
+    bot_token = get_secrets('bot_api_token__prod')
     application = Application.builder().token(bot_token).build()
     job_queue = application.job_queue
-    job = job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
+    job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
 
     async with application:
         await application.initialize()
@@ -116,19 +128,13 @@ def login_into_forum(forum_bot_password):
 
     global session
 
-    login_page = "https://lizaalert.org/forum/ucp.php?mode=login"
-    headers = {
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }
-    data = {
-        'username': 'telegram_bot',
-        'password': forum_bot_password,
-        'login': 'Вход'
-    }
+    login_page = 'https://lizaalert.org/forum/ucp.php?mode=login'
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    data = {'username': 'telegram_bot', 'password': forum_bot_password, 'login': 'Вход'}
 
     response = session.get(login_page)
 
-    content = response.content.decode("utf-8")
+    content = response.content.decode('utf-8')
 
     creation_time_match = re.compile(r'<input.*?name="creation_time".*?value="([^"]*)".*?/>').search(content)
     if creation_time_match:
@@ -151,8 +157,8 @@ def login_into_forum(forum_bot_password):
     sleep(1)  # без этого не сработает %)
     r = session.post(login_page, headers=headers, data=form_data)
 
-    if "Личные сообщения" in r.text:
-        print("Logged in successfully")
+    if 'Личные сообщения' in r.text:
+        print('Logged in successfully')
     # elif "Ошибка отправки формы" in r.text:
     #    print("Form submit error")
     else:
@@ -169,7 +175,7 @@ def get_user_id(u_name):
     user_search_page = forum_prefix + u_name
 
     r2 = session.get(user_search_page)
-    soup = BeautifulSoup(r2.content, features="html.parser")
+    soup = BeautifulSoup(r2.content, features='html.parser')
 
     try:
         block_with_username = soup.find('a', {'class': 'username'})
@@ -178,9 +184,9 @@ def get_user_id(u_name):
 
         if block_with_username is not None:
             u_string = str(block_with_username)
-            user_id = u_string[u_string.find(';u=') + 3:u_string.find('">')]
+            user_id = u_string[u_string.find(';u=') + 3 : u_string.find('">')]
             if user_id.find('style="color:') != -1:
-                user_id = user_id[:(user_id.find('style="color:') - 2)]
+                user_id = user_id[: (user_id.find('style="color:') - 2)]
             print('User found, user_id=', user_id)
         else:
             user_id = 0
@@ -198,7 +204,7 @@ def get_user_attributes(user_id):
 
     url_prefix = 'https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u='
     r3 = session.get(url_prefix + user_id)
-    soup = BeautifulSoup(r3.content, features="html.parser")
+    soup = BeautifulSoup(r3.content, features='html.parser')
     block_with_user_attr = soup.find('div', {'class': 'page-body'})
 
     return block_with_user_attr
@@ -209,13 +215,14 @@ def get_user_data(data):
 
     global user
 
-    dict = {'age': 'Возраст:',
-            'sex': 'Пол:',
-            'region': 'Регион:',
-            'phone': 'Мобильный телефон:',
-            'reg_date': 'Зарегистрирован:',
-            'callsign': 'Позывной:'
-            }
+    dict = {
+        'age': 'Возраст:',
+        'sex': 'Пол:',
+        'region': 'Регион:',
+        'phone': 'Мобильный телефон:',
+        'reg_date': 'Зарегистрирован:',
+        'callsign': 'Позывной:',
+    }
 
     for attr in dict:
         try:
@@ -229,7 +236,6 @@ def get_user_data(data):
 
 
 def match_user_region_from_forum_to_bot(forum_region):
-
     region_dict = {
         'Амурская область': 'Амурская обл.',
         'Астраханская область': 'Астраханская обл.',
@@ -282,7 +288,7 @@ def match_user_region_from_forum_to_bot(forum_region):
         'Ярославская область': 'Ярославская обл.',
         'Другое': None,
         'ХМАО': 'Ханты-Мансийский АО',
-        'ЯНАО': 'Ямало-Ненецкий АО'
+        'ЯНАО': 'Ямало-Ненецкий АО',
     }
 
     try:
@@ -292,6 +298,7 @@ def match_user_region_from_forum_to_bot(forum_region):
         bot_region = None
 
     return bot_region
+
 
 # def save_user_region(user_id, region_name):
 #    return None
@@ -314,8 +321,8 @@ def main(event, context):
     tg_user_id, f_username = list(message_in_ascii)
 
     # initiate Prod Bot
-    bot_token = get_secrets("bot_api_token__prod")
-    bot = Bot(token=bot_token)
+    bot_token = get_secrets('bot_api_token__prod')
+    bot = Bot(token=bot_token)  # noqa
 
     # log in to forum
     bot_forum_pass = get_secrets('forum_bot_password')
@@ -357,12 +364,26 @@ def main(event, context):
         conn_psy.commit()
 
         # Add new record for this user
-        cur.execute("""INSERT INTO user_forum_attributes
+        cur.execute(
+            """INSERT INTO user_forum_attributes
         (user_id, forum_user_id, status, timestamp, forum_username, forum_age, forum_sex, forum_region,
         forum_auto_num, forum_callsign, forum_phone, forum_reg_date)
         values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);""",
-                    (tg_user_id, f_usr_id, 'non-varified', datetime.datetime.now(), f_username, user.age, user.sex,
-                     user.region, user.auto_num, user.callsign, user.phone, user.reg_date))
+            (
+                tg_user_id,
+                f_usr_id,
+                'non-varified',
+                datetime.datetime.now(),
+                f_username,
+                user.age,
+                user.sex,
+                user.region,
+                user.auto_num,
+                user.callsign,
+                user.phone,
+                user.reg_date,
+            ),
+        )
         conn_psy.commit()
 
         cur.execute("""SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=%s""", (tg_user_id,))
@@ -370,9 +391,8 @@ def main(event, context):
         user_has_region_set = True if cur.fetchone() else False
         logging.info(f'user_has_region_set = {user_has_region_set}')
 
-        resulting_region_in_bot = None
         if not user_has_region_set and user.region:
-            resulting_region_in_bot = match_user_region_from_forum_to_bot(user.region)
+            resulting_region_in_bot = match_user_region_from_forum_to_bot(user.region)  # noqa
 
         # TODO - here should be a block for saving user region pref. now we cannot do it, cuz user prefs are
         #  on folder level
@@ -380,10 +400,11 @@ def main(event, context):
         # TODO ^^^
 
     else:
-
-        bot_message = 'Бот не смог найти такого пользователя на форуме. ' \
-                      'Пожалуйста, проверьте правильность написания имени пользователя (логина). ' \
-                      'Важно, чтобы каждый знак в точности соответствовал тому, что указано в вашем профиле на форуме'
+        bot_message = (
+            'Бот не смог найти такого пользователя на форуме. '
+            'Пожалуйста, проверьте правильность написания имени пользователя (логина). '
+            'Важно, чтобы каждый знак в точности соответствовал тому, что указано в вашем профиле на форуме'
+        )
         keyboard = [['в начало']]
         bot_request_aft_usr_msg = 'input_of_forum_username'
 
@@ -396,7 +417,8 @@ def main(event, context):
                 """
                 INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
                 """,
-                (tg_user_id, datetime.datetime.now(), bot_request_aft_usr_msg))
+                (tg_user_id, datetime.datetime.now(), bot_request_aft_usr_msg),
+            )
             conn_psy.commit()
 
         except Exception as e:
@@ -404,14 +426,15 @@ def main(event, context):
             logging.exception(e)
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    data = {'text': bot_message, 'reply_markup': reply_markup,
-            'parse_mode': 'HTML', 'disable_web_page_preview': True}
+    data = {'text': bot_message, 'reply_markup': reply_markup, 'parse_mode': 'HTML', 'disable_web_page_preview': True}
     process_sending_message_async(user_id=tg_user_id, data=data)
 
     # save bot's reply to incoming request
     if bot_message:
-        cur.execute("""INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);""",
-                    (tg_user_id, 'bot', datetime.datetime.now(), bot_message))
+        cur.execute(
+            """INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);""",
+            (tg_user_id, 'bot', datetime.datetime.now(), bot_message),
+        )
         conn_psy.commit()
 
     cur.close()

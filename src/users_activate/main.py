@@ -9,9 +9,9 @@ from google.cloud import pubsub_v1
 from google.cloud import secretmanager
 import google.cloud.logging
 
-url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
 req = urllib.request.Request(url)
-req.add_header("Metadata-Flavor", "Google")
+req.add_header('Metadata-Flavor', 'Google')
 project_id = urllib.request.urlopen(req).read().decode()
 
 publisher = pubsub_v1.PublisherClient()
@@ -59,7 +59,11 @@ def publish_to_pubsub(topic_name, message):
     global project_id
 
     topic_path = publisher.topic_path(project_id, topic_name)
-    message_json = json.dumps({'data': {'message': message}, })
+    message_json = json.dumps(
+        {
+            'data': {'message': message},
+        }
+    )
     message_bytes = message_json.encode('utf-8')
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
@@ -84,21 +88,21 @@ def notify_admin(message):
 def get_secrets(secret_request):
     """get secret from GCP Secret Manager"""
 
-    name = f"projects/{project_id}/secrets/{secret_request}/versions/latest"
+    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
     client = secretmanager.SecretManagerServiceClient()
 
     response = client.access_secret_version(name=name)
 
-    return response.payload.data.decode("UTF-8")
+    return response.payload.data.decode('UTF-8')
 
 
 def sql_connect_by_psycopg2():
     """set the connection to psql via psycopg2"""
 
-    db_user = get_secrets("cloud-postgres-username")
-    db_pass = get_secrets("cloud-postgres-password")
-    db_name = get_secrets("cloud-postgres-db-name")
-    db_conn = get_secrets("cloud-postgres-connection-name")
+    db_user = get_secrets('cloud-postgres-username')
+    db_pass = get_secrets('cloud-postgres-password')
+    db_name = get_secrets('cloud-postgres-db-name')
+    db_conn = get_secrets('cloud-postgres-connection-name')
     db_host = '/cloudsql/' + db_conn
 
     conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
@@ -150,12 +154,14 @@ def mark_up_onboarding_status_0(cur):
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=0')
 
         # save onboarding start
-        cur.execute("""
+        cur.execute(
+            """
                             INSERT INTO user_onboarding
                             (user_id, step_name, step_id, timestamp)
                             VALUES (%s, 'start', 0, '2023-05-14 12:39:00.000000')
                             ;""",
-                    (user_id_to_update,))
+            (user_id_to_update,),
+        )
 
     else:
         logging.info('There are no users to assign onboarding pref_id=0.')
@@ -191,12 +197,14 @@ def mark_up_onboarding_status_0_2(cur):
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=0')
 
         # save onboarding start
-        cur.execute("""
+        cur.execute(
+            """
                             INSERT INTO user_onboarding
                             (user_id, step_name, step_id, timestamp)
                             VALUES (%s, 'start', 0, '2023-05-14 12:39:00.000000')
                             ;""",
-                    (user_id_to_update,))
+            (user_id_to_update,),
+        )
 
     else:
         logging.info('There are no users to assign onboarding pref_id=0.')
@@ -225,12 +233,14 @@ def mark_up_onboarding_status_10(cur):
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=10')
 
         # save onboarding start
-        cur.execute("""
+        cur.execute(
+            """
                             INSERT INTO user_onboarding
                             (user_id, step_name, step_id, timestamp)
                             VALUES (%s, 'role_set', 10, '2023-05-14 12:39:00.000000')
                             ;""",
-                    (user_id_to_update,))
+            (user_id_to_update,),
+        )
 
     else:
         logging.info('There are no users to assign onboarding pref_id=10.')
@@ -266,14 +276,16 @@ def mark_up_onboarding_status_10_2(cur):
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=10')
 
         # save onboarding start
-        cur.execute("""
+        cur.execute(
+            """
                             INSERT INTO user_onboarding
                             (user_id, step_name, step_id, timestamp)
                             VALUES (%s, 'role_set', 10, '2023-05-14 12:39:00.000000')
                             ;""",
-                    (user_id_to_update,))
+            (user_id_to_update,),
+        )
     else:
-        logging.info(f'There are no users to assign onboarding pref_id=10.')
+        logging.info('There are no users to assign onboarding pref_id=10.')
 
     return None
 
@@ -299,12 +311,14 @@ def mark_up_onboarding_status_20(cur):
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=20')
 
         # save onboarding start
-        cur.execute("""
+        cur.execute(
+            """
                             INSERT INTO user_onboarding
                             (user_id, step_name, step_id, timestamp)
                             VALUES (%s, 'moscow_replied', 20, '2023-05-14 12:39:00.000000')
                             ;""",
-                    (user_id_to_update,))
+            (user_id_to_update,),
+        )
 
     else:
         logging.info('There are no users to assign onboarding pref_id=20.')
@@ -328,12 +342,14 @@ def mark_up_onboarding_status_21(cur):
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=21')
 
         # save onboarding start
-        cur.execute("""
+        cur.execute(
+            """
                             INSERT INTO user_onboarding
                             (user_id, step_name, step_id, timestamp)
                             VALUES (%s, 'region_set', 21, '2023-05-14 12:39:00.000000')
                             ;""",
-                    (user_id_to_update,))
+            (user_id_to_update,),
+        )
 
     else:
         logging.info('There are no users to assign onboarding pref_id=21.')
@@ -362,12 +378,14 @@ def mark_up_onboarding_status_80(cur):
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
 
         # save onboarding start
-        cur.execute("""
+        cur.execute(
+            """
                             INSERT INTO user_onboarding
                             (user_id, step_name, step_id, timestamp)
                             VALUES (%s, 'finished', 80, '2023-05-14 12:39:00.000000')
                             ;""",
-                    (user_id_to_update,))
+            (user_id_to_update,),
+        )
 
     else:
         logging.info('There are no users to assign onboarding pref_id=80.')
@@ -394,12 +412,14 @@ def mark_up_onboarding_status_80_patch(cur):
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
 
         # save onboarding start
-        cur.execute("""
+        cur.execute(
+            """
                             INSERT INTO user_onboarding
                             (user_id, step_name, step_id, timestamp)
                             VALUES (%s, 'finished', 80, '2023-05-14 12:39:00.000000')
                             ;""",
-                    (user_id_to_update,))
+            (user_id_to_update,),
+        )
 
     else:
         logging.info('There are no users to assign onboarding pref_id=80.')
@@ -423,12 +443,14 @@ def mark_up_onboarding_status_80_wo_dialogs(cur):
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
 
         # save onboarding start
-        cur.execute("""
+        cur.execute(
+            """
                             INSERT INTO user_onboarding
                             (user_id, step_name, step_id, timestamp)
                             VALUES (%s, 'finished', 80, '2023-05-14 12:39:00.000000')
                             ;""",
-                    (user_id_to_update,))
+            (user_id_to_update,),
+        )
 
     else:
         logging.info('There are no users to assign onboarding pref_id=80.')
@@ -453,12 +475,14 @@ def mark_up_onboarding_status_80_just_got_summaries(cur):
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
 
         # save onboarding start
-        cur.execute("""
+        cur.execute(
+            """
                             INSERT INTO user_onboarding
                             (user_id, step_name, step_id, timestamp)
                             VALUES (%s, 'finished', 80, '2023-05-14 12:39:00.000000')
                             ;""",
-                    (user_id_to_update,))
+            (user_id_to_update,),
+        )
 
     else:
         logging.info('There are no users to assign onboarding pref_id=80.')
@@ -483,12 +507,14 @@ def mark_up_onboarding_status_80_have_all_settings(cur):
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
 
         # save onboarding start
-        cur.execute("""
+        cur.execute(
+            """
                             INSERT INTO user_onboarding
                             (user_id, step_name, step_id, timestamp)
                             VALUES (%s, 'finished', 80, '2023-05-14 12:39:00.000000')
                             ;""",
-                    (user_id_to_update,))
+            (user_id_to_update,),
+        )
 
     else:
         logging.info('There are no users to assign onboarding pref_id=80.')
@@ -519,18 +545,22 @@ def mark_up_onboarding_status_80_self_deactivated(cur):
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
 
         # save onboarding start
-        cur.execute("""
+        cur.execute(
+            """
                             INSERT INTO user_onboarding
                             (user_id, step_name, step_id, timestamp)
                             VALUES (%s, 'finished', 80, '2023-05-14 12:39:00.000000')
                             ;""",
-                    (user_id_to_update,))
+            (user_id_to_update,),
+        )
         # save onboarding start
-        cur.execute("""
+        cur.execute(
+            """
                             DELETE FROM temp_onb_step_157
                             WHERE user_id=%s
                                     ;""",
-                    (user_id_to_update,))
+            (user_id_to_update,),
+        )
 
     else:
         logging.info('There are no users to assign onboarding pref_id=80.')
@@ -554,18 +584,22 @@ def mark_up_onboarding_status_99(cur):
         logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
 
         # save onboarding start
-        cur.execute("""
+        cur.execute(
+            """
                             INSERT INTO user_onboarding
                             (user_id, step_name, step_id, timestamp)
                             VALUES (%s, 'unrecognized', 99, '2023-05-14 12:39:00.000000')
                             ;""",
-                    (user_id_to_update,))
+            (user_id_to_update,),
+        )
         # save onboarding start
-        cur.execute("""
+        cur.execute(
+            """
                             DELETE FROM temp_onb_step_157
                             WHERE user_id=%s
                                     ;""",
-                    (user_id_to_update,))
+            (user_id_to_update,),
+        )
 
     else:
         logging.info('There are no users to assign onboarding pref_id=80.')
@@ -573,7 +607,7 @@ def mark_up_onboarding_status_99(cur):
     return None
 
 
-def main(event, context): # noqa
+def main(event, context):  # noqa
     """main function"""
 
     # FIXME –testing logging, which, seems, disappeared

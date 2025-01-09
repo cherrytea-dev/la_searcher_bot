@@ -26,9 +26,9 @@ import google.auth.transport.requests
 import google.oauth2.id_token
 
 
-url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
 req = urllib.request.Request(url)
-req.add_header("Metadata-Flavor", "Google")
+req.add_header('Metadata-Flavor', 'Google')
 project_id = urllib.request.urlopen(req).read().decode()
 
 client = secretmanager.SecretManagerServiceClient()
@@ -44,43 +44,61 @@ requests_session = None
 # to be reused by different functions
 block_of_profile_rough_code = None
 
-dict_status_words = {'жив': 'one', 'жива': 'one', 'живы': 'many',
-                     'завершен': 'na', 'завершён': 'na',
-                     'идет': 'na', 'идёт': 'na', 'информации': 'na',
-                     'найден': 'one', 'найдена': 'one', 'найдены': 'many',
-                     'погиб': 'one', 'погибла': 'one', 'погибли': 'many',
-                     'поиск': 'na', 'приостановлен': 'na', 'проверка': 'na',
-                     'похищен': 'one', 'похищена': 'one', 'похищены': 'many',
-                     'пропал': 'one', 'пропала': 'one', 'пропали': 'many',
-                     'остановлен': 'na',
-                     'стоп': 'na', 'эвакуация': 'na'}
+dict_status_words = {
+    'жив': 'one',
+    'жива': 'one',
+    'живы': 'many',
+    'завершен': 'na',
+    'завершён': 'na',
+    'идет': 'na',
+    'идёт': 'na',
+    'информации': 'na',
+    'найден': 'one',
+    'найдена': 'one',
+    'найдены': 'many',
+    'погиб': 'one',
+    'погибла': 'one',
+    'погибли': 'many',
+    'поиск': 'na',
+    'приостановлен': 'na',
+    'проверка': 'na',
+    'похищен': 'one',
+    'похищена': 'one',
+    'похищены': 'many',
+    'пропал': 'one',
+    'пропала': 'one',
+    'пропали': 'many',
+    'остановлен': 'na',
+    'стоп': 'na',
+    'эвакуация': 'na',
+}
 dict_ignore = {'', ':'}
 
 
 class SearchSummary:
-
-    def __init__(self,
-                 topic_type=None,
-                 topic_type_id=None,
-                 topic_id=None,
-                 parsed_time=None,
-                 status=None,
-                 title=None,
-                 link=None,
-                 start_time=None,
-                 num_of_replies=None,
-                 name=None,
-                 display_name=None,
-                 age=None,
-                 searches_table_id=None,
-                 folder_id=None,
-                 age_max=None,
-                 age_min=None,
-                 num_of_persons=None,
-                 locations=None,
-                 new_status=None,
-                 full_dict=None
-                 ):
+    def __init__(
+        self,
+        topic_type=None,
+        topic_type_id=None,
+        topic_id=None,
+        parsed_time=None,
+        status=None,
+        title=None,
+        link=None,
+        start_time=None,
+        num_of_replies=None,
+        name=None,
+        display_name=None,
+        age=None,
+        searches_table_id=None,
+        folder_id=None,
+        age_max=None,
+        age_min=None,
+        num_of_persons=None,
+        locations=None,
+        new_status=None,
+        full_dict=None,
+    ):
         self.topic_type = topic_type
         self.topic_type_id = topic_type_id
         self.topic_id = topic_id
@@ -103,9 +121,11 @@ class SearchSummary:
         self.full_dict = full_dict
 
     def __str__(self):
-        return f'{self.parsed_time} – {self.folder_id} / {self.topic_id} : {self.name} - {self.age} – ' \
-               f'{self.num_of_replies}. NEW: {self.display_name} – {self.age_min} – {self.age_max} – ' \
-               f'{self.num_of_persons}'
+        return (
+            f'{self.parsed_time} – {self.folder_id} / {self.topic_id} : {self.name} - {self.age} – '
+            f'{self.num_of_replies}. NEW: {self.display_name} – {self.age_min} – {self.age_max} – '
+            f'{self.num_of_persons}'
+        )
 
 
 def set_cloud_storage(bucket_name, folder_num):
@@ -188,9 +208,7 @@ def get_last_api_call_time_from_psql(db: sqlalchemy.engine, geocoder: str) -> da
     last_call = None
     try:
         conn = db.connect()
-        stmt = sqlalchemy.text(
-            """SELECT timestamp FROM geocode_last_api_call WHERE geocoder=:a LIMIT 1;"""
-        )
+        stmt = sqlalchemy.text("""SELECT timestamp FROM geocode_last_api_call WHERE geocoder=:a LIMIT 1;""")
         last_call = conn.execute(stmt, a=geocoder).fetchone()
         last_call = last_call[0]
         conn.close()
@@ -275,8 +293,9 @@ def get_coordinates(db, address):
                     UPDATE SET status=EXCLUDED.status, latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude,
                     geocoder=EXCLUDED.geocoder, timestamp=EXCLUDED.timestamp;"""
                 )
-                conn.execute(stmt, a=address_string, b=status, c=latitude, d=longitude,
-                             e=geocoder, f=datetime.now(timezone.utc))
+                conn.execute(
+                    stmt, a=address_string, b=status, c=latitude, d=longitude, e=geocoder, f=datetime.now(timezone.utc)
+                )
                 conn.close()
 
         except Exception as e2:
@@ -324,9 +343,11 @@ def get_coordinates(db, address):
             coordinates = None
             if isinstance(e2, exceptions.NothingFound):
                 logging.info(f'address "{address_string}" not found by yandex')
-            elif isinstance(e2, exceptions.YandexGeocoderException) or \
-                    isinstance(e2, exceptions.UnexpectedResponse) or \
-                    isinstance(e2, exceptions.InvalidKey):
+            elif (
+                isinstance(e2, exceptions.YandexGeocoderException)
+                or isinstance(e2, exceptions.UnexpectedResponse)
+                or isinstance(e2, exceptions.InvalidKey)
+            ):
                 logging.info('unexpected yandex error')
             else:
                 logging.info('unexpected error:')
@@ -378,7 +399,7 @@ def get_coordinates(db, address):
     except Exception as e:
         logging.info('TEMP - LOC - New getting coordinates from title failed')
         logging.exception(e)
-        notify_admin(f'ERROR: major geocoding script failed')
+        notify_admin('ERROR: major geocoding script failed')
 
     return None, None
 
@@ -389,7 +410,6 @@ def parse_coordinates(db, search_num):
     global requests_session
 
     def parse_address_from_title(initial_title):
-
         after_age = 0
         age_dict = [' год ', ' год', ' года ', ' года', ' лет ', ' лет', 'г.р.', '(г.р.),', 'лет)', 'лет,']
         for word in age_dict:
@@ -402,7 +422,7 @@ def parse_coordinates(db, search_num):
         if after_age > 0:
             address_string = initial_title[after_age:].strip()
         else:
-            numbers = [int(float(s)) for s in re.findall(r"\d*\d", initial_title)]
+            numbers = [int(float(s)) for s in re.findall(r'\d*\d', initial_title)]
             if numbers and numbers[0]:
                 age_words = initial_title.find(str(numbers[0]))
                 if age_words == -1:
@@ -430,9 +450,9 @@ def parse_coordinates(db, search_num):
         while trigger_of_useless_symbols:
             trigger_of_useless_symbols = False
             for word in useless_symbols:
-                if address_string[0:len(word)] == word:
+                if address_string[0 : len(word)] == word:
                     trigger_of_useless_symbols = True
-                    address_string = address_string[len(word):]
+                    address_string = address_string[len(word) :]
 
         # case when there's "г.о." instead of "городской округ"
         if address_string.find('г.о.') != -1:
@@ -529,7 +549,7 @@ def parse_coordinates(db, search_num):
         # add all the cases ABOVE
         # delete garbage in the beginning of string
         try:
-            first_num = re.search(r"\d", address_string).start()
+            first_num = re.search(r'\d', address_string).start()
         except:  # noqa
             first_num = 0
         try:
@@ -544,26 +564,52 @@ def parse_coordinates(db, search_num):
 
         # add Russia to be sure
         # Openstreetmap.org treats Krym as Ukraine - so for search purposes Russia is avoided
-        if address_string \
-                and address_string.lower().find('крым') == -1 \
-                and address_string.lower().find('севастополь') == -1:
+        if (
+            address_string
+            and address_string.lower().find('крым') == -1
+            and address_string.lower().find('севастополь') == -1
+        ):
             address_string = address_string[new_start:] + ', Россия'
 
         # case - first "с.", "п." and "д." are often misinterpreted - so it's easier to remove it
-        wrong_first_symbols_dict = {' ', ',', ')', '.', 'с.', 'д.', 'п.', 'г.', 'гп', 'пос.', 'уч-к', 'р,',
-                                    'р.', 'г,', 'ст.', 'л.', 'дер ', 'дер.', 'пгт ', 'ж/д', 'б/о', 'пгт.',
-                                    'х.', 'ст-ца', 'с-ца', 'стан.'}
+        wrong_first_symbols_dict = {
+            ' ',
+            ',',
+            ')',
+            '.',
+            'с.',
+            'д.',
+            'п.',
+            'г.',
+            'гп',
+            'пос.',
+            'уч-к',
+            'р,',
+            'р.',
+            'г,',
+            'ст.',
+            'л.',
+            'дер ',
+            'дер.',
+            'пгт ',
+            'ж/д',
+            'б/о',
+            'пгт.',
+            'х.',
+            'ст-ца',
+            'с-ца',
+            'стан.',
+        }
 
         trigger_of_wrong_symbols = True
 
         while trigger_of_wrong_symbols:
-
             this_iteration_bring_no_changes = True
 
             for wrong_symbols in wrong_first_symbols_dict:
-                if address_string[:len(wrong_symbols)] == wrong_symbols:
+                if address_string[: len(wrong_symbols)] == wrong_symbols:
                     # if the first symbols are from wrong symbols list - we delete them
-                    address_string = address_string[len(wrong_symbols):]
+                    address_string = address_string[len(wrong_symbols) :]
                     this_iteration_bring_no_changes = False
 
             if this_iteration_bring_no_changes:
@@ -571,8 +617,9 @@ def parse_coordinates(db, search_num):
 
         # ONE-TIME EXCEPTIONS:
         if address_string.find('г. Сольцы, Новгородская обл. – г. Санкт-Петербург'):
-            address_string = address_string.replace('г. Сольцы, Новгородская область – г. Санкт-Петербург',
-                                                    'г. Сольцы, Новгородская область')
+            address_string = address_string.replace(
+                'г. Сольцы, Новгородская область – г. Санкт-Петербург', 'г. Сольцы, Новгородская область'
+            )
         if address_string.find('Орехово-Зуевский район'):
             address_string = address_string.replace('Орехово-Зуевский район', 'Орехово-Зуевский городской округ')
         if address_string.find('НТ Нефтяник'):
@@ -645,7 +692,7 @@ def parse_coordinates(db, search_num):
         if not visibility_check(r, search_num):
             return [lat, lon, coord_type]
 
-        soup = BeautifulSoup(r.content, features="html.parser")
+        soup = BeautifulSoup(r.content, features='html.parser')
 
         # parse title
         title_code = soup.find('h2', {'class': 'topic-title'})
@@ -665,7 +712,6 @@ def parse_coordinates(db, search_num):
         logging.info(f'unable to parse a specific thread with address {url_to_topic} error is {repr(e)}')
 
     if search_code_blocks:
-
         # FIRST CASE = THERE ARE COORDINATES w/ a WORD Coordinates
         try:
             # make an independent variable
@@ -684,7 +730,7 @@ def parse_coordinates(db, search_num):
             while i < len(f):
                 if f[i:].find('коорд') > 0:
                     d = i + f[i:].find('коорд')
-                    e.append(f[d:(d + 100)])
+                    e.append(f[d : (d + 100)])
                     if d == 0 or d == -1:
                         i = len(f)
                     else:
@@ -699,8 +745,12 @@ def parse_coordinates(db, search_num):
                     for j in range(len(g) - 1):
                         try:
                             # Majority of coords in RU: lat in [40-80], long in [20-180], expected min format = XX.XXX
-                            if 3 < (g[j] // 10) < 8 and len(str(g[j])) > 5 and 1 < (g[j + 1] // 10) < 19 and len(
-                                    str(g[j + 1])) > 5:
+                            if (
+                                3 < (g[j] // 10) < 8
+                                and len(str(g[j])) > 5
+                                and 1 < (g[j + 1] // 10) < 19
+                                and len(str(g[j + 1])) > 5
+                            ):
                                 lat = g[j]
                                 lon = g[j + 1]
                                 coord_type = '1. coordinates w/ word coord'
@@ -719,7 +769,6 @@ def parse_coordinates(db, search_num):
             a = copy.copy(search_code_blocks)
 
             try:
-
                 # remove a text with strike-through
                 b = a.find_all('span', {'style': 'text-decoration:line-through'})
                 for i in range(len(b)):
@@ -749,8 +798,12 @@ def parse_coordinates(db, search_num):
                     for j in range(len(g) - 1):
                         try:
                             # Majority of coords in RU: lat in [40-80], long in [20-180], expected min format = XX.XXX
-                            if 3 < (g[j] // 10) < 8 and len(str(g[j])) > 5 and 1 < (g[j + 1] // 10) < 19 and len(
-                                    str(g[j + 1])) > 5:
+                            if (
+                                3 < (g[j] // 10) < 8
+                                and len(str(g[j])) > 5
+                                and 1 < (g[j + 1] // 10) < 19
+                                and len(str(g[j + 1])) > 5
+                            ):
                                 lat = g[j]
                                 lon = g[j + 1]
                                 coord_type = '2. coordinates w/o word coord'
@@ -764,7 +817,6 @@ def parse_coordinates(db, search_num):
 
         # THIRD CASE = DELETED COORDINATES
         if lat == 0:
-
             # make an independent variable
             a = copy.copy(search_code_blocks)
 
@@ -781,8 +833,12 @@ def parse_coordinates(db, search_num):
                                 try:
                                     # Majority of coords in RU: lat in [40-80], long in [20-180],
                                     # expected minimal format = XX.XXX
-                                    if 3 < (g[j] // 10) < 8 and len(str(g[j])) > 5 and 1 < (g[j + 1] // 10) < 19 \
-                                            and len(str(g[j + 1])) > 5:
+                                    if (
+                                        3 < (g[j] // 10) < 8
+                                        and len(str(g[j])) > 5
+                                        and 1 < (g[j + 1] // 10) < 19
+                                        and len(str(g[j + 1])) > 5
+                                    ):
                                         lat = g[j]
                                         lon = g[j + 1]
                                         coord_type = '3. deleted coord'
@@ -822,7 +878,6 @@ def update_coordinates(db, list_of_search_objects):
     """Record search coordinates to PSQL"""
 
     for search in list_of_search_objects:
-
         search_id = search.topic_id
         search_status = search.new_status
 
@@ -834,7 +889,7 @@ def update_coordinates(db, list_of_search_objects):
 
         with db.connect() as conn:
             stmt = sqlalchemy.text(
-                "SELECT latitude, longitude, coord_type FROM search_coordinates WHERE search_id=:a LIMIT 1;"
+                'SELECT latitude, longitude, coord_type FROM search_coordinates WHERE search_id=:a LIMIT 1;'
             )
             old_coords = conn.execute(stmt, a=search_id).fetchone()
 
@@ -851,10 +906,9 @@ def update_coordinates(db, list_of_search_objects):
                     do_update = False
                     if not old_type:
                         do_update = True
-                    elif not (old_type[0] != "4" and coords[2][0] == '4'):
+                    elif not (old_type[0] != '4' and coords[2][0] == '4'):
                         do_update = True
-                    elif (old_type[0] == "4" and coords[2][0] == '4' and
-                          (old_lat != coords[0] or old_lon != coords[1])):
+                    elif old_type[0] == '4' and coords[2][0] == '4' and (old_lat != coords[0] or old_lon != coords[1]):
                         do_update = True
 
                     if do_update:
@@ -886,15 +940,21 @@ def publish_to_pubsub(topic_name, message):
     topic_path = publisher.topic_path(project_id, topic_name)
 
     # Prepare the message
-    message_json = json.dumps({'data': {'message': message}, })
+    message_json = json.dumps(
+        {
+            'data': {'message': message},
+        }
+    )
     message_bytes = message_json.encode('utf-8')
 
     # Publish a message
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publishing succeeded
-        logging.info(f'Pub/sub message to topic {topic_name} with event_id = {publish_future.result()} has '
-                     f'been triggered. Content: {message}')
+        logging.info(
+            f'Pub/sub message to topic {topic_name} with event_id = {publish_future.result()} has '
+            f'been triggered. Content: {message}'
+        )
 
     except Exception as e:
         logging.info(f'Not able to send pub/sub message: {message}')
@@ -941,32 +1001,28 @@ def process_pubsub_message(event):
 def sql_connect():
     """set the connection pool to cloud sql"""
 
-    db_user = get_secrets("cloud-postgres-username")
-    db_pass = get_secrets("cloud-postgres-password")
-    db_name = get_secrets("cloud-postgres-db-name")
-    db_conn = get_secrets("cloud-postgres-connection-name")
-    db_socket_dir = "/cloudsql"
+    db_user = get_secrets('cloud-postgres-username')
+    db_pass = get_secrets('cloud-postgres-password')
+    db_name = get_secrets('cloud-postgres-db-name')
+    db_conn = get_secrets('cloud-postgres-connection-name')
+    db_socket_dir = '/cloudsql'
 
     db_config = {
-        "pool_size": 5,
-        "max_overflow": 0,
-        "pool_timeout": 0,  # seconds
-        "pool_recycle": 120,  # seconds
+        'pool_size': 5,
+        'max_overflow': 0,
+        'pool_timeout': 0,  # seconds
+        'pool_recycle': 120,  # seconds
     }
 
     pool = sqlalchemy.create_engine(
         sqlalchemy.engine.url.URL(
-            "postgresql+pg8000",
+            'postgresql+pg8000',
             username=db_user,
             password=db_pass,
             database=db_name,
-            query={
-                "unix_sock": "{}/{}/.s.PGSQL.5432".format(
-                    db_socket_dir,
-                    db_conn)
-            }
+            query={'unix_sock': '{}/{}/.s.PGSQL.5432'.format(db_socket_dir, db_conn)},
         ),
-        **db_config
+        **db_config,
     )
     pool.dialect.description_encoding = None
 
@@ -976,10 +1032,10 @@ def sql_connect():
 def get_secrets(secret_request):
     """get the secret stored in Google Cloud Secrets"""
 
-    name = f"projects/{project_id}/secrets/{secret_request}/versions/latest"
+    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
     response = client.access_secret_version(name=name)
 
-    return response.payload.data.decode("UTF-8")
+    return response.payload.data.decode('UTF-8')
 
 
 def define_start_time_of_search(blocks):
@@ -1077,7 +1133,7 @@ def profile_get_managers(text_of_managers):
     managers = []
 
     try:
-        list_of_lines = text_of_managers.split("\n")
+        list_of_lines = text_of_managers.split('\n')
 
         # Define the block of text with managers which starts with ------
         zero_line = None
@@ -1095,13 +1151,19 @@ def profile_get_managers(text_of_managers):
                 list_of_lines[i] += ' ' + list_of_lines[i + 1]
                 list_of_lines[i + 1] = ''
 
-        list_of_roles = ['Координатор-консультант', 'Координатор', 'Инфорг', 'Старшая на месте', 'Старший на месте',
-                         'ДИ ', 'СНМ']
+        list_of_roles = [
+            'Координатор-консультант',
+            'Координатор',
+            'Инфорг',
+            'Старшая на месте',
+            'Старший на месте',
+            'ДИ ',
+            'СНМ',
+        ]
 
         for line in list_of_lines[zero_line:]:
             line_by_word = line.split()
             for i in range(len(line_by_word)):
-
                 for role in list_of_roles:
                     if str(line_by_word[i]).find(role) > -1:
                         manager_line = line_by_word[i]
@@ -1123,7 +1185,6 @@ def profile_get_managers(text_of_managers):
         # replace telegram contacts with nice links
         for manager in managers:
             for word in manager.split(' '):
-
                 nickname = None
 
                 if word.find('https://telegram.im/') > -1:
@@ -1133,7 +1194,6 @@ def profile_get_managers(text_of_managers):
                     nickname = word[13:]
 
                 if nickname:
-
                     # tip: sometimes there are two @ in the beginning (by human mistake)
                     while nickname[0] == '@':
                         nickname = nickname[1:]
@@ -1171,7 +1231,7 @@ def parse_search_profile(search_num):
         if not visibility_check(r, search_num):
             return None
 
-        soup = BeautifulSoup(r.content, features="html.parser")
+        soup = BeautifulSoup(r.content, features='html.parser')
 
     except Exception as e:
         logging.info(f'DBG.P.50.EXC: unable to parse a specific Topic with address: {url_to_topic} error:')
@@ -1213,7 +1273,7 @@ def make_api_call(function: str, data: dict) -> dict:
     audience = endpoint
     auth_req = google.auth.transport.requests.Request()
     id_token = google.oauth2.id_token.fetch_id_token(auth_req, audience)
-    headers = {"Authorization": f"Bearer {id_token}", 'Content-Type': 'application/json'}
+    headers = {'Authorization': f'Bearer {id_token}', 'Content-Type': 'application/json'}
 
     r = requests.post(endpoint, json=data, headers=headers)
     content = r.json()
@@ -1245,7 +1305,6 @@ def parse_one_folder(db, folder_id):
         del soup  # trying to free up memory
 
         for i, data_block in enumerate(search_code_blocks):
-
             # First block is always not one we want
             if i == 0:
                 continue
@@ -1262,13 +1321,15 @@ def parse_one_folder(db, folder_id):
             search_replies_num = int(data_block.find('dd', 'posts').next_element)
             start_datetime = define_start_time_of_search(data_block)
 
-            data = {"title": search_title}
+            data = {'title': search_title}
             try:
-
                 title_reco_response = make_api_call('title_recognize', data)
 
-                if title_reco_response and 'status' in title_reco_response.keys() \
-                        and title_reco_response['status'] == 'ok':
+                if (
+                    title_reco_response
+                    and 'status' in title_reco_response.keys()
+                    and title_reco_response['status'] == 'ok'
+                ):
                     title_reco_dict = title_reco_response['recognition']
                 else:
                     title_reco_dict = {'topic_type': 'UNRECOGNIZED'}
@@ -1276,8 +1337,13 @@ def parse_one_folder(db, folder_id):
                 logging.info(f'{title_reco_dict=}')
 
                 # NEW exclude non-relevant searches
-                if title_reco_dict['topic_type'] in {'search', 'search training',
-                                                     'search reverse', 'search patrol', 'event'}:
+                if title_reco_dict['topic_type'] in {
+                    'search',
+                    'search training',
+                    'search reverse',
+                    'search patrol',
+                    'event',
+                }:
                     # FIXME – 06.11.2023 – work to delete function "define_family_name_from_search_title_new"
                     if title_reco_dict['topic_type'] == 'event':
                         person_fam_name = None
@@ -1290,11 +1356,15 @@ def parse_one_folder(db, folder_id):
                             person_fam_name = 'БВП'
                     # FIXME ^^^
 
-                    search_summary_object = SearchSummary(parsed_time=current_datetime, topic_id=search_id,
-                                                          title=search_title,
-                                                          start_time=start_datetime,
-                                                          num_of_replies=search_replies_num,
-                                                          name=person_fam_name, folder_id=folder_id)
+                    search_summary_object = SearchSummary(
+                        parsed_time=current_datetime,
+                        topic_id=search_id,
+                        title=search_title,
+                        start_time=start_datetime,
+                        num_of_replies=search_replies_num,
+                        name=person_fam_name,
+                        folder_id=folder_id,
+                    )
                     search_summary_object.topic_type = title_reco_dict['topic_type']
 
                     search_summary_object.topic_type_id = topic_type_dict[search_summary_object.topic_type]
@@ -1324,9 +1394,18 @@ def parse_one_folder(db, folder_id):
 
                     folder_summary.append(search_summary_object)
 
-                    search_summary = [current_datetime, search_id, search_summary_object.status, search_title, '',
-                                      start_datetime, search_replies_num, search_summary_object.age_min,
-                                      person_fam_name, folder_id]
+                    search_summary = [
+                        current_datetime,
+                        search_id,
+                        search_summary_object.status,
+                        search_title,
+                        '',
+                        start_datetime,
+                        search_replies_num,
+                        search_summary_object.age_min,
+                        person_fam_name,
+                        folder_id,
+                    ]
                     topics_summary_in_folder.append(search_summary)
 
                     parsed_wo_date = [search_title, search_replies_num]
@@ -1355,13 +1434,15 @@ def visibility_check(r, topic_id):
     """check topic's visibility: if hidden or deleted"""
 
     check_content = copy.copy(r.content)
-    check_content = check_content.decode("utf-8")
+    check_content = check_content.decode('utf-8')
     check_content = None if re.search(r'502 Bad Gateway', check_content) else check_content
     site_unavailable = False if check_content else True
-    topic_deleted = True if check_content and re.search(r'Запрошенной темы не существует',
-                                                        check_content) else False
-    topic_hidden = True if check_content and re.search(r'Для просмотра этого форума вы должны быть авторизованы',
-                                                       check_content) else False
+    topic_deleted = True if check_content and re.search(r'Запрошенной темы не существует', check_content) else False
+    topic_hidden = (
+        True
+        if check_content and re.search(r'Для просмотра этого форума вы должны быть авторизованы', check_content)
+        else False
+    )
     if site_unavailable:
         return False
     elif topic_deleted or topic_hidden:
@@ -1405,15 +1486,21 @@ def parse_one_comment(db, search_num, comment_num):
 
         # finding LINK to user profile
         try:
-            comment_author_link = int("".join(filter(str.isdigit, comment_author_block['href'][36:43])))
+            comment_author_link = int(''.join(filter(str.isdigit, comment_author_block['href'][36:43])))
 
         except Exception as e:
-            logging.info('Here is an exception 9 for search ' + str(search_num) + ', and comment ' +
-                         str(comment_num) +
-                         ' error: ' + repr(e))
+            logging.info(
+                'Here is an exception 9 for search '
+                + str(search_num)
+                + ', and comment '
+                + str(comment_num)
+                + ' error: '
+                + repr(e)
+            )
             try:
                 comment_author_link = int(
-                    "".join(filter(str.isdigit, search_code_blocks.find('a', 'username-coloured')['href'][36:43])))
+                    ''.join(filter(str.isdigit, search_code_blocks.find('a', 'username-coloured')['href'][36:43]))
+                )
             except Exception as e2:
                 logging.info('Here is an exception 10' + repr(e2))
                 comment_author_link = 'unidentified_link'
@@ -1430,7 +1517,7 @@ def parse_one_comment(db, search_num, comment_num):
             logging.info(f'exception for search={search_num} and comment={comment_num}')
             logging.exception(e)
             comment_text_1 = comment_text_0.text
-        comment_text = " ".join(comment_text_1.split())
+        comment_text = ' '.join(comment_text_1.split())
 
         # Define exclusions (comments of Inforg with "резерв" and "рассылка билайн"
         ignore = False
@@ -1439,7 +1526,6 @@ def parse_one_comment(db, search_num, comment_num):
                 ignore = True
 
         with db.connect() as conn:
-
             if comment_text:
                 if not ignore:
                     stmt = sqlalchemy.text(
@@ -1447,16 +1533,32 @@ def parse_one_comment(db, search_num, comment_num):
                         comment_author_link, search_forum_num, comment_num, comment_global_num)
                         VALUES (:a, :b, :c, :d, :e, :f, :g); """
                     )
-                    conn.execute(stmt, a=comment_url, b=comment_text, c=comment_author_nickname,
-                                 d=comment_author_link, e=search_num, f=comment_num, g=comment_forum_global_id)
+                    conn.execute(
+                        stmt,
+                        a=comment_url,
+                        b=comment_text,
+                        c=comment_author_nickname,
+                        d=comment_author_link,
+                        e=search_num,
+                        f=comment_num,
+                        g=comment_forum_global_id,
+                    )
                 else:
                     stmt = sqlalchemy.text(
                         """INSERT INTO comments (comment_url, comment_text, comment_author_nickname,
                         comment_author_link, search_forum_num, comment_num, notification_sent)
                         VALUES (:a, :b, :c, :d, :e, :f, :g); """
                     )
-                    conn.execute(stmt, a=comment_url, b=comment_text, c=comment_author_nickname,
-                                 d=comment_author_link, e=search_num, f=comment_num, g='n')
+                    conn.execute(
+                        stmt,
+                        a=comment_url,
+                        b=comment_text,
+                        c=comment_author_nickname,
+                        d=comment_author_link,
+                        e=search_num,
+                        f=comment_num,
+                        g='n',
+                    )
 
             conn.close()
 
@@ -1472,15 +1574,9 @@ def update_change_log_and_searches(db, folder_num):
     change_log_ids = []
 
     class ChangeLogLine:
-
-        def __init__(self,
-                     parsed_time=None,
-                     topic_id=None,
-                     changed_field=None,
-                     new_value=None,
-                     parameters=None,
-                     change_type=None
-                     ):
+        def __init__(
+            self, parsed_time=None, topic_id=None, changed_field=None, new_value=None, parameters=None, change_type=None
+        ):
             self.parsed_time = parsed_time
             self.topic_id = topic_id
             self.changed_field = changed_field
@@ -1492,7 +1588,6 @@ def update_change_log_and_searches(db, folder_num):
     func_start = datetime.now()
 
     with db.connect() as conn:
-
         sql_text = sqlalchemy.text(
             """SELECT search_forum_num, parsed_time, status, forum_search_title, search_start_time,
             num_of_replies, family_name, age, id, forum_folder_id, topic_type, display_name, age_min, age_max,
@@ -1504,12 +1599,25 @@ def update_change_log_and_searches(db, folder_num):
         curr_snapshot_list = []
         for line in snapshot:
             snapshot_line = SearchSummary()
-            snapshot_line.topic_id, snapshot_line.parsed_time, snapshot_line.status, snapshot_line.title, \
-                snapshot_line.start_time, snapshot_line.num_of_replies, \
-                snapshot_line.name, snapshot_line.age, snapshot_line.id, snapshot_line.folder_id, \
-                snapshot_line.topic_type, snapshot_line.display_name, snapshot_line.age_min, \
-                snapshot_line.age_max, snapshot_line.new_status, snapshot_line.locations, snapshot_line.topic_type_id \
-                = list(line)
+            (
+                snapshot_line.topic_id,
+                snapshot_line.parsed_time,
+                snapshot_line.status,
+                snapshot_line.title,
+                snapshot_line.start_time,
+                snapshot_line.num_of_replies,
+                snapshot_line.name,
+                snapshot_line.age,
+                snapshot_line.id,
+                snapshot_line.folder_id,
+                snapshot_line.topic_type,
+                snapshot_line.display_name,
+                snapshot_line.age_min,
+                snapshot_line.age_max,
+                snapshot_line.new_status,
+                snapshot_line.locations,
+                snapshot_line.topic_type_id,
+            ) = list(line)
 
             curr_snapshot_list.append(snapshot_line)
 
@@ -1522,91 +1630,116 @@ def update_change_log_and_searches(db, folder_num):
         prev_searches_list = []
         for searches_line in searches_full_list:
             search = SearchSummary()
-            search.topic_id, search.parsed_time, search.status, search.title, \
-                search.start_time, search.num_of_replies, search.name, search.age, search.id, search.folder_id, \
-                search.topic_type, search.display_name, search.age_min, search.age_max,\
-                search.new_status, search.locations, search.topic_type_id = list(searches_line)
+            (
+                search.topic_id,
+                search.parsed_time,
+                search.status,
+                search.title,
+                search.start_time,
+                search.num_of_replies,
+                search.name,
+                search.age,
+                search.id,
+                search.folder_id,
+                search.topic_type,
+                search.display_name,
+                search.age_min,
+                search.age_max,
+                search.new_status,
+                search.locations,
+                search.topic_type_id,
+            ) = list(searches_line)
             prev_searches_list.append(search)
 
         # FIXME – temp – just to check how many lines
         print(f'TEMP – len of prev_searches_list = {len(prev_searches_list)}')
         if len(prev_searches_list) > 5000:
-            logging.info(f'TEMP - you use too big table Searches, it should be optimized')
+            logging.info('TEMP - you use too big table Searches, it should be optimized')
         # FIXME ^^^
 
-        '''1. move UPD to Change Log'''
+        """1. move UPD to Change Log"""
         change_log_updates_list = []
         there_are_inforg_comments = False
 
         for snapshot_line in curr_snapshot_list:
             for searches_line in prev_searches_list:
-
                 if snapshot_line.topic_id != searches_line.topic_id:
                     continue
 
                 if snapshot_line.status != searches_line.status:
-
-                    change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
-                                                    topic_id=snapshot_line.topic_id,
-                                                    changed_field='status_change',
-                                                    new_value=snapshot_line.status,
-                                                    parameters='',
-                                                    change_type=1)
+                    change_log_line = ChangeLogLine(
+                        parsed_time=snapshot_line.parsed_time,
+                        topic_id=snapshot_line.topic_id,
+                        changed_field='status_change',
+                        new_value=snapshot_line.status,
+                        parameters='',
+                        change_type=1,
+                    )
 
                     change_log_updates_list.append(change_log_line)
 
                 if snapshot_line.title != searches_line.title:
-
-                    change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
-                                                    topic_id=snapshot_line.topic_id,
-                                                    changed_field='title_change',
-                                                    new_value=snapshot_line.title,
-                                                    parameters='',
-                                                    change_type=2)
+                    change_log_line = ChangeLogLine(
+                        parsed_time=snapshot_line.parsed_time,
+                        topic_id=snapshot_line.topic_id,
+                        changed_field='title_change',
+                        new_value=snapshot_line.title,
+                        parameters='',
+                        change_type=2,
+                    )
 
                     change_log_updates_list.append(change_log_line)
 
                 if snapshot_line.num_of_replies > searches_line.num_of_replies:
-
-                    change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
-                                                    topic_id=snapshot_line.topic_id,
-                                                    changed_field='replies_num_change',
-                                                    new_value=snapshot_line.num_of_replies,
-                                                    parameters='',
-                                                    change_type=3)
+                    change_log_line = ChangeLogLine(
+                        parsed_time=snapshot_line.parsed_time,
+                        topic_id=snapshot_line.topic_id,
+                        changed_field='replies_num_change',
+                        new_value=snapshot_line.num_of_replies,
+                        parameters='',
+                        change_type=3,
+                    )
 
                     change_log_updates_list.append(change_log_line)
 
                     for k in range(snapshot_line.num_of_replies - searches_line.num_of_replies):
-                        flag_if_comment_was_from_inforg = parse_one_comment(db, snapshot_line.topic_id,
-                                                                            searches_line.num_of_replies + 1 + k)
+                        flag_if_comment_was_from_inforg = parse_one_comment(
+                            db, snapshot_line.topic_id, searches_line.num_of_replies + 1 + k
+                        )
                         if flag_if_comment_was_from_inforg:
                             there_are_inforg_comments = True
 
                     if there_are_inforg_comments:
-
-                        change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
-                                                        topic_id=snapshot_line.topic_id,
-                                                        changed_field='inforg_replies',
-                                                        new_value=snapshot_line.num_of_replies,
-                                                        parameters='',
-                                                        change_type=4)
+                        change_log_line = ChangeLogLine(
+                            parsed_time=snapshot_line.parsed_time,
+                            topic_id=snapshot_line.topic_id,
+                            changed_field='inforg_replies',
+                            new_value=snapshot_line.num_of_replies,
+                            parameters='',
+                            change_type=4,
+                        )
 
                         change_log_updates_list.append(change_log_line)
 
         if change_log_updates_list:
-
             stmt = sqlalchemy.text(
                 """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters,
                 change_type) values (:a, :b, :c, :d, :e, :f) RETURNING id;"""
             )
 
             for line in change_log_updates_list:
-                raw_data = conn.execute(stmt, a=line.parsed_time, b=line.topic_id, c=line.changed_field,
-                                        d=line.new_value, e=line.parameters, f=line.change_type).fetchone()
+                raw_data = conn.execute(
+                    stmt,
+                    a=line.parsed_time,
+                    b=line.topic_id,
+                    c=line.changed_field,
+                    d=line.new_value,
+                    e=line.parameters,
+                    f=line.change_type,
+                ).fetchone()
                 change_log_ids.append(raw_data[0])
 
-        '''2. move ADD to Change Log '''
+        """2. move ADD to Change Log """
         new_topics_from_snapshot_list = []
 
         for snapshot_line in curr_snapshot_list:
@@ -1625,12 +1758,14 @@ def update_change_log_and_searches(db, folder_num):
             change_type_id = 0
             change_type_name = 'new_search'
 
-            change_log_line = ChangeLogLine(parsed_time=snapshot_line.parsed_time,
-                                            topic_id=snapshot_line.topic_id,
-                                            changed_field=change_type_name,
-                                            new_value=snapshot_line.title,
-                                            parameters='',
-                                            change_type=change_type_id)
+            change_log_line = ChangeLogLine(
+                parsed_time=snapshot_line.parsed_time,
+                topic_id=snapshot_line.topic_id,
+                changed_field=change_type_name,
+                new_value=snapshot_line.title,
+                parameters='',
+                change_type=change_type_id,
+            )
             change_log_new_topics_list.append(change_log_line)
 
         if change_log_new_topics_list:
@@ -1639,11 +1774,17 @@ def update_change_log_and_searches(db, folder_num):
                 values (:a, :b, :c, :d, :e) RETURNING id;"""
             )
             for line in change_log_new_topics_list:
-                raw_data = conn.execute(stmt, a=line.parsed_time, b=line.topic_id, c=line.changed_field,
-                                        d=line.new_value, e=line.change_type).fetchone()
+                raw_data = conn.execute(
+                    stmt,
+                    a=line.parsed_time,
+                    b=line.topic_id,
+                    c=line.changed_field,
+                    d=line.new_value,
+                    e=line.change_type,
+                ).fetchone()
                 change_log_ids.append(raw_data[0])
 
-        '''3. ADD to Searches'''
+        """3. ADD to Searches"""
         if new_topics_from_snapshot_list:
             stmt = sqlalchemy.text(
                 """INSERT INTO searches (search_forum_num, parsed_time, forum_search_title,
@@ -1652,10 +1793,24 @@ def update_change_log_and_searches(db, folder_num):
                 VALUES (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
             )
             for line in new_topics_from_snapshot_list:
-                conn.execute(stmt, a=line.topic_id, b=line.parsed_time, d=line.title,
-                             e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
-                             j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max, n=line.new_status,
-                             o=str(line.locations), p=line.topic_type_id)
+                conn.execute(
+                    stmt,
+                    a=line.topic_id,
+                    b=line.parsed_time,
+                    d=line.title,
+                    e=line.start_time,
+                    f=line.num_of_replies,
+                    g=line.age,
+                    h=line.name,
+                    i=line.folder_id,
+                    j=line.topic_type,
+                    k=line.display_name,
+                    l=line.age_min,
+                    m=line.age_max,
+                    n=line.new_status,
+                    o=str(line.locations),
+                    p=line.topic_type_id,
+                )
 
                 search_num = line.topic_id
 
@@ -1693,25 +1848,25 @@ def update_change_log_and_searches(db, folder_num):
                     except Exception as e:
                         logging.exception(e)
 
-        '''4 DEL UPD from Searches'''
+        """4 DEL UPD from Searches"""
         delete_lines_from_summary_list = []
 
         for snapshot_line in curr_snapshot_list:
             for searches_line in prev_searches_list:
                 if snapshot_line.topic_id == searches_line.topic_id:
-                    if snapshot_line.status != searches_line.status or \
-                            snapshot_line.title != searches_line.title or \
-                            snapshot_line.num_of_replies != searches_line.num_of_replies:
+                    if (
+                        snapshot_line.status != searches_line.status
+                        or snapshot_line.title != searches_line.title
+                        or snapshot_line.num_of_replies != searches_line.num_of_replies
+                    ):
                         delete_lines_from_summary_list.append(snapshot_line)
 
         if delete_lines_from_summary_list:
-            stmt = sqlalchemy.text(
-                """DELETE FROM searches WHERE search_forum_num=:a;"""
-            )
+            stmt = sqlalchemy.text("""DELETE FROM searches WHERE search_forum_num=:a;""")
             for line in delete_lines_from_summary_list:
                 conn.execute(stmt, a=int(line.topic_id))
 
-        '''5. UPD added to Searches'''
+        """5. UPD added to Searches"""
         searches_full_list = conn.execute(
             """SELECT search_forum_num, parsed_time, status, forum_search_title, search_start_time,
             num_of_replies, family_name, age, id, forum_folder_id FROM searches;"""
@@ -1719,9 +1874,18 @@ def update_change_log_and_searches(db, folder_num):
         curr_searches_list = []
         for searches_line in searches_full_list:
             search = SearchSummary()
-            search.topic_id, search.parsed_time, search.status, search.title, \
-                search.start_time, search.num_of_replies, \
-                search.name, search.age, search.id, search.folder_id = list(searches_line)
+            (
+                search.topic_id,
+                search.parsed_time,
+                search.status,
+                search.title,
+                search.start_time,
+                search.num_of_replies,
+                search.name,
+                search.age,
+                search.id,
+                search.folder_id,
+            ) = list(searches_line)
             curr_searches_list.append(search)
 
         new_topics_from_snapshot_list = []
@@ -1742,10 +1906,24 @@ def update_change_log_and_searches(db, folder_num):
                 (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
             )
             for line in new_topics_from_snapshot_list:
-                conn.execute(stmt, a=line.topic_id, b=line.parsed_time, d=line.title,
-                             e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
-                             j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max,
-                             n=line.new_status, o=str(line.locations), p=line.topic_type_id)
+                conn.execute(
+                    stmt,
+                    a=line.topic_id,
+                    b=line.parsed_time,
+                    d=line.title,
+                    e=line.start_time,
+                    f=line.num_of_replies,
+                    g=line.age,
+                    h=line.name,
+                    i=line.folder_id,
+                    j=line.topic_type,
+                    k=line.display_name,
+                    l=line.age_min,
+                    m=line.age_max,
+                    n=line.new_status,
+                    o=str(line.locations),
+                    p=line.topic_type_id,
+                )
 
         conn.close()
 
@@ -1778,7 +1956,8 @@ def process_one_folder(db, folder_to_parse):
             upd_trigger = True
 
         logging.info(
-            f'folder = {folder_num}, update trigger = {upd_trigger}, prev snapshot as string = {previous_hash}')
+            f'folder = {folder_num}, update trigger = {upd_trigger}, prev snapshot as string = {previous_hash}'
+        )
 
         return upd_trigger
 
@@ -1786,9 +1965,7 @@ def process_one_folder(db, folder_to_parse):
         """rewrite the freshly-parsed snapshot into sql table 'forum_summary_snapshot'"""
 
         with db2.connect() as conn:
-            sql_text = sqlalchemy.text(
-                """DELETE FROM forum_summary_snapshot WHERE forum_folder_id = :a;"""
-            )
+            sql_text = sqlalchemy.text("""DELETE FROM forum_summary_snapshot WHERE forum_folder_id = :a;""")
             conn.execute(sql_text, a=folder_num)
 
             sql_text = sqlalchemy.text(
@@ -1799,10 +1976,24 @@ def process_one_folder(db, folder_to_parse):
             )
             # FIXME – add status
             for line in folder_summary:
-                conn.execute(sql_text, a=line.topic_id, b=line.parsed_time, d=line.title,
-                             e=line.start_time, f=line.num_of_replies, g=line.age, h=line.name, i=line.folder_id,
-                             j=line.topic_type, k=line.display_name, l=line.age_min, m=line.age_max, n=line.new_status,
-                             o=str(line.locations), p=line.topic_type_id)
+                conn.execute(
+                    sql_text,
+                    a=line.topic_id,
+                    b=line.parsed_time,
+                    d=line.title,
+                    e=line.start_time,
+                    f=line.num_of_replies,
+                    g=line.age,
+                    h=line.name,
+                    i=line.folder_id,
+                    j=line.topic_type,
+                    k=line.display_name,
+                    l=line.age_min,
+                    m=line.age_max,
+                    n=line.new_status,
+                    o=str(line.locations),
+                    p=line.topic_type_id,
+                )
             conn.close()
 
         return None
@@ -1816,7 +2007,6 @@ def process_one_folder(db, folder_to_parse):
     debug_message = f'folder {folder_to_parse} has NO new updates'
 
     if new_folder_summary:
-
         # transform the current snapshot into the string to be able to compare it: string vs string
         curr_snapshot_as_one_dimensional_list = [y for x in titles_and_num_of_replies for y in x]
         curr_snapshot_as_string = ','.join(map(str, curr_snapshot_as_one_dimensional_list))
@@ -1870,7 +2060,7 @@ def save_function_into_register(db, context, start_time, function_id, change_log
 
     try:
         event_id = context.event_id
-        json_of_params = json.dumps({"ch_id": change_log_ids})
+        json_of_params = json.dumps({'ch_id': change_log_ids})
 
         with db.connect() as conn:
             sql_text = sqlalchemy.text("""INSERT INTO functions_registry
@@ -1878,8 +2068,15 @@ def save_function_into_register(db, context, start_time, function_id, change_log
                                                       time_finish, params)
                                                       VALUES (:a, :b, :c, :d, :e, :f)
                                                       /*action='save_ide_topics_function' */;""")
-            conn.execute(sql_text, a=event_id, b=start_time, c='identify_updates_of_topics', d=function_id,
-                         e=datetime.now(), f=json_of_params)
+            conn.execute(
+                sql_text,
+                a=event_id,
+                b=start_time,
+                c='identify_updates_of_topics',
+                d=function_id,
+                e=datetime.now(),
+                f=json_of_params,
+            )
             logging.info(f'function {function_id} was saved in functions_registry')
 
     except Exception as e:
@@ -1919,9 +2116,7 @@ def main(event, context):  # noqa
     change_log_ids = []
 
     if folders_list:
-
         for folder in folders_list:
-
             logging.info(f'start checking if folder {folder} has any updates')
 
             update_trigger, one_folder_change_log_ids = process_one_folder(db, folder)
@@ -1930,13 +2125,13 @@ def main(event, context):  # noqa
                 list_of_folders_with_updates.append(folder)
                 change_log_ids += one_folder_change_log_ids
 
-    logging.info(f'Here\'s a list of folders with updates: {list_of_folders_with_updates}')
-    logging.info(f'Here\'s a list of change_log ids created: {change_log_ids}')
+    logging.info(f"Here's a list of folders with updates: {list_of_folders_with_updates}")
+    logging.info(f"Here's a list of change_log ids created: {change_log_ids}")
 
     if list_of_folders_with_updates:
         save_function_into_register(db, context, analytics_func_start, function_id, change_log_ids)
 
-        message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'let\'s compose notifications'}
+        message_for_pubsub = {'triggered_by_func_id': function_id, 'text': "let's compose notifications"}
         publish_to_pubsub('topic_for_notification', message_for_pubsub)
 
     requests_session.close()

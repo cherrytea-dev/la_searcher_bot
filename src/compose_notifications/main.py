@@ -17,9 +17,9 @@ from google.cloud import secretmanager
 from google.cloud import pubsub_v1
 import google.cloud.logging
 
-url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
 req = urllib.request.Request(url)
-req.add_header("Metadata-Flavor", "Google")
+req.add_header('Metadata-Flavor', 'Google')
 project_id = urllib.request.urlopen(req).read().decode()
 
 client = secretmanager.SecretManagerServiceClient()
@@ -30,23 +30,24 @@ log_client.setup_logging()
 
 WINDOW_FOR_NOTIFICATIONS_DAYS = 60
 
-coord_format = "{0:.5f}"
+coord_format = '{0:.5f}'
 stat_list_of_recipients = []  # list of users who received notification on new search
 fib_list = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987]
 coord_pattern = r'0?[3-8]\d\.\d{1,10}[\s\w,]{0,10}[01]?[2-9]\d\.\d{1,10}'
 
 
 class Comment:
-    def __init__(self,
-                 url=None,
-                 text=None,
-                 author_nickname=None,
-                 author_link=None,
-                 topic_id=None,
-                 num=None,
-                 forum_global_id=None,
-                 ignore=None
-                 ):
+    def __init__(
+        self,
+        url=None,
+        text=None,
+        author_nickname=None,
+        author_link=None,
+        topic_id=None,
+        num=None,
+        forum_global_id=None,
+        ignore=None,
+    ):
         self.url = url
         self.text = text
         self.author_nickname = author_nickname
@@ -57,47 +58,58 @@ class Comment:
         self.ignore = ignore
 
     def __str__(self):
-        return str([self.url, self.text, self.author_nickname, self.author_link,
-                    self.search_forum_num, self.num, self.forum_global_id, self.ignore])
+        return str(
+            [
+                self.url,
+                self.text,
+                self.author_nickname,
+                self.author_link,
+                self.search_forum_num,
+                self.num,
+                self.forum_global_id,
+                self.ignore,
+            ]
+        )
 
 
 class LineInChangeLog:
-    def __init__(self,
-                 forum_search_num=None,
-                 topic_type_id=None,
-                 change_type=None,  # it is int from 0 to 99 which represents "change_type" column in change_log
-                 changed_field=None,
-                 change_id=None,  # means change_log_id
-                 new_value=None,
-                 name=None,
-                 link=None,
-                 status=None,
-                 new_status=None,
-                 n_of_replies=None,
-                 title=None,
-                 age=None,
-                 age_wording=None,
-                 forum_folder=None,
-                 activities=None,
-                 comments=None,
-                 comments_inforg=None,
-                 message=None,
-                 message_object=None,  # FIXME
-                 processed=None,
-                 managers=None,
-                 start_time=None,
-                 ignore=None,
-                 region=None,
-                 search_latitude=None,
-                 search_longitude=None,
-                 coords_change_type=None,
-                 city_locations=None,
-                 display_name=None,
-                 age_min=None,
-                 age_max=None,
-                 clickable_name=None,
-                 topic_emoji=None
-                 ):
+    def __init__(
+        self,
+        forum_search_num=None,
+        topic_type_id=None,
+        change_type=None,  # it is int from 0 to 99 which represents "change_type" column in change_log
+        changed_field=None,
+        change_id=None,  # means change_log_id
+        new_value=None,
+        name=None,
+        link=None,
+        status=None,
+        new_status=None,
+        n_of_replies=None,
+        title=None,
+        age=None,
+        age_wording=None,
+        forum_folder=None,
+        activities=None,
+        comments=None,
+        comments_inforg=None,
+        message=None,
+        message_object=None,  # FIXME
+        processed=None,
+        managers=None,
+        start_time=None,
+        ignore=None,
+        region=None,
+        search_latitude=None,
+        search_longitude=None,
+        coords_change_type=None,
+        city_locations=None,
+        display_name=None,
+        age_min=None,
+        age_max=None,
+        clickable_name=None,
+        topic_emoji=None,
+    ):
         self.forum_search_num = forum_search_num
         self.topic_type_id = topic_type_id
         self.change_type = change_type
@@ -134,33 +146,62 @@ class LineInChangeLog:
         self.topic_emoji = topic_emoji
 
     def __str__(self):
-        return str([self.forum_search_num, self.change_type, self.changed_field, self.new_value, self.change_id,
-                    self.name, self.link,
-                    self.status, self.n_of_replies, self.title, self.age, self.age_wording, self.forum_folder,
-                    self.search_latitude, self.search_longitude, self.activities, self.comments, self.comments_inforg,
-                    self.message, self.processed, self.managers, self.start_time, self.ignore, self.region,
-                    self.coords_change_type, self.display_name, self.age_min, self.age_max, self.topic_type_id,
-                    self.clickable_name, self.topic_emoji])
+        return str(
+            [
+                self.forum_search_num,
+                self.change_type,
+                self.changed_field,
+                self.new_value,
+                self.change_id,
+                self.name,
+                self.link,
+                self.status,
+                self.n_of_replies,
+                self.title,
+                self.age,
+                self.age_wording,
+                self.forum_folder,
+                self.search_latitude,
+                self.search_longitude,
+                self.activities,
+                self.comments,
+                self.comments_inforg,
+                self.message,
+                self.processed,
+                self.managers,
+                self.start_time,
+                self.ignore,
+                self.region,
+                self.coords_change_type,
+                self.display_name,
+                self.age_min,
+                self.age_max,
+                self.topic_type_id,
+                self.clickable_name,
+                self.topic_emoji,
+            ]
+        )
 
 
 class User:
-    def __init__(self,
-                 user_id=None,
-                 username_telegram=None,  # TODO: to check if it's needed
-                 notification_preferences=None,  # TODO: to check if it's needed
-                 notif_pref_ids_list=None,  # TODO: to check if it's needed,
-                 all_notifs=None,
-                 topic_type_pref_ids_list=None,  # TODO: to check if it's needed
-                 user_latitude=None,
-                 user_longitude=None,
-                 user_regions=None,  # TODO: COULD BE NEEDED for MULTY-REGION to check if it's needed
-                 user_in_multi_folders=True,
-                 user_corr_regions=None,  # FIXME - seems it's not needed anymore
-                 user_new_search_notifs=None,  # TODO: to check if it's needed
-                 user_role=None,  # TODO: to check if it's needed
-                 user_age_periods=None,  # noqa
-                 radius=None
-                 ):
+    def __init__(
+        self,
+        user_id=None,
+        username_telegram=None,  # TODO: to check if it's needed
+        notification_preferences=None,  # TODO: to check if it's needed
+        notif_pref_ids_list=None,  # TODO: to check if it's needed,
+        all_notifs=None,
+        topic_type_pref_ids_list=None,  # TODO: to check if it's needed
+        user_latitude=None,
+        user_longitude=None,
+        user_regions=None,  # TODO: COULD BE NEEDED for MULTY-REGION to check if it's needed
+        user_in_multi_folders=True,
+        user_corr_regions=None,  # FIXME - seems it's not needed anymore
+        user_new_search_notifs=None,  # TODO: to check if it's needed
+        user_role=None,  # TODO: to check if it's needed
+        user_age_periods=None,  # noqa
+        radius=None,
+    ):
         user_age_periods = []
         self.user_id = user_id
         self.username_telegram = username_telegram
@@ -179,49 +220,48 @@ class User:
         self.radius = radius
 
     def __str__(self):
-        return str([self.user_id,
-                    self.username_telegram,
-                    self.notification_preferences,
-                    self.notif_pref_ids_list,
-                    self.all_notifs,
-                    self.topic_type_pref_ids_list,
-                    self.user_latitude,
-                    self.user_longitude,
-                    self.user_regions,
-                    self.user_in_multi_folders,
-                    self.user_corr_regions,
-                    self.user_new_search_notifs,
-                    self.role,
-                    self.age_periods,
-                    self.radius
-                    ])
+        return str(
+            [
+                self.user_id,
+                self.username_telegram,
+                self.notification_preferences,
+                self.notif_pref_ids_list,
+                self.all_notifs,
+                self.topic_type_pref_ids_list,
+                self.user_latitude,
+                self.user_longitude,
+                self.user_regions,
+                self.user_in_multi_folders,
+                self.user_corr_regions,
+                self.user_new_search_notifs,
+                self.role,
+                self.age_periods,
+                self.radius,
+            ]
+        )
 
     def __eq__(self, other):
-        return self.user_id == other.user_id and \
-               self.username_telegram == other.username_telegram and \
-               self.notification_preferences == other.notification_preferences and \
-               self.notif_pref_ids_list == other.notif_pref_ids_list and \
-               self.topic_type_pref_ids_list == other.topic_type_pref_ids_list and \
-               self.user_latitude == other.user_latitude and \
-               self.user_longitude == other.user_longitude and \
-               self.user_regions == other.user_regions and \
-               self.user_in_multi_folders == other.user_in_multi_folders and \
-               self.all_notifs == other.all_notifs and \
-               self.user_corr_regions == other.user_corr_regions and \
-               self.user_new_search_notifs == other.user_new_search_notifs and \
-               self.role == other.role and \
-               self.age_periods == other.age_periods and \
-               self.radius == other.radius
+        return (
+            self.user_id == other.user_id
+            and self.username_telegram == other.username_telegram
+            and self.notification_preferences == other.notification_preferences
+            and self.notif_pref_ids_list == other.notif_pref_ids_list
+            and self.topic_type_pref_ids_list == other.topic_type_pref_ids_list
+            and self.user_latitude == other.user_latitude
+            and self.user_longitude == other.user_longitude
+            and self.user_regions == other.user_regions
+            and self.user_in_multi_folders == other.user_in_multi_folders
+            and self.all_notifs == other.all_notifs
+            and self.user_corr_regions == other.user_corr_regions
+            and self.user_new_search_notifs == other.user_new_search_notifs
+            and self.role == other.role
+            and self.age_periods == other.age_periods
+            and self.radius == other.radius
+        )
 
 
 class Message:
-
-    def __init__(self,
-                 name=None,
-                 age=None,
-                 display_name=None,
-                 clickable_name=None
-                 ):
+    def __init__(self, name=None, age=None, display_name=None, clickable_name=None):
         self.name = name
         self.age = age
         self.display_name = display_name
@@ -229,15 +269,15 @@ class Message:
 
 
 class MessageNewTopic(Message):
-
-    def __init__(self,
-                 city_coords=None,
-                 hq_coords=None,
-                 activities=None,
-                 managers=None,
-                 hint_on_coords=None,
-                 hint_on_something=None  # FIXME
-                 ):
+    def __init__(
+        self,
+        city_coords=None,
+        hq_coords=None,
+        activities=None,
+        managers=None,
+        hint_on_coords=None,
+        hint_on_something=None,  # FIXME
+    ):
         super().__init__()
         self.city_coords = city_coords
         self.hq_coords = hq_coords
@@ -250,15 +290,15 @@ class MessageNewTopic(Message):
 def sql_connect():
     """connect to google cloud sql"""
 
-    db_user = get_secrets("cloud-postgres-username")
-    db_pass = get_secrets("cloud-postgres-password")
-    db_name = get_secrets("cloud-postgres-db-name")
-    db_conn = get_secrets("cloud-postgres-connection-name")
+    db_user = get_secrets('cloud-postgres-username')
+    db_pass = get_secrets('cloud-postgres-password')
+    db_name = get_secrets('cloud-postgres-db-name')
+    db_conn = get_secrets('cloud-postgres-connection-name')
     db_config = {
-        "pool_size": 5,
-        "max_overflow": 0,
-        "pool_timeout": 0,  # seconds
-        "pool_recycle": 60,  # seconds
+        'pool_size': 5,
+        'max_overflow': 0,
+        'pool_timeout': 0,  # seconds
+        'pool_recycle': 60,  # seconds
     }
 
     try:
@@ -268,8 +308,9 @@ def sql_connect():
                 username=db_user,
                 password=db_pass,
                 database=db_name,
-                query={'unix_sock': f'/cloudsql/{db_conn}/.s.PGSQL.5432'}),
-            **db_config
+                query={'unix_sock': f'/cloudsql/{db_conn}/.s.PGSQL.5432'},
+            ),
+            **db_config,
         )
         pool.dialect.description_encoding = None
         logging.info('sql connection set')
@@ -285,10 +326,10 @@ def sql_connect():
 def get_secrets(secret_request):
     """get secret stored in GCP"""
 
-    name = f"projects/{project_id}/secrets/{secret_request}/versions/latest"
+    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
     response = client.access_secret_version(name=name)
 
-    return response.payload.data.decode("UTF-8")
+    return response.payload.data.decode('UTF-8')
 
 
 def age_writer(age):
@@ -299,11 +340,11 @@ def age_writer(age):
         b = (age - a * 100) // 10
         c = age - a * 100 - b * 10
         if c == 1 and b != 1:
-            wording = str(age) + " год"
+            wording = str(age) + ' год'
         elif (c == 2 or c == 3 or c == 4) and b != 1:
-            wording = str(age) + " года"
+            wording = str(age) + ' года'
         else:
-            wording = str(age) + " лет"
+            wording = str(age) + ' лет'
     else:
         wording = ''
 
@@ -322,7 +363,7 @@ def define_family_name(title_string, predefined_fam_name):
         string_by_word = title_string.split()
         # exception case: when Family Name is third word
         # it happens when first two either Найден Жив or Найден Погиб with different word forms
-        if string_by_word[0][0:4].lower() == "найд":
+        if string_by_word[0][0:4].lower() == 'найд':
             fam_name = string_by_word[2]
 
         # case when "Поиск приостановлен"
@@ -344,18 +385,27 @@ def define_dist_and_dir_to_search(search_lat, search_lon, user_let, user_lon):
     """define direction & distance from user's home coordinates to search coordinates"""
 
     def calc_bearing(lat_2, lon_2, lat_1, lon_1):
-        d_lon_ = (lon_2 - lon_1)
+        d_lon_ = lon_2 - lon_1
         x = math.cos(math.radians(lat_2)) * math.sin(math.radians(d_lon_))
         y = math.cos(math.radians(lat_1)) * math.sin(math.radians(lat_2)) - math.sin(math.radians(lat_1)) * math.cos(
-            math.radians(lat_2)) * math.cos(math.radians(d_lon_))
+            math.radians(lat_2)
+        ) * math.cos(math.radians(d_lon_))
         bearing = math.atan2(x, y)  # used to determine the quadrant
         bearing = math.degrees(bearing)
 
         return bearing
 
     def calc_direction(lat_1, lon_1, lat_2, lon_2):
-        points = ['&#8593;&#xFE0E;', '&#x2197;&#xFE0F;', '&#8594;&#xFE0E;', '&#8600;&#xFE0E;', '&#8595;&#xFE0E;',
-                  '&#8601;&#xFE0E;', '&#8592;&#xFE0E;', '&#8598;&#xFE0E;']
+        points = [
+            '&#8593;&#xFE0E;',
+            '&#x2197;&#xFE0F;',
+            '&#8594;&#xFE0E;',
+            '&#8600;&#xFE0E;',
+            '&#8595;&#xFE0E;',
+            '&#8601;&#xFE0E;',
+            '&#8592;&#xFE0E;',
+            '&#8598;&#xFE0E;',
+        ]
         bearing = calc_bearing(lat_1, lon_1, lat_2, lon_2)
         bearing += 22.5
         bearing = bearing % 360
@@ -422,7 +472,7 @@ def compose_new_records_from_change_log(conn):
     ).fetchall()
 
     if not delta_in_cl:
-        logging.info(f'no new records found in PSQL')
+        logging.info('no new records found in PSQL')
         return None
 
     if not len(list(delta_in_cl)) > 0:
@@ -475,7 +525,8 @@ def enrich_new_record_from_searches(conn, r_line):
             SELECT ns.*, f.folder_display_name
             FROM ns
             LEFT JOIN geo_folders_view AS f
-            ON ns.forum_folder_id = f.folder_id;""")
+            ON ns.forum_folder_id = f.folder_id;"""
+        )
 
         s_line = conn.execute(sql_text, a=r_line.forum_search_num).fetchone()
 
@@ -621,7 +672,6 @@ def enrich_new_record_with_comments(conn, type_of_comments, r_line):
                 if r_line.forum_search_num == c_line[4]:
                     # check for empty comments
                     if c_line[1] and c_line[1][0:6].lower() != 'резерв':
-
                         comment = Comment()
                         comment.url = c_line[0]
                         comment.text = c_line[1]
@@ -751,8 +801,10 @@ def compose_com_msg_on_new_comments(line):
     for comment in line.comments:
         if comment.text:
             comment_text = f'{comment.text[:500]}...' if len(comment.text) > 500 else comment.text
-            msg += f' &#8226; <a href="{url_prefix}{comment.author_link}">{comment.author_nickname}</a>: ' \
-                   f'<i>«<a href="{comment.url}">{comment_text}</a>»</i>\n'
+            msg += (
+                f' &#8226; <a href="{url_prefix}{comment.author_link}">{comment.author_nickname}</a>: '
+                f'<i>«<a href="{comment.url}">{comment_text}</a>»</i>\n'
+            )
 
     msg = f'Новые комментарии по {activity} {line.clickable_name}:\n{msg}' if msg else ''
 
@@ -886,10 +938,14 @@ def compose_com_msg_on_first_post_change(record):
         return ''
 
     if type_id in {0, 1, 2, 3, 4, 5}:
-        resulting_message = f'{record.topic_emoji}🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}' \
-                            f'{coord_change_phrase}'
+        resulting_message = (
+            f'{record.topic_emoji}🔀Изменения в первом посте по {clickable_name}{region}:\n\n{message}'
+            f'{coord_change_phrase}'
+        )
     elif type_id == 10:
-        resulting_message = f'{record.topic_emoji}Изменения в описании мероприятия {clickable_name}{region}:\n\n{message}'
+        resulting_message = (
+            f'{record.topic_emoji}Изменения в описании мероприятия {clickable_name}{region}:\n\n{message}'
+        )
     else:
         resulting_message = ''
 
@@ -904,7 +960,7 @@ def add_tel_link(incoming_text, modifier='all'):
     # Modifier for all users
     if modifier == 'all':
         outcome_text = incoming_text
-        nums = re.findall(r"(?:\+7|7|8)\s?[\s\-(]?\s?\d{3}[\s\-)]?\s?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}", incoming_text)
+        nums = re.findall(r'(?:\+7|7|8)\s?[\s\-(]?\s?\d{3}[\s\-)]?\s?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}', incoming_text)
         for num in nums:
             outcome_text = outcome_text.replace(num, '<code>' + str(num) + '</code>')
 
@@ -942,14 +998,15 @@ def enrich_new_record_with_emoji(line):
     """add specific emoji based on topic (search) type"""
 
     topic_type_id = line.topic_type_id
-    topic_type_dict = {0: '',  # search regular
-                       1: '🏠',  # search reverse
-                       2: '🚓',  # search patrol
-                       3: '🎓',  # search training
-                       4: 'ℹ️',  # search info support
-                       5: '🚨',  # search resonance
-                       10: '📝'  # event
-                       }
+    topic_type_dict = {
+        0: '',  # search regular
+        1: '🏠',  # search reverse
+        2: '🚓',  # search patrol
+        3: '🎓',  # search training
+        4: 'ℹ️',  # search info support
+        5: '🚨',  # search resonance
+        10: '📝',  # event
+    }
     if topic_type_id:
         line.topic_emoji = topic_type_dict[topic_type_id]
     else:
@@ -1054,8 +1111,9 @@ def compose_users_list_from_users(conn, new_record):
                 ON ns.user_id=st.user_id
                 /*action='get_user_list_filtered_by_folder_and_notif_type' */;""")
 
-        users_short_version = conn.execute(sql_text_psy, a=new_record.change_type, b=new_record.forum_folder,
-                                           c=new_record.topic_type_id).fetchall()
+        users_short_version = conn.execute(
+            sql_text_psy, a=new_record.change_type, b=new_record.forum_folder, c=new_record.topic_type_id
+        ).fetchall()
 
         analytics_sql_finish = datetime.datetime.now()
         duration_sql = round((analytics_sql_finish - analytics_start).total_seconds(), 2)
@@ -1066,8 +1124,15 @@ def compose_users_list_from_users(conn, new_record):
             users_short_version = list(users_short_version)
 
         for line in users_short_version:
-            new_line = User(user_id=line[0], username_telegram=line[1], user_latitude=line[2], user_longitude=line[3],
-                            user_role=line[4], user_in_multi_folders=line[6], all_notifs=line[7])
+            new_line = User(
+                user_id=line[0],
+                username_telegram=line[1],
+                user_latitude=line[2],
+                user_longitude=line[3],
+                user_role=line[4],
+                user_in_multi_folders=line[6],
+                all_notifs=line[7],
+            )
             if line[5] == 'None' or line[5] is None:
                 new_line.user_new_search_notifs = 0
             else:
@@ -1113,7 +1178,7 @@ def enrich_users_list_with_age_periods(conn, list_of_users):
         logging.info(f'Users List enriched with Age Prefs, num of enrichments is {number_of_enrichments}')
 
     except Exception as e:
-        logging.info(f'Not able to enrich Users List with Age Prefs')
+        logging.info('Not able to enrich Users List with Age Prefs')
         logging.exception(e)
 
     return list_of_users
@@ -1139,7 +1204,7 @@ def enrich_users_list_with_radius(conn, list_of_users):
         logging.info(f'Users List enriched with Radius, num of enrichments is {number_of_enrichments}')
 
     except Exception as e:
-        logging.info(f'Not able to enrich Users List with Radius')
+        logging.info('Not able to enrich Users List with Radius')
         logging.exception(e)
 
     return list_of_users
@@ -1152,9 +1217,7 @@ def get_list_of_admins_and_testers(conn):
     list_of_testers = []
 
     try:
-        user_roles = conn.execute(
-            """SELECT user_id, role FROM user_roles;"""
-        ).fetchall()
+        user_roles = conn.execute("""SELECT user_id, role FROM user_roles;""").fetchall()
 
         for line in user_roles:
             if line[1] == 'admin':
@@ -1202,8 +1265,16 @@ def record_notification_statistics(conn):
 def iterate_over_all_users(conn, admins_list, new_record, list_of_users, function_id):
     """initiates a full cycle for all messages composition for all the users"""
 
-    def save_to_sql_notif_by_user(mailing_id_, user_id_, message_, message_without_html_,
-                                  message_type_, message_params_, message_group_id_, change_log_id_):
+    def save_to_sql_notif_by_user(
+        mailing_id_,
+        user_id_,
+        message_,
+        message_without_html_,
+        message_type_,
+        message_params_,
+        message_group_id_,
+        change_log_id_,
+    ):
         """save to sql table notif_by_user the new message"""
 
         # record into SQL table notif_by_user
@@ -1221,17 +1292,18 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                             VALUES (:a, :b, :c, :d, :e, :f, :g, :h, :i);
                             """)
 
-        conn.execute(sql_text_,
-                     a=mailing_id_,
-                     b=user_id_,
-                     c=message_,
-                     d=message_without_html_,
-                     e=message_type_,
-                     f=message_params_,
-                     g=message_group_id_,
-                     h=change_log_id_,
-                     i=datetime.datetime.now()
-                     )
+        conn.execute(
+            sql_text_,
+            a=mailing_id_,
+            b=user_id_,
+            c=message_,
+            d=message_without_html_,
+            e=message_type_,
+            f=message_params_,
+            g=message_group_id_,
+            h=change_log_id_,
+            i=datetime.datetime.now(),
+        )
 
         return None
 
@@ -1255,11 +1327,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
             ;
         """)
 
-        user_was_already_notified = conn.execute(sql_text_,
-                                                 a=change_log_id_,
-                                                 b=user_id_,
-                                                 c=message_type_
-                                                 ).fetchone()[0]
+        user_was_already_notified = conn.execute(sql_text_, a=change_log_id_, b=user_id_, c=message_type_).fetchone()[0]
 
         return user_was_already_notified
 
@@ -1281,7 +1349,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
 
         raw_data_ = conn.execute(sql_text_, a=change_log_id_).fetchall()
         # TODO: to delete
-        logging.info("list of user with composed messages:")
+        logging.info('list of user with composed messages:')
         logging.info(raw_data_)
 
         users_who_were_composed = []
@@ -1322,12 +1390,9 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                         VALUES (:a, :b, :c, :d)
                         RETURNING mailing_id;
                         """)
-        raw_data = conn.execute(sql_text,
-                                a=topic_id,
-                                b='notifications_script',
-                                c=change_type,
-                                d=change_log_item
-                                ).fetchone()
+        raw_data = conn.execute(
+            sql_text, a=topic_id, b='notifications_script', c=change_type, d=change_log_item
+        ).fetchone()
 
         mail_id = raw_data[0]
         logging.info(f'mailing_id = {mail_id}')
@@ -1343,10 +1408,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                                             INSERT INTO notif_mailing_status (mailing_id, event, event_timestamp)
                                             VALUES (:a, :b, :c);
                                             """)
-        conn.execute(sql_text,
-                     a=mail_id,
-                     b='created',
-                     c=datetime.datetime.now())
+        conn.execute(sql_text, a=mail_id, b='created', c=datetime.datetime.now())
 
         return users_should_not_be_informed, record_was_processed_already, mail_id
 
@@ -1388,20 +1450,24 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                 # if this record is about inforg_comments and user already subscribed to all comments
                 if not user_line.all_notifs:
                     temp_user_list.append(user_line)
-                    logging.info(f'Inforg 2x CHECK for {user_line.user_id} is OK, record {record.change_type}, '
-                                 f'user {user_line.user_id} {user_line.all_notifs}. '
-                                 f'record {record.forum_search_num}')
+                    logging.info(
+                        f'Inforg 2x CHECK for {user_line.user_id} is OK, record {record.change_type}, '
+                        f'user {user_line.user_id} {user_line.all_notifs}. '
+                        f'record {record.forum_search_num}'
+                    )
                 else:
-                    logging.info(f'Inforg 2x CHECK for {user_line.user_id} is FAILED, record {record.change_type}, '
-                                 f'user {user_line.user_id} {user_line.all_notifs}. '
-                                 f'record {record.forum_search_num}')
+                    logging.info(
+                        f'Inforg 2x CHECK for {user_line.user_id} is FAILED, record {record.change_type}, '
+                        f'user {user_line.user_id} {user_line.all_notifs}. '
+                        f'record {record.forum_search_num}'
+                    )
             logging.info(f'User List crop due to Inforg 2x: {len(users_list_outcome)} --> {len(temp_user_list)}')
             users_list_outcome = temp_user_list
 
         # 2. AGES. crop the list of users, excluding Users who does not want to receive notifications for such Ages
         temp_user_list = []
         if not (record.age_min or record.age_max):
-            logging.info(f'User List crop due to ages: no changes, there were no age_min and max for search')
+            logging.info('User List crop due to ages: no changes, there were no age_min and max for search')
             return users_list_outcome
 
         search_age_range = [record.age_min, record.age_max]
@@ -1411,11 +1477,15 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
             age_requirements_met = check_if_age_requirements_met(search_age_range, user_age_ranges)
             if age_requirements_met:
                 temp_user_list.append(user_line)
-                logging.info(f'AGE CHECK for {user_line.user_id} is OK, record {search_age_range}, '
-                             f'user {user_age_ranges}. record {record.forum_search_num}')
+                logging.info(
+                    f'AGE CHECK for {user_line.user_id} is OK, record {search_age_range}, '
+                    f'user {user_age_ranges}. record {record.forum_search_num}'
+                )
             else:
-                logging.info(f'AGE CHECK for {user_line.user_id} is FAIL, record {search_age_range}, '
-                             f'user {user_age_ranges}. record {record.forum_search_num}')
+                logging.info(
+                    f'AGE CHECK for {user_line.user_id} is FAIL, record {search_age_range}, '
+                    f'user {user_age_ranges}. record {record.forum_search_num}'
+                )
 
         logging.info(f'User List crop due to ages: {len(users_list_outcome)} --> {len(temp_user_list)}')
         users_list_outcome = temp_user_list
@@ -1433,15 +1503,15 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
 
             # CASE 3.1. When exact coordinates of Search Headquarters are indicated
             if search_lat and search_lon:
-
                 for user_line in users_list_outcome:
                     if not (user_line.radius and user_line.user_latitude and user_line.user_longitude):
                         temp_user_list.append(user_line)
                         continue
                     user_lat = user_line.user_latitude
                     user_lon = user_line.user_longitude
-                    actual_distance, direction = define_dist_and_dir_to_search(search_lat, search_lon,
-                                                                               user_lat, user_lon)
+                    actual_distance, direction = define_dist_and_dir_to_search(
+                        search_lat, search_lon, user_lat, user_lon
+                    )
                     actual_distance = int(actual_distance)
                     if actual_distance <= user_line.radius:
                         temp_user_list.append(user_line)
@@ -1457,8 +1527,9 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
 
                     for city_coords in list_of_city_coords:
                         search_lat, search_lon = city_coords
-                        actual_distance, direction = define_dist_and_dir_to_search(search_lat, search_lon,
-                                                                                   user_lat, user_lon)
+                        actual_distance, direction = define_dist_and_dir_to_search(
+                            search_lat, search_lon, user_lat, user_lon
+                        )
                         actual_distance = int(actual_distance)
                         if actual_distance <= user_line.radius:
                             temp_user_list.append(user_line)
@@ -1517,14 +1588,15 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                 if user_line.user_id in users_following:
                     temp_user_list.append(user_line)
 
-            logging.info(f'Crop user list step 5: User List crop due to whitelisting: {len(users_list_outcome)} --> {len(temp_user_list)}')
+            logging.info(
+                f'Crop user list step 5: User List crop due to whitelisting: {len(users_list_outcome)} --> {len(temp_user_list)}'
+            )
             # if len(users_list_outcome) - len(temp_user_list) <=20:
             #     logging.info(f'Crop user list step 5: cropped users: {users_list_outcome - temp_user_list}')
             users_list_outcome = temp_user_list
         except Exception as ee:
             logging.info('exception happened')
             logging.exception(ee)
-
 
         return users_list_outcome
 
@@ -1536,7 +1608,6 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
     cleaner = re.compile('<.*?>')
 
     try:
-
         # skip ignored lines which don't require a notification
         if new_record.ignore == 'y':
             new_record.processed = 'yes'
@@ -1550,8 +1621,9 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
         change_log_id = new_record.change_id
         topic_type_id = new_record.topic_type_id
 
-        users_who_should_not_be_informed, this_record_was_processed_already, mailing_id = \
-            process_mailing_id(change_log_id)
+        users_who_should_not_be_informed, this_record_was_processed_already, mailing_id = process_mailing_id(
+            change_log_id
+        )
 
         list_of_users = crop_user_list(list_of_users, users_who_should_not_be_informed, new_record)
 
@@ -1570,8 +1642,9 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                 num_of_msgs_sent_already = user.user_new_search_notifs
 
                 if topic_type_id in {0, 1, 2, 3, 4, 5}:  # if it's a new search
-                    message = compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_lon,
-                                                                       region_to_show, num_of_msgs_sent_already)
+                    message = compose_individual_message_on_new_search(
+                        new_record, s_lat, s_lon, u_lat, u_lon, region_to_show, num_of_msgs_sent_already
+                    )
                 else:  # new event
                     message = new_record.message[0]
 
@@ -1605,8 +1678,9 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
             this_user_was_notified = False
 
             if this_record_was_processed_already:
-                this_user_was_notified = get_from_sql_if_was_notified_already(user.user_id, 'text',
-                                                                              new_record.change_id)
+                this_user_was_notified = get_from_sql_if_was_notified_already(
+                    user.user_id, 'text', new_record.change_id
+                )
 
                 logging.info(f'this user was notified already {user.user_id}, {this_user_was_notified}')
                 if user.user_id in users_who_should_not_be_informed:
@@ -1615,29 +1689,34 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                     logging.info('this user is NOT in the list of non-notifiers')
 
             if message and not this_user_was_notified:
-
                 # TODO: make text more compact within 50 symbols
                 message_without_html = re.sub(cleaner, '', message)
 
-                message_params = {'parse_mode': 'HTML',
-                                  'disable_web_page_preview': 'True'}
+                message_params = {'parse_mode': 'HTML', 'disable_web_page_preview': 'True'}
 
                 # for the new searches we add a link to web_app map
                 if change_type == 0:
-                    map_button = {"text": "Смотреть на Карте Поисков",
-                                  "web_app": {
-                                      "url": get_secrets("web_app_url")
-                                  }}
-                    message_params['reply_markup'] = {"inline_keyboard": [[map_button]]}
+                    map_button = {'text': 'Смотреть на Карте Поисков', 'web_app': {'url': get_secrets('web_app_url')}}
+                    message_params['reply_markup'] = {'inline_keyboard': [[map_button]]}
 
                 # TODO: Debug only - to delete
-                print(f'what we are saving to SQL: {mailing_id}, {user.user_id}, {message_without_html}, '
-                      f'{message_params}, {msg_group_id}, {change_log_id}')
+                print(
+                    f'what we are saving to SQL: {mailing_id}, {user.user_id}, {message_without_html}, '
+                    f'{message_params}, {msg_group_id}, {change_log_id}'
+                )
                 # TODO: Debug only - to delete
 
                 # record into SQL table notif_by_user
-                save_to_sql_notif_by_user(mailing_id, user.user_id, message, message_without_html,
-                                          'text', message_params, msg_group_id, change_log_id)
+                save_to_sql_notif_by_user(
+                    mailing_id,
+                    user.user_id,
+                    message,
+                    message_without_html,
+                    'text',
+                    message_params,
+                    msg_group_id,
+                    change_log_id,
+                )
 
                 # for user tips in "new search" notifs – to increase sent messages counter
                 if change_type == 0 and topic_type_id in {0, 1, 2, 3, 4, 5}:  # 'new_search':
@@ -1649,10 +1728,10 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                     message_params = {'latitude': s_lat, 'longitude': s_lon}
 
                     # record into SQL table notif_by_user (not text, but coords only)
-                    save_to_sql_notif_by_user(mailing_id, user.user_id, None, None, 'coords', message_params,
-                                              msg_group_id, change_log_id)
+                    save_to_sql_notif_by_user(
+                        mailing_id, user.user_id, None, None, 'coords', message_params, msg_group_id, change_log_id
+                    )
                 if change_type == 8:
-
                     try:
                         list_of_coords = re.findall(r'<code>', message)
                         if list_of_coords and len(list_of_coords) == 1:
@@ -1663,9 +1742,16 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
                                 new_lat = re.search(r'^[\d.]{2,12}(?=\D)', both_coordinates).group()
                                 new_lon = re.search(r'(?<=\D)[\d.]{2,12}$', both_coordinates).group()
                                 message_params = {'latitude': new_lat, 'longitude': new_lon}
-                                save_to_sql_notif_by_user(mailing_id, user.user_id, None, None, 'coords',
-                                                          message_params,
-                                                          msg_group_id, change_log_id)
+                                save_to_sql_notif_by_user(
+                                    mailing_id,
+                                    user.user_id,
+                                    None,
+                                    None,
+                                    'coords',
+                                    message_params,
+                                    msg_group_id,
+                                    change_log_id,
+                                )
                     except Exception as ee:
                         logging.info('exception happened')
                         logging.exception(ee)
@@ -1720,12 +1806,13 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
             direction = f'\n\nОт вас ~{dist} км {direct}'
 
             message += generate_yandex_maps_place_link2(s_lat, s_lon, direction)
-            message += f'\n<code>{coord_format.format(float(s_lat))}, ' \
-                       f'{coord_format.format(float(s_lon))}</code>'
+            message += f'\n<code>{coord_format.format(float(s_lat))}, ' f'{coord_format.format(float(s_lon))}</code>'
 
         except Exception as e:
-            logging.info(f'Not able to compose individual msg with distance & direction, params: '
-                         f'[{new_record}, {s_lat}, {s_lon}, {u_lat}, {u_lon}]')
+            logging.info(
+                f'Not able to compose individual msg with distance & direction, params: '
+                f'[{new_record}, {s_lat}, {s_lon}, {u_lat}, {u_lon}]'
+            )
             logging.exception(e)
 
     if s_lat and s_lon and not u_lat and not u_lon:
@@ -1733,8 +1820,10 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
             message += '\n\n' + generate_yandex_maps_place_link2(s_lat, s_lon, 'map')
 
         except Exception as e:
-            logging.info(f'Not able to compose message with Yandex Map Link, params: '
-                         f'[{new_record}, {s_lat}, {s_lon}, {u_lat}, {u_lon}]')
+            logging.info(
+                f'Not able to compose message with Yandex Map Link, params: '
+                f'[{new_record}, {s_lat}, {s_lon}, {u_lat}, {u_lon}]'
+            )
             logging.exception(e)
 
     # 4. Managers – common part
@@ -1749,8 +1838,10 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
             message += '<i>Совет: Координаты и телефоны можно скопировать, нажав на них.</i>\n'
 
         if s_lat and s_lon and not u_lat and not u_lon:
-            message += '<i>Совет: Чтобы Бот показывал Направление и Расстояние до поиска – просто укажите ваши ' \
-                       '"Домашние координаты" в Настройках Бота.</i>'
+            message += (
+                '<i>Совет: Чтобы Бот показывал Направление и Расстояние до поиска – просто укажите ваши '
+                '"Домашние координаты" в Настройках Бота.</i>'
+            )
 
     if s_lat and s_lon:
         clickable_coords = f'<code>{coord_format.format(float(s_lat))}, {coord_format.format(float(s_lon))}</code>'
@@ -1765,8 +1856,10 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
         if not num_of_sent or num_of_sent in fib_list:
             tip_on_click_to_copy = '<i>Совет: Координаты и телефоны можно скопировать, нажав на них.</i>'
             if not u_lat and not u_lon:
-                tip_on_home_coords = '<i>Совет: Чтобы Бот показывал Направление и Расстояние до поиска – просто ' \
-                                     'укажите ваши "Домашние координаты" в Настройках Бота.</i>'
+                tip_on_home_coords = (
+                    '<i>Совет: Чтобы Бот показывал Направление и Расстояние до поиска – просто '
+                    'укажите ваши "Домашние координаты" в Настройках Бота.</i>'
+                )
 
     # TODO - yet not implemented new message template
     obj = new_record.message_object
@@ -1804,7 +1897,11 @@ def publish_to_pubsub(topic_name, message):
     global project_id
 
     topic_path = publisher.topic_path(project_id, topic_name)
-    message_json = json.dumps({'data': {'message': message}, })
+    message_json = json.dumps(
+        {
+            'data': {'message': message},
+        }
+    )
     message_bytes = message_json.encode('utf-8')
 
     try:
@@ -1844,7 +1941,6 @@ def mark_new_record_as_processed(conn, new_record):
         logging.info('All Updates are marked as processed in Change Log')
 
     except Exception as e:
-
         # FIXME – should be a smarter way to re-process the record instead of just marking everything as processed
         # For Safety's Sake – Update Change_log SQL table, setting 'y' everywhere
         conn.execute(
@@ -1868,7 +1964,6 @@ def mark_new_comments_as_processed(conn, record):
         # TODO – is it correct that we mark comments processes for any Comments for certain search? Looks
         #  like we can mark some comments which are not yet processed at all. Probably base on change_id? To be checked
         if record.processed == 'yes' and record.ignore != 'y':
-
             if record.change_type == 3:
                 sql_text = sqlalchemy.text("UPDATE comments SET notification_sent = 'y' WHERE search_forum_num=:a;")
                 conn.execute(sql_text, a=record.forum_search_num)
@@ -1882,7 +1977,6 @@ def mark_new_comments_as_processed(conn, record):
             logging.info('All Comments are marked as processed')
 
     except Exception as e:
-
         # TODO – seems a vary vague solution: to mark all
         sql_text = sqlalchemy.text("""UPDATE comments SET notification_sent = 'y' WHERE notification_sent is Null
                                       OR notification_sent = 's';""")
@@ -1929,8 +2023,14 @@ def check_and_save_event_id(context, event, conn, new_record, function_id, trigg
                                           VALUES (:a, :b, :c, :d, :e)
                                           /*action='save_start_of_compose_function' */;""")
 
-        conn.execute(sql_text_psy, a=event_num, b=datetime.datetime.now(),
-                     c='compose_notifications', d=function_num, e=triggered_by_func_id)
+        conn.execute(
+            sql_text_psy,
+            a=event_num,
+            b=datetime.datetime.now(),
+            c='compose_notifications',
+            d=function_num,
+            e=triggered_by_func_id,
+        )
         logging.info(f'function was triggered by event {event_num}')
 
         return None
@@ -1966,13 +2066,12 @@ def check_and_save_event_id(context, event, conn, new_record, function_id, trigg
 
     # if this functions is triggered in the very end of the Google Cloud Function execution
     elif event == 'finish':
-
         json_of_params = None
         if new_record:
             # FIXME -- temp try. the content is not temp
             try:
                 list_of_change_log_ids = [new_record.change_id]
-                json_of_params = json.dumps({"ch_id": list_of_change_log_ids})
+                json_of_params = json.dumps({'ch_id': list_of_change_log_ids})
             except Exception as e:  # noqa
                 logging.exception(e)
             # FIXME ^^^
@@ -2009,8 +2108,11 @@ def get_triggering_function(message_from_pubsub):
 
     triggered_by_func_id = None
     try:
-        if message_from_pubsub and isinstance(message_from_pubsub, dict) and \
-                'triggered_by_func_id' in message_from_pubsub.keys():
+        if (
+            message_from_pubsub
+            and isinstance(message_from_pubsub, dict)
+            and 'triggered_by_func_id' in message_from_pubsub.keys()
+        ):
             triggered_by_func_id = message_from_pubsub['triggered_by_func_id']
 
     except Exception as e:
@@ -2019,19 +2121,22 @@ def get_triggering_function(message_from_pubsub):
     if triggered_by_func_id:
         logging.info(f'this function is triggered by func_id {triggered_by_func_id}')
     else:
-        logging.info(f'triggering func_id was not determined')
+        logging.info('triggering func_id was not determined')
 
     return triggered_by_func_id
 
 
-def delete_ended_search_following(conn, new_record): #issue425
-### Delete from user_pref_search_whitelist if the search goes to one of ending statuses
+def delete_ended_search_following(conn, new_record):  # issue425
+    ### Delete from user_pref_search_whitelist if the search goes to one of ending statuses
 
-    if new_record.change_type==1 and new_record.status in['Завершен', 'НЖ', 'НП', 'Найден']:
+    if new_record.change_type == 1 and new_record.status in ['Завершен', 'НЖ', 'НП', 'Найден']:
         stmt = sqlalchemy.text("""DELETE FROM user_pref_search_whitelist WHERE search_id=:a;""")
         conn.execute(stmt, a=new_record.forum_search_num)
-        logging.info(f'Search id={new_record.forum_search_num} with status {new_record.status} is been deleted from user_pref_search_whitelist.')
+        logging.info(
+            f'Search id={new_record.forum_search_num} with status {new_record.status} is been deleted from user_pref_search_whitelist.'
+        )
     return None
+
 
 def main(event, context):  # noqa
     """key function which is initiated by Pub/Sub"""
@@ -2044,11 +2149,11 @@ def main(event, context):  # noqa
 
     pool = sql_connect()
     with pool.connect() as conn:
-
-        there_is_function_working_in_parallel = check_and_save_event_id(context, 'start', conn, None, function_id,
-                                                                        triggered_by_func_id)
+        there_is_function_working_in_parallel = check_and_save_event_id(
+            context, 'start', conn, None, function_id, triggered_by_func_id
+        )
         if there_is_function_working_in_parallel:
-            logging.info(f'function execution stopped due to parallel run with another function')
+            logging.info('function execution stopped due to parallel run with another function')
             check_and_save_event_id(context, 'finish', conn, None, function_id, triggered_by_func_id)
             logging.info('script finished')
             conn.close()
@@ -2060,7 +2165,7 @@ def main(event, context):  # noqa
 
         # only if there are updates in Change Log
         if new_record:
-            delete_ended_search_following(conn, new_record)#issue425
+            delete_ended_search_following(conn, new_record)  # issue425
             # enrich New Records List with all the updates that should be in notifications
             new_record = enrich_new_record_from_searches(conn, new_record)
             new_record = enrich_new_record_with_search_activities(conn, new_record)
@@ -2070,7 +2175,6 @@ def main(event, context):  # noqa
             new_record = enrich_new_record_with_clickable_name(new_record)
             new_record = enrich_new_record_with_emoji(new_record)
             new_record = enrich_new_record_with_com_message_texts(new_record)
-
 
             # compose Users List: all the notifications recipients' details
             admins_list, testers_list = get_list_of_admins_and_testers(conn)  # for debug purposes

@@ -1,5 +1,5 @@
 """Function acts as API for the App designed to support LizaAlert Group of Phone Calls.
- The current script retrieves an actual list active searches"""
+The current script retrieves an actual list active searches"""
 
 import json
 import logging
@@ -14,9 +14,9 @@ import google.cloud.logging
 from google.cloud import secretmanager
 import functions_framework
 
-url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
 req = urllib.request.Request(url)
-req.add_header("Metadata-Flavor", "Google")
+req.add_header('Metadata-Flavor', 'Google')
 project_id = urllib.request.urlopen(req).read().decode()
 client = secretmanager.SecretManagerServiceClient()
 
@@ -27,19 +27,19 @@ log_client.setup_logging()
 def get_secrets(secret_request):
     """Get GCP secret"""
 
-    name = f"projects/{project_id}/secrets/{secret_request}/versions/latest"
+    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
     response = client.access_secret_version(name=name)
 
-    return response.payload.data.decode("UTF-8")
+    return response.payload.data.decode('UTF-8')
 
 
 def sql_connect_by_psycopg2():
     """connect to GCP SQL via PsycoPG2"""
 
-    db_user = get_secrets("cloud-postgres-username")
-    db_pass = get_secrets("cloud-postgres-password")
-    db_name = get_secrets("cloud-postgres-db-name")
-    db_conn = get_secrets("cloud-postgres-connection-name")
+    db_user = get_secrets('cloud-postgres-username')
+    db_pass = get_secrets('cloud-postgres-password')
+    db_name = get_secrets('cloud-postgres-db-name')
+    db_conn = get_secrets('cloud-postgres-connection-name')
     db_host = '/cloudsql/' + db_conn
 
     conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
@@ -78,7 +78,7 @@ def evaluate_city_locations(city_locations):
 
 
 def time_counter_since_search_start(start_time):
-    """Count timedelta since the beginning of search till now, return phrase in Russian and diff in days """
+    """Count timedelta since the beginning of search till now, return phrase in Russian and diff in days"""
 
     start_diff = datetime.timedelta(hours=0)
 
@@ -154,7 +154,8 @@ def get_list_of_active_searches_from_db(request: json) -> tuple:
     cur = conn_psy.cursor()
 
     if folders_list:
-        cur.execute("""WITH
+        cur.execute(
+            """WITH
             user_regions_filtered AS (
                 SELECT DISTINCT folder_id AS forum_folder_num
                 FROM geo_folders
@@ -185,9 +186,11 @@ def get_list_of_active_searches_from_db(request: json) -> tuple:
                 WHERE sfp.actual = True
             )
             SELECT * FROM s4;""",
-                    (folders_list, depth_days))
+            (folders_list, depth_days),
+        )
     else:
-        cur.execute("""WITH
+        cur.execute(
+            """WITH
             user_regions_filtered AS (
                 SELECT DISTINCT folder_id AS forum_folder_num
                 FROM geo_folders
@@ -218,14 +221,25 @@ def get_list_of_active_searches_from_db(request: json) -> tuple:
                 WHERE sfp.actual = True
             )
             SELECT * FROM s4;""",
-                    (depth_days, ))
+            (depth_days,),
+        )
 
     raw_data = cur.fetchall()
 
     if raw_data:
         for line in raw_data:
-            search_start_time, forum_folder_id, topic_type, search_id, status, display_name, family_name, \
-                age_min, age_max, first_post = line
+            (
+                search_start_time,
+                forum_folder_id,
+                topic_type,
+                search_id,
+                status,
+                display_name,
+                family_name,
+                age_min,
+                age_max,
+                first_post,
+            ) = line
 
             # search_id, search_start_time, display_name, status, family_name, topic_type, topic_type_id, \
             # city_locations, age_min, age_max, first_post, lat, lon, coord_type, last_change_time = line
@@ -236,16 +250,16 @@ def get_list_of_active_searches_from_db(request: json) -> tuple:
             content = clean_up_content(first_post)
 
             user_search = {
-                "search_start_time": search_start_time,
-                "forum_folder_id": forum_folder_id,
-                "search_type": topic_type,
-                "search_id": search_id,
-                "search_status": status,
-                "display_name": display_name,
-                "family_name": family_name,
-                "age_min": age_min,
-                "age_max": age_max,
-                "content": content
+                'search_start_time': search_start_time,
+                'forum_folder_id': forum_folder_id,
+                'search_type': topic_type,
+                'search_id': search_id,
+                'search_status': status,
+                'display_name': display_name,
+                'family_name': family_name,
+                'age_min': age_min,
+                'age_max': age_max,
+                'content': content,
             }
 
             searches_data.append(user_search)
@@ -265,10 +279,12 @@ def save_user_statistics_to_db(user_input, response) -> None:
     cur = conn_psy.cursor()
 
     try:
-        cur.execute("""INSERT INTO stat_api_usage_actual_searches
+        cur.execute(
+            """INSERT INTO stat_api_usage_actual_searches
                        (request, timestamp, response)
                        VALUES (%s, CURRENT_TIMESTAMP, %s);""",
-                    (str(user_input), json_to_save))
+            (str(user_input), json_to_save),
+        )
 
     except Exception as e:
         logging.exception(e)
@@ -281,13 +297,11 @@ def save_user_statistics_to_db(user_input, response) -> None:
 
 def clean_up_content(init_content):
     def cook_soup(content):
-
         content = BeautifulSoup(content, 'lxml')
 
         return content
 
     def prettify_soup(content):
-
         for s in content.find_all('strong', {'class': 'text-strong'}):
             s.unwrap()
 
@@ -309,7 +323,6 @@ def clean_up_content(init_content):
         return content
 
     def remove_links(content):
-
         for tag in content.find_all('a'):
             if tag.name == 'a' and not re.search(r'\[[+−]]', tag.text):
                 tag.unwrap()
@@ -317,25 +330,26 @@ def clean_up_content(init_content):
         return content
 
     def remove_irrelevant_content(content):
-
         # language=regexp
-        patterns = r'(?i)(Карты.*\n|' \
-                   r'Ориентировка на печать.*\n|' \
-                   r'Ориентировка на репост.*\n|' \
-                   r'\[\+] СМИ.*\n|' \
-                   r'СМИ\s.*\n|' \
-                   r'Задача на поиске с которой может помочь каждый.*\n|' \
-                   r'ВНИМАНИЕ! Всем выезжающим иметь СИЗ.*\n|' \
-                   r'С признаками ОРВИ оставайтесь дома.*\n|' \
-                   r'Берегите себя и своих близких!.*\n|' \
-                   r'Если же представитель СМИ хочет.*\n|' \
-                   r'8\(800\)700-54-52 или.*\n|' \
-                   r'Предоставлять комментарии по поиску.*\n|' \
-                   r'Таблица прозвона больниц.*\n|' \
-                   r'Запрос на согласование фото.*(\n|(\s*)?$)|' \
-                   r'Все фото.*(\n|(\s*)?$)|' \
-                   r'Написать инфоргу.*в (Telegram|Телеграмм?)(\n|(\s*)?$)|' \
-                   r'Горячая линия отряда:.*(\n|(\s*)?$))'
+        patterns = (
+            r'(?i)(Карты.*\n|'
+            r'Ориентировка на печать.*\n|'
+            r'Ориентировка на репост.*\n|'
+            r'\[\+] СМИ.*\n|'
+            r'СМИ\s.*\n|'
+            r'Задача на поиске с которой может помочь каждый.*\n|'
+            r'ВНИМАНИЕ! Всем выезжающим иметь СИЗ.*\n|'
+            r'С признаками ОРВИ оставайтесь дома.*\n|'
+            r'Берегите себя и своих близких!.*\n|'
+            r'Если же представитель СМИ хочет.*\n|'
+            r'8\(800\)700-54-52 или.*\n|'
+            r'Предоставлять комментарии по поиску.*\n|'
+            r'Таблица прозвона больниц.*\n|'
+            r'Запрос на согласование фото.*(\n|(\s*)?$)|'
+            r'Все фото.*(\n|(\s*)?$)|'
+            r'Написать инфоргу.*в (Telegram|Телеграмм?)(\n|(\s*)?$)|'
+            r'Горячая линия отряда:.*(\n|(\s*)?$))'
+        )
 
         content = re.sub(patterns, '', content)
         content = re.sub(r'[\s_-]*$', '', content)
@@ -388,22 +402,22 @@ def main(request):
     # https://developer.mozilla.org/en-US/docs/Glossary/Preflight_request
 
     # Set CORS headers for the preflight request
-    if request.method == "OPTIONS":
+    if request.method == 'OPTIONS':
         # Allows GET requests from any origin with the Content-Type
         # header and caches preflight response for 3600s
         headers = {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": ["GET", "OPTIONS"],
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Access-Control-Max-Age": "3600",
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': ['GET', 'OPTIONS'],
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Max-Age': '3600',
         }
 
         logging.info(f'{headers=}')
 
-        return "", 204, headers
+        return '', 204, headers
 
     # Set CORS headers for the main request
-    headers = {"Access-Control-Allow-Origin": "*"}
+    headers = {'Access-Control-Allow-Origin': '*'}
 
     request_json = request.get_json(silent=True)
     logging.info(f'{request_json}')
@@ -412,7 +426,7 @@ def main(request):
     reason_not_to_process_json = verify_json_validity(request_json, list_of_allowed_apps)
 
     if reason_not_to_process_json:
-        response = {"ok": False, "reason": reason_not_to_process_json}
+        response = {'ok': False, 'reason': reason_not_to_process_json}
 
         save_user_statistics_to_db(request_json, response)
 

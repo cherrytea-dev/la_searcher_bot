@@ -7,7 +7,7 @@ from tests.common import emulated_get_secrets
 
 @pytest.fixture
 def autopatch_secrets(common_patches):
-    with patch("send_debug_to_admin.main.get_secrets", emulated_get_secrets):
+    with patch('send_debug_to_admin.main.get_secrets', emulated_get_secrets):
         yield
 
 

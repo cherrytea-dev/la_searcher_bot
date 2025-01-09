@@ -38,14 +38,9 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
     """Recognize LA Thread Subject (Title) and return a dict of recognized parameters"""
 
     class Block:
-
-        def __init__(self,
-                     block_number=None,
-                     init_text=None,
-                     reco_data=None,
-                     type_of_block=None,
-                     recognition_done=False
-                     ):
+        def __init__(
+            self, block_number=None, init_text=None, reco_data=None, type_of_block=None, recognition_done=False
+        ):
             self.block_num = block_number
             self.init = init_text
             self.reco = reco_data
@@ -56,18 +51,18 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
             return str(self.block_num), self.done, self.init, self.reco, self.type
 
     class PersonGroup:
-
-        def __init__(self,
-                     number=None,
-                     person_type=None,
-                     num_of_individuals=None,
-                     pseudonym=None,
-                     family_name=None,
-                     age_years=None,
-                     age_min=None,
-                     age_max=None,
-                     age_words=None
-                     ):
+        def __init__(
+            self,
+            number=None,
+            person_type=None,
+            num_of_individuals=None,
+            pseudonym=None,
+            family_name=None,
+            age_years=None,
+            age_min=None,
+            age_max=None,
+            age_words=None,
+        ):
             self.block_num = number
             self.type = person_type
             self.num_of_per = num_of_individuals
@@ -82,22 +77,22 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
             return str(self.block_num), self.display_name, self.name, self.age, self.age_wording
 
     class TitleRecognition:
-
-        def __init__(self,
-                     initial_title=None,
-                     prettified_title=None,
-                     recognised_data=None,
-                     blocks_of_pers_and_locs=None,  # noqa
-                     groups_of_pers_and_locs=None,  # noqa
-                     status=None,
-                     training=None,
-                     activity=None,
-                     avia=None,
-                     per_num=None,
-                     per_list=None,  # noqa
-                     loc_list=None  # noqa
-                     ):
-            blocks_of_pers_and_locs, groups_of_pers_and_locs, per_list, loc_list = [], [], [], []
+        def __init__(
+            self,
+            initial_title=None,
+            prettified_title=None,
+            recognised_data=None,
+            blocks_of_pers_and_locs=None,  # noqa
+            groups_of_pers_and_locs=None,  # noqa
+            status=None,
+            training=None,
+            activity=None,
+            avia=None,
+            per_num=None,
+            per_list=None,  # noqa
+            loc_list=None,  # noqa
+        ):
+            blocks_of_pers_and_locs, groups_of_pers_and_locs, per_list, loc_list = [], [], [], []  # noqa
 
             self.init = initial_title
             self.pretty = prettified_title
@@ -136,8 +131,11 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                 # removes all duplicates in blank spaces or punctuation marks
                 [r'(?<!\d)\B(?=\d)', ' '],  # when and con  sequent number age typed w/o a space, example: word49
                 [r'(\[/?b]|\[?size\W?=\W?140]|\[/size]|\[/?color=.{0,8}])', ''],  # rare case of php formatting
-                [r'(?i)((?<=\d\Wлет\W)|(?<=\d\Wлет\W\W)|(?<=\d\Wгод\W)|(?<=\d\Wгод\W\W)|'
-                 r'(?<=\d\Wгода\W)|(?<=\d\Wгода\W\W))\d{1,2}(?=,)', ''],  # case when '80 лет 80,' – last num is wrong
+                [
+                    r'(?i)((?<=\d\Wлет\W)|(?<=\d\Wлет\W\W)|(?<=\d\Wгод\W)|(?<=\d\Wгод\W\W)|'
+                    r'(?<=\d\Wгода\W)|(?<=\d\Wгода\W\W))\d{1,2}(?=,)',
+                    '',
+                ],  # case when '80 лет 80,' – last num is wrong
                 [r'(?i)без вести\s', ' '],  # rare case of 'пропал без вести'
                 [r'(?i)^ропал', 'Пропал'],  # specific case for one search
                 [r'(?i)пропалпропал', 'Пропал'],  # specific case for one search
@@ -170,7 +168,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                 [r'(?<!\d)\d{3}\Wг\.р\.', ''],  # specific case for one search
                 [r'(?<=\d{2}\Wгод\W{2}\d{4})\W{1,3}(?!г)', ' г.р. '],  # specific case for one search
                 [r'((?<=год)|(?<=года)|(?<=лет))\W{1,2}\(\d{1,2}\W{1,2}(года?|лет)?\W?на м\.п\.\)', ' '],  # rare case
-                [r'(?i)провекра\s', 'проверка ']  # specific case for one search
+                [r'(?i)провекра\s', 'проверка '],  # specific case for one search
             ]
 
         elif pattern_type == 'AVIA':
@@ -184,33 +182,52 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
         elif pattern_type == 'ST':
             # language=regexp
             patterns = [
-                [r'(?i)(личност[ьи] (родных\W{1,3})?установлен[аы]\W{1,3}((родные\W{1,3})?найден[аы]?\W{1,3})?)',
-                 'Завершен', 'search reverse'],
+                [
+                    r'(?i)(личност[ьи] (родных\W{1,3})?установлен[аы]\W{1,3}((родные\W{1,3})?найден[аы]?\W{1,3})?)',
+                    'Завершен',
+                    'search reverse',
+                ],
                 [r'(?i)(найдена?\W{1,3})(?=(неизвестн(ая|ый)|.*называет себя\W|.*на вид\W))', 'Ищем', 'search reverse'],
                 [r'(?i)до сих пор не найден[аы]?\W{1,3}', 'Ищем', 'search'],
                 [r'(?i)пропал[аи]?\W{1,3}стоп\W', 'СТОП', 'search'],
-                [r'(?i)(^\W{0,2}|(?<=\W)|(найден[аы]?\W{1,3})?)'
-                 r'жив[аы]?'
-                 r'(\W{1,3}(проверка(\W{1,3}информации)?|пропал[аи]?))?'
-                 r'(\W{1,3}|$)', 'НЖ', 'search'],
-                [r'(?i)(^\W{0,2}|(?<=\W)|(найден[аы]?\W{1,3})?)'
-                 r'погиб(л[иа])?'
-                 r'(\W{1,3}(проверка(\W{1,3}информации)?|пропал[аи]?))?'
-                 r'(\W{1,3}|$)', 'НП', 'search'],
-                [r'(?i)(?<!родственники\W)(?<!родные\W)(пропал[аы]\W{1,3}?)?найден[аы]?\W{1,3}(?!неизвестн)',
-                 'Найден', 'search'],
-                [r'(?i)[сc][тt][оo]п\W{1,3}(?!проверка)(.{0,15}эвакуация\W)\W{0,2}(пропал[аи]?\W{1,3})?',
-                 'СТОП ЭВАКУАЦИЯ', 'search'],
-                [r'(?i)[сc][тt][оo]п\W(.{0,15}проверка( информации)?\W)\W{0,2}(пропал[аи]?\W{1,3})?',
-                 'СТОП', 'search'],
+                [
+                    r'(?i)(^\W{0,2}|(?<=\W)|(найден[аы]?\W{1,3})?)'
+                    r'жив[аы]?'
+                    r'(\W{1,3}(проверка(\W{1,3}информации)?|пропал[аи]?))?'
+                    r'(\W{1,3}|$)',
+                    'НЖ',
+                    'search',
+                ],
+                [
+                    r'(?i)(^\W{0,2}|(?<=\W)|(найден[аы]?\W{1,3})?)'
+                    r'погиб(л[иа])?'
+                    r'(\W{1,3}(проверка(\W{1,3}информации)?|пропал[аи]?))?'
+                    r'(\W{1,3}|$)',
+                    'НП',
+                    'search',
+                ],
+                [
+                    r'(?i)(?<!родственники\W)(?<!родные\W)(пропал[аы]\W{1,3}?)?найден[аы]?\W{1,3}(?!неизвестн)',
+                    'Найден',
+                    'search',
+                ],
+                [
+                    r'(?i)[сc][тt][оo]п\W{1,3}(?!проверка)(.{0,15}эвакуация\W)\W{0,2}(пропал[аи]?\W{1,3})?',
+                    'СТОП ЭВАКУАЦИЯ',
+                    'search',
+                ],
+                [r'(?i)[сc][тt][оo]п\W(.{0,15}проверка( информации)?\W)\W{0,2}(пропал[аи]?\W{1,3})?', 'СТОП', 'search'],
                 [r'(?i)[сc][тt][оo]п\W{1,3}(пропал[аи]?\W{1,3})?', 'СТОП', 'search'],
                 [r'(?i)проверка( информации)?\W{1,3}(пропал[аи]?\W{1,3})?', 'СТОП', 'search'],
                 [r'(?i).{0,15}эвакуация\W{1,3}', 'ЭВАКУАЦИЯ', 'search'],
                 [r'(?i)поиск ((при)?остановлен|заверш[её]н|прекращ[её]н)\W{1,3}', 'Завершен', 'search'],
                 [r'(?i)\W{0,2}(поиск\W{1,3})?возобновл\w{1,5}\W{1,3}', 'Возобновлен', 'search'],
                 [r'(?i)((выезд\W{0,3})?пропал[аи]?|похищен[аы]?)\W{1,3}', 'Ищем', 'search'],
-                [r'(?i)(поиски?|помогите найти|ищем)\W(родных|родственник(ов|а)|знакомых)\W{1,3}',
-                 'Ищем', 'search reverse'],
+                [
+                    r'(?i)(поиски?|помогите найти|ищем)\W(родных|родственник(ов|а)|знакомых)\W{1,3}',
+                    'Ищем',
+                    'search reverse',
+                ],
                 [r'(?i)помогите (установить личность|опознать человека)\W{1,3}', 'Ищем', 'search reverse'],
                 [r'(?i)(родные|родственники)\Wнайдены\W{1,3}', 'Завершен', 'search reverse'],
                 [r'(?i)личность установлена\W{1,3}', 'Завершен', 'search reverse'],
@@ -224,21 +241,30 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
             patterns = [
                 [r'(?i).*учебные\sсборы.*\n?', 'event', 'event'],
                 [r'(?i).*учения.*\n?', 'event', 'event'],
-                [r'(?i).*((полевое|практическ(ое|ие)) обучение|полевая тр?енировка|'
-                 r'полевое( обучающее)? заняти[ея]|практическ(ое|ие)\W{1,3}заняти[ея]).*\n?', 'event', 'event'],
+                [
+                    r'(?i).*((полевое|практическ(ое|ие)) обучение|полевая тр?енировка|'
+                    r'полевое( обучающее)? заняти[ея]|практическ(ое|ие)\W{1,3}заняти[ея]).*\n?',
+                    'event',
+                    'event',
+                ],
                 [r'(?i).*(обучалк[иа]).*\n?', 'event', 'event'],
                 [r'(?i).*обучение по.*\n?', 'event', 'event'],
                 [r'(?i).*курс по.*\n?', 'event', 'event'],
-
-                [r'(?i).*(новичк(и|ами?|овая|овый)|новеньки[ем]|знакомство с отрядом|для новичков)(\W.*|$)\n?',
-                 'event', 'event'],
+                [
+                    r'(?i).*(новичк(и|ами?|овая|овый)|новеньки[ем]|знакомство с отрядом|для новичков)(\W.*|$)\n?',
+                    'event',
+                    'event',
+                ],
                 [r'(?i).*(вводная лекция)\W.*\n?', 'event', 'event'],
                 [r'(?i).*(лекци\w\sо)\W.*\n?', 'event', 'event'],
-                [r'(?i).*\W?(обучение|онлайн-лекция|лекция|школа волонт[её]ров|обучающее мероприятие|(?<!парт)съезд|'
-                 r'семинар|собрание).*\n?', 'event', 'event'],
-
+                [
+                    r'(?i).*\W?(обучение|онлайн-лекция|лекция|школа волонт[её]ров|обучающее мероприятие|(?<!парт)съезд|'
+                    r'семинар|собрание).*\n?',
+                    'event',
+                    'event',
+                ],
                 [r'(?i).*ID-\W?\d{1,7}.*\n?', 'info', 'info'],
-                [r'(?i)ночной патруль.*\n?', 'search patrol', 'search patrol']
+                [r'(?i)ночной патруль.*\n?', 'search patrol', 'search patrol'],
             ]
 
         elif pattern_type == 'LOC_BLOCK':
@@ -257,7 +283,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                 r'гора|лес\W|в лесу|лесной массив|парк|нац(иональный)?\W{0,2}парк|охотоугодья).*',
                 r'\W[гдспхоу]\.($|(?!(р\.|р,|,|р\)|р\W\)|р\.\)|\Wр\.?\)?)).*)',
                 r'\W(?<!\Wг\.)(?<!\dг\.)р\.\W.*',
-                r'\sг\s.*'
+                r'\sг\s.*',
             ]
 
         elif pattern_type == 'LOC_BY_INDIVIDUAL':
@@ -272,13 +298,12 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                 r'(.{0,3}\W\d{4}\W?(года?(\Wр.{0,8}\W)\W?|г\.?\W?р?\.?\)?\W\W?))?'
                 r'(\W{0,2}\d{1,2}\W)?'
                 r'(\W{0,5}\+\W{0,2}(женщина|девушка|\d))?\W{0,5}',
-
                 r'(?i).*\W\d{4}\W?'
                 r'(?:года?(\Wр.{0,8}\W)\W?|г\.?р?\.?)'
                 r'(\W{0,3}\+\W{0,2}(женщина|девушка|\d))?'
                 r'(.{0,3}\W\d?\d?\d([.,]\d)?\W?'
                 r'(?:лет|года?|л\.|мес(яц(?:а|ев)?)?))?'
-                r'\W{1,5}'
+                r'\W{1,5}',
             ]
 
         elif pattern_type == 'PER_AGE_WO_WORDS':
@@ -287,13 +312,17 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
         elif pattern_type == 'PER_WITH_PLUS_SIGN':
             # language=regexp
-            patterns = [r'(?i)\W{0,3}\+\W{0,2}((женщина|девушка|мама|\d(\W{0,3}человека?\W{1,3})?)|'
-                        r'(?=[^+]*$)[^+]{0,25}\d{0,3})[^+\w]{1,3}']
+            patterns = [
+                r'(?i)\W{0,3}\+\W{0,2}((женщина|девушка|мама|\d(\W{0,3}человека?\W{1,3})?)|'
+                r'(?=[^+]*$)[^+]{0,25}\d{0,3})[^+\w]{1,3}'
+            ]
 
         elif pattern_type == 'PER_HUMAN_BEING':
             # language=regexp
-            patterns = [r'(?i).*(женщин[аы]|мужчин[аы]|декушк[аи]|человека?|дочь|сын|жена|муж|отец|мать|папа|мама|'
-                        r'бабушк[аи]|дедушк[аи])(\W{1,3}|$)']
+            patterns = [
+                r'(?i).*(женщин[аы]|мужчин[аы]|декушк[аи]|человека?|дочь|сын|жена|муж|отец|мать|папа|мама|'
+                r'бабушк[аи]|дедушк[аи])(\W{1,3}|$)'
+            ]
 
         elif pattern_type == 'PER_FIO':
             # language=regexp
@@ -308,26 +337,31 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
             patterns = [
                 r'\+\W{0,3}(?!\W{0,2}\d{1,2}\Wлет)',
                 r'(?<!\d)(?<!\d\Wлет)\Wи\W{1,3}',  # "3 девочки 10 , 12 и 13 лет" should not split into 2 groups
-
                 r'(?i)'
                 r'\W\d?\d?\d([.,]\d)?\W{0,2}'
                 r'(?:лет|года?|л\.|мес(яц(?:а|ев)?)?|г\.,)\W{0,2}'
                 r'(.{0,3}\d{4}\W?(года?(\Wр.{0,8}\W)\W?|г\.?\W?р?\.?\W{1,4}))?'
                 r'(?-i:[\Wи]{0,5})(?!.{0,5}\d{1,2}\Wлет)',
                 # "2 мужчин 80 лет и 67 лет" should not split into 2 groups
-
                 r'(?i).*(женщин[аы]|мужчин[аы]|декушк[аи]|человека?|дочь|сын|жена|муж|отец|мать|папа|мама|'
                 r'бабушк[аи]|дедушк[аи])(\W{1,3}|$)'
                 r'\W\d?\d?\d([.,]\d)?\W{0,2}'
                 r'(?:лет|года?|л\.|мес(яц(?:а|ев)?)?|г\.,)\W{0,2}'
-                r'(.{0,3}\d{4}\W?(года?(\Wр.{0,8}\W)\W?|г\.?\W?р?\.?\)?\W\W?))?(?-i:[\Wи]*)'
+                r'(.{0,3}\d{4}\W?(года?(\Wр.{0,8}\W)\W?|г\.?\W?р?\.?\)?\W\W?))?(?-i:[\Wи]*)',
             ]
 
         else:
             pass
 
-        if pattern_type in {'LOC_BLOCK', 'PER_AGE_W_WORDS', 'PER_AGE_WO_WORDS', 'PER_WITH_PLUS_SIGN',
-                            'PER_HUMAN_BEING', 'PER_FIO', 'PER_BY_LAST_NUM'}:
+        if pattern_type in {
+            'LOC_BLOCK',
+            'PER_AGE_W_WORDS',
+            'PER_AGE_WO_WORDS',
+            'PER_WITH_PLUS_SIGN',
+            'PER_HUMAN_BEING',
+            'PER_FIO',
+            'PER_BY_LAST_NUM',
+        }:
             return patterns, index_type
         else:
             return patterns
@@ -382,7 +416,6 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
         """Update the 'b1 Blocks' with the new recognized information"""
 
         if recognized_blocks:
-
             curr_recognition_blocks_b1 = []
 
             # 0. Get Blocks, which go BEFORE the recognition
@@ -393,7 +426,6 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
             j = 0
             for item in recognized_blocks:
                 if item and item != 'None':
-
                     if isinstance(item, str):
                         new_block = Block()
                         new_block.init = item
@@ -427,7 +459,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
             'ST',  # duplication – is not a mistake: there are cases when two status checks are necessary
             'TR',
             'AVIA',
-            'ACT'
+            'ACT',
         ]
 
         recognition = TitleRecognition()
@@ -448,11 +480,14 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                 else:
                     text_to_recognize = non_reco_block.init
                     recognized_blocks, recognized_activity = recognize_a_pattern(pattern_type, text_to_recognize)
-                    recognition.blocks = update_full_blocks_with_new(non_reco_block.block_num, recognition,
-                                                                     recognized_blocks)
+                    recognition.blocks = update_full_blocks_with_new(
+                        non_reco_block.block_num, recognition, recognized_blocks
+                    )
                     if recognition.act and recognized_activity and recognition.act != recognized_activity:
-                        logging.error(f'RARE CASE! recognized activity does not match: '
-                                      f'{recognition.act} != {recognized_activity}')
+                        logging.error(
+                            f'RARE CASE! recognized activity does not match: '
+                            f'{recognition.act} != {recognized_activity}'
+                        )
                         pass
                     if recognized_activity and not recognition.act:
                         recognition.act = recognized_activity
@@ -540,7 +575,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
             'PER_WITH_PLUS_SIGN',
             'PER_HUMAN_BEING',
             'PER_FIO',
-            'PER_BY_LAST_NUM'
+            'PER_BY_LAST_NUM',
         ]
 
         for block in recognition.blocks:
@@ -584,8 +619,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
                     else:
                         # language=regexp
-                        patterns_2 = [[r'(?<=\W)\([А-Я][а-яА-Я,\s]*\)\W', ''],
-                                      [r'\W*$', '']]
+                        patterns_2 = [[r'(?<=\W)\([А-Я][а-яА-Я,\s]*\)\W', ''], [r'\W*$', '']]
                         temp_string = string_to_split[marker_per:marker_loc]
 
                         for pattern_2 in patterns_2:
@@ -713,7 +747,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                 patterns = [
                     r'(?i)^\W{0,3}(\d|дв(а|о?е)|тр(ое|и)|чет(веро|ыре))(\W{1,2}'
                     r'(человека?|женщин[аы]|мужчин[аы]?|реб[её]нок))?(?!\d)(?!\w)',  # case "2 человека"
-                    r'(?i)(^|(?<=\W))[\w-]{1,100}(?=\W)'  # regular case
+                    r'(?i)(^|(?<=\W))[\w-]{1,100}(?=\W)',  # regular case
                 ]
 
                 for pattern in patterns:
@@ -721,11 +755,14 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                     if block:
                         # language=regexp
                         patterns_2 = [
-                            [r'(?i)(?<!\w)(человек|женщина|мужчина|реб[её]нок|девочка|мальчик|девушка|'
-                             r'мама|папа|сын|дочь|дедушка|бабушка)(?!\w)', 1],
+                            [
+                                r'(?i)(?<!\w)(человек|женщина|мужчина|реб[её]нок|девочка|мальчик|девушка|'
+                                r'мама|папа|сын|дочь|дедушка|бабушка)(?!\w)',
+                                1,
+                            ],
                             [r'(?i)(?<!\w)дв(а|о?е)(?!\w)', 2],
                             [r'(?i)(?<!\w)(трое|три)(?!\w)', 3],
-                            [r'(?i)(?<!\w)чет(веро|ыре)(?!\w)', 4]
+                            [r'(?i)(?<!\w)чет(веро|ыре)(?!\w)', 4],
                         ]
                         for pattern_2 in patterns_2:
                             exact_num_of_individuals_in_group = re.search(pattern_2[0], name_string)
@@ -760,7 +797,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                 [r'(?<!\d)\d{1,2}(?=\W{0,2}мес(\W|яц))', 'age_months'],
                 [r'(?<!\d)1?\d{1,2}(?!(\W{0,2}мес|\W{0,3}\d))', 'age'],
                 [r'(?<!\d)\d{4}', 'year'],
-                [r'(?<!\d)\d{1,2}(?!\d)', 'number']
+                [r'(?<!\d)\d{1,2}(?!\d)', 'number'],
             ]
 
             for pattern in patterns:
@@ -840,10 +877,8 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
             # last chance to define number of persons in group - with help of Natasha
             if person_reco.num_of_per == -1:
-
                 # language=regexp
-                patterns = [r'^\D*\w(?=\W{1,3}\d)',
-                            r'^\D*\w(?=\W{1,3}$)']
+                patterns = [r'^\D*\w(?=\W{1,3}\d)', r'^\D*\w(?=\W{1,3}$)']
 
                 for pattern in patterns:
                     block_2 = re.search(pattern, name_string)
@@ -864,8 +899,10 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
             person_reco.block_num = person.type[1]
 
             # CASE 0. When the whole person is defined as "+N" only (NB – we already cut "+" before)
-            case_0 = re.search(r'^\W{0,2}\d(?=(\W{0,2}(человека|женщины|мужчины|девочки|мальчика|бабушки|дедушки))?'
-                               r'\W{0,4}$)', name_string)
+            case_0 = re.search(
+                r'^\W{0,2}\d(?=(\W{0,2}(человека|женщины|мужчины|девочки|мальчика|бабушки|дедушки))?' r'\W{0,4}$)',
+                name_string,
+            )
             if case_0:
                 person_reco.num_of_per = int(case_0.group())
                 if person_reco.num_of_per == 1:
@@ -885,17 +922,19 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                 person_reco.num_of_per = 1
                 person_reco.age = age
                 if person_reco.age < 18:
-                    person_reco.name = f'Ребёнок'
+                    person_reco.name = 'Ребёнок'
                 else:
-                    person_reco.name = f'Человек'
+                    person_reco.name = 'Человек'
                 person_reco.display_name = f'{person_reco.name}{age_wording(person_reco.age)}'
 
                 return person_reco
 
             # CASE 2. When the whole person is defined as "+N age, age" only
-            case_2 = re.search(r'(?i)^\W{0,2}(\d(?!\d)|двое|трое)'
-                               r'(?=(\W{0,2}(человека|женщины?|мужчины?|девочки|мальчика|бабушки|дедушки))?)',
-                               name_string)
+            case_2 = re.search(
+                r'(?i)^\W{0,2}(\d(?!\d)|двое|трое)'
+                r'(?=(\W{0,2}(человека|женщины?|мужчины?|девочки|мальчика|бабушки|дедушки))?)',
+                name_string,
+            )
             if case_2:
                 case_2 = case_2.group()
                 if len(case_2) == 1:
@@ -905,7 +944,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                 elif case_2[-4:] == 'трое':
                     person_reco.num_of_per = 3
 
-                string_with_ages = name_string[re.search(case_2, name_string).span()[1]:]
+                string_with_ages = name_string[re.search(case_2, name_string).span()[1] :]
                 ages_list = re.findall(r'1?\d?\d(?=\W)', string_with_ages)
                 ages_list = [int(x) for x in ages_list]
                 if ages_list:
@@ -933,26 +972,31 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
                 if person_reco.age_min and person_reco.age_max:
                     if person_reco.age_min != person_reco.age_max:
-                        person_reco.display_name = f'{person_reco.display_name} ' \
-                                                   f'{person_reco.age_min}–{person_reco.age_max}' \
-                                                   f' {age_wording(person_reco.age_max)}'
+                        person_reco.display_name = (
+                            f'{person_reco.display_name} '
+                            f'{person_reco.age_min}–{person_reco.age_max}'
+                            f' {age_wording(person_reco.age_max)}'
+                        )
                     else:
-                        person_reco.display_name = f'{person_reco.display_name} ' \
-                                                   f'{person_reco.age_max}' \
-                                                   f' {age_wording(person_reco.age_max)}'
+                        person_reco.display_name = (
+                            f'{person_reco.display_name} '
+                            f'{person_reco.age_max}'
+                            f' {age_wording(person_reco.age_max)}'
+                        )
 
                 return person_reco
 
             # CASE 3. When the "person" is defined as plural form  and ages like "people age, age"
-            case_3 = re.search(r'(?i)(?<!\d)(подростки|дети|люди|мужчины?|женщины?|мальчики|девочки|бабушки|дедушки)'
-                               r'\W{0,4}(?=\d)',
-                               name_string)
+            case_3 = re.search(
+                r'(?i)(?<!\d)(подростки|дети|люди|мужчины?|женщины?|мальчики|девочки|бабушки|дедушки)' r'\W{0,4}(?=\d)',
+                name_string,
+            )
             if case_3:
                 case_3 = case_3.group()
 
                 person_reco.num_of_per = -1
 
-                string_with_ages = name_string[re.search(case_3, name_string).span()[1]:]
+                string_with_ages = name_string[re.search(case_3, name_string).span()[1] :]
                 ages_list = re.findall(r'1?\d?\d(?=\W)', string_with_ages)
                 if ages_list:
                     ages_list.sort()
@@ -968,18 +1012,25 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
                 if person_reco.age_min and person_reco.age_max:
                     if person_reco.age_min != person_reco.age_max:
-                        person_reco.display_name = f'{person_reco.display_name} ' \
-                                                   f'{person_reco.age_min}–{person_reco.age_max}' \
-                                                   f' {age_wording(person_reco.age_max)}'
+                        person_reco.display_name = (
+                            f'{person_reco.display_name} '
+                            f'{person_reco.age_min}–{person_reco.age_max}'
+                            f' {age_wording(person_reco.age_max)}'
+                        )
                     else:
-                        person_reco.display_name = f'{person_reco.display_name} ' \
-                                                   f'{person_reco.age_max}' \
-                                                   f' {age_wording(person_reco.age_max)}'
+                        person_reco.display_name = (
+                            f'{person_reco.display_name} '
+                            f'{person_reco.age_max}'
+                            f' {age_wording(person_reco.age_max)}'
+                        )
                 return person_reco
 
             # CASE 4. When the whole person is defined as "role" only
-            if re.search(r'(?i)^(женщина|мужчина|декушка|человек|дочь|сын|жена|муж|отец|мать|папа|мама|'
-                         r'бабушка|дедушка)(?=\W{0,4}$)', name_string):
+            if re.search(
+                r'(?i)^(женщина|мужчина|декушка|человек|дочь|сын|жена|муж|отец|мать|папа|мама|'
+                r'бабушка|дедушка)(?=\W{0,4}$)',
+                name_string,
+            ):
                 person_reco.num_of_per = 1
                 person_reco.name = re.search(r'(?i)^\w*(?=\W{0,4}$)', name_string).group()
                 person_reco.display_name = 'Человек'
@@ -1008,7 +1059,6 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
         num_of_per_groups = len([x for x in curr_recognition.groups if x.type and x.type[0] == 'P'])
         for block in curr_recognition.blocks:
             if block.type and block.type[0] == 'P':
-
                 block.reco = PersonGroup()
                 final_num_of_pers = 0
                 num_of_groups_in_block = 0
@@ -1019,7 +1069,6 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                 # go to the level of PERSON GROUPS (subgroup in person block)
                 for group in curr_recognition.groups:
                     if group.type and group.type[0] == 'P':
-
                         num_of_groups_in_block += 1
 
                         # STEP 1. Define the number of persons for search
@@ -1067,7 +1116,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                 if block.reco.age_wording:
                     final_age_words = f' {block.reco.age_wording}'
                 else:
-                    final_age_words = f''
+                    final_age_words = ''
 
                 if final_pseudonym and final_num_of_pers == 1:
                     final_pseudonym = f'{final_pseudonym}{final_age_words}'
@@ -1078,8 +1127,10 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                         if not block.reco.age:  # added due to 5052
                             final_pseudonym = block.reco.name
                     else:
-                        final_pseudonym = f'{final_pseudonym} + {final_num_of_pers - first_group_num_of_pers} ' \
-                                          f'чел.{final_age_words}'
+                        final_pseudonym = (
+                            f'{final_pseudonym} + {final_num_of_pers - first_group_num_of_pers} '
+                            f'чел.{final_age_words}'
+                        )
                 elif final_pseudonym and num_of_groups_in_block == 1 and final_num_of_pers == -1:
                     final_pseudonym = f'{final_pseudonym}{final_age_words}'
                 else:
@@ -1094,7 +1145,6 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
         """Prettify (delete unneeded symbols) every location address"""
 
         for location in curr_recognition.groups:
-
             if location.type and location.type[0] == 'L':
                 location.reco = location.init
                 location.reco = re.sub(r'[,!?\s\-–—]{1,5}$', '', location.reco)
@@ -1107,7 +1157,6 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
         # level of PERSON BLOCKS (should be only one for each title)
         for block in curr_recognition.blocks:
             if block.type and block.type[0] == 'L':
-
                 block.reco = ''
 
                 # go to the level of LOCATION GROUPS (subgroup in locations block)
@@ -1130,7 +1179,6 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
         # FIXME ^^^
 
         if recognition:
-
             statuses_list = []
             for j, block in enumerate(recognition.groups):
                 if block.type and block.type == 'ST':
@@ -1151,7 +1199,6 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
             # if there are more than 1 status. have never seen 3, so stopping on 2
             elif len(statuses_list) > 1:
-
                 # if statuses goes one-just-after-another --> it means a mistake. Likely 1st status is correct
                 if statuses_list[1][0] - statuses_list[0][0] == 1:
                     recognition.st = statuses_list[0][1]
@@ -1161,7 +1208,6 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                     if statuses_list[0][1] == statuses_list[1][1]:
                         recognition.st = statuses_list[0][1]
                     else:
-
                         recognition.st = f'{statuses_list[0][1]} и {statuses_list[1][1]}'
 
         # FIXME - 07.11.2023 – for status_only debug
@@ -1176,7 +1222,6 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
         """Define the Total number of persons to search"""
 
         if recognition.act == 'search':
-
             # language=regexp
             patterns = [
                 [r'(?i)пропала?(?!и)', True],
@@ -1188,7 +1233,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                 [r'(?i)жива?(?!ы)', True],
                 [r'(?i)живы', False],
                 [r'(?i)погиб(ла)?(?!ли)', True],
-                [r'(?i)погибли', False]
+                [r'(?i)погибли', False],
             ]
 
             status_says_only_one_person = None  # can be None - unrecognized / True or False
@@ -1312,7 +1357,6 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
         persons = []
         locations = []
         for block in recognition.groups:
-
             if block.type == 'ACT':
                 final_dict['topic_type'] = block.reco
 
@@ -1372,8 +1416,12 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
             per_dict = {'total_persons': -1, 'total_name': 'Неизвестный', 'total_display_name': 'Неизвестный'}
             final_dict['persons'] = per_dict
 
-        if 'persons' in final_dict.keys() and 'total_persons' in final_dict['persons'].keys() and \
-                final_dict['persons']['total_persons'] == -1 and recognition_result.per_num == 1:
+        if (
+            'persons' in final_dict.keys()
+            and 'total_persons' in final_dict['persons'].keys()
+            and final_dict['persons']['total_persons'] == -1
+            and recognition_result.per_num == 1
+        ):
             final_dict['persons']['total_persons'] = 1
 
         return final_dict
@@ -1416,9 +1464,12 @@ def main(request):
     reco_title = recognize_title(title, reco_type)
 
     if not reco_title or ('topic_type' in reco_title.keys() and reco_title['topic_type'] == 'UNRECOGNIZED'):
-
-        response = {'status': 'fail', 'fail_reason': 'not able to recognize',
-                    'title': title, 'request': str(request.data)}
+        response = {
+            'status': 'fail',
+            'fail_reason': 'not able to recognize',
+            'title': title,
+            'request': str(request.data),
+        }
         response_json = json.dumps(response)
         return response_json
 

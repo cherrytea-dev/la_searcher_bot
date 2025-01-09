@@ -20,9 +20,9 @@ import google.cloud.logging
 import google.auth.transport.requests
 import google.oauth2.id_token
 
-url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
 req = urllib.request.Request(url)
-req.add_header("Metadata-Flavor", "Google")
+req.add_header('Metadata-Flavor', 'Google')
 project_id = urllib.request.urlopen(req).read().decode()
 
 client = secretmanager.SecretManagerServiceClient()
@@ -36,24 +36,22 @@ bad_gateway_counter = 0
 
 
 class Search:
-
-    def __init__(self,
-                 topic_id=None):
+    def __init__(self, topic_id=None):
         self.topic_id = topic_id
 
 
 class PercentGroup:
-
-    def __init__(self,
-                 n=None,
-                 start_percent=None,
-                 finish_percent=None,
-                 start_num=None,
-                 finish_num=None,
-                 frequency=None,
-                 first_delay=None,
-                 searches=None # noqa
-                 ):
+    def __init__(
+        self,
+        n=None,
+        start_percent=None,
+        finish_percent=None,
+        start_num=None,
+        finish_num=None,
+        frequency=None,
+        first_delay=None,
+        searches=None,  # noqa
+    ):
         searches = []
         self.n = n
         self.sp = start_percent
@@ -65,49 +63,47 @@ class PercentGroup:
         self.s = searches
 
     def __str__(self):
-        days = f' or {int(self.f // 1440)} day(s)' if self.f >= 1440 else f''
-        return f'N{self.n: <2}: {self.sp}%–{self.fp}%. Updated every {self.f} minute(s){days}. ' \
-               f'First delay = {self.d} minutes. nums {self.sn}-{self.fn}. num of searches {len(self.s)}'
+        days = f' or {int(self.f // 1440)} day(s)' if self.f >= 1440 else ''
+        return (
+            f'N{self.n: <2}: {self.sp}%–{self.fp}%. Updated every {self.f} minute(s){days}. '
+            f'First delay = {self.d} minutes. nums {self.sn}-{self.fn}. num of searches {len(self.s)}'
+        )
 
 
 def get_secrets(secret_request):
     """get GCP secret"""
 
-    name = f"projects/{project_id}/secrets/{secret_request}/versions/latest"
+    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
     response = client.access_secret_version(name=name)
 
-    return response.payload.data.decode("UTF-8")
+    return response.payload.data.decode('UTF-8')
 
 
 def sql_connect():
     """connect to PSQL in GCP"""
 
-    db_user = get_secrets("cloud-postgres-username")
-    db_pass = get_secrets("cloud-postgres-password")
-    db_name = get_secrets("cloud-postgres-db-name")
-    db_conn = get_secrets("cloud-postgres-connection-name")
-    db_socket_dir = "/cloudsql"
+    db_user = get_secrets('cloud-postgres-username')
+    db_pass = get_secrets('cloud-postgres-password')
+    db_name = get_secrets('cloud-postgres-db-name')
+    db_conn = get_secrets('cloud-postgres-connection-name')
+    db_socket_dir = '/cloudsql'
 
     db_config = {
-        "pool_size": 5,
-        "max_overflow": 0,
-        "pool_timeout": 0,  # seconds
-        "pool_recycle": 120,  # seconds
+        'pool_size': 5,
+        'max_overflow': 0,
+        'pool_timeout': 0,  # seconds
+        'pool_recycle': 120,  # seconds
     }
 
     pool = sqlalchemy.create_engine(
         sqlalchemy.engine.url.URL(
-            "postgresql+pg8000",
+            'postgresql+pg8000',
             username=db_user,
             password=db_pass,
             database=db_name,
-            query={
-                "unix_sock": "{}/{}/.s.PGSQL.5432".format(
-                    db_socket_dir,
-                    db_conn)
-            }
+            query={'unix_sock': '{}/{}/.s.PGSQL.5432'.format(db_socket_dir, db_conn)},
         ),
-        **db_config
+        **db_config,
     )
     pool.dialect.description_encoding = None
 
@@ -118,14 +114,20 @@ def publish_to_pubsub(topic_name, message):
     """publish a new message to pub/sub"""
 
     topic_path = publisher.topic_path(project_id, topic_name)
-    message_json = json.dumps({'data': {'message': message}, })
+    message_json = json.dumps(
+        {
+            'data': {'message': message},
+        }
+    )
     message_bytes = message_json.encode('utf-8')
 
     try:
         publish_future = publisher.publish(topic_path, data=message_bytes)
         publish_future.result()  # Verify the publishing succeeded
-        logging.info(f'Pub/sub message to topic {topic_name} with event_id = {publish_future.result()} has '
-                     f'been triggered. Content: {message}')
+        logging.info(
+            f'Pub/sub message to topic {topic_name} with event_id = {publish_future.result()} has '
+            f'been triggered. Content: {message}'
+        )
 
     except Exception as e:
         logging.info(f'Not able to send pub/sub message: {message}')
@@ -181,7 +183,6 @@ def update_one_topic_visibility(search_id):
 
     pool = sql_connect()
     with pool.connect() as conn:
-
         try:
             stmt = sqlalchemy.text("""DELETE FROM search_health_check WHERE search_forum_num=:a;""")
             conn.execute(stmt, a=search_id)
@@ -244,7 +245,7 @@ def parse_search(search_num):
     try:
         url = f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
         r = requests_session.get(url, timeout=10)  # seconds – not sure if it is efficient in this case
-        content = r.content.decode("utf-8")
+        content = r.content.decode('utf-8')
         content = None if content.find('502 Bad Gateway') > 0 else content
         site_unavailable = False if content else True
 
@@ -266,7 +267,7 @@ def make_api_call(function: str, data: dict) -> dict:
     audience = endpoint
     auth_req = google.auth.transport.requests.Request()
     id_token = google.oauth2.id_token.fetch_id_token(auth_req, audience)
-    headers = {"Authorization": f"Bearer {id_token}", 'Content-Type': 'application/json'}
+    headers = {'Authorization': f'Bearer {id_token}', 'Content-Type': 'application/json'}
 
     r = requests.post(endpoint, json=data, headers=headers)
     content = r.json()
@@ -297,11 +298,10 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
 
     if not status:
         try:
-            data = {"title": title, "reco_type": "status_only"}
+            data = {'title': title, 'reco_type': 'status_only'}
             title_reco_response = make_api_call('title_recognize', data)
 
-            if title_reco_response and 'status' in title_reco_response.keys() \
-                    and title_reco_response['status'] == 'ok':
+            if title_reco_response and 'status' in title_reco_response.keys() and title_reco_response['status'] == 'ok':
                 title_reco_dict = title_reco_response['recognition']
                 if 'status' in title_reco_dict.keys():
                     status = title_reco_dict['status']
@@ -374,11 +374,13 @@ def update_first_posts_and_statuses():
 
         while current_percent < 100:
             n = int(current_percent / percent_step)
-            new_group = PercentGroup(n=n,
-                                     start_percent=current_percent,
-                                     finish_percent=min(100, current_percent + percent_step - 1),
-                                     frequency=2 ** n,
-                                     first_delay=2 ** (n - 1) - 1 if n != 0 else 0)
+            new_group = PercentGroup(
+                n=n,
+                start_percent=current_percent,
+                finish_percent=min(100, current_percent + percent_step - 1),
+                frequency=2**n,
+                first_delay=2 ** (n - 1) - 1 if n != 0 else 0,
+            )
             list_of_groups.append(new_group)
             current_percent += percent_step
 
@@ -420,11 +422,11 @@ def update_first_posts_and_statuses():
         # TODO - seems can be much simplified with regex
         # cut the wording of the first post
         start = content.find('<div class="content">')
-        content = content[(start + 21):]
+        content = content[(start + 21) :]
 
         # find the next block and limit the content till this block
         next_block = content.find('<div class="back2top">')
-        content = content[:(next_block - 12)]
+        content = content[: (next_block - 12)]
 
         # cut out div closure
         fin_div = content.rfind('</div>')
@@ -432,22 +434,23 @@ def update_first_posts_and_statuses():
 
         # cut blank symbols in the end of code
         finish = content.rfind('>')
-        content = content[:(finish + 1)]
+        content = content[: (finish + 1)]
 
         # exclude dynamic info – views of the pictures
         patterns = re.findall(r'\) \d+ просмотр(?:а|ов)?', content)
         if patterns:
             for word in patterns:
-                content = content.replace(word, ")")
+                content = content.replace(word, ')')
 
         # exclude dynamic info - token / creation time / sid / etc / footer
-        patterns_list = [r'value="\S{10}"',
-                         r'value="\S{32}"',
-                         r'value="\S{40}"',
-                         r'sid=\S{32}&amp;',
-                         r'всего редактировалось \d+ раз.',  # AK:issue#9
-                         r'<span class="footer-info"><span title="SQL time:.{120,130}</span></span>'
-                         ]
+        patterns_list = [
+            r'value="\S{10}"',
+            r'value="\S{32}"',
+            r'value="\S{40}"',
+            r'sid=\S{32}&amp;',
+            r'всего редактировалось \d+ раз.',  # AK:issue#9
+            r'<span class="footer-info"><span title="SQL time:.{120,130}</span></span>',
+        ]
 
         patterns = []
         for pat in patterns_list:
@@ -496,7 +499,6 @@ def update_first_posts_and_statuses():
                 act_hash, act_content, site_unavailable, topic_not_found, topic_visibility = get_first_post(topic_id)
 
                 if not site_unavailable and not topic_not_found:
-
                     # check the latest hash
                     stmt = sqlalchemy.text("""
                             SELECT content_hash, num_of_checks, content from search_first_posts WHERE search_id=:a
@@ -506,12 +508,10 @@ def update_first_posts_and_statuses():
 
                     # if record for this search – exists
                     if raw_data:
-
                         last_hash = raw_data[0]
 
                         # if record for this search – outdated
                         if act_hash != last_hash and topic_visibility == 'regular':
-
                             # set all prev records as Actual = False
                             stmt = sqlalchemy.text("""
                                     UPDATE search_first_posts SET actual = FALSE WHERE search_id = :a;
@@ -524,8 +524,7 @@ def update_first_posts_and_statuses():
                                     (search_id, timestamp, actual, content_hash, content, num_of_checks)
                                     VALUES (:a, :b, TRUE, :c, :d, :e);
                                     """)
-                            conn.execute(stmt, a=topic_id, b=datetime.datetime.now(), c=act_hash,
-                                         d=act_content, e=1)
+                            conn.execute(stmt, a=topic_id, b=datetime.datetime.now(), c=act_hash, d=act_content, e=1)
 
                             list_of_searches_with_updated_f_posts.append(topic_id)
 
@@ -579,7 +578,7 @@ def update_first_posts_and_statuses():
     return None
 
 
-def main(event, context): # noqa
+def main(event, context):  # noqa
     """main function"""
 
     # to avoid function invocation except when it was initiated by scheduler (and pub/sub message was not doubled)

@@ -1,5 +1,5 @@
 """Function acts as API for Searches Map WebApp made as a part of Searcher Bot
- The current script checks Telegram authentication and retrieves user's key data and list of searches"""
+The current script checks Telegram authentication and retrieves user's key data and list of searches"""
 
 # TODO - add functions descriptions
 # TODO – add functions typing hints
@@ -15,15 +15,14 @@ import hmac
 import hashlib
 import psycopg2
 from bs4 import BeautifulSoup
-from typing import Dict
 
 import google.cloud.logging
 from google.cloud import secretmanager
 import functions_framework
 
-url = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
 req = urllib.request.Request(url)
-req.add_header("Metadata-Flavor", "Google")
+req.add_header('Metadata-Flavor', 'Google')
 project_id = urllib.request.urlopen(req).read().decode()
 client = secretmanager.SecretManagerServiceClient()
 
@@ -34,19 +33,19 @@ log_client.setup_logging()
 def get_secrets(secret_request):
     """Get GCP secret"""
 
-    name = f"projects/{project_id}/secrets/{secret_request}/versions/latest"
+    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
     response = client.access_secret_version(name=name)
 
-    return response.payload.data.decode("UTF-8")
+    return response.payload.data.decode('UTF-8')
 
 
 def sql_connect_by_psycopg2():
     """connect to GCP SLQ via PsycoPG2"""
 
-    db_user = get_secrets("cloud-postgres-username")
-    db_pass = get_secrets("cloud-postgres-password")
-    db_name = get_secrets("cloud-postgres-db-name")
-    db_conn = get_secrets("cloud-postgres-connection-name")
+    db_user = get_secrets('cloud-postgres-username')
+    db_pass = get_secrets('cloud-postgres-password')
+    db_name = get_secrets('cloud-postgres-db-name')
+    db_conn = get_secrets('cloud-postgres-connection-name')
     db_host = '/cloudsql/' + db_conn
 
     conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
@@ -68,7 +67,7 @@ def verify_telegram_data_json(user_input, token):
     for key, value in sorted_dict.items():
         if key != 'hash':
             data_array.append(f'{key}={value}')
-    data_check_string = "\n".join(data_array)
+    data_check_string = '\n'.join(data_array)
 
     # Convert bot_token to bytes and compute its SHA256 hash
     secret_key = hashlib.sha256(token.encode()).digest()
@@ -95,13 +94,13 @@ def verify_telegram_data_string(user_input, token):
     hash_item = ''
     telegram_hash = ''
     for item in data_check_arr:
-        if item[0:len(needle)] == needle:
-            telegram_hash = item[len(needle):]
+        if item[0 : len(needle)] == needle:
+            telegram_hash = item[len(needle) :]
             hash_item = item
     data_check_arr.remove(hash_item)
     data_check_arr.sort()
-    data_check_string = "\n".join(data_check_arr)
-    secret_key = hmac.new("WebAppData".encode(), token.encode(), hashlib.sha256).digest()
+    data_check_string = '\n'.join(data_check_arr)
+    secret_key = hmac.new('WebAppData'.encode(), token.encode(), hashlib.sha256).digest()
     calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
 
     if calculated_hash == telegram_hash:
@@ -150,7 +149,7 @@ def evaluate_city_locations(city_locations):
 
 
 def time_counter_since_search_start(start_time):
-    """Count timedelta since the beginning of search till now, return phrase in Russian and diff in days """
+    """Count timedelta since the beginning of search till now, return phrase in Russian and diff in days"""
 
     start_diff = datetime.timedelta(hours=0)
 
@@ -197,20 +196,20 @@ def get_user_data_from_db(user_id: int) -> dict:
     if user_id is not a user of bot – than retrieves a "demo" data with fake home coords, radius and real list of
     searches for Moscow Region"""
 
-    backend_data = {'user_id': user_id}
-
     conn_psy = sql_connect_by_psycopg2()
     cur = conn_psy.cursor()
 
     # create user basic parameters
-    cur.execute("""SELECT u.user_id, uc.latitude, uc.longitude, ur.radius
+    cur.execute(
+        """SELECT u.user_id, uc.latitude, uc.longitude, ur.radius
                     FROM users AS u
                     LEFT JOIN user_coordinates AS uc
                     ON u.user_id=uc.user_id
                     LEFT JOIN user_pref_radius AS ur
                     ON uc.user_id=ur.user_id
                     WHERE u.user_id=%s;""",
-                (user_id,))
+        (user_id,),
+    )
     raw_data = cur.fetchone()
 
     if not raw_data:
@@ -221,7 +220,8 @@ def get_user_data_from_db(user_id: int) -> dict:
         user_params['regions'] = [28, 29]  # Moscow + Moscow Region
 
         # create searches list – FOR DEMO ONLY Moscow Region (folders 276 and 41)
-        cur.execute("""WITH
+        cur.execute(
+            """WITH
             user_regions AS (
                 SELECT forum_folder_num from user_regional_preferences
                 WHERE forum_folder_num=276 OR forum_folder_num=41),
@@ -263,18 +263,25 @@ def get_user_data_from_db(user_id: int) -> dict:
                 LEFT JOIN change_log AS cl
                 ON s5.search_forum_num=cl.search_forum_num
                 ;""",
-                    (user_id,))
+            (user_id,),
+        )
 
     else:
         user_params = {'curr_user': True}
-        user_params['user_id'], user_params['home_lat'], user_params['home_lon'], user_params['radius'], = raw_data
+        (
+            user_params['user_id'],
+            user_params['home_lat'],
+            user_params['home_lon'],
+            user_params['radius'],
+        ) = raw_data
         if user_params['home_lat']:
             user_params['home_lat'] = float(user_params['home_lat'])
         if user_params['home_lon']:
             user_params['home_lon'] = float(user_params['home_lon'])
 
         # create folders (regions) list
-        cur.execute("""WITH
+        cur.execute(
+            """WITH
                         step_0 AS (
                             SELECT
                                 urp.forum_folder_num,
@@ -290,7 +297,8 @@ def get_user_data_from_db(user_id: int) -> dict:
                         SELECT distinct polygon_id
                         FROM step_0
                         ORDER BY 1;""",
-                    (user_id,))
+            (user_id,),
+        )
 
         raw_data = cur.fetchall()
         if not raw_data:
@@ -302,7 +310,8 @@ def get_user_data_from_db(user_id: int) -> dict:
             user_params['regions'] = user_regions
 
         # create searches list
-        cur.execute("""WITH
+        cur.execute(
+            """WITH
             user_regions AS (
                 select forum_folder_num from user_regional_preferences where user_id=%s),
             user_regions_filtered AS (
@@ -343,7 +352,8 @@ def get_user_data_from_db(user_id: int) -> dict:
                 LEFT JOIN change_log AS cl
                 ON s5.search_forum_num=cl.search_forum_num
                 ;""",
-                    (user_id,))
+            (user_id,),
+        )
 
     raw_data = cur.fetchall()
 
@@ -352,8 +362,23 @@ def get_user_data_from_db(user_id: int) -> dict:
     else:
         user_searches = []
         for line in raw_data:
-            search_id, search_start_time, display_name, status, family_name, topic_type, topic_type_id, \
-            city_locations, age_min, age_max, first_post, lat, lon, coord_type, last_change_time = line
+            (
+                search_id,
+                search_start_time,
+                display_name,
+                status,
+                family_name,
+                topic_type,
+                topic_type_id,
+                city_locations,
+                age_min,
+                age_max,
+                first_post,
+                lat,
+                lon,
+                coord_type,
+                last_change_time,
+            ) = line
 
             # define "freshness" of the search
             creation_freshness, creation_freshness_days = time_counter_since_search_start(search_start_time)
@@ -387,28 +412,28 @@ def get_user_data_from_db(user_id: int) -> dict:
                     coords = [[]]
 
             # define "link"
-            link = f"https://lizaalert.org/forum/viewtopic.php?t={search_id}"
+            link = f'https://lizaalert.org/forum/viewtopic.php?t={search_id}'
 
             # define "content"
             content = clean_up_content(first_post)
 
             # define "search_type"
             if topic_type_id == 0:
-                search_type = "Обычный поиск"
+                search_type = 'Обычный поиск'
             else:
-                search_type = "Особый поиск"  # TODO – to be decomposed in greater details
+                search_type = 'Особый поиск'  # TODO – to be decomposed in greater details
 
             user_search = {
-                "name": search_id,
-                "coords": coords,
-                "exact_coords": exact_coords,
-                "content": content,
-                "display_name": display_name,
-                "freshness": creation_freshness,
-                "link": link,
-                "search_status": status,
-                "search_type": search_type,
-                "search_is_old": search_is_old
+                'name': search_id,
+                'coords': coords,
+                'exact_coords': exact_coords,
+                'content': content,
+                'display_name': display_name,
+                'freshness': creation_freshness,
+                'link': link,
+                'search_status': status,
+                'search_type': search_type,
+                'search_is_old': search_is_old,
             }
 
             if coords[0]:
@@ -424,16 +449,18 @@ def get_user_data_from_db(user_id: int) -> dict:
 def save_user_statistics_to_db(user_id: int, response: bool) -> None:
     """save user's interaction into DB"""
 
-    json_to_save = json.dumps({"ok": response})
+    json_to_save = json.dumps({'ok': response})
 
     conn_psy = sql_connect_by_psycopg2()
     cur = conn_psy.cursor()
 
     try:
-        cur.execute("""INSERT INTO stat_map_usage
+        cur.execute(
+            """INSERT INTO stat_map_usage
                         (user_id, timestamp, response)
                         VALUES (%s, CURRENT_TIMESTAMP, %s);""",
-                    (user_id, json_to_save))
+            (user_id, json_to_save),
+        )
     except Exception as e:
         logging.exception(e)
 
@@ -445,13 +472,11 @@ def save_user_statistics_to_db(user_id: int, response: bool) -> None:
 
 def clean_up_content(init_content):
     def cook_soup(content):
-
         content = BeautifulSoup(content, 'lxml')
 
         return content
 
     def prettify_soup(content):
-
         for s in content.find_all('strong', {'class': 'text-strong'}):
             s.unwrap()
 
@@ -473,7 +498,6 @@ def clean_up_content(init_content):
         return content
 
     def remove_links(content):
-
         for tag in content.find_all('a'):
             if tag.name == 'a' and not re.search(r'\[[+−]]', tag.text):
                 tag.unwrap()
@@ -481,25 +505,26 @@ def clean_up_content(init_content):
         return content
 
     def remove_irrelevant_content(content):
-
         # language=regexp
-        patterns = r'(?i)(Карты.*\n|' \
-                   r'Ориентировка на печать.*\n|' \
-                   r'Ориентировка на репост.*\n|' \
-                   r'\[\+] СМИ.*\n|' \
-                   r'СМИ\s.*\n|' \
-                   r'Задача на поиске с которой может помочь каждый.*\n|' \
-                   r'ВНИМАНИЕ! Всем выезжающим иметь СИЗ.*\n|' \
-                   r'С признаками ОРВИ оставайтесь дома.*\n|' \
-                   r'Берегите себя и своих близких!.*\n|' \
-                   r'Если же представитель СМИ хочет.*\n|' \
-                   r'8\(800\)700-54-52 или.*\n|' \
-                   r'Предоставлять комментарии по поиску.*\n|' \
-                   r'Таблица прозвона больниц.*\n|' \
-                   r'Запрос на согласование фото.*(\n|(\s*)?$)|' \
-                   r'Все фото.*(\n|(\s*)?$)|' \
-                   r'Написать инфоргу.*в (Telegram|Телеграмм?)(\n|(\s*)?$)|' \
-                   r'Горячая линия отряда:.*(\n|(\s*)?$))'
+        patterns = (
+            r'(?i)(Карты.*\n|'
+            r'Ориентировка на печать.*\n|'
+            r'Ориентировка на репост.*\n|'
+            r'\[\+] СМИ.*\n|'
+            r'СМИ\s.*\n|'
+            r'Задача на поиске с которой может помочь каждый.*\n|'
+            r'ВНИМАНИЕ! Всем выезжающим иметь СИЗ.*\n|'
+            r'С признаками ОРВИ оставайтесь дома.*\n|'
+            r'Берегите себя и своих близких!.*\n|'
+            r'Если же представитель СМИ хочет.*\n|'
+            r'8\(800\)700-54-52 или.*\n|'
+            r'Предоставлять комментарии по поиску.*\n|'
+            r'Таблица прозвона больниц.*\n|'
+            r'Запрос на согласование фото.*(\n|(\s*)?$)|'
+            r'Все фото.*(\n|(\s*)?$)|'
+            r'Написать инфоргу.*в (Telegram|Телеграмм?)(\n|(\s*)?$)|'
+            r'Горячая линия отряда:.*(\n|(\s*)?$))'
+        )
 
         content = re.sub(patterns, '', content)
         content = re.sub(r'[\s_-]*$', '', content)
@@ -531,7 +556,7 @@ def clean_up_content(init_content):
 def main(request):
     # For more information about CORS and CORS preflight requests, see:
     # https://developer.mozilla.org/en-US/docs/Glossary/Preflight_request
-    allowed_origins = ["https://web_app.storage.googleapis.com", "https://storage.googleapis.com"]
+    allowed_origins = ['https://web_app.storage.googleapis.com', 'https://storage.googleapis.com']
     origin = None
     try:
         origin = request.headers.get('Origin')
@@ -546,22 +571,22 @@ def main(request):
     logging.info(f'{origin_to_show=}')
 
     # Set CORS headers for the preflight request
-    if request.method == "OPTIONS":
+    if request.method == 'OPTIONS':
         # Allows GET requests from any origin with the Content-Type
         # header and caches preflight response for an 3600s
         headers = {
-            "Access-Control-Allow-Origin": origin_to_show,
-            "Access-Control-Allow-Methods": ["GET", "POST", "OPTIONS"],
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Access-Control-Max-Age": "3600",
+            'Access-Control-Allow-Origin': origin_to_show,
+            'Access-Control-Allow-Methods': ['GET', 'POST', 'OPTIONS'],
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Max-Age': '3600',
         }  # https://storage.googleapis.com
 
         logging.info(f'{headers=}')
 
-        return ("", 204, headers)
+        return ('', 204, headers)
 
     # Set CORS headers for the main request
-    headers = {"Access-Control-Allow-Origin": origin_to_show}
+    headers = {'Access-Control-Allow-Origin': origin_to_show}
     logging.info(f'{headers=}')
 
     logging.info(request)
@@ -572,22 +597,22 @@ def main(request):
     reason = None
 
     if not request_json:
-        reason = f'No json/string received'
+        reason = 'No json/string received'
         logging.info(request_args)
 
     bot_token = get_secrets('bot_api_token__prod')
     process_the_data = verify_telegram_data(request_json, bot_token)
 
     if not process_the_data:
-        reason = f'Provided json is not validated'
+        reason = 'Provided json is not validated'
         logging.info(f'the incoming json is {request_json}')
 
     elif not isinstance(request_json, str) and 'id' not in request_json:
-        reason = f'No user_id in json provided'
+        reason = 'No user_id in json provided'
         logging.info(f'the incoming json is {request_json}')
 
     elif not isinstance(request_json, str) and 'id' in request_json and not isinstance(request_json['id'], int):
-        reason = f'user_id is not a digit'
+        reason = 'user_id is not a digit'
         logging.info(f'the incoming json is {request_json}')
 
     if reason:
