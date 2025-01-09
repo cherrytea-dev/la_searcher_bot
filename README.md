@@ -70,6 +70,25 @@ TL;DR:
 * contribution to CI/CD, PSQL, GCP or
 * improvement ideas – let's discuss in [community chat](https://t.me/+56GrL4LQ-og2NGEy).
 
+## Environment 
 
+First, install [UV](https://docs.astral.sh/uv) package/project manager and create venv:
 
+``` bash
+pip install uv
+make venv
+```
+
+Apply initial settings (.env, VSCode):
+``` bash
+cp .vscode/launch.template.json .vscode/launch.json
+cp .vscode/settings.template.json .vscode/settings.json
+cp .env.template .env
+```
+
+Run tests: `make test`
+
+Format code: `make lint`
+
+Update nested "requirements.txt" files: `make requirements`
 
