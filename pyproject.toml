@@ -30,14 +30,14 @@ archive_notifications = [
     "SQLAlchemy==1.4.11",
     "pg8000==1.19.4",
     "pytz",
-    "google-cloud-secret-manager==2.4.0",
-    "google-cloud-pubsub==2.6.0",
+    "google-cloud-secret-manager==2.16.0",
+    "google-cloud-pubsub==2.16.0",
 ]
 
 archive_to_bigquery = [
     "SQLAlchemy==1.4.11",
     "pg8000==1.19.4",
-    "google-cloud-secret-manager==2.4.0",
+    "google-cloud-secret-manager==2.16.0",
     "google-cloud-bigquery==3.3.6",
 ]
 
@@ -89,7 +89,7 @@ connect_to_forum = [
     "beautifulsoup4==4.9.3",
     "lxml==4.9.1",
     "pg8000==1.19.4",
-    "psycopg2==2.8.6",
+    "psycopg2-binary==2.9.5",
     "python-telegram-bot[rate-limiter, job-queue]==20.2",
     "httpx==0.23.3",
     "google-cloud-secret-manager==2.16.0",
@@ -147,9 +147,9 @@ manage_topics = [
 ]
 
 manage_users = [
-    "psycopg2-binary==2.9.5",              # <-- actual ver
-    "google-cloud-pubsub==2.16.0",         # ok
-    "google-cloud-secret-manager==2.16.0", # ok
+    "psycopg2-binary==2.9.5",
+    "google-cloud-pubsub==2.16.0",
+    "google-cloud-secret-manager==2.16.0",
 ]
 
 send_debug_to_admin = [
@@ -160,15 +160,15 @@ send_debug_to_admin = [
 ]
 
 send_news = [
-    "psycopg2==2.8.6",
+    "psycopg2-binary==2.9.5",
     "pg8000==1.19.4",
-    "python-telegram-bot==13.4.1",
-    "google-cloud-secret-manager==2.4.0",
+    "python-telegram-bot==20.2",  # TODO check after update from 13.4.1
+    "google-cloud-secret-manager==2.16.0",
 ]
 
 send_notifications = [
     "urllib3==1.26.18",
-    "psycopg2==2.8.6",
+    "psycopg2-binary==2.9.5",
     "httpx==0.23.3",
     "google-cloud-pubsub==2.16.0",
     "google-cloud-secret-manager==2.16.0",
@@ -177,7 +177,7 @@ send_notifications = [
 
 send_notifications_helper = [
     "urllib3==1.26.18",
-    "psycopg2==2.8.6",
+    "psycopg2-binary==2.9.5",
     "httpx==0.23.3",
     "google-cloud-pubsub==2.16.0",
     "google-cloud-secret-manager==2.16.0",
@@ -186,7 +186,7 @@ send_notifications_helper = [
 
 send_notifications_helper_2 = [
     "urllib3==1.26.18",
-    "psycopg2==2.8.6",
+    "psycopg2-binary==2.9.5",
     "httpx==0.23.3",
     "google-cloud-pubsub==2.16.0",
     "google-cloud-secret-manager==2.16.0",
