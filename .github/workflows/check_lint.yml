@@ -21,7 +21,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements-dev.txt
+          pip install uv
+          make venv
 
       - name: Run lint-check
         if: success()

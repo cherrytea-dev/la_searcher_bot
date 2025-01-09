@@ -209,3 +209,8 @@ users_activate = [
     "google-cloud-secret-manager==2.16.0",
     "google-cloud-logging==3.5.0",
 ]
+
+
+[tool.ruff]
+line-length = 120
+format.quote-style = 'single'
