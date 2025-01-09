@@ -26,7 +26,6 @@ requirements:
 	uv export --extra identify_updates_of_topics --no-hashes > src/identify_updates_of_topics/requirements.txt
 	uv export --extra manage_users --no-hashes > src/manage_users/requirements.txt
 	uv export --extra send_debug_to_admin --no-hashes > src/send_debug_to_admin/requirements.txt
-	uv export --extra send_news --no-hashes > src/send_news/requirements.txt
 	uv export --extra send_notifications --no-hashes > src/send_notifications/requirements.txt
 	uv export --extra send_notifications_helper --no-hashes > src/send_notifications_helper/requirements.txt
 	uv export --extra send_notifications_helper_2 --no-hashes > src/send_notifications_helper_2/requirements.txt
