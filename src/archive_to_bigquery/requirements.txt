@@ -6,8 +6,7 @@ certifi==2023.7.22
 charset-normalizer==3.4.1
 google-api-core==2.24.0
 google-auth==2.19.1
-google-cloud-bigquery==3.3.6
-google-cloud-bigquery-storage==2.27.0
+google-cloud-bigquery==3.27.0
 google-cloud-core==2.4.1
 google-cloud-secret-manager==2.16.0
 google-crc32c==1.6.0
@@ -18,12 +17,10 @@ grpc-google-iam-v1==0.14.0
 grpcio==1.69.0
 grpcio-status==1.62.3
 idna==2.10
-numpy==2.2.1
 packaging==21.3
 pg8000==1.19.4
 proto-plus==1.25.0
 protobuf==4.25.5
-pyarrow==10.0.1
 pyasn1==0.6.1
 pyasn1-modules==0.4.1
 pyparsing==3.2.1
