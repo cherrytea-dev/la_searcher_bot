@@ -3,3 +3,4 @@ polyfactory>=2.18
 pytest-cov>=6.0
 python-dotenv>=1.0
 ruff>=0.8
+uv>=0.5.15
