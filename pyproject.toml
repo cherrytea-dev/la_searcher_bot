@@ -1,0 +1,216 @@
+[project]
+name = "la-searcher-bot"
+version = "0.1.0"
+description = "Liza Alert searcher bot"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+
+[project.optional-dependencies]
+
+develop = [
+    "pytest>=7.0",
+    "polyfactory>=2.18",
+    "pytest-cov>=6.0",
+    "python-dotenv>=1.0",
+    "ruff>=0.8",
+    "uv>=0.5.15",
+]
+
+api_get_active_searches = [
+    "psycopg2-binary==2.9.5",
+    "beautifulsoup4==4.9.3",               # do we need to update it?
+    "lxml==4.9.1",
+    "google-cloud-logging==3.5.0",
+    "google-cloud-secret-manager==2.16.0",
+    "functions-framework==3.*",
+]
+
+archive_notifications = [
+    "SQLAlchemy==1.4.11",
+    "pg8000==1.19.4",
+    "pytz",
+    "google-cloud-secret-manager==2.16.0",
+    "google-cloud-pubsub==2.16.0",
+]
+
+archive_to_bigquery = [
+    "SQLAlchemy==1.4.11",
+    "pg8000==1.19.4",
+    "google-cloud-secret-manager==2.16.0",
+    "google-cloud-bigquery==3.3.6",
+]
+
+check_first_posts_for_changes = [
+    "requests==2.31.0",
+    "SQLAlchemy==1.4.11",
+    "pg8000==1.19.4",
+    "google-cloud-pubsub==2.16.0",
+    "google-cloud-secret-manager==2.16.0",
+    "google-cloud-logging==3.5.0",
+    "google-auth==2.19.1",                 # for API calls to other Google Cloud Functions
+]
+
+check_topics_by_upd_time = [
+    "requests==2.31.0",
+    "beautifulsoup4==4.9.3",
+    "lxml==4.9.1",
+    "google-cloud-pubsub==2.16.0",
+    "google-cloud-logging==3.5.0",
+]
+
+communicate = [
+    "psycopg2-binary==2.9.5",
+    "python-telegram-bot[rate-limiter, job-queue]==20.2",
+    "httpx==0.23.3",
+    "google-cloud-pubsub==2.16.0",
+    "google-cloud-secret-manager==2.16.0",
+    "google-cloud-logging==3.5.0",
+]
+
+compose_notifications = [
+    "requests==2.31.0",
+    "urllib3==1.26.18",                    # http client
+    "idna==2.10",                          # translation of domain names
+    "certifi==2023.7.22",                  # SSL certificates
+    "chardet==4.0.0",                      # encoding detector
+    "python-dateutil",                     # extension to datetime module
+    "pytz==2021.1",                        # timezone
+    "SQLAlchemy==1.4.11",
+    "pg8000==1.19.4",                      # PSQL driver
+    "google-cloud-pubsub==2.16.0",
+    "google-cloud-secret-manager==2.16.0",
+    "google-cloud-logging==3.5.0",
+]
+
+connect_to_forum = [
+    "requests==2.31.0",
+    "urllib3==1.26.18",
+    "beautifulsoup4==4.9.3",
+    "lxml==4.9.1",
+    "pg8000==1.19.4",
+    "psycopg2-binary==2.9.5",
+    "python-telegram-bot[rate-limiter, job-queue]==20.2",
+    "httpx==0.23.3",
+    "google-cloud-secret-manager==2.16.0",
+    "google-cloud-logging==3.5.0",
+]
+
+identify_updates_of_first_posts = [
+    "requests==2.31.0",
+    "SQLAlchemy==1.4.11",                  # <-- old version, but still works
+    "pg8000==1.19.4",                      # <-- do we need to update it?
+    "beautifulsoup4==4.9.3",               # do we need to update it?
+    "lxml==4.9.1",
+    "google-cloud-pubsub==2.16.0",
+    "google-cloud-secret-manager==2.16.0",
+    "google-cloud-logging==3.5.0",
+]
+
+identify_updates_of_folders = [
+    "requests==2.31.0",
+    "beautifulsoup4==4.9.3",
+    "lxml==4.9.1",
+    "google-cloud-pubsub==2.16.0",
+    "google-cloud-logging==3.5.0",
+    "google-cloud-storage==2.10.0",
+]
+
+identify_updates_of_topics = [
+    "requests==2.31.0",
+    "urllib3==1.26.18",                    # http client
+    "idna==2.10",                          # translation of domain names
+    "certifi==2023.7.22",                  # SSL certificates
+    "beautifulsoup4==4.9.3",               # BS4
+    "lxml==4.9.1",                         # for BS4
+    "chardet==4.0.0",                      # encoding detector
+    "cchardet==2.1.7",                     # encoding detector
+    "python-dateutil==2.8.2",              # extension to datetime module
+    "geopy==2.2.0",                        # geocoding / coordinates
+    "yandex-geocoder==3.0.1",              # # geocoding / coordinates
+    "SQLAlchemy==1.4.11",
+    "pg8000==1.19.4",                      # PSQL driver
+    "natasha==1.4.0",                      # recognition of person and location within text string
+    "google-cloud-pubsub==2.16.0",
+    "google-cloud-secret-manager==2.16.0",
+    "google-cloud-logging==3.5.0",
+    "google-cloud-storage==2.10.0",
+    "google-auth==2.19.1",                 # for API calls to other Google Cloud Functions
+]
+
+manage_topics = [
+    "SQLAlchemy==1.4.11",                  # <-- old version, but still works
+    "pg8000==1.19.4",                      # <-- old version, but still works
+    "google-cloud-pubsub==2.16.0",
+    "google-cloud-secret-manager==2.16.0",
+    "google-cloud-logging==3.5.0",
+]
+
+manage_users = [
+    "psycopg2-binary==2.9.5",
+    "google-cloud-pubsub==2.16.0",
+    "google-cloud-secret-manager==2.16.0",
+]
+
+send_debug_to_admin = [
+    "python-telegram-bot[rate-limiter, job-queue]==20.2",
+    "httpx==0.23.3",
+    "google-cloud-secret-manager==2.16.0",
+    "google-cloud-logging==3.5.0",
+]
+
+send_notifications = [
+    "urllib3==1.26.18",
+    "psycopg2-binary==2.9.5",
+    "httpx==0.23.3",
+    "google-cloud-pubsub==2.16.0",
+    "google-cloud-secret-manager==2.16.0",
+    "google-cloud-logging==3.5.0",
+]
+
+send_notifications_helper = [
+    "urllib3==1.26.18",
+    "psycopg2-binary==2.9.5",
+    "httpx==0.23.3",
+    "google-cloud-pubsub==2.16.0",
+    "google-cloud-secret-manager==2.16.0",
+    "google-cloud-logging==3.5.0",
+]
+
+send_notifications_helper_2 = [
+    "urllib3==1.26.18",
+    "psycopg2-binary==2.9.5",
+    "httpx==0.23.3",
+    "google-cloud-pubsub==2.16.0",
+    "google-cloud-secret-manager==2.16.0",
+    "google-cloud-logging==3.5.0",
+]
+
+title_recognize = [
+    "python-dateutil==2.8.2",      # extension to datetime module
+    "natasha==1.4.0",              # recognition of person and location within text string
+    "google-cloud-logging==3.5.0",
+    "functions-framework==3.4.0",  # a part of Google Cloud Functions Gen 2 framework
+]
+
+user_provide_info = [
+    "psycopg2-binary==2.9.5",
+    "beautifulsoup4==4.9.3",               # do we need to update it?
+    "lxml==4.9.1",
+    "google-cloud-logging==3.5.0",
+    "google-cloud-secret-manager==2.16.0",
+    "functions-framework==3.*",
+]
+
+users_activate = [
+    "psycopg2-binary==2.9.5",
+    "google-cloud-pubsub==2.16.0",
+    "google-cloud-secret-manager==2.16.0",
+    "google-cloud-logging==3.5.0",
+]
+
+
+[tool.ruff]
+line-length = 120
+format.quote-style = 'single'

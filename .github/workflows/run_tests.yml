@@ -24,7 +24,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements-dev.txt -r src/communicate/requirements.txt -r src/send_debug_to_admin/requirements.txt
+          pip install uv
+          make venv
       - name: Run pytest
         if: success()
         run: |
