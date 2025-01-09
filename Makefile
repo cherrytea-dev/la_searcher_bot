@@ -2,7 +2,7 @@ venv:
 	uv sync --all-groups --all-extras
 
 test:
-	pytest .
+	uv run pytest .
 
 lint:
 	uv run ruff format src tests
