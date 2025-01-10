@@ -39,7 +39,7 @@ archive_to_bigquery = [
     "SQLAlchemy==1.4.11",
     "pg8000==1.19.4",
     "google-cloud-secret-manager==2.16.0",
-    "google-cloud-bigquery==3.3.6",
+    "google-cloud-bigquery==3.27.0",
 ]
 
 check_first_posts_for_changes = [
