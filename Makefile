@@ -1,5 +1,5 @@
 venv:
-	uv sync --all-groups --all-extras
+	uv sync --all-groups --all-extras --locked
 
 test:
 	uv run pytest .
@@ -16,3 +16,6 @@ requirements:
 	for d in $$(ls -1 src); do \
 		uv export --extra $$d --no-hashes > src/$$d/requirements.txt; \
 	done
+
+ci-test:
+	docker compose run --build --rm bot make test
