@@ -1,15 +1,14 @@
 import json
-import re
 import logging
-from typing import Union, Dict
+import re
 from datetime import datetime
-from dateutil import relativedelta
+from typing import Dict, Union
 
-from natasha import Segmenter, NewsEmbedding, NewsNERTagger, Doc
-from flask import Request
-import google.cloud.logging
 import functions_framework
-
+import google.cloud.logging
+from dateutil import relativedelta
+from flask import Request
+from natasha import Doc, NewsEmbedding, NewsNERTagger, Segmenter
 
 log_client = google.cloud.logging.Client()
 log_client.setup_logging()

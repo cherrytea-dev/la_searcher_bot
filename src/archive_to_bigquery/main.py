@@ -4,9 +4,7 @@ import logging
 import urllib.request
 
 import sqlalchemy
-
-from google.cloud import bigquery
-from google.cloud import secretmanager
+from google.cloud import bigquery, secretmanager
 
 url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
 req = urllib.request.Request(url)
