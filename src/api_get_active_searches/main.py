@@ -5,14 +5,31 @@ import datetime
 import json
 import logging
 import re
+import urllib.request
 
 import functions_framework
+import google.cloud.logging
 import psycopg2
 from bs4 import BeautifulSoup
+from google.cloud import secretmanager
 
-from _dependencies.funcs import get_secrets, setup_google_logging
+url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
+req = urllib.request.Request(url)
+req.add_header('Metadata-Flavor', 'Google')
+project_id = urllib.request.urlopen(req).read().decode()
+client = secretmanager.SecretManagerServiceClient()
 
-setup_google_logging()
+log_client = google.cloud.logging.Client()
+log_client.setup_logging()
+
+
+def get_secrets(secret_request):
+    """Get GCP secret"""
+
+    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
+    response = client.access_secret_version(name=name)
+
+    return response.payload.data.decode('UTF-8')
 
 
 def sql_connect_by_psycopg2():

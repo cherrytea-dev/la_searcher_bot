@@ -1,13 +1,13 @@
 name: Deploy-GCF-Users-Activate # UPD HERE!
 env:
   FILE_NAME: users_activate # UPD HERE!
-#change to trigger pipeline 2
+
 on:
   push:
     branches : [main]
     paths:
-      - 'src/_dependencies/*' # UPD HERE!
-      - 'src/users_activate/*' # UPD HERE!
+      - 'src/users_activate/main.py' # UPD HERE!
+      - 'src/users_activate/requirements.txt' # UPD HERE!
       - '.github/workflows/deploy_users_activate.yml' # UPD HERE!
 
 jobs:
@@ -16,9 +16,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-
-      - name: Make dependencies
-        run: make dependencies
 
       - name: Authenticate in GCP
         id: auth
