@@ -14,7 +14,7 @@ from sqlalchemy import create_engine as create_engine_original
 
 from tests.common import get_config
 
-USE_REAL_DB = True
+USE_REAL_DB = False
 
 load_dotenv()
 
