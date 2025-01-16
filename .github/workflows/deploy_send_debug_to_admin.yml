@@ -6,8 +6,8 @@ on:
   push:
     branches : [main]
     paths:
-      - 'src/send_debug_to_admin/main.py' # UPD HERE!
-      - 'src/send_debug_to_admin/requirements.txt' # UPD HERE!
+      - 'src/_dependencies/*'
+      - 'src/send_debug_to_admin/*' # UPD HERE!
       - '.github/workflows/deploy_send_debug_to_admin.yml' # UPD HERE!
 
 jobs:
@@ -16,6 +16,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+
+      - name: Make dependencies
+        run: make dependencies
 
       - name: Authenticate in GCP
         id: auth

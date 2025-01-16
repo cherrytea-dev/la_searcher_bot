@@ -4,12 +4,11 @@ from unittest.mock import AsyncMock, patch
 from telegram import Bot
 from telegram.ext import ExtBot
 
+from send_debug_to_admin.main import main
 from tests.common import get_config, get_event_with_data
 
 
 def test_main_positive():
-    from send_debug_to_admin.main import main
-
     message_text = 'some text'
     event = get_event_with_data(message_text)
 
@@ -25,8 +24,6 @@ def test_main_positive():
 
 
 def test_main_with_exception():
-    from send_debug_to_admin.main import main
-
     message_text = 'some text'
     data = base64.b64encode(str({'data': {'message': message_text}}).encode())
     event = {'data': data}
