@@ -7,8 +7,6 @@ from api_get_active_searches import main
 
 
 def test_main():
-    from api_get_active_searches.main import main
-
     app = Flask(__name__)
 
     with app.test_request_context('/', json={'app_id': 1}) as app:
