@@ -836,7 +836,9 @@ dependencies = [
     { name = "google-cloud-logging" },
     { name = "google-cloud-pubsub" },
     { name = "google-cloud-secret-manager" },
+    { name = "psycopg2-binary" },
     { name = "pydantic-settings" },
+    { name = "sqlalchemy" },
 ]
 
 [package.optional-dependencies]
@@ -844,23 +846,16 @@ api-get-active-searches = [
     { name = "beautifulsoup4" },
     { name = "functions-framework" },
     { name = "lxml" },
-    { name = "psycopg2-binary" },
 ]
 archive-notifications = [
-    { name = "psycopg2-binary" },
     { name = "pytz" },
-    { name = "sqlalchemy" },
 ]
 archive-to-bigquery = [
     { name = "google-cloud-bigquery" },
-    { name = "psycopg2-binary" },
-    { name = "sqlalchemy" },
 ]
 check-first-posts-for-changes = [
     { name = "google-auth" },
-    { name = "psycopg2-binary" },
     { name = "requests" },
-    { name = "sqlalchemy" },
 ]
 check-topics-by-upd-time = [
     { name = "beautifulsoup4" },
@@ -869,25 +864,21 @@ check-topics-by-upd-time = [
 ]
 communicate = [
     { name = "httpx" },
-    { name = "psycopg2-binary" },
     { name = "python-telegram-bot", extra = ["job-queue", "rate-limiter"] },
 ]
 compose-notifications = [
     { name = "certifi" },
     { name = "chardet" },
     { name = "idna" },
-    { name = "psycopg2-binary" },
     { name = "python-dateutil" },
     { name = "pytz" },
     { name = "requests" },
-    { name = "sqlalchemy" },
     { name = "urllib3" },
 ]
 connect-to-forum = [
     { name = "beautifulsoup4" },
     { name = "httpx" },
     { name = "lxml" },
-    { name = "psycopg2-binary" },
     { name = "python-telegram-bot", extra = ["job-queue", "rate-limiter"] },
     { name = "requests" },
     { name = "urllib3" },
@@ -905,9 +896,7 @@ develop = [
 identify-updates-of-first-posts = [
     { name = "beautifulsoup4" },
     { name = "lxml" },
-    { name = "psycopg2-binary" },
     { name = "requests" },
-    { name = "sqlalchemy" },
 ]
 identify-updates-of-folders = [
     { name = "beautifulsoup4" },
@@ -926,19 +915,10 @@ identify-updates-of-topics = [
     { name = "idna" },
     { name = "lxml" },
     { name = "natasha" },
-    { name = "psycopg2-binary" },
     { name = "python-dateutil" },
     { name = "requests" },
-    { name = "sqlalchemy" },
     { name = "urllib3" },
     { name = "yandex-geocoder" },
-]
-manage-topics = [
-    { name = "psycopg2-binary" },
-    { name = "sqlalchemy" },
-]
-manage-users = [
-    { name = "psycopg2-binary" },
 ]
 send-debug-to-admin = [
     { name = "httpx" },
@@ -946,17 +926,14 @@ send-debug-to-admin = [
 ]
 send-notifications = [
     { name = "httpx" },
-    { name = "psycopg2-binary" },
     { name = "urllib3" },
 ]
 send-notifications-helper = [
     { name = "httpx" },
-    { name = "psycopg2-binary" },
     { name = "urllib3" },
 ]
 send-notifications-helper-2 = [
     { name = "httpx" },
-    { name = "psycopg2-binary" },
     { name = "urllib3" },
 ]
 title-recognize = [
@@ -968,10 +945,6 @@ user-provide-info = [
     { name = "beautifulsoup4" },
     { name = "functions-framework" },
     { name = "lxml" },
-    { name = "psycopg2-binary" },
-]
-users-activate = [
-    { name = "psycopg2-binary" },
 ]
 
 [package.metadata]
@@ -1018,22 +991,7 @@ requires-dist = [
     { name = "natasha", marker = "extra == 'identify-updates-of-topics'", specifier = "==1.4.0" },
     { name = "natasha", marker = "extra == 'title-recognize'", specifier = "==1.4.0" },
     { name = "polyfactory", marker = "extra == 'develop'", specifier = ">=2.18" },
-    { name = "psycopg2-binary", marker = "extra == 'api-get-active-searches'", specifier = "==2.9.5" },
-    { name = "psycopg2-binary", marker = "extra == 'archive-notifications'", specifier = "==2.9.5" },
-    { name = "psycopg2-binary", marker = "extra == 'archive-to-bigquery'", specifier = "==2.9.5" },
-    { name = "psycopg2-binary", marker = "extra == 'check-first-posts-for-changes'", specifier = "==2.9.5" },
-    { name = "psycopg2-binary", marker = "extra == 'communicate'", specifier = "==2.9.5" },
-    { name = "psycopg2-binary", marker = "extra == 'compose-notifications'", specifier = "==2.9.5" },
-    { name = "psycopg2-binary", marker = "extra == 'connect-to-forum'", specifier = "==2.9.5" },
-    { name = "psycopg2-binary", marker = "extra == 'identify-updates-of-first-posts'", specifier = "==2.9.5" },
-    { name = "psycopg2-binary", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.9.5" },
-    { name = "psycopg2-binary", marker = "extra == 'manage-topics'", specifier = "==2.9.5" },
-    { name = "psycopg2-binary", marker = "extra == 'manage-users'", specifier = "==2.9.5" },
-    { name = "psycopg2-binary", marker = "extra == 'send-notifications'", specifier = "==2.9.5" },
-    { name = "psycopg2-binary", marker = "extra == 'send-notifications-helper'", specifier = "==2.9.5" },
-    { name = "psycopg2-binary", marker = "extra == 'send-notifications-helper-2'", specifier = "==2.9.5" },
-    { name = "psycopg2-binary", marker = "extra == 'user-provide-info'", specifier = "==2.9.5" },
-    { name = "psycopg2-binary", marker = "extra == 'users-activate'", specifier = "==2.9.5" },
+    { name = "psycopg2-binary", specifier = "==2.9.5" },
     { name = "pyannotate", marker = "extra == 'develop'", specifier = "==1.2.*" },
     { name = "pydantic-settings", specifier = "==2.*" },
     { name = "pytest", marker = "extra == 'develop'", specifier = ">=7.0" },
@@ -1056,13 +1014,7 @@ requires-dist = [
     { name = "requests", marker = "extra == 'identify-updates-of-folders'", specifier = "==2.31.0" },
     { name = "requests", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.31.0" },
     { name = "ruff", marker = "extra == 'develop'", specifier = ">=0.8" },
-    { name = "sqlalchemy", marker = "extra == 'archive-notifications'", specifier = "==1.4.11" },
-    { name = "sqlalchemy", marker = "extra == 'archive-to-bigquery'", specifier = "==1.4.11" },
-    { name = "sqlalchemy", marker = "extra == 'check-first-posts-for-changes'", specifier = "==1.4.11" },
-    { name = "sqlalchemy", marker = "extra == 'compose-notifications'", specifier = "==1.4.11" },
-    { name = "sqlalchemy", marker = "extra == 'identify-updates-of-first-posts'", specifier = "==1.4.11" },
-    { name = "sqlalchemy", marker = "extra == 'identify-updates-of-topics'", specifier = "==1.4.11" },
-    { name = "sqlalchemy", marker = "extra == 'manage-topics'", specifier = "==1.4.11" },
+    { name = "sqlalchemy", specifier = "==1.4.11" },
     { name = "urllib3", marker = "extra == 'compose-notifications'", specifier = "==1.26.18" },
     { name = "urllib3", marker = "extra == 'connect-to-forum'", specifier = "==1.26.18" },
     { name = "urllib3", marker = "extra == 'identify-updates-of-topics'", specifier = "==1.26.18" },

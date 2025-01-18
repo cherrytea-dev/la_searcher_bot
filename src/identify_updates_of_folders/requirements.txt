@@ -17,6 +17,7 @@ google-cloud-storage==2.10.0
 google-crc32c==1.6.0
 google-resumable-media==2.7.2
 googleapis-common-protos==1.66.0
+greenlet==3.1.1
 grpc-google-iam-v1==0.14.0
 grpcio==1.69.0
 grpcio-status==1.62.3
@@ -24,6 +25,7 @@ idna==2.10
 lxml==4.9.1
 proto-plus==1.25.0
 protobuf==4.25.5
+psycopg2-binary==2.9.5
 pyasn1==0.6.1
 pyasn1-modules==0.4.1
 pydantic==2.10.4
@@ -34,5 +36,6 @@ requests==2.31.0
 rsa==4.9
 six==1.17.0
 soupsieve==2.6
+sqlalchemy==1.4.11
 typing-extensions==4.12.2
 urllib3==1.26.18
