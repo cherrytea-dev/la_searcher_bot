@@ -12,6 +12,7 @@ dependencies = [
     "psycopg2-binary==2.9.5",
     "pg8000==1.19.4",
     "SQLAlchemy==1.4.11",
+    "nest_asyncio",
 ]
 
 

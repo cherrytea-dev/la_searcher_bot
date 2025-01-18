@@ -2239,7 +2239,7 @@ def api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, u
     return result
 
 
-def get_the_update(bot, request):
+def get_the_update(bot: Bot, request: Request) -> Update | None:
     """converts a request to an update"""
 
     try:
@@ -2720,6 +2720,11 @@ def main(request: Request) -> str:
     bot_token = get_app_config().bot_api_token__prod
     bot = Bot(token=bot_token)
     update = get_the_update(bot, request)
+    return process_update(update)
+
+
+def process_update(update: Update) -> str:
+    bot_token = get_app_config().bot_api_token__prod
 
     (
         user_new_status,
