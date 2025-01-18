@@ -2,11 +2,11 @@ name: Deploy-GCF-Send-Notifications
 
 on:
   push:
-    branches : main
+    branches : [main]
     paths:
-      - 'src/send_notifications/main.py'
-      - 'src/send_notifications/requirements.txt'
-      - '.github/workflows/deploy_send_notifications.yml'
+      - 'src/_dependencies/*'
+      - 'src/send_notifications/*' # UPD HERE!
+      - '.github/workflows/deploy_send_notifications.yml' # UPD HERE!
 
 jobs:
   deploy_function:

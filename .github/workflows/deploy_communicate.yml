@@ -6,8 +6,8 @@ on:
   push:
     branches : [main]
     paths:
-      - 'src/communicate/main.py' # UPD HERE!
-      - 'src/communicate/requirements.txt' # UPD HERE!
+      - 'src/_dependencies/*'
+      - 'src/communicate/*' # UPD HERE!
       - '.github/workflows/deploy_communicate.yml' # UPD HERE!
 
 jobs:

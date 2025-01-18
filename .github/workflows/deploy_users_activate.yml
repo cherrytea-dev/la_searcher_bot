@@ -6,8 +6,8 @@ on:
   push:
     branches : [main]
     paths:
-      - 'src/users_activate/main.py' # UPD HERE!
-      - 'src/users_activate/requirements.txt' # UPD HERE!
+      - 'src/_dependencies/*'
+      - 'src/users_activate/*' # UPD HERE!
       - '.github/workflows/deploy_users_activate.yml' # UPD HERE!
 
 jobs:

@@ -6,8 +6,8 @@ on:
   push:
     branches : [main]
     paths:
-      - 'src/check_first_posts_for_changes/main.py' # UPD HERE!
-      - 'src/check_first_posts_for_changes/requirements.txt' # UPD HERE!
+      - 'src/_dependencies/*'
+      - 'src/check_first_posts_for_changes/*' # UPD HERE!
       - '.github/workflows/deploy_check_first_posts_for_changes.yml' # UPD HERE!
 
 jobs:

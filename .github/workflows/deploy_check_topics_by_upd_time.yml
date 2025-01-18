@@ -6,8 +6,8 @@ on:
   push:
     branches : [main]
     paths:
-      - 'src/check_topics_by_upd_time/main.py' # UPD HERE!
-      - 'src/check_topics_by_upd_time/requirements.txt' # UPD HERE!
+      - 'src/_dependencies/*'
+      - 'src/check_topics_by_upd_time/*' # UPD HERE!
       - '.github/workflows/deploy_check_topics_by_upd_time.yml' # UPD HERE!
 
 jobs:

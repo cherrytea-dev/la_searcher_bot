@@ -4,11 +4,11 @@ env:
 
 on:
   push:
-    branches : main
+    branches : [main]
     paths:
-      - 'src/identify_updates_of_topics/main.py'
-      - 'src/identify_updates_of_topics/requirements.txt'
-      - '.github/workflows/deploy_identify_updates_of_topics.yml'
+      - 'src/_dependencies/*'
+      - 'src/identify_updates_of_topics/*' # UPD HERE!
+      - '.github/workflows/deploy_identify_updates_of_topics.yml' # UPD HERE!
 
 jobs:
   deploy_function:
