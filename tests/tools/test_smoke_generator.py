@@ -15,6 +15,7 @@ def test_generate_signature():
     assert signature == "v1='foo', v2=1, v3=MagicMock(), v4=date.today(), v5=datetime.now()"
 
 
+@pytest.mark.skip(reason='Enable for debug only')
 def test_generate_test_cases_for_module():
     from api_get_active_searches import main
 

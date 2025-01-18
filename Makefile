@@ -24,7 +24,8 @@ requirements:
 	done
 
 ci-test:
-	docker compose run --build --rm bot make initdb && make test
+	docker compose run --build --rm bot make initdb
+	docker compose run --build --rm bot make test
 
 dependencies:
 	echo "Copy common code to deploy Google Cloud Functions"
