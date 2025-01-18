@@ -6,29 +6,24 @@ Updates are either saved in PSQL or send via pub/sub to other scripts"""
 
 import datetime
 import hashlib
-import json
 import logging
 import re
-import urllib.request
+from typing import Any, List, Optional, Tuple
 
-import google.auth.transport.requests
-import google.cloud.logging
-import google.oauth2.id_token
 import requests
 import sqlalchemy  # idea for optimization – to move to psycopg2
-from google.cloud import pubsub_v1, secretmanager
 
-url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
-req = urllib.request.Request(url)
-req.add_header('Metadata-Flavor', 'Google')
-project_id = urllib.request.urlopen(req).read().decode()
+from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
+from _dependencies.misc import make_api_call, notify_admin
 
-client = secretmanager.SecretManagerServiceClient()
+setup_google_logging()
+
+
+def sql_connect() -> sqlalchemy.engine.Engine:
+    return sqlalchemy_get_pool(5, 120)
+
+
 requests_session = requests.Session()
-publisher = pubsub_v1.PublisherClient()
-
-log_client = google.cloud.logging.Client()
-log_client.setup_logging()
 
 bad_gateway_counter = 0
 
@@ -68,81 +63,7 @@ class PercentGroup:
         )
 
 
-def get_secrets(secret_request):
-    """get GCP secret"""
-
-    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
-    response = client.access_secret_version(name=name)
-
-    return response.payload.data.decode('UTF-8')
-
-
-def sql_connect():
-    """connect to PSQL in GCP"""
-
-    db_user = get_secrets('cloud-postgres-username')
-    db_pass = get_secrets('cloud-postgres-password')
-    db_name = get_secrets('cloud-postgres-db-name')
-    db_conn = get_secrets('cloud-postgres-connection-name')
-    db_socket_dir = '/cloudsql'
-
-    db_config = {
-        'pool_size': 5,
-        'max_overflow': 0,
-        'pool_timeout': 0,  # seconds
-        'pool_recycle': 120,  # seconds
-    }
-
-    pool = sqlalchemy.create_engine(
-        sqlalchemy.engine.url.URL(
-            'postgresql+pg8000',
-            username=db_user,
-            password=db_pass,
-            database=db_name,
-            query={'unix_sock': '{}/{}/.s.PGSQL.5432'.format(db_socket_dir, db_conn)},
-        ),
-        **db_config,
-    )
-    pool.dialect.description_encoding = None
-
-    return pool
-
-
-def publish_to_pubsub(topic_name, message):
-    """publish a new message to pub/sub"""
-
-    topic_path = publisher.topic_path(project_id, topic_name)
-    message_json = json.dumps(
-        {
-            'data': {'message': message},
-        }
-    )
-    message_bytes = message_json.encode('utf-8')
-
-    try:
-        publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publishing succeeded
-        logging.info(
-            f'Pub/sub message to topic {topic_name} with event_id = {publish_future.result()} has '
-            f'been triggered. Content: {message}'
-        )
-
-    except Exception as e:
-        logging.info(f'Not able to send pub/sub message: {message}')
-        logging.exception(e)
-
-    return None
-
-
-def notify_admin(message):
-    """send the pub/sub message to Debug to Admin"""
-
-    publish_to_pubsub('topic_notify_admin', message)
-
-    return None
-
-
-def define_topic_visibility_by_content(content):
+def define_topic_visibility_by_content(content: str) -> str:
     """define visibility for the topic's content: regular, hidden or deleted"""
 
     if content.find('Запрошенной темы не существует.') > -1:
@@ -155,7 +76,7 @@ def define_topic_visibility_by_content(content):
     return visibility
 
 
-def define_topic_visibility_by_topic_id(search_num):
+def define_topic_visibility_by_topic_id(search_num) -> Tuple[bool, str]:
     """check is the existing search was deleted or hidden"""
 
     content, site_unavailable = parse_search(search_num)
@@ -234,7 +155,7 @@ def update_visibility_for_one_hidden_topic():
     return None
 
 
-def parse_search(search_num):
+def parse_search(search_num) -> Tuple[str, bool]:
     """parse the whole search page"""
 
     global requests_session
@@ -255,25 +176,7 @@ def parse_search(search_num):
     return content, site_unavailable
 
 
-def make_api_call(function: str, data: dict) -> dict:
-    """makes an API call to another Google Cloud Function"""
-
-    # function we're turing to "title_recognize"
-    endpoint = f'https://europe-west3-lizaalert-bot-01.cloudfunctions.net/{function}'
-
-    # required magic for Google Cloud Functions Gen2 to invoke each other
-    audience = endpoint
-    auth_req = google.auth.transport.requests.Request()
-    id_token = google.oauth2.id_token.fetch_id_token(auth_req, audience)
-    headers = {'Authorization': f'Bearer {id_token}', 'Content-Type': 'application/json'}
-
-    r = requests.post(endpoint, json=data, headers=headers)
-    content = r.json()
-
-    return content
-
-
-def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
+def get_status_from_content_and_send_to_topic_management(topic_id: str, act_content: str):
     """block to check if Status of the search has changed – if so send a pub/sub to topic_management"""
 
     # get the Title out of page content (intentionally avoid BS4 to make pack slimmer)
@@ -315,7 +218,7 @@ def get_status_from_content_and_send_to_topic_management(topic_id, act_content):
     if not status or status == 'Ищем':
         return None
 
-    publish_to_pubsub('topic_for_topic_management', {'topic_id': topic_id, 'status': status})
+    publish_to_pubsub(Topics.topic_for_topic_management, {'topic_id': topic_id, 'status': status})
 
     return None
 
@@ -363,7 +266,7 @@ def update_first_posts_and_statuses():
 
         return base_table_of_objects
 
-    def generate_list_of_topic_groups():
+    def generate_list_of_topic_groups() -> List[PercentGroup]:
         """generate N search groups, groups needed to define which part of all searches will be checked now"""
 
         percent_step = 5
@@ -384,7 +287,7 @@ def update_first_posts_and_statuses():
 
         return list_of_groups
 
-    def define_which_topic_groups_to_be_checked(list_of_groups):
+    def define_which_topic_groups_to_be_checked(list_of_groups: List[PercentGroup]) -> List[PercentGroup]:
         """gives an output of 2 groups that should be checked for this time"""
 
         start_time = datetime.datetime(2023, 1, 1, 0, 0, 0)
@@ -398,7 +301,7 @@ def update_first_posts_and_statuses():
 
         return curr_minute_list
 
-    def enrich_groups_with_topics(list_of_groups, list_of_s):
+    def enrich_groups_with_topics(list_of_groups: List[PercentGroup], list_of_s: List) -> List[PercentGroup]:
         """add searches to the chosen groups"""
 
         num_of_searches = len(list_of_s)
@@ -414,7 +317,7 @@ def update_first_posts_and_statuses():
 
         return list_of_groups
 
-    def prettify_content(content):
+    def prettify_content(content: str) -> str:
         """remove the irrelevant code from the first page content"""
 
         # TODO - seems can be much simplified with regex
@@ -571,7 +474,7 @@ def update_first_posts_and_statuses():
     if not list_of_topics_with_updated_first_posts:
         return None
 
-    publish_to_pubsub('topic_for_first_post_processing', list_of_topics_with_updated_first_posts)
+    publish_to_pubsub(Topics.topic_for_first_post_processing, list_of_topics_with_updated_first_posts)
 
     return None
 
@@ -594,7 +497,7 @@ def main(event, context):  # noqa
     update_visibility_for_one_hidden_topic()
 
     if bad_gateway_counter > 3:
-        publish_to_pubsub('topic_notify_admin', f'[che_posts]: Bad Gateway {bad_gateway_counter} times')
+        publish_to_pubsub(Topics.topic_notify_admin, f'[che_posts]: Bad Gateway {bad_gateway_counter} times')
 
     # Close the open session
     requests_session.close()

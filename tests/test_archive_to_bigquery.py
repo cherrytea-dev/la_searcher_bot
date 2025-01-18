@@ -5,6 +5,7 @@ from google.cloud import bigquery
 from telegram import Bot
 from telegram.ext import ExtBot
 
+from archive_to_bigquery import main
 from tests.common import get_event_with_data
 
 
@@ -18,8 +19,6 @@ def patch_big_query():
 
 
 def test_main(patch_big_query):
-    from archive_to_bigquery.main import main
-
     event = get_event_with_data(
         {
             'topic_id': 123,
@@ -32,5 +31,5 @@ def test_main(patch_big_query):
         patch.object(ExtBot, 'send_message'),
         patch.object(Bot, 'get_me'),
     ):
-        main(event, 'context')
+        main.main(event, 'context')
         assert True

@@ -2,70 +2,20 @@
 which contain updates – and makes a pub/sub call for other script to parse content of these folders"""
 
 import ast
-import base64
-import json
 import logging
-import urllib.request
+from typing import Any, Dict, List, Optional, Tuple
 
-import google.cloud.logging
 import requests
 from bs4 import BeautifulSoup, SoupStrainer  # noqa
-from google.cloud import pubsub_v1, storage
+from google.cloud import storage
 
-url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
-req = urllib.request.Request(url)
-req.add_header('Metadata-Flavor', 'Google')
-project_id = urllib.request.urlopen(req).read().decode()
+from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging
+from _dependencies.misc import process_pubsub_message
 
-publisher = pubsub_v1.PublisherClient()
-
-log_client = google.cloud.logging.Client()
-log_client.setup_logging()
+setup_google_logging()
 
 
-def process_pubsub_message(event):
-    """convert incoming pub/sub message into regular data"""
-
-    # receiving message text from pub/sub
-    if 'data' in event:
-        received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
-    else:
-        received_message_from_pubsub = 'I cannot read message from pub/sub'
-    encoded_to_ascii = eval(received_message_from_pubsub)
-    data_in_ascii = encoded_to_ascii['data']
-    message_in_ascii = data_in_ascii['message']
-
-    return message_in_ascii
-
-
-def publish_to_pubsub(topic_name, message):
-    """publishing a new message to pub/sub"""
-
-    global project_id
-
-    # Preparing to turn to the existing pub/sub topic
-    topic_path = publisher.topic_path(project_id, topic_name)
-    # Preparing the message
-    message_json = json.dumps(
-        {
-            'data': {'message': message},
-        }
-    )
-    message_bytes = message_json.encode('utf-8')
-    # Publishes a message
-    try:
-        publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify that the publishing succeeded
-        logging.info('Pub/sub message was published successfully')
-
-    except Exception as e:
-        logging.info('Pub/sub message was NOT published, fired an error')
-        logging.exception(e)
-
-    return None
-
-
-def set_cloud_storage(folder_num):
+def set_cloud_storage(folder_num: str):
     """sets the basic parameters for connection to txt file in cloud storage, which stores searches snapshots"""
     bucket_name = 'bucket_for_folders_snapshots'
     blob_name = str(folder_num) + '.txt'
@@ -84,7 +34,7 @@ def write_snapshot_to_cloud_storage(what_to_write, folder_num):
     blob.upload_from_string(str(what_to_write), content_type='text/plain')
 
 
-def read_snapshot_from_cloud_storage(folder_num):
+def read_snapshot_from_cloud_storage(folder_num: str):
     """reads previous searches snapshot from txt file in cloud storage"""
 
     try:
@@ -98,7 +48,7 @@ def read_snapshot_from_cloud_storage(folder_num):
     return contents
 
 
-def compare_old_and_new_folder_hash_and_give_list_of_upd_folders(new_str, old_str):
+def compare_old_and_new_folder_hash_and_give_list_of_upd_folders(new_str: str, old_str) -> List:
     """compare if newly parsed folder content equals the previously-saved one"""
 
     list_of_changed_folders = []
@@ -134,7 +84,7 @@ def compare_old_and_new_folder_hash_and_give_list_of_upd_folders(new_str, old_st
     return list_of_changed_folders
 
 
-def decompose_folder_to_subfolders_and_searches(start_folder_num):
+def decompose_folder_to_subfolders_and_searches(start_folder_num) -> Tuple[List, List, List, None]:
     """Check if there are changes in folder that contain other folders"""
 
     page_summary_folders = []
@@ -321,6 +271,6 @@ def main(event, context):  # noqa
         logging.info(line)
 
     if list_of_updated_low_level_folders:
-        publish_to_pubsub('topic_to_run_parsing_script', str(list_of_updated_low_level_folders))
+        publish_to_pubsub(Topics.topic_to_run_parsing_script, str(list_of_updated_low_level_folders))
 
     return None

@@ -10,66 +10,22 @@ import json
 import logging
 import random
 import re
-import urllib.request
+from typing import Any, Dict, Optional
 
-import google.cloud.logging
 import requests
 import sqlalchemy
 from bs4 import BeautifulSoup, NavigableString
-from google.cloud import pubsub_v1, secretmanager
 
-url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
-req = urllib.request.Request(url)
-req.add_header('Metadata-Flavor', 'Google')
-project_id = urllib.request.urlopen(req).read().decode()
+from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
+from _dependencies.misc import notify_admin
 
-publisher = pubsub_v1.PublisherClient()
-client = secretmanager.SecretManagerServiceClient()
-
-log_client = google.cloud.logging.Client()
-log_client.setup_logging()
+setup_google_logging()
 
 requests_session = requests.Session()
 
 
-def get_secrets(secret_request):
-    """get GCP secret"""
-
-    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
-    response = client.access_secret_version(name=name)
-
-    return response.payload.data.decode('UTF-8')
-
-
-def sql_connect():
-    """connect to PSQL in GCP"""
-
-    db_user = get_secrets('cloud-postgres-username')
-    db_pass = get_secrets('cloud-postgres-password')
-    db_name = get_secrets('cloud-postgres-db-name')
-    db_conn = get_secrets('cloud-postgres-connection-name')
-    db_socket_dir = '/cloudsql'
-
-    db_config = {
-        'pool_size': 5,
-        'max_overflow': 0,
-        'pool_timeout': 0,  # seconds
-        'pool_recycle': 30,  # seconds
-    }
-
-    pool = sqlalchemy.create_engine(
-        sqlalchemy.engine.url.URL(
-            'postgresql+pg8000',
-            username=db_user,
-            password=db_pass,
-            database=db_name,
-            query={'unix_sock': f'{db_socket_dir}/{db_conn}/.s.PGSQL.5432'},
-        ),
-        **db_config,
-    )
-    pool.dialect.description_encoding = None
-
-    return pool
+def sql_connect() -> sqlalchemy.engine.Engine:
+    return sqlalchemy_get_pool(5, 30)
 
 
 def process_pubsub_message(event):
@@ -89,38 +45,7 @@ def process_pubsub_message(event):
     return message_in_ascii
 
 
-def publish_to_pubsub(topic_name, message):
-    """publish a new message to pub/sub"""
-
-    topic_path = publisher.topic_path(project_id, topic_name)
-    message_json = json.dumps(
-        {
-            'data': {'message': message},
-        }
-    )
-    message_bytes = message_json.encode('utf-8')
-
-    try:
-        publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publishing succeeded
-        logging.info(f'Sent pub/sub message: {message}')
-
-    except Exception as e:
-        logging.error('Not able to send pub/sub message')
-        logging.exception(e)
-
-    return None
-
-
-def notify_admin(message):
-    """send the pub/sub message to Debug to Admin"""
-
-    publish_to_pubsub('topic_notify_admin', message)
-
-    return None
-
-
-def get_the_list_of_coords_out_of_text(initial_text):
+def get_the_list_of_coords_out_of_text(initial_text: str):
     """get all the pairs of coordinates in the given text"""
 
     list_of_all_coord_mentions = []
@@ -485,7 +410,7 @@ def compose_diff_message(curr_list, prev_list):
     return message, list_of_deletions, list_of_additions
 
 
-def process_first_page_comparison(conn, search_id, first_page_content_prev, first_page_content_curr):
+def process_first_page_comparison(conn, search_id: int, first_page_content_prev: str, first_page_content_curr: str):
     """compare first post content to identify any diffs"""
 
     # check the latest status on this search
@@ -545,7 +470,9 @@ def process_first_page_comparison(conn, search_id, first_page_content_prev, firs
     return message, message_dict
 
 
-def save_new_record_into_change_log(conn, search_id, coords_change_list, changed_field, change_type):
+def save_new_record_into_change_log(
+    conn, search_id: int, coords_change_list: list, changed_field: str, change_type: int
+) -> int:
     """save the coordinates change into change_log"""
 
     stmt = sqlalchemy.text(
@@ -582,7 +509,7 @@ def parse_search_folder(search_num):
     return folder
 
 
-def get_compressed_first_post(initial_text):
+def get_compressed_first_post(initial_text: str):
     """convert the initial html text of first post into readable string (for reading in SQL)"""
 
     compressed_string = ''
@@ -606,7 +533,7 @@ def get_compressed_first_post(initial_text):
     return compressed_string
 
 
-def split_text_to_deleted_and_regular_parts(text):
+def split_text_to_deleted_and_regular_parts(text: str):
     """split text into two strings: one for deleted (line-through) text and second for regular"""
 
     soup = BeautifulSoup(text, features='html.parser')
@@ -631,7 +558,7 @@ def split_text_to_deleted_and_regular_parts(text):
     return deleted_text, non_deleted_text
 
 
-def get_field_trip_details_from_text(text):
+def get_field_trip_details_from_text(text: str):
     """return the dict with 'filed trip' parameters for the search's text"""
 
     """resulting_field_trip_dict = {'vyezd': False,  # True for vyezd
@@ -796,7 +723,7 @@ def age_writer(age):
     return wording
 
 
-def generate_random_function_id():
+def generate_random_function_id() -> int:
     """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
 
     random_id = random.randint(100000000000, 999999999999)
@@ -916,12 +843,12 @@ def main(event, context):  # noqa
 
                     save_function_into_register(conn, context, analytics_func_start, function_id, change_log_ids)
 
-                    publish_to_pubsub('topic_to_run_parsing_script', str(list_of_folders_with_upd_searches))
+                    publish_to_pubsub(Topics.topic_to_run_parsing_script, str(list_of_folders_with_upd_searches))
                     message_for_pubsub = {
                         'triggered_by_func_id': function_id,
                         'text': str(list_of_folders_with_upd_searches),
                     }
-                    publish_to_pubsub('topic_for_notification', message_for_pubsub)
+                    publish_to_pubsub(Topics.topic_for_notification, message_for_pubsub)
 
             except Exception as e:
                 logging.info('exception in main function')

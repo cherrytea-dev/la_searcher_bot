@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 import pytest
 from flask import Flask
 
+from api_get_active_searches import main
+
 
 def test_main():
     from api_get_active_searches.main import main
@@ -10,14 +12,12 @@ def test_main():
     app = Flask(__name__)
 
     with app.test_request_context('/', json={'app_id': 1}) as app:
-        main(app.request)
+        main.main(app.request)
     assert True
 
 
 def test_evaluate_city_locations_success():
-    from api_get_active_searches.main import evaluate_city_locations
-
-    res = evaluate_city_locations('[[56.0, 64.0]]')
+    res = main.evaluate_city_locations('[[56.0, 64.0]]')
     assert res == [[56.0, 64.0]]
 
 
@@ -32,9 +32,7 @@ def test_evaluate_city_locations_success():
     ],
 )
 def test_evaluate_city_locations_fail(param):
-    from api_get_active_searches.main import evaluate_city_locations
-
-    res = evaluate_city_locations(str(param))
+    res = main.evaluate_city_locations(str(param))
     assert res is None
 
 
@@ -51,7 +49,7 @@ def test_time_counter_since_search_start(minutes_ago: int, hours_ago: int, days_
     from api_get_active_searches.main import time_counter_since_search_start
 
     start_datetime = datetime.now() - timedelta(minutes=minutes_ago, hours=hours_ago, days=days_ago)
-    res = time_counter_since_search_start(start_datetime)
+    res = main.time_counter_since_search_start(start_datetime)
     assert res == result
 
 
@@ -60,14 +58,5 @@ def test_get_list_of_active_searches_from_db():
 
     data = {'depth_days': 20, 'forum_folder_id_list': [1, 2, 3]}
 
-    res = get_list_of_active_searches_from_db(data)
+    res = main.get_list_of_active_searches_from_db(data)
     assert not res
-
-
-def test_clean_up_content():
-    from api_get_active_searches.main import clean_up_content
-
-    data = '<span>some text</span>'
-
-    res = clean_up_content(data)
-    assert res == 'some text'

@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock
 
+from send_notifications_helper import main
+
 
 def test_main():
-    from send_notifications_helper.main import main
-
-    main(MagicMock(), 'context')
+    main.main(MagicMock(), 'context')
     assert True

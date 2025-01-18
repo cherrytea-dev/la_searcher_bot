@@ -9,30 +9,23 @@ import logging
 import random
 import re
 import time
-import urllib.request
 from datetime import datetime, timedelta, timezone
+from typing import Any, List, Optional, Tuple, Union
 
-import google.auth.transport.requests
-import google.cloud.logging
-import google.oauth2.id_token
 import requests
 import sqlalchemy
 from bs4 import BeautifulSoup, SoupStrainer  # noqa
 from geopy.geocoders import Nominatim
-from google.cloud import pubsub_v1, secretmanager, storage
+from google.cloud import storage
+from psycopg2.extensions import connection
+from sqlalchemy.engine.base import Engine
 from yandex_geocoder import Client, exceptions
 
-url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
-req = urllib.request.Request(url)
-req.add_header('Metadata-Flavor', 'Google')
-project_id = urllib.request.urlopen(req).read().decode()
+from _dependencies.commons import Topics, get_app_config, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
+from _dependencies.misc import make_api_call, notify_admin
 
-client = secretmanager.SecretManagerServiceClient()
+setup_google_logging()
 
-publisher = pubsub_v1.PublisherClient()
-
-log_client = google.cloud.logging.Client()
-log_client.setup_logging()
 
 # Sessions – to reuse for reoccurring requests
 requests_session = None
@@ -124,7 +117,7 @@ class SearchSummary:
         )
 
 
-def set_cloud_storage(bucket_name, folder_num):
+def set_cloud_storage(bucket_name: str, folder_num: int):
     """sets the basic parameters for connection to txt file in cloud storage, which stores searches snapshots"""
 
     if isinstance(folder_num, int) or folder_num == 'geocode':
@@ -246,10 +239,10 @@ def rate_limit_for_api(db: sqlalchemy.engine, geocoder: str) -> None:
     return None
 
 
-def get_coordinates(db, address):
+def get_coordinates(db: Engine, address: str) -> Tuple[None, None]:
     """convert address string into a pair of coordinates"""
 
-    def get_geolocation_form_psql(db2, address_string):
+    def get_geolocation_form_psql(db2, address_string: str):
         """get results of geocoding from psql"""
 
         with db2.connect() as conn:
@@ -276,7 +269,7 @@ def get_coordinates(db, address):
 
         return None, None, None, None
 
-    def save_geolocation_in_psql(db2, address_string, status, latitude, longitude, geocoder):
+    def save_geolocation_in_psql(db2: Engine, address_string: str, status: str, latitude, longitude, geocoder: str):
         """save results of geocoding to avoid multiple requests to openstreetmap service"""
         """the Geocoder HTTP API may not exceed 1000 per day"""
 
@@ -301,14 +294,14 @@ def get_coordinates(db, address):
 
         return None
 
-    def get_coordinates_from_address_by_osm(address_string):
+    def get_coordinates_from_address_by_osm(address_string: str) -> Tuple[Any, Any]:
         """return coordinates on the request of address string"""
         """NB! openstreetmap requirements: NO more than 1 request per 1 second, no doubling requests"""
         """MEMO: documentation on API: https://operations.osmfoundation.org/policies/nominatim/"""
 
         latitude = None
         longitude = None
-        osm_identifier = get_secrets('osm_identifier')
+        osm_identifier = get_app_config().osm_identifier
         geolocator = Nominatim(user_agent=osm_identifier)
 
         try:
@@ -329,7 +322,7 @@ def get_coordinates(db, address):
 
         latitude = None
         longitude = None
-        yandex_api_key = get_secrets('yandex_api_key')
+        yandex_api_key = get_app_config().yandex_api_key
         yandex_client = Client(yandex_api_key)
 
         try:
@@ -400,12 +393,12 @@ def get_coordinates(db, address):
     return None, None
 
 
-def parse_coordinates(db, search_num):
+def parse_coordinates(db: connection, search_num) -> List[Union[int, str]]:
     """finds coordinates of the search"""
 
     global requests_session
 
-    def parse_address_from_title(initial_title):
+    def parse_address_from_title(initial_title: str) -> str:
         after_age = 0
         age_dict = [' год ', ' год', ' года ', ' года', ' лет ', ' лет', 'г.р.', '(г.р.),', 'лет)', 'лет,']
         for word in age_dict:
@@ -870,7 +863,7 @@ def parse_coordinates(db, search_num):
     return [lat, lon, coord_type]
 
 
-def update_coordinates(db, list_of_search_objects):
+def update_coordinates(db: connection, list_of_search_objects):
     """Record search coordinates to PSQL"""
 
     for search in list_of_search_objects:
@@ -927,48 +920,9 @@ def update_coordinates(db, list_of_search_objects):
     return None
 
 
-def publish_to_pubsub(topic_name, message):
-    """publish a message to specific pub/sub topic"""
-
-    global project_id
-
-    # Prepare to turn to the existing pub/sub topic
-    topic_path = publisher.topic_path(project_id, topic_name)
-
-    # Prepare the message
-    message_json = json.dumps(
-        {
-            'data': {'message': message},
-        }
-    )
-    message_bytes = message_json.encode('utf-8')
-
-    # Publish a message
-    try:
-        publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publishing succeeded
-        logging.info(
-            f'Pub/sub message to topic {topic_name} with event_id = {publish_future.result()} has '
-            f'been triggered. Content: {message}'
-        )
-
-    except Exception as e:
-        logging.info(f'Not able to send pub/sub message: {message}')
-        logging.exception(e)
-
-    return None
-
-
-def notify_admin(message):
-    """send the pub/sub message to Debug to Admin"""
-
-    publish_to_pubsub('topic_notify_admin', message)
-
-    return None
-
-
-def process_pubsub_message(event):
+def process_pubsub_message(event: dict):
     """convert incoming pub/sub message into regular data"""
+    # TODO DOUBLE
 
     # receiving message text from pub/sub
     if 'data' in event:
@@ -994,44 +948,8 @@ def process_pubsub_message(event):
     return message_in_ascii
 
 
-def sql_connect():
-    """set the connection pool to cloud sql"""
-
-    db_user = get_secrets('cloud-postgres-username')
-    db_pass = get_secrets('cloud-postgres-password')
-    db_name = get_secrets('cloud-postgres-db-name')
-    db_conn = get_secrets('cloud-postgres-connection-name')
-    db_socket_dir = '/cloudsql'
-
-    db_config = {
-        'pool_size': 5,
-        'max_overflow': 0,
-        'pool_timeout': 0,  # seconds
-        'pool_recycle': 120,  # seconds
-    }
-
-    pool = sqlalchemy.create_engine(
-        sqlalchemy.engine.url.URL(
-            'postgresql+pg8000',
-            username=db_user,
-            password=db_pass,
-            database=db_name,
-            query={'unix_sock': '{}/{}/.s.PGSQL.5432'.format(db_socket_dir, db_conn)},
-        ),
-        **db_config,
-    )
-    pool.dialect.description_encoding = None
-
-    return pool
-
-
-def get_secrets(secret_request):
-    """get the secret stored in Google Cloud Secrets"""
-
-    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
-    response = client.access_secret_version(name=name)
-
-    return response.payload.data.decode('UTF-8')
+def sql_connect() -> sqlalchemy.engine.Engine:
+    return sqlalchemy_get_pool(5, 120)
 
 
 def define_start_time_of_search(blocks):
@@ -1043,7 +961,7 @@ def define_start_time_of_search(blocks):
     return start_datetime
 
 
-def profile_get_type_of_activity(text_of_activity):
+def profile_get_type_of_activity(text_of_activity: str) -> list[str]:
     """get the status of the search activities: is there HQ, is there Active duties"""
 
     activity_type = []
@@ -1123,7 +1041,7 @@ def profile_get_type_of_activity(text_of_activity):
     return activity_type
 
 
-def profile_get_managers(text_of_managers):
+def profile_get_managers(text_of_managers: str) -> list[str]:
     """define list of managers out of profile plain text"""
 
     managers = []
@@ -1213,7 +1131,7 @@ def profile_get_managers(text_of_managers):
     return managers
 
 
-def parse_search_profile(search_num):
+def parse_search_profile(search_num) -> str | None:
     """get search activities list"""
 
     global block_of_profile_rough_code
@@ -1259,25 +1177,7 @@ def parse_search_profile(search_num):
     return left_text
 
 
-def make_api_call(function: str, data: dict) -> dict:
-    """makes an API call to another Google Cloud Function"""
-
-    # function we're turing to "title_recognize"
-    endpoint = f'https://europe-west3-lizaalert-bot-01.cloudfunctions.net/{function}'
-
-    # required magic for Google Cloud Functions Gen2 to invoke each other
-    audience = endpoint
-    auth_req = google.auth.transport.requests.Request()
-    id_token = google.oauth2.id_token.fetch_id_token(auth_req, audience)
-    headers = {'Authorization': f'Bearer {id_token}', 'Content-Type': 'application/json'}
-
-    r = requests.post(endpoint, json=data, headers=headers)
-    content = r.json()
-
-    return content
-
-
-def parse_one_folder(db, folder_id):
+def parse_one_folder(db: connection, folder_id) -> Tuple[List, List]:
     """parse forum folder with searches' summaries"""
 
     global requests_session
@@ -1426,7 +1326,7 @@ def parse_one_folder(db, folder_id):
     return titles_and_num_of_replies, folder_summary
 
 
-def visibility_check(r, topic_id):
+def visibility_check(r, topic_id) -> bool:
     """check topic's visibility: if hidden or deleted"""
 
     check_content = copy.copy(r.content)
@@ -1443,13 +1343,13 @@ def visibility_check(r, topic_id):
         return False
     elif topic_deleted or topic_hidden:
         visibility = 'deleted' if topic_deleted else 'hidden'
-        publish_to_pubsub('topic_for_topic_management', {'topic_id': topic_id, 'visibility': visibility})
+        publish_to_pubsub(Topics.topic_for_topic_management, {'topic_id': topic_id, 'visibility': visibility})
         return False
 
     return True
 
 
-def parse_one_comment(db, search_num, comment_num):
+def parse_one_comment(db: connection, search_num, comment_num) -> bool:
     """parse all details on a specific comment in topic (by sequence number)"""
 
     global requests_session
@@ -1564,7 +1464,7 @@ def parse_one_comment(db, search_num, comment_num):
     return there_are_inforg_comments
 
 
-def update_change_log_and_searches(db, folder_num):
+def update_change_log_and_searches(db: connection, folder_num) -> List:
     """update of SQL tables 'searches' and 'change_log' on the changes vs previous parse"""
 
     change_log_ids = []
@@ -1932,7 +1832,7 @@ def update_change_log_and_searches(db, folder_num):
     return change_log_ids
 
 
-def process_one_folder(db, folder_to_parse):
+def process_one_folder(db: connection, folder_to_parse) -> Tuple[bool, List]:
     """process one forum folder: check for updates, upload them into cloud sql"""
 
     def update_checker(current_hash, folder_num):
@@ -2026,7 +1926,7 @@ def process_one_folder(db, folder_to_parse):
     return update_trigger, change_log_ids
 
 
-def get_the_list_of_ignored_folders(db):
+def get_the_list_of_ignored_folders(db: sqlalchemy.engine.Engine):
     """get the list of folders which does not contain searches – thus should be ignored"""
 
     conn = db.connect()
@@ -2043,7 +1943,7 @@ def get_the_list_of_ignored_folders(db):
     return list_of_ignored_folders
 
 
-def generate_random_function_id():
+def generate_random_function_id() -> int:
     """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
 
     random_id = random.randint(100000000000, 999999999999)
@@ -2051,7 +1951,7 @@ def generate_random_function_id():
     return random_id
 
 
-def save_function_into_register(db, context, start_time, function_id, change_log_ids):
+def save_function_into_register(db: connection, context, start_time, function_id, change_log_ids):
     """save current function into functions_registry"""
 
     try:
@@ -2128,7 +2028,7 @@ def main(event, context):  # noqa
         save_function_into_register(db, context, analytics_func_start, function_id, change_log_ids)
 
         message_for_pubsub = {'triggered_by_func_id': function_id, 'text': "let's compose notifications"}
-        publish_to_pubsub('topic_for_notification', message_for_pubsub)
+        publish_to_pubsub(Topics.topic_for_notification, message_for_pubsub)
 
     requests_session.close()
     db.dispose()

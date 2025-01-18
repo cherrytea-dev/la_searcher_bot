@@ -9,3 +9,4 @@ build/
 venv/
 .sandbox/
 .DS_Store
+type_info.json

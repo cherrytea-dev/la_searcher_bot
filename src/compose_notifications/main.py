@@ -8,22 +8,16 @@ import logging
 import math
 import random
 import re
-import urllib.request
+from typing import Any, List, Optional, Tuple
 
-import google.cloud.logging
 import sqlalchemy
-from google.cloud import pubsub_v1, secretmanager
+from sqlalchemy.engine.base import Connection
 
-url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
-req = urllib.request.Request(url)
-req.add_header('Metadata-Flavor', 'Google')
-project_id = urllib.request.urlopen(req).read().decode()
+from _dependencies.commons import Topics, get_app_config, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
+from _dependencies.misc import notify_admin
 
-client = secretmanager.SecretManagerServiceClient()
-publisher = pubsub_v1.PublisherClient()
+setup_google_logging()
 
-log_client = google.cloud.logging.Client()
-log_client.setup_logging()
 
 WINDOW_FOR_NOTIFICATIONS_DAYS = 60
 
@@ -284,49 +278,8 @@ class MessageNewTopic(Message):
         self.hint_on_something = hint_on_something  # FIXME
 
 
-def sql_connect():
-    """connect to google cloud sql"""
-
-    db_user = get_secrets('cloud-postgres-username')
-    db_pass = get_secrets('cloud-postgres-password')
-    db_name = get_secrets('cloud-postgres-db-name')
-    db_conn = get_secrets('cloud-postgres-connection-name')
-    db_config = {
-        'pool_size': 5,
-        'max_overflow': 0,
-        'pool_timeout': 0,  # seconds
-        'pool_recycle': 60,  # seconds
-    }
-
-    try:
-        pool = sqlalchemy.create_engine(
-            sqlalchemy.engine.url.URL(
-                'postgresql+pg8000',
-                username=db_user,
-                password=db_pass,
-                database=db_name,
-                query={'unix_sock': f'/cloudsql/{db_conn}/.s.PGSQL.5432'},
-            ),
-            **db_config,
-        )
-        pool.dialect.description_encoding = None
-        logging.info('sql connection set')
-
-    except Exception as e:
-        logging.error('sql connection was not set: ' + repr(e))
-        logging.exception(e)
-        pool = None
-
-    return pool
-
-
-def get_secrets(secret_request):
-    """get secret stored in GCP"""
-
-    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
-    response = client.access_secret_version(name=name)
-
-    return response.payload.data.decode('UTF-8')
+def sql_connect() -> sqlalchemy.engine.Engine:
+    return sqlalchemy_get_pool(5, 60)
 
 
 def age_writer(age):
@@ -348,7 +301,7 @@ def age_writer(age):
     return wording
 
 
-def define_family_name(title_string, predefined_fam_name):
+def define_family_name(title_string: str, predefined_fam_name: str | None) -> str:
     """define family name if it's not available as A SEPARATE FIELD in Searches table"""
 
     # if family name is already defined
@@ -459,7 +412,7 @@ def process_pubsub_message(event):
     return message_in_ascii
 
 
-def compose_new_records_from_change_log(conn):
+def compose_new_records_from_change_log(conn: Connection) -> LineInChangeLog:
     """compose the New Records list of the unique New Records in Change Log: one Record = One line in Change Log"""
 
     delta_in_cl = conn.execute(
@@ -498,7 +451,7 @@ def compose_new_records_from_change_log(conn):
     return new_record
 
 
-def enrich_new_record_from_searches(conn, r_line):
+def enrich_new_record_from_searches(conn: Connection, r_line: LineInChangeLog):
     """add the additional data from Searches into New Records"""
 
     try:
@@ -588,7 +541,7 @@ def enrich_new_record_from_searches(conn, r_line):
     return r_line
 
 
-def enrich_new_record_with_search_activities(conn, r_line):
+def enrich_new_record_with_search_activities(conn: Connection, r_line: LineInChangeLog):
     """add the lists of current searches' activities to New Record"""
 
     try:
@@ -616,7 +569,7 @@ def enrich_new_record_with_search_activities(conn, r_line):
     return r_line
 
 
-def enrich_new_record_with_managers(conn, r_line):
+def enrich_new_record_with_managers(conn: Connection, r_line: LineInChangeLog):
     """add the lists of current searches' managers to the New Record"""
 
     try:
@@ -641,7 +594,7 @@ def enrich_new_record_with_managers(conn, r_line):
     return r_line
 
 
-def enrich_new_record_with_comments(conn, type_of_comments, r_line):
+def enrich_new_record_with_comments(conn: Connection, type_of_comments, r_line: LineInChangeLog):
     """add the lists of new comments + new inforg comments to the New Record"""
 
     try:
@@ -704,7 +657,7 @@ def enrich_new_record_with_comments(conn, type_of_comments, r_line):
     return r_line
 
 
-def compose_com_msg_on_new_topic(line):
+def compose_com_msg_on_new_topic(line: LineInChangeLog):
     """compose the common, user-independent message on new topic (search, event)"""
 
     start = line.start_time
@@ -767,7 +720,7 @@ def compose_com_msg_on_new_topic(line):
     return [msg_2, msg_1, msg_3], message, line_ignore  # 1 - person, 2 - activities, 3 - managers
 
 
-def compose_com_msg_on_status_change(line):
+def compose_com_msg_on_status_change(line: LineInChangeLog):
     """compose the common, user-independent message on search status change"""
 
     status = line.status
@@ -788,7 +741,7 @@ def compose_com_msg_on_status_change(line):
     return msg_1, msg_2
 
 
-def compose_com_msg_on_new_comments(line):
+def compose_com_msg_on_new_comments(line: LineInChangeLog):
     """compose the common, user-independent message on ALL search comments change"""
 
     url_prefix = 'https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u='
@@ -808,7 +761,7 @@ def compose_com_msg_on_new_comments(line):
     return msg, None
 
 
-def compose_com_msg_on_inforg_comments(line):
+def compose_com_msg_on_inforg_comments(line: LineInChangeLog):
     """compose the common, user-independent message on INFORG search comments change"""
 
     # region_to_show = f' ({region})' if region else ''
@@ -832,7 +785,7 @@ def compose_com_msg_on_inforg_comments(line):
     return msg_1, msg_2, msg_3
 
 
-def compose_com_msg_on_title_change(line):
+def compose_com_msg_on_title_change(line: LineInChangeLog):
     """compose the common, user-independent message on search title change"""
 
     activity = 'мероприятия' if line.topic_type_id == 10 else 'поиска'
@@ -871,7 +824,7 @@ def get_coords_from_list(input_list):
         return None, None
 
 
-def compose_com_msg_on_first_post_change(record):
+def compose_com_msg_on_first_post_change(record: LineInChangeLog):
     """compose the common, user-independent message on search first post change"""
 
     message = record.new_value
@@ -949,7 +902,7 @@ def compose_com_msg_on_first_post_change(record):
     return resulting_message
 
 
-def add_tel_link(incoming_text, modifier='all'):
+def add_tel_link(incoming_text: str, modifier: str = 'all') -> str:
     """check is text contains phone number and replaces it with clickable version, also removes [tel] tags"""
 
     outcome_text = None
@@ -972,7 +925,7 @@ def add_tel_link(incoming_text, modifier='all'):
     return outcome_text
 
 
-def enrich_new_record_with_clickable_name(line):
+def enrich_new_record_with_clickable_name(line: LineInChangeLog):
     """add clickable name to the record"""
 
     if line.topic_type_id in {0, 1, 2, 3, 4, 5}:  # if it's search
@@ -991,7 +944,7 @@ def enrich_new_record_with_clickable_name(line):
     return line
 
 
-def enrich_new_record_with_emoji(line):
+def enrich_new_record_with_emoji(line: LineInChangeLog):
     """add specific emoji based on topic (search) type"""
 
     topic_type_id = line.topic_type_id
@@ -1012,7 +965,7 @@ def enrich_new_record_with_emoji(line):
     return line
 
 
-def enrich_new_record_with_com_message_texts(line):
+def enrich_new_record_with_com_message_texts(line: LineInChangeLog) -> LineInChangeLog:
     """add user-independent message text to the New Records"""
 
     last_line = None
@@ -1043,7 +996,7 @@ def enrich_new_record_with_com_message_texts(line):
     return line
 
 
-def compose_users_list_from_users(conn, new_record):
+def compose_users_list_from_users(conn: Connection, new_record: LineInChangeLog) -> List:
     """compose the Users list from the tables Users & User Coordinates: one Record = one user"""
 
     list_of_users = []
@@ -1625,7 +1578,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
         list_of_users = crop_user_list(list_of_users, users_who_should_not_be_informed, new_record)
 
         message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'initiate notifs send out'}
-        publish_to_pubsub('topic_to_send_notifications', message_for_pubsub)
+        publish_to_pubsub(Topics.topic_to_send_notifications, message_for_pubsub)
 
         for user in list_of_users:
             u_lat = user.user_latitude
@@ -1693,7 +1646,7 @@ def iterate_over_all_users(conn, admins_list, new_record, list_of_users, functio
 
                 # for the new searches we add a link to web_app map
                 if change_type == 0:
-                    map_button = {'text': 'Смотреть на Карте Поисков', 'web_app': {'url': get_secrets('web_app_url')}}
+                    map_button = {'text': 'Смотреть на Карте Поисков', 'web_app': {'url': get_app_config().web_app_url}}
                     message_params['reply_markup'] = {'inline_keyboard': [[map_button]]}
 
                 # TODO: Debug only - to delete
@@ -1878,7 +1831,7 @@ def compose_individual_message_on_new_search(new_record, s_lat, s_lon, u_lat, u_
     return message
 
 
-def compose_individual_message_on_first_post_change(new_record, region_to_show):
+def compose_individual_message_on_first_post_change(new_record: LineInChangeLog, region_to_show):
     """compose individual message for notification of every user on change of first post"""
 
     message = new_record.message
@@ -1888,40 +1841,7 @@ def compose_individual_message_on_first_post_change(new_record, region_to_show):
     return message
 
 
-def publish_to_pubsub(topic_name, message):
-    """publish a new message to pub/sub"""
-
-    global project_id
-
-    topic_path = publisher.topic_path(project_id, topic_name)
-    message_json = json.dumps(
-        {
-            'data': {'message': message},
-        }
-    )
-    message_bytes = message_json.encode('utf-8')
-
-    try:
-        publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publishing succeeded
-        logging.info(f'Sent pub/sub message: {message}')
-
-    except Exception as e:
-        logging.info('Not able to send pub/sub message: ')
-        logging.exception(e)
-
-    return None
-
-
-def notify_admin(message):
-    """send the pub/sub message to Debug to Admin"""
-
-    publish_to_pubsub('topic_notify_admin', message)
-
-    return None
-
-
-def mark_new_record_as_processed(conn, new_record):
+def mark_new_record_as_processed(conn, new_record: LineInChangeLog):
     """mark all the new records in SQL as processed, to avoid processing in the next iteration"""
 
     try:
@@ -1994,7 +1914,8 @@ def check_and_save_event_id(context, event, conn, new_record, function_id, trigg
     """Work with PSQL table functions_registry. Goal of the table & function is to avoid parallel work of
     two compose_notifications functions. Executed in the beginning and in the end of compose_notifications function"""
 
-    def check_if_other_functions_are_working():
+    def check_if_other_functions_are_working() -> bool:
+        # TODO DOUBLE
         """Check in PSQL in there's the same function 'compose_notifications' working in parallel"""
 
         sql_text_psy = sqlalchemy.text("""
@@ -2012,7 +1933,8 @@ def check_and_save_event_id(context, event, conn, new_record, function_id, trigg
 
         return parallel_functions
 
-    def record_start_of_function(event_num, function_num):
+    def record_start_of_function(event_num, function_num: int) -> None:
+        # TODO DOUBLE
         """Record into PSQL that this function started working (id = id of the respective pub/sub event)"""
 
         sql_text_psy = sqlalchemy.text("""INSERT INTO functions_registry
@@ -2033,6 +1955,7 @@ def check_and_save_event_id(context, event, conn, new_record, function_id, trigg
         return None
 
     def record_finish_of_function(event_num, params_json):
+        # TODO DOUBLE
         """Record into PSQL that this function finished working (id = id of the respective pub/sub event)"""
 
         sql_text_psy = sqlalchemy.text("""UPDATE functions_registry
@@ -2076,7 +1999,7 @@ def check_and_save_event_id(context, event, conn, new_record, function_id, trigg
         return False
 
 
-def check_if_need_compose_more(conn, function_id):
+def check_if_need_compose_more(conn, function_id: int):
     """check if there are any notifications remained to be composed"""
 
     check = conn.execute("""SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log
@@ -2085,14 +2008,14 @@ def check_if_need_compose_more(conn, function_id):
     if check:
         logging.info('we checked – there is still something to compose: re-initiating [compose_notification]')
         message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 're-run from same script'}
-        publish_to_pubsub('topic_for_notification', message_for_pubsub)
+        publish_to_pubsub(Topics.topic_for_notification, message_for_pubsub)
     else:
         logging.info('we checked – there is nothing to compose: we are not re-initiating [compose_notification]')
 
     return None
 
 
-def generate_random_function_id():
+def generate_random_function_id() -> int:
     """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
 
     random_id = random.randint(100000000000, 999999999999)
@@ -2100,7 +2023,7 @@ def generate_random_function_id():
     return random_id
 
 
-def get_triggering_function(message_from_pubsub):
+def get_triggering_function(message_from_pubsub: str):
     """get a function_id of the function, which triggered this function (if available)"""
 
     triggered_by_func_id = None
@@ -2123,7 +2046,7 @@ def get_triggering_function(message_from_pubsub):
     return triggered_by_func_id
 
 
-def delete_ended_search_following(conn, new_record):  # issue425
+def delete_ended_search_following(conn: Connection, new_record):  # issue425
     ### Delete from user_pref_search_whitelist if the search goes to one of ending statuses
 
     if new_record.change_type == 1 and new_record.status in ['Завершен', 'НЖ', 'НП', 'Найден']:
