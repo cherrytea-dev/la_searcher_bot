@@ -65,10 +65,13 @@ def get_publisher() -> pubsub_v1.PublisherClient:
     return pubsub_v1.PublisherClient()
 
 
-def publish_to_pubsub(topic_name: Topics, message) -> None:
+def publish_to_pubsub(topic_name: Topics | str, message) -> None:
     """publish a new message to pub/sub"""
 
-    topic_path = get_publisher().topic_path(get_project_id(), topic_name)
+    topic_name_str = topic_name.value if isinstance(topic_name, Topics) else topic_name
+    #  TODO find out where topic_name.value comes from as str
+
+    topic_path = get_publisher().topic_path(get_project_id(), topic_name_str)
     data = {
         'data': {'message': message},
     }
