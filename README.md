@@ -87,6 +87,8 @@ cp .env.template .env
 cp .env.template .env.test
 ```
 
+Initialize schema for test db: `make initdb` (it will take values from `.env.test` file)
+
 Run tests: `make test`
 
 Format code: `make lint`
@@ -96,3 +98,5 @@ Update nested "requirements.txt" files: `make requirements`
 After changing `pyproject.toml` run `uv lock` to update lockfile.
 
 Run tests with postgres database in docker container: `make ci-test`
+
+Generate/update smoke tests: `make smoke-tests-generate`
