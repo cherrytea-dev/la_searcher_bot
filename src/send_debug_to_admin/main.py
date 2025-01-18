@@ -39,7 +39,7 @@ async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def prepare_message_for_async(user_id, data: Dict[str, str]) -> str:
-    bot_token = get_app_config().bot_api_token
+    bot_token = get_app_config().bot_api_token__prod
     application = Application.builder().token(bot_token).build()
     job_queue = application.job_queue
     job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)

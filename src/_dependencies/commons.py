@@ -103,7 +103,6 @@ class AppConfig(BaseSettings):
     postgres_port: int = 5432
     api_clients: str = ''
     bot_api_token__prod: str = ''
-    bot_api_token: str = ''
     my_telegram_id: int = 0
     web_app_url: str = ''
     web_app_url_test: str = ''
@@ -127,7 +126,6 @@ def _get_config():
         postgres_port=5432,
         api_clients=get_secrets('api_clients'),
         bot_api_token__prod=get_secrets('bot_api_token__prod'),
-        bot_api_token=get_secrets('bot_api_token'),
         my_telegram_id=int(get_secrets('my_telegram_id')),
         web_app_url=get_secrets('web_app_url'),
         web_app_url_test=get_secrets('web_app_url_test'),
