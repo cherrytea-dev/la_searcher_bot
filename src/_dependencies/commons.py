@@ -168,7 +168,7 @@ def sqlalchemy_get_pool(pool_size: int, pool_recycle_time_seconds: int) -> sqlal
 
     pool = sqlalchemy.create_engine(
         sqlalchemy.engine.url.URL.create(
-            'postgresql+psycopg2',
+            'postgresql+pg8000',
             username=config.postgres_user,
             host=config.postgres_host,
             port=config.postgres_port,

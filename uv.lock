@@ -54,6 +54,15 @@ wheels = [
 ]
 
 [[package]]
+name = "asn1crypto"
+version = "1.4.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6b/b4/42f0e52ac2184a8abb31f0a6f98111ceee1aac0b473cee063882436e0e09/asn1crypto-1.4.0.tar.gz", hash = "sha256:f4f6e119474e58e04a2b1af817eb585b4fd72bdd89b998624712b5c99be7641c", size = 118733 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b5/a8/56be92dcd4a5bf1998705a9b4028249fe7c9a035b955fe93b6a3e5b829f8/asn1crypto-1.4.0-py2.py3-none-any.whl", hash = "sha256:4bcdf33c861c7d40bdcd74d8e4dd7661aac320fcdf40b9a3f95b4ee12fde2fa8", size = 104031 },
+]
+
+[[package]]
 name = "beautifulsoup4"
 version = "4.9.3"
 source = { registry = "https://pypi.org/simple" }
@@ -836,6 +845,7 @@ dependencies = [
     { name = "google-cloud-logging" },
     { name = "google-cloud-pubsub" },
     { name = "google-cloud-secret-manager" },
+    { name = "pg8000" },
     { name = "psycopg2-binary" },
     { name = "pydantic-settings" },
     { name = "sqlalchemy" },
@@ -990,6 +1000,7 @@ requires-dist = [
     { name = "lxml", marker = "extra == 'user-provide-info'", specifier = "==4.9.1" },
     { name = "natasha", marker = "extra == 'identify-updates-of-topics'", specifier = "==1.4.0" },
     { name = "natasha", marker = "extra == 'title-recognize'", specifier = "==1.4.0" },
+    { name = "pg8000", specifier = "==1.19.4" },
     { name = "polyfactory", marker = "extra == 'develop'", specifier = ">=2.18" },
     { name = "psycopg2-binary", specifier = "==2.9.5" },
     { name = "pyannotate", marker = "extra == 'develop'", specifier = "==1.2.*" },
@@ -1211,6 +1222,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/df/9e/d1a7217f69310c1db8fdf8ab396229f55a699ce34a203691794c5d1cad0c/packaging-21.3.tar.gz", hash = "sha256:dd47c42927d89ab911e606518907cc2d3a1f38bbd026385970643f9c5b8ecfeb", size = 84848 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/05/8e/8de486cbd03baba4deef4142bd643a3e7bbe954a784dc1bb17142572d127/packaging-21.3-py3-none-any.whl", hash = "sha256:ef103e05f519cdc783ae24ea4e2e0f508a9c99b2d4969652eed6a2e1ea5bd522", size = 40750 },
+]
+
+[[package]]
+name = "pg8000"
+version = "1.19.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "scramp" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/43/32/9d072d7e0958330849919d55d46d74dd7026bb5483d8460671bd2c0926ca/pg8000-1.19.4.tar.gz", hash = "sha256:7c9c6d57541b0f2153e23a8d759ceb3d7cb9308918fba6ad9e92f8e0e5a90bc8", size = 120764 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f7/51/4d93196384efa076d3c587cf1027a41339f670d00d87b1dc28bb6fab2bf8/pg8000-1.19.4-py3-none-any.whl", hash = "sha256:510db12be8ad85488289bd0b97bc340202cf6749da08cf8588032a047fb5d0ba", size = 35440 },
 ]
 
 [[package]]
@@ -1628,6 +1651,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/d4/70/cfcb693dc294e034c6fed837fa2ec98b27cc97a26db5d049345364f504bf/ruff-0.8.6-py3-none-win32.whl", hash = "sha256:e169ea1b9eae61c99b257dc83b9ee6c76f89042752cb2d83486a7d6e48e8f764", size = 8799729 },
     { url = "https://files.pythonhosted.org/packages/60/22/ae6bcaa0edc83af42751bd193138bfb7598b2990939d3e40494d6c00698c/ruff-0.8.6-py3-none-win_amd64.whl", hash = "sha256:f1d70bef3d16fdc897ee290d7d20da3cbe4e26349f62e8a0274e7a3f4ce7a905", size = 9673857 },
     { url = "https://files.pythonhosted.org/packages/91/f8/3765e053acd07baa055c96b2065c7fab91f911b3c076dfea71006666f5b0/ruff-0.8.6-py3-none-win_arm64.whl", hash = "sha256:7d7fc2377a04b6e04ffe588caad613d0c460eb2ecba4c0ccbbfe2bc973cbc162", size = 9149556 },
+]
+
+[[package]]
+name = "scramp"
+version = "1.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "asn1crypto" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/69/d5/69632dfab1806d0dad816311733694768d8f205691cbad2dc7cca4159bb5/scramp-1.4.0.tar.gz", hash = "sha256:d27d768408c6fc025a0e567eed84325b0aaf24364c81ea5974e8334ae3c4fda3", size = 29837 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ae/0f/268354b47d81943a374ed97a186e96cac3a5bb4496c5fcf783d0e78212eb/scramp-1.4.0-py3-none-any.whl", hash = "sha256:27349d6839038fe3b56c641ea2a8703df065c1d605fdee67275857c0a82122b4", size = 8391 },
 ]
 
 [[package]]
