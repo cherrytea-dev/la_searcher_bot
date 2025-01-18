@@ -6,8 +6,8 @@ on:
   push:
     branches : [main]
     paths:
-      - 'src/manage_users/main.py' # UPD HERE!
-      - 'src/manage_users/requirements.txt' # UPD HERE!
+      - 'src/_dependencies/*'
+      - 'src/manage_users/*' # UPD HERE!
       - '.github/workflows/deploy_manage_users.yml' # UPD HERE!
 
 jobs:

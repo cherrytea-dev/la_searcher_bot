@@ -11,12 +11,10 @@ import math
 import re
 import urllib.parse
 import urllib.request
-from typing import Dict, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-import google.cloud.logging
-import psycopg2
 import requests
-from google.cloud import pubsub_v1, secretmanager
+from flask import Request
 from telegram import (
     Bot,
     InlineKeyboardMarkup,
@@ -27,15 +25,16 @@ from telegram import (
 )
 from telegram.ext import Application, ContextTypes
 
-publisher = pubsub_v1.PublisherClient()
-url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
-req = urllib.request.Request(url)
-req.add_header('Metadata-Flavor', 'Google')
-project_id = urllib.request.urlopen(req).read().decode()
-client = secretmanager.SecretManagerServiceClient()
+from _dependencies.commons import (
+    Topics,
+    get_app_config,
+    publish_to_pubsub,
+    setup_google_logging,
+    sql_connect_by_psycopg2,
+)
+from _dependencies.misc import notify_admin
 
-log_client = google.cloud.logging.Client()
-log_client.setup_logging()
+setup_google_logging()
 
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
 # Important – these are not errors, but jest informational warnings that there were retries, that's why we exclude them
@@ -266,65 +265,6 @@ class AllButtons:
 
     def temp_all_keys(self):
         return [k for k, v in self.__dict__.items()]
-
-
-def get_secrets(secret_request):
-    """Get GCP secret"""
-
-    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
-    response = client.access_secret_version(name=name)
-
-    return response.payload.data.decode('UTF-8')
-
-
-def sql_connect_by_psycopg2():
-    """connect to GCP SLQ via PsycoPG2"""
-
-    db_user = get_secrets('cloud-postgres-username')
-    db_pass = get_secrets('cloud-postgres-password')
-    db_name = get_secrets('cloud-postgres-db-name')
-    db_conn = get_secrets('cloud-postgres-connection-name')
-    db_host = '/cloudsql/' + db_conn
-
-    conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
-    conn_psy.autocommit = True
-
-    return conn_psy
-
-
-def publish_to_pubsub(topic_name, message):
-    """Publish a message to pub/sub"""
-
-    # Prepare to turn to the existing pub/sub topic
-    topic_path = publisher.topic_path(project_id, topic_name)
-
-    # Prepare the message
-    message_json = json.dumps(
-        {
-            'data': {'message': message},
-        }
-    )
-    message_bytes = message_json.encode('utf-8')
-
-    # Publish the message
-    try:
-        publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify that publishing succeeded
-        logging.info(f'Pub/sub message was published: {message}')
-
-    except Exception as e:
-        logging.info('Pub/sub message was NOT published')
-        logging.exception(e)
-
-    return None
-
-
-def notify_admin(message):
-    """send the pub/sub message to Debug to Admin"""
-
-    publish_to_pubsub('topic_notify_admin', message)
-
-    return None
 
 
 def time_counter_since_search_start(start_time):
@@ -1967,7 +1907,7 @@ def manage_linking_to_forum(
         and len(got_message.split()) < 4
     ):
         message_for_pubsub = [user_id, got_message]
-        publish_to_pubsub('parse_user_profile_from_forum', message_for_pubsub)
+        publish_to_pubsub(Topics.parse_user_profile_from_forum, message_for_pubsub)
         bot_message = 'Сейчас посмотрю, это может занять до 10 секунд...'
         keyboard = [[b_back_to_start]]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -2018,7 +1958,7 @@ def save_onboarding_step(user_id, username, step):
         'time': str(datetime.datetime.now()),
         'step': step,
     }
-    publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+    publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
 
     return None
 
@@ -2055,7 +1995,7 @@ async def leave_chat_async(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def prepare_message_for_leave_chat_async(user_id):
-    bot_token = get_secrets('bot_api_token__prod')
+    bot_token = get_app_config().bot_api_token__prod
     application = Application.builder().token(bot_token).build()
     job_queue = application.job_queue
     job_queue.run_once(leave_chat_async, 0, chat_id=user_id)
@@ -2082,7 +2022,7 @@ async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def prepare_message_for_async(user_id, data):
-    bot_token = get_secrets('bot_api_token__prod')
+    bot_token = get_app_config().bot_api_token__prod
     application = Application.builder().token(bot_token).build()
     job_queue = application.job_queue
     job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
@@ -2128,7 +2068,7 @@ def process_response_of_api_call(user_id, response, call_context=''):
                 action = 'delete_user'
             if action:
                 message_for_pubsub = {'action': action, 'info': {'user': user_id}}
-                publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+                publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
                 logging.info(f'Identified user id {user_id} to do {action}')
             return 'cancelled'
 
@@ -2395,7 +2335,7 @@ def get_basic_update_parameters(update):
     )
 
 
-def save_new_user(user_id, username):
+def save_new_user(user_id: int, username: str) -> None:
     """send pubsub message to dedicated script to save new user"""
 
     username = username if username else 'unknown'
@@ -2404,7 +2344,7 @@ def save_new_user(user_id, username):
         'info': {'user': user_id, 'username': username},
         'time': str(datetime.datetime.now()),
     }
-    publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+    publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
 
     return None
 
@@ -2468,7 +2408,7 @@ def process_block_unblock_user(user_id, user_new_status):
 
         # mark user as blocked / unblocked in psql
         message_for_pubsub = {'action': status_dict[user_new_status], 'info': {'user': user_id}}
-        publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+        publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
 
         if user_new_status == 'member':
             bot_message = (
@@ -2768,14 +2708,14 @@ def set_search_follow_mode(cur, user_id: int, new_value):
     return None
 
 
-def main(request):
+def main(request: Request) -> str:
     """Main function to orchestrate the whole script"""
 
     if request.method != 'POST':
         logging.error(f'non-post request identified {request}')
         return 'it was not post request'
 
-    bot_token = get_secrets('bot_api_token__prod')
+    bot_token = get_app_config().bot_api_token__prod
     bot = Bot(token=bot_token)
     update = get_the_update(bot, request)
 
@@ -3778,7 +3718,7 @@ def main(request):
                 # keyboard_coordinates_admin = [[b_set_topic_type], [b_back_to_start]]
                 # [b_set_pref_urgency], [b_set_forum_nick]
 
-                map_button = {'text': 'Открыть карту поисков', 'web_app': {'url': get_secrets('web_app_url_test')}}
+                map_button = {'text': 'Открыть карту поисков', 'web_app': {'url': get_app_config().web_app_url_test}}
                 keyboard = [[map_button]]
                 reply_markup = InlineKeyboardMarkup(keyboard)
             # FIXME ^^^
@@ -3811,7 +3751,7 @@ def main(request):
                     ''
                 )
 
-                map_button = {'text': 'Открыть карту поисков', 'web_app': {'url': get_secrets('web_app_url')}}
+                map_button = {'text': 'Открыть карту поисков', 'web_app': {'url': get_app_config().web_app_url}}
                 keyboard = [[map_button]]
                 reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -3921,7 +3861,7 @@ def main(request):
 
             # DEBUG: for debugging purposes only
             elif got_message.lower() == 'go':
-                publish_to_pubsub('topic_notify_admin', 'test_admin_check')
+                publish_to_pubsub(Topics.topic_notify_admin, 'test_admin_check')
 
             elif got_message in {b_other, c_other}:
                 bot_message = (
@@ -4317,7 +4257,7 @@ def main(request):
             if not msg_sent_by_specific_code:
                 # FIXME – 17.11.2023 – migrating from async to pure api call
                 """
-                admin_id = int(get_secrets('my_telegram_id'))
+                admin_id = get_app_config().my_telegram_id
                 if user_id != admin_id:
                     data = {'text': bot_message, 'reply_markup': reply_markup,
                             'parse_mode': 'HTML', 'disable_web_page_preview': True}

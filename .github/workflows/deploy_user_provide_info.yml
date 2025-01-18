@@ -6,8 +6,8 @@ on:
   push:
     branches : [main]
     paths:
-      - 'src/user_provide_info/main.py' # UPD HERE!
-      - 'src/user_provide_info/requirements.txt' # UPD HERE!
+      - 'src/_dependencies/*'
+      - 'src/user_provide_info/*' # UPD HERE!
       - '.github/workflows/deploy_user_provide_info.yml' # UPD HERE!
 
 jobs:

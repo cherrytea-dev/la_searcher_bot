@@ -11,9 +11,10 @@ RUN pip install uv
 
 WORKDIR /opt/bot
 
-COPY pyproject.toml uv.lock Makefile ./
+COPY pyproject.toml uv.lock ./
 COPY .env.example .env
 
+COPY Makefile ./
 RUN make venv
 
 COPY src ./src

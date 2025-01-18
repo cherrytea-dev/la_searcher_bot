@@ -6,8 +6,8 @@ on:
   push:
     branches : [main]
     paths:
-      - 'src/title_recognize/main.py' # UPD HERE!
-      - 'src/title_recognize/requirements.txt' # UPD HERE!
+      - 'src/_dependencies/*'
+      - 'src/title_recognize/*' # UPD HERE!
       - '.github/workflows/deploy_title_recognize.yml' # UPD HERE!
 
 jobs:

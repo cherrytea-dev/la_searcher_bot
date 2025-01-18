@@ -1,57 +1,16 @@
 """move data from Cloud SQL to BigQuery for long-term storage & analysis"""
 
 import logging
-import urllib.request
+from typing import Any, Dict, Optional
 
 import sqlalchemy
-from google.cloud import bigquery, secretmanager
+from google.cloud import bigquery
 
-url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
-req = urllib.request.Request(url)
-req.add_header('Metadata-Flavor', 'Google')
-project_id = urllib.request.urlopen(req).read().decode()
+from _dependencies.commons import sqlalchemy_get_pool
 
 
-def get_secrets(secret_request):
-    """get secret from GCP Secret Manager"""
-
-    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
-    client = secretmanager.SecretManagerServiceClient()
-
-    response = client.access_secret_version(name=name)
-
-    return response.payload.data.decode('UTF-8')
-
-
-def sql_connect():
-    """connect to PSQL in GCP"""
-
-    db_user = get_secrets('cloud-postgres-username')
-    db_pass = get_secrets('cloud-postgres-password')
-    db_name = get_secrets('cloud-postgres-db-name')
-    db_conn = get_secrets('cloud-postgres-connection-name')
-    db_socket_dir = '/cloudsql'
-
-    db_config = {
-        'pool_size': 5,
-        'max_overflow': 0,
-        'pool_timeout': 0,  # seconds
-        'pool_recycle': 5,  # seconds
-    }
-
-    pool = sqlalchemy.create_engine(
-        sqlalchemy.engine.url.URL(
-            'postgresql+pg8000',
-            username=db_user,
-            password=db_pass,
-            database=db_name,
-            query={'unix_sock': '{}/{}/.s.PGSQL.5432'.format(db_socket_dir, db_conn)},
-        ),
-        **db_config,
-    )
-    pool.dialect.description_encoding = None
-
-    return pool
+def sql_connect() -> sqlalchemy.engine.Engine:
+    return sqlalchemy_get_pool(5, 5)
 
 
 def archive_notif_by_user(client: bigquery.Client):

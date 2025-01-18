@@ -1,28 +1,16 @@
 import base64
-import json
 import logging
-import urllib.request
 
-import google.cloud.logging
-import psycopg2
-from google.cloud import pubsub_v1, secretmanager
+from _dependencies.commons import setup_google_logging, sql_connect_by_psycopg2
 
-url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
-req = urllib.request.Request(url)
-req.add_header('Metadata-Flavor', 'Google')
-project_id = urllib.request.urlopen(req).read().decode()
-
-publisher = pubsub_v1.PublisherClient()
-
-log_client = google.cloud.logging.Client()
-log_client.setup_logging()
+setup_google_logging()
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logging.warning('it is a synthetic warning')
 
 
-def process_pubsub_message(event):
+def process_pubsub_message(event: dict):
     """convert incoming pub/sub message into regular data"""
 
     # FIXME
@@ -49,64 +37,6 @@ def process_pubsub_message(event):
     logging.info(f'message in ascii {message_in_ascii}')
 
     return message_in_ascii
-
-
-def publish_to_pubsub(topic_name, message):
-    """publishing a new message to pub/sub"""
-
-    global project_id
-
-    topic_path = publisher.topic_path(project_id, topic_name)
-    message_json = json.dumps(
-        {
-            'data': {'message': message},
-        }
-    )
-    message_bytes = message_json.encode('utf-8')
-    try:
-        publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publishing succeeded
-        logging.info('Pub/sub message published from User Management: ' + message)
-
-    except Exception as e:
-        logging.error('Publish to pub/sub from User Management failed: ' + repr(e))
-        logging.exception(e)
-
-    return None
-
-
-def notify_admin(message):
-    """send the pub/sub message to Debug to Admin"""
-
-    publish_to_pubsub('topic_notify_admin', message)
-
-    return None
-
-
-def get_secrets(secret_request):
-    """get secret from GCP Secret Manager"""
-
-    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
-    client = secretmanager.SecretManagerServiceClient()
-
-    response = client.access_secret_version(name=name)
-
-    return response.payload.data.decode('UTF-8')
-
-
-def sql_connect_by_psycopg2():
-    """set the connection to psql via psycopg2"""
-
-    db_user = get_secrets('cloud-postgres-username')
-    db_pass = get_secrets('cloud-postgres-password')
-    db_name = get_secrets('cloud-postgres-db-name')
-    db_conn = get_secrets('cloud-postgres-connection-name')
-    db_host = '/cloudsql/' + db_conn
-
-    conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
-    conn_psy.autocommit = True
-
-    return conn_psy
 
 
 def mark_up_onboarding_status_0(cur):

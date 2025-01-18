@@ -6,8 +6,8 @@ on:
   push:
     branches : [main]
     paths:
-      - 'src/api_get_active_searches/main.py' # UPD HERE!
-      - 'src/api_get_active_searches/requirements.txt' # UPD HERE!
+      - 'src/_dependencies/*'
+      - 'src/api_get_active_searches/*' # UPD HERE!
       - '.github/workflows/deploy_api_get_active_searches.yml' # UPD HERE!
 
 jobs:

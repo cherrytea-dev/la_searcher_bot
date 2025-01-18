@@ -6,27 +6,21 @@ import re
 import urllib.parse
 import urllib.request
 from time import sleep
+from typing import Any, Dict, Optional
 
-import google.cloud.logging
-import psycopg2
 import requests
 from bs4 import BeautifulSoup
-from google.cloud import secretmanager
 from telegram import Bot, ReplyKeyboardMarkup
 from telegram.ext import Application, ContextTypes
 
-url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
-req = urllib.request.Request(url)
-req.add_header('Metadata-Flavor', 'Google')
-project_id = urllib.request.urlopen(req).read().decode()
+from _dependencies.commons import get_app_config, setup_google_logging, sql_connect_by_psycopg2
 
-client = secretmanager.SecretManagerServiceClient()
+setup_google_logging()
+
+
 session = requests.Session()
 cur = None
 conn_psy = None
-
-log_client = google.cloud.logging.Client()
-log_client.setup_logging()
 
 
 class ForumUser:
@@ -74,23 +68,12 @@ class ForumUser:
         )
 
 
-def get_secrets(secret_request):
-    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
-    response = client.access_secret_version(name=name)
-    return response.payload.data.decode('UTF-8')
-
-
-def sql_connect_by_psycopg2():
+def sql_connect_by_psycopg2_with_globals():
+    # TODO remove globals
     global cur
     global conn_psy
 
-    db_user = get_secrets('cloud-postgres-username')
-    db_pass = get_secrets('cloud-postgres-password')
-    db_name = get_secrets('cloud-postgres-db-name')
-    db_conn = get_secrets('cloud-postgres-connection-name')
-    db_host = '/cloudsql/' + db_conn
-
-    conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
+    conn_psy = sql_connect_by_psycopg2()
     cur = conn_psy.cursor()
 
 
@@ -101,7 +84,7 @@ async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def prepare_message_for_async(user_id, data):
-    bot_token = get_secrets('bot_api_token__prod')
+    bot_token = get_app_config().bot_api_token__prod
     application = Application.builder().token(bot_token).build()
     job_queue = application.job_queue
     job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
@@ -121,7 +104,7 @@ def process_sending_message_async(user_id, data) -> None:
     return None
 
 
-def login_into_forum(forum_bot_password):
+def login_into_forum(forum_bot_password: str) -> None:
     """login in into the forum"""
 
     global session
@@ -197,7 +180,7 @@ def get_user_id(u_name):
     return user_id
 
 
-def get_user_attributes(user_id):
+def get_user_attributes(user_id: str):
     """get user data from forum"""
 
     url_prefix = 'https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u='
@@ -302,7 +285,7 @@ def match_user_region_from_forum_to_bot(forum_region):
 #    return None
 
 
-def main(event, context):
+def main(event: Dict[str, bytes], context: str) -> None:
     """main function triggered from communicate script via pyb/sub"""
 
     global user
@@ -319,11 +302,11 @@ def main(event, context):
     tg_user_id, f_username = list(message_in_ascii)
 
     # initiate Prod Bot
-    bot_token = get_secrets('bot_api_token__prod')
+    bot_token = get_app_config().bot_api_token__prod
     bot = Bot(token=bot_token)  # noqa
 
     # log in to forum
-    bot_forum_pass = get_secrets('forum_bot_password')
+    bot_forum_pass = get_app_config().forum_bot_password
     login_into_forum(bot_forum_pass)
 
     user_found = False
@@ -355,7 +338,7 @@ def main(event, context):
 
         keyboard = [['да, это я'], ['нет, это не я'], ['в начало']]
 
-        sql_connect_by_psycopg2()
+        sql_connect_by_psycopg2_with_globals()
 
         # Delete previous records for this user
         cur.execute("""DELETE FROM user_forum_attributes WHERE user_id=%s;""", (tg_user_id,))
@@ -406,7 +389,7 @@ def main(event, context):
         keyboard = [['в начало']]
         bot_request_aft_usr_msg = 'input_of_forum_username'
 
-        sql_connect_by_psycopg2()
+        sql_connect_by_psycopg2_with_globals()
 
         try:
             cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (tg_user_id,))

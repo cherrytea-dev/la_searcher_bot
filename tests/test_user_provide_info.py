@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock
 
+from user_provide_info import main
+
 
 def test_main():
-    from user_provide_info.main import main
-
-    main(MagicMock())
+    main.main(MagicMock())
     assert True

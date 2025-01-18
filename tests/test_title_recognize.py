@@ -1,35 +1,29 @@
 from flask import Flask
 
+from title_recognize import main
+
 
 def test_main_positive():
-    from title_recognize.main import main
-
     app = Flask(__name__)
 
     with app.test_request_context('/', json={'title': 'Пропал человек'}) as app:
-        request = app.request
-        res = main(request)
+        res = main.main(app.request)
 
     assert 'fail' not in res
 
 
 def test_main_wrong_request():
-    from title_recognize.main import main
-
     app = Flask(__name__)
 
     with app.test_request_context('/', json={'foo': 'bar'}) as app:
-        request = app.request
-        res = main(request)
+        res = main.main(app.request)
 
     assert 'fail' in res
 
 
 def test_recognize_title():
-    from title_recognize.main import recognize_title
-
     title = 'Пропал мужчина. ФИО - Иванов Иван Иванович. Возраст 37 лет. Ярославская область.'
-    res = recognize_title(title, 'status_only')
+    res = main.recognize_title(title, 'status_only')
     assert res == {
         'topic_type': 'search',
         'status': 'Ищем',

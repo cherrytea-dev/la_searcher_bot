@@ -5,13 +5,13 @@ from datetime import datetime
 from typing import Dict, Union
 
 import functions_framework
-import google.cloud.logging
 from dateutil import relativedelta
 from flask import Request
 from natasha import Doc, NewsEmbedding, NewsNERTagger, Segmenter
 
-log_client = google.cloud.logging.Client()
-log_client.setup_logging()
+from _dependencies.commons import setup_google_logging
+
+setup_google_logging()
 
 
 def get_requested_title(request: Request) -> tuple[str, str]:

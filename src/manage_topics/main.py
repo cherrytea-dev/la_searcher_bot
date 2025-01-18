@@ -1,116 +1,22 @@
-import base64
 import datetime
 import json
 import logging
 import random
-import urllib.request
+from typing import Any, Dict, Optional
 
-import google.cloud.logging
 import sqlalchemy
-from google.cloud import pubsub_v1, secretmanager
 
-url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
-req = urllib.request.Request(url)
-req.add_header('Metadata-Flavor', 'Google')
-project_id = urllib.request.urlopen(req).read().decode()
+from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
+from _dependencies.misc import notify_admin, process_pubsub_message
 
-publisher = pubsub_v1.PublisherClient()
-
-log_client = google.cloud.logging.Client()
-log_client.setup_logging()
+setup_google_logging()
 
 
-def process_pubsub_message(event):
-    """convert incoming pub/sub message into regular data"""
-
-    # receiving message text from pub/sub
-    if 'data' in event:
-        received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
-    else:
-        received_message_from_pubsub = 'I cannot read message from pub/sub'
-    encoded_to_ascii = eval(received_message_from_pubsub)
-    data_in_ascii = encoded_to_ascii['data']
-    message_in_ascii = data_in_ascii['message']
-
-    return message_in_ascii
+def sql_connect() -> sqlalchemy.engine.Engine:
+    return sqlalchemy_get_pool(5, 5)
 
 
-def publish_to_pubsub(topic_name, message):
-    """publishing a new message to pub/sub"""
-
-    global project_id
-
-    topic_path = publisher.topic_path(project_id, topic_name)
-    message_json = json.dumps(
-        {
-            'data': {'message': message},
-        }
-    )
-    message_bytes = message_json.encode('utf-8')
-
-    try:
-        publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publishing succeeded
-        logging.info(f'Pub/sub message published: {message}')
-
-    except Exception as e:
-        logging.error('Publishing to pub/sub failed: ' + repr(e))
-        logging.exception(e)
-
-    return None
-
-
-def notify_admin(message):
-    """send the pub/sub message to Debug to Admin"""
-
-    publish_to_pubsub('topic_notify_admin', message)
-
-    return None
-
-
-def get_secrets(secret_request):
-    """get secret from GCP Secret Manager"""
-
-    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
-    client = secretmanager.SecretManagerServiceClient()
-
-    response = client.access_secret_version(name=name)
-
-    return response.payload.data.decode('UTF-8')
-
-
-def sql_connect():
-    """connect to PSQL in GCP"""
-
-    db_user = get_secrets('cloud-postgres-username')
-    db_pass = get_secrets('cloud-postgres-password')
-    db_name = get_secrets('cloud-postgres-db-name')
-    db_conn = get_secrets('cloud-postgres-connection-name')
-    db_socket_dir = '/cloudsql'
-
-    db_config = {
-        'pool_size': 5,
-        'max_overflow': 0,
-        'pool_timeout': 0,  # seconds
-        'pool_recycle': 5,  # seconds
-    }
-
-    pool = sqlalchemy.create_engine(
-        sqlalchemy.engine.url.URL(
-            'postgresql+pg8000',
-            username=db_user,
-            password=db_pass,
-            database=db_name,
-            query={'unix_sock': '{}/{}/.s.PGSQL.5432'.format(db_socket_dir, db_conn)},
-        ),
-        **db_config,
-    )
-    pool.dialect.description_encoding = None
-
-    return pool
-
-
-def save_visibility_for_topic(topic_id, visibility):
+def save_visibility_for_topic(topic_id: int, visibility: bool):
     """save in SQL if topic was deleted, hidden or unhidden"""
 
     try:
@@ -147,7 +53,7 @@ def save_visibility_for_topic(topic_id, visibility):
     return None
 
 
-def save_status_for_topic(topic_id, status):
+def save_status_for_topic(topic_id: int, status: str) -> int:
     """save in SQL if topic status was updated: active search, search finished etc."""
 
     change_log_id = None
@@ -194,7 +100,7 @@ def save_status_for_topic(topic_id, status):
     return change_log_id
 
 
-def save_function_into_register(context, start_time, function_id, change_log_id):
+def save_function_into_register(context: str, start_time: datetime.datetime, function_id: int, change_log_id: int):
     """save current function into functions_registry"""
 
     try:
@@ -228,7 +134,7 @@ def save_function_into_register(context, start_time, function_id, change_log_id)
     return None
 
 
-def generate_random_function_id():
+def generate_random_function_id() -> int:
     """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
 
     random_id = random.randint(100000000000, 999999999999)
@@ -259,7 +165,7 @@ def main(event, context):  # noqa
                 save_function_into_register(context, analytics_func_start, function_id, change_log_id)
                 if change_log_id:
                     message_for_pubsub = {'triggered_by_func_id': function_id, 'text': "let's compose notifications"}
-                    publish_to_pubsub('topic_for_notification', message_for_pubsub)
+                    publish_to_pubsub(Topics.topic_for_notification, message_for_pubsub)
 
     except Exception as e:
         logging.error('Topic management script failed:' + repr(e))

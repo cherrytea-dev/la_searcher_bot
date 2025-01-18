@@ -1,83 +1,20 @@
-import json
 import logging
-import urllib.request
+from typing import Any, Optional
 
 import sqlalchemy
-from google.cloud import pubsub_v1, secretmanager
+from sqlalchemy.engine.base import Connection
 
-url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
-req = urllib.request.Request(url)
-req.add_header('Metadata-Flavor', 'Google')
-project_id = urllib.request.urlopen(req).read().decode()
+from _dependencies.commons import publish_to_pubsub, sqlalchemy_get_pool
 
-client = secretmanager.SecretManagerServiceClient()
-publisher = pubsub_v1.PublisherClient()
+# setup_google_logging()
+# do we need google cloud logging here?
 
 
-def get_secrets(secret_request):
-    """get GCP secret"""
-
-    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
-    response = client.access_secret_version(name=name)
-
-    return response.payload.data.decode('UTF-8')
+def sql_connect() -> sqlalchemy.engine.Engine:
+    return sqlalchemy_get_pool(20, 0)
 
 
-def sql_connect():
-    """connect to GCP PSQL"""
-
-    db_user = get_secrets('cloud-postgres-username')
-    db_pass = get_secrets('cloud-postgres-password')
-    db_name = get_secrets('cloud-postgres-db-name')
-    db_conn = get_secrets('cloud-postgres-connection-name')
-    db_socket_dir = '/cloudsql'
-
-    db_config = {
-        'pool_size': 20,
-        'max_overflow': 0,
-        'pool_timeout': 0,  # seconds
-        'pool_recycle': 0,  # seconds
-    }
-
-    pool = sqlalchemy.create_engine(
-        sqlalchemy.engine.url.URL(
-            'postgresql+pg8000',
-            username=db_user,
-            password=db_pass,
-            database=db_name,
-            query={'unix_sock': '{}/{}/.s.PGSQL.5432'.format(db_socket_dir, db_conn)},
-        ),
-        **db_config,
-    )
-    pool.dialect.description_encoding = None
-
-    return pool
-
-
-def publish_to_pubsub(topic_name, message):
-    """publish a new message to pub/sub"""
-
-    topic_path = publisher.topic_path(project_id, topic_name)
-    message_json = json.dumps(
-        {
-            'data': {'message': message},
-        }
-    )
-    message_bytes = message_json.encode('utf-8')
-
-    try:
-        publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publishing succeeded
-        logging.info('Sent pub/sub message: ' + str(message))
-
-    except Exception as e:
-        logging.error('Not able to send pub/sub message: ' + repr(e))
-        logging.exception(e)
-
-    return None
-
-
-def move_notifications_to_history_in_psql(conn):
+def move_notifications_to_history_in_psql(conn: Connection) -> str:
     """move all "completed" notifications to psql table __history"""
 
     # checker – gives us a minimal date in notif_by_user, which is at least 2 hours older than current
@@ -173,7 +110,7 @@ def move_notifications_to_history_in_psql(conn):
     return result
 
 
-def move_first_posts_to_history_in_psql(conn):
+def move_first_posts_to_history_in_psql(conn: Connection) -> None:
     """move all first posts for "completed" searches to psql table __history"""
 
     # 1. COMPLETED SEARCHES

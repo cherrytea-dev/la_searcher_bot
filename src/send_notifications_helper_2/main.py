@@ -1,29 +1,28 @@
 """Send the prepared notifications to users (text and location) via Telegram"""
 
 import ast
-import base64
 import datetime
 import json
 import logging
 import random
 import time
 import urllib.request
+from typing import Any, List, Optional
 
-import google.cloud.logging
-import psycopg2
 import requests
-from google.cloud import pubsub_v1, secretmanager
+from psycopg2.extensions import cursor
 
-url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
-req = urllib.request.Request(url)
-req.add_header('Metadata-Flavor', 'Google')
-project_id = urllib.request.urlopen(req).read().decode()
+from _dependencies.commons import (
+    Topics,
+    get_app_config,
+    publish_to_pubsub,
+    setup_google_logging,
+    sql_connect_by_psycopg2,
+)
+from _dependencies.misc import notify_admin
 
-client = secretmanager.SecretManagerServiceClient()
-publisher = pubsub_v1.PublisherClient()
+setup_google_logging()
 
-log_client = google.cloud.logging.Client()
-log_client.setup_logging()
 
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
 # Important – these are not errors, but just informational warnings that there were retries, that's why we exclude them
@@ -58,71 +57,6 @@ def process_pubsub_message(event):
     logging.info(f'received message from pub/sub: {message_in_ascii}')
 
     return message_in_ascii
-
-
-def get_secrets(secret_request):
-    """get secret stored in GCP"""
-
-    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
-    response = client.access_secret_version(name=name)
-
-    return response.payload.data.decode('UTF-8')
-
-
-def sql_connect_by_psycopg2():
-    """connect to GCP SLQ via PsycoPG2"""
-
-    try:
-        db_user = get_secrets('cloud-postgres-username')
-        db_pass = get_secrets('cloud-postgres-password')
-        db_name = get_secrets('cloud-postgres-db-name')
-        db_conn = get_secrets('cloud-postgres-connection-name')
-        db_host = '/cloudsql/' + db_conn
-
-        conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
-        conn_psy.autocommit = True
-
-        logging.info('sql connection set via psycopg2')
-
-    except Exception as e:
-        logging.error('failed to set sql connection by psycopg2')
-        logging.exception(e)
-        conn_psy = None
-
-    return conn_psy
-
-
-def publish_to_pubsub(topic_name, message):
-    """publish a new message to pub/sub"""
-
-    global project_id
-
-    topic_path = publisher.topic_path(project_id, topic_name)
-    message_json = json.dumps(
-        {
-            'data': {'message': message},
-        }
-    )
-    message_bytes = message_json.encode('utf-8')
-
-    try:
-        publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publishing succeeded
-        logging.info(f'Sent pub/sub message: {str(message)}')
-
-    except Exception as e:
-        logging.error('Not able to send pub/sub message: ' + repr(e))
-        logging.exception(e)
-
-    return None
-
-
-def notify_admin(message):
-    """send the pub/sub message to Debug to Admin"""
-
-    publish_to_pubsub('topic_notify_admin', message)
-
-    return None
 
 
 def send_message_to_api(session, bot_token, user_id, message, params):
@@ -196,7 +130,7 @@ def send_location_to_api(session, bot_token, user_id, params):
     return r
 
 
-def check_first_notif_to_send(cur):
+def check_first_notif_to_send(cur: cursor):
     """return a first message_id for function to start sending"""
 
     sql_text_psy = f"""
@@ -328,7 +262,7 @@ def process_response(user_id, response):
                 action = 'delete_user'
             if action:
                 message_for_pubsub = {'action': action, 'info': {'user': user_id}}
-                publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+                publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
                 logging.info(f'Identified user id {user_id} to do {action}')
             return 'cancelled'
 
@@ -380,7 +314,7 @@ def send_single_message(bot_token, user_id, message_content, message_params, mes
             else:
                 action = 'delete_user'
             message_for_pubsub = {'action': action, 'info': {'user': user_id}}
-            publish_to_pubsub('topic_for_user_management', message_for_pubsub)
+            publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
 
             logging.info(f'Identified user id {user_id} to do {action}')
             result = 'cancelled'
@@ -571,7 +505,7 @@ def iterate_over_notifications(bot_token, admin_id, script_start_time, session, 
 
             """if not no_new_notifications and timeout:
                 message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'next iteration'}
-                publish_to_pubsub('topic_to_send_notifications', message_for_pubsub)"""
+                publish_to_pubsub(Topics.topic_to_send_notifications, message_for_pubsub)"""
 
             analytics_end_of_iteration = datetime.datetime.now()
             analytics_iteration_duration = round(
@@ -587,11 +521,11 @@ def iterate_over_notifications(bot_token, admin_id, script_start_time, session, 
     return list_of_change_ids
 
 
-def check_and_save_event_id(context, event, function_id, changed_ids, triggered_by_func_id):
+def check_and_save_event_id(context, event: str, function_id: int, changed_ids, triggered_by_func_id) -> bool:
     """Work with PSQL table functions_registry. Goal of the table & function is to avoid parallel work of
     two send_notifications_helper functions."""
 
-    def check_if_other_functions_are_working():
+    def check_if_other_functions_are_working() -> bool:
         """Check in PSQL in there's the same function 'send_notifications_helper' working in parallel"""
 
         conn_psy = sql_connect_by_psycopg2()
@@ -620,7 +554,7 @@ def check_and_save_event_id(context, event, function_id, changed_ids, triggered_
 
         return parallel_functions
 
-    def record_start_of_function(event_num, function_num, triggered_by_func_num):
+    def record_start_of_function(event_num: int, function_num: int, triggered_by_func_num: int) -> None:
         """Record into PSQL that this function started working (id = id of the respective pub/sub event)"""
 
         conn_psy = sql_connect_by_psycopg2()
@@ -646,7 +580,7 @@ def check_and_save_event_id(context, event, function_id, changed_ids, triggered_
 
         return None
 
-    def record_finish_of_function(event_num, list_of_changed_ids):
+    def record_finish_of_function(event_num: int, list_of_changed_ids: list) -> None:
         """Record into PSQL that this function finished working (id = id of the respective pub/sub event)"""
 
         conn_psy = sql_connect_by_psycopg2()
@@ -750,7 +684,7 @@ def finish_time_analytics(notif_times, delays, parsed_times, list_of_change_ids)
     return None
 
 
-def generate_random_function_id():
+def generate_random_function_id() -> int:
     """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
 
     random_id = random.randint(100000000000, 999999999999)
@@ -758,7 +692,7 @@ def generate_random_function_id():
     return random_id
 
 
-def get_triggering_function(message_from_pubsub):
+def get_triggering_function(message_from_pubsub: str):
     """get a function_id of the function, which triggered this function (if available)"""
 
     triggered_by_func_id = None
@@ -805,8 +739,8 @@ def main(event, context):
         logging.info('script finished')
         return None
 
-    bot_token = get_secrets('bot_api_token__prod')
-    admin_id = get_secrets('my_telegram_id')
+    bot_token = get_app_config().bot_api_token__prod
+    admin_id = get_app_config().my_telegram_id
 
     with requests.Session() as session:
         changed_ids = iterate_over_notifications(bot_token, admin_id, script_start_time, session, function_id)

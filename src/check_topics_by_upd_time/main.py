@@ -1,22 +1,13 @@
 import datetime
-import json
 import logging
-import urllib.request
+from typing import Any, List, Optional, Tuple
 
-import google.cloud.logging
 import requests
 from bs4 import BeautifulSoup, SoupStrainer  # noqa
-from google.cloud import pubsub_v1
 
-url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
-req = urllib.request.Request(url)
-req.add_header('Metadata-Flavor', 'Google')
-project_id = urllib.request.urlopen(req).read().decode()
+from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging
 
-publisher = pubsub_v1.PublisherClient()
-
-log_client = google.cloud.logging.Client()
-log_client.setup_logging()
+setup_google_logging()
 
 
 def check_updates_in_folder_with_folders(requests_session, start_folder_num):
@@ -118,7 +109,7 @@ def check_updates_in_folder_with_folders(requests_session, start_folder_num):
     return page_summary, last_folder_update
 
 
-def time_delta(now, time):
+def time_delta(now: datetime.datetime, time: datetime.datetime) -> int:
     """provides a difference in minutes for 2 timestamps"""
 
     time_diff = now - time
@@ -140,32 +131,6 @@ def get_the_list_folders_to_update(list_of_folders_and_times, now_time, delay_ti
             list_of_updated_folders.append(f_num)
 
     return list_of_updated_folders
-
-
-def publish_to_pubsub(topic_name, message):
-    """publish a new message to pub/sub"""
-
-    topic_path = publisher.topic_path(project_id, topic_name)
-    message_json = json.dumps(
-        {
-            'data': {'message': message},
-        }
-    )
-    message_bytes = message_json.encode('utf-8')
-
-    try:
-        publish_future = publisher.publish(topic_path, data=message_bytes)
-        publish_future.result()  # Verify the publishing succeeded
-        logging.info(
-            f'Pub/sub message to topic {topic_name} with event_id = {publish_future.result()} has '
-            f'been triggered. Content: {message}'
-        )
-
-    except Exception as e:
-        logging.info(f'Not able to send pub/sub message: {message}')
-        logging.exception(e)
-
-    return None
 
 
 def notify_admin(message):
@@ -206,7 +171,7 @@ def main(event, context):  # noqa
         for line in list_of_folders_and_times:
             list_for_pubsub.append([line[0], line[1]])
 
-        publish_to_pubsub('topic_update_identified', str(list_for_pubsub))
+        publish_to_pubsub(Topics.topic_update_identified, str(list_for_pubsub))
 
     # Close the open session
     requests_session.close()

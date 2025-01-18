@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock
 
+from users_activate import main
+
 
 def test_main():
-    from users_activate.main import main
-
-    main(MagicMock(), 'context')
+    main.main(MagicMock(), 'context')
     assert True

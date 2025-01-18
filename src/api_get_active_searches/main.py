@@ -4,50 +4,18 @@ The current script retrieves an actual list active searches"""
 import datetime
 import json
 import logging
-import re
-import urllib.request
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import functions_framework
-import google.cloud.logging
-import psycopg2
 from bs4 import BeautifulSoup
-from google.cloud import secretmanager
+from flask import Request
 
-url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
-req = urllib.request.Request(url)
-req.add_header('Metadata-Flavor', 'Google')
-project_id = urllib.request.urlopen(req).read().decode()
-client = secretmanager.SecretManagerServiceClient()
+from _dependencies.commons import get_app_config, setup_google_logging, sql_connect_by_psycopg2
 
-log_client = google.cloud.logging.Client()
-log_client.setup_logging()
+setup_google_logging()
 
 
-def get_secrets(secret_request):
-    """Get GCP secret"""
-
-    name = f'projects/{project_id}/secrets/{secret_request}/versions/latest'
-    response = client.access_secret_version(name=name)
-
-    return response.payload.data.decode('UTF-8')
-
-
-def sql_connect_by_psycopg2():
-    """connect to GCP SQL via PsycoPG2"""
-
-    db_user = get_secrets('cloud-postgres-username')
-    db_pass = get_secrets('cloud-postgres-password')
-    db_name = get_secrets('cloud-postgres-db-name')
-    db_conn = get_secrets('cloud-postgres-connection-name')
-    db_host = '/cloudsql/' + db_conn
-
-    conn_psy = psycopg2.connect(host=db_host, dbname=db_name, user=db_user, password=db_pass)
-    conn_psy.autocommit = True
-
-    return conn_psy
-
-
-def evaluate_city_locations(city_locations):
+def evaluate_city_locations(city_locations: str):
     if not city_locations:
         logging.info('no city_locations')
         return None
@@ -125,7 +93,7 @@ def get_list_of_allowed_apps():
     approved_app_ids = None
 
     try:
-        data_string = get_secrets('api_clients')
+        data_string = get_app_config().api_clients
         approved_app_ids = eval(data_string)
 
     except Exception as e:
@@ -396,7 +364,7 @@ def verify_json_validity(user_input, list_of_allowed_apps):
 
 
 @functions_framework.http
-def main(request):
+def main(request: Request) -> Tuple[str, int, Dict[str, str]]:
     # For more information about CORS and CORS preflight requests, see:
     # https://developer.mozilla.org/en-US/docs/Glossary/Preflight_request
 
