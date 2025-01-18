@@ -2168,7 +2168,8 @@ def make_api_call(method: str, bot_api_token: str, params: dict, call_context=''
 
     url = f'https://api.telegram.org/bot{bot_api_token}/{method}'  # e.g. sendMessage
     headers = {'Content-Type': 'application/json'}
-    params['reply_markup'] = params['reply_markup'].to_dict()
+    if isinstance(params['reply_markup'], ReplyKeyboardMarkup):
+        params['reply_markup'] = params['reply_markup'].to_dict()
     logging.info(f'({method=}, {call_context=})..before json_params = json.dumps(params) {params=}; {type(params)=}')
     json_params = json.dumps(params)
     logging.info(f'({method=}, {call_context=})..after json.dumps(params): {json_params=}; {type(json_params)=}')
