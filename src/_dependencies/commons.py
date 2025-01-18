@@ -24,6 +24,7 @@ class Topics(Enum):
     parse_user_profile_from_forum = 'parse_user_profile_from_forum'
     topic_to_send_notifications_helper = 'topic_to_send_notifications_helper'
     topic_to_send_notifications_helper_2 = 'topic_to_send_notifications_helper_2'
+    topic_to_send_notifications = 'topic_to_send_notifications'
 
 
 @lru_cache
