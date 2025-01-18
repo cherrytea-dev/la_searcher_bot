@@ -15,6 +15,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 from flask import Request
+from psycopg2.extensions import cursor
+from requests.models import Response
 from telegram import (
     Bot,
     InlineKeyboardMarkup,
@@ -125,7 +127,7 @@ class SearchSummary:
 class Button:
     """Contains one unique button and all the associated attributes"""
 
-    def __init__(self, data=None, modifier=None):
+    def __init__(self, data: Dict[str, Any] = None, modifier=None):
         if modifier is None:
             modifier = {'on': '✅ ', 'off': '☐ '}  # standard modifier
 
@@ -169,7 +171,7 @@ class GroupOfButtons:
     def __str__(self):
         return self.any_text
 
-    def contains(self, check):
+    def contains(self, check: str) -> bool:
         """Check is the given text/hash is used for any button in this group"""
 
         if check in self.any_text:
@@ -328,7 +330,7 @@ def age_writer(age):
     return wording
 
 
-def compose_user_preferences_message(cur, user_id):
+def compose_user_preferences_message(cur: cursor, user_id: int) -> List[Union[List[str], str]]:
     """Compose a text for user on which types of notifications are enabled for zir"""
 
     cur.execute("""SELECT preference FROM user_preferences WHERE user_id=%s ORDER BY preference;""", (user_id,))
@@ -429,7 +431,7 @@ def search_button_row_ikb(search_following_mode, search_status, search_id, searc
     return ikb_row
 
 
-def compose_msg_on_all_last_searches_ikb(cur, region, user_id):
+def compose_msg_on_all_last_searches_ikb(cur: cursor, region: int, user_id: int) -> List:
     """Compose a part of message on the list of recent searches"""
     # issue#425 it is ikb variant of the above function, returns data formated for inline keyboard
     # 1st element of returned list is general info and should be popped
@@ -549,7 +551,9 @@ def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
     return text
 
 
-def compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_id):
+def compose_msg_on_active_searches_in_one_reg_ikb(
+    cur: cursor, region: int, user_data: Tuple[str, str], user_id: int
+) -> List:
     """Compose a part of message on the list of active searches in the given region with relation to user's coords"""
     # issue#425 it is ikb variant of the above function, returns data formated for inline keyboard
     # 1st element of returned list is general info and should be popped
@@ -681,7 +685,9 @@ def compose_full_message_on_list_of_searches(cur, list_type, user_id, region, re
     return msg
 
 
-def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region, region_name):  # issue#425
+def compose_full_message_on_list_of_searches_ikb(
+    cur: cursor, list_type: str, user_id: int, region: int, region_name: str
+):  # issue#425
     """Compose a Final message on the list of searches in the given region"""
     # issue#425 This variant of the above function returns data in format used to compose inline keyboard
     # 1st element is caption
@@ -730,7 +736,7 @@ def compose_full_message_on_list_of_searches_ikb(cur, list_type, user_id, region
     return ikb
 
 
-def check_if_new_user(cur, user_id):
+def check_if_new_user(cur: cursor, user_id: int) -> bool:
     """check if the user is new or not"""
 
     cur.execute("""SELECT user_id FROM users WHERE user_id=%s LIMIT 1;""", (user_id,))
@@ -813,7 +819,7 @@ def save_user_pref_urgency(
     return None
 
 
-def save_user_coordinates(cur, user_id, input_latitude, input_longitude):
+def save_user_coordinates(cur: cursor, user_id: int, input_latitude: float, input_longitude: float) -> None:
     """Save / update user "home" coordinates"""
 
     cur.execute('DELETE FROM user_coordinates WHERE user_id=%s;', (user_id,))
@@ -827,7 +833,7 @@ def save_user_coordinates(cur, user_id, input_latitude, input_longitude):
     return None
 
 
-def show_user_coordinates(cur, user_id):
+def show_user_coordinates(cur: cursor, user_id: int) -> Tuple[str, str]:
     """Return the saved user "home" coordinates"""
 
     cur.execute("""SELECT latitude, longitude FROM user_coordinates WHERE user_id=%s LIMIT 1;""", (user_id,))
@@ -841,7 +847,7 @@ def show_user_coordinates(cur, user_id):
     return lat, lon
 
 
-def delete_user_coordinates(cur, user_id):
+def delete_user_coordinates(cur: cursor, user_id: int) -> None:
     """Delete the saved user "home" coordinates"""
 
     cur.execute('DELETE FROM user_coordinates WHERE user_id=%s;', (user_id,))
@@ -914,7 +920,7 @@ def distance_to_search(search_lat, search_lon, user_let, user_lon, coded_style=T
     return [dist, direction]
 
 
-def get_user_reg_folders_preferences(cur, user_id):
+def get_user_reg_folders_preferences(cur: cursor, user_id: int) -> List[int]:
     """Return user's regional preferences"""
 
     user_prefs_list = []
@@ -935,7 +941,7 @@ def get_user_reg_folders_preferences(cur, user_id):
     return user_prefs_list
 
 
-def get_user_role(cur, user_id):
+def get_user_role(cur: cursor, user_id: int):
     """Return user's role"""
 
     user_role = None
@@ -1008,7 +1014,7 @@ def delete_user_sys_role(cur, user_id, sys_role_name):
     return None
 
 
-def save_preference(cur, user_id, preference):
+def save_preference(cur: cursor, user_id: int, preference: str):
     """Save user preference on types of notifications to be sent by bot"""
 
     # the master-table is dict_notif_types:
@@ -1037,7 +1043,7 @@ def save_preference(cur, user_id, preference):
         'first_post_changes': 8,
     }
 
-    def execute_insert(user, preference_name):
+    def execute_insert(user: int, preference_name: str):
         """execute SQL INSERT command"""
 
         preference_id = pref_dict[preference_name]
@@ -1051,7 +1057,7 @@ def save_preference(cur, user_id, preference):
 
         return None
 
-    def execute_delete(user, list_of_prefs):
+    def execute_delete(user: int, list_of_prefs: List[str]):
         """execute SQL DELETE command"""
 
         if list_of_prefs:
@@ -1128,7 +1134,9 @@ def save_preference(cur, user_id, preference):
     return None
 
 
-def update_and_download_list_of_regions(cur, user_id, got_message, b_menu_set_region, b_fed_dist_pick_other):
+def update_and_download_list_of_regions(
+    cur: cursor, user_id: int, got_message: str, b_menu_set_region: str, b_fed_dist_pick_other: str
+) -> str:
     """Upload, download and compose a message on the list of user's regions"""
 
     msg = ''
@@ -1322,7 +1330,7 @@ def update_and_download_list_of_regions(cur, user_id, got_message, b_menu_set_re
     return msg
 
 
-def get_last_bot_msg(cur, user_id):
+def get_last_bot_msg(cur: cursor, user_id: int) -> str:
     """Get the last bot message to user to define if user is expected to give exact answer"""
 
     cur.execute(
@@ -1349,7 +1357,7 @@ def get_last_bot_msg(cur, user_id):
     return msg_type
 
 
-def generate_yandex_maps_place_link(lat, lon, param):
+def generate_yandex_maps_place_link(lat: Union[float, str], lon: Union[float, str], param: str) -> str:
     """Compose a link to yandex map with the given coordinates"""
 
     coordinates_format = '{0:.5f}'
@@ -1364,7 +1372,7 @@ def generate_yandex_maps_place_link(lat, lon, param):
     return msg
 
 
-def get_param_if_exists(upd, func_input):
+def get_param_if_exists(upd: Update, func_input: str):
     """Return either value if exist or None. Used for messages with changing schema from telegram"""
 
     update = upd  # noqa
@@ -1377,11 +1385,19 @@ def get_param_if_exists(upd, func_input):
     return func_output
 
 
-def manage_age(cur, user_id, user_input):
+def manage_age(cur: cursor, user_id: int, user_input: Optional[str]):
     """Save user Age preference and generate the list of updated Are preferences"""
 
     class AgePeriod:
-        def __init__(self, description=None, name=None, current=None, min_age=None, max_age=None, order=None):
+        def __init__(
+            self,
+            description: str = None,
+            name: str = None,
+            current=None,
+            min_age: int = None,
+            max_age: int = None,
+            order: int = None,
+        ):
             self.desc = description
             self.name = name
             self.now = current
@@ -1479,10 +1495,21 @@ def save_user_pref_topic_type(cur, user_id, pref_id, user_role):
     return None
 
 
-def manage_radius(cur, user_id, user_input, b_menu, b_act, b_deact, b_change, b_back, b_home_coord, expect_before):
+def manage_radius(
+    cur: cursor,
+    user_id: int,
+    user_input: str,
+    b_menu: str,
+    b_act: str,
+    b_deact: str,
+    b_change: str,
+    b_back: str,
+    b_home_coord: str,
+    expect_before: str,
+) -> Tuple[str, ReplyKeyboardMarkup, None]:
     """Save user Radius preference and generate the actual radius preference"""
 
-    def check_saved_radius(user):
+    def check_saved_radius(user: int) -> Optional[Any]:
         """check if user already has a radius preference"""
 
         saved_rad = None
@@ -1964,7 +1991,7 @@ def save_onboarding_step(user_id, username, step):
     return None
 
 
-def check_onboarding_step(cur, user_id, user_is_new):
+def check_onboarding_step(cur: cursor, user_id: int, user_is_new: bool) -> Tuple[int, str]:
     """checks the latest step of onboarding"""
 
     if user_is_new:
@@ -2022,7 +2049,7 @@ async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
     return None
 
 
-async def prepare_message_for_async(user_id, data):
+async def prepare_message_for_async(user_id: int, data: Dict[str, Any]) -> str:
     bot_token = get_app_config().bot_api_token__prod
     application = Application.builder().token(bot_token).build()
     job_queue = application.job_queue
@@ -2043,7 +2070,7 @@ def process_sending_message_async(user_id, data) -> None:
     return None
 
 
-def process_response_of_api_call(user_id, response, call_context=''):
+def process_response_of_api_call(user_id: int, response: Response, call_context: str = '') -> str:
     """process response received as a result of Telegram API call while sending message/location"""
 
     try:
@@ -2254,7 +2281,7 @@ def get_the_update(bot: Bot, request: Request) -> Update | None:
     return update
 
 
-def get_basic_update_parameters(update):
+def get_basic_update_parameters(update: Update):
     """decompose the incoming update into the key parameters"""
 
     user_new_status = get_param_if_exists(update, 'update.my_chat_member.new_chat_member.status')
@@ -2440,7 +2467,7 @@ def process_block_unblock_user(user_id, user_new_status):
     return None
 
 
-def save_bot_reply_to_user(cur, user_id, bot_message):
+def save_bot_reply_to_user(cur: cursor, user_id: int, bot_message: str) -> None:
     """save bot's reply to user in psql"""
 
     if len(bot_message) > 27 and bot_message[28] in {'Актуальные поиски за 60 дней', 'Последние 20 поисков в разде'}:
@@ -2454,7 +2481,7 @@ def save_bot_reply_to_user(cur, user_id, bot_message):
     return None
 
 
-def save_user_message_to_bot(cur, user_id, got_message):
+def save_user_message_to_bot(cur: cursor, user_id: int, got_message: str) -> None:
     """save user's message to bot in psql"""
 
     cur.execute(
@@ -2465,7 +2492,7 @@ def save_user_message_to_bot(cur, user_id, got_message):
     return None
 
 
-def get_coordinates_from_string(got_message, lat_placeholder, lon_placeholder):
+def get_coordinates_from_string(got_message: str, lat_placeholder, lon_placeholder) -> Tuple[float, float]:
     """gets coordinates from string"""
 
     user_latitude, user_longitude = None, None
@@ -2487,8 +2514,15 @@ def get_coordinates_from_string(got_message, lat_placeholder, lon_placeholder):
 
 
 def process_user_coordinates(
-    cur, user_id, user_latitude, user_longitude, b_coords_check, b_coords_del, b_back_to_start, bot_request_aft_usr_msg
-):
+    cur: cursor,
+    user_id: int,
+    user_latitude: float,
+    user_longitude: float,
+    b_coords_check: str,
+    b_coords_del: str,
+    b_back_to_start: str,
+    bot_request_aft_usr_msg: str,
+) -> Optional[Any]:
     """process coordinates which user sent to bot"""
 
     save_user_coordinates(cur, user_id, user_latitude, user_longitude)
@@ -2529,7 +2563,7 @@ def process_user_coordinates(
     return None
 
 
-def run_onboarding(user_id, username, onboarding_step_id, got_message):
+def run_onboarding(user_id: int, username: str, onboarding_step_id: int, got_message: str) -> int:
     """part of the script responsible for orchestration of activities for non-finally-onboarded users"""
 
     if onboarding_step_id == 21:  # region_set

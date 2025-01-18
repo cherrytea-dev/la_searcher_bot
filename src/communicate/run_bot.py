@@ -1,9 +1,9 @@
 import asyncio
-import os
 from unittest.mock import patch
 
 import nest_asyncio
-from telegram import Bot, Update
+from pyannotate_runtime import collect_types
+from telegram import Bot
 from telegram.ext import Updater
 
 from communicate.main import process_update
@@ -12,7 +12,7 @@ from tests.common import get_test_config
 nest_asyncio.apply()
 
 
-async def main_bot():
+async def main_bot() -> None:
     bot = Bot(get_test_config().bot_api_token__prod)
     update_queue = asyncio.Queue()
     updater = Updater(bot, update_queue)
@@ -30,4 +30,11 @@ if __name__ == '__main__':
         patch('_dependencies.commons.get_publisher'),
         patch('_dependencies.commons.get_project_id'),
     ):
-        asyncio.run(main_bot())
+        # TODO add pub/sub emulation
+        collect_types.init_types_collection()
+        with collect_types.collect():
+            try:
+                asyncio.run(main_bot())
+            except:
+                pass  # let the pyannotate to save collected types
+        collect_types.dump_stats('type_info.json')
