@@ -2,7 +2,6 @@ import base64
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from dotenv import load_dotenv
 from telegram import Bot
 from telegram.ext import ExtBot
 
@@ -10,7 +9,6 @@ from _dependencies.commons import Topics
 from tests.common import get_test_config, topic_to_receiver_function
 
 ENABLE_TYPE_COLLECTION = True
-load_dotenv()
 
 
 @pytest.fixture(autouse=True, scope='session')

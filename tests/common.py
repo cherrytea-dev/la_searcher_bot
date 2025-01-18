@@ -7,16 +7,19 @@ from unittest.mock import MagicMock
 
 import psycopg2
 import sqlalchemy
+from dotenv import load_dotenv
+from pydantic_settings import SettingsConfigDict
 
 from _dependencies.commons import AppConfig, Topics, sql_connect_by_psycopg2, sqlalchemy_get_pool
 
 
 class AppTestConfig(AppConfig):
-    pass
+    model_config = SettingsConfigDict(extra='ignore')
 
 
 @lru_cache
 def get_test_config() -> AppTestConfig:
+    assert load_dotenv('.env.test', override=True)
     return AppTestConfig()
 
 

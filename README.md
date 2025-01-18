@@ -84,6 +84,7 @@ Apply initial settings (.env, VSCode):
 cp .vscode/launch.template.json .vscode/launch.json
 cp .vscode/settings.template.json .vscode/settings.json
 cp .env.template .env
+cp .env.template .env.test
 ```
 
 Run tests: `make test`
