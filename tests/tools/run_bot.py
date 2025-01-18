@@ -1,3 +1,6 @@
+from _dependencies.commons import Topics
+from tests.common import topic_to_receiver_function
+import base64
 import asyncio
 from functools import lru_cache
 from unittest.mock import patch
@@ -33,10 +36,16 @@ def get_dotenv_config() -> AppConfig:
 
 
 if __name__ == '__main__':
+
+    def patched_send_topic(topic_name: Topics, topic_path, data: dict) -> None:
+        receiver = topic_to_receiver_function(topic_name)
+        receiver({'data': base64.encodebytes(data)}, 'context')
+
     with (
         patch('_dependencies.commons._get_config', get_dotenv_config),
         patch('_dependencies.commons.get_publisher'),
         patch('_dependencies.commons.get_project_id'),
+        patch('_dependencies.commons._send_topic', patched_send_topic),
     ):
         # TODO add pub/sub emulation
         collect_types.init_types_collection()
