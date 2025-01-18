@@ -16,6 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Make dependencies
+        run: make dependencies
+
       - name: Authenticate in GCP
         id: auth
         uses: google-github-actions/auth@v1

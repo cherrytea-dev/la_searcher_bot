@@ -9,6 +9,8 @@ dependencies = [
     "google-cloud-secret-manager==2.16.0",
     "google-cloud-logging==3.5.0",
     "pydantic-settings==2.*",
+    "psycopg2-binary==2.9.5",
+    "SQLAlchemy==1.4.11",
 ]
 
 
@@ -22,29 +24,22 @@ develop = [
     "ruff>=0.8",
     "uv>=0.5.15",
     "pytest-xdist==3.*",
-    "pyannotate==1.2.*"
+    "pyannotate==1.2.*",
 ]
 
 api_get_active_searches = [
-    "psycopg2-binary==2.9.5",
     "beautifulsoup4==4.9.3",    # do we need to update it?
     "lxml==4.9.1",
     "functions-framework==3.*",
 ]
 
-archive_notifications = ["SQLAlchemy==1.4.11", "psycopg2-binary==2.9.5", "pytz"]
+archive_notifications = ["pytz"]
 
-archive_to_bigquery = [
-    "SQLAlchemy==1.4.11",
-    "psycopg2-binary==2.9.5",
-    "google-cloud-bigquery==3.27.0",
-]
+archive_to_bigquery = ["google-cloud-bigquery==3.27.0"]
 
 check_first_posts_for_changes = [
     "requests==2.31.0",
-    "SQLAlchemy==1.4.11",
-    "psycopg2-binary==2.9.5",
-    "google-auth==2.19.1",    # for API calls to other Google Cloud Functions
+    "google-auth==2.19.1", # for API calls to other Google Cloud Functions
 ]
 
 check_topics_by_upd_time = [
@@ -54,21 +49,18 @@ check_topics_by_upd_time = [
 ]
 
 communicate = [
-    "psycopg2-binary==2.9.5",
     "python-telegram-bot[rate-limiter, job-queue]==20.2",
     "httpx==0.23.3",
 ]
 
 compose_notifications = [
     "requests==2.31.0",
-    "urllib3==1.26.18",       # http client
-    "idna==2.10",             # translation of domain names
-    "certifi==2023.7.22",     # SSL certificates
-    "chardet==4.0.0",         # encoding detector
-    "python-dateutil",        # extension to datetime module
-    "pytz==2021.1",           # timezone
-    "SQLAlchemy==1.4.11",
-    "psycopg2-binary==2.9.5",
+    "urllib3==1.26.18",   # http client
+    "idna==2.10",         # translation of domain names
+    "certifi==2023.7.22", # SSL certificates
+    "chardet==4.0.0",     # encoding detector
+    "python-dateutil",    # extension to datetime module
+    "pytz==2021.1",       # timezone
 ]
 
 connect_to_forum = [
@@ -76,16 +68,13 @@ connect_to_forum = [
     "urllib3==1.26.18",
     "beautifulsoup4==4.9.3",
     "lxml==4.9.1",
-    "psycopg2-binary==2.9.5",
     "python-telegram-bot[rate-limiter, job-queue]==20.2",
     "httpx==0.23.3",
 ]
 
 identify_updates_of_first_posts = [
     "requests==2.31.0",
-    "SQLAlchemy==1.4.11",     # <-- old version, but still works
-    "psycopg2-binary==2.9.5",
-    "beautifulsoup4==4.9.3",  # do we need to update it?
+    "beautifulsoup4==4.9.3", # do we need to update it?
     "lxml==4.9.1",
 ]
 
@@ -108,42 +97,25 @@ identify_updates_of_topics = [
     "python-dateutil==2.8.2",       # extension to datetime module
     "geopy==2.2.0",                 # geocoding / coordinates
     "yandex-geocoder==3.0.1",       # # geocoding / coordinates
-    "SQLAlchemy==1.4.11",
-    "psycopg2-binary==2.9.5",
     "natasha==1.4.0",               # recognition of person and location within text string
     "google-cloud-storage==2.10.0",
     "google-auth==2.19.1",          # for API calls to other Google Cloud Functions
 ]
 
-manage_topics = [
-    "SQLAlchemy==1.4.11",     # <-- old version, but still works
-    "psycopg2-binary==2.9.5",
-]
+manage_topics = []
 
-manage_users = ["psycopg2-binary==2.9.5"]
+manage_users = []
 
 send_debug_to_admin = [
     "python-telegram-bot[rate-limiter, job-queue]==20.2",
     "httpx==0.23.3",
 ]
 
-send_notifications = [
-    "urllib3==1.26.18",
-    "psycopg2-binary==2.9.5",
-    "httpx==0.23.3",
-]
+send_notifications = ["urllib3==1.26.18", "httpx==0.23.3"]
 
-send_notifications_helper = [
-    "urllib3==1.26.18",
-    "psycopg2-binary==2.9.5",
-    "httpx==0.23.3",
-]
+send_notifications_helper = ["urllib3==1.26.18", "httpx==0.23.3"]
 
-send_notifications_helper_2 = [
-    "urllib3==1.26.18",
-    "psycopg2-binary==2.9.5",
-    "httpx==0.23.3",
-]
+send_notifications_helper_2 = ["urllib3==1.26.18", "httpx==0.23.3"]
 
 title_recognize = [
     "python-dateutil==2.8.2",     # extension to datetime module
@@ -152,13 +124,12 @@ title_recognize = [
 ]
 
 user_provide_info = [
-    "psycopg2-binary==2.9.5",
     "beautifulsoup4==4.9.3",    # do we need to update it?
     "lxml==4.9.1",
     "functions-framework==3.*",
 ]
 
-users_activate = ["psycopg2-binary==2.9.5"]
+users_activate = []
 
 
 [tool.ruff]
