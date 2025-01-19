@@ -15,8 +15,8 @@ lint:
 	uv run ruff check src tests --select I --fix
 
 lint-check:
-	uv run ruff format src tests --check
-	uv run ruff check src tests --select I
+	uv run ruff format src tests --check --diff
+	uv run ruff check src tests --select I --diff
 
 requirements:
 	for d in $$(ls -1 src | grep -E ${SRC_FUNCTIONS_REGEX}); do \
