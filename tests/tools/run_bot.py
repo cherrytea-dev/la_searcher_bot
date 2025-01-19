@@ -1,7 +1,5 @@
-from _dependencies.commons import Topics
-from tests.common import topic_to_receiver_function
-import base64
 import asyncio
+import base64
 from functools import lru_cache
 from unittest.mock import patch
 
@@ -11,8 +9,9 @@ from pyannotate_runtime import collect_types
 from telegram import Bot
 from telegram.ext import Updater
 
-from _dependencies.commons import AppConfig
+from _dependencies.commons import AppConfig, Topics
 from communicate.main import process_update
+from tests.common import topic_to_receiver_function
 
 nest_asyncio.apply()
 
