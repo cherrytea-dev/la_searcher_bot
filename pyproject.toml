@@ -23,7 +23,7 @@ develop = [
     "polyfactory>=2.18",
     "pytest-cov>=6.0",
     "python-dotenv==1.*",
-    "ruff>=0.8",
+    "ruff==0.8.6",
     "uv>=0.5.15",
     "pytest-xdist==3.*",
     "pyannotate==1.2.*",
