@@ -1,14 +1,14 @@
 import base64
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from dotenv import load_dotenv
+from telegram import Bot
+from telegram.ext import ExtBot
 
 from _dependencies.commons import Topics
 from tests.common import get_test_config, topic_to_receiver_function
 
 ENABLE_TYPE_COLLECTION = True
-load_dotenv()
 
 
 @pytest.fixture(autouse=True, scope='session')
@@ -61,3 +61,13 @@ def patch_http():
 def patch_pubsub_client() -> MagicMock:
     with patch('google.cloud.pubsub_v1.PublisherClient', MagicMock()) as mock:
         yield mock
+
+
+@pytest.fixture(autouse=True)
+def bot_mock_send_message() -> AsyncMock:
+    # TODO get list of sent messages
+    with (
+        patch.object(Bot, 'get_me'),
+        patch.object(ExtBot, 'send_message') as mock_send_message,
+    ):
+        yield mock_send_message

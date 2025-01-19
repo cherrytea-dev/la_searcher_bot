@@ -371,7 +371,7 @@ def get_change_log_update_time(cur, change_log_id):
 
 
 def iterate_over_notifications(
-    bot_token: str, admin_id: str, script_start_time: datetime.datetime, session, function_id: int
+    bot_token: str, admin_id: str, script_start_time: datetime.datetime, session: requests.Session, function_id: int
 ) -> List:
     """iterate over all available notifications, finishes if timeout is met or no new notifications"""
 

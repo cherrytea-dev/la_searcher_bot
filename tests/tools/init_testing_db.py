@@ -28,7 +28,7 @@ def main():
     script = Path('tests/tools/db.sql').read_text()
     script = script.replace('<<CLOUD_POSTGRES_USERNAME>>', config.postgres_user)
     recreate_db_schema(script)
-    print('test database recreated')
+    print(f'test database "{config.postgres_db}" recreated')
 
 
 if __name__ == '__main__':

@@ -9,7 +9,18 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "purpose": ["debug-test", "debug-in-terminal"],
-            "justMyCode": true
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
+            "name": "Run bot locally",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "tests/tools/run_bot.py",
+            "console": "integratedTerminal",
+            "purpose": ["debug-test", "debug-in-terminal"],
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
         }
     ]
 }

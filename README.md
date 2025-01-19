@@ -84,7 +84,10 @@ Apply initial settings (.env, VSCode):
 cp .vscode/launch.template.json .vscode/launch.json
 cp .vscode/settings.template.json .vscode/settings.json
 cp .env.template .env
+cp .env.template .env.test
 ```
+
+Initialize schema for test db: `make initdb` (it will take values from `.env.test` file)
 
 Run tests: `make test`
 
@@ -95,3 +98,7 @@ Update nested "requirements.txt" files: `make requirements`
 After changing `pyproject.toml` run `uv lock` to update lockfile.
 
 Run tests with postgres database in docker container: `make ci-test`
+
+Generate/update smoke tests: `make smoke-tests-generate`
+
+Run bot locally: `uv run python tests/tools/run_bot.py` (example is in [launch.template.json](.vscode/launch.template.json) )
