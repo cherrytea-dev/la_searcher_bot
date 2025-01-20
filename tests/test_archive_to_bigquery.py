@@ -19,6 +19,7 @@ def patch_big_query():
 
 
 def test_main(patch_big_query):
+    # NO SMOKE TEST archive_to_bigquery.main.main
     event = get_event_with_data(
         {
             'topic_id': 123,

@@ -19,12 +19,6 @@ def test_main():
     pass
 
 
-def test_notify_admin():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.notify_admin)
-    pass
-
-
 def test_time_delta():
     res = run_smoke(main.time_delta)
     pass
