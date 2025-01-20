@@ -22,6 +22,7 @@ from _dependencies.misc import (
     generate_random_function_id,
     get_change_log_update_time,
     notify_admin,
+    save_sending_status_to_notif_by_user,
     send_location_to_api,
 )
 
@@ -300,27 +301,6 @@ def send_single_message(bot_token, user_id, message_content, message_params, mes
             logging.exception(error_description)
 
     return result
-
-
-def save_sending_status_to_notif_by_user(cur, message_id, result):
-    """save the telegram sending status to sql table notif_by_user"""
-
-    if result[0:9] == 'cancelled':
-        result = result[0:9]
-    elif result[0:6] == 'failed':
-        result = result[0:6]
-
-    if result in {'completed', 'cancelled', 'failed'}:
-        sql_text_psy = f"""
-                    UPDATE notif_by_user
-                    SET {result} = %s
-                    WHERE message_id = %s;
-                    /*action='save_sending_status_to_notif_by_user_{result}' */
-                    ;"""
-
-        cur.execute(sql_text_psy, (datetime.datetime.now(), message_id))
-
-    return None
 
 
 def iterate_over_notifications(

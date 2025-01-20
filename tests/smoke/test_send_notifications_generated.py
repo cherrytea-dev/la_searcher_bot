@@ -39,11 +39,6 @@ def test_process_response():
     pass
 
 
-def test_save_sending_status_to_notif_by_user():
-    res = run_smoke(main.save_sending_status_to_notif_by_user)
-    pass
-
-
 def test_send_message_to_api():
     res = run_smoke(main.send_message_to_api)
     pass
