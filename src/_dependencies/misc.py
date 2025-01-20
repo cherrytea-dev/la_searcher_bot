@@ -244,3 +244,32 @@ def save_sending_status_to_notif_by_user(cur: cursor, message_id: int, result: s
                     ;"""
 
         cur.execute(sql_text_psy, (datetime.datetime.now(), message_id))
+
+
+def evaluate_city_locations(city_locations):
+    if not city_locations:
+        logging.info('no city_locations')
+        return None
+
+    cl_eval = eval(city_locations)
+    if not cl_eval:
+        logging.info('no eval of city_locations')
+        return None
+
+    if not isinstance(cl_eval, list):
+        logging.info('eval of city_locations is not list')
+        return None
+
+    first_coords = cl_eval[0]
+
+    if not first_coords:
+        logging.info('no first coords in city_locations')
+        return None
+
+    if not isinstance(first_coords, list):
+        logging.info('fist coords in city_locations is not list')
+        return None
+
+    logging.info(f'city_locations has coords {first_coords}')
+
+    return [first_coords]
