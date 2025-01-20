@@ -110,3 +110,22 @@ def time_counter_since_search_start(start_time: datetime.datetime) -> tuple[str,
             phrase += ' дней'
 
     return [phrase, diff.days]
+
+
+def age_writer(age: int) -> str:
+    """compose an age string with the right form of years in Russian"""
+
+    if age:
+        a = age // 100
+        b = (age - a * 100) // 10
+        c = age - a * 100 - b * 10
+        if c == 1 and b != 1:
+            wording = str(age) + ' год'
+        elif (c == 2 or c == 3 or c == 4) and b != 1:
+            wording = str(age) + ' года'
+        else:
+            wording = str(age) + ' лет'
+    else:
+        wording = ''
+
+    return wording

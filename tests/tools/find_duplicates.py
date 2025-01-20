@@ -92,7 +92,7 @@ if __name__ == '__main__':
         'identify_updates_of_topics',
         'manage_topics',
     ],
-    'age_writer': ['communicate', 'compose_notifications', 'identify_updates_of_first_posts'],
+# OK    'age_writer': ['communicate', 'compose_notifications', 'identify_updates_of_first_posts'],
     'prepare_message_for_async': ['communicate', 'connect_to_forum', 'send_debug_to_admin'],
     'process_sending_message_async': ['communicate', 'connect_to_forum', 'send_debug_to_admin'],
     'save_new_user': ['communicate', 'manage_users'],

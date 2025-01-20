@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from _dependencies import misc
-from _dependencies.misc import time_counter_since_search_start
+from _dependencies.misc import age_writer, time_counter_since_search_start
 from tests.common import get_test_config
 
 
@@ -33,6 +33,19 @@ def test_time_counter_since_search_start(minutes_ago: int, hours_ago: int, days_
     start_datetime = datetime.now() - timedelta(minutes=minutes_ago, hours=hours_ago, days=days_ago)
     res = time_counter_since_search_start(start_datetime)
     assert res == result
+
+
+@pytest.mark.parametrize(
+    'age,result',
+    [
+        (0, ''),
+        (1, '1 год'),
+        (5, '5 лет'),
+        (22, '22 года'),
+    ],
+)
+def test_age_writer(age: int, result: str):
+    assert result == age_writer(age)
 
 
 # TODO remove after refactored
