@@ -1,12 +1,10 @@
 """Send the prepared notifications to users (text and location) via Telegram"""
 
 import ast
-import base64
 import datetime
 import json
 import logging
 import time
-import urllib.request
 from typing import Any, List, Optional
 
 import requests
@@ -25,8 +23,10 @@ from _dependencies.misc import (
     get_triggering_function,
     notify_admin,
     process_pubsub_message_v2,
+    process_response,
     save_sending_status_to_notif_by_user,
     send_location_to_api,
+    send_message_to_api,
 )
 
 setup_google_logging()
@@ -45,48 +45,6 @@ SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS = 5
 analytics_notif_times = []
 analytics_delays = []
 analytics_parsed_times = []
-
-
-def send_message_to_api(session, bot_token, user_id, message, params):
-    """send message directly to Telegram API w/o any wrappers ar libraries"""
-
-    try:
-        parse_mode = ''
-        disable_web_page_preview = ''
-        reply_markup = ''
-        if params:
-            if 'parse_mode' in params.keys():
-                parse_mode = f'&parse_mode={params["parse_mode"]}'
-            if 'disable_web_page_preview' in params.keys():
-                disable_web_page_preview = f'&disable_web_page_preview={params["disable_web_page_preview"]}'
-            if 'reply_markup' in params.keys():
-                reply_markup_temp = params['reply_markup']
-                reply_markup_json = json.dumps(reply_markup_temp)
-                reply_markup_string = str(reply_markup_json)
-                reply_markup_encoded = urllib.parse.quote(reply_markup_string)
-                reply_markup = f'&reply_markup={reply_markup_encoded}'
-
-                logging.info(f'{reply_markup_temp=}')
-                logging.info(f'{reply_markup_json=}')
-                logging.info(f'{reply_markup_string=}')
-                logging.info(f'{reply_markup_encoded=}')
-                logging.info(f'{reply_markup=}')
-
-        message_encoded = urllib.parse.quote(message)
-
-        request_text = (
-            f'https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={user_id}'
-            f'{parse_mode}{disable_web_page_preview}{reply_markup}&text={message_encoded}'
-        )
-
-        r = session.get(request_text)
-
-    except Exception as e:
-        logging.exception(e)
-        logging.info('Error in getting response from Telegram')
-        r = None
-
-    return r
 
 
 def check_for_notifs_to_send(cur: cursor):
@@ -176,56 +134,6 @@ def check_for_number_of_notifs_to_send(cur: cursor) -> int:
     num_of_notifs = int(cur.fetchone()[0])
 
     return num_of_notifs
-
-
-def process_response(user_id, response):
-    """process response received as a result of Telegram API call while sending message/location"""
-
-    try:
-        if response.ok:
-            logging.info(f'message to {user_id} was successfully sent')
-            return 'completed'
-
-        elif response.status_code == 400:  # Bad Request
-            logging.info(f'Bad Request: message to {user_id} was not sent, {response.reason=}')
-            logging.exception('BAD REQUEST')
-            return 'cancelled_bad_request'
-
-        elif response.status_code == 403:  # FORBIDDEN
-            logging.info(f'Forbidden: message to {user_id} was not sent, {response.reason=}')
-            action = None
-            if response.text.find('bot was blocked by the user') != -1:
-                action = 'block_user'
-            if response.text.find('user is deactivated') != -1:
-                action = 'delete_user'
-            if action:
-                message_for_pubsub = {'action': action, 'info': {'user': user_id}}
-                publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
-                logging.info(f'Identified user id {user_id} to do {action}')
-            return 'cancelled'
-
-        elif 420 <= response.status_code <= 429:  # 'Flood Control':
-            logging.info(f'Flood Control: message to {user_id} was not sent, {response.reason=}')
-            logging.exception('FLOOD CONTROL')
-            # fixme - try to get retry_after
-            try:
-                retry_after = response.parameters.retry_after
-                print(f'ho-ho, we did it! 429 worked! {retry_after}')
-            except:  # noqa
-                pass
-            # fixme ^^^
-            time.sleep(5)  # to mitigate flood control
-            return 'failed_flood_control'
-
-        else:
-            logging.info(f'UNKNOWN ERROR: message to {user_id} was not sent, {response.reason=}')
-            logging.exception('UNKNOWN ERROR')
-            return 'cancelled'
-
-    except Exception as e:
-        logging.info('Response is corrupted')
-        logging.exception(e)
-        return 'failed'
 
 
 def send_single_message(bot_token, user_id, message_content, message_params, message_type, admin_id, session):

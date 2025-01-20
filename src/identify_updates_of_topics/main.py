@@ -189,7 +189,7 @@ def save_last_api_call_time_to_psql(db: sqlalchemy.engine, geocoder: str) -> boo
         return False
 
 
-def get_last_api_call_time_from_psql(db: sqlalchemy.engine, geocoder: str) -> datetime.timestamp:
+def get_last_api_call_time_from_psql(db: sqlalchemy.engine, geocoder: str):
     """Used to track time of the last api call to geocoders. Gets the last timestamp in UTC saved in psql"""
 
     conn = None
