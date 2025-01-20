@@ -6,7 +6,7 @@ import requests
 
 from _dependencies import misc
 from _dependencies.commons import sql_connect_by_psycopg2
-from tests.common import get_test_config
+from tests.common import get_event_with_data, get_test_config
 
 
 def test_notify_admin(patch_pubsub_client, bot_mock_send_message: AsyncMock):
@@ -89,3 +89,18 @@ def test_evaluate_city_locations_success():
 def test_evaluate_city_locations_fail(param):
     res = misc.evaluate_city_locations(str(param))
     assert res is None
+
+
+def test_process_pubsub_message():
+    res = misc.process_pubsub_message(get_event_with_data('foo'))
+    assert res == 'foo'
+
+
+def test_process_pubsub_message_2():
+    res = misc.process_pubsub_message_v2(get_event_with_data('foo'))
+    assert res == 'foo'
+
+
+def test_process_pubsub_message_3():
+    res = misc.process_pubsub_message_v3(get_event_with_data('foo'))
+    assert res == 'foo'

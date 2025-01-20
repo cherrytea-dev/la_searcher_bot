@@ -7,27 +7,12 @@ import logging
 from typing import Any, Optional
 
 from _dependencies.commons import get_app_config, setup_google_logging
-from _dependencies.misc import process_sending_message_async_other_bot
+from _dependencies.misc import process_pubsub_message_v2, process_sending_message_async_other_bot
 
 setup_google_logging()
 
 logging.getLogger('telegram.vendor.ptb_urllib3.urllib3').setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
-
-
-def process_pubsub_message(event: dict):
-    """get the text message from pubsub"""
-
-    # receiving message text from pub/sub
-    if 'data' in event:
-        received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
-        encoded_to_ascii = eval(received_message_from_pubsub)
-        data_in_ascii = encoded_to_ascii['data']
-        message_in_ascii = data_in_ascii['message']
-    else:
-        message_in_ascii = 'ERROR: I cannot read message from pub/sub'
-
-    return message_in_ascii
 
 
 def send_message(admin_user_id, message):
@@ -63,7 +48,7 @@ def main(event, context):  # noqa
     pubsub_message = base64.b64decode(event['data']).decode('utf-8')
     logging.info('[send_debug]: received from pubsub: {}'.format(pubsub_message))  # noqa
 
-    message_from_pubsub = process_pubsub_message(event)
+    message_from_pubsub = process_pubsub_message_v2(event)
 
     admin_user_id = get_app_config().my_telegram_id
 

@@ -4,35 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 from _dependencies.commons import sql_connect_by_psycopg2
-
-
-def process_pubsub_message(event: dict):
-    """convert incoming pub/sub message into regular data"""
-
-    # FIXME
-    print(f'EVENT {event}')
-    # FIXME ^^^
-    # receiving message text from pub/sub
-    if 'data' in event:
-        received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
-        print(f'DECODED DATA from EVENT {received_message_from_pubsub}')
-        try:
-            received_message_from_pubsub.replace('null', 'None')
-            encoded_to_ascii = eval(received_message_from_pubsub)
-            data_in_ascii = encoded_to_ascii['data']
-            message_in_ascii = data_in_ascii['message']
-        except Exception as e:
-            logging.exception(e)
-            message_in_ascii = None
-
-    else:
-        received_message_from_pubsub = 'I cannot read message from pub/sub'
-        message_in_ascii = None
-
-    logging.info(f'received from pubsub {received_message_from_pubsub}')
-    logging.info(f'message in ascii {message_in_ascii}')
-
-    return message_in_ascii
+from _dependencies.misc import process_pubsub_message
 
 
 def save_onboarding_step(user_id: int, step_name: str, timestamp: datetime) -> None:

@@ -72,8 +72,3 @@ def test_mark_up_onboarding_status_80_wo_dialogs():
 def test_mark_up_onboarding_status_99():
     res = run_smoke(main.mark_up_onboarding_status_99)
     pass
-
-
-def test_process_pubsub_message():
-    res = run_smoke(main.process_pubsub_message)
-    pass
