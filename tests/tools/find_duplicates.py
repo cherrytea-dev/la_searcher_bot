@@ -57,7 +57,6 @@ if __name__ == '__main__':
 
 """
 {
-    'clean_up_content': ['api_get_active_searches', 'identify_updates_of_first_posts', 'user_provide_info'],
     'main': [
         'api_get_active_searches',
         'archive_notifications',
