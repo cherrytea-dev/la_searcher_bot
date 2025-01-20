@@ -125,11 +125,11 @@ if __name__ == '__main__':
     ],
     'save_function_into_register': ['identify_updates_of_first_posts', 'identify_updates_of_topics', 'manage_topics'],
     'read_snapshot_from_cloud_storage': ['identify_updates_of_folders', 'identify_updates_of_topics'],
-    'set_cloud_storage': ['identify_updates_of_folders', 'identify_updates_of_topics'],
+# NO    'set_cloud_storage': ['identify_updates_of_folders', 'identify_updates_of_topics'],
     'write_snapshot_to_cloud_storage': ['identify_updates_of_folders', 'identify_updates_of_topics'],
     'check_for_notifs_to_send': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'finish_time_analytics': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
-    'get_change_log_update_time': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
+# OK    'get_change_log_update_time': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'iterate_over_notifications': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'process_response': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'save_sending_status_to_notif_by_user': [

@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from _dependencies import misc
-from _dependencies.misc import age_writer, time_counter_since_search_start
+from _dependencies.commons import sql_connect_by_psycopg2
 from tests.common import get_test_config
 
 
@@ -31,7 +31,7 @@ def test_make_api_call():
 )
 def test_time_counter_since_search_start(minutes_ago: int, hours_ago: int, days_ago: int, result: str):
     start_datetime = datetime.now() - timedelta(minutes=minutes_ago, hours=hours_ago, days=days_ago)
-    res = time_counter_since_search_start(start_datetime)
+    res = misc.time_counter_since_search_start(start_datetime)
     assert res == result
 
 
@@ -45,7 +45,13 @@ def test_time_counter_since_search_start(minutes_ago: int, hours_ago: int, days_
     ],
 )
 def test_age_writer(age: int, result: str):
-    assert result == age_writer(age)
+    assert result == misc.age_writer(age)
+
+
+def test_get_change_log_update_time():
+    with sql_connect_by_psycopg2() as connection:
+        with connection.cursor() as cursor:
+            misc.get_change_log_update_time(cursor, 1)
 
 
 # TODO remove after refactored

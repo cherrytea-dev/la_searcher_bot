@@ -19,11 +19,6 @@ def test_check_for_notifs_to_send():
     pass
 
 
-def test_get_change_log_update_time():
-    res = run_smoke(main.get_change_log_update_time)
-    pass
-
-
 def test_get_triggering_function():
     res = run_smoke(main.get_triggering_function)
     pass

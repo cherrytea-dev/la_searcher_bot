@@ -19,7 +19,7 @@ from _dependencies.commons import (
     setup_google_logging,
     sql_connect_by_psycopg2,
 )
-from _dependencies.misc import generate_random_function_id, notify_admin
+from _dependencies.misc import generate_random_function_id, get_change_log_update_time, notify_admin
 
 setup_google_logging()
 
@@ -306,28 +306,6 @@ def save_sending_status_to_notif_by_user(cur: cursor, message_id: int, result: s
         cur.execute(sql_text_psy, (datetime.datetime.now(), message_id))
 
     return None
-
-
-def get_change_log_update_time(cur, change_log_id):
-    """get he time of parsing of the change, saved in PSQL"""
-
-    if not change_log_id:
-        return None
-
-    sql_text_psy = """
-                    SELECT parsed_time 
-                    FROM change_log 
-                    WHERE id = %s;
-                    /*action='getting_change_log_parsing_time' */;"""
-    cur.execute(sql_text_psy, (change_log_id,))
-    parsed_time = cur.fetchone()
-
-    if not parsed_time:
-        return None
-
-    parsed_time = parsed_time[0]
-
-    return parsed_time
 
 
 def iterate_over_notifications(
