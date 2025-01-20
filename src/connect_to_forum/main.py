@@ -20,8 +20,6 @@ setup_google_logging()
 
 
 session = requests.Session()
-cur = None
-conn_psy = None
 
 
 @dataclass
@@ -37,15 +35,6 @@ class ForumUser:
     reg_date = None
     firstname = None
     lastname = None
-
-
-def sql_connect_by_psycopg2_with_globals() -> None:
-    # TODO remove globals
-    global cur
-    global conn_psy
-
-    conn_psy = sql_connect_by_psycopg2()
-    cur = conn_psy.cursor()
 
 
 def login_into_forum(forum_bot_password: str) -> None:
@@ -135,10 +124,10 @@ def get_user_attributes(user_id: str):
     return block_with_user_attr
 
 
-def get_user_data(data):
+def get_user_data(data) -> ForumUser:
     """aggregates User Profile from forums' data"""
 
-    global user
+    user = ForumUser()
 
     dict = {
         'age': 'Возраст:',
@@ -157,7 +146,7 @@ def get_user_data(data):
             print(attr, 'is not defined')
             logging.info(e1)
 
-    return None
+    return user
 
 
 def match_user_region_from_forum_to_bot(forum_region):
@@ -232,9 +221,8 @@ def match_user_region_from_forum_to_bot(forum_region):
 def main(event: Dict[str, bytes], context: str) -> None:
     """main function triggered from communicate script via pyb/sub"""
 
-    global user
-    global cur
-    global conn_psy
+    conn = sql_connect_by_psycopg2()
+    cur = conn.cursor()
 
     user = ForumUser()
 
@@ -252,20 +240,17 @@ def main(event: Dict[str, bytes], context: str) -> None:
     # log in to forum
     bot_forum_pass = get_app_config().forum_bot_password
     login_into_forum(bot_forum_pass)
-
-    user_found = False
-
+    user = None
     if message_in_ascii:
         f_usr_id = get_user_id(f_username)
 
         if f_usr_id != 0:
             block_of_user_data = get_user_attributes(f_usr_id)
-            user_found = True
 
             if block_of_user_data:
-                get_user_data(block_of_user_data)
+                user = get_user_data(block_of_user_data)
 
-    if user_found:
+    if user:
         bot_message = 'Посмотрите, Бот нашел следующий аккаунт на форуме, это Вы?\n'
         bot_message += 'username: ' + f_username + ', '
         if user.callsign:
@@ -282,11 +267,9 @@ def main(event: Dict[str, bytes], context: str) -> None:
 
         keyboard = [['да, это я'], ['нет, это не я'], ['в начало']]
 
-        sql_connect_by_psycopg2_with_globals()
-
         # Delete previous records for this user
         cur.execute("""DELETE FROM user_forum_attributes WHERE user_id=%s;""", (tg_user_id,))
-        conn_psy.commit()
+        conn.commit()
 
         # Add new record for this user
         cur.execute(
@@ -309,10 +292,10 @@ def main(event: Dict[str, bytes], context: str) -> None:
                 user.reg_date,
             ),
         )
-        conn_psy.commit()
+        conn.commit()
 
         cur.execute("""SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=%s""", (tg_user_id,))
-        conn_psy.commit()
+        conn.commit()
         user_has_region_set = True if cur.fetchone() else False
         logging.info(f'user_has_region_set = {user_has_region_set}')
 
@@ -333,18 +316,16 @@ def main(event: Dict[str, bytes], context: str) -> None:
         keyboard = [['в начало']]
         bot_request_aft_usr_msg = 'input_of_forum_username'
 
-        sql_connect_by_psycopg2_with_globals()
-
         try:
             cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (tg_user_id,))
-            conn_psy.commit()
+            conn.commit()
             cur.execute(
                 """
                 INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
                 """,
                 (tg_user_id, datetime.datetime.now(), bot_request_aft_usr_msg),
             )
-            conn_psy.commit()
+            conn.commit()
 
         except Exception as e:
             logging.info('failed to update the last saved message from bot')
@@ -360,9 +341,7 @@ def main(event: Dict[str, bytes], context: str) -> None:
             """INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);""",
             (tg_user_id, 'bot', datetime.datetime.now(), bot_message),
         )
-        conn_psy.commit()
+        conn.commit()
 
     cur.close()
-    conn_psy.close()
-
-    return None
+    conn.close()
