@@ -2,7 +2,6 @@
 
 import ast
 import datetime
-import json
 import logging
 import time
 from typing import Any, List, Optional
@@ -10,6 +9,11 @@ from typing import Any, List, Optional
 import requests
 from psycopg2.extensions import cursor
 
+from _dependencies.cloud_func_parallel_guard import (
+    check_if_other_functions_are_working,
+    record_finish_of_function,
+    record_start_of_function,
+)
 from _dependencies.commons import (
     Topics,
     get_app_config,
@@ -312,88 +316,6 @@ def check_and_save_event_id(
     """Work with PSQL table functions_registry. Goal of the table & function is to avoid parallel work of
     two send_notifications functions. Executed in the beginning and in the end of send_notifications function"""
 
-    def check_if_other_functions_are_working():
-        """Check in PSQL in there's the same function 'send_notifications' working in parallel"""
-
-        conn_psy = sql_connect_by_psycopg2()
-        cur = conn_psy.cursor()
-
-        sql_text_psy = f"""
-                        SELECT 
-                            event_id 
-                        FROM
-                            functions_registry
-                        WHERE
-                            time_start > NOW() - interval '{INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS} seconds' AND
-                            time_finish IS NULL AND
-                            cloud_function_name  = 'send_notifications'
-                        ;
-                        /*action='check_if_there_is_parallel_notif_function' */
-                        ;"""
-
-        cur.execute(sql_text_psy)
-        lines = cur.fetchone()
-
-        parallel_functions = True if lines else False
-
-        cur.close()
-        conn_psy.close()
-
-        return parallel_functions
-
-    def record_start_of_function(event_num: int, function_num: int, triggered_by_func_num: int) -> None:
-        """Record into PSQL that this function started working (id = id of the respective pub/sub event)"""
-
-        conn_psy = sql_connect_by_psycopg2()
-        cur = conn_psy.cursor()
-
-        sql_text_psy = """
-                        INSERT INTO 
-                            functions_registry
-                        (event_id, time_start, cloud_function_name, function_id, triggered_by_func_id)
-                        VALUES
-                        (%s, %s, %s, %s, %s);
-                        /*action='save_start_of_notif_function' */
-                        ;"""
-
-        cur.execute(
-            sql_text_psy,
-            (event_num, datetime.datetime.now(), 'send_notifications', function_num, triggered_by_func_num),
-        )
-        logging.info(f'function was triggered by event {event_num}, we assigned a function_id = {function_num}')
-
-        cur.close()
-        conn_psy.close()
-
-        return None
-
-    def record_finish_of_function(event_num: int, list_of_changed_ids: list) -> None:
-        """Record into PSQL that this function finished working (id = id of the respective pub/sub event)"""
-
-        conn_psy = sql_connect_by_psycopg2()
-        cur = conn_psy.cursor()
-
-        json_of_params = json.dumps({'ch_id': list_of_changed_ids})
-
-        sql_text_psy = """
-                        UPDATE 
-                            functions_registry
-                        SET
-                            time_finish = %s,
-                            params = %s
-                        WHERE
-                            event_id = %s
-                        ;
-                        /*action='save_finish_of_notif_function' */
-                        ;"""
-
-        cur.execute(sql_text_psy, (datetime.datetime.now(), json_of_params, event_num))
-
-        cur.close()
-        conn_psy.close()
-
-        return None
-
     if not context or not event:
         return False
 
@@ -404,11 +326,11 @@ def check_and_save_event_id(
 
     # if this functions is triggered in the very beginning of the Google Cloud Function execution
     if event == 'start':
-        if check_if_other_functions_are_working():
-            record_start_of_function(event_id, function_id, triggered_by_func_id)
+        if check_if_other_functions_are_working('send_notifications', INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
+            record_start_of_function(event_id, function_id, triggered_by_func_id, 'send_notifications')
             return True
 
-        record_start_of_function(event_id, function_id, triggered_by_func_id)
+        record_start_of_function(event_id, function_id, triggered_by_func_id, 'send_notifications')
         return False
 
     # if this functions is triggered in the very end of the Google Cloud Function execution
