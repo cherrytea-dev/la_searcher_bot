@@ -1,15 +1,10 @@
 """
-Tool for generating smoke testcases
+Tool for search duplicate functions in modules
 """
 
 import importlib
 import inspect
-import re
-from datetime import date, datetime
-from functools import lru_cache
 from pathlib import Path
-
-PYTEST_LOG_FILE = 'build/pytest.log'
 
 
 def generate_all():
@@ -30,11 +25,11 @@ def generate_all():
         _add_cases(module, dir_name, cases)
 
     cases = {key: value for key, value in cases.items() if len(value) > 1}
-    print("-----")
+    print('-----')
     # print(cases)
     # print("-----")
     for key, value in cases.items():
-        print(f"def {key}: {value}")
+        print(f'def {key}: {value}')
 
     # print(cases.keys())
     # print("-----")
