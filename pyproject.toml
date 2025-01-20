@@ -27,6 +27,10 @@ develop = [
     "uv>=0.5.15",
     "pytest-xdist==3.*",
     "pyannotate==1.2.*",
+
+    "types-beautifulsoup4",
+    "types-psycopg2",
+    "types-python-dateutil",
 ]
 
 api_get_active_searches = [
