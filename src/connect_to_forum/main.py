@@ -24,17 +24,17 @@ session = requests.Session()
 
 @dataclass
 class ForumUser:
-    user_id = None
-    username = None
-    callsign = None
-    region = None
-    phone = None
-    auto_num = None
-    age = None
-    sex = None
-    reg_date = None
-    firstname = None
-    lastname = None
+    user_id: Any = None
+    username: Any = None
+    callsign: Any = None
+    region: Any = None
+    phone: Any = None
+    auto_num: Any = None
+    age: Any = None
+    sex: Any = None
+    reg_date: Any = None
+    firstname: Any = None
+    lastname: Any = None
 
 
 def login_into_forum(forum_bot_password: str) -> None:
