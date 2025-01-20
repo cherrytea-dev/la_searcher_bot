@@ -14,12 +14,6 @@ def test_age_writer():
     pass
 
 
-def test_api_callback_edit_inline_keyboard():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.api_callback_edit_inline_keyboard)
-    pass
-
-
 def test_check_if_new_user():
     res = run_smoke(main.check_if_new_user)
     pass
@@ -180,12 +174,6 @@ def test_make_api_call():
     pass
 
 
-def test_manage_age():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.manage_age)
-    pass
-
-
 def test_manage_if_moscow():
     res = run_smoke(main.manage_if_moscow)
     pass
@@ -198,24 +186,6 @@ def test_manage_linking_to_forum():
 
 def test_manage_radius():
     res = run_smoke(main.manage_radius)
-    pass
-
-
-def test_manage_search_follow_mode():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.manage_search_follow_mode)
-    pass
-
-
-def test_manage_search_whiteness():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.manage_search_whiteness)
-    pass
-
-
-def test_manage_topic_type():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.manage_topic_type)
     pass
 
 
@@ -284,12 +254,6 @@ def test_save_new_user():
     pass
 
 
-def test_save_onboarding_step():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.save_onboarding_step)
-    pass
-
-
 def test_save_preference():
     res = run_smoke(main.save_preference)
     pass
@@ -325,20 +289,8 @@ def test_search_button_row_ikb():
     pass
 
 
-def test_send_callback_answer_to_api():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.send_callback_answer_to_api)
-    pass
-
-
 def test_send_message_async():
     res = run_smoke(main.send_message_async)
-    pass
-
-
-def test_send_message_to_api():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.send_message_to_api)
     pass
 
 
@@ -349,12 +301,6 @@ def test_set_search_follow_mode():
 
 def test_show_user_coordinates():
     res = run_smoke(main.show_user_coordinates)
-    pass
-
-
-def test_time_counter_since_search_start():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.time_counter_since_search_start)
     pass
 
 

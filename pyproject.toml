@@ -140,3 +140,13 @@ format.quote-style = 'single'
 
 [tool.coverage.run]
 omit = ["*/tests/*"]
+
+[tool.mypy]
+disallow_untyped_defs = false
+exclude = ["tests","env",  "venv"]
+explicit_package_bases = true
+ignore_missing_imports = true
+install_types = true
+no_implicit_optional = false
+non_interactive = true
+# plugins = ["mypy_django_plugin.main", "pydantic.mypy"]

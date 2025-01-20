@@ -19,12 +19,6 @@ def test_check_for_number_of_notifs_to_send():
     pass
 
 
-def test_finish_time_analytics():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.finish_time_analytics)
-    pass
-
-
 def test_generate_random_function_id():
     res = run_smoke(main.generate_random_function_id)
     pass
@@ -42,12 +36,6 @@ def test_get_triggering_function():
 
 def test_iterate_over_notifications():
     res = run_smoke(main.iterate_over_notifications)
-    pass
-
-
-def test_main():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.main)
     pass
 
 

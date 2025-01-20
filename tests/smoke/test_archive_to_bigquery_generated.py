@@ -9,12 +9,6 @@ def test_archive_notif_by_user():
     pass
 
 
-def test_main():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.main)
-    pass
-
-
 def test_save_sql_stat_table_sizes():
     res = run_smoke(main.save_sql_stat_table_sizes)
     pass

@@ -19,6 +19,7 @@ from psycopg2.extensions import cursor
 from requests.models import Response
 from telegram import (
     Bot,
+    CallbackQuery,
     InlineKeyboardMarkup,
     KeyboardButton,
     ReplyKeyboardMarkup,
@@ -1385,7 +1386,7 @@ def get_param_if_exists(upd: Update, func_input: str):
     return func_output
 
 
-def manage_age(cur: cursor, user_id: int, user_input: Optional[str]):
+def manage_age(cur: cursor, user_id: int, user_input: Optional[str]) -> None:
     """Save user Age preference and generate the list of updated Are preferences"""
 
     class AgePeriod:
@@ -1606,7 +1607,14 @@ def manage_radius(
 
 
 def manage_topic_type(
-    cur, user_id, user_input, b, user_callback, callback_id, bot_token, callback_query_msg_id
+    cur: cursor,
+    user_id: int,
+    user_input: str,
+    b: AllButtons,
+    user_callback: dict,
+    callback_id: str,
+    bot_token: str,
+    callback_query_msg_id: str,
 ) -> Union[tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
     """Save user Topic Type preference and generate the actual topic type preference message"""
 
@@ -1727,7 +1735,7 @@ def manage_topic_type(
 
 # issue#425 inspired by manage_topic_type
 def manage_search_whiteness(
-    cur, user_id, user_callback, callback_id, callback_query, bot_token
+    cur: cursor, user_id: int, user_callback: dict, callback_id: str, callback_query: CallbackQuery, bot_token: str
 ) -> Union[tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
     """Saves search_whiteness (accordingly to user's choice of search to follow) and regenerates the search list keyboard"""
 
@@ -1798,7 +1806,9 @@ def manage_search_whiteness(
 
 
 # issue#425
-def manage_search_follow_mode(cur, user_id, user_callback, callback_id, callback_query, bot_token) -> Union[None, str]:
+def manage_search_follow_mode(
+    cur: cursor, user_id: int, user_callback: dict, callback_id: str, callback_query, bot_token: str
+) -> str | None:
     """Switches search following mode on/off"""
 
     logging.info(f'{callback_query=}, {user_id=}')
@@ -1973,7 +1983,7 @@ def manage_linking_to_forum(
     return bot_message, reply_markup, bot_request_aft_usr_msg
 
 
-def save_onboarding_step(user_id, username, step):
+def save_onboarding_step(user_id: str, username: str, step: str) -> None:
     """save the certain step in onboarding"""
 
     # to avoid eval errors in recipient script
@@ -2221,7 +2231,7 @@ def send_message_to_api(bot_token, user_id, message, params):
     return result
 
 
-def send_callback_answer_to_api(bot_token, callback_query_id, message):
+def send_callback_answer_to_api(bot_token: str, callback_query_id: str, message: str) -> str:
     """send a notification when inline button is pushed directly to Telegram API w/o any wrappers ar libraries"""
 
     try:
@@ -2248,7 +2258,7 @@ def send_callback_answer_to_api(bot_token, callback_query_id, message):
     return result
 
 
-def api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, user_id):
+def api_callback_edit_inline_keyboard(bot_token: str, callback_query: dict, reply_markup: dict, user_id: str) -> str:
     """send a notification when inline button is pushed directly to Telegram API w/o any wrappers ar libraries"""
     if reply_markup and not isinstance(reply_markup, dict):
         reply_markup_dict = reply_markup.to_dict()
@@ -2733,7 +2743,7 @@ def get_search_follow_mode(cur, user_id: int):
     return result
 
 
-def set_search_follow_mode(cur, user_id: int, new_value):
+def set_search_follow_mode(cur: cursor, user_id: int, new_value: bool) -> None:
     filter_name_value = ['whitelist'] if new_value else ['']
     logging.info(f'{filter_name_value=}')
     cur.execute(

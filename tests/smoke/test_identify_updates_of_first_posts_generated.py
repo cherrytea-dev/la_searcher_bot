@@ -9,18 +9,6 @@ def test_age_writer():
     pass
 
 
-def test_clean_up_content():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.clean_up_content)
-    pass
-
-
-def test_compose_diff_message():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.compose_diff_message)
-    pass
-
-
 def test_generate_random_function_id():
     res = run_smoke(main.generate_random_function_id)
     pass
@@ -41,12 +29,6 @@ def test_get_the_list_of_coords_out_of_text():
     pass
 
 
-def test_main():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.main)
-    pass
-
-
 def test_parse_search_folder():
     res = run_smoke(main.parse_search_folder)
     pass
@@ -54,12 +36,6 @@ def test_parse_search_folder():
 
 def test_process_first_page_comparison():
     res = run_smoke(main.process_first_page_comparison)
-    pass
-
-
-def test_process_pubsub_message():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.process_pubsub_message)
     pass
 
 

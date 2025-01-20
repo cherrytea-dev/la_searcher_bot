@@ -52,7 +52,7 @@ def verify_telegram_data_json(user_input, token):
         return False
 
 
-def verify_telegram_data_string(user_input, token):
+def verify_telegram_data_string(user_input: str, token: str) -> bool:
     """verify the received dict is issued by telegram, which means user is authenticated with telegram"""
 
     data_check_string = unquote(user_input)

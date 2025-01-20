@@ -38,9 +38,13 @@ dependencies:
 smoke-tests-generate:
 	echo "" > build/pytest.log
 	uv run python tests/tools/generate_smoke_tests.py
-	make test > build/pytest.log || true
-	uv run python tests/tools/generate_smoke_tests.py
 	make lint
 
 type-annotate:
 	uv run python tests/tools/annotate_types.py
+
+mypy-short:
+	# check simple errors like missing imports
+	uv run mypy src  2> build/mypy.log \
+	 || grep "is not defined" build/mypy.log \
+	  || grep "datetime" build/mypy.log
