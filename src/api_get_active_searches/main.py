@@ -4,6 +4,7 @@ The current script retrieves an actual list active searches"""
 import datetime
 import json
 import logging
+import re
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import functions_framework
