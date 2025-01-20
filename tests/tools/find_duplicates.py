@@ -129,7 +129,6 @@ if __name__ == '__main__':
     'write_snapshot_to_cloud_storage': ['identify_updates_of_folders', 'identify_updates_of_topics'],
     'check_for_notifs_to_send': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'finish_time_analytics': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
-# OK    'get_change_log_update_time': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'iterate_over_notifications': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'process_response': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'save_sending_status_to_notif_by_user': [
@@ -137,7 +136,6 @@ if __name__ == '__main__':
         'send_notifications_helper',
         'send_notifications_helper_2',
     ],
-    'send_location_to_api': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'send_single_message': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'check_first_notif_to_send': ['send_notifications_helper', 'send_notifications_helper_2'],
 }

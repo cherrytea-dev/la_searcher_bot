@@ -195,3 +195,32 @@ def get_change_log_update_time(cur: cursor, change_log_id: int) -> datetime.date
     parsed_time = parsed_time[0]
 
     return parsed_time
+
+
+def send_location_to_api(
+    session: requests.Session, bot_token: str, user_id: str, params: dict
+) -> requests.Response | None:
+    """send location directly to Telegram API w/o any wrappers ar libraries"""
+
+    try:
+        latitude = ''
+        longitude = ''
+        if params:
+            if 'latitude' in params.keys():
+                latitude = f'&latitude={params["latitude"]}'
+            if 'longitude' in params.keys():
+                longitude = f'&longitude={params["longitude"]}'
+
+        logging.info(latitude)
+        logging.info(longitude)
+
+        request_text = f'https://api.telegram.org/bot{bot_token}/sendLocation?chat_id={user_id}{latitude}{longitude}'
+
+        r = session.get(request_text)
+
+    except Exception as e:
+        logging.exception(e)
+        logging.info('Error in getting response from Telegram')
+        r = None
+
+    return r

@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
+import requests
 
 from _dependencies import misc
 from _dependencies.commons import sql_connect_by_psycopg2
@@ -52,6 +53,16 @@ def test_get_change_log_update_time():
     with sql_connect_by_psycopg2() as connection:
         with connection.cursor() as cursor:
             misc.get_change_log_update_time(cursor, 1)
+
+
+def test_send_location_to_api():
+    with requests.Session() as session:
+        misc.send_location_to_api(
+            session,
+            get_test_config().bot_api_token,
+            '2',
+            {'latitude': 50, 'longitude': 50},
+        )
 
 
 # TODO remove after refactored
