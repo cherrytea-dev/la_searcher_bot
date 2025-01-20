@@ -1,13 +1,16 @@
+import asyncio
 import base64
 import datetime
 import logging
+from typing import Dict
 
 import google.auth.transport.requests
 import google.cloud.logging
 import google.oauth2.id_token
 import requests
+from telegram.ext import Application, ContextTypes
 
-from _dependencies.commons import Topics, publish_to_pubsub
+from _dependencies.commons import Topics, get_app_config, publish_to_pubsub
 
 
 def notify_admin(message) -> None:
@@ -129,3 +132,34 @@ def age_writer(age: int) -> str:
         wording = ''
 
     return wording
+
+
+async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
+
+    return None
+
+
+async def prepare_message_for_async(user_id, data: Dict[str, str], bot_token: str) -> str:
+    application = Application.builder().token(bot_token).build()
+    job_queue = application.job_queue
+    job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
+
+    async with application:
+        await application.initialize()
+        await application.start()
+        await application.stop()
+        await application.shutdown()
+
+    return 'ok'
+
+
+def process_sending_message_async_other_bot(user_id, data) -> None:
+    # TODO same tokens or different?
+    asyncio.run(prepare_message_for_async(user_id, data, bot_token=get_app_config().bot_api_token))
+
+
+def process_sending_message_async(user_id: int, data) -> None:
+    asyncio.run(prepare_message_for_async(user_id, data, bot_token=get_app_config().bot_api_token__prod))
+
+    return None
