@@ -85,7 +85,20 @@ def generate_args_for_function(func: Callable) -> dict[str, Any]:
 def run_smoke(func: Callable):
     """runs fumction with default args"""
     args = generate_args_for_function(func)
-    return func(**args)
+    try:
+        return func(**args)
+    except Exception as e:
+        raise e
+    finally:
+        for arg in args:
+            if False:
+                pass
+            elif isinstance(args[arg], psycopg2.extensions.cursor):
+                args[arg].close()
+            elif isinstance(args[arg], psycopg2.extensions.connection):
+                args[arg].close()
+            elif isinstance(args[arg], sqlalchemy.engine.Connection):
+                args[arg].close()
 
 
 @lru_cache
