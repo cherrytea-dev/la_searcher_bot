@@ -27,6 +27,7 @@ from telegram import (
     TelegramObject,
     Update,
 )
+from telegram._replykeyboardmarkup import ReplyKeyboardMarkup
 from telegram.ext import Application, ContextTypes
 
 from _dependencies.commons import (
@@ -157,7 +158,11 @@ class Button:
 class GroupOfButtons:
     """Contains the set of unique buttons of the similar nature (to be shown together as alternatives)"""
 
-    def __init__(self, button_dict, modifier_dict=None):
+    def __init__(
+        self,
+        button_dict,
+        modifier_dict=None,
+    ):
         self.modifier_dict = modifier_dict
 
         all_button_texts = []
@@ -368,7 +373,7 @@ def compose_user_preferences_message(cur: cursor, user_id: int) -> List[Union[Li
     return prefs_wording_and_list
 
 
-def compose_msg_on_all_last_searches(cur, region):
+def compose_msg_on_all_last_searches(cur: cursor, region: int) -> str:
     """Compose a part of message on the list of recent searches"""
 
     pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='
@@ -491,7 +496,7 @@ def compose_msg_on_all_last_searches_ikb(cur: cursor, region: int, user_id: int)
     return ikb
 
 
-def compose_msg_on_active_searches_in_one_reg(cur, region, user_data):
+def compose_msg_on_active_searches_in_one_reg(cur: cursor, region: int, user_data) -> str:
     """Compose a part of message on the list of active searches in the given region with relation to user's coords"""
 
     pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='
@@ -625,7 +630,9 @@ def compose_msg_on_active_searches_in_one_reg_ikb(
     return ikb
 
 
-def compose_full_message_on_list_of_searches(cur, list_type, user_id, region, region_name):
+def compose_full_message_on_list_of_searches(
+    cur: cursor, list_type: str, user_id: int, region: int, region_name: str
+) -> str:
     """Compose a Final message on the list of searches in the given region"""
 
     msg = ''
@@ -1886,19 +1893,19 @@ def manage_if_moscow(
 
 
 def manage_linking_to_forum(
-    cur,
-    got_message,
-    user_id,
-    b_set_forum_nick,
-    b_back_to_start,
-    bot_request_bfr_usr_msg,
-    b_admin_menu,
-    b_test_menu,
-    b_yes_its_me,
-    b_no_its_not_me,
-    b_settings,
-    reply_markup_main,
-):
+    cur: cursor,
+    got_message: str,
+    user_id: int,
+    b_set_forum_nick: str,
+    b_back_to_start: str,
+    bot_request_bfr_usr_msg: str,
+    b_admin_menu: str,
+    b_test_menu: str,
+    b_yes_its_me: str,
+    b_no_its_not_me: str,
+    b_settings: str,
+    reply_markup_main: ReplyKeyboardMarkup,
+) -> Tuple[str, ReplyKeyboardMarkup, Optional[str]]:
     """manage all interactions regarding connection of telegram and forum user accounts"""
 
     bot_message, reply_markup, bot_request_aft_usr_msg = None, None, None

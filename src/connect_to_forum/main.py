@@ -5,6 +5,7 @@ import logging
 import re
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass
 from time import sleep
 from typing import Any, Dict, Optional
 
@@ -23,52 +24,22 @@ cur = None
 conn_psy = None
 
 
+@dataclass
 class ForumUser:
-    def __init__(
-        self,
-        user_id=None,
-        username=None,
-        callsign=None,
-        region=None,
-        phone=None,
-        auto_num=None,
-        age=None,
-        sex=None,
-        reg_date=None,
-        firstname=None,
-        lastname=None,
-    ):
-        self.user_id = user_id
-        self.username = username
-        self.callsign = callsign
-        self.region = region
-        self.phone = phone
-        self.auto_num = auto_num
-        self.age = age
-        self.sex = sex
-        self.reg_date = reg_date
-        self.firstname = firstname
-        self.lastname = lastname
-
-    def __str__(self):
-        return str(
-            [
-                self.user_id,
-                self.username,
-                self.firstname,
-                self.lastname,
-                self.callsign,
-                self.region,
-                self.phone,
-                self.auto_num,
-                self.age,
-                self.sex,
-                self.reg_date,
-            ]
-        )
+    user_id = None
+    username = None
+    callsign = None
+    region = None
+    phone = None
+    auto_num = None
+    age = None
+    sex = None
+    reg_date = None
+    firstname = None
+    lastname = None
 
 
-def sql_connect_by_psycopg2_with_globals():
+def sql_connect_by_psycopg2_with_globals() -> None:
     # TODO remove globals
     global cur
     global conn_psy
@@ -83,7 +54,7 @@ async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
     return None
 
 
-async def prepare_message_for_async(user_id, data):
+async def prepare_message_for_async(user_id: int, data: Dict[str, Any]) -> str:
     bot_token = get_app_config().bot_api_token__prod
     application = Application.builder().token(bot_token).build()
     job_queue = application.job_queue
@@ -98,7 +69,7 @@ async def prepare_message_for_async(user_id, data):
     return 'ok'
 
 
-def process_sending_message_async(user_id, data) -> None:
+def process_sending_message_async(user_id: int, data) -> None:
     asyncio.run(prepare_message_for_async(user_id, data))
 
     return None
@@ -148,7 +119,7 @@ def login_into_forum(forum_bot_password: str) -> None:
     return None
 
 
-def get_user_id(u_name):
+def get_user_id(u_name: str) -> int:
     """get user_id from forum"""
 
     user_id = 0

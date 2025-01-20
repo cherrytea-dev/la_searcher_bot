@@ -55,6 +55,8 @@ def _get_default_arg_value(param):
         return pool.connect()
     elif param._annotation is psycopg2.extensions.connection:
         return sql_connect_by_psycopg2()
+    elif param._annotation is psycopg2.extensions.cursor:
+        return sql_connect_by_psycopg2().cursor()
 
     # suggestions
     elif param.name == 'conn':
