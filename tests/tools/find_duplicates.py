@@ -69,12 +69,6 @@ if __name__ == '__main__':
     ],
 # NO    'save_new_user': ['communicate', 'manage_users'],
 # NO    'save_onboarding_step': ['communicate', 'manage_users'],
-    'check_and_save_event_id': [
-        'compose_notifications',
-        'send_notifications',
-        'send_notifications_helper',
-        'send_notifications_helper_2',
-    ],
     'save_function_into_register': ['identify_updates_of_first_posts', 'identify_updates_of_topics', 'manage_topics'],
     'read_snapshot_from_cloud_storage': ['identify_updates_of_folders', 'identify_updates_of_topics'],
 # NO    'set_cloud_storage': ['identify_updates_of_folders', 'identify_updates_of_topics'],

@@ -9,11 +9,6 @@ def test_add_tel_link():
     pass
 
 
-def test_check_and_save_event_id():
-    res = run_smoke(main.check_and_save_event_id)
-    pass
-
-
 def test_check_if_need_compose_more():
     res = run_smoke(main.check_if_need_compose_more)
     pass

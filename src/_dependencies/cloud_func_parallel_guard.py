@@ -4,6 +4,8 @@ import logging
 
 from _dependencies.commons import sql_connect_by_psycopg2
 
+# from compose_notifications.main import LineInChangeLog
+
 
 def check_if_other_functions_are_working(func_name: str, interval_seconds: int) -> bool:
     """Check in PSQL in there's the same function 'send_notifications' working in parallel"""
@@ -68,3 +70,46 @@ def record_finish_of_function(event_num: int, list_of_changed_ids: list) -> None
                         ;"""
 
         cur.execute(sql_text_psy, (datetime.datetime.now(), json_of_params, event_num))
+
+
+def check_and_save_event_id(
+    context,
+    event: str,
+    function_id,
+    new_record,  # LineInChangeLog
+    triggered_by_func_id,
+    func_name: str,
+    interval: int,
+) -> bool:
+    """Work with PSQL table functions_registry. Goal of the table & function is to avoid parallel work of
+    two compose_notifications functions. Executed in the beginning and in the end of compose_notifications function"""
+    # TODO try decompose
+    if not context or not event:
+        return False
+
+    try:
+        event_id = context.event_id
+    except Exception as e:  # noqa
+        return False
+
+    # if this functions is triggered in the very beginning of the Google Cloud Function execution
+    if event == 'start':
+        if check_if_other_functions_are_working(func_name, interval):
+            record_start_of_function(event_id, function_id, triggered_by_func_id, func_name)
+            return True
+
+        record_start_of_function(event_id, function_id, triggered_by_func_id, func_name)
+        return False
+
+    # if this functions is triggered in the very end of the Google Cloud Function execution
+    elif event == 'finish':
+        list_of_change_log_ids = []
+        if new_record:
+            # FIXME -- temp try. the content is not temp
+            try:
+                list_of_change_log_ids = [new_record.change_id]
+            except Exception as e:  # noqa
+                logging.exception(e)
+            # FIXME ^^^
+        record_finish_of_function(event_id, list_of_change_log_ids)
+        return False

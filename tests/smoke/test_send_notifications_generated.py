@@ -4,11 +4,6 @@ from send_notifications import main
 from tests.common import run_smoke
 
 
-def test_check_and_save_event_id():
-    res = run_smoke(main.check_and_save_event_id)
-    pass
-
-
 def test_check_for_notifs_to_send():
     res = run_smoke(main.check_for_notifs_to_send)
     pass

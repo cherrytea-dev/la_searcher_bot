@@ -10,11 +10,7 @@ from typing import Any, List, Optional, Tuple
 import sqlalchemy
 from sqlalchemy.engine.base import Connection
 
-from _dependencies.cloud_func_parallel_guard import (
-    check_if_other_functions_are_working,
-    record_finish_of_function,
-    record_start_of_function,
-)
+from _dependencies.cloud_func_parallel_guard import check_and_save_event_id
 from _dependencies.commons import Topics, get_app_config, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
 from _dependencies.misc import (
     age_writer,
@@ -1878,41 +1874,7 @@ def mark_new_comments_as_processed(conn, record):
     return None
 
 
-def check_and_save_event_id(
-    context, event, conn, new_record: LineInChangeLog | None, function_id, triggered_by_func_id
-):
-    """Work with PSQL table functions_registry. Goal of the table & function is to avoid parallel work of
-    two compose_notifications functions. Executed in the beginning and in the end of compose_notifications function"""
-
-    if not context or not event:
-        return False
-
-    try:
-        event_id = context.event_id
-    except Exception as e:  # noqa
-        return False
-
-    # if this functions is triggered in the very beginning of the Google Cloud Function execution
-    if event == 'start':
-        if check_if_other_functions_are_working('compose_notifications', INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
-            record_start_of_function(event_id, function_id, triggered_by_func_id, 'compose_notifications')
-            return True
-
-        record_start_of_function(event_id, function_id, triggered_by_func_id, 'compose_notifications')
-        return False
-
-    # if this functions is triggered in the very end of the Google Cloud Function execution
-    elif event == 'finish':
-        list_of_change_log_ids = []
-        if new_record:
-            # FIXME -- temp try. the content is not temp
-            try:
-                list_of_change_log_ids = [new_record.change_id]
-            except Exception as e:  # noqa
-                logging.exception(e)
-            # FIXME ^^^
-        record_finish_of_function(event_id, list_of_change_log_ids)
-        return False
+FUNC_NAME = 'compose_notifications'
 
 
 def check_if_need_compose_more(conn, function_id: int):
@@ -1956,11 +1918,25 @@ def main(event, context):  # noqa
     pool = sql_connect()
     with pool.connect() as conn:
         there_is_function_working_in_parallel = check_and_save_event_id(
-            context, 'start', conn, None, function_id, triggered_by_func_id
+            context,
+            'start',
+            function_id,
+            None,
+            triggered_by_func_id,
+            FUNC_NAME,
+            INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
         )
         if there_is_function_working_in_parallel:
             logging.info('function execution stopped due to parallel run with another function')
-            check_and_save_event_id(context, 'finish', conn, None, function_id, triggered_by_func_id)
+            check_and_save_event_id(
+                context,
+                'finish',
+                function_id,
+                None,
+                triggered_by_func_id,
+                FUNC_NAME,
+                INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
+            )
             logging.info('script finished')
             conn.close()
             pool.dispose()
@@ -2007,7 +1983,15 @@ def main(event, context):  # noqa
             record_notification_statistics(conn)
 
         check_if_need_compose_more(conn, function_id)
-        check_and_save_event_id(context, 'finish', conn, new_record, function_id, triggered_by_func_id)
+        check_and_save_event_id(
+            context,
+            'finish',
+            function_id,
+            new_record,
+            triggered_by_func_id,
+            FUNC_NAME,
+            INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
+        )
 
         analytics_finish = datetime.datetime.now()
         if new_record:

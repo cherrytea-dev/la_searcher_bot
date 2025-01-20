@@ -9,11 +9,7 @@ from typing import Any, List, Optional
 import requests
 from psycopg2.extensions import cursor
 
-from _dependencies.cloud_func_parallel_guard import (
-    check_if_other_functions_are_working,
-    record_finish_of_function,
-    record_start_of_function,
-)
+from _dependencies.cloud_func_parallel_guard import check_and_save_event_id
 from _dependencies.commons import (
     Topics,
     get_app_config,
@@ -35,6 +31,7 @@ from _dependencies.misc import (
 
 setup_google_logging()
 
+FUNC_NAME = 'send_notifications'
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
 # Important – these are not errors, but just informational warnings that there were retries, that's why we exclude them
 logging.getLogger('telegram.vendor.ptb_urllib3.urllib3').setLevel(logging.ERROR)
@@ -310,35 +307,6 @@ def iterate_over_notifications(
     return list_of_change_ids
 
 
-def check_and_save_event_id(
-    context: str, event: str, function_id: int, changed_ids: Optional[List], triggered_by_func_id
-) -> Optional[bool]:
-    """Work with PSQL table functions_registry. Goal of the table & function is to avoid parallel work of
-    two send_notifications functions. Executed in the beginning and in the end of send_notifications function"""
-
-    if not context or not event:
-        return False
-
-    try:
-        event_id = context.event_id
-    except Exception as e:  # noqa
-        return False
-
-    # if this functions is triggered in the very beginning of the Google Cloud Function execution
-    if event == 'start':
-        if check_if_other_functions_are_working('send_notifications', INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
-            record_start_of_function(event_id, function_id, triggered_by_func_id, 'send_notifications')
-            return True
-
-        record_start_of_function(event_id, function_id, triggered_by_func_id, 'send_notifications')
-        return False
-
-    # if this functions is triggered in the very end of the Google Cloud Function execution
-    elif event == 'finish':
-        record_finish_of_function(event_id, changed_ids)
-        return False
-
-
 def finish_time_analytics(notif_times: List, delays: List, parsed_times: List[int], list_of_change_ids: List):
     """Make final steps for time analytics: inform admin, log, record statistics into PSQL"""
 
@@ -409,11 +377,25 @@ def main(event, context):
     triggered_by_func_id = get_triggering_function(message_from_pubsub)
 
     there_is_function_working_in_parallel = check_and_save_event_id(
-        context, 'start', function_id, None, triggered_by_func_id
+        context,
+        'start',
+        function_id,
+        None,
+        triggered_by_func_id,
+        FUNC_NAME,
+        INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
     )
     if there_is_function_working_in_parallel:
         logging.info('function execution stopped due to parallel run with another function')
-        check_and_save_event_id(context, 'finish', function_id, None, None)
+        check_and_save_event_id(
+            context,
+            'finish',
+            function_id,
+            None,
+            None,
+            FUNC_NAME,
+            INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
+        )
         logging.info('script finished')
         return None
 
@@ -429,7 +411,15 @@ def main(event, context):
     analytics_delays = []
     analytics_parsed_times = []
 
-    check_and_save_event_id(context, 'finish', function_id, changed_ids, None)
+    check_and_save_event_id(
+        context,
+        'finish',
+        function_id,
+        changed_ids,
+        None,
+        FUNC_NAME,
+        INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
+    )
     logging.info('script finished')
 
     return 'ok'
