@@ -21,6 +21,7 @@ from _dependencies.commons import (
 from _dependencies.misc import (
     generate_random_function_id,
     get_change_log_update_time,
+    get_triggering_function,
     notify_admin,
     process_pubsub_message_v2,
     save_sending_status_to_notif_by_user,
@@ -596,29 +597,6 @@ def finish_time_analytics(notif_times, delays, parsed_times, list_of_change_ids)
     conn_psy.close()
 
     return None
-
-
-def get_triggering_function(message_from_pubsub: str):
-    """get a function_id of the function, which triggered this function (if available)"""
-
-    triggered_by_func_id = None
-    try:
-        if (
-            message_from_pubsub
-            and isinstance(message_from_pubsub, dict)
-            and 'triggered_by_func_id' in message_from_pubsub.keys()
-        ):
-            triggered_by_func_id = message_from_pubsub['triggered_by_func_id']
-
-    except Exception as e:
-        logging.exception(e)
-
-    if triggered_by_func_id:
-        logging.info(f'this function is triggered by func-id {triggered_by_func_id}')
-    else:
-        logging.info('triggering func_id was not determined')
-
-    return triggered_by_func_id
 
 
 def main(event, context):
