@@ -4,7 +4,6 @@ import ast
 import datetime
 import json
 import logging
-import random
 import time
 import urllib.request
 from typing import Any, List, Optional
@@ -19,7 +18,7 @@ from _dependencies.commons import (
     setup_google_logging,
     sql_connect_by_psycopg2,
 )
-from _dependencies.misc import notify_admin
+from _dependencies.misc import generate_random_function_id, notify_admin
 
 setup_google_logging()
 
@@ -682,14 +681,6 @@ def finish_time_analytics(notif_times, delays, parsed_times, list_of_change_ids)
     conn_psy.close()
 
     return None
-
-
-def generate_random_function_id() -> int:
-    """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
-
-    random_id = random.randint(100000000000, 999999999999)
-
-    return random_id
 
 
 def get_triggering_function(message_from_pubsub: str):

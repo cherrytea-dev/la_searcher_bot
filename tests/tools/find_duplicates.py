@@ -82,8 +82,7 @@ if __name__ == '__main__':
         ...,
     ],
  # DIFF   'save_user_statistics_to_db': ['api_get_active_searches', 'user_provide_info'], 
- # OK   'time_counter_since_search_start': ['api_get_active_searches', 'communicate', 'user_provide_info'],
-    'sql_connect': [
+ # NO   'sql_connect': [
         'archive_notifications',
         'archive_to_bigquery',
         'check_first_posts_for_changes',
@@ -92,12 +91,8 @@ if __name__ == '__main__':
         'identify_updates_of_topics',
         'manage_topics',
     ],
-# OK    'age_writer': ['communicate', 'compose_notifications', 'identify_updates_of_first_posts'],
-# OK    'prepare_message_for_async': ['communicate', 'connect_to_forum', 'send_debug_to_admin'],
-# OK    'process_sending_message_async': ['communicate', 'connect_to_forum', 'send_debug_to_admin'],
-    'save_new_user': ['communicate', 'manage_users'],
-    'save_onboarding_step': ['communicate', 'manage_users'],
-# OK    'send_message_async': ['communicate', 'connect_to_forum', 'send_debug_to_admin'],
+# NO    'save_new_user': ['communicate', 'manage_users'],
+# NO    'save_onboarding_step': ['communicate', 'manage_users'],
     'send_message_to_api': [
         'communicate',
         'send_notifications',
@@ -110,15 +105,7 @@ if __name__ == '__main__':
         'send_notifications_helper',
         'send_notifications_helper_2',
     ],
-    'generate_random_function_id': [
-        'compose_notifications',
-        'identify_updates_of_first_posts',
-        'identify_updates_of_topics',
-        'manage_topics',
-        'send_notifications',
-        'send_notifications_helper',
-        'send_notifications_helper_2',
-    ],
+
     'get_triggering_function': [
         'compose_notifications',
         'send_notifications',

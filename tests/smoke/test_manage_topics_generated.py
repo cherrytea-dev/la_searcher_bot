@@ -4,11 +4,6 @@ from manage_topics import main
 from tests.common import run_smoke
 
 
-def test_generate_random_function_id():
-    res = run_smoke(main.generate_random_function_id)
-    pass
-
-
 def test_main():
     res = run_smoke(main.main)
     pass
