@@ -75,9 +75,9 @@ def record_finish_of_function(event_num: int, list_of_changed_ids: list) -> None
 def check_and_save_event_id(
     context,
     event: str,
-    function_id,
-    new_record,  # LineInChangeLog
-    triggered_by_func_id,
+    function_id: int,
+    list_of_change_log_ids: list[str],
+    triggered_by_func_id: int,
     func_name: str,
     interval: int,
 ) -> bool:
@@ -103,13 +103,5 @@ def check_and_save_event_id(
 
     # if this functions is triggered in the very end of the Google Cloud Function execution
     elif event == 'finish':
-        list_of_change_log_ids = []
-        if new_record:
-            # FIXME -- temp try. the content is not temp
-            try:
-                list_of_change_log_ids = [new_record.change_id]
-            except Exception as e:  # noqa
-                logging.exception(e)
-            # FIXME ^^^
         record_finish_of_function(event_id, list_of_change_log_ids)
         return False
