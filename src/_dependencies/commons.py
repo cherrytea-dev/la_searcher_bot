@@ -139,7 +139,7 @@ def _get_config():
 
 def sql_connect_by_psycopg2() -> psycopg2.extensions.connection:
     """connect to GCP SQL via PsycoPG2"""
-    # TODO cache connection
+    # TODO pool instead of single connections
     config = get_app_config()
 
     conn_psy = psycopg2.connect(
@@ -154,9 +154,9 @@ def sql_connect_by_psycopg2() -> psycopg2.extensions.connection:
     return conn_psy
 
 
+@lru_cache
 def sqlalchemy_get_pool(pool_size: int, pool_recycle_time_seconds: int) -> sqlalchemy.engine.Engine:
     """connect to PSQL in GCP"""
-    # TODO cache connection
     config = get_app_config()
 
     db_config = {
