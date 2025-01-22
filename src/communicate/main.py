@@ -11,6 +11,7 @@ import math
 import re
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
@@ -77,50 +78,28 @@ full_buttons_dict = {
 }
 
 
+@dataclass
 class SearchSummary:
-    def __init__(
-        self,
-        topic_type=None,
-        topic_id=None,
-        parsed_time=None,
-        status=None,
-        title=None,
-        link=None,
-        start_time=None,
-        num_of_replies=None,
-        name=None,
-        display_name=None,
-        age=None,
-        searches_table_id=None,
-        folder_id=None,
-        age_max=None,
-        age_min=None,
-        num_of_persons=None,
-        city_locations=None,
-        hq_locations=None,
-        new_status=None,
-        full_dict=None,
-    ):
-        self.topic_type = topic_type
-        self.topic_id = topic_id
-        self.parsed_time = parsed_time
-        self.status = status
-        self.title = title
-        self.link = link
-        self.start_time = start_time
-        self.num_of_replies = num_of_replies
-        self.name = name
-        self.display_name = display_name
-        self.age = age
-        self.id = searches_table_id
-        self.folder_id = folder_id
-        self.age_max = age_max
-        self.age_min = age_min
-        self.num_of_persons = num_of_persons
-        self.city_locations = city_locations  # city / town / place – approximate coordinates
-        self.hq_locations = hq_locations  # shtab –exact coordinates
-        self.new_status = new_status
-        self.full_dict = full_dict
+    topic_type: Any = None
+    topic_id: Any = None
+    parsed_time: Any = None
+    status: Any = None
+    title: Any = None
+    link: Any = None
+    start_time: Any = None
+    num_of_replies: Any = None
+    name: Any = None
+    display_name: Any = None
+    age: Any = None
+    searches_table_id: Any = None
+    folder_id: Any = None
+    age_max: Any = None
+    age_min: Any = None
+    num_of_persons: Any = None
+    city_locations: Any = None  # city / town / place – approximate coordinates
+    hq_locations: Any = None  # shtab –exact coordinates
+    new_status: Any = None
+    full_dict: Any = None
 
     def __str__(self):
         return (
