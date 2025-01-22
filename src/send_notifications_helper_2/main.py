@@ -4,7 +4,6 @@ import ast
 import datetime
 import json
 import logging
-import random
 import time
 import urllib.request
 from typing import Any, List, Optional
@@ -19,7 +18,13 @@ from _dependencies.commons import (
     setup_google_logging,
     sql_connect_by_psycopg2,
 )
-from _dependencies.misc import notify_admin
+from _dependencies.misc import (
+    generate_random_function_id,
+    get_change_log_update_time,
+    notify_admin,
+    save_sending_status_to_notif_by_user,
+    send_location_to_api,
+)
 
 setup_google_logging()
 
@@ -96,35 +101,6 @@ def send_message_to_api(session, bot_token, user_id, message, params):
     except Exception as e:
         logging.exception(e)
         logging.info('Error in getting response from Telegram')
-        r = None
-
-    return r
-
-
-def send_location_to_api(session, bot_token, user_id, params):
-    """send location directly to Telegram API w/o any wrappers ar libraries"""
-
-    try:
-        latitude = ''
-        longitude = ''
-        if params:
-            if 'latitude' in params.keys():
-                latitude = f'&latitude={params["latitude"]}'
-            if 'longitude' in params.keys():
-                longitude = f'&longitude={params["longitude"]}'
-
-        logging.info(latitude)
-        logging.info(longitude)
-
-        request_text = (
-            f'https://api.telegram.org/bot{bot_token}/sendLocation?chat_id={user_id}' f'{latitude}{longitude}'
-        )
-
-        r = session.get(request_text)
-
-    except Exception as e:
-        logging.exception(e)
-        logging.info('THIS BAD EXCEPTION HAPPENED')
         r = None
 
     return r
@@ -326,49 +302,6 @@ def send_single_message(bot_token, user_id, message_content, message_params, mes
             logging.exception(error_description)
 
     return result
-
-
-def save_sending_status_to_notif_by_user(cur, message_id, result):
-    """save the telegram sending status to sql table notif_by_user"""
-
-    if result[0:9] == 'cancelled':
-        result = result[0:9]
-    elif result[0:6] == 'failed':
-        result = result[0:6]
-
-    if result in {'completed', 'cancelled', 'failed'}:
-        sql_text_psy = f"""
-                    UPDATE notif_by_user
-                    SET {result} = %s
-                    WHERE message_id = %s;
-                    /*action='save_sending_status_to_notif_by_user_{result}' */
-                    ;"""
-
-        cur.execute(sql_text_psy, (datetime.datetime.now(), message_id))
-
-    return None
-
-
-def get_change_log_update_time(cur, change_log_id):
-    """get he time of parsing of the change, saved in PSQL"""
-
-    if not change_log_id:
-        return None
-
-    sql_text_psy = """
-                    SELECT parsed_time
-                    FROM change_log
-                    WHERE id = %s;
-                    /*action='getting_change_log_parsing_time' */;"""
-    cur.execute(sql_text_psy, (change_log_id,))
-    parsed_time = cur.fetchone()
-
-    if not parsed_time:
-        return None
-
-    parsed_time = parsed_time[0]
-
-    return parsed_time
 
 
 def iterate_over_notifications(bot_token, admin_id, script_start_time, session, function_id):
@@ -682,14 +615,6 @@ def finish_time_analytics(notif_times, delays, parsed_times, list_of_change_ids)
     conn_psy.close()
 
     return None
-
-
-def generate_random_function_id() -> int:
-    """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
-
-    random_id = random.randint(100000000000, 999999999999)
-
-    return random_id
 
 
 def get_triggering_function(message_from_pubsub: str):

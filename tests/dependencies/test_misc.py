@@ -2,9 +2,10 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
+import requests
 
 from _dependencies import misc
-from _dependencies.misc import age_writer, time_counter_since_search_start
+from _dependencies.commons import sql_connect_by_psycopg2
 from tests.common import get_test_config
 
 
@@ -31,7 +32,7 @@ def test_make_api_call():
 )
 def test_time_counter_since_search_start(minutes_ago: int, hours_ago: int, days_ago: int, result: str):
     start_datetime = datetime.now() - timedelta(minutes=minutes_ago, hours=hours_ago, days=days_ago)
-    res = time_counter_since_search_start(start_datetime)
+    res = misc.time_counter_since_search_start(start_datetime)
     assert res == result
 
 
@@ -45,21 +46,46 @@ def test_time_counter_since_search_start(minutes_ago: int, hours_ago: int, days_
     ],
 )
 def test_age_writer(age: int, result: str):
-    assert result == age_writer(age)
+    assert result == misc.age_writer(age)
 
 
-# TODO remove after refactored
+def test_get_change_log_update_time():
+    with sql_connect_by_psycopg2() as connection:
+        with connection.cursor() as cursor:
+            misc.get_change_log_update_time(cursor, 1)
 
-# NO SMOKE TEST api_get_active_searches.main.clean_up_content
-# NO SMOKE TEST api_get_active_searches.main.evaluate_city_locations
-# NO SMOKE TEST api_get_active_searches.main.time_counter_since_search_start
-# NO SMOKE TEST check_topics_by_upd_time.main.notify_admin
-# NO SMOKE TEST api_get_active_searches.time_counter_since_search_start.clean_up_content
-# NO SMOKE TEST communicate.main.time_counter_since_search_start
-# NO SMOKE TEST connect_to_forum.main.get_user_id
-# NO SMOKE TEST identify_updates_of_topics.main.process_pubsub_message
-# NO SMOKE TEST identify_updates_of_first_posts.main.process_pubsub_message
-# NO SMOKE TEST identify_updates_of_first_posts.main.clean_up_content
-# NO SMOKE TEST user_provide_info.main.clean_up_content
-# NO SMOKE TEST user_provide_info.main.evaluate_city_locations
-# NO SMOKE TEST user_provide_info.main.time_counter_since_search_start
+
+def test_send_location_to_api():
+    with requests.Session() as session:
+        misc.send_location_to_api(
+            session,
+            get_test_config().bot_api_token,
+            '2',
+            {'latitude': 50, 'longitude': 50},
+        )
+
+
+def test_save_sending_status_to_notif_by_user():
+    with sql_connect_by_psycopg2() as connection:
+        with connection.cursor() as cursor:
+            misc.save_sending_status_to_notif_by_user(cursor, 1, 'cancelled')
+
+
+def test_evaluate_city_locations_success():
+    res = misc.evaluate_city_locations('[[56.0, 64.0]]')
+    assert res == [[56.0, 64.0]]
+
+
+@pytest.mark.parametrize(
+    'param',
+    [
+        [],
+        [1],
+        [None],
+        '"foo"',
+        '',
+    ],
+)
+def test_evaluate_city_locations_fail(param):
+    res = misc.evaluate_city_locations(str(param))
+    assert res is None

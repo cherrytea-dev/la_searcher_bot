@@ -15,35 +15,6 @@ from _dependencies.commons import get_app_config, setup_google_logging, sql_conn
 setup_google_logging()
 
 
-def evaluate_city_locations(city_locations: str):
-    if not city_locations:
-        logging.info('no city_locations')
-        return None
-
-    cl_eval = eval(city_locations)
-    if not cl_eval:
-        logging.info('no eval of city_locations')
-        return None
-
-    if not isinstance(cl_eval, list):
-        logging.info('eval of city_locations is not list')
-        return None
-
-    first_coords = cl_eval[0]
-
-    if not first_coords:
-        logging.info('no first coords in city_locations')
-        return None
-
-    if not isinstance(first_coords, list):
-        logging.info('fist coords in city_locations is not list')
-        return None
-
-    logging.info(f'city_locations has coords {first_coords}')
-
-    return [first_coords]
-
-
 def get_list_of_allowed_apps():
     """get the list of app_ids approved by admin"""
 

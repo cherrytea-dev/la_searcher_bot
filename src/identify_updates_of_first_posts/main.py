@@ -8,7 +8,6 @@ import datetime
 import difflib
 import json
 import logging
-import random
 import re
 from typing import Any, Dict, Optional
 
@@ -17,7 +16,7 @@ import sqlalchemy
 from bs4 import BeautifulSoup, NavigableString
 
 from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
-from _dependencies.misc import notify_admin
+from _dependencies.misc import generate_random_function_id, notify_admin
 
 setup_google_logging()
 
@@ -702,14 +701,6 @@ def get_field_trip_details_from_text(text: str):
                 resulting_field_trip_dict['date_and_time'] = re.sub(re.compile('<.*?>'), '', r.group())
 
     return resulting_field_trip_dict
-
-
-def generate_random_function_id() -> int:
-    """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
-
-    random_id = random.randint(100000000000, 999999999999)
-
-    return random_id
 
 
 def save_function_into_register(conn, context, start_time, function_id, change_log_ids):

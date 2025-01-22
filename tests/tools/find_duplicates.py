@@ -58,7 +58,6 @@ if __name__ == '__main__':
 """
 {
     'clean_up_content': ['api_get_active_searches', 'identify_updates_of_first_posts', 'user_provide_info'],
-    'evaluate_city_locations': ['api_get_active_searches', 'user_provide_info'],
     'main': [
         'api_get_active_searches',
         'archive_notifications',
@@ -82,8 +81,7 @@ if __name__ == '__main__':
         ...,
     ],
  # DIFF   'save_user_statistics_to_db': ['api_get_active_searches', 'user_provide_info'], 
- # OK   'time_counter_since_search_start': ['api_get_active_searches', 'communicate', 'user_provide_info'],
-    'sql_connect': [
+ # NO   'sql_connect': [
         'archive_notifications',
         'archive_to_bigquery',
         'check_first_posts_for_changes',
@@ -92,12 +90,8 @@ if __name__ == '__main__':
         'identify_updates_of_topics',
         'manage_topics',
     ],
-# OK    'age_writer': ['communicate', 'compose_notifications', 'identify_updates_of_first_posts'],
-# OK    'prepare_message_for_async': ['communicate', 'connect_to_forum', 'send_debug_to_admin'],
-# OK    'process_sending_message_async': ['communicate', 'connect_to_forum', 'send_debug_to_admin'],
-    'save_new_user': ['communicate', 'manage_users'],
-    'save_onboarding_step': ['communicate', 'manage_users'],
-# OK    'send_message_async': ['communicate', 'connect_to_forum', 'send_debug_to_admin'],
+# NO    'save_new_user': ['communicate', 'manage_users'],
+# NO    'save_onboarding_step': ['communicate', 'manage_users'],
     'send_message_to_api': [
         'communicate',
         'send_notifications',
@@ -110,15 +104,7 @@ if __name__ == '__main__':
         'send_notifications_helper',
         'send_notifications_helper_2',
     ],
-    'generate_random_function_id': [
-        'compose_notifications',
-        'identify_updates_of_first_posts',
-        'identify_updates_of_topics',
-        'manage_topics',
-        'send_notifications',
-        'send_notifications_helper',
-        'send_notifications_helper_2',
-    ],
+
     'get_triggering_function': [
         'compose_notifications',
         'send_notifications',
@@ -138,19 +124,12 @@ if __name__ == '__main__':
     ],
     'save_function_into_register': ['identify_updates_of_first_posts', 'identify_updates_of_topics', 'manage_topics'],
     'read_snapshot_from_cloud_storage': ['identify_updates_of_folders', 'identify_updates_of_topics'],
-    'set_cloud_storage': ['identify_updates_of_folders', 'identify_updates_of_topics'],
+# NO    'set_cloud_storage': ['identify_updates_of_folders', 'identify_updates_of_topics'],
     'write_snapshot_to_cloud_storage': ['identify_updates_of_folders', 'identify_updates_of_topics'],
     'check_for_notifs_to_send': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'finish_time_analytics': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
-    'get_change_log_update_time': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'iterate_over_notifications': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'process_response': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
-    'save_sending_status_to_notif_by_user': [
-        'send_notifications',
-        'send_notifications_helper',
-        'send_notifications_helper_2',
-    ],
-    'send_location_to_api': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'send_single_message': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'check_first_notif_to_send': ['send_notifications_helper', 'send_notifications_helper_2'],
 }

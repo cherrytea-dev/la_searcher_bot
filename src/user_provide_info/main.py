@@ -16,7 +16,7 @@ from bs4 import BeautifulSoup
 from flask import Request
 
 from _dependencies.commons import get_app_config, setup_google_logging, sql_connect_by_psycopg2
-from _dependencies.misc import time_counter_since_search_start
+from _dependencies.misc import evaluate_city_locations, time_counter_since_search_start
 
 setup_google_logging()
 
@@ -84,35 +84,6 @@ def verify_telegram_data(user_input, token):
         result = verify_telegram_data_json(user_input, token)
 
     return result
-
-
-def evaluate_city_locations(city_locations):
-    if not city_locations:
-        logging.info('no city_locations')
-        return None
-
-    cl_eval = eval(city_locations)
-    if not cl_eval:
-        logging.info('no eval of city_locations')
-        return None
-
-    if not isinstance(cl_eval, list):
-        logging.info('eval of city_locations is not list')
-        return None
-
-    first_coords = cl_eval[0]
-
-    if not first_coords:
-        logging.info('no first coords in city_locations')
-        return None
-
-    if not isinstance(first_coords, list):
-        logging.info('fist coords in city_locations is not list')
-        return None
-
-    logging.info(f'city_locations has coords {first_coords}')
-
-    return [first_coords]
 
 
 def get_user_data_from_db(user_id: int) -> dict:

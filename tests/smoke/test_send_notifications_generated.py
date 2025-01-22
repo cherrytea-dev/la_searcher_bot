@@ -19,16 +19,6 @@ def test_check_for_number_of_notifs_to_send():
     pass
 
 
-def test_generate_random_function_id():
-    res = run_smoke(main.generate_random_function_id)
-    pass
-
-
-def test_get_change_log_update_time():
-    res = run_smoke(main.get_change_log_update_time)
-    pass
-
-
 def test_get_triggering_function():
     res = run_smoke(main.get_triggering_function)
     pass
@@ -46,16 +36,6 @@ def test_process_pubsub_message():
 
 def test_process_response():
     res = run_smoke(main.process_response)
-    pass
-
-
-def test_save_sending_status_to_notif_by_user():
-    res = run_smoke(main.save_sending_status_to_notif_by_user)
-    pass
-
-
-def test_send_location_to_api():
-    res = run_smoke(main.send_location_to_api)
     pass
 
 

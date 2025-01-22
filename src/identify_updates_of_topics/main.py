@@ -6,7 +6,6 @@ import base64
 import copy
 import json
 import logging
-import random
 import re
 import time
 from datetime import datetime, timedelta, timezone
@@ -23,7 +22,7 @@ from sqlalchemy.engine.base import Engine
 from yandex_geocoder import Client, exceptions
 
 from _dependencies.commons import Topics, get_app_config, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
-from _dependencies.misc import make_api_call, notify_admin
+from _dependencies.misc import generate_random_function_id, make_api_call, notify_admin
 
 setup_google_logging()
 
@@ -1942,14 +1941,6 @@ def get_the_list_of_ignored_folders(db: sqlalchemy.engine.Engine):
     conn.close()
 
     return list_of_ignored_folders
-
-
-def generate_random_function_id() -> int:
-    """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
-
-    random_id = random.randint(100000000000, 999999999999)
-
-    return random_id
 
 
 def save_function_into_register(db: connection, context, start_time, function_id, change_log_ids):

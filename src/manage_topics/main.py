@@ -1,13 +1,12 @@
 import datetime
 import json
 import logging
-import random
 from typing import Any, Dict, Optional
 
 import sqlalchemy
 
 from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
-from _dependencies.misc import notify_admin, process_pubsub_message
+from _dependencies.misc import generate_random_function_id, notify_admin, process_pubsub_message
 
 setup_google_logging()
 
@@ -132,14 +131,6 @@ def save_function_into_register(context: str, start_time: datetime.datetime, fun
         logging.exception(e)
 
     return None
-
-
-def generate_random_function_id() -> int:
-    """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
-
-    random_id = random.randint(100000000000, 999999999999)
-
-    return random_id
 
 
 def main(event, context):  # noqa
