@@ -7,6 +7,7 @@ import json
 import logging
 import re
 import time
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional, Tuple, Union
 
@@ -61,52 +62,41 @@ dict_status_words = {
     'эвакуация': 'na',
 }
 dict_ignore = {'', ':'}
+from typing import Any
 
 
+@dataclass
+class ChangeLogLine:
+    parsed_time: Any = None
+    topic_id: Any = None
+    changed_field: Any = None
+    new_value: Any = None
+    parameters: Any = None
+    change_type: Any = None
+
+
+@dataclass
 class SearchSummary:
-    def __init__(
-        self,
-        topic_type=None,
-        topic_type_id=None,
-        topic_id=None,
-        parsed_time=None,
-        status=None,
-        title=None,
-        link=None,
-        start_time=None,
-        num_of_replies=None,
-        name=None,
-        display_name=None,
-        age=None,
-        searches_table_id=None,
-        folder_id=None,
-        age_max=None,
-        age_min=None,
-        num_of_persons=None,
-        locations=None,
-        new_status=None,
-        full_dict=None,
-    ):
-        self.topic_type = topic_type
-        self.topic_type_id = topic_type_id
-        self.topic_id = topic_id
-        self.parsed_time = parsed_time
-        self.status = status
-        self.title = title
-        self.link = link
-        self.start_time = start_time
-        self.num_of_replies = num_of_replies
-        self.name = name
-        self.display_name = display_name
-        self.age = age
-        self.id = searches_table_id
-        self.folder_id = folder_id
-        self.age_max = age_max
-        self.age_min = age_min
-        self.num_of_persons = num_of_persons
-        self.locations = locations
-        self.new_status = new_status
-        self.full_dict = full_dict
+    topic_type: Any = None
+    topic_type_id: Any = None
+    topic_id: Any = None
+    parsed_time: Any = None
+    status: Any = None
+    title: Any = None
+    link: Any = None
+    start_time: Any = None
+    num_of_replies: Any = None
+    name: Any = None
+    display_name: Any = None
+    age: Any = None
+    searches_table_id: Any = None
+    folder_id: Any = None
+    age_max: Any = None
+    age_min: Any = None
+    num_of_persons: Any = None
+    locations: Any = None
+    new_status: Any = None
+    full_dict: Any = None
 
     def __str__(self):
         return (
@@ -165,7 +155,7 @@ def read_yaml_from_cloud_storage(bucket_to_read, folder_num):
     return contents
 
 
-def save_last_api_call_time_to_psql(db: sqlalchemy.engine, geocoder: str) -> bool:
+def save_last_api_call_time_to_psql(db: Engine, geocoder: str) -> bool:
     """Used to track time of the last api call to geocoders. Saves the current timestamp in UTC in psql"""
 
     conn = None
@@ -189,7 +179,7 @@ def save_last_api_call_time_to_psql(db: sqlalchemy.engine, geocoder: str) -> boo
         return False
 
 
-def get_last_api_call_time_from_psql(db: sqlalchemy.engine, geocoder: str) -> datetime.timestamp:
+def get_last_api_call_time_from_psql(db: sqlalchemy.engine, geocoder: str):
     """Used to track time of the last api call to geocoders. Gets the last timestamp in UTC saved in psql"""
 
     conn = None
@@ -211,7 +201,7 @@ def get_last_api_call_time_from_psql(db: sqlalchemy.engine, geocoder: str) -> da
     return last_call
 
 
-def rate_limit_for_api(db: sqlalchemy.engine, geocoder: str) -> None:
+def rate_limit_for_api(db: Engine, geocoder: str) -> None:
     """sleeps certain time if api calls are too frequent"""
 
     # check that next request won't be in less a SECOND from previous
@@ -316,7 +306,7 @@ def get_coordinates(db: Engine, address: str) -> Tuple[None, None]:
 
         return latitude, longitude
 
-    def get_coordinates_from_address_by_yandex(address_string: str) -> (float, float):
+    def get_coordinates_from_address_by_yandex(address_string: str) -> tuple[float | None, float | None]:
         """return coordinates on the request of address string, geocoded by yandex"""
 
         latitude = None
@@ -862,7 +852,7 @@ def parse_coordinates(db: connection, search_num) -> List[Union[int, str]]:
     return [lat, lon, coord_type]
 
 
-def update_coordinates(db: connection, list_of_search_objects):
+def update_coordinates(db: Engine, list_of_search_objects: list[SearchSummary]) -> None:
     """Record search coordinates to PSQL"""
 
     for search in list_of_search_objects:
@@ -1148,7 +1138,7 @@ def parse_search_profile(search_num) -> str | None:
     return left_text
 
 
-def parse_one_folder(db: connection, folder_id) -> Tuple[List, List]:
+def parse_one_folder(db: Engine, folder_id) -> Tuple[List, List[SearchSummary]]:
     """parse forum folder with searches' summaries"""
 
     global requests_session
@@ -1159,7 +1149,7 @@ def parse_one_folder(db: connection, folder_id) -> Tuple[List, List]:
     #  now we need to delete it completely
     topics_summary_in_folder = []
     titles_and_num_of_replies = []
-    folder_summary = []
+    folder_summary: list[SearchSummary] = []
     current_datetime = datetime.now()
     url = f'https://lizaalert.org/forum/viewforum.php?f={folder_id}'
     try:
@@ -1190,7 +1180,7 @@ def parse_one_folder(db: connection, folder_id) -> Tuple[List, List]:
 
             data = {'title': search_title}
             try:
-                title_reco_response = make_api_call('title_recognize', data)
+                title_reco_response = make_api_call('title_recognize', data)  # TODO can use local call in tests
 
                 if (
                     title_reco_response
@@ -1320,7 +1310,7 @@ def visibility_check(r, topic_id) -> bool:
     return True
 
 
-def parse_one_comment(db: connection, search_num, comment_num) -> bool:
+def parse_one_comment(db: Engine, search_num, comment_num) -> bool:
     """parse all details on a specific comment in topic (by sequence number)"""
 
     global requests_session
@@ -1435,21 +1425,10 @@ def parse_one_comment(db: connection, search_num, comment_num) -> bool:
     return there_are_inforg_comments
 
 
-def update_change_log_and_searches(db: connection, folder_num) -> List:
+def update_change_log_and_searches(db: Engine, folder_num) -> List:
     """update of SQL tables 'searches' and 'change_log' on the changes vs previous parse"""
 
     change_log_ids = []
-
-    class ChangeLogLine:
-        def __init__(
-            self, parsed_time=None, topic_id=None, changed_field=None, new_value=None, parameters=None, change_type=None
-        ):
-            self.parsed_time = parsed_time
-            self.topic_id = topic_id
-            self.changed_field = changed_field
-            self.new_value = new_value
-            self.parameters = parameters
-            self.change_type = change_type
 
     # DEBUG - function execution time counter
     func_start = datetime.now()
@@ -1463,7 +1442,7 @@ def update_change_log_and_searches(db: connection, folder_num) -> List:
             forum_folder_id = :a; """
         )
         snapshot = conn.execute(sql_text, a=folder_num).fetchall()
-        curr_snapshot_list = []
+        curr_snapshot_list: list[SearchSummary] = []
         for line in snapshot:
             snapshot_line = SearchSummary()
             (
@@ -1475,7 +1454,7 @@ def update_change_log_and_searches(db: connection, folder_num) -> List:
                 snapshot_line.num_of_replies,
                 snapshot_line.name,
                 snapshot_line.age,
-                snapshot_line.id,
+                snapshot_line.searches_table_id,
                 snapshot_line.folder_id,
                 snapshot_line.topic_type,
                 snapshot_line.display_name,
@@ -1506,7 +1485,7 @@ def update_change_log_and_searches(db: connection, folder_num) -> List:
                 search.num_of_replies,
                 search.name,
                 search.age,
-                search.id,
+                search.searches_table_id,
                 search.folder_id,
                 search.topic_type,
                 search.display_name,
@@ -1594,7 +1573,7 @@ def update_change_log_and_searches(db: connection, folder_num) -> List:
                 change_type) values (:a, :b, :c, :d, :e, :f) RETURNING id;"""
             )
 
-            for line in change_log_updates_list:
+            for line in change_log_updates_list:  # TODO
                 raw_data = conn.execute(
                     stmt,
                     a=line.parsed_time,
@@ -1607,7 +1586,7 @@ def update_change_log_and_searches(db: connection, folder_num) -> List:
                 change_log_ids.append(raw_data[0])
 
         """2. move ADD to Change Log """
-        new_topics_from_snapshot_list = []
+        new_topics_from_snapshot_list: list[SearchSummary] = []
 
         for snapshot_line in curr_snapshot_list:
             new_search_flag = 1
@@ -1750,7 +1729,7 @@ def update_change_log_and_searches(db: connection, folder_num) -> List:
                 search.num_of_replies,
                 search.name,
                 search.age,
-                search.id,
+                search.searches_table_id,
                 search.folder_id,
             ) = list(searches_line)
             curr_searches_list.append(search)
@@ -1803,7 +1782,7 @@ def update_change_log_and_searches(db: connection, folder_num) -> List:
     return change_log_ids
 
 
-def process_one_folder(db: connection, folder_to_parse) -> Tuple[bool, List]:
+def process_one_folder(db: Engine, folder_to_parse: str) -> Tuple[bool, List]:
     """process one forum folder: check for updates, upload them into cloud sql"""
 
     def update_checker(current_hash, folder_num):
@@ -1828,7 +1807,7 @@ def process_one_folder(db: connection, folder_to_parse) -> Tuple[bool, List]:
 
         return upd_trigger
 
-    def rewrite_snapshot_in_sql(db2, folder_num, folder_summary):
+    def rewrite_snapshot_in_sql(db2: Engine, folder_num, folder_summary: list[SearchSummary]):
         """rewrite the freshly-parsed snapshot into sql table 'forum_summary_snapshot'"""
 
         with db2.connect() as conn:
@@ -1897,24 +1876,21 @@ def process_one_folder(db: connection, folder_to_parse) -> Tuple[bool, List]:
     return update_trigger, change_log_ids
 
 
-def get_the_list_of_ignored_folders(db: sqlalchemy.engine.Engine):
+def get_the_list_of_ignored_folders(db: Engine) -> list[int]:
     """get the list of folders which does not contain searches – thus should be ignored"""
 
-    conn = db.connect()
+    with db.connect() as conn:
+        sql_text = sqlalchemy.text(
+            """SELECT folder_id FROM geo_folders WHERE folder_type != 'searches' AND folder_type != 'events';"""
+        )
+        raw_list = conn.execute(sql_text).fetchall()
 
-    sql_text = sqlalchemy.text(
-        """SELECT folder_id FROM geo_folders WHERE folder_type != 'searches' AND folder_type != 'events';"""
-    )
-    raw_list = conn.execute(sql_text).fetchall()
-
-    list_of_ignored_folders = [int(line[0]) for line in raw_list]
-
-    conn.close()
+        list_of_ignored_folders = [int(line[0]) for line in raw_list]
 
     return list_of_ignored_folders
 
 
-def save_function_into_register(db: connection, context, start_time, function_id, change_log_ids):
+def save_function_into_register(db: Engine, context, start_time, function_id, change_log_ids):
     """save current function into functions_registry"""
 
     try:
@@ -1945,7 +1921,7 @@ def save_function_into_register(db: connection, context, start_time, function_id
     return None
 
 
-def main(event, context):  # noqa
+def main(event, context) -> None:  # noqa
     """main function triggered by pub/sub"""
 
     global requests_session
@@ -1995,5 +1971,3 @@ def main(event, context):  # noqa
 
     requests_session.close()
     db.dispose()
-
-    return None
