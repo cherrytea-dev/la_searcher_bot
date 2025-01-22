@@ -9,11 +9,6 @@ def test_add_user_sys_role():
     pass
 
 
-def test_age_writer():
-    res = run_smoke(main.age_writer)
-    pass
-
-
 def test_check_if_new_user():
     res = run_smoke(main.check_if_new_user)
     pass

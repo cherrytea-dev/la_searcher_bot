@@ -704,25 +704,6 @@ def get_field_trip_details_from_text(text: str):
     return resulting_field_trip_dict
 
 
-def age_writer(age):
-    """compose an age string with the right form of years in Russian"""
-
-    if age:
-        a = age // 100
-        b = (age - a * 100) // 10
-        c = age - a * 100 - b * 10
-        if c == 1 and b != 1:
-            wording = str(age) + ' год'
-        elif c in {2, 3, 4} and b != 1:
-            wording = str(age) + ' года'
-        else:
-            wording = str(age) + ' лет'
-    else:
-        wording = ''
-
-    return wording
-
-
 def generate_random_function_id() -> int:
     """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
 

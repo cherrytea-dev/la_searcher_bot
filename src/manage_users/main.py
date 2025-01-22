@@ -1,7 +1,7 @@
 import base64
-import datetime
 import logging
-from typing import Any
+from datetime import datetime
+from typing import Any, Dict, Optional
 
 from _dependencies.commons import sql_connect_by_psycopg2
 
@@ -35,7 +35,7 @@ def process_pubsub_message(event: dict):
     return message_in_ascii
 
 
-def save_onboarding_step(user_id: int, step_name: str, timestamp: datetime.datetime) -> None:
+def save_onboarding_step(user_id: int, step_name: str, timestamp: datetime) -> None:
     """save a step of onboarding"""
 
     dict_steps = {
@@ -71,7 +71,7 @@ def save_onboarding_step(user_id: int, step_name: str, timestamp: datetime.datet
     return None
 
 
-def save_updated_status_for_user(action, user_id, timestamp):
+def save_updated_status_for_user(action: str, user_id: int, timestamp: datetime) -> None:
     """block, unblock or record as new user"""
 
     action_dict = {'block_user': 'blocked', 'unblock_user': 'unblocked', 'new': 'new', 'delete_user': 'deleted'}
@@ -105,7 +105,7 @@ def save_updated_status_for_user(action, user_id, timestamp):
     return None
 
 
-def save_new_user(user_id: int, username: str, timestamp: datetime.datetime) -> None:
+def save_new_user(user_id: int, username: str, timestamp: datetime) -> None:
     """if the user is new – save to users table"""
 
     # set PSQL connection & cursor
@@ -139,7 +139,7 @@ def save_new_user(user_id: int, username: str, timestamp: datetime.datetime) -> 
     # save onboarding start
     cur.execute(
         """INSERT INTO user_onboarding (user_id, step_id, step_name, timestamp) VALUES (%s, %s, %s, %s);""",
-        (user_id, 0, 'start', datetime.datetime.now()),
+        (user_id, 0, 'start', datetime.now()),
     )
     conn.commit()
 
@@ -194,7 +194,7 @@ def save_default_notif_settings(user_id: int) -> None:
     return None
 
 
-def main(event, context):  # noqa
+def main(event: Dict[str, bytes], context: str) -> str:  # noqa
     """main function"""
 
     try:

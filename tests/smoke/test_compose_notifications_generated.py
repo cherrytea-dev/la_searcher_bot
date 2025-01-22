@@ -9,11 +9,6 @@ def test_add_tel_link():
     pass
 
 
-def test_age_writer():
-    res = run_smoke(main.age_writer)
-    pass
-
-
 def test_check_and_save_event_id():
     res = run_smoke(main.check_and_save_event_id)
     pass
