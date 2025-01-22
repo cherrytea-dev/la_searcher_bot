@@ -134,11 +134,6 @@ def test_get_list_of_admins_and_testers():
     pass
 
 
-def test_get_triggering_function():
-    res = run_smoke(main.get_triggering_function)
-    pass
-
-
 def test_iterate_over_all_users():
     res = run_smoke(main.iterate_over_all_users)
     pass

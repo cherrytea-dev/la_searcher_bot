@@ -301,3 +301,26 @@ def evaluate_city_locations(city_locations):
     logging.info(f'city_locations has coords {first_coords}')
 
     return [first_coords]
+
+
+def get_triggering_function(message_from_pubsub: dict) -> str:
+    """get a function_id of the function, which triggered this function (if available)"""
+
+    triggered_by_func_id = None
+    try:
+        if (
+            message_from_pubsub
+            and isinstance(message_from_pubsub, dict)
+            and 'triggered_by_func_id' in message_from_pubsub.keys()
+        ):
+            triggered_by_func_id = message_from_pubsub['triggered_by_func_id']
+
+    except Exception as e:
+        logging.exception(e)
+
+    if triggered_by_func_id:
+        logging.info(f'this function is triggered by func-id {triggered_by_func_id}')
+    else:
+        logging.info('triggering func_id was not determined')
+
+    return triggered_by_func_id
