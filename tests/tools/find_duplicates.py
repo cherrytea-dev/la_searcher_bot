@@ -30,11 +30,11 @@ def generate_all():
         _add_cases(module, dir_name, cases)
 
     cases = {key: value for key, value in cases.items() if len(value) > 1}
-    print("-----")
+    print('-----')
     # print(cases)
     # print("-----")
     for key, value in cases.items():
-        print(f"def {key}: {value}")
+        print(f'def {key}: {value}')
 
     # print(cases.keys())
     # print("-----")
