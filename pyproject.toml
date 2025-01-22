@@ -12,6 +12,7 @@ dependencies = [
     "psycopg2-binary==2.9.5",
     "pg8000==1.19.4",
     "SQLAlchemy==1.4.11",
+    "python-telegram-bot[rate-limiter, job-queue]==20.2",
     "nest_asyncio",
 ]
 
@@ -55,7 +56,6 @@ check_topics_by_upd_time = [
 ]
 
 communicate = [
-    "python-telegram-bot[rate-limiter, job-queue]==20.2",
     "httpx==0.23.3",
 ]
 
@@ -74,7 +74,6 @@ connect_to_forum = [
     "urllib3==1.26.18",
     "beautifulsoup4==4.9.3",
     "lxml==4.9.1",
-    "python-telegram-bot[rate-limiter, job-queue]==20.2",
     "httpx==0.23.3",
 ]
 
@@ -113,7 +112,6 @@ manage_topics = []
 manage_users = []
 
 send_debug_to_admin = [
-    "python-telegram-bot[rate-limiter, job-queue]==20.2",
     "httpx==0.23.3",
 ]
 
