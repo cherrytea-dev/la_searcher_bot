@@ -62,7 +62,6 @@ dict_status_words = {
     'эвакуация': 'na',
 }
 dict_ignore = {'', ':'}
-from typing import Any
 
 
 @dataclass
