@@ -36,7 +36,12 @@ from _dependencies.commons import (
     setup_google_logging,
     sql_connect_by_psycopg2,
 )
-from _dependencies.misc import age_writer, notify_admin, time_counter_since_search_start
+from _dependencies.misc import (
+    age_writer,
+    notify_admin,
+    process_sending_message_async,
+    time_counter_since_search_start,
+)
 
 setup_google_logging()
 
@@ -1979,6 +1984,7 @@ async def leave_chat_async(context: ContextTypes.DEFAULT_TYPE):
 
 
 async def prepare_message_for_leave_chat_async(user_id):
+    # TODO DOUBLE
     bot_token = get_app_config().bot_api_token__prod
     application = Application.builder().token(bot_token).build()
     job_queue = application.job_queue
@@ -1995,33 +2001,6 @@ async def prepare_message_for_leave_chat_async(user_id):
 
 def process_leaving_chat_async(user_id) -> None:
     asyncio.run(prepare_message_for_leave_chat_async(user_id))
-
-    return None
-
-
-async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
-
-    return None
-
-
-async def prepare_message_for_async(user_id: int, data: Dict[str, Any]) -> str:
-    bot_token = get_app_config().bot_api_token__prod
-    application = Application.builder().token(bot_token).build()
-    job_queue = application.job_queue
-    job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
-
-    async with application:
-        await application.initialize()
-        await application.start()
-        await application.stop()
-        await application.shutdown()
-
-    return 'ok'
-
-
-def process_sending_message_async(user_id, data) -> None:
-    asyncio.run(prepare_message_for_async(user_id, data))
 
     return None
 
