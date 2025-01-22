@@ -18,7 +18,12 @@ from _dependencies.commons import (
     setup_google_logging,
     sql_connect_by_psycopg2,
 )
-from _dependencies.misc import generate_random_function_id, get_change_log_update_time, notify_admin
+from _dependencies.misc import (
+    generate_random_function_id,
+    get_change_log_update_time,
+    notify_admin,
+    send_location_to_api,
+)
 
 setup_google_logging()
 
@@ -95,35 +100,6 @@ def send_message_to_api(session, bot_token, user_id, message, params):
     except Exception as e:
         logging.exception(e)
         logging.info('Error in getting response from Telegram')
-        r = None
-
-    return r
-
-
-def send_location_to_api(session, bot_token, user_id, params):
-    """send location directly to Telegram API w/o any wrappers ar libraries"""
-
-    try:
-        latitude = ''
-        longitude = ''
-        if params:
-            if 'latitude' in params.keys():
-                latitude = f'&latitude={params["latitude"]}'
-            if 'longitude' in params.keys():
-                longitude = f'&longitude={params["longitude"]}'
-
-        logging.info(latitude)
-        logging.info(longitude)
-
-        request_text = (
-            f'https://api.telegram.org/bot{bot_token}/sendLocation?chat_id={user_id}' f'{latitude}{longitude}'
-        )
-
-        r = session.get(request_text)
-
-    except Exception as e:
-        logging.exception(e)
-        logging.info('THIS BAD EXCEPTION HAPPENED')
         r = None
 
     return r
