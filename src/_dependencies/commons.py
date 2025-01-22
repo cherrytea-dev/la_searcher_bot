@@ -51,7 +51,7 @@ def get_secrets(secret_request: str) -> str:
     return response.payload.data.decode('UTF-8')
 
 
-def setup_google_logging():
+def setup_google_logging() -> None:
     logging_disabled = os.getenv('GOOGLE_LOGGING_DISABLED', False)
     if logging_disabled:
         # TODO pydantic-settings or improve parsing here.

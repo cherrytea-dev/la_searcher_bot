@@ -1,15 +1,10 @@
 """
-Tool for generating smoke testcases
+Tool for search duplicate functions in modules
 """
 
 import importlib
 import inspect
-import re
-from datetime import date, datetime
-from functools import lru_cache
 from pathlib import Path
-
-PYTEST_LOG_FILE = 'build/pytest.log'
 
 
 def generate_all():
