@@ -39,12 +39,6 @@ def test_compose_com_msg_on_new_comments():
     pass
 
 
-def test_compose_com_msg_on_new_topic():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.compose_com_msg_on_new_topic)
-    pass
-
-
 def test_compose_com_msg_on_status_change():
     res = run_smoke(main.compose_com_msg_on_status_change)
     pass
@@ -110,12 +104,6 @@ def test_enrich_new_record_with_comments():
     pass
 
 
-def test_enrich_new_record_with_emoji():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.enrich_new_record_with_emoji)
-    pass
-
-
 def test_enrich_new_record_with_managers():
     res = run_smoke(main.enrich_new_record_with_managers)
     pass
@@ -163,12 +151,6 @@ def test_get_triggering_function():
 
 def test_iterate_over_all_users():
     res = run_smoke(main.iterate_over_all_users)
-    pass
-
-
-def test_main():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.main)
     pass
 
 

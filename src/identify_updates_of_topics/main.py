@@ -17,6 +17,7 @@ import sqlalchemy
 from bs4 import BeautifulSoup, SoupStrainer  # noqa
 from geopy.geocoders import Nominatim
 from google.cloud import storage
+from google.cloud.storage.blob import Blob
 from psycopg2.extensions import connection
 from sqlalchemy.engine.base import Engine
 from yandex_geocoder import Client, exceptions
@@ -117,7 +118,7 @@ class SearchSummary:
         )
 
 
-def set_cloud_storage(bucket_name: str, folder_num: int):
+def set_cloud_storage(bucket_name: str, folder_num: int) -> Blob:
     """sets the basic parameters for connection to txt file in cloud storage, which stores searches snapshots"""
 
     if isinstance(folder_num, int) or folder_num == 'geocode':

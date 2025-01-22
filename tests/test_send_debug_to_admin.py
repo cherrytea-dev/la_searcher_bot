@@ -8,6 +8,7 @@ from tests.common import get_event_with_data, get_test_config
 
 
 def test_main_positive(bot_mock_send_message):
+    # NO SMOKE TEST send_debug_to_admin.main.main
     message_text = 'some text'
     event = get_event_with_data(message_text)
 

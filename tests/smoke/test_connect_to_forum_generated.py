@@ -14,20 +14,8 @@ def test_get_user_data():
     pass
 
 
-def test_get_user_id():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.get_user_id)
-    pass
-
-
 def test_login_into_forum():
     res = run_smoke(main.login_into_forum)
-    pass
-
-
-def test_main():
-    with pytest.raises(Exception) as e:
-        res = run_smoke(main.main)
     pass
 
 

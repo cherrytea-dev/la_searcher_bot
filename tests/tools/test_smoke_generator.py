@@ -17,10 +17,10 @@ def test_generate_signature():
 
 @pytest.mark.skip(reason='Enable for debug only')
 def test_generate_test_cases_for_module():
-    from api_get_active_searches import main
+    from user_provide_info import main
 
     with TemporaryDirectory() as temp_dir:
-        _generate_test_cases_for_module(main, 'main', temp_dir + '/main.py')
+        _generate_test_cases_for_module(main, 'user_provide_info', temp_dir + '/main.py')
         pass
 
 

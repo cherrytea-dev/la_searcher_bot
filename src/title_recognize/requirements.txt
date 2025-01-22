@@ -36,27 +36,27 @@ jinja2==3.1.5
 markupsafe==3.0.2
 natasha==1.4.0
 navec==0.10.0
+nest-asyncio==1.6.0
 numpy==2.2.1
-packaging==21.3
+packaging==24.2
 pg8000==1.19.4
 proto-plus==1.25.0
 protobuf==4.25.5
 psycopg2-binary==2.9.5
 pyasn1==0.6.1
 pyasn1-modules==0.4.1
-pydantic==2.10.4
+pydantic==2.10.5
 pydantic-core==2.27.2
 pydantic-settings==2.7.1
 pymorphy2==0.9.1
 pymorphy2-dicts-ru==2.4.417127.4579844
-pyparsing==3.2.1
 python-dateutil==2.8.2
 python-dotenv==1.0.1
 razdel==0.5.0
 requests==2.31.0
 rsa==4.9
 scramp==1.4.0
-setuptools==75.7.0 ; sys_platform != 'win32'
+setuptools==75.8.0 ; sys_platform != 'win32'
 six==1.17.0
 slovnet==0.6.0
 sortedcontainers==2.4.0
