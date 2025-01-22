@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 from flask import Request
 
 from _dependencies.commons import get_app_config, setup_google_logging, sql_connect_by_psycopg2
+from _dependencies.content import clean_up_content
 
 setup_google_logging()
 
@@ -188,88 +189,6 @@ def save_user_statistics_to_db(user_input, response) -> None:
     conn_psy.close()
 
     return None
-
-
-def clean_up_content(init_content):
-    def cook_soup(content):
-        content = BeautifulSoup(content, 'lxml')
-
-        return content
-
-    def prettify_soup(content):
-        for s in content.find_all('strong', {'class': 'text-strong'}):
-            s.unwrap()
-
-        for s in content.find_all('span'):
-            try:
-                if s.attrs['style'] and s['style'] and len(s['style']) > 5 and s['style'][0:5] == 'color':
-                    s.unwrap()
-            except Exception as e:
-                logging.exception(e)
-                continue
-
-        deleted_text = content.find_all('span', {'style': 'text-decoration:line-through'})
-        for case in deleted_text:
-            case.decompose()
-
-        for dd in content.find_all('dd', style='display:none'):
-            del dd['style']
-
-        return content
-
-    def remove_links(content):
-        for tag in content.find_all('a'):
-            if tag.name == 'a' and not re.search(r'\[[+−]]', tag.text):
-                tag.unwrap()
-
-        return content
-
-    def remove_irrelevant_content(content):
-        # language=regexp
-        patterns = (
-            r'(?i)(Карты.*\n|'
-            r'Ориентировка на печать.*\n|'
-            r'Ориентировка на репост.*\n|'
-            r'\[\+] СМИ.*\n|'
-            r'СМИ\s.*\n|'
-            r'Задача на поиске с которой может помочь каждый.*\n|'
-            r'ВНИМАНИЕ! Всем выезжающим иметь СИЗ.*\n|'
-            r'С признаками ОРВИ оставайтесь дома.*\n|'
-            r'Берегите себя и своих близких!.*\n|'
-            r'Если же представитель СМИ хочет.*\n|'
-            r'8\(800\)700-54-52 или.*\n|'
-            r'Предоставлять комментарии по поиску.*\n|'
-            r'Таблица прозвона больниц.*\n|'
-            r'Запрос на согласование фото.*(\n|(\s*)?$)|'
-            r'Все фото.*(\n|(\s*)?$)|'
-            r'Написать инфоргу.*в (Telegram|Телеграмм?)(\n|(\s*)?$)|'
-            r'Горячая линия отряда:.*(\n|(\s*)?$))'
-        )
-
-        content = re.sub(patterns, '', content)
-        content = re.sub(r'[\s_-]*$', '', content)
-        content = re.sub(r'\n\n', r'\n', content)
-        content = re.sub(r'\n\n', r'\n', content)
-
-        return content
-
-    def make_html(content):
-        content = re.sub(r'\n', '<br>', content)
-
-        return content
-
-    if not init_content or re.search(r'Для просмотра этого форума вы должны быть авторизованы', init_content):
-        return None
-
-    reco_content = cook_soup(init_content)
-    reco_content = prettify_soup(reco_content)
-    reco_content = remove_links(reco_content)
-    reco_content = reco_content.text
-    reco_content = remove_irrelevant_content(reco_content)
-    reco_content = make_html(reco_content)
-    logging.info(f'{reco_content=}')
-
-    return reco_content
 
 
 def verify_json_validity(user_input, list_of_allowed_apps):
