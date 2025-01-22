@@ -849,6 +849,7 @@ dependencies = [
     { name = "pg8000" },
     { name = "psycopg2-binary" },
     { name = "pydantic-settings" },
+    { name = "python-telegram-bot", extra = ["job-queue", "rate-limiter"] },
     { name = "sqlalchemy" },
 ]
 
@@ -875,7 +876,6 @@ check-topics-by-upd-time = [
 ]
 communicate = [
     { name = "httpx" },
-    { name = "python-telegram-bot", extra = ["job-queue", "rate-limiter"] },
 ]
 compose-notifications = [
     { name = "certifi" },
@@ -890,7 +890,6 @@ connect-to-forum = [
     { name = "beautifulsoup4" },
     { name = "httpx" },
     { name = "lxml" },
-    { name = "python-telegram-bot", extra = ["job-queue", "rate-limiter"] },
     { name = "requests" },
     { name = "urllib3" },
 ]
@@ -936,7 +935,6 @@ identify-updates-of-topics = [
 ]
 send-debug-to-admin = [
     { name = "httpx" },
-    { name = "python-telegram-bot", extra = ["job-queue", "rate-limiter"] },
 ]
 send-notifications = [
     { name = "httpx" },
@@ -1017,9 +1015,7 @@ requires-dist = [
     { name = "python-dateutil", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.8.2" },
     { name = "python-dateutil", marker = "extra == 'title-recognize'", specifier = "==2.8.2" },
     { name = "python-dotenv", marker = "extra == 'develop'", specifier = "==1.*" },
-    { name = "python-telegram-bot", extras = ["rate-limiter", "job-queue"], marker = "extra == 'communicate'", specifier = "==20.2" },
-    { name = "python-telegram-bot", extras = ["rate-limiter", "job-queue"], marker = "extra == 'connect-to-forum'", specifier = "==20.2" },
-    { name = "python-telegram-bot", extras = ["rate-limiter", "job-queue"], marker = "extra == 'send-debug-to-admin'", specifier = "==20.2" },
+    { name = "python-telegram-bot", extras = ["rate-limiter", "job-queue"], specifier = "==20.2" },
     { name = "pytz", marker = "extra == 'archive-notifications'" },
     { name = "pytz", marker = "extra == 'compose-notifications'", specifier = "==2021.1" },
     { name = "requests", marker = "extra == 'check-first-posts-for-changes'", specifier = "==2.31.0" },
