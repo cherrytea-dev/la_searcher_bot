@@ -205,10 +205,10 @@ def main(event: Dict[str, bytes], context: str) -> str:  # noqa
             if action in {'block_user', 'unblock_user', 'new', 'delete_user'}:
                 curr_user_id = received_dict['info']['user']
                 try:
-                    timestamp = datetime.datetime.strptime(received_dict['time'], '%Y-%m-%d %H:%M:%S.%f')
+                    timestamp = datetime.strptime(received_dict['time'], '%Y-%m-%d %H:%M:%S.%f')
 
                 except:  # noqa
-                    timestamp = datetime.datetime.now()
+                    timestamp = datetime.now()
                 # save in table user_statuses_history and table users (for non-new users)
                 save_updated_status_for_user(action, curr_user_id, timestamp)
 
@@ -222,9 +222,9 @@ def main(event: Dict[str, bytes], context: str) -> str:  # noqa
             elif action in {'update_onboarding'}:
                 curr_user_id = received_dict['info']['user']
                 try:
-                    timestamp = datetime.datetime.strptime(received_dict['time'], '%Y-%m-%d %H:%M:%S.%f')
+                    timestamp = datetime.strptime(received_dict['time'], '%Y-%m-%d %H:%M:%S.%f')
                 except:  # noqa
-                    timestamp = datetime.datetime.now()
+                    timestamp = datetime.now()
                 try:
                     step_name = received_dict['step']
                 except:  # noqa
