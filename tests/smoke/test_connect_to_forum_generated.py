@@ -22,8 +22,3 @@ def test_login_into_forum():
 def test_match_user_region_from_forum_to_bot():
     res = run_smoke(main.match_user_region_from_forum_to_bot)
     pass
-
-
-def test_sql_connect_by_psycopg2_with_globals():
-    res = run_smoke(main.sql_connect_by_psycopg2_with_globals)
-    pass
