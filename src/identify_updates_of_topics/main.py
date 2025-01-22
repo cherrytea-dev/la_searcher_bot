@@ -75,50 +75,28 @@ class ChangeLogLine:
     change_type: Any = None
 
 
+@dataclass
 class SearchSummary:
-    def __init__(
-        self,
-        topic_type=None,
-        topic_type_id=None,
-        topic_id=None,
-        parsed_time=None,
-        status=None,
-        title=None,
-        link=None,
-        start_time=None,
-        num_of_replies=None,
-        name=None,
-        display_name=None,
-        age=None,
-        searches_table_id=None,
-        folder_id=None,
-        age_max=None,
-        age_min=None,
-        num_of_persons=None,
-        locations=None,
-        new_status=None,
-        full_dict=None,
-    ):
-        self.topic_type = topic_type
-        self.topic_type_id = topic_type_id
-        self.topic_id = topic_id
-        self.parsed_time = parsed_time
-        self.status = status
-        self.title = title
-        self.link = link
-        self.start_time = start_time
-        self.num_of_replies = num_of_replies
-        self.name = name
-        self.display_name = display_name
-        self.age = age
-        self.id = searches_table_id
-        self.folder_id = folder_id
-        self.age_max = age_max
-        self.age_min = age_min
-        self.num_of_persons = num_of_persons
-        self.locations = locations
-        self.new_status = new_status
-        self.full_dict = full_dict
+    topic_type: Any = None
+    topic_type_id: Any = None
+    topic_id: Any = None
+    parsed_time: Any = None
+    status: Any = None
+    title: Any = None
+    link: Any = None
+    start_time: Any = None
+    num_of_replies: Any = None
+    name: Any = None
+    display_name: Any = None
+    age: Any = None
+    searches_table_id: Any = None
+    folder_id: Any = None
+    age_max: Any = None
+    age_min: Any = None
+    num_of_persons: Any = None
+    locations: Any = None
+    new_status: Any = None
+    full_dict: Any = None
 
     def __str__(self):
         return (
@@ -1476,7 +1454,7 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
                 snapshot_line.num_of_replies,
                 snapshot_line.name,
                 snapshot_line.age,
-                snapshot_line.id,
+                snapshot_line.searches_table_id,
                 snapshot_line.folder_id,
                 snapshot_line.topic_type,
                 snapshot_line.display_name,
@@ -1507,7 +1485,7 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
                 search.num_of_replies,
                 search.name,
                 search.age,
-                search.id,
+                search.searches_table_id,
                 search.folder_id,
                 search.topic_type,
                 search.display_name,
@@ -1751,7 +1729,7 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
                 search.num_of_replies,
                 search.name,
                 search.age,
-                search.id,
+                search.searches_table_id,
                 search.folder_id,
             ) = list(searches_line)
             curr_searches_list.append(search)
