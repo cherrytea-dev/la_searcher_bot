@@ -13,7 +13,7 @@ import sqlalchemy
 from sqlalchemy.engine.base import Connection
 
 from _dependencies.commons import Topics, get_app_config, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
-from _dependencies.misc import age_writer, generate_random_function_id, notify_admin
+from _dependencies.misc import age_writer, generate_random_function_id, notify_admin, process_pubsub_message_v2
 
 setup_google_logging()
 
@@ -368,28 +368,6 @@ def define_dist_and_dir_to_search(search_lat, search_lon, user_let, user_lon):
     direction = calc_direction(lat1, lon1, lat2, lon2)
 
     return dist, direction
-
-
-def process_pubsub_message(event):
-    """get the readable message from incoming pub/sub call"""
-
-    # receive message text from pub/sub
-    try:
-        if 'data' in event:
-            received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
-            encoded_to_ascii = eval(received_message_from_pubsub)
-            data_in_ascii = encoded_to_ascii['data']
-            message_in_ascii = data_in_ascii['message']
-        else:
-            message_in_ascii = 'ERROR: I cannot read message from pub/sub'
-
-    except Exception as e:
-        message_in_ascii = 'ERROR: I cannot read message from pub/sub'
-        logging.exception(e)
-
-    logging.info(f'received message from pub/sub: {message_in_ascii}')
-
-    return message_in_ascii
 
 
 def compose_new_records_from_change_log(conn: Connection) -> LineInChangeLog:
@@ -2036,7 +2014,7 @@ def main(event, context):  # noqa
     analytics_start_of_func = datetime.datetime.now()
 
     function_id = generate_random_function_id()
-    message_from_pubsub = process_pubsub_message(event)
+    message_from_pubsub = process_pubsub_message_v2(event)
     triggered_by_func_id = get_triggering_function(message_from_pubsub)
 
     pool = sql_connect()

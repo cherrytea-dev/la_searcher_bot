@@ -39,7 +39,7 @@ def make_api_call(function: str, data: dict) -> dict:
     return content
 
 
-def process_pubsub_message(event: dict):
+def process_pubsub_message(event: dict) -> str:
     """convert incoming pub/sub message into regular data"""
 
     # receiving message text from pub/sub
@@ -54,7 +54,7 @@ def process_pubsub_message(event: dict):
     return message_in_ascii
 
 
-def process_pubsub_message_v2(event: dict):
+def process_pubsub_message_v2(event: dict) -> str:
     """get message from pub/sub notification"""
 
     # receiving message text from pub/sub
@@ -70,6 +70,34 @@ def process_pubsub_message_v2(event: dict):
         message_in_ascii = 'ERROR: I cannot read message from pub/sub'
 
     logging.info(f'received message from pub/sub: {message_in_ascii}')
+
+    return message_in_ascii
+
+
+def process_pubsub_message_v3(event: dict) -> str:
+    """convert incoming pub/sub message into regular data"""
+    # TODO DOUBLE
+
+    # receiving message text from pub/sub
+    if 'data' in event:
+        received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
+        logging.info('received_message_from_pubsub: ' + str(received_message_from_pubsub))
+    elif 'message' in event:
+        received_message_from_pubsub = base64.b64decode(event).decode('utf-8')
+    else:
+        received_message_from_pubsub = 'I cannot read message from pub/sub'
+        logging.info(received_message_from_pubsub)
+    encoded_to_ascii = eval(received_message_from_pubsub)
+    logging.info('encoded_to_ascii: ' + str(encoded_to_ascii))
+    try:
+        data_in_ascii = encoded_to_ascii['data']
+        logging.info('data_in_ascii: ' + str(data_in_ascii))
+        message_in_ascii = data_in_ascii['message']
+        logging.info('message_in_ascii: ' + str(message_in_ascii))
+    except Exception as es:
+        message_in_ascii = None
+        logging.info('exception happened: ')
+        logging.exception(str(es))
 
     return message_in_ascii
 

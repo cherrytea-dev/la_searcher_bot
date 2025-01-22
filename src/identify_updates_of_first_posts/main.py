@@ -16,7 +16,7 @@ import sqlalchemy
 from bs4 import BeautifulSoup, NavigableString
 
 from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
-from _dependencies.misc import generate_random_function_id, notify_admin
+from _dependencies.misc import generate_random_function_id, notify_admin, process_pubsub_message
 
 setup_google_logging()
 
@@ -25,23 +25,6 @@ requests_session = requests.Session()
 
 def sql_connect() -> sqlalchemy.engine.Engine:
     return sqlalchemy_get_pool(5, 30)
-
-
-def process_pubsub_message(event):
-    """get the readable message from incoming pub/sub call"""
-
-    # receive message text from pub/sub
-    if 'data' in event:
-        received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
-    else:
-        received_message_from_pubsub = 'I cannot read message from pub/sub'
-    encoded_to_ascii = eval(received_message_from_pubsub)
-    data_in_ascii = encoded_to_ascii['data']
-    message_in_ascii = str(data_in_ascii['message'])
-
-    logging.info(f'LOGGING-INFO: incoming Pub/Sub message: {message_in_ascii}')
-
-    return message_in_ascii
 
 
 def get_the_list_of_coords_out_of_text(initial_text: str):

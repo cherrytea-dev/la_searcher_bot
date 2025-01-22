@@ -23,6 +23,7 @@ from _dependencies.misc import (
     generate_random_function_id,
     get_change_log_update_time,
     notify_admin,
+    process_pubsub_message_v2,
     save_sending_status_to_notif_by_user,
     send_location_to_api,
 )
@@ -43,26 +44,6 @@ SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS = 5
 analytics_notif_times = []
 analytics_delays = []
 analytics_parsed_times = []
-
-
-def process_pubsub_message(event: dict):
-    """get message from pub/sub notification"""
-
-    # receiving message text from pub/sub
-    try:
-        if 'data' in event:
-            received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
-            encoded_to_ascii = eval(received_message_from_pubsub)
-            data_in_ascii = encoded_to_ascii['data']
-            message_in_ascii = data_in_ascii['message']
-        else:
-            message_in_ascii = 'ERROR: I cannot read message from pub/sub'
-    except:  # noqa
-        message_in_ascii = 'ERROR: I cannot read message from pub/sub'
-
-    logging.info(f'received message from pub/sub: {message_in_ascii}')
-
-    return message_in_ascii
 
 
 def send_message_to_api(session, bot_token, user_id, message, params):
@@ -616,7 +597,7 @@ def main(event, context):
 
     function_id = generate_random_function_id()
 
-    message_from_pubsub = process_pubsub_message(event)
+    message_from_pubsub = process_pubsub_message_v2(event)
     triggered_by_func_id = get_triggering_function(message_from_pubsub)
 
     there_is_function_working_in_parallel = check_and_save_event_id(
