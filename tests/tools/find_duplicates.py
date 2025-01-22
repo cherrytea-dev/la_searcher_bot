@@ -104,13 +104,6 @@ if __name__ == '__main__':
         'send_notifications_helper',
         'send_notifications_helper_2',
     ],
-
-    'get_triggering_function': [
-        'compose_notifications',
-        'send_notifications',
-        'send_notifications_helper',
-        'send_notifications_helper_2',
-    ],
     'save_function_into_register': ['identify_updates_of_first_posts', 'identify_updates_of_topics', 'manage_topics'],
     'read_snapshot_from_cloud_storage': ['identify_updates_of_folders', 'identify_updates_of_topics'],
 # NO    'set_cloud_storage': ['identify_updates_of_folders', 'identify_updates_of_topics'],

@@ -13,7 +13,13 @@ import sqlalchemy
 from sqlalchemy.engine.base import Connection
 
 from _dependencies.commons import Topics, get_app_config, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
-from _dependencies.misc import age_writer, generate_random_function_id, notify_admin, process_pubsub_message_v2
+from _dependencies.misc import (
+    age_writer,
+    generate_random_function_id,
+    get_triggering_function,
+    notify_admin,
+    process_pubsub_message_v2,
+)
 
 setup_google_logging()
 
@@ -1971,29 +1977,6 @@ def check_if_need_compose_more(conn, function_id: int):
         logging.info('we checked – there is nothing to compose: we are not re-initiating [compose_notification]')
 
     return None
-
-
-def get_triggering_function(message_from_pubsub: str):
-    """get a function_id of the function, which triggered this function (if available)"""
-
-    triggered_by_func_id = None
-    try:
-        if (
-            message_from_pubsub
-            and isinstance(message_from_pubsub, dict)
-            and 'triggered_by_func_id' in message_from_pubsub.keys()
-        ):
-            triggered_by_func_id = message_from_pubsub['triggered_by_func_id']
-
-    except Exception as e:
-        logging.exception(e)
-
-    if triggered_by_func_id:
-        logging.info(f'this function is triggered by func_id {triggered_by_func_id}')
-    else:
-        logging.info('triggering func_id was not determined')
-
-    return triggered_by_func_id
 
 
 def delete_ended_search_following(conn: Connection, new_record):  # issue425
