@@ -36,7 +36,7 @@ from _dependencies.commons import (
     setup_google_logging,
     sql_connect_by_psycopg2,
 )
-from _dependencies.misc import notify_admin, time_counter_since_search_start
+from _dependencies.misc import age_writer, notify_admin, time_counter_since_search_start
 
 setup_google_logging()
 
@@ -273,23 +273,6 @@ class AllButtons:
 
     def temp_all_keys(self):
         return [k for k, v in self.__dict__.items()]
-
-
-def age_writer(age):
-    """Return age-describing phrase in Russian for age as integer"""
-
-    a = age // 100
-    b = (age - a * 100) // 10
-    c = age - a * 100 - b * 10
-
-    if c == 1 and b != 1:
-        wording = str(age) + ' год'
-    elif (c in {2, 3, 4}) and b != 1:
-        wording = str(age) + ' года'
-    else:
-        wording = str(age) + ' лет'
-
-    return wording
 
 
 def compose_user_preferences_message(cur: cursor, user_id: int) -> List[Union[List[str], str]]:

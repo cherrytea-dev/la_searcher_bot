@@ -14,7 +14,7 @@ import sqlalchemy
 from sqlalchemy.engine.base import Connection
 
 from _dependencies.commons import Topics, get_app_config, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
-from _dependencies.misc import notify_admin
+from _dependencies.misc import age_writer, notify_admin
 
 setup_google_logging()
 
@@ -280,25 +280,6 @@ class MessageNewTopic(Message):
 
 def sql_connect() -> sqlalchemy.engine.Engine:
     return sqlalchemy_get_pool(5, 60)
-
-
-def age_writer(age):
-    """compose an age string with the right form of years in Russian"""
-
-    if age:
-        a = age // 100
-        b = (age - a * 100) // 10
-        c = age - a * 100 - b * 10
-        if c == 1 and b != 1:
-            wording = str(age) + ' год'
-        elif (c == 2 or c == 3 or c == 4) and b != 1:
-            wording = str(age) + ' года'
-        else:
-            wording = str(age) + ' лет'
-    else:
-        wording = ''
-
-    return wording
 
 
 def define_family_name(title_string: str, predefined_fam_name: str | None) -> str:
