@@ -9,6 +9,7 @@ import google.auth.transport.requests
 import google.cloud.logging
 import google.oauth2.id_token
 import requests
+from psycopg2.extensions import cursor
 from telegram.ext import Application, ContextTypes
 
 from _dependencies.commons import Topics, get_app_config, publish_to_pubsub
@@ -172,3 +173,25 @@ def generate_random_function_id() -> int:
     random_id = random.randint(100000000000, 999999999999)
 
     return random_id
+
+
+def get_change_log_update_time(cur: cursor, change_log_id: int) -> datetime.datetime | None:
+    """get he time of parsing of the change, saved in PSQL"""
+
+    if not change_log_id:
+        return None
+
+    sql_text_psy = """
+                    SELECT parsed_time 
+                    FROM change_log 
+                    WHERE id = %s;
+                    /*action='getting_change_log_parsing_time' */;"""
+    cur.execute(sql_text_psy, (change_log_id,))
+    parsed_time = cur.fetchone()
+
+    if not parsed_time:
+        return None
+
+    parsed_time = parsed_time[0]
+
+    return parsed_time
