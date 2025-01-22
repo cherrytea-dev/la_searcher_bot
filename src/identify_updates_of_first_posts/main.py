@@ -724,7 +724,7 @@ def main(event, context):  # noqa
 
     # receive a list of searches where first post was updated
     message_from_pubsub = process_pubsub_message(event)
-    list_of_updated_searches = ast.literal_eval(message_from_pubsub)
+    list_of_updated_searches = ast.literal_eval(str(message_from_pubsub))
 
     change_log_ids = []
 
