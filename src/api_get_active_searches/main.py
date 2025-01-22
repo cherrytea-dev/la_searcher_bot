@@ -1,7 +1,6 @@
 """Function acts as API for the App designed to support LizaAlert Group of Phone Calls.
 The current script retrieves an actual list active searches"""
 
-import datetime
 import json
 import logging
 import re
@@ -43,49 +42,6 @@ def evaluate_city_locations(city_locations: str):
     logging.info(f'city_locations has coords {first_coords}')
 
     return [first_coords]
-
-
-def time_counter_since_search_start(start_time):
-    """Count timedelta since the beginning of search till now, return phrase in Russian and diff in days"""
-
-    start_diff = datetime.timedelta(hours=0)
-
-    now = datetime.datetime.now()
-    diff = now - start_time - start_diff
-
-    first_word_parameter = ''
-
-    # <20 minutes -> "Начинаем искать"
-    if (diff.total_seconds() / 60) < 20:
-        phrase = 'Начинаем искать'
-
-    # 20 min - 1 hour -> "Ищем ХХ минут"
-    elif (diff.total_seconds() / 3600) < 1:
-        phrase = first_word_parameter + str(round(int(diff.total_seconds() / 60), -1)) + ' минут'
-
-    # 1-24 hours -> "Ищем ХХ часов"
-    elif diff.days < 1:
-        phrase = first_word_parameter + str(int(diff.total_seconds() / 3600))
-        if int(diff.total_seconds() / 3600) in {1, 21}:
-            phrase += ' час'
-        elif int(diff.total_seconds() / 3600) in {2, 3, 4, 22, 23}:
-            phrase += ' часа'
-        else:
-            phrase += ' часов'
-
-    # >24 hours -> "Ищем Х дней"
-    else:
-        phrase = first_word_parameter + str(diff.days)
-        if str(int(diff.days))[-1] == '1' and (int(diff.days)) != 11:
-            phrase += ' день'
-        elif int(diff.days) in {12, 13, 14}:
-            phrase += ' дней'
-        elif str(int(diff.days))[-1] in {'2', '3', '4'}:
-            phrase += ' дня'
-        else:
-            phrase += ' дней'
-
-    return [phrase, diff.days]
 
 
 def get_list_of_allowed_apps():
