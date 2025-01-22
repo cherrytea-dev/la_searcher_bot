@@ -224,3 +224,23 @@ def send_location_to_api(
         r = None
 
     return r
+
+
+def save_sending_status_to_notif_by_user(cur: cursor, message_id: int, result: str) -> None:
+    """save the telegram sending status to sql table notif_by_user"""
+
+    # TODO open and close cursor here
+    if result[0:9] == 'cancelled':
+        result = result[0:9]
+    elif result[0:6] == 'failed':
+        result = result[0:6]
+
+    if result in {'completed', 'cancelled', 'failed'}:
+        sql_text_psy = f"""
+                    UPDATE notif_by_user
+                    SET {result} = %s
+                    WHERE message_id = %s;
+                    /*action='save_sending_status_to_notif_by_user_{result}' */
+                    ;"""
+
+        cur.execute(sql_text_psy, (datetime.datetime.now(), message_id))
