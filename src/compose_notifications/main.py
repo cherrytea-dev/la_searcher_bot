@@ -1,9 +1,7 @@
 """compose and save all the text / location messages, then initiate sending via pub-sub"""
 
 import ast
-import base64
 import datetime
-import json
 import logging
 import math
 import re
@@ -12,6 +10,11 @@ from typing import Any, List, Optional, Tuple
 import sqlalchemy
 from sqlalchemy.engine.base import Connection
 
+from _dependencies.cloud_func_parallel_guard import (
+    check_if_other_functions_are_working,
+    record_finish_of_function,
+    record_start_of_function,
+)
 from _dependencies.commons import Topics, get_app_config, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
 from _dependencies.misc import (
     age_writer,
@@ -25,6 +28,7 @@ setup_google_logging()
 
 
 WINDOW_FOR_NOTIFICATIONS_DAYS = 60
+INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 130
 
 coord_format = '{0:.5f}'
 stat_list_of_recipients = []  # list of users who received notification on new search
@@ -1874,62 +1878,11 @@ def mark_new_comments_as_processed(conn, record):
     return None
 
 
-def check_and_save_event_id(context, event, conn, new_record, function_id, triggered_by_func_id):
+def check_and_save_event_id(
+    context, event, conn, new_record: LineInChangeLog | None, function_id, triggered_by_func_id
+):
     """Work with PSQL table functions_registry. Goal of the table & function is to avoid parallel work of
     two compose_notifications functions. Executed in the beginning and in the end of compose_notifications function"""
-
-    def check_if_other_functions_are_working() -> bool:
-        # TODO DOUBLE
-        """Check in PSQL in there's the same function 'compose_notifications' working in parallel"""
-
-        sql_text_psy = sqlalchemy.text("""
-                        SELECT event_id
-                        FROM functions_registry
-                        WHERE
-                            time_start > NOW() - interval '130 seconds' AND
-                            time_finish IS NULL AND
-                            cloud_function_name  = 'compose_notifications'
-                        /*action='check_if_there_is_parallel_compose_function' */;""")
-
-        lines = conn.execute(sql_text_psy).fetchone()
-
-        parallel_functions = True if lines else False
-
-        return parallel_functions
-
-    def record_start_of_function(event_num, function_num: int) -> None:
-        # TODO DOUBLE
-        """Record into PSQL that this function started working (id = id of the respective pub/sub event)"""
-
-        sql_text_psy = sqlalchemy.text("""INSERT INTO functions_registry
-                                          (event_id, time_start, cloud_function_name, function_id, triggered_by_func_id)
-                                          VALUES (:a, :b, :c, :d, :e)
-                                          /*action='save_start_of_compose_function' */;""")
-
-        conn.execute(
-            sql_text_psy,
-            a=event_num,
-            b=datetime.datetime.now(),
-            c='compose_notifications',
-            d=function_num,
-            e=triggered_by_func_id,
-        )
-        logging.info(f'function was triggered by event {event_num}')
-
-        return None
-
-    def record_finish_of_function(event_num, params_json):
-        # TODO DOUBLE
-        """Record into PSQL that this function finished working (id = id of the respective pub/sub event)"""
-
-        sql_text_psy = sqlalchemy.text("""UPDATE functions_registry
-                                          SET time_finish = :a, params = :c
-                                          WHERE event_id = :b
-                                          /*action='save_finish_of_compose_function' */;""")
-
-        conn.execute(sql_text_psy, a=datetime.datetime.now(), b=event_num, c=params_json)
-
-        return None
 
     if not context or not event:
         return False
@@ -1941,25 +1894,24 @@ def check_and_save_event_id(context, event, conn, new_record, function_id, trigg
 
     # if this functions is triggered in the very beginning of the Google Cloud Function execution
     if event == 'start':
-        if check_if_other_functions_are_working():
-            record_start_of_function(event_id, function_id)
+        if check_if_other_functions_are_working('compose_notifications', INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
+            record_start_of_function(event_id, function_id, triggered_by_func_id, 'compose_notifications')
             return True
 
-        record_start_of_function(event_id, function_id)
+        record_start_of_function(event_id, function_id, triggered_by_func_id, 'compose_notifications')
         return False
 
     # if this functions is triggered in the very end of the Google Cloud Function execution
     elif event == 'finish':
-        json_of_params = None
+        list_of_change_log_ids = []
         if new_record:
             # FIXME -- temp try. the content is not temp
             try:
                 list_of_change_log_ids = [new_record.change_id]
-                json_of_params = json.dumps({'ch_id': list_of_change_log_ids})
             except Exception as e:  # noqa
                 logging.exception(e)
             # FIXME ^^^
-        record_finish_of_function(event_id, json_of_params)
+        record_finish_of_function(event_id, list_of_change_log_ids)
         return False
 
 
@@ -1980,7 +1932,7 @@ def check_if_need_compose_more(conn, function_id: int):
     return None
 
 
-def delete_ended_search_following(conn: Connection, new_record):  # issue425
+def delete_ended_search_following(conn: Connection, new_record: LineInChangeLog) -> None:  # issue425
     ### Delete from user_pref_search_whitelist if the search goes to one of ending statuses
 
     if new_record.change_type == 1 and new_record.status in ['Завершен', 'НЖ', 'НП', 'Найден']:
