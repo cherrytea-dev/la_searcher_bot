@@ -133,14 +133,6 @@ def get_the_list_folders_to_update(list_of_folders_and_times, now_time, delay_ti
     return list_of_updated_folders
 
 
-def notify_admin(message):
-    """send the pub/sub message to Debug to Admin"""
-
-    publish_to_pubsub('topic_notify_admin', message)
-
-    return None
-
-
 def main(event, context):  # noqa
     """main function that starts first"""
 
