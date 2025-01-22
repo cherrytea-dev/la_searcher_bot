@@ -1190,7 +1190,7 @@ def parse_one_folder(db: connection, folder_id) -> Tuple[List, List]:
 
             data = {'title': search_title}
             try:
-                title_reco_response = make_api_call('title_recognize', data)
+                title_reco_response = make_api_call('title_recognize', data)  # TODO can use local call in tests
 
                 if (
                     title_reco_response

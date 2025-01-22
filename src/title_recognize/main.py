@@ -707,6 +707,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
         return recognition
 
     def age_wording(age):
+        # TODO DOUBLE
         """Return age-describing phrase in Russian for age as integer"""
 
         a = age // 100
