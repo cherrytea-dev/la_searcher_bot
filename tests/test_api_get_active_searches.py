@@ -1,6 +1,7 @@
 import pytest
 from flask import Flask
 
+import _dependencies.misc
 from api_get_active_searches import main
 
 
@@ -10,26 +11,6 @@ def test_main():
     with app.test_request_context('/', json={'app_id': 1}) as app:
         main.main(app.request)
     assert True
-
-
-def test_evaluate_city_locations_success():
-    res = main.evaluate_city_locations('[[56.0, 64.0]]')
-    assert res == [[56.0, 64.0]]
-
-
-@pytest.mark.parametrize(
-    'param',
-    [
-        [],
-        [1],
-        [None],
-        '"foo"',
-        '',
-    ],
-)
-def test_evaluate_city_locations_fail(param):
-    res = main.evaluate_city_locations(str(param))
-    assert res is None
 
 
 def test_get_list_of_active_searches_from_db():
