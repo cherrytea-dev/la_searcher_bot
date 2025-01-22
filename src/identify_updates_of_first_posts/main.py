@@ -135,7 +135,9 @@ def compose_diff_message(curr_list, prev_list):
     return message, list_of_deletions, list_of_additions
 
 
-def process_first_page_comparison(conn, search_id: int, first_page_content_prev: str, first_page_content_curr: str):
+def process_first_page_comparison(
+    conn: sqlalchemy.engine.Connection, search_id: int, first_page_content_prev: str, first_page_content_curr: str
+):
     """compare first post content to identify any diffs"""
 
     # check the latest status on this search
@@ -196,7 +198,7 @@ def process_first_page_comparison(conn, search_id: int, first_page_content_prev:
 
 
 def save_new_record_into_change_log(
-    conn, search_id: int, coords_change_list: list, changed_field: str, change_type: int
+    conn: sqlalchemy.engine.Connection, search_id: int, coords_change_list: list, changed_field: str, change_type: int
 ) -> int:
     """save the coordinates change into change_log"""
 
@@ -429,7 +431,7 @@ def get_field_trip_details_from_text(text: str):
     return resulting_field_trip_dict
 
 
-def save_function_into_register(conn, context, start_time, function_id, change_log_ids):
+def save_function_into_register(conn: sqlalchemy.engine.Connection, context, start_time, function_id, change_log_ids):
     """save current function into functions_registry"""
 
     try:
