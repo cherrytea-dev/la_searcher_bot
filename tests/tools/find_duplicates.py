@@ -57,28 +57,6 @@ if __name__ == '__main__':
 
 """
 {
-    'main': [
-        'api_get_active_searches',
-        'archive_notifications',
-        'archive_to_bigquery',
-        'check_first_posts_for_changes',
-        'check_topics_by_upd_time',
-        'communicate',
-        'compose_notifications',
-        'connect_to_forum',
-        'identify_updates_of_first_posts',
-        'identify_updates_of_folders',
-        'identify_updates_of_topics',
-        'manage_topics',
-        'manage_users',
-        'send_debug_to_admin',
-        'send_notifications',
-        'send_notifications_helper',
-        'send_notifications_helper_2',
-        'title_recognize',
-        'user_provide_info',
-        ...,
-    ],
  # DIFF   'save_user_statistics_to_db': ['api_get_active_searches', 'user_provide_info'], 
  # NO   'sql_connect': [
         'archive_notifications',
@@ -91,12 +69,6 @@ if __name__ == '__main__':
     ],
 # NO    'save_new_user': ['communicate', 'manage_users'],
 # NO    'save_onboarding_step': ['communicate', 'manage_users'],
-    'send_message_to_api': [
-        'communicate',
-        'send_notifications',
-        'send_notifications_helper',
-        'send_notifications_helper_2',
-    ],
     'check_and_save_event_id': [
         'compose_notifications',
         'send_notifications',
@@ -110,7 +82,6 @@ if __name__ == '__main__':
     'check_for_notifs_to_send': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'finish_time_analytics': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'iterate_over_notifications': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
-    'process_response': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'send_single_message': ['send_notifications', 'send_notifications_helper', 'send_notifications_helper_2'],
     'check_first_notif_to_send': ['send_notifications_helper', 'send_notifications_helper_2'],
 }

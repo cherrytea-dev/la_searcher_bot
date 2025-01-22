@@ -24,16 +24,6 @@ def test_iterate_over_notifications():
     pass
 
 
-def test_process_response():
-    res = run_smoke(main.process_response)
-    pass
-
-
-def test_send_message_to_api():
-    res = run_smoke(main.send_message_to_api)
-    pass
-
-
 def test_send_single_message():
     res = run_smoke(main.send_single_message)
     pass
