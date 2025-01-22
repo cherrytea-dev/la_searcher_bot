@@ -1176,7 +1176,7 @@ def record_notification_statistics(conn):
     return None
 
 
-def iterate_over_all_users(conn, admins_list, new_record, list_of_users, function_id):
+def iterate_over_all_users(conn, admins_list, new_record, list_of_users, function_id) -> LineInChangeLog:
     """initiates a full cycle for all messages composition for all the users"""
 
     def save_to_sql_notif_by_user(
@@ -1983,11 +1983,18 @@ def main(event, context):  # noqa
             record_notification_statistics(conn)
 
         check_if_need_compose_more(conn, function_id)
+
+        list_of_change_log_ids = []
+        if new_record:
+            try:
+                list_of_change_log_ids = [new_record.change_id]
+            except Exception as e:  # noqa
+                logging.exception(e)
         check_and_save_event_id(
             context,
             'finish',
             function_id,
-            new_record,
+            list_of_change_log_ids,
             triggered_by_func_id,
             FUNC_NAME,
             INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
