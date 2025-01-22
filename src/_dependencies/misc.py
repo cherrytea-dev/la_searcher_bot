@@ -2,6 +2,7 @@ import asyncio
 import base64
 import datetime
 import logging
+import random
 from typing import Dict
 
 import google.auth.transport.requests
@@ -163,3 +164,11 @@ def process_sending_message_async(user_id: int, data) -> None:
     asyncio.run(prepare_message_for_async(user_id, data, bot_token=get_app_config().bot_api_token__prod))
 
     return None
+
+
+def generate_random_function_id() -> int:
+    """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
+
+    random_id = random.randint(100000000000, 999999999999)
+
+    return random_id

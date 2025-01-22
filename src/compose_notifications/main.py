@@ -6,7 +6,6 @@ import datetime
 import json
 import logging
 import math
-import random
 import re
 from typing import Any, List, Optional, Tuple
 
@@ -14,7 +13,7 @@ import sqlalchemy
 from sqlalchemy.engine.base import Connection
 
 from _dependencies.commons import Topics, get_app_config, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
-from _dependencies.misc import age_writer, notify_admin
+from _dependencies.misc import age_writer, generate_random_function_id, notify_admin
 
 setup_google_logging()
 
@@ -1994,14 +1993,6 @@ def check_if_need_compose_more(conn, function_id: int):
         logging.info('we checked – there is nothing to compose: we are not re-initiating [compose_notification]')
 
     return None
-
-
-def generate_random_function_id() -> int:
-    """generates a random ID for every function – to track all function dependencies (no built-in ID in GCF)"""
-
-    random_id = random.randint(100000000000, 999999999999)
-
-    return random_id
 
 
 def get_triggering_function(message_from_pubsub: str):

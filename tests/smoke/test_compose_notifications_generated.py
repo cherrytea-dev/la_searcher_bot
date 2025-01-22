@@ -119,11 +119,6 @@ def test_enrich_users_list_with_radius():
     pass
 
 
-def test_generate_random_function_id():
-    res = run_smoke(main.generate_random_function_id)
-    pass
-
-
 def test_generate_yandex_maps_place_link2():
     res = run_smoke(main.generate_yandex_maps_place_link2)
     pass
