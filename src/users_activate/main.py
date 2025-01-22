@@ -2,41 +2,13 @@ import base64
 import logging
 
 from _dependencies.commons import setup_google_logging, sql_connect_by_psycopg2
+from _dependencies.misc import process_pubsub_message_v2
 
 setup_google_logging()
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logging.warning('it is a synthetic warning')
-
-
-def process_pubsub_message(event: dict):
-    """convert incoming pub/sub message into regular data"""
-
-    # FIXME
-    logging.info(f'RECEIVED EVENT {event}')
-    # FIXME ^^^
-    # receiving message text from pub/sub
-    if 'data' in event:
-        received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
-        print(f'DECODED DATA from EVENT {received_message_from_pubsub}')
-        try:
-            received_message_from_pubsub.replace('null', 'None')
-            encoded_to_ascii = eval(received_message_from_pubsub)
-            data_in_ascii = encoded_to_ascii['data']
-            message_in_ascii = data_in_ascii['message']
-        except Exception as e:
-            logging.exception(e)
-            message_in_ascii = None
-
-    else:
-        received_message_from_pubsub = 'I cannot read message from pub/sub'
-        message_in_ascii = None
-
-    logging.info(f'received from pubsub {received_message_from_pubsub}')
-    logging.info(f'message in ascii {message_in_ascii}')
-
-    return message_in_ascii
 
 
 def mark_up_onboarding_status_0(cur):

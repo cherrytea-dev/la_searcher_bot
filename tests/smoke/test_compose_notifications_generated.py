@@ -154,11 +154,6 @@ def test_mark_new_record_as_processed():
     pass
 
 
-def test_process_pubsub_message():
-    res = run_smoke(main.process_pubsub_message)
-    pass
-
-
 def test_record_notification_statistics():
     res = run_smoke(main.record_notification_statistics)
     pass
