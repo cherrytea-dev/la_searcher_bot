@@ -12,19 +12,15 @@ def test_1():
     asyncio.run(inner())
 
 
+def test_2():
+    asyncio.run(inner_2())
+
+
 async def inner():
-    # process_sending_message_async(1, "foo")
-    # new_func = sync_to_async(process_leaving_chat_async)
     process_leaving_chat_async(2)
     pass
 
 
-# async def prepare_message_for_async() -> str:
-#     return "foo"
-
-# def process_sending_message_async() -> None:
-#     task = asyncio.create_task(prepare_message_for_async())
-#     loop = asyncio.get_event_loop()
-#     task = asyncio.ensure_future(task, loop=loop)
-
-#     return None
+async def inner_2():
+    process_sending_message_async(2, '')
+    pass

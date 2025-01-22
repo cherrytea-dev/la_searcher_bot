@@ -184,11 +184,6 @@ def test_manage_radius():
     pass
 
 
-def test_prepare_message_for_async():
-    res = run_smoke(main.prepare_message_for_async)
-    pass
-
-
 def test_prepare_message_for_leave_chat_async():
     res = run_smoke(main.prepare_message_for_leave_chat_async)
     pass
@@ -206,11 +201,6 @@ def test_process_leaving_chat_async():
 
 def test_process_response_of_api_call():
     res = run_smoke(main.process_response_of_api_call)
-    pass
-
-
-def test_process_sending_message_async():
-    res = run_smoke(main.process_sending_message_async)
     pass
 
 
@@ -281,11 +271,6 @@ def test_save_user_pref_urgency():
 
 def test_search_button_row_ikb():
     res = run_smoke(main.search_button_row_ikb)
-    pass
-
-
-def test_send_message_async():
-    res = run_smoke(main.send_message_async)
     pass
 
 
