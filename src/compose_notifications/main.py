@@ -717,9 +717,9 @@ def compose_com_msg_on_new_comments(line: LineInChangeLog):
             comment_text = f'{comment.text[:500]}...' if len(comment.text) > 500 else comment.text
 
             comment_text = add_tel_link(comment_text)
-            code_pos = text.find('<code>')
-            text_before_code_pos = text[:code_pos]
-            text_from_code_pos = text[code_pos:]
+            code_pos = comment_text.find('<code>')
+            text_before_code_pos = comment_text[:code_pos]
+            text_from_code_pos = comment_text[code_pos:]
 
             msg += (
                 f' &#8226; <a href="{url_prefix}{comment.author_link}">{comment.author_nickname}</a>: '
