@@ -19,7 +19,7 @@ google-cloud-logging==3.5.0
 google-cloud-pubsub==2.16.0
 google-cloud-secret-manager==2.16.0
 googleapis-common-protos==1.66.0
-greenlet==3.1.1
+greenlet==3.1.1 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
 grpc-google-iam-v1==0.14.0
 grpcio==1.69.0
 grpcio-status==1.62.3
@@ -48,7 +48,7 @@ scramp==1.4.0
 six==1.17.0
 sniffio==1.3.1
 soupsieve==2.6
-sqlalchemy==1.4.11
+sqlalchemy==1.4.54
 typing-extensions==4.12.2
 tzdata==2024.2 ; sys_platform == 'win32'
 tzlocal==5.2

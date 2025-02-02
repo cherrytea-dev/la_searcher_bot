@@ -4,10 +4,12 @@ import ast
 import datetime
 import logging
 import time
-from typing import Any, List, Optional
+from concurrent.futures import ThreadPoolExecutor, wait
+from dataclasses import dataclass, field
+from typing import Any, List
 
 import requests
-from psycopg2.extensions import cursor
+from psycopg2.extensions import connection, cursor
 
 from _dependencies.cloud_func_parallel_guard import check_and_save_event_id
 from _dependencies.commons import (
@@ -42,18 +44,54 @@ MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_1 = 800
 MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_2 = 1600
 INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 70  # window within which we check for started parallel function
 SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS = 5
-
-analytics_notif_times = []
-analytics_delays = []
-analytics_parsed_times = []
+MESSAGES_BATCH_SIZE = 100
+WORKERS_COUNT = 4
 
 
-def check_for_notifs_to_send(cur: cursor):
+@dataclass
+class TimeAnalytics:
+    script_start_time: datetime.datetime = field(default_factory=datetime.datetime.now)
+    notif_times: list[float] = field(default_factory=list)
+    delays: list[float] = field(default_factory=list)
+    parsed_times: list[float] = field(default_factory=list)
+
+
+@dataclass
+class MessageToSend:
+    message_id: int
+    user_id: int
+    created: datetime.datetime
+    completed: datetime.datetime | None
+    cancelled: datetime.datetime | None
+    message_content: str
+    message_type: str
+    message_params: str
+    message_group_id: int | None
+    change_log_id: int
+    mailing_id: int
+    failed: datetime.datetime | None
+
+
+def check_for_notifs_to_send(cur: cursor, select_doubling: bool) -> list[MessageToSend]:
     """return a notification which should be sent"""
 
     # TODO: can "doubling" calculation be done not dynamically but as a field of table?
-    sql_text_psy = """
-                    WITH notification AS (
+    # TODO just use constraints on table and fix compose_notifications
+    duplicated_notifications_query = """
+
+                            SELECT
+                                change_log_id, user_id, message_type
+                            FROM
+                                notif_by_user
+                            WHERE 
+                                completed IS NULL AND
+                                cancelled IS null
+                            group by change_log_id, user_id, message_type 
+                            having count(message_id) > 1
+
+                                    """
+
+    notifications_query = f"""
                     SELECT
                         message_id,
                         user_id,
@@ -66,47 +104,26 @@ def check_for_notifs_to_send(cur: cursor):
                         message_group_id,
                         change_log_id,
                         mailing_id,
-                        (CASE 
-                            WHEN DENSE_RANK() OVER (
-                                PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id) + 
-                                DENSE_RANK() OVER (
-                                PARTITION BY change_log_id, user_id, message_type ORDER BY mailing_id DESC) 
-                                -1 = 1 
-                            THEN 'no_doubling' 
-                            ELSE 'doubling' 
-                        END) AS doubling, 
                         failed 
                     FROM
                         notif_by_user
                     WHERE 
                         completed IS NULL AND
-                        cancelled IS NULL
-                    ORDER BY 1
-                    LIMIT 1 )
-
-                    SELECT
-                        n.*, 
-                        s.status AS status,
-                        cl.change_type
-                    FROM
-                        notification AS n
-                    LEFT JOIN
-                        change_log AS cl
-                    ON
-                        n.change_log_id=cl.id
-                    LEFT JOIN
-                        searches AS s
-                    ON
-                        cl.search_forum_num = s.search_forum_num
+                        cancelled IS NULL AND
+                        (change_log_id, user_id, message_type) {"IN" if select_doubling else "NOT IN"} (
+                            {duplicated_notifications_query}
+                        )
+                    ORDER BY message_id
+                    LIMIT {MESSAGES_BATCH_SIZE}
+                    FOR NO KEY UPDATE
  
                     /*action='check_for_notifs_to_send 3.0' */
                     ;
                     """
 
-    cur.execute(sql_text_psy)
-    notification = cur.fetchone()
-
-    return notification
+    cur.execute(notifications_query)
+    notifications = cur.fetchall()
+    return [MessageToSend(*notification) for notification in notifications]
 
 
 def check_for_number_of_notifs_to_send(cur: cursor) -> int:
@@ -132,184 +149,213 @@ def check_for_number_of_notifs_to_send(cur: cursor) -> int:
                     """
 
     cur.execute(sql_text_psy)
-    num_of_notifs = int(cur.fetchone()[0])
+    res = cur.fetchone()
+    num_of_notifs = int(res[0]) if res else 0
 
     return num_of_notifs
 
 
-def send_single_message(bot_token, user_id, message_content, message_params, message_type, admin_id, session):
+def send_single_message(bot_token: str, message_to_send: MessageToSend, session: requests.Session) -> str | None:
     """send one message to telegram"""
 
+    message_content = message_to_send.message_content
+    message_params_str = message_to_send.message_params
+    user_id = message_to_send.user_id
+
+    # limitation to avoid telegram "message too long"
+    if message_content and len(message_content) > 3000:
+        message_content = f'{message_content[:1500]}...{message_content[-1000:]}'
+
+    message_params: dict[str, Any] = ast.literal_eval(message_params_str) if message_params_str else {}
     if message_params:
         # convert string to bool
         if 'disable_web_page_preview' in message_params:
             message_params['disable_web_page_preview'] = message_params['disable_web_page_preview'] == 'True'
 
     response = None
-    if message_type == 'text':
+    if message_to_send.message_type == 'text':
         response = send_message_to_api(session, bot_token, user_id, message_content, message_params)
 
-    elif message_type == 'coords':
+    elif message_to_send.message_type == 'coords':
         response = send_location_to_api(session, bot_token, user_id, message_params)
+    else:
+        raise ValueError(f'unknown message_type: {message_to_send.message_type}')
+    return process_response(user_id, response)
 
-    result = process_response(user_id, response)
 
-    return result
+def seconds_between(datetime1: datetime.datetime, datetime2: datetime.datetime | None = None) -> float:
+    delta = datetime1 - (datetime2 or datetime.datetime.now())
+    return abs(delta.total_seconds())
+
+
+def seconds_between_round_2(datetime1: datetime.datetime, datetime2: datetime.datetime | None = None) -> float:
+    return round(seconds_between(datetime1, datetime2), 2)
+
+
+def time_is_out(start: datetime.datetime) -> bool:
+    # check if not too much time passed from start to now
+    delta = datetime.datetime.now() - start
+    return delta.total_seconds() > SCRIPT_SOFT_TIMEOUT_SECONDS
 
 
 def iterate_over_notifications(
-    bot_token: str, admin_id: str, script_start_time: datetime.datetime, session, function_id: int
-) -> List:
+    session: requests.Session,
+    function_id: int,
+    time_analytics: TimeAnalytics,
+) -> list[int]:
     """iterate over all available notifications, finishes if timeout is met or no new notifications"""
 
-    set_of_change_ids = set()
+    set_of_change_ids: set[int] = set()
 
-    with sql_connect_by_psycopg2() as conn_psy, conn_psy.cursor() as cur:
+    with (
+        sql_connect_by_psycopg2() as conn_psy,
+        conn_psy.cursor() as cur,
+        ThreadPoolExecutor(max_workers=WORKERS_COUNT) as executor,
+    ):
         # check if there are more than the set number of non-sent notifications – is so –
         # we're asking send_notification_helper to help is sending all of them
-        num_of_notifs_to_send = check_for_number_of_notifs_to_send(cur)
-        if num_of_notifs_to_send and num_of_notifs_to_send > MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_1:
-            message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'helper requested'}
-            publish_to_pubsub(Topics.topic_to_send_notifications_helper, message_for_pubsub)
-        if num_of_notifs_to_send and num_of_notifs_to_send > MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_2:
-            message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'helper requested'}
-            publish_to_pubsub(Topics.topic_to_send_notifications_helper_2, message_for_pubsub)
+        _call_helpers_if_needed(function_id, cur)
 
-        trigger_to_continue_iterations = True
-        while trigger_to_continue_iterations:
+        is_first_wait = True
+        while True:
             # analytics on sending speed - start for every user/notification
-            analytics_sm_start = datetime.datetime.now()
-            analytics_iteration_start = datetime.datetime.now()
+            _process_doubling_messages(cur)
+
             analytics_sql_start = datetime.datetime.now()
 
             # check if there are any non-notified users
-            message_to_send = check_for_notifs_to_send(cur)
-
-            analytics_sql_finish = datetime.datetime.now()
-            analytics_sql_duration = round((analytics_sql_finish - analytics_sql_start).total_seconds(), 2)
-
-            logging.info('time: -------------- loop start -------------')
-            logging.info(f'{message_to_send}')
+            messages = check_for_notifs_to_send(cur, select_doubling=False)
+            analytics_sql_duration = seconds_between_round_2(analytics_sql_start)
             logging.info(f'time: {analytics_sql_duration:.2f} – reading sql')
 
-            if message_to_send:
-                doubling_trigger = message_to_send[11]
-                message_id = message_to_send[0]
-                change_log_id = message_to_send[9]
-                change_log_upd_time = get_change_log_update_time(cur, change_log_id)
-
-                if doubling_trigger == 'no_doubling':
-                    user_id = message_to_send[1]
-                    message_type = message_to_send[6]
-                    message_params = ast.literal_eval(message_to_send[7]) if message_to_send[7] else {}
-
-                    message_content = message_to_send[5]
-                    # limitation to avoid telegram "message too long"
-                    if message_content and len(message_content) > 3000:
-                        message_content = f'{message_content[:1500]}...{message_content[-1000:]}'
-
-                    analytics_pre_sending_msg = datetime.datetime.now()
-
-                    result = send_single_message(
-                        bot_token, user_id, message_content, message_params, message_type, admin_id, session
-                    )
-
-                    analytics_send_finish = datetime.datetime.now()
-                    analytics_send_start_finish = round(
-                        (analytics_send_finish - analytics_pre_sending_msg).total_seconds(), 2
-                    )
-                    logging.info(f'time: {analytics_send_start_finish:.2f} – sending msg')
-
-                else:
-                    result = 'cancelled_due_to_doubling'
-                    notify_admin('cancelled_due_to_doubling!')
-                    analytics_pre_sending_msg = datetime.datetime.now()
-
-                analytics_save_sql_start = datetime.datetime.now()
-
-                # save result of sending telegram notification into SQL notif_by_user
-                save_sending_status_to_notif_by_user(cur, message_id, result)
-
-                # save metric: how long does it took from creation to completion
-                if result == 'completed':
-                    creation_time = message_to_send[2]
-
-                    set_of_change_ids.add(change_log_id)
-
-                    completion_time = datetime.datetime.now()
-                    duration_complete_vs_create_minutes = round(
-                        (completion_time - creation_time).total_seconds() / 60, 2
-                    )
-                    logging.info(f'metric: creation to completion time – {duration_complete_vs_create_minutes} min')
-                    analytics_delays.append(duration_complete_vs_create_minutes)
-
-                    duration_complete_vs_parsed_time_minutes = round(
-                        (completion_time - change_log_upd_time).total_seconds() / 60, 2
-                    )
-                    logging.info(f'metric: parsing to completion time – {duration_complete_vs_parsed_time_minutes} min')
-                    analytics_parsed_times.append(duration_complete_vs_parsed_time_minutes)
-
-                analytics_after_double_saved_in_sql = datetime.datetime.now()
-                analytics_save_sql_duration = round(
-                    (analytics_after_double_saved_in_sql - analytics_save_sql_start).total_seconds(), 2
-                )
-                logging.info(f'time: {analytics_save_sql_duration:.2f} – saving to sql')
-
-                analytics_doubling_checked_saved_to_sql = round(
-                    (analytics_after_double_saved_in_sql - analytics_pre_sending_msg).total_seconds(), 2
-                )
-                logging.info(f'time: {analytics_doubling_checked_saved_to_sql:.2f} – check -> save to sql')
-
-                # analytics on sending speed - finish for every user/notification
-                analytics_sm_finish = datetime.datetime.now()
-                analytics_sm_duration = (analytics_sm_finish - analytics_sm_start).total_seconds()
-                analytics_notif_times.append(analytics_sm_duration)
-
-                no_new_notifications = False
-
-            else:
-                # wait for some time – maybe any new notification will pop up
+            if not messages:
+                if not is_first_wait:
+                    break
                 time.sleep(SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS)
+                is_first_wait = False
+                continue
 
-                message_to_send = check_for_notifs_to_send(cur)
+            futures = [
+                executor.submit(
+                    _process_message_sending,
+                    session,
+                    time_analytics,
+                    set_of_change_ids,
+                    conn_psy,
+                    message_to_send,
+                )
+                for message_to_send in messages
+            ]
+            wait(futures)
 
-                no_new_notifications = False if message_to_send else True
+            if time_is_out(time_analytics.script_start_time):
+                if check_for_notifs_to_send(cur, select_doubling=False):
+                    message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'next iteration'}
+                    publish_to_pubsub(Topics.topic_to_send_notifications, message_for_pubsub)
+                break
 
-            # check if not too much time passed (not more than 500 seconds)
-            now = datetime.datetime.now()
-
-            if (now - script_start_time).total_seconds() > SCRIPT_SOFT_TIMEOUT_SECONDS:
-                timeout = True
-            else:
-                timeout = False
-
-            # final decision if while loop should be continued
-            if not no_new_notifications and not timeout:
-                trigger_to_continue_iterations = True
-            else:
-                trigger_to_continue_iterations = False
-
-            if not no_new_notifications and timeout:
-                message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'next iteration'}
-                publish_to_pubsub(Topics.topic_to_send_notifications, message_for_pubsub)
-
-            analytics_end_of_iteration = datetime.datetime.now()
-            analytics_iteration_duration = round(
-                (analytics_end_of_iteration - analytics_iteration_start).total_seconds(), 2
-            )
-            logging.info(f'time: {analytics_iteration_duration:.2f} – iteration duration')
-
-        cur.close()
-    conn_psy.close()
-
-    list_of_change_ids = list(set_of_change_ids)
-
-    return list_of_change_ids
+    return list(set_of_change_ids)
 
 
-def finish_time_analytics(notif_times: List, delays: List, parsed_times: List[int], list_of_change_ids: List):
+def _process_message_sending(
+    session: requests.Session,
+    time_analytics: TimeAnalytics,
+    set_of_change_ids: set[int],
+    conn: connection,
+    message_to_send: MessageToSend,
+) -> None:
+    logging.info('time: -------------- loop start -------------')
+    logging.info(f'{message_to_send}')
+    analytics_sm_start = datetime.datetime.now()
+    analytics_iteration_start = datetime.datetime.now()
+
+    with conn.cursor() as cur:
+        change_log_upd_time = get_change_log_update_time(cur, message_to_send.change_log_id)
+
+    analytics_pre_sending_msg = datetime.datetime.now()
+
+    result = send_single_message(get_app_config().bot_api_token__prod, message_to_send, session)
+
+    analytics_send_start_finish = seconds_between_round_2(analytics_pre_sending_msg)
+    logging.info(f'time: {analytics_send_start_finish:.2f} – sending msg')
+
+    analytics_save_sql_start = datetime.datetime.now()
+
+    # save result of sending telegram notification into SQL notif_by_user
+    with conn.cursor() as cur:
+        save_sending_status_to_notif_by_user(cur, message_to_send.message_id, result)
+
+    # save metric: how long does it took from creation to completion
+    if result == 'completed':
+        _process_logs_with_completed_sending(time_analytics, message_to_send, change_log_upd_time)
+        set_of_change_ids.add(message_to_send.change_log_id)
+
+    analytics_save_sql_duration = seconds_between_round_2(analytics_save_sql_start)
+    logging.info(f'time: {analytics_save_sql_duration:.2f} – saving to sql')
+
+    analytics_doubling_checked_saved_to_sql = seconds_between_round_2(analytics_pre_sending_msg)
+    logging.info(f'time: {analytics_doubling_checked_saved_to_sql:.2f} – check -> save to sql')
+
+    # analytics on sending speed - finish for every user/notification
+    analytics_sm_duration = seconds_between(analytics_sm_start)
+    time_analytics.notif_times.append(analytics_sm_duration)
+
+    analytics_iteration_duration = seconds_between_round_2(analytics_iteration_start)
+    logging.info(f'time: {analytics_iteration_duration:.2f} – iteration duration')
+
+
+def _process_doubling_messages(cur: cursor):
+    messages = check_for_notifs_to_send(cur, select_doubling=True)
+    if messages:
+        notify_admin(f'cancelled_due_to_doubling! {len(messages)} messages are doubling')
+
+    already_marked = set()
+    for message in messages:
+        # TODO mark only first message in tuple
+        key = (message.change_log_id, message.message_type, message.user_id)
+        if key in already_marked:
+            continue
+        already_marked.add(key)
+        result = 'cancelled_due_to_doubling'
+        save_sending_status_to_notif_by_user(cur, message.message_id, result)
+
+
+def _process_logs_with_completed_sending(
+    time_analytics: TimeAnalytics, message_to_send: MessageToSend, change_log_upd_time: datetime.datetime | None
+):
+    creation_time = message_to_send.created
+
+    duration_complete_vs_create_minutes = seconds_between_round_2(creation_time)
+    logging.info(f'metric: creation to completion time – {duration_complete_vs_create_minutes} min')
+    time_analytics.delays.append(duration_complete_vs_create_minutes)
+
+    duration_complete_vs_parsed_time_minutes = seconds_between_round_2(change_log_upd_time or datetime.datetime.now())
+    logging.info(f'metric: parsing to completion time – {duration_complete_vs_parsed_time_minutes} min')
+    time_analytics.parsed_times.append(duration_complete_vs_parsed_time_minutes)
+
+
+def _call_helpers_if_needed(function_id: int, cur: cursor) -> None:
+    # TODO remove after speeding up main sender
+    return
+    num_of_notifs_to_send = check_for_number_of_notifs_to_send(cur)
+
+    if num_of_notifs_to_send and num_of_notifs_to_send > MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_1:
+        message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'helper requested'}
+        publish_to_pubsub(Topics.topic_to_send_notifications_helper, message_for_pubsub)
+    if num_of_notifs_to_send and num_of_notifs_to_send > MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_2:
+        message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'helper requested'}
+        publish_to_pubsub(Topics.topic_to_send_notifications_helper_2, message_for_pubsub)
+
+
+def finish_time_analytics(
+    time_analytics: TimeAnalytics,
+    list_of_change_ids: List,
+):
     """Make final steps for time analytics: inform admin, log, record statistics into PSQL"""
 
+    notif_times = time_analytics.notif_times
+    delays = time_analytics.delays
+    parsed_times = time_analytics.parsed_times
     if not notif_times:
         return None
 
@@ -334,7 +380,7 @@ def finish_time_analytics(notif_times: List, delays: List, parsed_times: List[in
         f'[s0] {len_n} x {round(average, 2)} = {int(ttl_time)} '
         f'| {min_delay}–{max_delay} | {min_parse_time}–{max_parse_time} | {list_of_change_ids}'
     )
-    if max_parse_time >= 2:  # only for cases when delay is >2 mins from parsing time
+    if max_parse_time and max_parse_time >= 2:  # only for cases when delay is >2 mins from parsing time
         notify_admin(message)
     logging.info(message)
 
@@ -364,18 +410,16 @@ def finish_time_analytics(notif_times: List, delays: List, parsed_times: List[in
 def main(event, context):
     """Main function that is triggered by pub/sub"""
 
-    global analytics_notif_times
-    global analytics_delays
-    global analytics_parsed_times
+    time_analytics = TimeAnalytics(script_start_time=datetime.datetime.now())
 
     # timer is needed to finish the script if it's already close to timeout
-    script_start_time = datetime.datetime.now()
 
     function_id = generate_random_function_id()
 
     message_from_pubsub = process_pubsub_message_v2(event)
     triggered_by_func_id = get_triggering_function(message_from_pubsub)
 
+    # TODO remove after speeding up this function
     there_is_function_working_in_parallel = check_and_save_event_id(
         context,
         'start',
@@ -399,17 +443,10 @@ def main(event, context):
         logging.info('script finished')
         return None
 
-    bot_token = get_app_config().bot_api_token__prod
-    admin_id = get_app_config().my_telegram_id
-
     with requests.Session() as session:
-        changed_ids = iterate_over_notifications(bot_token, admin_id, script_start_time, session, function_id)
+        changed_ids = iterate_over_notifications(session, function_id, time_analytics)
 
-    finish_time_analytics(analytics_notif_times, analytics_delays, analytics_parsed_times, changed_ids)
-    # the below – is needed for high-frequency function execution, otherwise google remembers prev value
-    analytics_notif_times = []
-    analytics_delays = []
-    analytics_parsed_times = []
+    finish_time_analytics(time_analytics, changed_ids)
 
     check_and_save_event_id(
         context,

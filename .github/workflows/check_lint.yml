@@ -1,5 +1,8 @@
 name: Check-Lint
 
+env:
+  PYTHONPATH: .:src
+
 on:
   pull_request:
     branches: [main, dev]
@@ -29,5 +32,9 @@ jobs:
         if: success()
         run: |
           make lint-check
-        env:
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run mypy
+        if: success()
+        run: |
+          make mypy
+  

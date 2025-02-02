@@ -15,7 +15,9 @@ COPY pyproject.toml uv.lock ./
 COPY .env.example .env.test
 
 COPY Makefile ./
-RUN make venv
+RUN --mount=type=cache,destination=/root/.cache/uv <<EOF
+    make venv
+EOF
 
 COPY src ./src
 COPY tests ./tests

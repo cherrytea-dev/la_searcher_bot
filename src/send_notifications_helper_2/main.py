@@ -411,6 +411,7 @@ def finish_time_analytics(notif_times, delays, parsed_times, list_of_change_ids)
 def main(event, context):
     """Main function that is triggered by pub/sub"""
 
+    return
     global analytics_notif_times
     global analytics_delays
     global analytics_parsed_times

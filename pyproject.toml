@@ -11,7 +11,7 @@ dependencies = [
     "pydantic-settings==2.*",
     "psycopg2-binary==2.9.5",
     "pg8000==1.19.4",
-    "SQLAlchemy==1.4.11",
+    "SQLAlchemy==1.4.54",
     "python-telegram-bot[rate-limiter, job-queue]==20.2",
     "nest_asyncio",
 ]
@@ -27,11 +27,24 @@ develop = [
     "ruff==0.8.6",
     "uv>=0.5.15",
     "pytest-xdist==3.*",
+    "pytest-benchmark>=5.0",
     "pyannotate==1.2.*",
 
     "types-beautifulsoup4",
     "types-psycopg2",
     "types-python-dateutil",
+    "sqlacodegen==2.3.*",
+
+    "mypy>=1.14.1",
+    "types-requests >=2.31.0.6",
+    "types-PyYAML",
+    "types-cachetools",
+    "types-pytz",
+    "types-Pygments",
+    "types-cffi",
+    "types-colorama",
+    "types-pyOpenSSL",
+
 ]
 
 api_get_active_searches = [
@@ -55,9 +68,7 @@ check_topics_by_upd_time = [
     "lxml==4.9.1",
 ]
 
-communicate = [
-    "httpx==0.23.3",
-]
+communicate = ["httpx==0.23.3"]
 
 compose_notifications = [
     "requests==2.31.0",
@@ -111,9 +122,7 @@ manage_topics = []
 
 manage_users = []
 
-send_debug_to_admin = [
-    "httpx==0.23.3",
-]
+send_debug_to_admin = ["httpx==0.23.3"]
 
 send_notifications = ["urllib3==1.26.18", "httpx==0.23.3"]
 
@@ -144,11 +153,14 @@ format.quote-style = 'single'
 omit = ["*/tests/*"]
 
 [tool.mypy]
+mypy_path = "src"
 disallow_untyped_defs = false
-exclude = ["tests","env",  "venv"]
+exclude = ["tests", "env", "venv"]
+files = ["src/send_notifications/"] # will add other folders lately
 explicit_package_bases = true
-ignore_missing_imports = true
+ignore_missing_imports = false
 install_types = true
 no_implicit_optional = false
 non_interactive = true
-# plugins = ["mypy_django_plugin.main", "pydantic.mypy"]
+follow_untyped_imports = true
+# plugins = ["pydantic.mypy"]
