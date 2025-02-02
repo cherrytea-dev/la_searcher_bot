@@ -5,7 +5,7 @@ venv:
 	uv sync --all-groups --all-extras --locked
 
 test:
-	uv run pytest . -v -n 4
+	uv run pytest . -v -n 4 --dist loadgroup
 
 initdb:
 	uv run python tests/tools/init_testing_db.py
@@ -19,7 +19,7 @@ lint-check:
 	uv run ruff check src tests --select I --diff
 
 mypy:
-	uv run mypy src/
+	uv run mypy
 
 requirements:
 	for d in $$(ls -1 src | grep -E ${SRC_FUNCTIONS_REGEX}); do \
@@ -28,7 +28,7 @@ requirements:
 
 ci-test:
 	docker compose run --build --rm bot make initdb
-	docker compose run --build --rm bot make test
+	docker compose run --rm bot make test
 
 dependencies:
 	echo "Copy common code to deploy Google Cloud Functions"
@@ -45,6 +45,12 @@ smoke-tests-generate:
 
 type-annotate:
 	uv run python tests/tools/annotate_types.py
+
+sqlalchemy-models:
+	uv run sqlacodegen \
+		postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} \
+		--outfile=tests/factories/db_models.py
+	# then fix "_old_search_event_stages"
 
 mypy-short:
 	# check simple errors like missing imports

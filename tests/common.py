@@ -1,5 +1,6 @@
 import base64
 import inspect
+from dataclasses import is_dataclass
 from datetime import date, datetime
 from functools import lru_cache
 from typing import Any, Callable
@@ -8,6 +9,7 @@ from unittest.mock import MagicMock
 import psycopg2
 import sqlalchemy
 from dotenv import load_dotenv
+from polyfactory.factories import dataclass_factory
 from pydantic_settings import SettingsConfigDict
 
 from _dependencies.commons import AppConfig, Topics, sql_connect_by_psycopg2, sqlalchemy_get_pool
@@ -57,6 +59,9 @@ def _get_default_arg_value(param):
         return sql_connect_by_psycopg2()
     elif param._annotation is psycopg2.extensions.cursor:
         return sql_connect_by_psycopg2().cursor()
+    elif is_dataclass(param._annotation):
+        factory = _get_dataclass_factory(param._annotation)
+        return factory.build()
 
     # suggestions
     elif param.name == 'conn':
@@ -74,6 +79,11 @@ def _get_default_arg_value(param):
     # ok, just mock it
     else:
         return MagicMock()
+
+
+@lru_cache
+def _get_dataclass_factory(dataclass_) -> dataclass_factory.DataclassFactory:
+    return dataclass_factory.DataclassFactory.create_factory(model=dataclass_)
 
 
 def generate_args_for_function(func: Callable) -> dict[str, Any]:

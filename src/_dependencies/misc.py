@@ -208,6 +208,7 @@ def generate_random_function_id() -> int:
 
 def get_change_log_update_time(cur: cursor, change_log_id: int) -> datetime.datetime | None:
     """get he time of parsing of the change, saved in PSQL"""
+    # TODO optimize/cache
 
     if not change_log_id:
         return None
@@ -229,7 +230,7 @@ def get_change_log_update_time(cur: cursor, change_log_id: int) -> datetime.date
 
 
 def send_location_to_api(
-    session: requests.Session, bot_token: str, user_id: str, params: dict
+    session: requests.Session, bot_token: str, user_id: int, params: dict
 ) -> requests.Response | None:
     """send location directly to Telegram API w/o any wrappers ar libraries"""
 
@@ -257,24 +258,27 @@ def send_location_to_api(
     return r
 
 
-def save_sending_status_to_notif_by_user(cur: cursor, message_id: int, result: str) -> None:
+def save_sending_status_to_notif_by_user(cur: cursor, message_id: int, result: str | None) -> None:
     """save the telegram sending status to sql table notif_by_user"""
+    if not result:
+        return 'failed'
 
-    # TODO open and close cursor here
-    if result[0:9] == 'cancelled':
-        result = result[0:9]
-    elif result[0:6] == 'failed':
-        result = result[0:6]
+    if result.startswith('cancelled'):
+        result = 'cancelled'
+    elif result.startswith('failed'):
+        result = 'failed'
 
-    if result in {'completed', 'cancelled', 'failed'}:
-        sql_text_psy = f"""
-                    UPDATE notif_by_user
-                    SET {result} = %s
-                    WHERE message_id = %s;
-                    /*action='save_sending_status_to_notif_by_user_{result}' */
-                    ;"""
+    if result not in {'completed', 'cancelled', 'failed'}:
+        return
 
-        cur.execute(sql_text_psy, (datetime.datetime.now(), message_id))
+    sql_text_psy = f"""
+                UPDATE notif_by_user
+                SET {result} = %s
+                WHERE message_id = %s;
+                /*action='save_sending_status_to_notif_by_user_{result}' */
+                ;"""
+
+    cur.execute(sql_text_psy, (datetime.datetime.now(), message_id))
 
 
 def evaluate_city_locations(city_locations):
@@ -330,7 +334,7 @@ def get_triggering_function(message_from_pubsub: dict) -> str:
 
 
 def send_message_to_api(
-    session: requests.Session, bot_token: str, user_id: str, message, params
+    session: requests.Session, bot_token: str, user_id: int, message, params
 ) -> requests.Response | None:
     """send message directly to Telegram API w/o any wrappers ar libraries"""
 
@@ -373,7 +377,7 @@ def send_message_to_api(
     return r
 
 
-def process_response(user_id: str, response: requests.Response) -> str:
+def process_response(user_id: int, response: requests.Response | None) -> str:
     """process response received as a result of Telegram API call while sending message/location"""
 
     try:

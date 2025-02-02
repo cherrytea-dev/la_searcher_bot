@@ -21,6 +21,16 @@
             "purpose": ["debug-test", "debug-in-terminal"],
             "cwd": "${workspaceFolder}",
             "justMyCode": false
+        },
+        {
+            "name": "Run send_notifications locally",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "tests/tools/run_send_notifications.py",
+            "console": "integratedTerminal",
+            "purpose": ["debug-test", "debug-in-terminal"],
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
         }
     ]
 }
