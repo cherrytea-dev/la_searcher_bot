@@ -37,14 +37,17 @@ class ForumUser:
     lastname: Any = None
 
 
-def login_into_forum(forum_bot_password: str) -> None:
+def login_into_forum() -> None:
     """login in into the forum"""
 
     global session
 
+    forum_bot_login = get_app_config().forum_bot_login
+    forum_bot_password = get_app_config().forum_bot_password
+
     login_page = 'https://lizaalert.org/forum/ucp.php?mode=login'
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-    data = {'username': 'telegram_bot', 'password': forum_bot_password, 'login': 'Вход'}
+    data = {'username': forum_bot_login, 'password': forum_bot_password, 'login': 'Вход'}
 
     response = session.get(login_page)
 
@@ -72,12 +75,11 @@ def login_into_forum(forum_bot_password: str) -> None:
     r = session.post(login_page, headers=headers, data=form_data)
 
     if 'Личные сообщения' in r.text:
-        print('Logged in successfully')
+        logging.info('Logged in successfully')
     # elif "Ошибка отправки формы" in r.text:
     #    print("Form submit error")
     else:
-        print('Login Failed')
-
+        logging.exception('Login Failed')
     return None
 
 
@@ -101,13 +103,13 @@ def get_user_id(u_name: str) -> int:
             user_id = u_string[u_string.find(';u=') + 3 : u_string.find('">')]
             if user_id.find('style="color:') != -1:
                 user_id = user_id[: (user_id.find('style="color:') - 2)]
-            print('User found, user_id=', user_id)
+            logging.info('User found, user_id=%s', user_id)
         else:
             user_id = 0
-            print('User not found')
+            logging.info('User not found')
 
     except Exception as e:
-        print('User not found, exception:', repr(e))
+        logging.exception('User not found')
         user_id = 0
 
     return user_id
@@ -143,7 +145,7 @@ def get_user_data(data) -> ForumUser:
             value = data.find('dt', text=dict[attr]).findNext('dd').text
             setattr(user, attr, value)
         except Exception as e1:
-            print(attr, 'is not defined')
+            logging.warning('Attribute {%s} is not defined', attr)
             logging.info(e1)
 
     return user
@@ -238,8 +240,7 @@ def main(event: Dict[str, bytes], context: str) -> None:
     bot = Bot(token=bot_token)  # noqa
 
     # log in to forum
-    bot_forum_pass = get_app_config().forum_bot_password
-    login_into_forum(bot_forum_pass)
+    login_into_forum()
     user = None
     if message_in_ascii:
         f_usr_id = get_user_id(f_username)
