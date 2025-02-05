@@ -109,6 +109,7 @@ class AppConfig(BaseSettings):
     web_app_url_test: str = ''
     yandex_api_key: str = ''
     osm_identifier: str = ''
+    forum_bot_login: str = ''
     forum_bot_password: str = ''
 
 
@@ -133,6 +134,7 @@ def _get_config():
         web_app_url_test=get_secrets('web_app_url_test'),
         yandex_api_key=get_secrets('yandex_api_key'),
         osm_identifier=get_secrets('osm_identifier'),
+        forum_bot_login=get_secrets('forum_bot_login'),
         forum_bot_password=get_secrets('forum_bot_password'),
     )
 
