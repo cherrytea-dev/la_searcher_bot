@@ -31,9 +31,33 @@ def test_main(user_id: int):
     user_name = 'testuser'
     data = (user_id, user_name)
     with (
-        patch('connect_to_forum.main.session'),
+        patch('connect_to_forum.main.get_session'),
         patch('connect_to_forum.main.login_into_forum'),
         patch('connect_to_forum.main.get_user_id', Mock(return_value=user_id)),
         patch('connect_to_forum.main.get_user_attributes', get_user_attributes_mocked),
     ):
         main.main(get_event_with_data(data), 'context')
+
+
+@pytest.fixture
+def patch_http():
+    # bypass http patching in this tests
+    pass
+
+
+@pytest.mark.skip(reason='manual testing')
+def test_get_user_id(patch_http):
+    # NO SMOKE TEST connect_to_forum.main.load_cookies
+    # NO SMOKE TEST connect_to_forum.main.save_cookies
+    # NO SMOKE TEST connect_to_forum.main.get_user_attributes
+    # NO SMOKE TEST connect_to_forum.main.login_into_forum
+    login = 'Admin'
+
+    user_id = main.get_user_id(login)
+    assert user_id
+
+    user_attrs = main.get_user_attributes(user_id)
+    assert user_attrs
+
+    user_data = main.get_user_data(user_attrs)
+    assert user_data.reg_date
