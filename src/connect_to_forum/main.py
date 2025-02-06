@@ -1,10 +1,13 @@
 import base64
 import datetime
 import logging
+import pickle
 import re
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 from time import sleep
 from typing import Any, Dict, Optional
 
@@ -16,10 +19,9 @@ from telegram.ext import Application, ContextTypes
 from _dependencies.commons import get_app_config, setup_google_logging, sql_connect_by_psycopg2
 from _dependencies.misc import process_sending_message_async
 
+COOKIE_FILE_NAME = 'session_cookies.pkl'
+
 setup_google_logging()
-
-
-session = requests.Session()
 
 
 @dataclass
@@ -37,10 +39,33 @@ class ForumUser:
     lastname: Any = None
 
 
+@lru_cache
+def get_session() -> requests.Session:
+    session = requests.Session()
+    load_cookies(session)
+    return session
+
+
+def load_cookies(session: requests.Session) -> None:
+    try:
+        with open(COOKIE_FILE_NAME, 'rb') as f:
+            session.cookies.update(pickle.load(f))
+            logging.info('Cookies loaded from file')
+    except Exception:
+        logging.warning('cannot load cookies')
+
+
+def save_cookies(session: requests.Session) -> None:
+    with open(COOKIE_FILE_NAME, 'wb') as f:
+        pickle.dump(session.cookies, f)
+
+
 def login_into_forum() -> None:
     """login in into the forum"""
 
-    global session
+    logging.info('Trying to login to the forum')
+
+    session = get_session()
 
     forum_bot_login = get_app_config().forum_bot_login
     forum_bot_password = get_app_config().forum_bot_password
@@ -74,23 +99,29 @@ def login_into_forum() -> None:
     sleep(1)  # без этого не сработает %)
     r = session.post(login_page, headers=headers, data=form_data)
 
-    if 'Личные сообщения' in r.text:
+    if is_logged_in(r.text):
         logging.info('Logged in successfully')
-    # elif "Ошибка отправки формы" in r.text:
-    #    print("Form submit error")
+        save_cookies(session)
     else:
         logging.exception('Login Failed')
-    return None
 
 
-def get_user_id(u_name: str) -> int:
+def is_logged_in(response_text: str) -> bool:
+    return 'Личные сообщения' in response_text
+
+
+def get_user_id(u_name: str) -> str:
     """get user_id from forum"""
 
-    user_id = 0
+    user_id = ''
     forum_prefix = 'https://lizaalert.org/forum/memberlist.php?username='
     user_search_page = forum_prefix + u_name
 
-    r2 = session.get(user_search_page)
+    r2 = get_session().get(user_search_page)
+    if not is_logged_in(r2.text):
+        login_into_forum()
+        r2 = get_session().get(user_search_page)
+
     soup = BeautifulSoup(r2.content, features='html.parser')
 
     try:
@@ -105,12 +136,10 @@ def get_user_id(u_name: str) -> int:
                 user_id = user_id[: (user_id.find('style="color:') - 2)]
             logging.info('User found, user_id=%s', user_id)
         else:
-            user_id = 0
             logging.info('User not found')
 
     except Exception as e:
         logging.exception('User not found')
-        user_id = 0
 
     return user_id
 
@@ -119,7 +148,7 @@ def get_user_attributes(user_id: str):
     """get user data from forum"""
 
     url_prefix = 'https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u='
-    r3 = session.get(url_prefix + user_id)
+    r3 = get_session().get(url_prefix + user_id)
     soup = BeautifulSoup(r3.content, features='html.parser')
     block_with_user_attr = soup.find('div', {'class': 'page-body'})
 
@@ -151,7 +180,7 @@ def get_user_data(data) -> ForumUser:
     return user
 
 
-def match_user_region_from_forum_to_bot(forum_region):
+def match_user_region_from_forum_to_bot(forum_region: str) -> str | None:
     region_dict = {
         'Амурская область': 'Амурская обл.',
         'Астраханская область': 'Астраханская обл.',
@@ -226,8 +255,6 @@ def main(event: Dict[str, bytes], context: str) -> None:
     conn = sql_connect_by_psycopg2()
     cur = conn.cursor()
 
-    user = ForumUser()
-
     pubsub_message = base64.b64decode(event['data']).decode('utf-8')
 
     encoded_to_ascii = eval(pubsub_message)
@@ -239,8 +266,6 @@ def main(event: Dict[str, bytes], context: str) -> None:
     bot_token = get_app_config().bot_api_token__prod
     bot = Bot(token=bot_token)  # noqa
 
-    # log in to forum
-    login_into_forum()
     user = None
     if message_in_ascii:
         f_usr_id = get_user_id(f_username)
