@@ -47,17 +47,19 @@ def get_session() -> requests.Session:
 
 
 def load_cookies(session: requests.Session) -> None:
-    try:
-        with open(COOKIE_FILE_NAME, 'rb') as f:
-            session.cookies.update(pickle.load(f))
-            logging.info('Cookies loaded from file')
-    except Exception:
-        logging.warning('cannot load cookies')
+    pass
+    # try:
+    #     with open(COOKIE_FILE_NAME, 'rb') as f:
+    #         session.cookies.update(pickle.load(f))
+    #         logging.info('Cookies loaded from file')
+    # except Exception:
+    #     logging.warning('cannot load cookies')
 
 
 def save_cookies(session: requests.Session) -> None:
-    with open(COOKIE_FILE_NAME, 'wb') as f:
-        pickle.dump(session.cookies, f)
+    pass
+    # with open(COOKIE_FILE_NAME, 'wb') as f:
+    #     pickle.dump(session.cookies, f)
 
 
 def login_into_forum() -> None:
