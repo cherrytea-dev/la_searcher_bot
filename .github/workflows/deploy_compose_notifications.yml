@@ -7,7 +7,7 @@ on:
     branches : [main]
     paths:
       - 'src/_dependencies/*'
-      - 'src/compose_notifications/*' # UPD HERE!
+      - 'src/compose_notifications/**' # UPD HERE!
       - '.github/workflows/deploy_compose_notifications.yml' # UPD HERE!
 
 jobs:
