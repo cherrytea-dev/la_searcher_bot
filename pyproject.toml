@@ -157,8 +157,10 @@ mypy_path = "src"
 disallow_untyped_defs = false
 exclude = ["tests", "env", "venv"]
 files = [
+    
     "src/send_notifications/",
     "src/connect_to_forum/",
+    "src/compose_notifications/",
 ] # will add other folders lately
 explicit_package_bases = true
 ignore_missing_imports = false
