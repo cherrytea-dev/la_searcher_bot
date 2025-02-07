@@ -80,21 +80,6 @@ class NotificationMaker:
 
         return mail_id
 
-    def _check_if_record_was_already_processed(self) -> bool:
-        # check if this change_log record was somehow processed
-
-        sql_text = sqlalchemy.text("""
-            SELECT EXISTS (SELECT * FROM notif_mailings WHERE change_log_id=:a);
-                                   """)
-        record_was_processed_already = self.conn.execute(
-            sql_text,
-            a=self.new_record.change_log_id,
-        ).fetchone()[0]
-
-        if record_was_processed_already:
-            logging.info('[comp_notif]: 2 MAILINGS for 1 CHANGE LOG RECORD identified')
-        return record_was_processed_already
-
     def generate_notification_for_user(
         self,
         mailing_id: int,
@@ -102,18 +87,6 @@ class NotificationMaker:
     ) -> None:
         change_type = self.new_record.change_type
         topic_type_id = self.new_record.topic_type_id
-
-        # TODO move one level upper
-        # and think: we really need it?
-        this_record_was_processed_already = self._check_if_record_was_already_processed()
-
-        # define if user received this message already
-        if this_record_was_processed_already:
-            this_user_was_notified = self._get_from_sql_if_was_notified_already(user.user_id, 'text')
-
-            logging.info(f'this user was notified already {user.user_id}, {this_user_was_notified}')
-            if this_user_was_notified:
-                return
 
         # start composing individual messages (specific user on specific situation)
         user_message = MessageComposer(self.new_record).compose_message_for_user(user)
