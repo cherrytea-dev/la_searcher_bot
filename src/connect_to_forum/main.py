@@ -272,7 +272,7 @@ def main(event: Dict[str, bytes], context: str) -> None:
     if message_in_ascii:
         f_usr_id = get_user_id(f_username)
 
-        if f_usr_id != 0:
+        if f_usr_id:
             block_of_user_data = get_user_attributes(f_usr_id)
 
             if block_of_user_data:
