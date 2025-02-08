@@ -13,6 +13,7 @@ import google.cloud.logging
 import google.oauth2.id_token
 import requests
 from psycopg2.extensions import cursor
+from retry.api import retry_call
 from telegram.ext import Application, ContextTypes
 
 from _dependencies.commons import Topics, get_app_config, publish_to_pubsub
@@ -234,9 +235,9 @@ def send_location_to_api(
 ) -> requests.Response | None:
     """send location directly to Telegram API w/o any wrappers ar libraries"""
 
+    latitude = ''
+    longitude = ''
     try:
-        latitude = ''
-        longitude = ''
         if params:
             if 'latitude' in params.keys():
                 latitude = f'&latitude={params["latitude"]}'
@@ -248,20 +249,19 @@ def send_location_to_api(
 
         request_text = f'https://api.telegram.org/bot{bot_token}/sendLocation?chat_id={user_id}{latitude}{longitude}'
 
-        r = session.get(request_text)
+        response = retry_call(session.get, fargs=[request_text], tries=3)
 
     except Exception as e:
-        logging.exception(e)
-        logging.info('Error in getting response from Telegram')
-        r = None
+        logging.exception('Error in getting response from Telegram')
+        response = None
 
-    return r
+    return response
 
 
 def save_sending_status_to_notif_by_user(cur: cursor, message_id: int, result: str | None) -> None:
     """save the telegram sending status to sql table notif_by_user"""
     if not result:
-        return 'failed'
+        result = 'failed'
 
     if result.startswith('cancelled'):
         result = 'cancelled'
@@ -338,10 +338,10 @@ def send_message_to_api(
 ) -> requests.Response | None:
     """send message directly to Telegram API w/o any wrappers ar libraries"""
 
+    parse_mode = ''
+    disable_web_page_preview = ''
+    reply_markup = ''
     try:
-        parse_mode = ''
-        disable_web_page_preview = ''
-        reply_markup = ''
         if params:
             if 'parse_mode' in params.keys():
                 parse_mode = f'&parse_mode={params["parse_mode"]}'
@@ -367,19 +367,20 @@ def send_message_to_api(
             f'{parse_mode}{disable_web_page_preview}{reply_markup}&text={message_encoded}'
         )
 
-        r = session.get(request_text)
+        response = retry_call(session.get, fargs=[request_text], tries=3)
 
     except Exception as e:
-        logging.exception(e)
-        logging.info('Error in getting response from Telegram')
-        r = None
+        logging.exception('Error in getting response from Telegram')
+        response = None
 
-    return r
+    return response
 
 
 def process_response(user_id: int, response: requests.Response | None) -> str:
     """process response received as a result of Telegram API call while sending message/location"""
 
+    if not response:
+        return 'failed'
     try:
         if response.ok:
             logging.info(f'message to {user_id} was successfully sent')

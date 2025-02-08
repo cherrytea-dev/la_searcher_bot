@@ -40,8 +40,6 @@ logging.getLogger('telegram.vendor.ptb_urllib3.urllib3').setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 SCRIPT_SOFT_TIMEOUT_SECONDS = 60  # after which iterations should stop to prevent the whole script timeout
-MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_1 = 800
-MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_2 = 1600
 INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 70  # window within which we check for started parallel function
 SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS = 5
 MESSAGES_BATCH_SIZE = 100
@@ -212,10 +210,6 @@ def iterate_over_notifications(
         conn_psy.cursor() as cur,
         ThreadPoolExecutor(max_workers=WORKERS_COUNT) as executor,
     ):
-        # check if there are more than the set number of non-sent notifications – is so –
-        # we're asking send_notification_helper to help is sending all of them
-        _call_helpers_if_needed(function_id, cur)
-
         is_first_wait = True
         while True:
             # analytics on sending speed - start for every user/notification
@@ -267,7 +261,6 @@ def _process_message_sending(
     logging.info('time: -------------- loop start -------------')
     logging.info(f'{message_to_send}')
     analytics_sm_start = datetime.datetime.now()
-    analytics_iteration_start = datetime.datetime.now()
 
     with conn.cursor() as cur:
         change_log_upd_time = get_change_log_update_time(cur, message_to_send.change_log_id)
@@ -279,8 +272,6 @@ def _process_message_sending(
     analytics_send_start_finish = seconds_between_round_2(analytics_pre_sending_msg)
     logging.info(f'time: {analytics_send_start_finish:.2f} – sending msg')
 
-    analytics_save_sql_start = datetime.datetime.now()
-
     # save result of sending telegram notification into SQL notif_by_user
     with conn.cursor() as cur:
         save_sending_status_to_notif_by_user(cur, message_to_send.message_id, result)
@@ -290,18 +281,9 @@ def _process_message_sending(
         _process_logs_with_completed_sending(time_analytics, message_to_send, change_log_upd_time)
         set_of_change_ids.add(message_to_send.change_log_id)
 
-    analytics_save_sql_duration = seconds_between_round_2(analytics_save_sql_start)
-    logging.info(f'time: {analytics_save_sql_duration:.2f} – saving to sql')
-
-    analytics_doubling_checked_saved_to_sql = seconds_between_round_2(analytics_pre_sending_msg)
-    logging.info(f'time: {analytics_doubling_checked_saved_to_sql:.2f} – check -> save to sql')
-
     # analytics on sending speed - finish for every user/notification
     analytics_sm_duration = seconds_between(analytics_sm_start)
     time_analytics.notif_times.append(analytics_sm_duration)
-
-    analytics_iteration_duration = seconds_between_round_2(analytics_iteration_start)
-    logging.info(f'time: {analytics_iteration_duration:.2f} – iteration duration')
 
 
 def _process_doubling_messages(cur: cursor):
@@ -334,19 +316,6 @@ def _process_logs_with_completed_sending(
     time_analytics.parsed_times.append(duration_complete_vs_parsed_time_minutes)
 
 
-def _call_helpers_if_needed(function_id: int, cur: cursor) -> None:
-    # TODO remove after speeding up main sender
-    return
-    num_of_notifs_to_send = check_for_number_of_notifs_to_send(cur)
-
-    if num_of_notifs_to_send and num_of_notifs_to_send > MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_1:
-        message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'helper requested'}
-        publish_to_pubsub(Topics.topic_to_send_notifications_helper, message_for_pubsub)
-    if num_of_notifs_to_send and num_of_notifs_to_send > MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_2:
-        message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'helper requested'}
-        publish_to_pubsub(Topics.topic_to_send_notifications_helper_2, message_for_pubsub)
-
-
 def finish_time_analytics(
     time_analytics: TimeAnalytics,
     list_of_change_ids: List,
@@ -359,11 +328,13 @@ def finish_time_analytics(
     if not notif_times:
         return None
 
+    full_script_run_time = seconds_between(time_analytics.script_start_time)
+
     # send statistics on number of messages and sending speed
 
     len_n = len(notif_times)
-    average = sum(notif_times) / len_n
-    ttl_time = round(sum(notif_times), 1)
+    average = full_script_run_time / len_n
+    ttl_time = round(full_script_run_time, 1)
     if not delays:
         min_delay, max_delay = None, None
     else:

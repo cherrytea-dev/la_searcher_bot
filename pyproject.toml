@@ -14,6 +14,7 @@ dependencies = [
     "SQLAlchemy==1.4.54",
     "python-telegram-bot[rate-limiter, job-queue]==20.2",
     "nest_asyncio",
+    "retry==0.9.2",
 ]
 
 
@@ -126,10 +127,6 @@ send_debug_to_admin = ["httpx==0.23.3"]
 
 send_notifications = ["urllib3==1.26.18", "httpx==0.23.3"]
 
-send_notifications_helper = ["urllib3==1.26.18", "httpx==0.23.3"]
-
-send_notifications_helper_2 = ["urllib3==1.26.18", "httpx==0.23.3"]
-
 title_recognize = [
     "python-dateutil==2.8.2",     # extension to datetime module
     "natasha==1.4.0",             # recognition of person and location within text string
@@ -157,7 +154,7 @@ mypy_path = "src"
 disallow_untyped_defs = false
 exclude = ["tests", "env", "venv"]
 files = [
-    
+#    "src/_dependencies/misc.py",
     "src/send_notifications/",
     "src/connect_to_forum/",
     "src/compose_notifications/",
