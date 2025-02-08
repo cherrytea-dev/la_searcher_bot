@@ -1068,14 +1068,6 @@ send-notifications = [
     { name = "httpx" },
     { name = "urllib3" },
 ]
-send-notifications-helper = [
-    { name = "httpx" },
-    { name = "urllib3" },
-]
-send-notifications-helper-2 = [
-    { name = "httpx" },
-    { name = "urllib3" },
-]
 title-recognize = [
     { name = "functions-framework" },
     { name = "natasha" },
@@ -1117,8 +1109,6 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'connect-to-forum'", specifier = "==0.23.3" },
     { name = "httpx", marker = "extra == 'send-debug-to-admin'", specifier = "==0.23.3" },
     { name = "httpx", marker = "extra == 'send-notifications'", specifier = "==0.23.3" },
-    { name = "httpx", marker = "extra == 'send-notifications-helper'", specifier = "==0.23.3" },
-    { name = "httpx", marker = "extra == 'send-notifications-helper-2'", specifier = "==0.23.3" },
     { name = "idna", marker = "extra == 'compose-notifications'", specifier = "==2.10" },
     { name = "idna", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.10" },
     { name = "lxml", marker = "extra == 'api-get-active-searches'", specifier = "==4.9.1" },
@@ -1174,8 +1164,6 @@ requires-dist = [
     { name = "urllib3", marker = "extra == 'connect-to-forum'", specifier = "==1.26.18" },
     { name = "urllib3", marker = "extra == 'identify-updates-of-topics'", specifier = "==1.26.18" },
     { name = "urllib3", marker = "extra == 'send-notifications'", specifier = "==1.26.18" },
-    { name = "urllib3", marker = "extra == 'send-notifications-helper'", specifier = "==1.26.18" },
-    { name = "urllib3", marker = "extra == 'send-notifications-helper-2'", specifier = "==1.26.18" },
     { name = "uv", marker = "extra == 'develop'", specifier = ">=0.5.15" },
     { name = "yandex-geocoder", marker = "extra == 'identify-updates-of-topics'", specifier = "==3.0.1" },
 ]

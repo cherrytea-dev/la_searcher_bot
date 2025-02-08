@@ -4,11 +4,6 @@ from send_notifications import main
 from tests.common import run_smoke
 
 
-def test__call_helpers_if_needed():
-    res = run_smoke(main._call_helpers_if_needed)
-    pass
-
-
 def test__process_doubling_messages():
     res = run_smoke(main._process_doubling_messages)
     pass

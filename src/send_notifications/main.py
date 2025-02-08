@@ -40,8 +40,6 @@ logging.getLogger('telegram.vendor.ptb_urllib3.urllib3').setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 SCRIPT_SOFT_TIMEOUT_SECONDS = 60  # after which iterations should stop to prevent the whole script timeout
-MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_1 = 800
-MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_2 = 1600
 INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 70  # window within which we check for started parallel function
 SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS = 5
 MESSAGES_BATCH_SIZE = 100
@@ -212,10 +210,6 @@ def iterate_over_notifications(
         conn_psy.cursor() as cur,
         ThreadPoolExecutor(max_workers=WORKERS_COUNT) as executor,
     ):
-        # check if there are more than the set number of non-sent notifications – is so –
-        # we're asking send_notification_helper to help is sending all of them
-        _call_helpers_if_needed(function_id, cur)
-
         is_first_wait = True
         while True:
             # analytics on sending speed - start for every user/notification
@@ -332,19 +326,6 @@ def _process_logs_with_completed_sending(
     duration_complete_vs_parsed_time_minutes = seconds_between_round_2(change_log_upd_time or datetime.datetime.now())
     logging.info(f'metric: parsing to completion time – {duration_complete_vs_parsed_time_minutes} min')
     time_analytics.parsed_times.append(duration_complete_vs_parsed_time_minutes)
-
-
-def _call_helpers_if_needed(function_id: int, cur: cursor) -> None:
-    # TODO remove after speeding up main sender
-    return
-    num_of_notifs_to_send = check_for_number_of_notifs_to_send(cur)
-
-    if num_of_notifs_to_send and num_of_notifs_to_send > MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_1:
-        message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'helper requested'}
-        publish_to_pubsub(Topics.topic_to_send_notifications_helper, message_for_pubsub)
-    if num_of_notifs_to_send and num_of_notifs_to_send > MESSAGES_QUEUE_TO_CALL_HELPER_FUNCTION_2:
-        message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'helper requested'}
-        publish_to_pubsub(Topics.topic_to_send_notifications_helper_2, message_for_pubsub)
 
 
 def finish_time_analytics(
