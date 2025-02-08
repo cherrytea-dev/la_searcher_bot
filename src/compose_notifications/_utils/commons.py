@@ -1,35 +1,17 @@
-import ast
 import datetime
 import logging
 import math
 import re
 from dataclasses import dataclass, field
-from enum import Enum, IntEnum
+from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from _dependencies.commons import ChangeType, TopicType
 
 WINDOW_FOR_NOTIFICATIONS_DAYS = 60
 COORD_FORMAT = '{0:.5f}'
 COORD_PATTERN = re.compile(r'0?[3-8]\d\.\d{1,10}[\s\w,]{0,10}[01]?[2-9]\d\.\d{1,10}')
 PHONE_RE = re.compile(r'(?:\+7|7|8)\s?[\s\-(]?\s?\d{3}[\s\-)]?\s?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}')
-
-
-class TopicType(IntEnum):
-    """
-    SQL table 'dict_topic_types'
-    """
-
-    search_regular = 0
-    search_reverse = 1
-    search_patrol = 2
-    search_training = 3
-    search_info_support = 4
-    search_resonance = 5
-    event = 10
-    info = 20
-    all = 30
-    unrecognized = 99
 
 
 SEARCH_TOPIC_TYPES = {
@@ -40,25 +22,6 @@ SEARCH_TOPIC_TYPES = {
     TopicType.search_info_support,
     TopicType.search_resonance,
 }
-
-
-class ChangeType(IntEnum):
-    """
-    SQL table 'dict_notif_types'
-    """
-
-    topic_new = 0
-    topic_status_change = 1
-    topic_title_change = 2
-    topic_comment_new = 3
-    topic_inforg_comment_new = 4
-    topic_field_trip_new = 5
-    topic_field_trip_change = 6
-    topic_coords_change = 7
-    topic_first_post_change = 8
-    bot_news = 20
-    not_defined = 99
-    all = 30
 
 
 class SearchFollowingMode(str, Enum):
@@ -245,21 +208,3 @@ def get_coords_from_list(input_list: list[str]) -> tuple[str | None, str | None]
     except Exception as e:  # noqa
         logging.exception(e)
         return None, None
-
-
-class ChangeLogSavedValue(BaseModel):
-    """value that stored in database `change_log.new_value`"""
-
-    model_config = ConfigDict(extra='ignore')
-
-    deletions: list[str] = Field(default_factory=list, alias='del')
-    additions: list[str] = Field(default_factory=list, alias='add')
-    message: str = Field(default='')
-
-    @classmethod
-    def from_db_saved_value(cls, saved_value: str) -> 'ChangeLogSavedValue':
-        if not saved_value or not saved_value.startswith('{'):
-            return cls(message=saved_value)
-
-        data = ast.literal_eval(saved_value)
-        return cls.model_validate(data)

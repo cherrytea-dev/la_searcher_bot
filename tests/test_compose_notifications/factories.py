@@ -2,7 +2,8 @@ from datetime import datetime
 
 from polyfactory.factories import DataclassFactory
 
-from compose_notifications._utils.commons import LineInChangeLog, TopicType, User
+from _dependencies.commons import TopicType
+from compose_notifications._utils.commons import LineInChangeLog, User
 
 
 class LineInChangeLogFactory(DataclassFactory[LineInChangeLog]):
