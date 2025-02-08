@@ -261,7 +261,6 @@ def _process_message_sending(
     logging.info('time: -------------- loop start -------------')
     logging.info(f'{message_to_send}')
     analytics_sm_start = datetime.datetime.now()
-    analytics_iteration_start = datetime.datetime.now()
 
     with conn.cursor() as cur:
         change_log_upd_time = get_change_log_update_time(cur, message_to_send.change_log_id)
@@ -273,8 +272,6 @@ def _process_message_sending(
     analytics_send_start_finish = seconds_between_round_2(analytics_pre_sending_msg)
     logging.info(f'time: {analytics_send_start_finish:.2f} – sending msg')
 
-    analytics_save_sql_start = datetime.datetime.now()
-
     # save result of sending telegram notification into SQL notif_by_user
     with conn.cursor() as cur:
         save_sending_status_to_notif_by_user(cur, message_to_send.message_id, result)
@@ -284,18 +281,9 @@ def _process_message_sending(
         _process_logs_with_completed_sending(time_analytics, message_to_send, change_log_upd_time)
         set_of_change_ids.add(message_to_send.change_log_id)
 
-    analytics_save_sql_duration = seconds_between_round_2(analytics_save_sql_start)
-    logging.info(f'time: {analytics_save_sql_duration:.2f} – saving to sql')
-
-    analytics_doubling_checked_saved_to_sql = seconds_between_round_2(analytics_pre_sending_msg)
-    logging.info(f'time: {analytics_doubling_checked_saved_to_sql:.2f} – check -> save to sql')
-
     # analytics on sending speed - finish for every user/notification
     analytics_sm_duration = seconds_between(analytics_sm_start)
     time_analytics.notif_times.append(analytics_sm_duration)
-
-    analytics_iteration_duration = seconds_between_round_2(analytics_iteration_start)
-    logging.info(f'time: {analytics_iteration_duration:.2f} – iteration duration')
 
 
 def _process_doubling_messages(cur: cursor):
@@ -340,11 +328,13 @@ def finish_time_analytics(
     if not notif_times:
         return None
 
+    full_script_run_time = seconds_between(time_analytics.script_start_time)
+
     # send statistics on number of messages and sending speed
 
     len_n = len(notif_times)
-    average = sum(notif_times) / len_n
-    ttl_time = round(sum(notif_times), 1)
+    average = full_script_run_time / len_n
+    ttl_time = round(full_script_run_time, 1)
     if not delays:
         min_delay, max_delay = None, None
     else:
