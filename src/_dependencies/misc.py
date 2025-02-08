@@ -235,9 +235,9 @@ def send_location_to_api(
 ) -> requests.Response | None:
     """send location directly to Telegram API w/o any wrappers ar libraries"""
 
+    latitude = ''
+    longitude = ''
     try:
-        latitude = ''
-        longitude = ''
         if params:
             if 'latitude' in params.keys():
                 latitude = f'&latitude={params["latitude"]}'
@@ -249,14 +249,13 @@ def send_location_to_api(
 
         request_text = f'https://api.telegram.org/bot{bot_token}/sendLocation?chat_id={user_id}{latitude}{longitude}'
 
-        r = session.get(request_text)
+        response = retry_call(session.get, fargs=[request_text], tries=3)
 
     except Exception as e:
-        logging.exception(e)
-        logging.info('Error in getting response from Telegram')
-        r = None
+        logging.exception('Error in getting response from Telegram')
+        response = None
 
-    return r
+    return response
 
 
 def save_sending_status_to_notif_by_user(cur: cursor, message_id: int, result: str | None) -> None:
