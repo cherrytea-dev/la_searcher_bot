@@ -32,7 +32,7 @@ def patch_app_config(collect_types_fixture):
         yield
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture()
 def patch_publish_topic():
     def patched_send_topic(topic_name: Topics, topic_path, data: dict) -> None:
         receiver = topic_to_receiver_function(topic_name)
