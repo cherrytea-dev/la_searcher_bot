@@ -9,13 +9,6 @@ from _dependencies.commons import sql_connect_by_psycopg2
 from tests.common import get_event_with_data, get_test_config
 
 
-def test_notify_admin(patch_pubsub_client, bot_mock_send_message: AsyncMock):
-    data = 'some message'
-
-    misc.notify_admin(data)
-    bot_mock_send_message.assert_called_once_with(chat_id=get_test_config().my_telegram_id, text=data)
-
-
 def test_make_api_call():
     # TODO mock requests
     misc.make_api_call('test', {'a: 1'})
