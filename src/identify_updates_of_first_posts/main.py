@@ -9,11 +9,12 @@ import json
 import logging
 import re
 from functools import lru_cache
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Iterator
 
 import requests
 import sqlalchemy
 from bs4 import BeautifulSoup
+from google.cloud.functions.context import Context
 
 from _dependencies.commons import (
     ChangeLogSavedValue,
@@ -160,7 +161,7 @@ def save_new_record_into_change_log(
     return change_log_id
 
 
-def parse_search_folder_num(search_num) -> int | None:
+def parse_search_folder_num(search_num: int) -> int | None:
     """parse search's folder number"""
 
     folder = None
@@ -225,7 +226,13 @@ def split_text_to_deleted_and_regular_parts(text: str) -> tuple[str, str]:
     return deleted_text, non_deleted_text
 
 
-def save_function_into_register(conn: sqlalchemy.engine.Connection, context, start_time, function_id, change_log_ids):
+def save_function_into_register(
+    conn: sqlalchemy.engine.Connection,
+    context: Any,
+    start_time: datetime.datetime,
+    function_id: int,
+    change_log_ids: list[int],
+) -> None:
     """save current function into functions_registry"""
 
     try:
@@ -256,13 +263,13 @@ def save_function_into_register(conn: sqlalchemy.engine.Connection, context, sta
 
 
 def _process_folders_with_updated_searches(
-    context,
+    context: Context,
     function_id: int,
-    analytics_func_start,
+    analytics_func_start: datetime.datetime,
     list_of_updated_searches: list[int],
     change_log_ids: list[int],
     conn: sqlalchemy.engine.Connection,
-):
+) -> None:
     # save folder number for the search that has an update
     list_of_folders_with_upd_searches = [parse_search_folder_num(search_id) for search_id in list_of_updated_searches]
     updated_searches = set((folder_num for folder_num in list_of_folders_with_upd_searches if folder_num))
@@ -287,7 +294,7 @@ def _process_one_update(
     change_log_ids: list[int],
     conn: sqlalchemy.engine.Connection,
     search_id: int,
-):
+) -> None:
     # get the Current First Page Content
 
     first_page_content_curr, first_page_content_prev = _get_actual_and_previous_page_content(conn, search_id)
@@ -351,7 +358,7 @@ def _get_actual_and_previous_page_content(conn: sqlalchemy.engine.Connection, se
     return first_page_content_curr, first_page_content_prev
 
 
-def main(event, context):  # noqa
+def main(event: dict, context: Context) -> str:  # noqa
     """key function"""
 
     function_id = generate_random_function_id()
@@ -367,7 +374,7 @@ def main(event, context):  # noqa
     pool = sql_connect()
     with pool.connect() as conn:
         try:
-            change_log_ids = []
+            change_log_ids: list[int] = []
             for search_id in list_of_updated_searches:
                 _process_one_update(change_log_ids, conn, search_id)
 

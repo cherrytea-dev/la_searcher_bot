@@ -155,7 +155,7 @@ class UsersListComposer:
         self,
         users_list_incoming: list[User],
         record: LineInChangeLog,
-    ):
+    ) -> list[User]:
         """crop user_list to only affected users"""
         filterer = UserListFilter(self.conn, record, users_list_incoming)
         users_list_outcome = filterer.apply()

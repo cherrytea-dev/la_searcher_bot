@@ -31,7 +31,7 @@ class NotificationMaker:
         self.new_record = new_record
         self.list_of_users = list_of_users
 
-    def generate_notifications_for_users(self, function_id: int):
+    def generate_notifications_for_users(self, function_id: int) -> None:
         """initiates a full cycle for all messages composition for all the users"""
 
         new_record = self.new_record
@@ -166,9 +166,11 @@ class NotificationMaker:
             message_params,
         )
 
-    def _get_from_sql_if_was_notified_already(self, user_id: int, message_type: str):
+    def _get_from_sql_if_was_notified_already(self, user_id: int, message_type: str) -> bool:
         """check in sql if this user was already notified re this change_log record
-        works for every user during iterations over users"""
+        works for every user during iterations over users
+        TODO not used, remove it
+        """
 
         sql_text_ = sqlalchemy.text("""
             SELECT EXISTS (
@@ -197,13 +199,13 @@ class NotificationMaker:
 
     def _save_to_sql_notif_by_user(
         self,
-        mailing_id_,
-        user_id_,
-        message_,
-        message_without_html_,
-        message_type_,
-        message_params_,
-    ):
+        mailing_id_: int,
+        user_id: int,
+        message: str | None,
+        message_without_html: str | None,
+        message_type: str,
+        message_params: dict,
+    ) -> None:
         """save to sql table notif_by_user the new message"""
 
         # record into SQL table notif_by_user
@@ -224,11 +226,11 @@ class NotificationMaker:
         self.conn.execute(
             sql_text_,
             a=mailing_id_,
-            b=user_id_,
-            c=message_,
-            d=message_without_html_,
-            e=message_type_,
-            f=message_params_,
+            b=user_id,
+            c=message,
+            d=message_without_html,
+            e=message_type,
+            f=message_params,
             g=0,
             h=self.new_record.change_log_id,
             i=datetime.datetime.now(),
@@ -259,7 +261,7 @@ class NotificationMaker:
             logging.error('Recording statistics in notification script failed' + repr(e))
             logging.exception(e)
 
-    def mark_new_record_as_processed(self):
+    def mark_new_record_as_processed(self) -> None:
         """mark all the new records in SQL as processed, to avoid processing in the next iteration"""
 
         if not self.new_record.processed:

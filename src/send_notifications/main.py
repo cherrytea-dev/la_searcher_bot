@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any, List
 
 import requests
+from google.cloud.functions.context import Context
 from psycopg2.extensions import connection, cursor
 
 from _dependencies.cloud_func_parallel_guard import check_and_save_event_id
@@ -286,7 +287,7 @@ def _process_message_sending(
     time_analytics.notif_times.append(analytics_sm_duration)
 
 
-def _process_doubling_messages(cur: cursor):
+def _process_doubling_messages(cur: cursor) -> None:
     messages = check_for_notifs_to_send(cur, select_doubling=True)
     if messages:
         notify_admin(f'cancelled_due_to_doubling! {len(messages)} messages are doubling')
@@ -304,7 +305,7 @@ def _process_doubling_messages(cur: cursor):
 
 def _process_logs_with_completed_sending(
     time_analytics: TimeAnalytics, message_to_send: MessageToSend, change_log_upd_time: datetime.datetime | None
-):
+) -> None:
     creation_time = message_to_send.created
 
     duration_complete_vs_create_minutes = seconds_between_round_2(creation_time)
@@ -319,7 +320,7 @@ def _process_logs_with_completed_sending(
 def finish_time_analytics(
     time_analytics: TimeAnalytics,
     list_of_change_ids: List,
-):
+) -> None:
     """Make final steps for time analytics: inform admin, log, record statistics into PSQL"""
 
     notif_times = time_analytics.notif_times
@@ -378,7 +379,7 @@ def finish_time_analytics(
     return None
 
 
-def main(event, context):
+def main(event: dict, context: Context) -> str | None:
     """Main function that is triggered by pub/sub"""
 
     time_analytics = TimeAnalytics(script_start_time=datetime.datetime.now())
@@ -388,7 +389,8 @@ def main(event, context):
     function_id = generate_random_function_id()
 
     message_from_pubsub = process_pubsub_message_v2(event)
-    triggered_by_func_id = get_triggering_function(message_from_pubsub)
+    triggered_by_func_id = get_triggering_function(message_from_pubsub)  # type:ignore[arg-type]
+    # TODO maybe it not works
 
     # TODO remove after speeding up this function
     there_is_function_working_in_parallel = check_and_save_event_id(
