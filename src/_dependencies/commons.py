@@ -24,8 +24,6 @@ class Topics(Enum):
     topic_to_run_parsing_script = 'topic_to_run_parsing_script'
     topic_for_user_management = 'topic_for_user_management'
     parse_user_profile_from_forum = 'parse_user_profile_from_forum'
-    topic_to_send_notifications_helper = 'topic_to_send_notifications_helper'
-    topic_to_send_notifications_helper_2 = 'topic_to_send_notifications_helper_2'
     topic_to_send_notifications = 'topic_to_send_notifications'
 
 

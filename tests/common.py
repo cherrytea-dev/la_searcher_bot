@@ -146,13 +146,6 @@ def topic_to_receiver_function(topic_name: Topics):
         from identify_updates_of_folders.main import main
 
         return main
-    elif topic_name == Topics.topic_to_send_notifications_helper:
-        from send_notifications_helper.main import main
-
-        return main
-    elif topic_name == Topics.topic_to_send_notifications_helper_2:
-        from send_notifications_helper_2.main import main
-
     elif topic_name == Topics.topic_to_send_notifications:
         from send_notifications.main import main
 

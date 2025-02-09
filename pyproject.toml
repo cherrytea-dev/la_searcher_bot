@@ -23,6 +23,8 @@ dependencies = [
 develop = [
     "pytest>=7.0",
     "polyfactory>=2.18",
+    "requests-mock>=1.12.1",
+    "responses>=0.25.6",
     "pytest-cov>=6.0",
     "python-dotenv==1.*",
     "ruff==0.8.6",
@@ -155,6 +157,7 @@ disallow_untyped_defs = true
 exclude = ["tests", "env", "venv"]
 files = [
 #    "src/_dependencies/misc.py",
+    "src/identify_updates_of_folders/",
     "src/identify_updates_of_first_posts/",
     "src/send_notifications/",
     "src/connect_to_forum/",
