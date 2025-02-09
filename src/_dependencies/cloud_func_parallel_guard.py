@@ -2,9 +2,9 @@ import datetime
 import json
 import logging
 
-from _dependencies.commons import sql_connect_by_psycopg2
+from google.cloud.functions.context import Context
 
-# from compose_notifications.main import LineInChangeLog
+from _dependencies.commons import sql_connect_by_psycopg2
 
 
 def check_if_other_functions_are_working(func_name: str, interval_seconds: int) -> bool:
@@ -73,11 +73,11 @@ def record_finish_of_function(event_num: int, list_of_changed_ids: list) -> None
 
 
 def check_and_save_event_id(
-    context,
+    context: Context,
     event: str,
     function_id: int,
     list_of_change_log_ids: list[int] | None,
-    triggered_by_func_id: int,
+    triggered_by_func_id: int | None,
     func_name: str,
     interval: int,
 ) -> bool:

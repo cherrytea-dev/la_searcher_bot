@@ -151,7 +151,7 @@ omit = ["*/tests/*"]
 
 [tool.mypy]
 mypy_path = "src"
-disallow_untyped_defs = false
+disallow_untyped_defs = true
 exclude = ["tests", "env", "venv"]
 files = [
 #    "src/_dependencies/misc.py",

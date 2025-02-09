@@ -5,6 +5,7 @@ import logging
 from typing import Any
 
 import sqlalchemy
+from google.cloud.functions.context import Context
 from sqlalchemy.engine.base import Connection
 
 from _dependencies.cloud_func_parallel_guard import check_and_save_event_id
@@ -106,7 +107,7 @@ def create_user_notifications_from_change_log_record(
     return analytics_iterations_finish  # TODO can we move it out of this function?
 
 
-def main(event: dict, context: str) -> Any:  # noqa
+def main(event: dict, context: Context) -> None:
     """key function which is initiated by Pub/Sub"""
 
     analytics_start_of_func = datetime.datetime.now()

@@ -9,12 +9,12 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from time import sleep
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString, Tag
+from google.cloud.functions.context import Context
 from telegram import Bot, ReplyKeyboardMarkup
-from telegram.ext import Application, ContextTypes
 
 from _dependencies.commons import get_app_config, setup_google_logging, sql_connect_by_psycopg2
 from _dependencies.misc import process_sending_message_async
@@ -146,7 +146,7 @@ def get_user_id(u_name: str) -> str:
     return user_id
 
 
-def get_user_attributes(user_id: str):
+def get_user_attributes(user_id: str) -> Tag | NavigableString | None:
     """get user data from forum"""
 
     url_prefix = 'https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u='
@@ -157,7 +157,7 @@ def get_user_attributes(user_id: str):
     return block_with_user_attr
 
 
-def get_user_data(data) -> ForumUser:
+def get_user_data(data: Tag | NavigableString) -> ForumUser:
     """aggregates User Profile from forums' data"""
 
     user = ForumUser()
@@ -173,7 +173,7 @@ def get_user_data(data) -> ForumUser:
 
     for attr in dict:
         try:
-            value = data.find('dt', text=dict[attr]).findNext('dd').text
+            value = data.find('dt', text=dict[attr]).findNext('dd').text  # type:ignore
             setattr(user, attr, value)
         except Exception as e1:
             logging.warning('Attribute {%s} is not defined', attr)
@@ -251,7 +251,7 @@ def match_user_region_from_forum_to_bot(forum_region: str) -> str | None:
 #    return None
 
 
-def main(event: Dict[str, bytes], context: str) -> None:
+def main(event: Dict[str, bytes], context: Context) -> None:
     """main function triggered from communicate script via pyb/sub"""
 
     conn = sql_connect_by_psycopg2()

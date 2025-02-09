@@ -53,6 +53,7 @@ def test_get_user_id(patch_http):
     # NO SMOKE TEST connect_to_forum.main.login_into_forum
     login = 'Admin'
 
+    main.login_into_forum()
     user_id = main.get_user_id(login)
     assert user_id
 
