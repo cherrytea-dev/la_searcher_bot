@@ -19,9 +19,9 @@ def clean_up_content(init_content: str | bytes) -> str | None:
     return reco_content_text
 
 
-def clean_up_content_2(init_content: str | bytes) -> list[str] | None:
+def clean_up_content_2(init_content: str | bytes) -> list[str]:
     if not init_content or re.search(r'Для просмотра этого форума вы должны быть авторизованы', init_content):
-        return None
+        return []
 
     reco_content = _cook_soup(init_content)
     reco_content = _prettify_soup(reco_content)
@@ -33,7 +33,7 @@ def clean_up_content_2(init_content: str | bytes) -> list[str] | None:
     reco_content_text = re.sub(r'\n{2,}', '\n', reco_content_text)
 
     if not re.search(r'\w', reco_content_text):
-        return None
+        return []
 
     reco_content_text = reco_content_text.split('\n')
 

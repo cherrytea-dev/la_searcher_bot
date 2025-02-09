@@ -7,8 +7,8 @@ import pytest
 from faker import Faker
 from sqlalchemy.engine import Connection
 
+from _dependencies.commons import ChangeType, TopicType
 from compose_notifications import main
-from compose_notifications._utils.commons import ChangeType, TopicType
 from compose_notifications.main import LineInChangeLog
 from tests.common import get_event_with_data
 from tests.factories import db_factories, db_models

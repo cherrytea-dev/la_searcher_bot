@@ -155,6 +155,7 @@ disallow_untyped_defs = false
 exclude = ["tests", "env", "venv"]
 files = [
 #    "src/_dependencies/misc.py",
+    "src/identify_updates_of_first_posts/",
     "src/send_notifications/",
     "src/connect_to_forum/",
     "src/compose_notifications/",

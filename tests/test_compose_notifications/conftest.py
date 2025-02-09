@@ -4,8 +4,7 @@ import pytest
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
-from _dependencies.commons import sqlalchemy_get_pool
-from compose_notifications._utils.commons import ChangeType, TopicType
+from _dependencies.commons import ChangeType, TopicType, sqlalchemy_get_pool
 from tests.factories import db_factories, db_models
 
 

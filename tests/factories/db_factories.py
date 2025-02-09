@@ -60,6 +60,10 @@ class SearchFactory(BaseFactory[db_models.Search]):
     pass
 
 
+class SearchFirstPostFactory(BaseFactory[db_models.SearchFirstPost]):
+    pass
+
+
 class UserFactory(BaseFactory[db_models.User]):
     status = None
     role = 'new_member'

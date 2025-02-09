@@ -1,8 +1,9 @@
+import ast
 import json
 import logging
 import os
 import urllib.request
-from enum import Enum
+from enum import Enum, IntEnum
 from functools import lru_cache
 from typing import Any
 
@@ -10,6 +11,7 @@ import google.cloud.logging
 import psycopg2
 import sqlalchemy
 from google.cloud import pubsub_v1, secretmanager
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings
 
 
@@ -197,3 +199,60 @@ def sqlalchemy_get_pool(pool_size: int, pool_recycle_time_seconds: int) -> sqlal
     pool.dialect.description_encoding = None
 
     return pool
+
+
+class ChangeLogSavedValue(BaseModel):
+    """value that stored in database `change_log.new_value`"""
+
+    model_config = ConfigDict(extra='ignore')
+
+    deletions: list[str] = Field(default_factory=list, alias='del')
+    additions: list[str] = Field(default_factory=list, alias='add')
+    message: str = Field(default='')
+
+    @classmethod
+    def from_db_saved_value(cls, saved_value: str) -> 'ChangeLogSavedValue':
+        if not saved_value or not saved_value.startswith('{'):
+            return cls(message=saved_value)
+
+        data = ast.literal_eval(saved_value)
+        return cls.model_validate(data)
+
+    def to_db_saved_value(self) -> str:
+        return str(self.model_dump(by_alias=True))
+
+
+class ChangeType(IntEnum):
+    """
+    SQL table 'dict_notif_types'
+    """
+
+    topic_new = 0
+    topic_status_change = 1
+    topic_title_change = 2
+    topic_comment_new = 3
+    topic_inforg_comment_new = 4
+    topic_field_trip_new = 5
+    topic_field_trip_change = 6
+    topic_coords_change = 7
+    topic_first_post_change = 8
+    bot_news = 20
+    not_defined = 99
+    all = 30
+
+
+class TopicType(IntEnum):
+    """
+    SQL table 'dict_topic_types'
+    """
+
+    search_regular = 0
+    search_reverse = 1
+    search_patrol = 2
+    search_training = 3
+    search_info_support = 4
+    search_resonance = 5
+    event = 10
+    info = 20
+    all = 30
+    unrecognized = 99

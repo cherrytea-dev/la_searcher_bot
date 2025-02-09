@@ -6,12 +6,11 @@ from typing import Any
 import sqlalchemy
 from sqlalchemy.engine.base import Connection
 
-from _dependencies.commons import Topics, get_app_config, publish_to_pubsub
+from _dependencies.commons import ChangeType, Topics, get_app_config, publish_to_pubsub
 from _dependencies.misc import notify_admin
 
 from .commons import (
     SEARCH_TOPIC_TYPES,
-    ChangeType,
     LineInChangeLog,
     User,
 )

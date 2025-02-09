@@ -4,23 +4,13 @@ from identify_updates_of_first_posts import main
 from tests.common import run_smoke
 
 
+def test__notify_admin_if_no_changes():
+    res = run_smoke(main._notify_admin_if_no_changes)
+    pass
+
+
 def test_get_compressed_first_post():
     res = run_smoke(main.get_compressed_first_post)
-    pass
-
-
-def test_get_field_trip_details_from_text():
-    res = run_smoke(main.get_field_trip_details_from_text)
-    pass
-
-
-def test_get_the_list_of_coords_out_of_text():
-    res = run_smoke(main.get_the_list_of_coords_out_of_text)
-    pass
-
-
-def test_parse_search_folder():
-    res = run_smoke(main.parse_search_folder)
     pass
 
 

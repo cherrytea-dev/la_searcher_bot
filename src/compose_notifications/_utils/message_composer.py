@@ -3,14 +3,13 @@ import logging
 import re
 from functools import lru_cache
 
+from _dependencies.commons import ChangeLogSavedValue, ChangeType, TopicType
+
 from .commons import (
     COORD_FORMAT,
     COORD_PATTERN,
     SEARCH_TOPIC_TYPES,
-    ChangeLogSavedValue,
-    ChangeType,
     LineInChangeLog,
-    TopicType,
     User,
     add_tel_link,
     define_dist_and_dir_to_search,
