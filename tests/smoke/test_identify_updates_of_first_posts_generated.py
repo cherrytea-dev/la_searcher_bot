@@ -4,6 +4,31 @@ from identify_updates_of_first_posts import main
 from tests.common import run_smoke
 
 
+def test__append_change():
+    res = run_smoke(main._append_change)
+    pass
+
+
+def test__extract_changes():
+    res = run_smoke(main._extract_changes)
+    pass
+
+
+def test__format_additions():
+    res = run_smoke(main._format_additions)
+    pass
+
+
+def test__format_deletions():
+    res = run_smoke(main._format_deletions)
+    pass
+
+
+def test__format_message():
+    res = run_smoke(main._format_message)
+    pass
+
+
 def test__notify_admin_if_no_changes():
     res = run_smoke(main._notify_admin_if_no_changes)
     pass
