@@ -3,7 +3,9 @@ which contain updates – and makes a pub/sub call for other script to parse con
 
 import ast
 import logging
+from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Optional, no_type_check
 
 import requests
@@ -11,6 +13,7 @@ from bs4 import BeautifulSoup, SoupStrainer, Tag
 from google.cloud import storage
 from google.cloud.functions.context import Context
 from google.cloud.storage.blob import Blob
+from retry.api import retry_call
 
 from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging
 from _dependencies.misc import process_pubsub_message
@@ -51,16 +54,9 @@ class DecomposedFolder:
     folder_name: str
 
 
-def set_cloud_storage(folder_num: str) -> Blob:
-    """sets the basic parameters for connection to txt file in cloud storage, which stores searches snapshots"""
-    bucket_name = 'bucket_for_folders_snapshots'
-    blob_name = str(folder_num) + '.txt'
-
-    storage_client = storage.Client()
-    bucket = storage_client.get_bucket(bucket_name)
-    blob = bucket.blob(blob_name)
-
-    return blob
+@lru_cache
+def get_session() -> requests.Session:
+    return requests.Session()
 
 
 class CloudStorage:
@@ -80,7 +76,7 @@ class CloudStorage:
         """reads previous searches snapshot from txt file in cloud storage"""
 
         try:
-            blob = set_cloud_storage(snapshot_name)
+            blob = self._set_cloud_storage(snapshot_name)
             contents_as_bytes = blob.download_as_string()
             contents: str | None = str(contents_as_bytes, 'utf-8')
             if contents == 'None':
@@ -92,8 +88,19 @@ class CloudStorage:
     def _write_snapshot(self, what_to_write: Any, snapshot_name: str) -> None:
         """writes current snapshot to txt file in cloud storage"""
 
-        blob = set_cloud_storage(snapshot_name)
+        blob = self._set_cloud_storage(snapshot_name)
         blob.upload_from_string(str(what_to_write), content_type='text/plain')
+
+    def _set_cloud_storage(self, folder_num: str) -> Blob:
+        """sets the basic parameters for connection to txt file in cloud storage, which stores searches snapshots"""
+        bucket_name = 'bucket_for_folders_snapshots'
+        blob_name = str(folder_num) + '.txt'
+
+        storage_client = storage.Client()
+        bucket = storage_client.get_bucket(bucket_name)
+        blob = bucket.blob(blob_name)
+
+        return blob
 
 
 class FolderComparator:
@@ -172,9 +179,9 @@ class FolderDecomposer:
     def _fetch_and_parse_page(self, url: str) -> Optional[BeautifulSoup]:
         """Fetch the page content and parse it with BeautifulSoup"""
         try:
-            r = requests.Session().get(url)
+            response = retry_call(get_session().get, fargs=[url], tries=3)
             only_tag = SoupStrainer('div', {'class': 'page-body'})
-            soup = BeautifulSoup(r.content, features='lxml', parse_only=only_tag)
+            soup = BeautifulSoup(response.content, features='lxml', parse_only=only_tag)
             return soup
         except Exception as e:
             logging.info(f'Request to forum was unsuccessful for url {url}')
@@ -306,9 +313,14 @@ def main(event: dict, context: Context) -> None:
     for folder_num, folder_name_ in folders_list_to_scan:
         folders_to_check.append(FolderForDecompose(mother_folder_num=folder_num))
 
-    while folders_to_check:
-        folder = folders_to_check.pop()
-        process_folder(folders_to_check, updated_folders, folder, storage)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = []
+        while folders_to_check:
+            while folders_to_check:
+                folder = folders_to_check.pop()
+                future = pool.submit(process_folder, folders_to_check, updated_folders, folder, storage)
+                futures.append(future)
+            wait(futures)
 
     logging.info('The below list is to be sent to "Identify updates of topics" script via pub/sub')
     logging.info(updated_folders)

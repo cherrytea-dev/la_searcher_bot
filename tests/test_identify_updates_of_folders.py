@@ -85,12 +85,6 @@ def test_main():
         assert patched_pubsub.call_args[0][1] == str(message)
 
 
-def test_set_cloud_storage():
-    # NO SMOKE TEST identify_updates_of_folders.main.set_cloud_storage
-    with patch('google.cloud.storage.Client'):
-        main.set_cloud_storage(1)
-
-
 def test_compare_old_and_new_folder_hash_and_give_list_of_upd_folders():
     res = main.FolderComparator().compare_folders('["old"]', '["new"]')
     assert res == ['n', 'o']
