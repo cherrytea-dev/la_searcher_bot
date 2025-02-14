@@ -452,6 +452,18 @@ wheels = [
 ]
 
 [[package]]
+name = "freezegun"
+version = "1.5.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "python-dateutil" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2c/ef/722b8d71ddf4d48f25f6d78aa2533d505bf3eec000a7cacb8ccc8de61f2f/freezegun-1.5.1.tar.gz", hash = "sha256:b29dedfcda6d5e8e083ce71b2b542753ad48cfec44037b3fc79702e2980a89e9", size = 33697 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/51/0b/0d7fee5919bccc1fdc1c2a7528b98f65c6f69b223a3fd8f809918c142c36/freezegun-1.5.1-py3-none-any.whl", hash = "sha256:bf111d7138a8abe55ab48a71755673dbaa4ab87f4cff5634a4442dfec34c15f1", size = 17569 },
+]
+
+[[package]]
 name = "functions-framework"
 version = "3.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -988,6 +1000,7 @@ check-first-posts-for-changes = [
 ]
 check-topics-by-upd-time = [
     { name = "beautifulsoup4" },
+    { name = "google-cloud-storage" },
     { name = "lxml" },
     { name = "requests" },
 ]
@@ -1017,6 +1030,7 @@ develop = [
     { name = "pytest" },
     { name = "pytest-benchmark" },
     { name = "pytest-cov" },
+    { name = "pytest-freezegun" },
     { name = "pytest-xdist" },
     { name = "python-dotenv" },
     { name = "requests-mock" },
@@ -1105,6 +1119,7 @@ requires-dist = [
     { name = "google-cloud-logging", specifier = "==3.5.0" },
     { name = "google-cloud-pubsub", specifier = "==2.16.0" },
     { name = "google-cloud-secret-manager", specifier = "==2.16.0" },
+    { name = "google-cloud-storage", marker = "extra == 'check-topics-by-upd-time'", specifier = "==2.10.0" },
     { name = "google-cloud-storage", marker = "extra == 'identify-updates-of-folders'", specifier = "==2.10.0" },
     { name = "google-cloud-storage", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.10.0" },
     { name = "httpx", marker = "extra == 'communicate'", specifier = "==0.23.3" },
@@ -1132,6 +1147,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'develop'", specifier = ">=7.0" },
     { name = "pytest-benchmark", marker = "extra == 'develop'", specifier = ">=5.0" },
     { name = "pytest-cov", marker = "extra == 'develop'", specifier = ">=6.0" },
+    { name = "pytest-freezegun", marker = "extra == 'develop'", specifier = "==0.4.2" },
     { name = "pytest-xdist", marker = "extra == 'develop'", specifier = "==3.*" },
     { name = "python-dateutil", marker = "extra == 'compose-notifications'" },
     { name = "python-dateutil", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.8.2" },
@@ -1732,6 +1748,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/be/45/9b538de8cef30e17c7b45ef42f538a94889ed6a16f2387a6c89e73220651/pytest-cov-6.0.0.tar.gz", hash = "sha256:fde0b595ca248bb8e2d76f020b465f3b107c9632e6a1d1705f17834c89dcadc0", size = 66945 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/36/3b/48e79f2cd6a61dbbd4807b4ed46cb564b4fd50a76166b1c4ea5c1d9e2371/pytest_cov-6.0.0-py3-none-any.whl", hash = "sha256:eee6f1b9e61008bd34975a4d5bab25801eb31898b032dd55addc93e96fcaaa35", size = 22949 },
+]
+
+[[package]]
+name = "pytest-freezegun"
+version = "0.4.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "freezegun" },
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f0/e3/c39d7c3d3afef5652f19323f3483267d7e6b0d9911c3867e10d6e2d3c9ae/pytest-freezegun-0.4.2.zip", hash = "sha256:19c82d5633751bf3ec92caa481fb5cffaac1787bd485f0df6436fd6242176949", size = 9059 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9e/09/0bdd7d24b9d21453ad3364ae1efbd65082045bb6081b5fd5eade91a9b644/pytest_freezegun-0.4.2-py2.py3-none-any.whl", hash = "sha256:5318a6bfb8ba4b709c8471c94d0033113877b3ee02da5bfcd917c1889cde99a7", size = 4590 },
 ]
 
 [[package]]

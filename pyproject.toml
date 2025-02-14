@@ -25,6 +25,7 @@ develop = [
     "polyfactory>=2.18",
     "requests-mock>=1.12.1",
     "responses>=0.25.6",
+    "pytest-freezegun==0.4.2",
     "pytest-cov>=6.0",
     "python-dotenv==1.*",
     "ruff==0.8.6",
@@ -69,6 +70,7 @@ check_topics_by_upd_time = [
     "requests==2.31.0",
     "beautifulsoup4==4.9.3",
     "lxml==4.9.1",
+    "google-cloud-storage==2.10.0",
 ]
 
 communicate = ["httpx==0.23.3"]
@@ -161,6 +163,7 @@ files = [
     "src/identify_updates_of_first_posts/",
     "src/send_notifications/",
     "src/connect_to_forum/",
+    "src/check_topics_by_upd_time/",
     "src/compose_notifications/",
 ] # will add other folders lately
 explicit_package_bases = true
