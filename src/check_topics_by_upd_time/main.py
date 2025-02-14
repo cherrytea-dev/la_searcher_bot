@@ -162,8 +162,8 @@ def main(event: dict[str, Any], context: Context) -> None:
     logging.info(f'{str(time_diff_in_min)} minute(s) ago forum was updated')
 
     list_of_updated_folders = get_the_list_folders_to_update(list_of_folders_and_times)
-    logging.info(f'Folders with new info WITHOUT snapshot checks: {str(list_of_updated_folders)}')
+    logging.info(f'Folders with new info: {str(list_of_updated_folders)}')
 
-    list_for_pubsub = [[line[0], line[1]] for line in list_of_folders_and_times]
+    list_for_pubsub = [[line[0], line[1]] for line in list_of_updated_folders]
     if list_for_pubsub:
         publish_to_pubsub(Topics.topic_update_identified, str(list_for_pubsub))

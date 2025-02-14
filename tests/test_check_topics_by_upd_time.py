@@ -47,8 +47,6 @@ def test_main_no_saved_folders(requests_mock):
         [180, '2025-02-13T14:24:16+00:00'],
         [462, '2025-01-08T19:10:34+00:00'],
         [438, '2024-01-10T14:09:00+00:00'],
-        [179, '2025-02-13T13:31:28+00:00'],
-        [180, '2025-02-13T14:24:16+00:00'],
     ]
     assert patched_pubsub.call_args_list[0][0][1] == str(expected_folders)
 
