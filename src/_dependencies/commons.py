@@ -19,7 +19,6 @@ class Topics(Enum):
     topic_notify_admin = 'topic_notify_admin'
     topic_for_topic_management = 'topic_for_topic_management'
     topic_for_first_post_processing = 'topic_for_first_post_processing'
-    topic_update_identified = 'topic_update_identified'
     topic_for_notification = 'topic_for_notification'
     topic_to_run_parsing_script = 'topic_to_run_parsing_script'
     topic_for_user_management = 'topic_for_user_management'

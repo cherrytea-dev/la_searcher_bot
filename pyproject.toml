@@ -99,13 +99,6 @@ identify_updates_of_first_posts = [
     "lxml==4.9.1",
 ]
 
-identify_updates_of_folders = [
-    "requests==2.31.0",
-    "beautifulsoup4==4.9.3",
-    "lxml==4.9.1",
-    "google-cloud-storage==2.10.0",
-]
-
 identify_updates_of_topics = [
     "requests==2.31.0",
     "urllib3==1.26.18",             # http client
@@ -159,7 +152,6 @@ disallow_untyped_defs = true
 exclude = ["tests", "env", "venv"]
 files = [
 #    "src/_dependencies/misc.py",
-    "src/identify_updates_of_folders/",
     "src/identify_updates_of_first_posts/",
     "src/send_notifications/",
     "src/connect_to_forum/",
