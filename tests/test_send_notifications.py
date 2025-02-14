@@ -48,12 +48,13 @@ def test_iterate_over_notifications():
     time_analytics = TimeAnalyticsFactory.build()
 
     session = get_session()
-    unique_notification = NotSentNotificationFactory.create_sync()
     doubling_notification_1, doubling_notification_2 = NotSentNotificationFactory.create_batch_sync(
         2,
         change_log_id=randint(0, 1000),
         user_id=randint(0, 1000),
     )
+    unique_notification = NotSentNotificationFactory.create_sync()
+    # TODO don't know why, but if move creation of unique_notification upper, then test started to fail
 
     with patch('send_notifications.main.process_response', MagicMock(return_value='completed')):
         main.iterate_over_notifications(MagicMock(), 1, time_analytics)
@@ -64,6 +65,8 @@ def test_iterate_over_notifications():
     doubling_notification_1 = session.query(NotifByUser).get(doubling_notification_1.message_id)
     doubling_notification_2 = session.query(NotifByUser).get(doubling_notification_2.message_id)
 
+    assert not unique_notification.cancelled
+    assert not unique_notification.failed
     assert unique_notification.completed
     assert bool(doubling_notification_1.cancelled) ^ bool(doubling_notification_2.cancelled)
 
