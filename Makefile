@@ -38,11 +38,6 @@ dependencies:
 		cp src/_dependencies src/$$d/ -r ; \
 	done
 
-smoke-tests-generate:
-	echo "" > build/pytest.log
-	uv run python tests/tools/generate_smoke_tests.py
-	make lint
-
 type-annotate:
 	uv run python tests/tools/annotate_types.py
 
