@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 import pytest
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from _dependencies.commons import ChangeType, TopicType, sqlalchemy_get_pool
@@ -51,17 +52,6 @@ def dict_notif_type_first_post_change() -> db_models.DictNotifType:
         return get_or_create_dict_notif_type(session, ChangeType.topic_first_post_change)
 
 
-def get_or_create(session: Session, model, **kwargs):
-    instance = session.query(model).filter_by(**kwargs).first()
-    if instance:
-        return instance
-    else:
-        instance = model(**kwargs)
-        session.add(instance)
-        session.commit()
-        return instance
-
-
 def get_or_create_dict_notif_type(session: Session, type_id: ChangeType) -> db_models.DictNotifType:
     instance = session.query(db_models.DictNotifType).filter_by(type_id=type_id).first()
     if instance:
@@ -69,5 +59,9 @@ def get_or_create_dict_notif_type(session: Session, type_id: ChangeType) -> db_m
     else:
         instance = db_models.DictNotifType(type_id=type_id.value, type_name=type_id.name)
         session.add(instance)
-        session.commit()
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            instance = session.query(db_models.DictNotifType).filter_by(type_id=type_id).first()
         return instance

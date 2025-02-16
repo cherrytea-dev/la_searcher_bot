@@ -142,10 +142,6 @@ def topic_to_receiver_function(topic_name: Topics):
         from manage_topics.main import main
 
         return main
-    elif topic_name == Topics.topic_update_identified:
-        from identify_updates_of_folders.main import main
-
-        return main
     elif topic_name == Topics.topic_to_send_notifications:
         from send_notifications.main import main
 

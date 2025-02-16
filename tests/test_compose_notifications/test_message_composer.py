@@ -134,6 +134,7 @@ class TestMessageComposer:
     def test_topic_comment_new(self, user: User):
         record = LineInChageFactory.build(
             change_type=ChangeType.topic_comment_new,
+            topic_type_id=TopicType.search_regular,
         )
         message = MessageComposer(record).compose_message_for_user(user)
         assert 'Новые комментарии по поиску' in message

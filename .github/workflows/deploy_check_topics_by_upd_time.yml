@@ -7,7 +7,7 @@ on:
     branches : [main]
     paths:
       - 'src/_dependencies/*'
-      - 'src/check_topics_by_upd_time/*' # UPD HERE!
+      - 'src/check_topics_by_upd_time/**' # UPD HERE!
       - '.github/workflows/deploy_check_topics_by_upd_time.yml' # UPD HERE!
 
 jobs:
@@ -37,6 +37,6 @@ jobs:
             region: europe-west3
             # timeout: 540 # UPD HERE!
             # max_instances: 1 # UPD HERE!
-            # memory_mb: 8192 # UPD HERE!
+            # memory_mb: 512 # UPD HERE!            
             event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
             event_trigger_resource: projects/lizaalert-bot-01/topics/topic_for_minute_update # UPD HERE! topic

@@ -1055,12 +1055,6 @@ identify-updates-of-first-posts = [
     { name = "lxml" },
     { name = "requests" },
 ]
-identify-updates-of-folders = [
-    { name = "beautifulsoup4" },
-    { name = "google-cloud-storage" },
-    { name = "lxml" },
-    { name = "requests" },
-]
 identify-updates-of-topics = [
     { name = "beautifulsoup4" },
     { name = "cchardet" },
@@ -1101,7 +1095,6 @@ requires-dist = [
     { name = "beautifulsoup4", marker = "extra == 'check-topics-by-upd-time'", specifier = "==4.9.3" },
     { name = "beautifulsoup4", marker = "extra == 'connect-to-forum'", specifier = "==4.9.3" },
     { name = "beautifulsoup4", marker = "extra == 'identify-updates-of-first-posts'", specifier = "==4.9.3" },
-    { name = "beautifulsoup4", marker = "extra == 'identify-updates-of-folders'", specifier = "==4.9.3" },
     { name = "beautifulsoup4", marker = "extra == 'identify-updates-of-topics'", specifier = "==4.9.3" },
     { name = "beautifulsoup4", marker = "extra == 'user-provide-info'", specifier = "==4.9.3" },
     { name = "cchardet", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.1.7" },
@@ -1120,7 +1113,6 @@ requires-dist = [
     { name = "google-cloud-pubsub", specifier = "==2.16.0" },
     { name = "google-cloud-secret-manager", specifier = "==2.16.0" },
     { name = "google-cloud-storage", marker = "extra == 'check-topics-by-upd-time'", specifier = "==2.10.0" },
-    { name = "google-cloud-storage", marker = "extra == 'identify-updates-of-folders'", specifier = "==2.10.0" },
     { name = "google-cloud-storage", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.10.0" },
     { name = "httpx", marker = "extra == 'communicate'", specifier = "==0.23.3" },
     { name = "httpx", marker = "extra == 'connect-to-forum'", specifier = "==0.23.3" },
@@ -1132,7 +1124,6 @@ requires-dist = [
     { name = "lxml", marker = "extra == 'check-topics-by-upd-time'", specifier = "==4.9.1" },
     { name = "lxml", marker = "extra == 'connect-to-forum'", specifier = "==4.9.1" },
     { name = "lxml", marker = "extra == 'identify-updates-of-first-posts'", specifier = "==4.9.1" },
-    { name = "lxml", marker = "extra == 'identify-updates-of-folders'", specifier = "==4.9.1" },
     { name = "lxml", marker = "extra == 'identify-updates-of-topics'", specifier = "==4.9.1" },
     { name = "lxml", marker = "extra == 'user-provide-info'", specifier = "==4.9.1" },
     { name = "mypy", marker = "extra == 'develop'", specifier = ">=1.14.1" },
@@ -1161,7 +1152,6 @@ requires-dist = [
     { name = "requests", marker = "extra == 'compose-notifications'", specifier = "==2.31.0" },
     { name = "requests", marker = "extra == 'connect-to-forum'", specifier = "==2.31.0" },
     { name = "requests", marker = "extra == 'identify-updates-of-first-posts'", specifier = "==2.31.0" },
-    { name = "requests", marker = "extra == 'identify-updates-of-folders'", specifier = "==2.31.0" },
     { name = "requests", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.31.0" },
     { name = "requests-mock", marker = "extra == 'develop'", specifier = ">=1.12.1" },
     { name = "responses", marker = "extra == 'develop'", specifier = ">=0.25.6" },

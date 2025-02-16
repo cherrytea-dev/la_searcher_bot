@@ -1,14 +1,16 @@
 {
     "version": "0.2.0",
     "configurations": [
-        
         {
             "name": "Python Debugger: Current File",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "purpose": ["debug-test", "debug-in-terminal"],
+            "purpose": [
+                "debug-test",
+                "debug-in-terminal"
+            ],
             "cwd": "${workspaceFolder}",
             "justMyCode": false
         },
@@ -18,7 +20,10 @@
             "request": "launch",
             "program": "tests/tools/run_bot.py",
             "console": "integratedTerminal",
-            "purpose": ["debug-test", "debug-in-terminal"],
+            "purpose": [
+                "debug-test",
+                "debug-in-terminal"
+            ],
             "cwd": "${workspaceFolder}",
             "justMyCode": false
         },
@@ -28,9 +33,25 @@
             "request": "launch",
             "program": "tests/tools/run_send_notifications.py",
             "console": "integratedTerminal",
-            "purpose": ["debug-test", "debug-in-terminal"],
+            "purpose": [
+                "debug-test",
+                "debug-in-terminal"
+            ],
             "cwd": "${workspaceFolder}",
             "justMyCode": false
+        },
+        {
+            "name": "check_topics_by_upd_time",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "tests/tools/run_check_topics_by_upd_time.py",
+            "console": "integratedTerminal",
+            "purpose": [
+                "debug-test",
+                "debug-in-terminal"
+            ],
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true
         }
     ]
 }
