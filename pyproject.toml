@@ -151,13 +151,25 @@ mypy_path = "src"
 disallow_untyped_defs = true
 exclude = ["tests", "env", "venv"]
 files = [
-#    "src/_dependencies/misc.py",
-    "src/identify_updates_of_first_posts/",
-    "src/send_notifications/",
-    "src/connect_to_forum/",
+    # "src/_dependencies/",
+    "src/api_get_active_searches/",
+    # "src/archive_notifications/",
+    # "src/archive_to_bigquery/",
+    # "src/check_first_posts_for_changes/",
     "src/check_topics_by_upd_time/",
+    # "src/communicate/",
     "src/compose_notifications/",
-] # will add other folders lately
+    "src/connect_to_forum/",                # TODO refact
+    "src/identify_updates_of_first_posts/",
+    # "src/identify_updates_of_topics/",
+    # "src/manage_topics/",
+    # "src/manage_users/",
+    # "src/send_debug_to_admin/",
+    "src/send_notifications/",
+    # "src/title_recognize/",
+    # "src/user_provide_info/",
+    # "src/users_activate/",
+]
 explicit_package_bases = true
 ignore_missing_imports = false
 install_types = true
