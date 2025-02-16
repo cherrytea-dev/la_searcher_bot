@@ -99,6 +99,4 @@ After changing `pyproject.toml` run `uv lock` to update lockfile.
 
 Run tests with postgres database in docker container: `make ci-test`
 
-Generate/update smoke tests: `make smoke-tests-generate`
-
 Run bot locally: `uv run python tests/tools/run_bot.py` (example is in [launch.template.json](.vscode/launch.template.json) )
