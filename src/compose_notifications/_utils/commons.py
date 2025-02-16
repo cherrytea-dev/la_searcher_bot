@@ -110,7 +110,13 @@ def add_tel_link(incoming_text: str) -> str:
     outcome_text = incoming_text
     nums = re.findall(PHONE_RE, incoming_text)
     for num in nums:
-        outcome_text = outcome_text.replace(num, '<code>' + str(num) + '</code>')
+        try:
+            outcome_text = outcome_text.replace(num, f' <a href="tel:{num}">{num}</a> ')
+        except Exception as e:  # noqa
+            logging.exception(e)
+            outcome_text = outcome_text.replace(num, '<code>' + str(num) + '</code>') ##previous version
+
+        
 
     phpbb_tags_to_delete = {'[tel]', '[/tel]'}
     for tag in phpbb_tags_to_delete:
