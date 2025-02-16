@@ -2,11 +2,14 @@ import base64
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from sqlalchemy.engine import Connection
+from sqlalchemy.orm import Session
 from telegram import Bot
 from telegram.ext import ExtBot
 
-from _dependencies.commons import Topics
+from _dependencies.commons import Topics, sql_connect_by_psycopg2, sqlalchemy_get_pool
 from tests.common import get_test_config, topic_to_receiver_function
+from tests.factories import db_factories
 
 ENABLE_TYPE_COLLECTION = True
 
@@ -71,3 +74,21 @@ def bot_mock_send_message() -> AsyncMock:
         patch.object(ExtBot, 'send_message') as mock_send_message,
     ):
         yield mock_send_message
+
+
+@pytest.fixture
+def connection() -> Connection:
+    pool = sqlalchemy_get_pool(10, 10)
+    with pool.connect() as conn:
+        yield conn
+
+
+@pytest.fixture
+def connection_psy() -> Connection:
+    return sql_connect_by_psycopg2()
+
+
+@pytest.fixture
+def session() -> Session:
+    with db_factories.get_session() as session:
+        yield session

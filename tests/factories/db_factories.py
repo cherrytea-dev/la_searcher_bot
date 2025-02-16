@@ -68,6 +68,10 @@ class GeoFolderFactory(BaseFactory[db_models.GeoFolder]):
     __set_primary_key__ = True
 
 
+class GeoRegionFactory(BaseFactory[db_models.GeoRegion]):
+    __set_primary_key__ = True
+
+
 class SearchHealthCheckFactory(BaseFactory[db_models.SearchHealthCheck]):
     pass
 
@@ -90,6 +94,10 @@ class UserRegionalPreferenceFactory(BaseFactory[db_models.UserRegionalPreference
 
 
 class UserCoordinateFactory(BaseFactory[db_models.UserCoordinate]):
+    pass
+
+
+class SearchCoordinatesFactory(BaseFactory[db_models.SearchCoordinate]):
     pass
 
 

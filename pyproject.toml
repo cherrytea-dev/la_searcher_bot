@@ -167,7 +167,7 @@ files = [
     # "src/send_debug_to_admin/",
     "src/send_notifications/",
     # "src/title_recognize/",
-    # "src/user_provide_info/",
+    "src/user_provide_info/",
     # "src/users_activate/",
 ]
 explicit_package_bases = true

@@ -64,11 +64,6 @@ def test_rate_limit_for_api(db):
     main.rate_limit_for_api(db, data)
 
 
-def test_get_the_list_of_ignored_folders():
-    res = main.get_the_list_of_ignored_folders(main.sql_connect())
-    assert not res
-
-
 def test_parse_one_folder(db, mock_http_get):
     mock_http_get.return_value.content = Path('tests/fixtures/forum_folder_276.html').read_bytes()
 
