@@ -64,6 +64,14 @@ class SearchFirstPostFactory(BaseFactory[db_models.SearchFirstPost]):
     pass
 
 
+class GeoFolderFactory(BaseFactory[db_models.GeoFolder]):
+    __set_primary_key__ = True
+
+
+class SearchHealthCheckFactory(BaseFactory[db_models.SearchHealthCheck]):
+    pass
+
+
 class UserFactory(BaseFactory[db_models.User]):
     status = None
     role = 'new_member'
