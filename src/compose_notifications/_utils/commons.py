@@ -112,7 +112,7 @@ def add_tel_link(incoming_text: str) -> str:
     for num in nums:
         try:
             outcome_text = outcome_text.replace(num, ' <a href="tel:' + str(num) + '">' + str(num) + '</a> ')
-        except Exception as e:  # noqa
+        except Exception as e: # noqa
             logging.exception(e)
             outcome_text = outcome_text.replace(num, '<code>' + str(num) + '</code>') # previous version
 
