@@ -185,3 +185,29 @@ class TestGetUserDataFromDb:
             'search_type': 'Особый поиск',
             'search_is_old': False,
         }
+
+    def test_get_user_data_from_db_valid_user_without_radius(self):
+        # Create user and related data using factories
+        user = UserFactory.create_sync()
+        user_id = user.user_id
+        UserCoordinateFactory.create_sync(user_id=user_id, latitude='55.7558', longitude='37.6173')
+        region1 = UserRegionalPreferenceFactory.create_sync(user_id=user_id)
+
+        geo_folder = GeoFolderFactory.create_sync(folder_id=region1.forum_folder_num)
+        geo_region = GeoRegionFactory.create_sync(division_id=geo_folder.division_id)
+
+        with (
+            patch.object(main, 'time_counter_since_search_start', side_effect=[('1 day ago', 1), ('2 days ago', 2)]),
+            patch.object(main, 'clean_up_content', return_value='Cleaned content'),
+        ):
+            result = get_user_data_from_db(user.user_id)
+
+        assert result.model_dump() == {
+            'curr_user': True,
+            'user_id': user_id,
+            'home_lat': 55.7558,
+            'home_lon': 37.6173,
+            'radius': None,
+            'regions': [geo_region.polygon_id],
+            'searches': [],
+        }
