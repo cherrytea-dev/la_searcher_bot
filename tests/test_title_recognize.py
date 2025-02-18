@@ -1,20 +1,22 @@
 from flask import Flask
 
 from title_recognize import main
+import pytest
 
 
-def test_main_positive():
-    app = Flask(__name__)
+@pytest.fixture
+def app() -> Flask:
+    return Flask(__name__)
 
+
+def test_main_positive(app: Flask):
     with app.test_request_context('/', json={'title': 'Пропал человек'}) as app:
         res = main.main(app.request)
 
     assert 'fail' not in res
 
 
-def test_main_wrong_request():
-    app = Flask(__name__)
-
+def test_main_wrong_request(app: Flask):
     with app.test_request_context('/', json={'foo': 'bar'}) as app:
         res = main.main(app.request)
 

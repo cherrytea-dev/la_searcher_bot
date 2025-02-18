@@ -166,7 +166,7 @@ files = [
     # "src/manage_users/",
     # "src/send_debug_to_admin/",
     "src/send_notifications/",
-    # "src/title_recognize/",
+    "src/title_recognize/",
     "src/user_provide_info/",
     # "src/users_activate/",
 ]

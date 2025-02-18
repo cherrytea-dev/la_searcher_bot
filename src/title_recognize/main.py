@@ -8,10 +8,17 @@ import functions_framework
 from dateutil import relativedelta
 from flask import Request
 from natasha import Doc, NewsEmbedding, NewsNERTagger, Segmenter
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from _dependencies.commons import setup_google_logging
 
 setup_google_logging()
+
+
+class FlaskResponseBase(BaseModel):
+    def as_response(self) -> tuple[str, int, dict]:
+        headers = {}
+        return self.model_dump_json(), 200, headers
 
 
 def get_requested_title(request: Request) -> tuple[str, str]:
