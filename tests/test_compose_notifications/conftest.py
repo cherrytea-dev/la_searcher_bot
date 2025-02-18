@@ -1,11 +1,10 @@
 from unittest.mock import patch
 
 import pytest
-from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from _dependencies.commons import ChangeType, TopicType, sqlalchemy_get_pool
+from _dependencies.commons import ChangeType, TopicType
 from tests.factories import db_factories, db_models
 
 
@@ -16,19 +15,6 @@ def local_patches():
         patch('compose_notifications._utils.notifications_maker.publish_to_pubsub'),
     ):
         yield
-
-
-@pytest.fixture
-def connection() -> Connection:
-    pool = sqlalchemy_get_pool(10, 10)
-    with pool.connect() as conn:
-        yield conn
-
-
-@pytest.fixture
-def session() -> Session:
-    with db_factories.get_session() as session:
-        yield session
 
 
 @pytest.fixture(scope='session')
