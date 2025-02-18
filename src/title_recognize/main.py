@@ -15,6 +15,13 @@ from _dependencies.commons import setup_google_logging
 setup_google_logging()
 
 
+class UserRequest(BaseModel):
+    model_config = ConfigDict(extra='ignore')
+
+    title: str
+    reco_type: str | None = None
+
+
 class FlaskResponseBase(BaseModel):
     status: str
 
@@ -26,8 +33,6 @@ class FlaskResponseBase(BaseModel):
 
 class FailResponse(FlaskResponseBase):
     fail_reason: str
-    title: str | None = None  # #do we need it?
-    request: str  # #do we need it?
     status: str = 'fail'
 
 
@@ -73,25 +78,6 @@ class TitleRecognition:
     per_num: Any = None
     per_list: list = field(default_factory=list)
     loc_list: list = field(default_factory=list)
-
-
-def get_requested_title(request: Request) -> tuple[str, str]:
-    """gets the title from the incoming request"""
-
-    # for the case when request contains json
-    request_json = request.get_json(silent=True)  # noqa
-
-    if not request_json or (request_json and 'title' not in request_json):
-        return None, None
-
-    title = request_json['title']
-
-    if request_json and 'reco_type' in request_json:
-        reco_type = request_json['reco_type']
-    else:
-        reco_type = None
-
-    return title, reco_type
 
 
 def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
@@ -1442,14 +1428,14 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 def main(request: Request) -> str:
     """entry point to http-invoked cloud function"""
 
-    title, reco_type = get_requested_title(request)
+    try:
+        user_request = UserRequest.model_validate_json(request.data)
+    except ValidationError as ve:
+        return FailResponse(fail_reason=str(ve)).as_response()
 
-    if not title:
-        return FailResponse(fail_reason='no title provided', request=str(request.data)).as_response()
-
-    reco_title = recognize_title(title, reco_type)
+    reco_title = recognize_title(user_request.title, user_request.reco_type)
 
     if not reco_title or ('topic_type' in reco_title.keys() and reco_title['topic_type'] == 'UNRECOGNIZED'):
-        return FailResponse(fail_reason='not able to recognize', title=title, request=str(request.data)).as_response()
+        return FailResponse(fail_reason='not able to recognize', request=str(request.data)).as_response()
 
-    return OkResponse(title=title, recognition=reco_title).as_response()
+    return OkResponse(title=user_request.title, recognition=reco_title).as_response()
