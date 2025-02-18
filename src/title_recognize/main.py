@@ -1,7 +1,8 @@
 import logging
 import re
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, Union, Any
+from typing import Any, Dict, Union
 
 import functions_framework
 from dateutil import relativedelta
@@ -36,6 +37,44 @@ class OkResponse(FlaskResponseBase):
     status: str = 'ok'
 
 
+@dataclass
+class Block:
+    block_num: Any = None
+    init: Any = None
+    reco: Any = None
+    type: Any = None
+    done: Any = None
+
+
+@dataclass
+class PersonGroup:
+    block_num: Any = None
+    type: Any = None  # TODO rename
+    num_of_per: Any = None
+    display_name: Any = None
+    name: Any = None
+    age: Any = None
+    age_min: Any = None
+    age_max: Any = None
+    age_wording: Any = None
+
+
+@dataclass
+class TitleRecognition:
+    init: Any = None
+    pretty: Any = None
+    blocks: list = field(default_factory=list)
+    groups: list = field(default_factory=list)
+    reco: Any = None
+    st: Any = None
+    tr: Any = None
+    act: Any = None
+    avia: Any = None
+    per_num: Any = None
+    per_list: list = field(default_factory=list)
+    loc_list: list = field(default_factory=list)
+
+
 def get_requested_title(request: Request) -> tuple[str, str]:
     """gets the title from the incoming request"""
 
@@ -57,79 +96,6 @@ def get_requested_title(request: Request) -> tuple[str, str]:
 
 def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
     """Recognize LA Thread Subject (Title) and return a dict of recognized parameters"""
-
-    class Block:
-        def __init__(
-            self, block_number=None, init_text=None, reco_data=None, type_of_block=None, recognition_done=False
-        ):
-            self.block_num = block_number
-            self.init = init_text
-            self.reco = reco_data
-            self.type = type_of_block
-            self.done = recognition_done
-
-        def __str__(self):
-            return str(self.block_num), self.done, self.init, self.reco, self.type
-
-    class PersonGroup:
-        def __init__(
-            self,
-            number=None,
-            person_type=None,
-            num_of_individuals=None,
-            pseudonym=None,
-            family_name=None,
-            age_years=None,
-            age_min=None,
-            age_max=None,
-            age_words=None,
-        ):
-            self.block_num = number
-            self.type = person_type
-            self.num_of_per = num_of_individuals
-            self.display_name = pseudonym
-            self.name = family_name
-            self.age = age_years
-            self.age_min = age_min
-            self.age_max = age_max
-            self.age_wording = age_words
-
-        def __str__(self):
-            return str(self.block_num), self.display_name, self.name, self.age, self.age_wording
-
-    class TitleRecognition:
-        def __init__(
-            self,
-            initial_title=None,
-            prettified_title=None,
-            recognised_data=None,
-            blocks_of_pers_and_locs=None,  # noqa
-            groups_of_pers_and_locs=None,  # noqa
-            status=None,
-            training=None,
-            activity=None,
-            avia=None,
-            per_num=None,
-            per_list=None,  # noqa
-            loc_list=None,  # noqa
-        ):
-            blocks_of_pers_and_locs, groups_of_pers_and_locs, per_list, loc_list = [], [], [], []  # noqa
-
-            self.init = initial_title
-            self.pretty = prettified_title
-            self.blocks = blocks_of_pers_and_locs
-            self.groups = []
-            self.reco = recognised_data
-            self.st = status
-            self.tr = training
-            self.act = activity
-            self.avia = avia
-            self.per_num = per_num
-            self.per_list = per_list
-            self.loc_list = loc_list
-
-        def __str__(self):
-            return str([self.init, str(self.blocks)])
 
     def match_type_to_pattern(pattern_type):
         """Return a list of regex patterns (with additional parameters) for a specific type"""

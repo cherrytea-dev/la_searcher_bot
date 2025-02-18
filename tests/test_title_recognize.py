@@ -1,7 +1,9 @@
-from flask import Flask
-from unittest.mock import patch, Mock
-from title_recognize import main
+from unittest.mock import Mock, patch
+
 import pytest
+from flask import Flask
+
+from title_recognize import main
 
 
 @pytest.fixture
