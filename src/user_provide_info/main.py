@@ -48,9 +48,9 @@ class Search(BaseModel):
 
 class BaseUserParams(BaseModel):
     curr_user: bool
-    home_lat: float
-    home_lon: float
-    radius: int
+    home_lat: float | None
+    home_lon: float | None
+    radius: int | None
     regions: list[int]
     searches: list[Search]
 
