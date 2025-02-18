@@ -5,6 +5,7 @@ from flask import Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from _dependencies.commons import setup_google_logging
+
 from ._utils.recognizer import recognize_title
 
 setup_google_logging()
