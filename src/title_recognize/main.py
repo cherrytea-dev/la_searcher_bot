@@ -1,8 +1,7 @@
-import json
 import logging
 import re
 from datetime import datetime
-from typing import Dict, Union
+from typing import Dict, Union, Any
 
 import functions_framework
 from dateutil import relativedelta
@@ -16,9 +15,25 @@ setup_google_logging()
 
 
 class FlaskResponseBase(BaseModel):
-    def as_response(self) -> tuple[str, int, dict]:
+    status: str
+
+    def as_response(self) -> str:
+        # todo make response with code and headers
         headers = {}
-        return self.model_dump_json(), 200, headers
+        return self.model_dump_json()
+
+
+class FailResponse(FlaskResponseBase):
+    fail_reason: str
+    title: str | None = None  # #do we need it?
+    request: str  # #do we need it?
+    status: str = 'fail'
+
+
+class OkResponse(FlaskResponseBase):
+    title: str | None = None  # #do we need it?
+    recognition: Any
+    status: str = 'ok'
 
 
 def get_requested_title(request: Request) -> tuple[str, str]:
@@ -1464,23 +1479,11 @@ def main(request: Request) -> str:
     title, reco_type = get_requested_title(request)
 
     if not title:
-        response = {'status': 'fail', 'fail_reason': 'no title provided', 'request': str(request.data)}
-        response_json = json.dumps(response)
-        return response_json
+        return FailResponse(fail_reason='no title provided', request=str(request.data)).as_response()
 
     reco_title = recognize_title(title, reco_type)
 
     if not reco_title or ('topic_type' in reco_title.keys() and reco_title['topic_type'] == 'UNRECOGNIZED'):
-        response = {
-            'status': 'fail',
-            'fail_reason': 'not able to recognize',
-            'title': title,
-            'request': str(request.data),
-        }
-        response_json = json.dumps(response)
-        return response_json
+        return FailResponse(fail_reason='not able to recognize', title=title, request=str(request.data)).as_response()
 
-    response = {'status': 'ok', 'title': title, 'recognition': reco_title}
-    response_json = json.dumps(response)
-
-    return response_json
+    return OkResponse(title=title, recognition=reco_title).as_response()

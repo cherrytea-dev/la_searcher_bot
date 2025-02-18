@@ -1,5 +1,5 @@
 from flask import Flask
-
+from unittest.mock import patch, Mock
 from title_recognize import main
 import pytest
 
@@ -10,15 +10,25 @@ def app() -> Flask:
 
 
 def test_main_positive(app: Flask):
-    with app.test_request_context('/', json={'title': 'Пропал человек'}) as app:
-        res = main.main(app.request)
+    with app.test_request_context('/', json={'title': 'Пропал человек'}) as app_request:
+        res = main.main(app_request.request)
 
     assert 'fail' not in res
 
 
 def test_main_wrong_request(app: Flask):
-    with app.test_request_context('/', json={'foo': 'bar'}) as app:
-        res = main.main(app.request)
+    with app.test_request_context('/', json={'foo': 'bar'}) as app_request:
+        res = main.main(app_request.request)
+
+    assert 'fail' in res
+
+
+def test_main_unrecognized(app: Flask):
+    with (
+        app.test_request_context('/', json={'title': 'Пропал человек'}) as app_request,
+        patch.object(main, 'recognize_title', Mock(return_value=None)),
+    ):
+        res = main.main(app_request.request)
 
     assert 'fail' in res
 
