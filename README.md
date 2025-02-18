@@ -83,8 +83,8 @@ Apply initial settings (.env, VSCode):
 ``` bash
 cp .vscode/launch.template.json .vscode/launch.json
 cp .vscode/settings.template.json .vscode/settings.json
-cp .env.template .env
-cp .env.template .env.test
+cp .env.example .env
+cp .env.example .env.test
 ```
 
 Initialize schema for test db: `make initdb` (it will take values from `.env.test` file)

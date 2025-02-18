@@ -60,7 +60,7 @@ def test_main_query_str(app: Flask):
         'user': str(user_data).replace("'", '"').replace(' ', ''),
         'auth_date': 1739639621,
         'signature': '-NKmZbtIMmvVNG_TWPKGwcxAyrEugx7ARhXMmNDIqsA18tr_xNjzC5EoEGTmOhbLtUDJ2lBgrOV78VzTRUR8CA',
-        'hash': 'b798f5038b718cccadbda76830eb25f34328820b605b25e8bbdcecad5ac034ef',  # calculated in debug mode
+        'hash': '4d7e3fae1f4ea4df602d2601fb0d9e2c4d15005bb432e3d4180e0fccfbd402fb',  # calculated in debug mode
     }
     query = urlencode(query_dict, quote_via=quote)
     with app.test_request_context('/', method='POST', json=query) as app_request:
