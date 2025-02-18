@@ -63,7 +63,7 @@ class PersonGroup:
 class TitleRecognition:
     init: Any = None
     pretty: Any = None
-    blocks: list = field(default_factory=list)
+    blocks: list[Block] = field(default_factory=list)
     groups: list = field(default_factory=list)
     reco: Any = None
     st: Any = None
@@ -438,7 +438,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
         return curr_recognition_blocks_b1
 
-    def split_status_training_activity(initial_title, prettified_title):
+    def split_status_training_activity(initial_title, prettified_title) -> TitleRecognition:
         """Create an initial 'Recognition' object and recognize data for Status, Training, Activity, Avia"""
 
         list_of_pattern_types = [
@@ -552,7 +552,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
         return recognition
 
-    def split_per_from_loc_blocks(recognition):
+    def split_per_from_loc_blocks(recognition: TitleRecognition) -> TitleRecognition:
         """Split the string with persons and locations into two blocks of persons and locations"""
 
         patterns_list = [
@@ -649,7 +649,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
         return recognition
 
-    def split_per_and_loc_blocks_to_groups(recognition):
+    def split_per_and_loc_blocks_to_groups(recognition: TitleRecognition) -> TitleRecognition:
         """Split the recognized Block with aggregated persons/locations to separate Groups of individuals/addresses"""
 
         for block in recognition.blocks:
@@ -695,7 +695,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
         return recognition
 
     def age_wording(age):
-        # TODO DOUBLE
+        # TODO DOUBLE age_writer
         """Return age-describing phrase in Russian for age as integer"""
 
         a = age // 100
@@ -711,7 +711,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
         return wording
 
-    def define_person_display_name_and_age(curr_recognition):
+    def define_person_display_name_and_age(curr_recognition: TitleRecognition) -> TitleRecognition:
         """Recognize the Displayed Name (Pseudonym) for ALL person/groups as well as ages"""
 
         def define_number_of_persons(name_string):
@@ -1039,7 +1039,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
         return curr_recognition
 
-    def define_person_block_display_name_and_age_range(curr_recognition):
+    def define_person_block_display_name_and_age_range(curr_recognition: TitleRecognition) -> TitleRecognition:
         """Define the Displayed Name (Pseudonym) and Age Range for the whole Persons Block"""
 
         # level of PERSON BLOCKS (likely to be only one for each title)
@@ -1129,7 +1129,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
         return curr_recognition
 
-    def prettify_loc_group_address(curr_recognition):
+    def prettify_loc_group_address(curr_recognition: TitleRecognition) -> TitleRecognition:
         """Prettify (delete unneeded symbols) every location address"""
 
         for location in curr_recognition.groups:
@@ -1139,7 +1139,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
         return curr_recognition
 
-    def define_loc_block_summary(curr_recognition):
+    def define_loc_block_summary(curr_recognition: TitleRecognition) -> TitleRecognition:
         """For Debug and not for real prod use. Define the cumulative location string based on addresses"""
 
         # level of PERSON BLOCKS (should be only one for each title)
@@ -1157,7 +1157,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
         return curr_recognition
 
-    def define_general_status(recognition):
+    def define_general_status(recognition: TitleRecognition) -> TitleRecognition:
         """In rare cases searches have 2 statuses: or by mistake or due to differences between lost persons' statues"""
 
         # FIXME - 07.11.2023 – for status_only debug
@@ -1206,7 +1206,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
         return recognition
 
-    def calculate_total_num_of_persons(recognition):
+    def calculate_total_num_of_persons(recognition: TitleRecognition) -> TitleRecognition:
         """Define the Total number of persons to search"""
 
         if recognition.act == 'search':
@@ -1270,7 +1270,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
         return recognition
 
-    def generate_final_reco_dict(recognition):
+    def generate_final_reco_dict(recognition: TitleRecognition):
         """Generate the final outcome dictionary for recognized title"""
 
         final_dict = {}
