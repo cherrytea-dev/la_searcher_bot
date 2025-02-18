@@ -7,7 +7,62 @@ from dateutil import relativedelta
 from natasha import Doc, NewsEmbedding, NewsNERTagger, Segmenter
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from .title_commons import Block, PersonGroup, TitleRecognition, age_wording
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
+class Block:
+    block_num: Any = None
+    init: str = None
+    reco: Any = None
+    type: Any = None
+    done: bool = False
+
+
+@dataclass
+class PersonGroup:
+    block_num: Any = None
+    type: Any = None  # TODO rename
+    num_of_per: Any = None
+    display_name: Any = None
+    name: Any = None
+    age: Any = None
+    age_min: Any = None
+    age_max: Any = None
+    age_wording: Any = None
+
+
+@dataclass
+class TitleRecognition:
+    init: Any = None
+    pretty: Any = None
+    blocks: list[Block] = field(default_factory=list)
+    groups: list = field(default_factory=list)
+    reco: Any = None
+    st: Any = None
+    tr: Any = None
+    act: Any = None
+    avia: Any = None
+    per_num: Any = None
+
+
+def age_wording(age: int) -> str:
+    # TODO DOUBLE age_writer
+    """Return age-describing phrase in Russian for age as integer"""
+
+    a = age // 100
+    b = (age - a * 100) // 10
+    c = age - a * 100 - b * 10
+
+    if c == 1 and b != 1:
+        wording = 'год'
+    elif (c in {2, 3, 4}) and b != 1:
+        wording = 'года'
+    else:
+        wording = 'лет'
+
+    return wording
 
 
 def match_type_to_pattern(pattern_type):
@@ -355,7 +410,7 @@ def update_full_blocks_with_new(init_num_of_the_block_to_split, prev_recognition
     return curr_recognition_blocks_b1
 
 
-def split_status_training_activity(initial_title, prettified_title) -> TitleRecognition:
+def split_status_training_activity(initial_title: str, prettified_title: str) -> TitleRecognition:
     """Create an initial 'Recognition' object and recognize data for Status, Training, Activity, Avia"""
 
     list_of_pattern_types = [
@@ -366,9 +421,7 @@ def split_status_training_activity(initial_title, prettified_title) -> TitleReco
         'ACT',
     ]
 
-    recognition = TitleRecognition()
-    recognition.init = initial_title
-    recognition.pretty = prettified_title
+    recognition = TitleRecognition(init=initial_title, pretty=prettified_title)
 
     first_block = Block()
     first_block.block_num = 0
@@ -1175,153 +1228,153 @@ def calculate_total_num_of_persons(recognition: TitleRecognition) -> TitleRecogn
     return recognition
 
 
-def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
-    """Recognize LA Thread Subject (Title) and return a dict of recognized parameters"""
+def generate_final_reco_dict(recognition: TitleRecognition):
+    """Generate the final outcome dictionary for recognized title"""
 
-    def generate_final_reco_dict(recognition: TitleRecognition):
-        """Generate the final outcome dictionary for recognized title"""
+    final_dict = {}
 
-        final_dict = {}
-
-        """
-        SCHEMA:
-        {topic_type = search / search reverse / search patrol / search training / event / info,
-        [optional, only for search] avia = True / False,
-        [optional, only for search / search reverse] status,
-        [optional, only for search] persons =
-            {
-            total_persons = [1-9] / group / undefined
-            age_min = [0-199]
-            age_max = [0-199]
-            total_name = name of the first person
-            total_display_name = display name + age (age range)
-            person =
-                [
-                [optional] person =
-                    {
-                    name = one-word description,
-                    [optional] age = [0-199] in years,
-                    [optional] age_min = [0-199] in years,
-                    [optional] age_max = [0-199] in years,
-                    display_name = display name + age,
-                    number_of_persons = -1 or [1-9] (only in this group of persons)
-                    }
-                ]
-            }
-        [optional, only for search] locations =
+    """
+    SCHEMA:
+    {topic_type = search / search reverse / search patrol / search training / event / info,
+    [optional, only for search] avia = True / False,
+    [optional, only for search / search reverse] status,
+    [optional, only for search] persons =
+        {
+        total_persons = [1-9] / group / undefined
+        age_min = [0-199]
+        age_max = [0-199]
+        total_name = name of the first person
+        total_display_name = display name + age (age range)
+        person =
             [
+            [optional] person =
                 {
-                address = string
+                name = one-word description,
+                [optional] age = [0-199] in years,
+                [optional] age_min = [0-199] in years,
+                [optional] age_max = [0-199] in years,
+                display_name = display name + age,
+                number_of_persons = -1 or [1-9] (only in this group of persons)
                 }
             ]
         }
-        """
+    [optional, only for search] locations =
+        [
+            {
+            address = string
+            }
+        ]
+    }
+    """
 
+    # FIXME - 07.11.2023 – for status_only debug
+    for block in recognition.blocks:
+        logging.info(f'1 RECO BLOCKS: {block.type=}, {block.init=}, {block.reco=}, {block.block_num=}')
+    logging.info(f'1 RECO ST: {recognition.st}')
+    # FIXME ^^^
+
+    persons_identified = False
+    for block in recognition.blocks:
+        if block.type == 'PER':
+            persons_identified = True
+            break
+
+    if not recognition.act and not recognition.st and persons_identified:
+        recognition.act = 'search'
+        recognition.st = 'Ищем'
         # FIXME - 07.11.2023 – for status_only debug
-        for block in recognition.blocks:
-            logging.info(f'1 RECO BLOCKS: {block.type=}, {block.init=}, {block.reco=}, {block.block_num=}')
-        logging.info(f'1 RECO ST: {recognition.st}')
+        logging.info(f'2 RECO ST: {recognition.st}')
         # FIXME ^^^
 
-        persons_identified = False
+    if recognition.act and not recognition.st and recognition.tr:
+        recognition.st = 'Ищем'
+
+    if recognition.act:
+        final_dict['topic_type'] = recognition.act
+    else:
+        final_dict['topic_type'] = 'UNRECOGNIZED'
+
+    if recognition.avia:
+        final_dict['avia'] = True
+
+    if recognition.st:
+        final_dict['status'] = recognition.st
+
+    persons = []
+    locations = []
+    for block in recognition.groups:
+        if block.type == 'ACT':
+            final_dict['topic_type'] = block.reco
+
+        elif block.type and block.type[0] == 'P':
+            individual_dict = {}
+            if block.reco.name:
+                individual_dict['name'] = block.reco.name
+            if block.reco.age:
+                individual_dict['age'] = block.reco.age
+            if block.reco.age_min:
+                individual_dict['age_min'] = block.reco.age_min
+            if block.reco.age_max:
+                individual_dict['age_max'] = block.reco.age_max
+            if block.reco.display_name:
+                individual_dict['display_name'] = block.reco.display_name
+            if block.reco.num_of_per:
+                individual_dict['number_of_persons'] = block.reco.num_of_per
+            if individual_dict:
+                persons.append(individual_dict)
+
+        elif block.type and block.type[0] == 'L':
+            individual_dict = {}
+            if block.reco:
+                individual_dict['address'] = block.reco
+            if individual_dict:
+                locations.append(individual_dict)
+
+    if recognition.tr:
+        final_dict['topic_type'] = 'search training'
+
+    if persons:
+        summary = {}
         for block in recognition.blocks:
-            if block.type == 'PER':
-                persons_identified = True
+            if block.type and block.type == 'PER':
+                summary['total_persons'] = block.reco.block_num
+                summary['total_name'] = block.reco.name
+                summary['total_display_name'] = block.reco.display_name
+                if isinstance(block.reco.age, list) and len(block.reco.age) > 0:
+                    summary['age_min'] = block.reco.age[0]
+                    summary['age_max'] = block.reco.age[-1]
+                elif isinstance(block.reco.age, list):
+                    summary['age_min'] = None
+                    summary['age_max'] = None
+                else:
+                    summary['age_min'] = block.reco.age
+                    summary['age_max'] = block.reco.age
                 break
 
-        if not recognition.act and not recognition.st and persons_identified:
-            recognition.act = 'search'
-            recognition.st = 'Ищем'
-            # FIXME - 07.11.2023 – for status_only debug
-            logging.info(f'2 RECO ST: {recognition.st}')
-            # FIXME ^^^
+        summary['person'] = persons
+        final_dict['persons'] = summary
 
-        if recognition.act and not recognition.st and recognition.tr:
-            recognition.st = 'Ищем'
+    if locations:
+        final_dict['locations'] = locations
 
-        if recognition.act:
-            final_dict['topic_type'] = recognition.act
-        else:
-            final_dict['topic_type'] = 'UNRECOGNIZED'
+    # placeholders if no persons
+    if final_dict['topic_type'] in {'search', 'search training'} and 'persons' not in final_dict.keys():
+        per_dict = {'total_persons': -1, 'total_name': 'Неизвестный', 'total_display_name': 'Неизвестный'}
+        final_dict['persons'] = per_dict
 
-        if recognition.avia:
-            final_dict['avia'] = True
+    if (
+        'persons' in final_dict.keys()
+        and 'total_persons' in final_dict['persons'].keys()
+        and final_dict['persons']['total_persons'] == -1
+        and recognition.per_num == 1
+    ):
+        final_dict['persons']['total_persons'] = 1
 
-        if recognition.st:
-            final_dict['status'] = recognition.st
+    return final_dict
 
-        persons = []
-        locations = []
-        for block in recognition.groups:
-            if block.type == 'ACT':
-                final_dict['topic_type'] = block.reco
 
-            elif block.type and block.type[0] == 'P':
-                individual_dict = {}
-                if block.reco.name:
-                    individual_dict['name'] = block.reco.name
-                if block.reco.age:
-                    individual_dict['age'] = block.reco.age
-                if block.reco.age_min:
-                    individual_dict['age_min'] = block.reco.age_min
-                if block.reco.age_max:
-                    individual_dict['age_max'] = block.reco.age_max
-                if block.reco.display_name:
-                    individual_dict['display_name'] = block.reco.display_name
-                if block.reco.num_of_per:
-                    individual_dict['number_of_persons'] = block.reco.num_of_per
-                if individual_dict:
-                    persons.append(individual_dict)
-
-            elif block.type and block.type[0] == 'L':
-                individual_dict = {}
-                if block.reco:
-                    individual_dict['address'] = block.reco
-                if individual_dict:
-                    locations.append(individual_dict)
-
-        if recognition.tr:
-            final_dict['topic_type'] = 'search training'
-
-        if persons:
-            summary = {}
-            for block in recognition.blocks:
-                if block.type and block.type == 'PER':
-                    summary['total_persons'] = block.reco.block_num
-                    summary['total_name'] = block.reco.name
-                    summary['total_display_name'] = block.reco.display_name
-                    if isinstance(block.reco.age, list) and len(block.reco.age) > 0:
-                        summary['age_min'] = block.reco.age[0]
-                        summary['age_max'] = block.reco.age[-1]
-                    elif isinstance(block.reco.age, list):
-                        summary['age_min'] = None
-                        summary['age_max'] = None
-                    else:
-                        summary['age_min'] = block.reco.age
-                        summary['age_max'] = block.reco.age
-                    break
-
-            summary['person'] = persons
-            final_dict['persons'] = summary
-
-        if locations:
-            final_dict['locations'] = locations
-
-        # placeholders if no persons
-        if final_dict['topic_type'] in {'search', 'search training'} and 'persons' not in final_dict.keys():
-            per_dict = {'total_persons': -1, 'total_name': 'Неизвестный', 'total_display_name': 'Неизвестный'}
-            final_dict['persons'] = per_dict
-
-        if (
-            'persons' in final_dict.keys()
-            and 'total_persons' in final_dict['persons'].keys()
-            and final_dict['persons']['total_persons'] == -1
-            and recognition_result.per_num == 1
-        ):
-            final_dict['persons']['total_persons'] = 1
-
-        return final_dict
-
+def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
+    """Recognize LA Thread Subject (Title) and return a dict of recognized parameters"""
     prettified_line = clean_and_prettify(line)
     recognition_result = split_status_training_activity(line, prettified_line)
 
