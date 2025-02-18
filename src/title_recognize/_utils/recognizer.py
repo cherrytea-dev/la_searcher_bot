@@ -9,6 +9,13 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from dataclasses import dataclass, field
 from typing import Any
+from re import Match
+from typing import Tuple
+from title_recognize._utils.recognizer import PersonGroup
+from title_recognize._utils.recognizer import Block
+from typing import List
+from typing import Optional
+from title_recognize._utils.recognizer import TitleRecognition
 
 
 @dataclass
@@ -65,7 +72,7 @@ def age_wording(age: int) -> str:
     return wording
 
 
-def match_type_to_pattern(pattern_type):
+def match_type_to_pattern(pattern_type: str) -> List[List[str]]:
     """Return a list of regex patterns (with additional parameters) for a specific type"""
 
     if not pattern_type:
@@ -322,7 +329,7 @@ def match_type_to_pattern(pattern_type):
         return patterns
 
 
-def recognize_a_pattern(pattern_type, input_string):
+def recognize_a_pattern(pattern_type: str, input_string: str) -> Tuple[Optional[List[Union[None, str, Block]]], Optional[str]]:
     """Recognize data in a string with help of given pattern type"""
 
     block = None
@@ -370,7 +377,7 @@ def clean_and_prettify(string: str) -> str:
     return string
 
 
-def update_full_blocks_with_new(init_num_of_the_block_to_split, prev_recognition, recognized_blocks):
+def update_full_blocks_with_new(init_num_of_the_block_to_split: int, prev_recognition: TitleRecognition, recognized_blocks: Optional[List[Union[None, str, Block]]]) -> List[Block]:
     """Update the 'b1 Blocks' with the new recognized information"""
 
     if recognized_blocks:
@@ -498,7 +505,7 @@ def check_word_by_natasha(string_to_check, direction):
     return match_found
 
 
-def update_reco_with_per_and_loc_blocks(recognition, string_to_split, block, marker):
+def update_reco_with_per_and_loc_blocks(recognition: TitleRecognition, string_to_split: str, block: Block, marker: int) -> TitleRecognition:
     """Update the Recognition object with two separated Blocks for Persons and Locations"""
 
     recognized_blocks = []
@@ -671,7 +678,7 @@ def split_per_and_loc_blocks_to_groups(recognition: TitleRecognition) -> TitleRe
 def define_person_display_name_and_age(curr_recognition: TitleRecognition) -> TitleRecognition:
     """Recognize the Displayed Name (Pseudonym) for ALL person/groups as well as ages"""
 
-    def define_number_of_persons(name_string):
+    def define_number_of_persons(name_string: str) -> Tuple[int, Match]:
         """Define and return the number of persons out of string input"""
 
         name_string_end = 'None'
@@ -722,7 +729,7 @@ def define_person_display_name_and_age(curr_recognition: TitleRecognition) -> Ti
 
         return number_of_persons, block
 
-    def define_age_of_person(block, name_string, person_reco):
+    def define_age_of_person(block: Match, name_string: str, person_reco: PersonGroup) -> PersonGroup:
         """Define and return the age (given or estimation based on birth year) for a person"""
 
         age = None
@@ -793,7 +800,7 @@ def define_person_display_name_and_age(curr_recognition: TitleRecognition) -> Ti
 
         return person_reco
 
-    def define_display_name(block, person_reco):
+    def define_display_name(block: Match, person_reco: PersonGroup) -> PersonGroup:
         """Define and record the name / pseudonym that will be displayed to users"""
 
         # DISPLAY NAME (PSEUDONYM) IDENTIFICATION
@@ -817,7 +824,7 @@ def define_person_display_name_and_age(curr_recognition: TitleRecognition) -> Ti
 
         return person_reco
 
-    def define_age_of_person_by_natasha(person_reco, name_string):
+    def define_age_of_person_by_natasha(person_reco: PersonGroup, name_string: str) -> PersonGroup:
         """Define and return the age for a person if the predecessor symbols are recognized as Person by Natasha"""
 
         # last chance to define number of persons in group - with help of Natasha
@@ -836,7 +843,7 @@ def define_person_display_name_and_age(curr_recognition: TitleRecognition) -> Ti
 
         return person_reco
 
-    def recognize_one_person_group(person):
+    def recognize_one_person_group(person: Block) -> PersonGroup:
         """Recognize the Displayed Name (Pseudonym) for a SINGLE person/group as well as age"""
 
         name_string = person.init
