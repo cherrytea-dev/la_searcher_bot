@@ -127,3 +127,169 @@ class TestPersonRecognize:
             age_max=None,
             age_wording='',
         )
+
+
+class TestPersonRecognizeAIGenerated:
+    def test_recognize_one_person_group_case_0(self):
+        block = Block(init='3 человека', type='PER')
+        result = recognize_one_person_group(block)
+        assert result == PersonGroup(
+            block_num=None,
+            type=None,
+            num_of_per=3,
+            display_name='3 человека',
+            name='3 человека',
+            age=None,
+            age_min=None,
+            age_max=None,
+            age_wording='',
+        )
+
+    def test_recognize_one_person_group_case_1(self):
+        block = Block(init='10 лет', type='PER')
+        result = recognize_one_person_group(block)
+        assert result == PersonGroup(
+            block_num='R',
+            type=None,
+            num_of_per=1,
+            display_name='Ребёнок 10 лет',
+            name='Ребёнок',
+            age=10,
+            age_min=None,
+            age_max=None,
+            age_wording='',
+        )
+
+    def test_recognize_one_person_group_case_2(self):
+        block = Block(init='2 женщины 25, 30 лет', type='PER')
+        result = recognize_one_person_group(block)
+        assert result == PersonGroup(
+            block_num='R',
+            type=None,
+            num_of_per=2,
+            display_name='2 человека 25–30 лет',
+            name='2 человека',
+            age=None,
+            age_min=25,
+            age_max=30,
+            age_wording='',
+        )
+
+    def test_recognize_one_person_group_case_3(self):
+        block = Block(init='дети 5, 7, 10 лет', type='PER')
+        result = recognize_one_person_group(block)
+        assert result == PersonGroup(
+            block_num='R',
+            type=None,
+            num_of_per=-1,
+            display_name='Дети 5–10 лет',
+            name='Дети',
+            age=None,
+            age_min=5,
+            age_max=10,
+            age_wording='',
+        )
+
+    def test_recognize_one_person_group_case_4(self):
+        block = Block(init='мужчина', type='PER')
+        result = recognize_one_person_group(block)
+        assert result == PersonGroup(
+            block_num='R',
+            type=None,
+            num_of_per=1,
+            display_name='Человек',
+            name='мужчина',
+            age=None,
+            age_min=None,
+            age_max=None,
+            age_wording='',
+        )
+
+    def test_recognize_one_person_group_cyrillic(self):
+        block = Block(init='Мужчина 45 лет', type='PER')
+        result = recognize_one_person_group(block)
+        assert result == PersonGroup(
+            block_num='R',
+            type=None,
+            num_of_per=1,
+            display_name='Мужчина 45 лет',
+            name='Мужчина',
+            age=45,
+            age_min=None,
+            age_max=None,
+            age_wording=' 45 лет',
+        )
+
+    def test_recognize_one_person_group_large_age(self):
+        block = Block(init='Человек 150 лет', type='PER')
+        result = recognize_one_person_group(block)
+        assert result == PersonGroup(
+            block_num='R',
+            type=None,
+            num_of_per=1,
+            display_name='Человек 150 лет',
+            name='Человек',
+            age=150,
+            age_min=None,
+            age_max=None,
+            age_wording=' 150 лет',
+        )
+
+    def test_recognize_one_person_group_with_special_characters(self):
+        block = Block(init='  Иванов   Иван  Иванович!!!   Возраст  37  лет  ', type='PER')
+        result = recognize_one_person_group(block)
+        assert result == PersonGroup(
+            block_num='E',
+            type=None,
+            num_of_per=1,
+            display_name='Иванов 37 лет',
+            name='Иванов',
+            age=37,
+            age_min=None,
+            age_max=None,
+            age_wording=' 37 лет',
+        )
+
+    def test_recognize_one_person_group_same_age(self):
+        block = Block(init='2 человека 30 лет', type='PER')
+        result = recognize_one_person_group(block)
+        assert result == PersonGroup(
+            block_num='R',
+            type=None,
+            num_of_per=2,
+            display_name='2 человека 30 лет',
+            name='2 человека',
+            age=None,
+            age_min=30,
+            age_max=30,
+            age_wording='',
+        )
+
+    def test_recognize_one_person_group_case_двое_трое(self):
+        block = Block(init='двое мужчин 25, 30 лет', type='PER')
+        result = recognize_one_person_group(block)
+        assert result == PersonGroup(
+            block_num='R',
+            type=None,
+            num_of_per=2,
+            display_name='2 человека 25–30 лет',
+            name='2 человека',
+            age=None,
+            age_min=25,
+            age_max=30,
+            age_wording='',
+        )
+
+        block = Block(init='трое детей 5, 7, 10 лет', type='PER')
+        result = recognize_one_person_group(block)
+        assert result == PersonGroup(
+            block_num='R',
+            type=None,
+            num_of_per=3,
+            display_name='3 ребёнка 5–10 лет',
+            name='3 ребёнка',
+            age=None,
+            age_min=5,
+            age_max=10,
+            age_wording='',
+        )
