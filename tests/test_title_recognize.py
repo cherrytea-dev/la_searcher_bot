@@ -4,6 +4,8 @@ import pytest
 from flask import Flask
 
 from title_recognize import main
+from title_recognize._utils.person import recognize_one_person_group
+from title_recognize._utils.title_commons import Block, PersonGroup, TitleRecognition
 
 
 @pytest.fixture
@@ -93,3 +95,35 @@ WhatsApp Написать инфоргу в ТГ
             'person': [{'name': 'Иванова', 'age': 25, 'display_name': 'Иванова 25 лет', 'number_of_persons': 1}],
         },
     }
+
+
+class TestPersonRecognize:
+    def test_1(self):
+        block = Block(init='Иванов Иван Иванович. Возраст 37 лет', type='PER')
+        res = recognize_one_person_group(block)
+        assert res == PersonGroup(
+            block_num='E',
+            type=None,
+            num_of_per=1,
+            display_name='Иванов 37 лет',
+            name='Иванов',
+            age=37,
+            age_min=None,
+            age_max=None,
+            age_wording=' 37 лет',
+        )
+
+    def test_2(self):
+        block = Block(init='Ярославская область.', type='LOC')
+        res = recognize_one_person_group(block)
+        assert res == PersonGroup(
+            block_num='O',
+            type=None,
+            num_of_per=1,
+            display_name='Ярославская',
+            name='Ярославская',
+            age=None,
+            age_min=None,
+            age_max=None,
+            age_wording='',
+        )

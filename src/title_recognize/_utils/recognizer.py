@@ -289,11 +289,7 @@ def recognize_a_pattern(
         start_number = block.start()
         end_number = block.end()
 
-        reco_part = Block()
-        reco_part.init = block.group()
-        reco_part.reco = status
-        reco_part.type = pattern_type
-        reco_part.done = True
+        reco_part = Block(init=block.group(), reco=status, type=pattern_type, done=True)
 
         rest_part_before = input_string[:start_number] if start_number != 0 else None
         rest_part_after = input_string[end_number:] if end_number != len(input_string) else None
@@ -372,10 +368,7 @@ def split_status_training_activity(initial_title: str, prettified_title: str) ->
 
     recognition = TitleRecognition(init=initial_title, pretty=prettified_title)
 
-    first_block = Block()
-    first_block.block_num = 0
-    first_block.init = prettified_title
-    first_block.done = False
+    first_block = Block(block_num=0, init=prettified_title, done=False)
     recognition.blocks.append(first_block)
 
     # find status / training / aviation / activity – via PATTERNS
@@ -421,19 +414,11 @@ def update_reco_with_per_and_loc_blocks(
     recognized_blocks = []
 
     if len(string_to_split[:marker]) > 0:
-        name_block = Block()
-        name_block.block_num = block.block_num
-        name_block.init = string_to_split[:marker]
-        name_block.done = True
-        name_block.type = 'PER'
+        name_block = Block(block_num=block.block_num, init=string_to_split[:marker], done=True, type='PER')
         recognized_blocks.append(name_block)
 
     if len(string_to_split[marker:]) > 0:
-        location_block = Block()
-        location_block.block_num = block.block_num + 1
-        location_block.init = string_to_split[marker:]
-        location_block.done = True
-        location_block.type = 'LOC'
+        location_block = Block(block_num=block.block_num + 1, init=string_to_split[marker:], done=True, type='LOC')
         recognized_blocks.append(location_block)
 
     recognition.blocks = update_full_blocks_with_new(block.block_num, recognition, recognized_blocks)
@@ -589,10 +574,10 @@ def define_person_block_display_name_and_age_range(curr_recognition: TitleRecogn
     """Define the Displayed Name (Pseudonym) and Age Range for the whole Persons Block"""
 
     # level of PERSON BLOCKS (likely to be only one for each title)
-    num_of_per_blocks = len([x for x in curr_recognition.blocks if x.type and x.type[0] == 'P'])
-    num_of_per_groups = len([x for x in curr_recognition.groups if x.type and x.type[0] == 'P'])
+    num_of_per_blocks = len([x for x in curr_recognition.blocks if x.is_person()])
+    num_of_per_groups = len([x for x in curr_recognition.groups if x.is_person()])
     for block in curr_recognition.blocks:
-        if block.type and block.type[0] == 'P':
+        if block.is_person():
             block.reco = PersonGroup()
             final_num_of_pers = 0
             num_of_groups_in_block = 0
@@ -602,7 +587,7 @@ def define_person_block_display_name_and_age_range(curr_recognition: TitleRecogn
 
             # go to the level of PERSON GROUPS (subgroup in person block)
             for group in curr_recognition.groups:
-                if group.type and group.type[0] == 'P':
+                if group.is_person():
                     num_of_groups_in_block += 1
 
                     # STEP 1. Define the number of persons for search
@@ -678,10 +663,10 @@ def define_person_block_display_name_and_age_range(curr_recognition: TitleRecogn
 def prettify_loc_group_address(curr_recognition: TitleRecognition) -> TitleRecognition:
     """Prettify (delete unneeded symbols) every location address"""
 
-    for location in curr_recognition.groups:
-        if location.type and location.type[0] == 'L':
-            location.reco = location.init
-            location.reco = re.sub(r'[,!?\s\-–—]{1,5}$', '', location.reco)
+    for block in curr_recognition.groups:
+        if block.is_location():
+            block.reco = block.init
+            block.reco = re.sub(r'[,!?\s\-–—]{1,5}$', '', block.reco)
 
     return curr_recognition
 
@@ -691,12 +676,12 @@ def define_loc_block_summary(curr_recognition: TitleRecognition) -> TitleRecogni
 
     # level of PERSON BLOCKS (should be only one for each title)
     for block in curr_recognition.blocks:
-        if block.type and block.type[0] == 'L':
+        if block.is_location():
             block.reco = ''
 
             # go to the level of LOCATION GROUPS (subgroup in locations block)
             for individual_block in curr_recognition.groups:
-                if individual_block.type and individual_block.type[0] == 'L':
+                if individual_block.is_location():
                     block.reco += f', {individual_block.reco}'
 
             if block.reco:
@@ -758,64 +743,65 @@ def define_general_status(recognition: TitleRecognition) -> TitleRecognition:
 def calculate_total_num_of_persons(recognition: TitleRecognition) -> TitleRecognition:
     """Define the Total number of persons to search"""
 
-    if recognition.act == 'search':
-        # language=regexp
-        patterns = [
-            [r'(?i)пропала?(?!и)', True],
-            [r'(?i)пропали', False],
-            [r'(?i)ппохищена?(?!ы)', True],
-            [r'(?i)похищены', False],
-            [r'(?i)найдена?(?!ы)', True],
-            [r'(?i)найдены', False],
-            [r'(?i)жива?(?!ы)', True],
-            [r'(?i)живы', False],
-            [r'(?i)погиб(ла)?(?!ли)', True],
-            [r'(?i)погибли', False],
-        ]
+    if recognition.act != 'search':
+        return recognition
 
-        status_says_only_one_person = None  # can be None - unrecognized / True or False
+    patterns = [
+        [r'(?i)пропала?(?!и)', True],
+        [r'(?i)пропали', False],
+        [r'(?i)ппохищена?(?!ы)', True],
+        [r'(?i)похищены', False],
+        [r'(?i)найдена?(?!ы)', True],
+        [r'(?i)найдены', False],
+        [r'(?i)жива?(?!ы)', True],
+        [r'(?i)живы', False],
+        [r'(?i)погиб(ла)?(?!ли)', True],
+        [r'(?i)погибли', False],
+    ]
 
-        for block in recognition.blocks:
-            if block.type == 'ST':
-                for pattern in patterns:
-                    match = re.search(pattern[0], block.init)
-                    if match:
-                        # as per statistics of 27k cases these was no single case when
-                        # there were two contradictory statuses
-                        status_says_only_one_person = pattern[1]
-                        break
-                else:
-                    continue
-                break
+    status_says_only_one_person = None  # can be None - unrecognized / True or False
 
-        pers_list = []
-        for block in recognition.groups:
-            if block.type and block.type[0] == 'P':
-                pers_list.append(block.reco.num_of_per)
-
-        # per_blocks_says can be: [1-9] / 'group' / 'unidentified'
-        if not pers_list:
-            per_blocks_says = 'unidentified'
-        else:
-            if min(pers_list) == -1 and len(pers_list) > 1:
-                per_blocks_says = 'group'
-            elif min(pers_list) == -1 and len(pers_list) == 1:
-                per_blocks_says = 'unidentified'
-            else:  # that means = min(pers_list) > -1:
-                per_blocks_says = sum(pers_list)
-
-        # total_num_of_persons can be: [1-9] / 'group' / 'unidentified'
-        if per_blocks_says == 'unidentified':
-            if status_says_only_one_person == True:  # noqa – intentively to highlight that it is not False / None
-                total_num_of_persons = 1
-            elif status_says_only_one_person == False:  # noqa – to aviod case of 'None'
-                total_num_of_persons = 'group'
+    for block in recognition.blocks:
+        if block.type == 'ST':
+            for pattern in patterns:
+                match = re.search(pattern[0], block.init)
+                if match:
+                    # as per statistics of 27k cases these was no single case when
+                    # there were two contradictory statuses
+                    status_says_only_one_person = pattern[1]
+                    break
             else:
-                total_num_of_persons = 'unidentified'
-        else:
-            total_num_of_persons = per_blocks_says
+                continue
+            break
 
-        recognition.per_num = total_num_of_persons
+    pers_list = []
+    for block in recognition.groups:
+        if block.is_person():
+            pers_list.append(block.reco.num_of_per)
+
+    # per_blocks_says can be: [1-9] / 'group' / 'unidentified'
+    if not pers_list:
+        per_blocks_says = 'unidentified'
+    else:
+        if min(pers_list) == -1 and len(pers_list) > 1:
+            per_blocks_says = 'group'
+        elif min(pers_list) == -1 and len(pers_list) == 1:
+            per_blocks_says = 'unidentified'
+        else:  # that means = min(pers_list) > -1:
+            per_blocks_says = sum(pers_list)
+
+    # total_num_of_persons can be: [1-9] / 'group' / 'unidentified'
+    if per_blocks_says == 'unidentified':
+        if status_says_only_one_person == True:  # noqa – intentively to highlight that it is not False / None
+            total_num_of_persons = 1
+        elif status_says_only_one_person == False:  # noqa – to aviod case of 'None'
+            total_num_of_persons = 'group'
+        else:
+            total_num_of_persons = 'unidentified'
+    else:
+        total_num_of_persons = per_blocks_says
+
+    recognition.per_num = total_num_of_persons
 
     return recognition
 
@@ -898,7 +884,7 @@ def generate_final_reco_dict(recognition: TitleRecognition):
         if block.type == 'ACT':
             final_dict['topic_type'] = block.reco
 
-        elif block.type and block.type[0] == 'P':
+        elif block.is_person():
             individual_dict = {}
             if block.reco.name:
                 individual_dict['name'] = block.reco.name
@@ -915,7 +901,7 @@ def generate_final_reco_dict(recognition: TitleRecognition):
             if individual_dict:
                 persons.append(individual_dict)
 
-        elif block.type and block.type[0] == 'L':
+        elif block.is_location():
             individual_dict = {}
             if block.reco:
                 individual_dict['address'] = block.reco

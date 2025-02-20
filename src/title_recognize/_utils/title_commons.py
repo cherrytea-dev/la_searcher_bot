@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -19,30 +20,37 @@ class PersonGroup:
 
 @dataclass
 class Block:
-    block_num: Any = None
+    block_num: int = 0
     init: str = None
     reco: PersonGroup = None
-    type: Any = None
+    type: str | None = None
     done: bool = False
+
+    def is_person(self) -> bool:
+        return self.type and self.type.startswith('P')
+
+    def is_location(self) -> bool:
+        return self.type and self.type.startswith('L')
 
 
 @dataclass
 class TitleRecognition:
-    init: Any = None
-    pretty: Any = None
+    init: str
+    pretty: str
     blocks: list[Block] = field(default_factory=list)
     groups: list[Block] = field(default_factory=list)
     reco: Any = None
     st: Any = None
     tr: Any = None
-    act: Any = None
+    act: str | None = None  # activity (topic_type)
     avia: Any = None
-    per_num: Any = None
+    per_num: str | int | None = None
 
 
 def age_wording(age: int) -> str:
-    # TODO DOUBLE age_writer
     """Return age-describing phrase in Russian for age as integer"""
+    # TODO DOUBLE age_writer
+    from _dependencies.misc import age_writer
 
     a = age // 100
     b = (age - a * 100) // 10
