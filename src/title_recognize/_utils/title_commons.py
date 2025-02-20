@@ -7,7 +7,7 @@ from natasha import Doc, NewsEmbedding, NewsNERTagger, Segmenter
 
 @dataclass
 class PersonGroup:
-    block_num: Any = None
+    block_num: int | None = None
     type: Any = None  # TODO rename
     num_of_per: Any = None
     display_name: Any = None

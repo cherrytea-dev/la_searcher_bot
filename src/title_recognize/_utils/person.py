@@ -181,7 +181,7 @@ def _define_age_of_person_by_natasha(person_reco: PersonGroup, name_string: str)
 def recognize_one_person_group(person: Block) -> PersonGroup:
     """Recognize the Displayed Name (Pseudonym) for a SINGLE person/group as well as age"""
 
-    person_reco = PersonGroup(block_num=person.type[1])
+    person_reco = PersonGroup()
     name_string = person.init
 
     # CASE 0. When the whole person is defined as "+N" only (NB – we already cut "+" before)
