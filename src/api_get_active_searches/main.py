@@ -26,8 +26,8 @@ class Search(BaseModel):
     search_status: str
     display_name: str
     family_name: str
-    age_min: int
-    age_max: int
+    age_min: int | None
+    age_max: int | None
     content: str
 
 
