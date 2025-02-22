@@ -97,6 +97,71 @@ WhatsApp Написать инфоргу в ТГ
     }
 
 
+def test_recognize_title_3():
+    """just describe current behavior"""
+    title = """
+Нужны ли «суперспособности», чтобы стать добровольцем поисково-спасательного отряда «ЛизаАлерт» и искать людей? 
+Обязательно ли иметь туристические навыки, компас и снаряжение? 
+А что, если вы мама в декрете и не можете ездить на поиски? 
+Как спасти человека, не выходя из дома? 
+
+Обо всём этом можно узнать на вводной встрече-знакомстве с «ЛизаАлерт». 
+Здесь омичам расскажут о 24 направлениях, которые сегодня есть в отряде. 
+О том, как можно стать кинологом, связистом в штабе или оператором, который запускает в небо беспилотник, и о многом другом.
+
+Регистрация на встречу по ссылке: https://lizaalertomsk.timepad.ru/event/.../
+
+Дата: 1 марта 2025 года
+Время: 19:30
+Место: г. Омск, Ленина, 24 к. 1, 5 этаж.
+
+Контакт по любым вопросам: Елена, тел. 89651234567.
+
+"""
+
+    res = main.recognize_title(title, 'status_only')
+    assert res == {
+        'topic_type': 'search',
+        'status': 'Ищем',
+        'persons': {
+            'total_persons': -1,
+            'total_name': 'Нужны',
+            'total_display_name': 'Нужны и ко. 1–24 года',
+            'age_min': 1,
+            'age_max': 24,
+            'person': [
+                {'name': 'Нужны', 'display_name': 'Нужны', 'number_of_persons': -1},
+                {'name': 'искать', 'display_name': 'Искать', 'number_of_persons': -1},
+                {'name': 'снаряжение', 'display_name': 'Снаряжение', 'number_of_persons': 1},
+                {'name': 'не', 'age': 24, 'display_name': 'Не 24 года', 'number_of_persons': 1},
+                {'name': 'о', 'age': 1, 'display_name': 'О 1 год', 'number_of_persons': 1},
+            ],
+        },
+    }
+
+
+def test_recognize_title_4():
+    """just describe current behavior"""
+    title = """пропали женщина +2"""
+
+    res = main.recognize_title(title, 'status_only')
+    assert res == {
+        'topic_type': 'search',
+        'status': 'Ищем',
+        'persons': {
+            'total_persons': 3,
+            'total_name': 'женщина',
+            'total_display_name': 'Женщина + 2 чел.',
+            'age_min': None,
+            'age_max': None,
+            'person': [
+                {'name': 'женщина', 'display_name': 'Человек', 'number_of_persons': 1},
+                {'name': '2 человека', 'display_name': '2 человека', 'number_of_persons': 2},
+            ],
+        },
+    }
+
+
 class TestPersonRecognize:
     def test_1(self):
         block = Block(init='Иванов Иван Иванович. Возраст 37 лет', type='PER')
@@ -182,7 +247,7 @@ class TestPersonRecognizeAIGenerated:
             block_num=None,
             type=None,
             num_of_per=-1,
-            display_name='Дети 10–7 лет',
+            display_name='Дети 10–7 лет',  # TODO wrong age, current behavior
             name='Дети',
             age=None,
             age_min=10,
