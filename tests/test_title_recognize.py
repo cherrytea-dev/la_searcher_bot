@@ -37,129 +37,125 @@ def test_main_unrecognized(app: Flask):
     assert 'fail' in res
 
 
-def test_recognize_title():
-    title = 'Пропал мужчина. ФИО - Иванов Иван Иванович. Возраст 37 лет. Ярославская область.'
-    res = main.recognize_title(title, 'status_only')
-    assert res == {
-        'topic_type': 'search',
-        'status': 'Ищем',
-        'persons': {
-            'total_persons': 1,
-            'total_name': 'мужчина',
-            'total_display_name': 'Мужчина 37 лет',
-            'age_min': 37,
-            'age_max': 37,
-            'person': [
-                {
-                    'name': 'мужчина',
-                    'age': 37,
-                    'display_name': 'Мужчина 37 лет',
-                    'number_of_persons': 1,
-                }
-            ],
-        },
-    }
+class TestRecognizeTitle:
+    def test_recognize_title(self):
+        title = 'Пропал мужчина. ФИО - Иванов Иван Иванович. Возраст 37 лет. Ярославская область.'
+        res = main.recognize_title(title, 'status_only')
+        assert res == {
+            'topic_type': 'search',
+            'status': 'Ищем',
+            'persons': {
+                'total_persons': 1,
+                'total_name': 'мужчина',
+                'total_display_name': 'Мужчина 37 лет',
+                'age_min': 37,
+                'age_max': 37,
+                'person': [
+                    {
+                        'name': 'мужчина',
+                        'age': 37,
+                        'display_name': 'Мужчина 37 лет',
+                        'number_of_persons': 1,
+                    }
+                ],
+            },
+        }
 
+    def test_recognize_title_2(self):
+        title = """
+    Иванова Анна Тестовна 25 лет, д. Новая, Талицкий г.о., Свердловская обл. 
+    01 января 2023 года вышла из дома и не вернулась. 
+    Нуждается в медицинской помощи.Может находиться в вашем городе.
+    Приметы: Рост: 170 см. Телосложение: плотного 
+    Цвет глаз: карие Волосы: тёмно-русые  
+    Была одета: оранжевая куртка, зелёная футболка, чёрные колготки, синие галоши.  
+    С собой: 
+    Нуждается в медицинской помощи 
+    Может находиться в вашем городе  
+    Ориентировка на печать  
+    Ориентировка на репост  
+    Тема в вк ----------
+    ----------------------------------------  
+    Инфорг: 
+    Тест (тест) 89530000000 Написать инфоргу в 
+    WhatsApp Написать инфоргу в ТГ
 
-def test_recognize_title_2():
-    title = """
-Иванова Анна Тестовна 25 лет, д. Новая, Талицкий г.о., Свердловская обл. 
-01 января 2023 года вышла из дома и не вернулась. 
-Нуждается в медицинской помощи.Может находиться в вашем городе.
-Приметы: Рост: 170 см. Телосложение: плотного 
-Цвет глаз: карие Волосы: тёмно-русые  
-Была одета: оранжевая куртка, зелёная футболка, чёрные колготки, синие галоши.  
-С собой: 
-Нуждается в медицинской помощи 
-Может находиться в вашем городе  
-Ориентировка на печать  
-Ориентировка на репост  
-Тема в вк ----------
-----------------------------------------  
-Инфорг: 
-Тест (тест) 89530000000 Написать инфоргу в 
-WhatsApp Написать инфоргу в ТГ
+    """
 
-"""
+        res = main.recognize_title(title, 'status_only')
+        assert res == {
+            'topic_type': 'search',
+            'status': 'Ищем',
+            'persons': {
+                'total_persons': 1,
+                'total_name': 'Иванова',
+                'total_display_name': 'Иванова 25 лет',
+                'age_min': 25,
+                'age_max': 25,
+                'person': [{'name': 'Иванова', 'age': 25, 'display_name': 'Иванова 25 лет', 'number_of_persons': 1}],
+            },
+        }
 
-    res = main.recognize_title(title, 'status_only')
-    assert res == {
-        'topic_type': 'search',
-        'status': 'Ищем',
-        'persons': {
-            'total_persons': 1,
-            'total_name': 'Иванова',
-            'total_display_name': 'Иванова 25 лет',
-            'age_min': 25,
-            'age_max': 25,
-            'person': [{'name': 'Иванова', 'age': 25, 'display_name': 'Иванова 25 лет', 'number_of_persons': 1}],
-        },
-    }
+    def test_recognize_title_3(self):
+        """just describe current behavior"""
+        title = """
+    Нужны ли «суперспособности», чтобы стать добровольцем поисково-спасательного отряда «ЛизаАлерт» и искать людей? 
+    Обязательно ли иметь туристические навыки, компас и снаряжение? 
+    А что, если вы мама в декрете и не можете ездить на поиски? 
+    Как спасти человека, не выходя из дома? 
 
+    Обо всём этом можно узнать на вводной встрече-знакомстве с «ЛизаАлерт». 
+    Здесь омичам расскажут о 24 направлениях, которые сегодня есть в отряде. 
+    О том, как можно стать кинологом, связистом в штабе или оператором, который запускает в небо беспилотник, и о многом другом.
 
-def test_recognize_title_3():
-    """just describe current behavior"""
-    title = """
-Нужны ли «суперспособности», чтобы стать добровольцем поисково-спасательного отряда «ЛизаАлерт» и искать людей? 
-Обязательно ли иметь туристические навыки, компас и снаряжение? 
-А что, если вы мама в декрете и не можете ездить на поиски? 
-Как спасти человека, не выходя из дома? 
+    Регистрация на встречу по ссылке: https://lizaalertomsk.timepad.ru/event/.../
 
-Обо всём этом можно узнать на вводной встрече-знакомстве с «ЛизаАлерт». 
-Здесь омичам расскажут о 24 направлениях, которые сегодня есть в отряде. 
-О том, как можно стать кинологом, связистом в штабе или оператором, который запускает в небо беспилотник, и о многом другом.
+    Дата: 1 марта 2025 года
+    Время: 19:30
+    Место: г. Омск, Ленина, 24 к. 1, 5 этаж.
 
-Регистрация на встречу по ссылке: https://lizaalertomsk.timepad.ru/event/.../
+    Контакт по любым вопросам: Елена, тел. 89651234567.
 
-Дата: 1 марта 2025 года
-Время: 19:30
-Место: г. Омск, Ленина, 24 к. 1, 5 этаж.
+    """
 
-Контакт по любым вопросам: Елена, тел. 89651234567.
+        res = main.recognize_title(title, 'status_only')
+        assert res == {
+            'topic_type': 'search',
+            'status': 'Ищем',
+            'persons': {
+                'total_persons': -1,
+                'total_name': 'Нужны',
+                'total_display_name': 'Нужны и ко. 1–24 года',
+                'age_min': 1,
+                'age_max': 24,
+                'person': [
+                    {'name': 'Нужны', 'display_name': 'Нужны', 'number_of_persons': -1},
+                    {'name': 'искать', 'display_name': 'Искать', 'number_of_persons': -1},
+                    {'name': 'снаряжение', 'display_name': 'Снаряжение', 'number_of_persons': 1},
+                    {'name': 'не', 'age': 24, 'display_name': 'Не 24 года', 'number_of_persons': 1},
+                    {'name': 'о', 'age': 1, 'display_name': 'О 1 год', 'number_of_persons': 1},
+                ],
+            },
+        }
 
-"""
+    def test_recognize_title_4(self):
+        """just describe current behavior"""
+        title = """пропали женщина +2"""
 
-    res = main.recognize_title(title, 'status_only')
-    assert res == {
-        'topic_type': 'search',
-        'status': 'Ищем',
-        'persons': {
-            'total_persons': -1,
-            'total_name': 'Нужны',
-            'total_display_name': 'Нужны и ко. 1–24 года',
-            'age_min': 1,
-            'age_max': 24,
-            'person': [
-                {'name': 'Нужны', 'display_name': 'Нужны', 'number_of_persons': -1},
-                {'name': 'искать', 'display_name': 'Искать', 'number_of_persons': -1},
-                {'name': 'снаряжение', 'display_name': 'Снаряжение', 'number_of_persons': 1},
-                {'name': 'не', 'age': 24, 'display_name': 'Не 24 года', 'number_of_persons': 1},
-                {'name': 'о', 'age': 1, 'display_name': 'О 1 год', 'number_of_persons': 1},
-            ],
-        },
-    }
-
-
-def test_recognize_title_4():
-    """just describe current behavior"""
-    title = """пропали женщина +2"""
-
-    res = main.recognize_title(title, 'status_only')
-    assert res == {
-        'topic_type': 'search',
-        'status': 'Ищем',
-        'persons': {
-            'total_persons': 3,
-            'total_name': 'женщина',
-            'total_display_name': 'Женщина + 2 чел.',
-            'age_min': None,
-            'age_max': None,
-            'person': [
-                {'name': 'женщина', 'display_name': 'Человек', 'number_of_persons': 1},
-                {'name': '2 человека', 'display_name': '2 человека', 'number_of_persons': 2},
-            ],
-        },
-    }
+        res = main.recognize_title(title, 'status_only')
+        assert res == {
+            'topic_type': 'search',
+            'status': 'Ищем',
+            'persons': {
+                'total_persons': 3,
+                'total_name': 'женщина',
+                'total_display_name': 'Женщина + 2 чел.',
+                'person': [
+                    {'name': 'женщина', 'display_name': 'Человек', 'number_of_persons': 1},
+                    {'name': '2 человека', 'display_name': '2 человека', 'number_of_persons': 2},
+                ],
+            },
+        }
 
 
 class TestPersonRecognize:

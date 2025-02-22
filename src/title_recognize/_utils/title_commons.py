@@ -1,3 +1,4 @@
+from enum import Enum
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -98,3 +99,13 @@ def check_word_by_natasha(string_to_check, direction):
                 match_found = True
 
     return match_found
+
+
+class TopicType(str, Enum):
+    search = 'search'
+    search_reverse = 'search reverse'
+    search_patrol = 'search patrol'
+    search_training = 'search training'
+    event = 'event'
+    info = 'info'
+    unrecognized = 'UNRECOGNIZED'

@@ -4,8 +4,42 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+
 from .person import define_person_display_name_and_age
-from .title_commons import Block, PersonGroup, TitleRecognition, age_wording, check_word_by_natasha
+from .title_commons import Block, PersonGroup, TitleRecognition, age_wording, check_word_by_natasha, TopicType
+
+from typing import List, Optional, Union
+from pydantic import BaseModel, Field, ConfigDict
+
+
+class Person(BaseModel):
+    name: str = Field(description='One-word description')
+    age: Optional[int] = Field(None, ge=0, le=199, description='Age in years')
+    age_min: Optional[int] = Field(None, ge=0, le=199, description='Minimum age in years')
+    age_max: Optional[int] = Field(None, ge=0, le=199, description='Maximum age in years')
+    display_name: str = Field(description='Display name + age')
+    number_of_persons: int = Field(..., ge=-1, le=9, description='Number of persons in this group, -1 or 1-9')
+
+
+class Persons(BaseModel):
+    total_persons: Union[int, str] = Field(..., description="Total number of persons: 1-9, 'group', or 'undefined'")
+    age_min: Optional[int] = Field(None, ge=0, le=199, description='Minimum age across all persons')
+    age_max: Optional[int] = Field(None, ge=0, le=199, description='Maximum age across all persons')
+    total_name: str = Field(description='Name of the first person')
+    total_display_name: str = Field(description='Display name + age (age range)')
+    person: List[Person] = Field(default_factory=list)
+
+
+class Location(BaseModel):
+    address: str
+
+
+class RecognitionResult(BaseModel):
+    topic_type: TopicType
+    avia: Optional[bool] = Field(None, description='Only for search')
+    status: Optional[str] = Field(None, description='Only for search / search reverse')
+    persons: Optional[Persons] = Field(None, description='Only for search')
+    locations: Optional[List[Location]] = Field(None, description='Only for search')
 
 
 def match_type_to_pattern(pattern_type: str) -> List[List[str]]:
@@ -808,7 +842,7 @@ def calculate_total_num_of_persons(recognition: TitleRecognition) -> TitleRecogn
     return recognition
 
 
-def generate_final_reco_dict(recognition: TitleRecognition):
+def generate_final_reco_dict(recognition: TitleRecognition) -> RecognitionResult:
     """Generate the final outcome dictionary for recognized title"""
 
     final_dict = {}
@@ -872,6 +906,7 @@ def generate_final_reco_dict(recognition: TitleRecognition):
     if recognition.act:
         final_dict['topic_type'] = recognition.act
     else:
+        # here we can return or raise an exception
         final_dict['topic_type'] = 'UNRECOGNIZED'
 
     if recognition.avia:
@@ -950,7 +985,7 @@ def generate_final_reco_dict(recognition: TitleRecognition):
     ):
         final_dict['persons']['total_persons'] = 1
 
-    return final_dict
+    return RecognitionResult.model_validate(final_dict)
 
 
 def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
@@ -974,6 +1009,6 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
         recognition_result = define_general_status(recognition_result)
         recognition_result = calculate_total_num_of_persons(recognition_result)
 
-    final_recognition_dict = generate_final_reco_dict(recognition_result)
+    final_recognition = generate_final_reco_dict(recognition_result)
 
-    return final_recognition_dict
+    return final_recognition.model_dump(exclude_none=True)
