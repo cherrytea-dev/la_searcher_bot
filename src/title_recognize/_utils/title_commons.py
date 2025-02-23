@@ -1,3 +1,4 @@
+from _dependencies.misc import age_writer
 import re
 from dataclasses import dataclass, field
 from enum import Enum
@@ -92,8 +93,7 @@ class TitleRecognition:
 
 def age_wording(age: int) -> str:
     """Return age-describing phrase in Russian for age as integer"""
-    # TODO DOUBLE age_writer
-    from _dependencies.misc import age_writer
+    # TODO partially doubles age_writer()
 
     a = age // 100
     b = (age - a * 100) // 10
@@ -109,7 +109,7 @@ def age_wording(age: int) -> str:
     return wording
 
 
-def check_word_by_natasha(string_to_check, direction):
+def check_word_by_natasha(string_to_check: str, direction: str) -> bool:
     """Uses the Natasha module to define persons / locations.
     There are two directions processed: 'loc' for location and 'per' for person.
     For 'loc': Function checks if the first word in recognized string is location -> returns True
@@ -127,6 +127,7 @@ def check_word_by_natasha(string_to_check, direction):
 
     if doc.spans:
         if direction == 'loc':
+            # TODO never called with 'loc', only 'per'
             first_span = doc.spans[0]
 
             # If first_span.start is zero it means the 1st word just after the PERSON in title – are followed by LOC
