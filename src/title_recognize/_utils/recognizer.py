@@ -8,6 +8,7 @@ from .pattern_collections import PatternCollection
 from .person import recognize_one_person_group
 from .title_commons import (
     Block,
+    BlockType,
     PatternType,
     PersonGroup,
     TitleRecognition,
@@ -67,7 +68,7 @@ def recognize_a_pattern(
             block = re.search(pattern[0], input_string)
             if block:
                 status = pattern[1]
-                if pattern_type in {'ST', 'TR', 'ACT'}:
+                if pattern_type in {BlockType.ST, BlockType.TR, BlockType.ACT}:
                     activity = pattern[2]
                 break
 
@@ -86,37 +87,37 @@ def recognize_a_pattern(
         return None, None
 
 
-def clean_and_prettify(string: str) -> str:
-    """Convert a string with known mistypes to the prettified view"""
-
-    patterns = match_type_to_pattern(PatternType.MISTYPE)
-
-    for pattern in patterns:
-        string = re.sub(pattern[0], pattern[1], string)
-
-    return string
-
-
 class TitleRecognizer:
     def __init__(self, recognition: TitleRecognition) -> None:
         self.recognition = recognition
 
     @classmethod
     def from_str(cls, line: str) -> 'TitleRecognizer':
-        prettified_line = clean_and_prettify(line)
+        prettified_line = cls._clean_and_prettify(line)
         recognition = TitleRecognition(init=line, pretty=prettified_line)
         return cls(recognition)
+
+    @classmethod
+    def _clean_and_prettify(cls, string: str) -> str:
+        """Convert a string with known mistypes to the prettified view"""
+
+        patterns = PatternCollection.get_mistype_patterns()
+
+        for pattern in patterns:
+            string = re.sub(pattern[0], pattern[1], string)
+
+        return string
 
     def _split_status_training_activity(self) -> None:
         """Create an initial 'Recognition' object and recognize data for Status, Training, Activity, Avia"""
 
         recognition = self.recognition
         list_of_pattern_types = [
-            'ST',
-            'ST',  # duplication – is not a mistake: there are cases when two status checks are necessary
-            'TR',
-            'AVIA',
-            'ACT',
+            BlockType.ST,
+            BlockType.ST,  # duplication – is not a mistake: there are cases when two status checks are necessary
+            BlockType.TR,
+            BlockType.AVIA,
+            BlockType.ACT,
         ]
 
         first_block = Block(block_num=0, init=recognition.pretty, done=False)
@@ -140,11 +141,11 @@ class TitleRecognizer:
                     recognition.act = recognized_activity
 
         for block in recognition.blocks:
-            if block.type == 'TR':
+            if block.type == BlockType.TR:
                 recognition.tr = block.reco
-            if block.type == 'AVIA':
+            if block.type == BlockType.AVIA:
                 recognition.avia = block.reco
-            if block.type == 'ACT':
+            if block.type == BlockType.ACT:
                 recognition.act = block.reco
             # MEMO: recognition.st is done on the later stages of title recognition
 
@@ -279,9 +280,9 @@ class TitleRecognizer:
                         num_of_blocks = len(recognition.blocks)
 
                         for block_2 in recognition.blocks:
-                            if block_2.type == 'ST':
+                            if block_2.type == BlockType.ST:
                                 there_is_status = True
-                            elif block_2.type == 'TR':
+                            elif block_2.type == BlockType.TR:
                                 there_is_training = True
 
                         if there_is_status:

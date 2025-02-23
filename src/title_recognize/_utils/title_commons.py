@@ -6,6 +6,48 @@ from typing import Any
 from natasha import Doc, NewsEmbedding, NewsNERTagger, Segmenter
 
 
+class TopicType(str, Enum):
+    search = 'search'
+    search_reverse = 'search reverse'
+    search_patrol = 'search patrol'
+    search_training = 'search training'
+    event = 'event'
+    info = 'info'
+    unrecognized = 'UNRECOGNIZED'
+
+
+class BlockType(str, Enum):
+    AVIA = 'AVIA'
+    TR = 'TR'  # training
+    ST = 'ST'  # status
+    ACT = 'ACT'  # activity?
+    LOC_BY_INDIVIDUAL = 'LOC_BY_INDIVIDUAL'
+    PER_BY_INDIVIDUAL = 'PER_BY_INDIVIDUAL'
+
+
+class PatternType(str, Enum):
+    LOC_BLOCK = 'LOC_BLOCK'
+    PER_AGE_W_WORDS = 'PER_AGE_W_WORDS'
+    PER_AGE_WO_WORDS = 'PER_AGE_WO_WORDS'
+    PER_WITH_PLUS_SIGN = 'PER_WITH_PLUS_SIGN'
+    PER_HUMAN_BEING = 'PER_HUMAN_BEING'
+    PER_FIO = 'PER_FIO'
+    PER_BY_LAST_NUM = 'PER_BY_LAST_NUM'
+
+    @classmethod
+    def all_without_mistype(cls) -> list['PatternType']:
+        #  TODO can be removed
+        return [
+            cls.LOC_BLOCK,
+            cls.PER_AGE_W_WORDS,
+            cls.PER_AGE_WO_WORDS,
+            cls.PER_WITH_PLUS_SIGN,
+            cls.PER_HUMAN_BEING,
+            cls.PER_FIO,
+            cls.PER_BY_LAST_NUM,
+        ]
+
+
 @dataclass
 class PersonGroup:
     block_num: int | None = None
@@ -22,7 +64,7 @@ class PersonGroup:
 @dataclass
 class Block:
     block_num: int = 0
-    init: str = None
+    init: str = None  # initial text, prettified
     reco: PersonGroup = None
     type: str | None = None
     done: bool = False
@@ -99,45 +141,3 @@ def check_word_by_natasha(string_to_check, direction):
                 match_found = True
 
     return match_found
-
-
-class TopicType(str, Enum):
-    search = 'search'
-    search_reverse = 'search reverse'
-    search_patrol = 'search patrol'
-    search_training = 'search training'
-    event = 'event'
-    info = 'info'
-    unrecognized = 'UNRECOGNIZED'
-
-
-class BlockType(str, Enum):
-    AVIA = 'AVIA'
-    TR = 'TR'
-    ST = 'ST'
-    ACT = 'ACT'
-    LOC_BY_INDIVIDUAL = 'LOC_BY_INDIVIDUAL'
-    PER_BY_INDIVIDUAL = 'PER_BY_INDIVIDUAL'
-
-
-class PatternType(str, Enum):
-    LOC_BLOCK = 'LOC_BLOCK'
-    PER_AGE_W_WORDS = 'PER_AGE_W_WORDS'
-    PER_AGE_WO_WORDS = 'PER_AGE_WO_WORDS'
-    PER_WITH_PLUS_SIGN = 'PER_WITH_PLUS_SIGN'
-    PER_HUMAN_BEING = 'PER_HUMAN_BEING'
-    PER_FIO = 'PER_FIO'
-    PER_BY_LAST_NUM = 'PER_BY_LAST_NUM'
-    MISTYPE = 'MISTYPE'  # TODO ??
-
-    @classmethod
-    def all_without_mistype(cls) -> list['PatternType']:
-        return [
-            cls.LOC_BLOCK,
-            cls.PER_AGE_W_WORDS,
-            cls.PER_AGE_WO_WORDS,
-            cls.PER_WITH_PLUS_SIGN,
-            cls.PER_HUMAN_BEING,
-            cls.PER_FIO,
-            cls.PER_BY_LAST_NUM,
-        ]

@@ -1,10 +1,10 @@
 from typing import List
 
-from title_recognize._utils.title_commons import PatternType
+from .title_commons import BlockType, PatternType
 
 
 class PatternCollection:
-    def match_type_to_pattern(self, pattern_type: PatternType) -> List[List[str]]:
+    def match_type_to_pattern(self, pattern_type: PatternType | BlockType) -> List[List[str]]:
         """Return a list of regex patterns (with additional parameters) for a specific type"""
 
         if not pattern_type:
@@ -13,10 +13,8 @@ class PatternCollection:
         patterns = []
         index_type = 'per'
 
-        if pattern_type == PatternType.MISTYPE:
-            patterns = self._mistype_patterns()
-
-        elif pattern_type == PatternType.LOC_BLOCK:
+        ################################
+        if pattern_type == PatternType.LOC_BLOCK:
             index_type = 'loc'
             patterns = self._loc_block_patterns()
 
@@ -38,24 +36,26 @@ class PatternCollection:
         elif pattern_type == PatternType.PER_BY_LAST_NUM:
             patterns = self._per_by_last_num_patterns()
 
-        elif pattern_type == 'AVIA':
+        ################################
+        elif pattern_type == BlockType.AVIA:
             patterns = self._avia_patterns()
 
-        elif pattern_type == 'TR':
+        elif pattern_type == BlockType.TR:
             patterns = self._tr_patterns()
 
-        elif pattern_type == 'ST':
+        elif pattern_type == BlockType.ST:
             patterns = self._st_pattenrs()
 
-        elif pattern_type == 'ACT':
+        elif pattern_type == BlockType.ACT:
             patterns = self._st_patterns()
 
-        elif pattern_type == 'LOC_BY_INDIVIDUAL':
+        elif pattern_type == BlockType.LOC_BY_INDIVIDUAL:
             patterns = self._loc_by_individual_patterns()
 
-        elif pattern_type == 'PER_BY_INDIVIDUAL':
+        elif pattern_type == BlockType.PER_BY_INDIVIDUAL:
             patterns = self._per_by_individual_patterns()
 
+        ################################
         if pattern_type in PatternType.all_without_mistype():
             return patterns, index_type
         else:
@@ -226,7 +226,9 @@ class PatternCollection:
     def _avia_patterns(self):
         return [[r'(?i)работает авиация\W', 'Авиация']]
 
-    def _mistype_patterns(self):
+    @classmethod
+    def get_mistype_patterns(cls) -> list[tuple[str, str]]:
+        """Known mistypes and their replaces in posts texts"""
         return [
             [r'^\W{0,3}Re:\W{0,3}', ''],  # removes replied mark
             [r'(?i)^\W{0,3}внимание\W{1,3}', ''],  # removes unnecessary info
