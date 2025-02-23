@@ -327,14 +327,5 @@ def recognize_one_person_group(person: Block) -> PersonGroup:
     return person_reco
 
 
-def define_person_display_name_and_age(curr_recognition: TitleRecognition) -> TitleRecognition:
-    """Recognize the Displayed Name (Pseudonym) for ALL person/groups as well as ages"""
-    for person_block in curr_recognition.groups:
-        if person_block.is_person():
-            person_block.reco = recognize_one_person_group(person_block)
-
-    return curr_recognition
-
-
 class PersonRecognizer:
     pass
