@@ -54,13 +54,13 @@ class PatternType(str, Enum):
 class PersonGroup:
     block_num: int | None = None
     type: Any = None  # TODO rename
-    num_of_per: Any = None
+    num_of_per: int | None = None
     display_name: Any = None
     name: Any = None
-    age: Any = None
-    age_min: Any = None
-    age_max: Any = None
-    age_wording: Any = None
+    age: int | list[int] | None = None
+    age_min: int | None = None
+    age_max: int | None = None
+    age_wording: str | None = None
 
 
 @dataclass

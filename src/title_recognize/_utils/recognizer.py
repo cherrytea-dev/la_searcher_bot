@@ -348,73 +348,51 @@ class TitleRecognizer:
     def _define_person_block_display_name_and_age_range(self) -> None:
         """Define the Displayed Name (Pseudonym) and Age Range for the whole Persons Block"""
 
-        curr_recognition = self.recognition
-        # level of PERSON BLOCKS (likely to be only one for each title)
-        num_of_per_blocks = len([x for x in curr_recognition.blocks if x.is_person()])
-        num_of_per_groups = len([x for x in curr_recognition.groups if x.is_person()])
+        persons_blocks = [x for x in self.recognition.blocks if x.is_person()]
+        persons_groups = [x for x in self.recognition.groups if x.is_person()]
 
-        for block in curr_recognition.blocks:
-            if not block.is_person():
-                continue
+        # level of PERSON BLOCKS (likely to be only one for each title)
+
+        for block in persons_blocks:
             block.reco = PersonGroup()
             final_num_of_pers = 0
             num_of_groups_in_block = 0
             final_pseudonym = ''
-            age_list = []
             first_group_num_of_pers = None
 
             # go to the level of PERSON GROUPS (subgroup in person block)
-            for group in curr_recognition.groups:
-                if group.is_person():
-                    num_of_groups_in_block += 1
+            for group in persons_groups:
+                num_of_groups_in_block += 1
 
-                    # STEP 1. Define the number of persons for search
-                    num_of_persons = group.reco.num_of_per
-                    if not first_group_num_of_pers:
-                        first_group_num_of_pers = num_of_persons
+                # STEP 1. Define the number of persons for search
+                num_of_persons = group.reco.num_of_per
+                if not first_group_num_of_pers:
+                    first_group_num_of_pers = num_of_persons
 
-                    if isinstance(num_of_persons, int) and num_of_persons > 0 and final_num_of_pers != -1:
-                        # -1 stands for unrecognized number of people
-                        final_num_of_pers += num_of_persons
-                    else:
-                        final_num_of_pers = -1  # -1 stands for unrecognized number of people
-
-                    # STEP 2. Define the pseudonym for the person / group
-                    if group.reco.name:
-                        if not final_pseudonym:
-                            if num_of_persons > 1:
-                                final_pseudonym = group.reco.display_name
-                            else:
-                                final_pseudonym = group.reco.name
-                            block.reco.name = group.reco.name
-
-                    if group.reco.age or group.reco.age == 0:
-                        age_list.append(group.reco.age)
-                    if group.reco.age_min:
-                        age_list.append(group.reco.age_min)
-                    if group.reco.age_max:
-                        age_list.append(group.reco.age_max)
-
-            if age_list and len(age_list) > 1:
-                age_list.sort()
-                block.reco.age = age_list
-                if min(age_list) != max(age_list):
-                    block.reco.age_wording = f'{min(age_list)}–{max(age_list)} {age_wording(max(age_list))}'
+                if isinstance(num_of_persons, int) and num_of_persons > 0 and final_num_of_pers != -1:
+                    # -1 stands for unrecognized number of people
+                    final_num_of_pers += num_of_persons
                 else:
-                    block.reco.age_wording = f'{max(age_list)} {age_wording(max(age_list))}'
+                    final_num_of_pers = -1  # -1 stands for unrecognized number of people
 
-            elif age_list and len(age_list) == 1:
-                block.reco.age = age_list[0]
-                block.reco.age_wording = f'{age_list[0]} {age_wording(age_list[0])}'
-            else:
-                block.reco.age = []
-                block.reco.age_wording = None
+                # STEP 2. Define the pseudonym for the person / group
+                if group.reco.name:
+                    if not final_pseudonym:
+                        if num_of_persons > 1:
+                            final_pseudonym = group.reco.display_name
+                        else:
+                            final_pseudonym = group.reco.name
+                        block.reco.name = group.reco.name
+
+            self._process_age(persons_groups, block)
 
             if block.reco.age_wording:
                 final_age_words = f' {block.reco.age_wording}'
             else:
                 final_age_words = ''
 
+            num_of_per_blocks = len(persons_blocks)
+            num_of_per_groups = len(persons_groups)
             if final_pseudonym and final_num_of_pers == 1:
                 final_pseudonym = f'{final_pseudonym}{final_age_words}'
             elif final_pseudonym and final_num_of_pers > 1:
@@ -434,6 +412,34 @@ class TitleRecognizer:
 
             block.reco.display_name = final_pseudonym.capitalize()
             block.reco.block_num = final_num_of_pers
+
+    def _process_age(self, persons_groups: list[Block], block: Block) -> None:
+        age_list = []
+        for group in persons_groups:
+            if group.reco.age or group.reco.age == 0:
+                age_list.append(group.reco.age)
+            if group.reco.age_min:
+                age_list.append(group.reco.age_min)
+            if group.reco.age_max:
+                age_list.append(group.reco.age_max)
+
+        if age_list and len(age_list) > 1:
+            age_list.sort()
+            final_age = age_list
+            if min(age_list) != max(age_list):
+                final_age_wording = f'{min(age_list)}–{max(age_list)} {age_wording(max(age_list))}'
+            else:
+                final_age_wording = f'{max(age_list)} {age_wording(max(age_list))}'
+
+        elif age_list and len(age_list) == 1:
+            final_age = age_list[0]
+            final_age_wording = f'{age_list[0]} {age_wording(age_list[0])}'
+        else:
+            final_age = []
+            final_age_wording = None
+
+        block.reco.age = final_age
+        block.reco.age_wording = final_age_wording
 
     def _prettify_loc_group_address(self) -> None:
         """Prettify (delete unneeded symbols) every location address"""
