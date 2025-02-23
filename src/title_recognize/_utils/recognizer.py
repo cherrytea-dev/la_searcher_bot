@@ -7,6 +7,31 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from .person import recognize_one_person_group
 from .title_commons import Block, PersonGroup, TitleRecognition, TopicType, age_wording, check_word_by_natasha
 
+from enum import Enum
+
+
+class PatternType(str, Enum):
+    LOC_BLOCK = 'LOC_BLOCK'
+    PER_AGE_W_WORDS = 'PER_AGE_W_WORDS'
+    PER_AGE_WO_WORDS = 'PER_AGE_WO_WORDS'
+    PER_WITH_PLUS_SIGN = 'PER_WITH_PLUS_SIGN'
+    PER_HUMAN_BEING = 'PER_HUMAN_BEING'
+    PER_FIO = 'PER_FIO'
+    PER_BY_LAST_NUM = 'PER_BY_LAST_NUM'
+    MISTYPE = 'MISTYPE'  # TODO ??
+
+    @classmethod
+    def all_without_mistype(cls) -> list['PatternType']:
+        return [
+            cls.LOC_BLOCK,
+            cls.PER_AGE_W_WORDS,
+            cls.PER_AGE_WO_WORDS,
+            cls.PER_WITH_PLUS_SIGN,
+            cls.PER_HUMAN_BEING,
+            cls.PER_FIO,
+            cls.PER_BY_LAST_NUM,
+        ]
+
 
 class Person(BaseModel):
     name: str = Field(description='One-word description')
@@ -38,7 +63,7 @@ class RecognitionResult(BaseModel):
     locations: Optional[List[Location]] = Field(None, description='Only for search')
 
 
-def match_type_to_pattern(pattern_type: str) -> List[List[str]]:
+def match_type_to_pattern(pattern_type: PatternType) -> List[List[str]]:
     """Return a list of regex patterns (with additional parameters) for a specific type"""
 
     if not pattern_type:
@@ -47,7 +72,7 @@ def match_type_to_pattern(pattern_type: str) -> List[List[str]]:
     patterns = []
     index_type = 'per'
 
-    if pattern_type == 'MISTYPE':
+    if pattern_type == PatternType.MISTYPE:
         # language=regexp
         patterns = [
             [r'^\W{0,3}Re:\W{0,3}', ''],  # removes replied mark
@@ -195,7 +220,7 @@ def match_type_to_pattern(pattern_type: str) -> List[List[str]]:
             [r'(?i)ночной патруль.*\n?', 'search patrol', 'search patrol'],
         ]
 
-    elif pattern_type == 'LOC_BLOCK':
+    elif pattern_type == PatternType.LOC_BLOCK:
         index_type = 'loc'
         # language=regexp
         patterns = [
@@ -281,15 +306,7 @@ def match_type_to_pattern(pattern_type: str) -> List[List[str]]:
     else:
         pass
 
-    if pattern_type in {
-        'LOC_BLOCK',
-        'PER_AGE_W_WORDS',
-        'PER_AGE_WO_WORDS',
-        'PER_WITH_PLUS_SIGN',
-        'PER_HUMAN_BEING',
-        'PER_FIO',
-        'PER_BY_LAST_NUM',
-    }:
+    if pattern_type in PatternType.all_without_mistype():
         return patterns, index_type
     else:
         return patterns
@@ -458,15 +475,6 @@ class TitleRecognizer:
         """Split the string with persons and locations into two blocks of persons and locations"""
 
         recognition = self.recognition
-        patterns_list = [
-            'LOC_BLOCK',
-            'PER_AGE_W_WORDS',
-            'PER_AGE_WO_WORDS',
-            'PER_WITH_PLUS_SIGN',
-            'PER_HUMAN_BEING',
-            'PER_FIO',
-            'PER_BY_LAST_NUM',
-        ]
 
         for block in recognition.blocks:
             if not block.type:
@@ -475,7 +483,7 @@ class TitleRecognizer:
                 marker_loc = len(string_to_split)
                 marker_final = None
 
-                for patterns_list_item in patterns_list:
+                for patterns_list_item in PatternType.all_without_mistype():
                     patterns, marker = match_type_to_pattern(patterns_list_item)
 
                     for pattern in patterns:
@@ -585,9 +593,10 @@ class TitleRecognizer:
                     groups = [block.init]
 
                 for i, gr in enumerate(groups):
-                    group = Block()
-                    group.init = gr
-                    group.type = f'{block.type[0]}{i + 1}'
+                    group = Block(
+                        init=gr,
+                        type=f'{block.type[0]}{i + 1}',
+                    )
 
                     recognition.groups.append(group)
 
