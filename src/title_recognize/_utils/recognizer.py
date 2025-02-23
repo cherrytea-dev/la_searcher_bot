@@ -89,7 +89,7 @@ def recognize_a_pattern(
 def clean_and_prettify(string: str) -> str:
     """Convert a string with known mistypes to the prettified view"""
 
-    patterns = match_type_to_pattern('MISTYPE')
+    patterns = match_type_to_pattern(PatternType.MISTYPE)
 
     for pattern in patterns:
         string = re.sub(pattern[0], pattern[1], string)

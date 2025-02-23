@@ -111,6 +111,15 @@ class TopicType(str, Enum):
     unrecognized = 'UNRECOGNIZED'
 
 
+class BlockType(str, Enum):
+    AVIA = 'AVIA'
+    TR = 'TR'
+    ST = 'ST'
+    ACT = 'ACT'
+    LOC_BY_INDIVIDUAL = 'LOC_BY_INDIVIDUAL'
+    PER_BY_INDIVIDUAL = 'PER_BY_INDIVIDUAL'
+
+
 class PatternType(str, Enum):
     LOC_BLOCK = 'LOC_BLOCK'
     PER_AGE_W_WORDS = 'PER_AGE_W_WORDS'

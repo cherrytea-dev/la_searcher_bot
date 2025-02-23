@@ -16,6 +16,10 @@ class PatternCollection:
         if pattern_type == PatternType.MISTYPE:
             patterns = self._mistype_patterns()
 
+        elif pattern_type == PatternType.LOC_BLOCK:
+            index_type = 'loc'
+            patterns = self._loc_block_patterns()
+
         elif pattern_type == PatternType.PER_AGE_W_WORDS:
             patterns = self._per_age_w_words_patterns()
 
@@ -45,10 +49,6 @@ class PatternCollection:
 
         elif pattern_type == 'ACT':
             patterns = self._st_patterns()
-
-        elif pattern_type == PatternType.LOC_BLOCK:
-            index_type = 'loc'
-            patterns = self._loc_block_patterns()
 
         elif pattern_type == 'LOC_BY_INDIVIDUAL':
             patterns = self._loc_by_individual_patterns()
