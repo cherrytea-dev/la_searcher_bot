@@ -1,10 +1,11 @@
-from _dependencies.misc import age_writer
 import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
 from natasha import Doc, NewsEmbedding, NewsNERTagger, Segmenter
+
+from _dependencies.misc import age_writer
 
 
 class TopicType(str, Enum):
@@ -66,8 +67,8 @@ class PersonGroup:
 class Block:
     block_num: int = 0
     init: str = None  # initial text, prettified
-    reco: PersonGroup = None
-    type: str | None = None
+    reco: PersonGroup | str = None
+    type: BlockType | str | None = None
     done: bool = False
 
     def is_person(self) -> bool:

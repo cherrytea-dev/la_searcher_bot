@@ -438,86 +438,93 @@ class TitleRecognizer:
     def _prettify_loc_group_address(self) -> None:
         """Prettify (delete unneeded symbols) every location address"""
 
+        unneed_symbols_pattern = r'[,!?\s\-–—]{1,5}$'
         for block in self.recognition.groups:
             if block.is_location():
-                block.reco = block.init
-                block.reco = re.sub(r'[,!?\s\-–—]{1,5}$', '', block.reco)
+                block.reco = re.sub(unneed_symbols_pattern, '', block.init)
 
     def _define_loc_block_summary(self) -> None:
         """For Debug and not for real prod use. Define the cumulative location string based on addresses"""
 
         # level of PERSON BLOCKS (should be only one for each title)
         for block in self.recognition.blocks:
-            if block.is_location():
-                block.reco = ''
+            if not block.is_location():
+                return
+            block.reco = ''
 
-                # go to the level of LOCATION GROUPS (subgroup in locations block)
-                for individual_block in self.recognition.groups:
-                    if individual_block.is_location():
-                        block.reco += f', {individual_block.reco}'
+            # go to the level of LOCATION GROUPS (subgroup in locations block)
+            for individual_block in self.recognition.groups:
+                if individual_block.is_location():
+                    block.reco += f', {individual_block.reco}'
 
-                if block.reco:
-                    block.reco = block.reco[2:]
+            if block.reco:
+                block.reco = block.reco[2:]
 
-    def _define_general_status(self) -> None:
+    def _define_general_status(self) -> str:
         """In rare cases searches have 2 statuses: or by mistake or due to differences between lost persons' statues"""
 
-        recognition = self.recognition
-        # FIXME - 07.11.2023 – for status_only debug
-        for block in recognition.blocks:
-            logging.info(f'3 RECO BLOCKS: {block.type=}, {block.init=}, {block.reco=}, {block.block_num=}')
-        logging.info(f'3 RECO ST: {recognition.st}')
-        # FIXME ^^^
+        statuses_list = [
+            (j, block.reco) for j, block in enumerate(self.recognition.groups) if block.type == BlockType.ST
+        ]
 
-        if recognition:
-            statuses_list = []
-            for j, block in enumerate(recognition.groups):
-                if block.type and block.type == 'ST':
-                    statuses_list.append([j, block.reco])
+        # if status is the only one (which is true in 99% of cases)
+        if len(statuses_list) == 1:
+            return statuses_list[0][1]
 
-            # FIXME - 07.11.2023 – for status_only debug
-            logging.info(f'5 RECO list: {statuses_list=}')
-            # FIXME ^^^
+        # if there are more than 1 status. have never seen 3, so stopping on 2
+        elif len(statuses_list) > 1:
+            # if statuses goes one-just-after-another --> it means a mistake. Likely 1st status is correct
+            if statuses_list[1][0] - statuses_list[0][0] == 1:
+                return statuses_list[0][1]
 
-            # if status is the only one (which is true in 99% of cases)
-            if len(statuses_list) == 1:
-                recognition.st = statuses_list[0][1]
-
-                # FIXME - 07.11.2023 – for status_only debug
-                logging.info(f'6 RECO list: {statuses_list=}')
-                logging.info(f'6 RECO ST: {recognition.st}')
-                # FIXME ^^^
-
-            # if there are more than 1 status. have never seen 3, so stopping on 2
-            elif len(statuses_list) > 1:
-                # if statuses goes one-just-after-another --> it means a mistake. Likely 1st status is correct
-                if statuses_list[1][0] - statuses_list[0][0] == 1:
-                    recognition.st = statuses_list[0][1]
-
-                # if there's another block between status blocks – which is not mistake, but just a rare case
+            # if there's another block between status blocks – which is not mistake, but just a rare case
+            else:
+                if statuses_list[0][1] == statuses_list[1][1]:
+                    return statuses_list[0][1]
                 else:
-                    if statuses_list[0][1] == statuses_list[1][1]:
-                        recognition.st = statuses_list[0][1]
-                    else:
-                        recognition.st = f'{statuses_list[0][1]} и {statuses_list[1][1]}'
+                    return f'{statuses_list[0][1]} и {statuses_list[1][1]}'
 
-        # FIXME - 07.11.2023 – for status_only debug
-        for block in recognition.blocks:
-            logging.info(f'4 RECO BLOCKS: {block.type=}, {block.init=}, {block.reco=}, {block.block_num=}')
-        logging.info(f'4 RECO ST: {recognition.st}')
-        # FIXME ^^^
-
-    def _calculate_total_num_of_persons(self) -> None:
+    def _calculate_total_num_of_persons(self) -> str | int | None:
         """Define the Total number of persons to search"""
 
-        recognition = self.recognition
-        if recognition.act != 'search':
-            return recognition
+        if self.recognition.act != 'search':
+            return None
 
+        per_blocks_says = self._per_blocks_says()
+
+        status_says_only_one_person = self._status_says_only_one_person()
+
+        # total_num_of_persons can be: [1-9] / 'group' / 'unidentified'
+        if per_blocks_says == 'unidentified':
+            if status_says_only_one_person == True:  # noqa – intentively to highlight that it is not False / None
+                return 1
+            elif status_says_only_one_person == False:  # noqa – to aviod case of 'None'
+                return 'group'
+            else:
+                return 'unidentified'
+        else:
+            return per_blocks_says
+
+    def _per_blocks_says(self) -> str | int:
+        persons_count_list = [block.reco.num_of_per for block in self.recognition.groups if block.is_person()]
+
+        # per_blocks_says can be: [1-9] / 'group' / 'unidentified'
+        if not persons_count_list:
+            return 'unidentified'
+        else:
+            if min(persons_count_list) == -1 and len(persons_count_list) > 1:
+                return 'group'
+            elif min(persons_count_list) == -1 and len(persons_count_list) == 1:
+                return 'unidentified'
+            else:  # that means = min(pers_list) > -1:
+                return sum(persons_count_list)
+
+    def _status_says_only_one_person(self) -> bool | None:
         patterns = [
             [r'(?i)пропала?(?!и)', True],
             [r'(?i)пропали', False],
-            [r'(?i)ппохищена?(?!ы)', True],
+            [r'(?i)ппохищена?(?!ы)', True],  # seems like mistype
+            [r'(?i)похищена?(?!ы)', True],
             [r'(?i)похищены', False],
             [r'(?i)найдена?(?!ы)', True],
             [r'(?i)найдены', False],
@@ -527,49 +534,16 @@ class TitleRecognizer:
             [r'(?i)погибли', False],
         ]
 
-        status_says_only_one_person = None  # can be None - unrecognized / True or False
-
-        for block in recognition.blocks:
-            if block.type == 'ST':
-                for pattern in patterns:
-                    match = re.search(pattern[0], block.init)
-                    if match:
-                        # as per statistics of 27k cases these was no single case when
-                        # there were two contradictory statuses
-                        status_says_only_one_person = pattern[1]
-                        break
-                else:
-                    continue
-                break
-
-        pers_list = []
-        for block in recognition.groups:
-            if block.is_person():
-                pers_list.append(block.reco.num_of_per)
-
-        # per_blocks_says can be: [1-9] / 'group' / 'unidentified'
-        if not pers_list:
-            per_blocks_says = 'unidentified'
-        else:
-            if min(pers_list) == -1 and len(pers_list) > 1:
-                per_blocks_says = 'group'
-            elif min(pers_list) == -1 and len(pers_list) == 1:
-                per_blocks_says = 'unidentified'
-            else:  # that means = min(pers_list) > -1:
-                per_blocks_says = sum(pers_list)
-
-        # total_num_of_persons can be: [1-9] / 'group' / 'unidentified'
-        if per_blocks_says == 'unidentified':
-            if status_says_only_one_person == True:  # noqa – intentively to highlight that it is not False / None
-                total_num_of_persons = 1
-            elif status_says_only_one_person == False:  # noqa – to aviod case of 'None'
-                total_num_of_persons = 'group'
-            else:
-                total_num_of_persons = 'unidentified'
-        else:
-            total_num_of_persons = per_blocks_says
-
-        recognition.per_num = total_num_of_persons
+        for block in self.recognition.blocks:
+            if block.type != BlockType.ST:
+                continue
+            for pattern, is_one_person in patterns:
+                match = re.search(pattern, block.init)
+                if match:
+                    # as per statistics of 27k cases these was no single case when
+                    # there were two contradictory statuses
+                    return is_one_person
+        return None
 
     def generate_final_reco_dict(self) -> RecognitionResult:
         """Generate the final outcome dictionary for recognized title"""
@@ -734,14 +708,12 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
     recognizer._split_per_and_loc_blocks_to_groups()
     recognizer._define_person_display_name_and_age()
     recognizer._define_person_block_display_name_and_age_range()
+    recognizer.recognition.st = recognizer._define_general_status()
 
-    if reco_type == 'status_only':
-        recognizer._define_general_status()
-    else:
+    if reco_type != 'status_only':
         recognizer._prettify_loc_group_address()
         recognizer._define_loc_block_summary()
-        recognizer._define_general_status()
-        recognizer._calculate_total_num_of_persons()
+        recognizer.recognition.per_num = recognizer._calculate_total_num_of_persons()
 
     final_recognition = recognizer.generate_final_reco_dict()
 

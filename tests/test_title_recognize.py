@@ -38,7 +38,7 @@ def test_main_unrecognized(app: Flask):
 
 
 class TestRecognizeTitle:
-    def test_recognize_title(self):
+    def test_recognize_title_1(self):
         title = 'Пропал мужчина. ФИО - Иванов Иван Иванович. Возраст 37 лет. Ярославская область.'
         res = main.recognize_title(title, 'status_only')
         assert res == {
@@ -153,6 +153,93 @@ class TestRecognizeTitle:
                 'person': [
                     {'name': 'женщина', 'display_name': 'Человек', 'number_of_persons': 1},
                     {'name': '2 человека', 'display_name': '2 человека', 'number_of_persons': 2},
+                ],
+            },
+        }
+
+    def test_recognize_title_5(self):
+        """doubling word with status"""
+        title = """Найден найден мужчина"""
+
+        res = main.recognize_title(title, 'status_only')
+        assert res == {
+            'topic_type': 'search',
+            'status': 'Найден',
+            'persons': {
+                'total_persons': 1,
+                'total_name': 'мужчина',
+                'total_display_name': 'Мужчина',
+                'person': [
+                    {'name': 'мужчина', 'display_name': 'Человек', 'number_of_persons': 1},
+                ],
+            },
+        }
+
+    def test_recognize_title_multiple_statuses_1(self):
+        title = 'Пропал мужчина. Найдена женщина.'
+        res = main.recognize_title(title, 'status_only')
+        assert res == {
+            'topic_type': 'search',
+            'status': 'Ищем и Найден',
+            'persons': {
+                'total_persons': 2,
+                'total_name': 'мужчина',
+                'total_display_name': 'Мужчина + 1 чел.',
+                'person': [
+                    {'name': 'мужчина', 'display_name': 'Человек', 'number_of_persons': 1},
+                    {'name': 'женщина', 'display_name': 'Человек', 'number_of_persons': 1},
+                ],
+            },
+        }
+
+    def test_recognize_title_multiple_statuses_2(self):
+        title = 'Пропал мужчина. Текст посередине. Найдена женщина.'
+        res = main.recognize_title(title, 'status_only')
+        assert res == {
+            'topic_type': 'search',
+            'status': 'Ищем и Найден',
+            'persons': {
+                'total_persons': 2,
+                'total_name': 'мужчина',
+                'total_display_name': 'Мужчина + 1 чел.',
+                'person': [
+                    {'name': 'мужчина', 'display_name': 'Человек', 'number_of_persons': 1},
+                    {'name': 'женщина', 'display_name': 'Человек', 'number_of_persons': 1},
+                ],
+            },
+        }
+
+    def test_recognize_title_multiple_statuses_3(self):
+        title = 'Найдена мужчина. Найдена женщина.'
+        res = main.recognize_title(title, 'status_only')
+        assert res == {
+            'topic_type': 'search',
+            'status': 'Найден',
+            'persons': {
+                'total_persons': 2,
+                'total_name': 'мужчина',
+                'total_display_name': 'Мужчина + 1 чел.',
+                'person': [
+                    {'name': 'мужчина', 'display_name': 'Человек', 'number_of_persons': 1},
+                    {'name': 'женщина', 'display_name': 'Человек', 'number_of_persons': 1},
+                ],
+            },
+        }
+
+    def test_recognize_title_multiple_statuses_4(self):
+        """just describe current behavior"""
+        title = 'Найдена мужчина. Найдена женщина. Пропал мужчина.'
+        res = main.recognize_title(title, 'status_only')
+        assert res == {
+            'topic_type': 'search',
+            'status': 'Найден',
+            'persons': {
+                'total_persons': 2,
+                'total_name': 'мужчина',
+                'total_display_name': 'Мужчина + 1 чел.',
+                'person': [
+                    {'name': 'мужчина', 'display_name': 'Человек', 'number_of_persons': 1},
+                    {'name': 'женщина', 'display_name': 'Женщина', 'number_of_persons': 1},
                 ],
             },
         }
