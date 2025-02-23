@@ -4,33 +4,17 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from .pattern_collections import PatternCollection
 from .person import recognize_one_person_group
-from .title_commons import Block, PersonGroup, TitleRecognition, TopicType, age_wording, check_word_by_natasha
-
-from enum import Enum
-
-
-class PatternType(str, Enum):
-    LOC_BLOCK = 'LOC_BLOCK'
-    PER_AGE_W_WORDS = 'PER_AGE_W_WORDS'
-    PER_AGE_WO_WORDS = 'PER_AGE_WO_WORDS'
-    PER_WITH_PLUS_SIGN = 'PER_WITH_PLUS_SIGN'
-    PER_HUMAN_BEING = 'PER_HUMAN_BEING'
-    PER_FIO = 'PER_FIO'
-    PER_BY_LAST_NUM = 'PER_BY_LAST_NUM'
-    MISTYPE = 'MISTYPE'  # TODO ??
-
-    @classmethod
-    def all_without_mistype(cls) -> list['PatternType']:
-        return [
-            cls.LOC_BLOCK,
-            cls.PER_AGE_W_WORDS,
-            cls.PER_AGE_WO_WORDS,
-            cls.PER_WITH_PLUS_SIGN,
-            cls.PER_HUMAN_BEING,
-            cls.PER_FIO,
-            cls.PER_BY_LAST_NUM,
-        ]
+from .title_commons import (
+    Block,
+    PatternType,
+    PersonGroup,
+    TitleRecognition,
+    TopicType,
+    age_wording,
+    check_word_by_natasha,
+)
 
 
 class Person(BaseModel):
@@ -64,252 +48,7 @@ class RecognitionResult(BaseModel):
 
 
 def match_type_to_pattern(pattern_type: PatternType) -> List[List[str]]:
-    """Return a list of regex patterns (with additional parameters) for a specific type"""
-
-    if not pattern_type:
-        return None
-
-    patterns = []
-    index_type = 'per'
-
-    if pattern_type == PatternType.MISTYPE:
-        # language=regexp
-        patterns = [
-            [r'^\W{0,3}Re:\W{0,3}', ''],  # removes replied mark
-            [r'(?i)^\W{0,3}внимание\W{1,3}', ''],  # removes unnecessary info
-            [r'^(\s{1,3}|])', ''],  # removes all unnecessary symbols in the beginning of the string
-            [r'[\s\[/\\(]{1,3}$', ''],  # removes all unnecessary symbols in the end of the string
-            # noinspection PyUnresolvedReferences
-            [r'([.,;:!?\s])\1+', r'\1'],  # noqa
-            # removes all duplicates in blank spaces or punctuation marks
-            [r'(?<!\d)\B(?=\d)', ' '],  # when and con  sequent number age typed w/o a space, example: word49
-            [r'(\[/?b]|\[?size\W?=\W?140]|\[/size]|\[/?color=.{0,8}])', ''],  # rare case of php formatting
-            [
-                r'(?i)((?<=\d\Wлет\W)|(?<=\d\Wлет\W\W)|(?<=\d\Wгод\W)|(?<=\d\Wгод\W\W)|'
-                r'(?<=\d\Wгода\W)|(?<=\d\Wгода\W\W))\d{1,2}(?=,)',
-                '',
-            ],  # case when '80 лет 80,' – last num is wrong
-            [r'(?i)без вести\s', ' '],  # rare case of 'пропал без вести'
-            [r'(?i)^ропал', 'Пропал'],  # specific case for one search
-            [r'(?i)пропалпропал', 'Пропал'],  # specific case for one search
-            [r'(?i)^форум\W{1,3}', ''],  # specific case for one search
-            [r'(?i)^э\W{1,3}', ''],  # specific case for one search
-            [r'попал ', 'пропал '],  # specific case for one search
-            [r'(?i)найлен(?=\W)', 'найден'],  # specific case for one search
-            [r'(?i)^нж(?=\W)', 'найден жив'],  # specific case for one search
-            [r'ле,т', 'лет,'],  # specific case for one search
-            [r'(?i)^Стор', 'Стоп'],  # specific case for one search
-            [r'ПроЖив', 'Жив'],  # specific case for one search
-            [r'\(193,', ','],  # specific case for one search
-            [r'\[Учения]', 'Учебный'],  # specific case for one search
-            [r'(?i)\Bпропал[аи](?=\W)', ''],  # specific case for one search
-            [r'(?i)проаерка(?=\W)', 'проверка'],  # specific case for one search
-            [r'(?i)поиск завешен', 'поиск завершен'],  # specific case for one search
-            [r'(?i)поиск заверешен', 'поиск завершен'],  # specific case for one search
-            [r':bd', ''],  # specific case for one search
-            [r'Стоп(?=[А-Я])', 'Стоп '],  # specific case for one search
-            [r'Жив(?=[А-Я])', 'Жив '],  # specific case for one search
-            [r'Жмва ', 'Жива '],  # specific case for one search
-            [r'Жтва ', 'Жива '],  # specific case for one search
-            [r'Жиаа ', 'Жива '],  # specific case for one search
-            [r'Проопал', 'Пропал'],  # specific case for one search
-            [r'Жиаа(?=[А-Я])', 'Жива '],  # specific case for one search
-            [r'Жива?(?=[А-Я])', 'Жива '],  # specific case for one search
-            [r'(?i)погию\s', 'погиб '],  # specific case for one search
-            [r'р.п ', 'р.п. '],  # specific case for one search
-            [r'(?<=\d{4}\W)г\.?р?', 'г.р.'],  # rare case
-            [r'(?<!\d)\d{3}\Wг\.р\.', ''],  # specific case for one search
-            [r'(?<=\d{2}\Wгод\W{2}\d{4})\W{1,3}(?!г)', ' г.р. '],  # specific case for one search
-            [r'((?<=год)|(?<=года)|(?<=лет))\W{1,2}\(\d{1,2}\W{1,2}(года?|лет)?\W?на м\.п\.\)', ' '],  # rare case
-            [r'(?i)провекра\s', 'проверка '],  # specific case for one search
-        ]
-
-    elif pattern_type == 'AVIA':
-        # language=regexp
-        patterns = [[r'(?i)работает авиация\W', 'Авиация']]
-
-    elif pattern_type == 'TR':
-        # language=regexp
-        patterns = [[r'(?i)\(?учебн(ый|ая)(\W{1,3}((поиск|выход)(\W{1,4}|$))?|$)', 'Учебный', 'search']]
-
-    elif pattern_type == 'ST':
-        # language=regexp
-        patterns = [
-            [
-                r'(?i)(личност[ьи] (родных\W{1,3})?установлен[аы]\W{1,3}((родные\W{1,3})?найден[аы]?\W{1,3})?)',
-                'Завершен',
-                'search reverse',
-            ],
-            [r'(?i)(найдена?\W{1,3})(?=(неизвестн(ая|ый)|.*называет себя\W|.*на вид\W))', 'Ищем', 'search reverse'],
-            [r'(?i)до сих пор не найден[аы]?\W{1,3}', 'Ищем', 'search'],
-            [r'(?i)пропал[аи]?\W{1,3}стоп\W', 'СТОП', 'search'],
-            [
-                r'(?i)(^\W{0,2}|(?<=\W)|(найден[аы]?\W{1,3})?)'
-                r'жив[аы]?'
-                r'(\W{1,3}(проверка(\W{1,3}информации)?|пропал[аи]?))?'
-                r'(\W{1,3}|$)',
-                'НЖ',
-                'search',
-            ],
-            [
-                r'(?i)(^\W{0,2}|(?<=\W)|(найден[аы]?\W{1,3})?)'
-                r'погиб(л[иа])?'
-                r'(\W{1,3}(проверка(\W{1,3}информации)?|пропал[аи]?))?'
-                r'(\W{1,3}|$)',
-                'НП',
-                'search',
-            ],
-            [
-                r'(?i)(?<!родственники\W)(?<!родные\W)(пропал[аы]\W{1,3}?)?найден[аы]?\W{1,3}(?!неизвестн)',
-                'Найден',
-                'search',
-            ],
-            [
-                r'(?i)[сc][тt][оo]п\W{1,3}(?!проверка)(.{0,15}эвакуация\W)\W{0,2}(пропал[аи]?\W{1,3})?',
-                'СТОП ЭВАКУАЦИЯ',
-                'search',
-            ],
-            [r'(?i)[сc][тt][оo]п\W(.{0,15}проверка( информации)?\W)\W{0,2}(пропал[аи]?\W{1,3})?', 'СТОП', 'search'],
-            [r'(?i)[сc][тt][оo]п\W{1,3}(пропал[аи]?\W{1,3})?', 'СТОП', 'search'],
-            [r'(?i)проверка( информации)?\W{1,3}(пропал[аи]?\W{1,3})?', 'СТОП', 'search'],
-            [r'(?i).{0,15}эвакуация\W{1,3}', 'ЭВАКУАЦИЯ', 'search'],
-            [r'(?i)поиск ((при)?остановлен|заверш[её]н|прекращ[её]н)\W{1,3}', 'Завершен', 'search'],
-            [r'(?i)\W{0,2}(поиск\W{1,3})?возобновл\w{1,5}\W{1,3}', 'Возобновлен', 'search'],
-            [r'(?i)((выезд\W{0,3})?пропал[аи]?|похищен[аы]?)\W{1,3}', 'Ищем', 'search'],
-            [
-                r'(?i)(поиски?|помогите найти|ищем)\W(родных|родственник(ов|а)|знакомых)\W{1,3}',
-                'Ищем',
-                'search reverse',
-            ],
-            [r'(?i)помогите (установить личность|опознать человека)\W{1,3}', 'Ищем', 'search reverse'],
-            [r'(?i)(родные|родственники)\Wнайдены\W{1,3}', 'Завершен', 'search reverse'],
-            [r'(?i)личность установлена\W{1,3}', 'Завершен', 'search reverse'],
-            [r'(?i)потеряшки в больницах\W{1,3}', 'Ищем', 'search reverse'],
-            [r'(?i)(^|\W)информации\W', 'СТОП', 'search'],
-            [r'(?i)(?<!поиск\W)((при)?остановлен|заверш[её]н|прекращ[её]н)\W{1,3}', 'Завершен', 'search'],
-        ]
-
-    elif pattern_type == 'ACT':
-        # language=regexp
-        patterns = [
-            [r'(?i).*учебные\sсборы.*\n?', 'event', 'event'],
-            [r'(?i).*учения.*\n?', 'event', 'event'],
-            [
-                r'(?i).*((полевое|практическ(ое|ие)) обучение|полевая тр?енировка|'
-                r'полевое( обучающее)? заняти[ея]|практическ(ое|ие)\W{1,3}заняти[ея]).*\n?',
-                'event',
-                'event',
-            ],
-            [r'(?i).*(обучалк[иа]).*\n?', 'event', 'event'],
-            [r'(?i).*обучение по.*\n?', 'event', 'event'],
-            [r'(?i).*курс по.*\n?', 'event', 'event'],
-            [
-                r'(?i).*(новичк(и|ами?|овая|овый)|новеньки[ем]|знакомство с отрядом|для новичков)(\W.*|$)\n?',
-                'event',
-                'event',
-            ],
-            [r'(?i).*(вводная лекция)\W.*\n?', 'event', 'event'],
-            [r'(?i).*(лекци\w\sо)\W.*\n?', 'event', 'event'],
-            [
-                r'(?i).*\W?(обучение|онлайн-лекция|лекция|школа волонт[её]ров|обучающее мероприятие|(?<!парт)съезд|'
-                r'семинар|собрание).*\n?',
-                'event',
-                'event',
-            ],
-            [r'(?i).*ID-\W?\d{1,7}.*\n?', 'info', 'info'],
-            [r'(?i)ночной патруль.*\n?', 'search patrol', 'search patrol'],
-        ]
-
-    elif pattern_type == PatternType.LOC_BLOCK:
-        index_type = 'loc'
-        # language=regexp
-        patterns = [
-            r'(\W[\w-]{3,20}\W)?с\.п\..*',
-            r'(?i)\W(дер\.|деревня|село|пос\.|урочище|ур\.|станица|хутор|пгт|аул|городок|город\W|пос\W|улус\W|'
-            r'садовое тов|[сc][нh][тt]|ст\W|р\.п\.|жск|тсн|тлпх|днт|днп|о.п.|б/о|ж/м|ж/р|база\W|местечко|кп[.\s]|'
-            r'го\W|рп|коллективный сад|г-к|г\.о\W|ми?крн?|м-н|улица|квартал|'
-            r'([\w-]{3,20}\W)?(р-о?н|район|гп|ао|обл\.?|г\.о|мост|берег|пристань|шоссе|автодорога|окр\W)|'
-            r'ж[/.]д|жд\W|пл\.|тер\.|массив|'
-            r'москва|([свзюцн]|юв|св|сз|юз|зел)ао\W|мо\W|одинцово|санкт-петербург|краснодар|адлер|сочи|'
-            r'самара|лыткарино|ессентуки|златоуст|абхазия|старая|калуга|ростов-на-дону|кропоткин|'
-            r'А-108|\d{1,3}(-?ы?й)?\s?км\W|'
-            r'гора|лес\W|в лесу|лесной массив|парк|нац(иональный)?\W{0,2}парк|охотоугодья).*',
-            r'\W[гдспхоу]\.($|(?!(р\.|р,|,|р\)|р\W\)|р\.\)|\Wр\.?\)?)).*)',
-            r'\W(?<!\Wг\.)(?<!\dг\.)р\.\W.*',
-            r'\sг\s.*',
-        ]
-
-    elif pattern_type == 'LOC_BY_INDIVIDUAL':
-        # language=regexp
-        patterns = [r'(?<![\-–—])*\W{1,3}[\-–—]\W{1,2}(?![\-–—])*']
-
-    elif pattern_type == 'PER_AGE_W_WORDS':
-        # language=regexp
-        patterns = [
-            r'(?i)(.*\W|^)\d?\d?\d([.,]\d)?\W{0,2}'
-            r'(?:лет|года?|л\.|мес(яц(?:а|ев)?)?|г\.,)'
-            r'(.{0,3}\W\d{4}\W?(года?(\Wр.{0,8}\W)\W?|г\.?\W?р?\.?\)?\W\W?))?'
-            r'(\W{0,2}\d{1,2}\W)?'
-            r'(\W{0,5}\+\W{0,2}(женщина|девушка|\d))?\W{0,5}',
-            r'(?i).*\W\d{4}\W?'
-            r'(?:года?(\Wр.{0,8}\W)\W?|г\.?р?\.?)'
-            r'(\W{0,3}\+\W{0,2}(женщина|девушка|\d))?'
-            r'(.{0,3}\W\d?\d?\d([.,]\d)?\W?'
-            r'(?:лет|года?|л\.|мес(яц(?:а|ев)?)?))?'
-            r'\W{1,5}',
-        ]
-
-    elif pattern_type == 'PER_AGE_WO_WORDS':
-        # language=regexp
-        patterns = [r'(?i)\d{1,3}(\W{1,4}(?!\d)|$)']
-
-    elif pattern_type == 'PER_WITH_PLUS_SIGN':
-        # language=regexp
-        patterns = [
-            r'(?i)\W{0,3}\+\W{0,2}((женщина|девушка|мама|\d(\W{0,3}человека?\W{1,3})?)|'
-            r'(?=[^+]*$)[^+]{0,25}\d{0,3})[^+\w]{1,3}'
-        ]
-
-    elif pattern_type == 'PER_HUMAN_BEING':
-        # language=regexp
-        patterns = [
-            r'(?i).*(женщин[аы]|мужчин[аы]|декушк[аи]|человека?|дочь|сын|жена|муж|отец|мать|папа|мама|'
-            r'бабушк[аи]|дедушк[аи])(\W{1,3}|$)'
-        ]
-
-    elif pattern_type == 'PER_FIO':
-        # language=regexp
-        patterns = [r'.*\W{1,3}[А-Я]\.\W{0,2}[А-Я]\.\W*']
-
-    elif pattern_type == 'PER_BY_LAST_NUM':
-        # language=regexp
-        patterns = [r'.*[^1]1?\d{1,2}(?![0-9])\W{1,5}']
-
-    elif pattern_type == 'PER_BY_INDIVIDUAL':
-        # language=regexp
-        patterns = [
-            r'\+\W{0,3}(?!\W{0,2}\d{1,2}\Wлет)',
-            r'(?<!\d)(?<!\d\Wлет)\Wи\W{1,3}',  # "3 девочки 10 , 12 и 13 лет" should not split into 2 groups
-            r'(?i)'
-            r'\W\d?\d?\d([.,]\d)?\W{0,2}'
-            r'(?:лет|года?|л\.|мес(яц(?:а|ев)?)?|г\.,)\W{0,2}'
-            r'(.{0,3}\d{4}\W?(года?(\Wр.{0,8}\W)\W?|г\.?\W?р?\.?\W{1,4}))?'
-            r'(?-i:[\Wи]{0,5})(?!.{0,5}\d{1,2}\Wлет)',
-            # "2 мужчин 80 лет и 67 лет" should not split into 2 groups
-            r'(?i).*(женщин[аы]|мужчин[аы]|декушк[аи]|человека?|дочь|сын|жена|муж|отец|мать|папа|мама|'
-            r'бабушк[аи]|дедушк[аи])(\W{1,3}|$)'
-            r'\W\d?\d?\d([.,]\d)?\W{0,2}'
-            r'(?:лет|года?|л\.|мес(яц(?:а|ев)?)?|г\.,)\W{0,2}'
-            r'(.{0,3}\d{4}\W?(года?(\Wр.{0,8}\W)\W?|г\.?\W?р?\.?\)?\W\W?))?(?-i:[\Wи]*)',
-        ]
-
-    else:
-        pass
-
-    if pattern_type in PatternType.all_without_mistype():
-        return patterns, index_type
-    else:
-        return patterns
+    return PatternCollection().match_type_to_pattern(pattern_type)
 
 
 def recognize_a_pattern(
@@ -477,131 +216,133 @@ class TitleRecognizer:
         recognition = self.recognition
 
         for block in recognition.blocks:
-            if not block.type:
-                string_to_split = block.init
-                marker_per = 0
-                marker_loc = len(string_to_split)
-                marker_final = None
+            if block.type:
+                continue
+            string_to_split = block.init
+            marker_per = 0
+            marker_loc = len(string_to_split)
+            marker_final = None
 
-                for patterns_list_item in PatternType.all_without_mistype():
-                    patterns, marker = match_type_to_pattern(patterns_list_item)
+            for patterns_list_item in PatternType.all_without_mistype():
+                patterns, marker = match_type_to_pattern(patterns_list_item)
 
-                    for pattern in patterns:
-                        marker_search = re.search(pattern, string_to_split[:marker_loc])
+                for pattern in patterns:
+                    marker_search = re.search(pattern, string_to_split[:marker_loc])
 
-                        if marker_search:
-                            if marker == 'loc':
-                                marker_loc = min(marker_search.span()[0] + 1, marker_loc)
-                            elif marker == 'per':
-                                marker_per = max(marker_search.span()[1], marker_per)
+                    if marker_search:
+                        if marker == 'loc':
+                            marker_loc = min(marker_search.span()[0] + 1, marker_loc)
+                        elif marker == 'per':
+                            marker_per = max(marker_search.span()[1], marker_per)
 
-                        # INTERMEDIATE RESULT: IF PERSON FINISHES WHERE LOCATION STARTS
-                        if marker_per == marker_loc:
-                            break
-                    else:
-                        continue
-                    break
+                    # INTERMEDIATE RESULT: IF PERSON FINISHES WHERE LOCATION STARTS
+                    if marker_per == marker_loc:
+                        break
+                else:
+                    continue
+                break
 
-                if marker_per == marker_loc:
-                    marker_final = marker_per
+            if marker_per == marker_loc:
+                marker_final = marker_per
 
-                elif marker_per > 0:
-                    marker_final = marker_per
+            elif marker_per > 0:
+                marker_final = marker_per
+
+            else:
+                # now we check, if the part of Title excl. recognized LOC finishes right before PER
+                last_not_loc_word_is_per = check_word_by_natasha(string_to_split[:marker_loc], 'per')
+
+                if last_not_loc_word_is_per:
+                    marker_final = marker_loc
 
                 else:
-                    # now we check, if the part of Title excl. recognized LOC finishes right before PER
-                    last_not_loc_word_is_per = check_word_by_natasha(string_to_split[:marker_loc], 'per')
+                    # language=regexp
+                    patterns_2 = [[r'(?<=\W)\([А-Я][а-яА-Я,\s]*\)\W', ''], [r'\W*$', '']]
+                    temp_string = string_to_split[marker_per:marker_loc]
+
+                    for pattern_2 in patterns_2:
+                        temp_string = re.sub(pattern_2[0], pattern_2[1], temp_string)
+
+                    last_not_loc_word_is_per = check_word_by_natasha(temp_string, 'per')
 
                     if last_not_loc_word_is_per:
                         marker_final = marker_loc
 
+                    elif marker_loc < len(string_to_split):
+                        marker_final = marker_loc
+
                     else:
-                        # language=regexp
-                        patterns_2 = [[r'(?<=\W)\([А-Я][а-яА-Я,\s]*\)\W', ''], [r'\W*$', '']]
-                        temp_string = string_to_split[marker_per:marker_loc]
+                        # let's check if there's any status defined for this activity
+                        # if yes – there's a status – that means we can treat all the following as PER
+                        there_is_status = False
+                        there_is_training = False
+                        num_of_blocks = len(recognition.blocks)
 
-                        for pattern_2 in patterns_2:
-                            temp_string = re.sub(pattern_2[0], pattern_2[1], temp_string)
+                        for block_2 in recognition.blocks:
+                            if block_2.type == 'ST':
+                                there_is_status = True
+                            elif block_2.type == 'TR':
+                                there_is_training = True
 
-                        last_not_loc_word_is_per = check_word_by_natasha(temp_string, 'per')
-
-                        if last_not_loc_word_is_per:
+                        if there_is_status:
+                            # if nothing helps – we're assuming all the words are Person with no Location
                             marker_final = marker_loc
 
-                        elif marker_loc < len(string_to_split):
-                            marker_final = marker_loc
+                        elif there_is_training and num_of_blocks == 1:
+                            pass
 
                         else:
-                            # let's check if there's any status defined for this activity
-                            # if yes – there's a status – that means we can treat all the following as PER
-                            there_is_status = False
-                            there_is_training = False
-                            num_of_blocks = len(recognition.blocks)
+                            logging.info(f'NEW RECO was not able to split per and loc for {string_to_split}')
+                            pass
 
-                            for block_2 in recognition.blocks:
-                                if block_2.type == 'ST':
-                                    there_is_status = True
-                                elif block_2.type == 'TR':
-                                    there_is_training = True
-
-                            if there_is_status:
-                                # if nothing helps – we're assuming all the words are Person with no Location
-                                marker_final = marker_loc
-
-                            elif there_is_training and num_of_blocks == 1:
-                                pass
-
-                            else:
-                                logging.info(f'NEW RECO was not able to split per and loc for {string_to_split}')
-                                pass
-
-                if marker_final:
-                    self._update_reco_with_per_and_loc_blocks(string_to_split, block, marker_final)
+            if marker_final:
+                self._update_reco_with_per_and_loc_blocks(string_to_split, block, marker_final)
 
     def _split_per_and_loc_blocks_to_groups(self) -> None:
         """Split the recognized Block with aggregated persons/locations to separate Groups of individuals/addresses"""
 
         recognition = self.recognition
         for block in recognition.blocks:
-            if block.type in {'PER', 'LOC'}:
-                individual_stops = []
-                groups = []
-                patterns = match_type_to_pattern(f'{block.type}_BY_INDIVIDUAL')
-
-                for pattern in patterns:
-                    delimiters_list = re.finditer(pattern, block.init)
-
-                    if delimiters_list:
-                        for delimiters_line in delimiters_list:
-                            if delimiters_line.span()[1] != len(block.init):
-                                individual_stops.append(delimiters_line.span()[1])
-
-                individual_stops = list(set(individual_stops))
-                individual_stops.sort()
-
-                block_start = 0
-                block_end = 0
-
-                for item in individual_stops:
-                    block_end = item
-                    groups.append(block.init[block_start:block_end])
-                    block_start = block_end
-                if len(individual_stops) > 0:
-                    groups.append(block.init[block_end:])
-
-                if not groups:
-                    groups = [block.init]
-
-                for i, gr in enumerate(groups):
-                    group = Block(
-                        init=gr,
-                        type=f'{block.type[0]}{i + 1}',
-                    )
-
-                    recognition.groups.append(group)
-
-            else:
+            if block.type not in {'PER', 'LOC'}:
                 recognition.groups.append(block)
+                continue
+
+            individual_stops = []
+            groups = []
+            patterns = match_type_to_pattern(f'{block.type}_BY_INDIVIDUAL')
+
+            for pattern in patterns:
+                delimiters_list = re.finditer(pattern, block.init)
+
+                if delimiters_list:
+                    for delimiters_line in delimiters_list:
+                        if delimiters_line.span()[1] != len(block.init):
+                            individual_stops.append(delimiters_line.span()[1])
+
+            individual_stops = list(set(individual_stops))
+            individual_stops.sort()
+
+            block_start = 0
+            block_end = 0
+
+            for item in individual_stops:
+                block_end = item
+                groups.append(block.init[block_start:block_end])
+                block_start = block_end
+
+            if len(individual_stops) > 0:
+                groups.append(block.init[block_end:])
+
+            if not groups:
+                groups = [block.init]
+
+            for i, gr in enumerate(groups):
+                group = Block(
+                    init=gr,
+                    type=f'{block.type[0]}{i + 1}',
+                )
+
+                recognition.groups.append(group)
 
     def _define_person_block_display_name_and_age_range(self) -> None:
         """Define the Displayed Name (Pseudonym) and Age Range for the whole Persons Block"""

@@ -109,3 +109,26 @@ class TopicType(str, Enum):
     event = 'event'
     info = 'info'
     unrecognized = 'UNRECOGNIZED'
+
+
+class PatternType(str, Enum):
+    LOC_BLOCK = 'LOC_BLOCK'
+    PER_AGE_W_WORDS = 'PER_AGE_W_WORDS'
+    PER_AGE_WO_WORDS = 'PER_AGE_WO_WORDS'
+    PER_WITH_PLUS_SIGN = 'PER_WITH_PLUS_SIGN'
+    PER_HUMAN_BEING = 'PER_HUMAN_BEING'
+    PER_FIO = 'PER_FIO'
+    PER_BY_LAST_NUM = 'PER_BY_LAST_NUM'
+    MISTYPE = 'MISTYPE'  # TODO ??
+
+    @classmethod
+    def all_without_mistype(cls) -> list['PatternType']:
+        return [
+            cls.LOC_BLOCK,
+            cls.PER_AGE_W_WORDS,
+            cls.PER_AGE_WO_WORDS,
+            cls.PER_WITH_PLUS_SIGN,
+            cls.PER_HUMAN_BEING,
+            cls.PER_FIO,
+            cls.PER_BY_LAST_NUM,
+        ]
