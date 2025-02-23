@@ -887,11 +887,8 @@ def generate_final_reco_dict(recognition: TitleRecognition) -> RecognitionResult
     logging.info(f'1 RECO ST: {recognition.st}')
     # FIXME ^^^
 
-    persons_identified = False
-    for block in recognition.blocks:
-        if block.type == 'PER':
-            persons_identified = True
-            break
+    result = RecognitionResult.model_construct()
+    persons_identified = any(True for block in recognition.blocks if block.type == 'PER')
 
     if not recognition.act and not recognition.st and persons_identified:
         recognition.act = 'search'
@@ -904,10 +901,7 @@ def generate_final_reco_dict(recognition: TitleRecognition) -> RecognitionResult
         recognition.st = 'Ищем'
 
     if recognition.act:
-        final_dict['topic_type'] = recognition.act
-    else:
-        # here we can return or raise an exception
-        final_dict['topic_type'] = 'UNRECOGNIZED'
+        result.topic_type = recognition.act
 
     if recognition.avia:
         final_dict['avia'] = True
@@ -919,7 +913,7 @@ def generate_final_reco_dict(recognition: TitleRecognition) -> RecognitionResult
     locations = []
     for block in recognition.groups:
         if block.type == 'ACT':
-            final_dict['topic_type'] = block.reco
+            result.topic_type = block.reco
 
         elif block.is_person():
             individual_dict = {}
@@ -946,34 +940,15 @@ def generate_final_reco_dict(recognition: TitleRecognition) -> RecognitionResult
                 locations.append(individual_dict)
 
     if recognition.tr:
-        final_dict['topic_type'] = 'search training'
+        result.topic_type = 'search training'
 
-    if persons:
-        summary = {}
-        for block in recognition.blocks:
-            if block.type and block.type == 'PER':
-                summary['total_persons'] = block.reco.block_num
-                summary['total_name'] = block.reco.name
-                summary['total_display_name'] = block.reco.display_name
-                if isinstance(block.reco.age, list) and len(block.reco.age) > 0:
-                    summary['age_min'] = block.reco.age[0]
-                    summary['age_max'] = block.reco.age[-1]
-                elif isinstance(block.reco.age, list):
-                    summary['age_min'] = None
-                    summary['age_max'] = None
-                else:
-                    summary['age_min'] = block.reco.age
-                    summary['age_max'] = block.reco.age
-                break
-
-        summary['person'] = persons
-        final_dict['persons'] = summary
+    _fill_result_persons(recognition, final_dict, persons)
 
     if locations:
         final_dict['locations'] = locations
 
     # placeholders if no persons
-    if final_dict['topic_type'] in {'search', 'search training'} and 'persons' not in final_dict.keys():
+    if result.topic_type in {'search', 'search training'} and 'persons' not in final_dict.keys():
         per_dict = {'total_persons': -1, 'total_name': 'Неизвестный', 'total_display_name': 'Неизвестный'}
         final_dict['persons'] = per_dict
 
@@ -985,7 +960,34 @@ def generate_final_reco_dict(recognition: TitleRecognition) -> RecognitionResult
     ):
         final_dict['persons']['total_persons'] = 1
 
-    return RecognitionResult.model_validate(final_dict)
+    final_dict['topic_type'] = result.topic_type
+    result = RecognitionResult.model_validate(final_dict)
+    # result.model_validate(**result)
+    return result
+
+
+def _fill_result_persons(recognition: TitleRecognition, final_dict: dict, persons: list[dict]) -> None:
+    if not persons:
+        return
+    summary = {}
+    for block in recognition.blocks:
+        if block.type and block.type == 'PER':
+            summary['total_persons'] = block.reco.block_num
+            summary['total_name'] = block.reco.name
+            summary['total_display_name'] = block.reco.display_name
+            if isinstance(block.reco.age, list) and len(block.reco.age) > 0:
+                summary['age_min'] = block.reco.age[0]
+                summary['age_max'] = block.reco.age[-1]
+            elif isinstance(block.reco.age, list):
+                summary['age_min'] = None
+                summary['age_max'] = None
+            else:
+                summary['age_min'] = block.reco.age
+                summary['age_max'] = block.reco.age
+            break
+
+    summary['person'] = persons
+    final_dict['persons'] = summary
 
 
 def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
