@@ -1,6 +1,6 @@
-from enum import Enum
 import re
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any
 
 from natasha import Doc, NewsEmbedding, NewsNERTagger, Segmenter

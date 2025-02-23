@@ -2,13 +2,10 @@ import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-
-from .title_commons import Block, PersonGroup, TitleRecognition, age_wording, check_word_by_natasha, TopicType
 from .person import recognize_one_person_group
-from typing import List, Optional, Union
-from pydantic import BaseModel, Field, ConfigDict
+from .title_commons import Block, PersonGroup, TitleRecognition, TopicType, age_wording, check_word_by_natasha
 
 
 class Person(BaseModel):
@@ -344,77 +341,40 @@ def clean_and_prettify(string: str) -> str:
     return string
 
 
-def update_full_blocks_with_new(
-    init_num_of_the_block_to_split: int,
-    prev_recognition: TitleRecognition,
-    recognized_blocks: Optional[List[Union[None, str, Block]]],
-) -> List[Block]:
-    """Update the 'b1 Blocks' with the new recognized information"""
+class TitleRecognizer:
+    def __init__(self, recognition: TitleRecognition) -> None:
+        self.recognition = recognition
 
-    if recognized_blocks:
-        curr_recognition_blocks_b1 = []
+    @classmethod
+    def from_str(cls, line: str) -> 'TitleRecognizer':
+        prettified_line = clean_and_prettify(line)
+        recognition = TitleRecognition(init=line, pretty=prettified_line)
+        return cls(recognition)
 
-        # 0. Get Blocks, which go BEFORE the recognition
-        for i in range(init_num_of_the_block_to_split):
-            curr_recognition_blocks_b1.append(prev_recognition.blocks[i])
+    def _split_status_training_activity(self) -> None:
+        """Create an initial 'Recognition' object and recognize data for Status, Training, Activity, Avia"""
 
-        # 1. Get Blocks, which ARE FORMED by the recognition
-        j = 0
-        for item in recognized_blocks:
-            if item and item != 'None':
-                if isinstance(item, str):
-                    new_block = Block()
-                    new_block.init = item
-                    new_block.done = False
-                else:
-                    new_block = item
-                new_block.block_num = init_num_of_the_block_to_split + j
-                j += 1
-                curr_recognition_blocks_b1.append(new_block)
+        recognition = self.recognition
+        list_of_pattern_types = [
+            'ST',
+            'ST',  # duplication – is not a mistake: there are cases when two status checks are necessary
+            'TR',
+            'AVIA',
+            'ACT',
+        ]
 
-        # 2. Get Blocks, which go AFTER the recognition
-        prev_num_of_b1_blocks = len(prev_recognition.blocks)
-        num_of_new_blocks = len([item for item in recognized_blocks if item])
+        first_block = Block(block_num=0, init=recognition.pretty, done=False)
+        recognition.blocks.append(first_block)
 
-        if prev_num_of_b1_blocks - 1 - init_num_of_the_block_to_split > 0:
-            for i in range(prev_num_of_b1_blocks - init_num_of_the_block_to_split - 1):
-                new_block = prev_recognition.blocks[init_num_of_the_block_to_split + 1 + i]
-                new_block.block_num = init_num_of_the_block_to_split + num_of_new_blocks + i
-                curr_recognition_blocks_b1.append(new_block)
+        # find status / training / aviation / activity – via PATTERNS
+        for pattern_type in list_of_pattern_types:
+            for non_reco_block in recognition.blocks:
+                if non_reco_block.done:
+                    continue
 
-    else:
-        curr_recognition_blocks_b1 = prev_recognition.blocks
-
-    return curr_recognition_blocks_b1
-
-
-def split_status_training_activity(initial_title: str, prettified_title: str) -> TitleRecognition:
-    """Create an initial 'Recognition' object and recognize data for Status, Training, Activity, Avia"""
-
-    list_of_pattern_types = [
-        'ST',
-        'ST',  # duplication – is not a mistake: there are cases when two status checks are necessary
-        'TR',
-        'AVIA',
-        'ACT',
-    ]
-
-    recognition = TitleRecognition(init=initial_title, pretty=prettified_title)
-
-    first_block = Block(block_num=0, init=prettified_title, done=False)
-    recognition.blocks.append(first_block)
-
-    # find status / training / aviation / activity – via PATTERNS
-    for pattern_type in list_of_pattern_types:
-        for non_reco_block in recognition.blocks:
-            if non_reco_block.done:
-                pass
-            else:
                 text_to_recognize = non_reco_block.init
                 recognized_blocks, recognized_activity = recognize_a_pattern(pattern_type, text_to_recognize)
-                recognition.blocks = update_full_blocks_with_new(
-                    non_reco_block.block_num, recognition, recognized_blocks
-                )
+                self._update_full_blocks_with_new(non_reco_block.block_num, recognized_blocks)
                 if recognition.act and recognized_activity and recognition.act != recognized_activity:
                     logging.error(
                         f'RARE CASE! recognized activity does not match: ' f'{recognition.act} != {recognized_activity}'
@@ -423,27 +383,22 @@ def split_status_training_activity(initial_title: str, prettified_title: str) ->
                 if recognized_activity and not recognition.act:
                     recognition.act = recognized_activity
 
-    for block in recognition.blocks:
-        if block.type == 'TR':
-            recognition.tr = block.reco
-        if block.type == 'AVIA':
-            recognition.avia = block.reco
-        if block.type == 'ACT':
-            recognition.act = block.reco
-        # MEMO: recognition.st is done on the later stages of title recognition
+        for block in recognition.blocks:
+            if block.type == 'TR':
+                recognition.tr = block.reco
+            if block.type == 'AVIA':
+                recognition.avia = block.reco
+            if block.type == 'ACT':
+                recognition.act = block.reco
+            # MEMO: recognition.st is done on the later stages of title recognition
 
-        # FIXME – 07.11.2023 –temp debug to see blocks
-        logging.info(f'0 HERE IS THE BLOCK {block.type=}, {block.init=}, {block.reco=}, {block.block_num=}')
-        # FIXME ^^^
+            # FIXME – 07.11.2023 –temp debug to see blocks
+            logging.info(f'0 HERE IS THE BLOCK {block.type=}, {block.init=}, {block.reco=}, {block.block_num=}')
+            # FIXME ^^^
 
-    return recognition
+        return recognition
 
-
-class TitleRecognizer:
-    def __init__(self, recognition: TitleRecognition) -> None:
-        self.recognition = recognition
-
-    def update_reco_with_per_and_loc_blocks(self, string_to_split: str, block: Block, marker: int) -> None:
+    def _update_reco_with_per_and_loc_blocks(self, string_to_split: str, block: Block, marker: int) -> None:
         """Update the Recognition object with two separated Blocks for Persons and Locations"""
 
         recognized_blocks = []
@@ -456,7 +411,48 @@ class TitleRecognizer:
             location_block = Block(block_num=block.block_num + 1, init=string_to_split[marker:], done=True, type='LOC')
             recognized_blocks.append(location_block)
 
-        self.recognition.blocks = update_full_blocks_with_new(block.block_num, self.recognition, recognized_blocks)
+        self._update_full_blocks_with_new(block.block_num, recognized_blocks)
+
+    def _update_full_blocks_with_new(
+        self,
+        init_num_of_the_block_to_split: int,
+        recognized_blocks: Optional[List[Union[None, str, Block]]],
+    ) -> None:
+        """Update the 'b1 Blocks' with the new recognized information"""
+
+        if not recognized_blocks:
+            return
+
+        curr_recognition_blocks_b1 = []
+        recognition = self.recognition
+
+        # 0. Get Blocks, which go BEFORE the recognition
+        for i in range(init_num_of_the_block_to_split):
+            curr_recognition_blocks_b1.append(recognition.blocks[i])
+
+        # 1. Get Blocks, which ARE FORMED by the recognition
+        j = 0
+        for item in recognized_blocks:
+            if item and item != 'None':
+                if isinstance(item, str):
+                    new_block = Block(init=item, done=False)
+                else:
+                    new_block = item
+                new_block.block_num = init_num_of_the_block_to_split + j
+                j += 1
+                curr_recognition_blocks_b1.append(new_block)
+
+        # 2. Get Blocks, which go AFTER the recognition
+        prev_num_of_b1_blocks = len(recognition.blocks)
+        num_of_new_blocks = len([item for item in recognized_blocks if item])
+
+        if prev_num_of_b1_blocks - 1 - init_num_of_the_block_to_split > 0:
+            for i in range(prev_num_of_b1_blocks - init_num_of_the_block_to_split - 1):
+                new_block = recognition.blocks[init_num_of_the_block_to_split + 1 + i]
+                new_block.block_num = init_num_of_the_block_to_split + num_of_new_blocks + i
+                curr_recognition_blocks_b1.append(new_block)
+
+        recognition.blocks = curr_recognition_blocks_b1
 
     def _split_per_from_loc_blocks(self) -> None:
         """Split the string with persons and locations into two blocks of persons and locations"""
@@ -552,7 +548,7 @@ class TitleRecognizer:
                                 pass
 
                 if marker_final:
-                    self.update_reco_with_per_and_loc_blocks(string_to_split, block, marker_final)
+                    self._update_reco_with_per_and_loc_blocks(string_to_split, block, marker_final)
 
     def _split_per_and_loc_blocks_to_groups(self) -> None:
         """Split the recognized Block with aggregated persons/locations to separate Groups of individuals/addresses"""
@@ -980,10 +976,9 @@ class TitleRecognizer:
 
 def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
     """Recognize LA Thread Subject (Title) and return a dict of recognized parameters"""
-    prettified_line = clean_and_prettify(line)
-    recognition_result = split_status_training_activity(line, prettified_line)
 
-    recognizer = TitleRecognizer(recognition_result)
+    recognizer = TitleRecognizer.from_str(line)
+    recognizer._split_status_training_activity()
     recognizer._split_per_from_loc_blocks()
     recognizer._split_per_and_loc_blocks_to_groups()
     recognizer._define_person_display_name_and_age()
