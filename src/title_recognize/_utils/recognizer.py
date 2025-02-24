@@ -303,12 +303,6 @@ class TitleRecognizer:
         }
         """
 
-        # FIXME - 07.11.2023 – for status_only debug
-        for block in recognition.blocks:
-            logging.info(f'1 RECO BLOCKS: {block.type=}, {block.init=}, {block.reco=}, {block.block_num=}')
-        logging.info(f'1 RECO ST: {recognition.st}')
-        # FIXME ^^^
-
         result = RecognitionResult.model_construct()
         persons_identified = any(True for block in recognition.blocks if block.type == 'PER')
 

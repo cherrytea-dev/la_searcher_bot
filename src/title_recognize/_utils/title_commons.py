@@ -65,7 +65,7 @@ class PersonGroup:
 
 @dataclass
 class Block:
-    block_num: int = 0
+    block_num: int = 0  # TODO can be removed
     init: str = None  # initial text, prettified
     reco: PersonGroup | str = None
     type: BlockType | str | None = None
@@ -80,11 +80,10 @@ class Block:
 
 @dataclass
 class TitleRecognition:
-    init: str
+    _initial_text: str  # just save source string
     pretty: str
     blocks: list[Block] = field(default_factory=list)
     groups: list[Block] = field(default_factory=list)
-    reco: Any = None
     st: Any = None  # status
     act: Any = None  # activity
     per_num: str | int | None = None  # count of persons

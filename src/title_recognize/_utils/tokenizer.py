@@ -55,7 +55,7 @@ class Tokenizer:
     @classmethod
     def get_recognition_from_str(cls, line: str) -> TitleRecognition:
         prettified_line = cls._clean_and_prettify(line)
-        recognition = TitleRecognition(init=line, pretty=prettified_line)
+        recognition = TitleRecognition(_initial_text=line, pretty=prettified_line)
         tokenizer = cls(recognition)
         tokenizer._split_text_to_groups()
         return tokenizer.recognition
@@ -100,6 +100,8 @@ class Tokenizer:
                 text_to_recognize = non_reco_block.init
                 recognized_blocks, recognized_activity = recognize_a_pattern(pattern_type, text_to_recognize)
                 self._update_full_blocks_with_new(non_reco_block.block_num, recognized_blocks)
+
+                # TODO move calculation of "act" attribute somewhere else
                 if recognition.act and recognized_activity and recognition.act != recognized_activity:
                     logging.error(
                         f'RARE CASE! recognized activity does not match: ' f'{recognition.act} != {recognized_activity}'
