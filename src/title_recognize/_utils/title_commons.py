@@ -86,10 +86,23 @@ class TitleRecognition:
     groups: list[Block] = field(default_factory=list)
     reco: Any = None
     st: Any = None
-    tr: Any = None
-    act: str | None = None  # activity (topic_type)
-    avia: Any = None
+    act: Any = None
     per_num: str | int | None = None
+
+    @property
+    def tr(self) -> str | None:
+        # training
+        for block in self.blocks:
+            if block.type == BlockType.TR:
+                return block.reco
+        return None
+
+    @property
+    def avia(self) -> str | None:
+        for block in self.blocks:
+            if block.type == BlockType.AVIA:
+                return block.reco
+        return None
 
 
 def age_wording(age: int) -> str:

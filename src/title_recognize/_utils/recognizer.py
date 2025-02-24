@@ -63,28 +63,29 @@ def recognize_a_pattern(
 
     patterns = match_type_to_pattern(pattern_type)
 
-    if patterns:
-        for pattern in patterns:
-            block = re.search(pattern[0], input_string)
-            if block:
-                status = pattern[1]
-                if pattern_type in {BlockType.ST, BlockType.TR, BlockType.ACT}:
-                    activity = pattern[2]
-                break
-
-    if block:
-        start_number = block.start()
-        end_number = block.end()
-
-        reco_part = Block(init=block.group(), reco=status, type=pattern_type, done=True)
-
-        rest_part_before = input_string[:start_number] if start_number != 0 else None
-        rest_part_after = input_string[end_number:] if end_number != len(input_string) else None
-
-        return [rest_part_before, reco_part, rest_part_after], activity
-
-    else:
+    if not patterns:
         return None, None
+
+    for pattern in patterns:
+        block = re.search(pattern[0], input_string)
+        if block:
+            status = pattern[1]
+            if pattern_type in {BlockType.ST, BlockType.TR, BlockType.ACT}:
+                activity = pattern[2]
+            break
+
+    if not block:
+        return None, None
+
+    start_number = block.start()
+    end_number = block.end()
+
+    reco_part = Block(init=block.group(), reco=status, type=pattern_type, done=True)
+
+    rest_part_before = input_string[:start_number] if start_number != 0 else None
+    rest_part_after = input_string[end_number:] if end_number != len(input_string) else None
+
+    return [rest_part_before, reco_part, rest_part_after], activity
 
 
 class TitleRecognizer:
@@ -141,17 +142,9 @@ class TitleRecognizer:
                     recognition.act = recognized_activity
 
         for block in recognition.blocks:
-            if block.type == BlockType.TR:
-                recognition.tr = block.reco
-            if block.type == BlockType.AVIA:
-                recognition.avia = block.reco
             if block.type == BlockType.ACT:
                 recognition.act = block.reco
             # MEMO: recognition.st is done on the later stages of title recognition
-
-            # FIXME – 07.11.2023 –temp debug to see blocks
-            logging.info(f'0 HERE IS THE BLOCK {block.type=}, {block.init=}, {block.reco=}, {block.block_num=}')
-            # FIXME ^^^
 
         return recognition
 
@@ -309,7 +302,6 @@ class TitleRecognizer:
                 continue
 
             individual_stops = []
-            groups = []
             patterns = match_type_to_pattern(f'{block.type}_BY_INDIVIDUAL')
 
             for pattern in patterns:
@@ -326,6 +318,7 @@ class TitleRecognizer:
             block_start = 0
             block_end = 0
 
+            groups = []
             for item in individual_stops:
                 block_end = item
                 groups.append(block.init[block_start:block_end])
