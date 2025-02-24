@@ -85,9 +85,9 @@ class TitleRecognition:
     blocks: list[Block] = field(default_factory=list)
     groups: list[Block] = field(default_factory=list)
     reco: Any = None
-    st: Any = None
-    act: Any = None
-    per_num: str | int | None = None
+    st: Any = None  # status
+    act: Any = None  # activity
+    per_num: str | int | None = None  # count of persons
 
     @property
     def tr(self) -> str | None:
