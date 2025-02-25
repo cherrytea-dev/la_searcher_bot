@@ -175,6 +175,24 @@ class TestRecognizeTitle:
             },
         }
 
+    def test_recognize_title_location_before_person(self):
+        """seems wrong, just describe current behavior"""
+        title = 'Ярославская область. Пропал мужчина. ФИО - Иванов Иван Иванович.'
+        res = main.recognize_title(title, 'status_only')
+        assert res == {
+            'topic_type': 'search',
+            'status': 'Ищем',
+            'persons': {
+                'total_persons': -1,
+                'total_name': 'Ярославская',
+                'total_display_name': 'Ярославская и ко.',
+                'person': [
+                    {'name': 'Ярославская', 'display_name': 'Ярославская', 'number_of_persons': -1},
+                    {'name': 'мужчина', 'display_name': 'Человек', 'number_of_persons': 1},
+                ],
+            },
+        }
+
     def test_recognize_title_multiple_statuses_1(self):
         title = 'Пропал мужчина. Найдена женщина.'
         res = main.recognize_title(title, 'status_only')

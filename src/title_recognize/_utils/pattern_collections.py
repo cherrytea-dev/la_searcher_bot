@@ -47,7 +47,7 @@ class PatternCollection:
             patterns = self._st_pattenrs()
 
         elif pattern_type == BlockType.ACT:
-            patterns = self._st_patterns()
+            patterns = self._act_patterns()
 
         elif pattern_type == BlockType.LOC_BY_INDIVIDUAL:
             patterns = self._loc_by_individual_patterns()
@@ -134,7 +134,7 @@ class PatternCollection:
             r'\sг\s.*',
         ]
 
-    def _st_patterns(self):
+    def _act_patterns(self):
         return [
             [r'(?i).*учебные\sсборы.*\n?', 'event', 'event'],
             [r'(?i).*учения.*\n?', 'event', 'event'],
