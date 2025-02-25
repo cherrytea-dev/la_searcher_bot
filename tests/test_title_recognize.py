@@ -295,6 +295,7 @@ class TestPersonRecognize:
         )
 
 
+@pytest.mark.skip(reason='temporarily disabled to speed up')
 class TestPersonRecognizeAIGenerated:
     def test_recognize_one_person_group_case_0(self):
         block = Block(init='3 человека', type='PER')

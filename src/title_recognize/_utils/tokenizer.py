@@ -99,7 +99,7 @@ class Tokenizer:
 
                 text_to_recognize = non_reco_block.init
                 recognized_blocks, recognized_activity = recognize_a_pattern(pattern_type, text_to_recognize)
-                self._update_full_blocks_with_new(non_reco_block.block_num, recognized_blocks)
+                self._update_full_blocks_with_new(non_reco_block, recognized_blocks)
 
                 # TODO move calculation of "act" attribute somewhere else
                 if recognition.act and recognized_activity and recognition.act != recognized_activity:
@@ -114,7 +114,7 @@ class Tokenizer:
 
     def _update_full_blocks_with_new(
         self,
-        init_num_of_the_block_to_split: int,
+        old_block: Block,
         recognized_blocks: Optional[List[Union[None, str, Block]]],
     ) -> None:
         """Update the 'b1 Blocks' with the new recognized information"""
@@ -124,6 +124,7 @@ class Tokenizer:
 
         curr_recognition_blocks_b1 = []
         recognition = self.recognition
+        init_num_of_the_block_to_split = recognition.blocks.index(old_block)
 
         # 0. Get Blocks, which go BEFORE the recognition
         for i in range(init_num_of_the_block_to_split):
@@ -185,7 +186,7 @@ class Tokenizer:
             location_block = Block(block_num=block.block_num + 1, init=string_to_split[marker:], done=True, type='LOC')
             recognized_blocks.append(location_block)
 
-        self._update_full_blocks_with_new(block.block_num, recognized_blocks)
+        self._update_full_blocks_with_new(block, recognized_blocks)
 
     def _get_position_between_location_and_person(
         self, recognition: TitleRecognition, string_to_split: str, marker_loc: int, marker_per: int
