@@ -176,85 +176,92 @@ class Tokenizer:
         for block in recognition.blocks:
             if block.type:
                 continue
-            string_to_split = block.init
-            marker_per = 0
-            marker_loc = len(string_to_split)
-            marker_final = None
+            self._split_block_to_person_and_location(recognition, block)
 
-            for patterns_list_item in PatternType.all_without_mistype():
-                patterns, marker = match_type_to_pattern(patterns_list_item)
+    def _split_block_to_person_and_location(self, recognition: TitleRecognition, block: Block) -> None:
+        string_to_split = block.init
+        marker_final = None
 
-                for pattern in patterns:
-                    marker_search = re.search(pattern, string_to_split[:marker_loc])
+        marker_loc, marker_per = self._get_person_and_location_positions(string_to_split)
 
-                    if marker_search:
-                        if marker == 'loc':
-                            marker_loc = min(marker_search.span()[0] + 1, marker_loc)
-                        elif marker == 'per':
-                            marker_per = max(marker_search.span()[1], marker_per)
+        if marker_per == marker_loc:
+            marker_final = marker_per
 
-                    # INTERMEDIATE RESULT: IF PERSON FINISHES WHERE LOCATION STARTS
-                    if marker_per == marker_loc:
-                        break
-                else:
-                    continue
-                break
+        elif marker_per > 0:
+            marker_final = marker_per
 
-            if marker_per == marker_loc:
-                marker_final = marker_per
+        else:
+            # now we check, if the part of Title excl. recognized LOC finishes right before PER
+            last_not_loc_word_is_per = check_word_by_natasha(string_to_split[:marker_loc], 'per')
 
-            elif marker_per > 0:
-                marker_final = marker_per
+            if last_not_loc_word_is_per:
+                marker_final = marker_loc
 
             else:
-                # now we check, if the part of Title excl. recognized LOC finishes right before PER
-                last_not_loc_word_is_per = check_word_by_natasha(string_to_split[:marker_loc], 'per')
+                # language=regexp
+                patterns_2 = [[r'(?<=\W)\([А-Я][а-яА-Я,\s]*\)\W', ''], [r'\W*$', '']]
+                temp_string = string_to_split[marker_per:marker_loc]
+
+                for pattern_2 in patterns_2:
+                    temp_string = re.sub(pattern_2[0], pattern_2[1], temp_string)
+
+                last_not_loc_word_is_per = check_word_by_natasha(temp_string, 'per')
 
                 if last_not_loc_word_is_per:
                     marker_final = marker_loc
 
+                elif marker_loc < len(string_to_split):
+                    marker_final = marker_loc
+
                 else:
-                    # language=regexp
-                    patterns_2 = [[r'(?<=\W)\([А-Я][а-яА-Я,\s]*\)\W', ''], [r'\W*$', '']]
-                    temp_string = string_to_split[marker_per:marker_loc]
+                    # let's check if there's any status defined for this activity
+                    # if yes – there's a status – that means we can treat all the following as PER
+                    there_is_status = False
+                    there_is_training = False
+                    num_of_blocks = len(recognition.blocks)
 
-                    for pattern_2 in patterns_2:
-                        temp_string = re.sub(pattern_2[0], pattern_2[1], temp_string)
+                    for block_2 in recognition.blocks:
+                        if block_2.type == BlockType.ST:
+                            there_is_status = True
+                        elif block_2.type == BlockType.TR:
+                            there_is_training = True
 
-                    last_not_loc_word_is_per = check_word_by_natasha(temp_string, 'per')
-
-                    if last_not_loc_word_is_per:
+                    if there_is_status:
+                        # if nothing helps – we're assuming all the words are Person with no Location
                         marker_final = marker_loc
 
-                    elif marker_loc < len(string_to_split):
-                        marker_final = marker_loc
+                    elif there_is_training and num_of_blocks == 1:
+                        pass
 
                     else:
-                        # let's check if there's any status defined for this activity
-                        # if yes – there's a status – that means we can treat all the following as PER
-                        there_is_status = False
-                        there_is_training = False
-                        num_of_blocks = len(recognition.blocks)
+                        logging.info(f'NEW RECO was not able to split per and loc for {string_to_split}')
+                        pass
 
-                        for block_2 in recognition.blocks:
-                            if block_2.type == BlockType.ST:
-                                there_is_status = True
-                            elif block_2.type == BlockType.TR:
-                                there_is_training = True
+        if marker_final:
+            self._update_reco_with_per_and_loc_blocks(string_to_split, block, marker_final)
 
-                        if there_is_status:
-                            # if nothing helps – we're assuming all the words are Person with no Location
-                            marker_final = marker_loc
+    def _get_person_and_location_positions(self, string_to_split: str) -> tuple[int, int]:
+        marker_loc = len(string_to_split)
+        marker_per = 0
+        for patterns_list_item in PatternType.all_without_mistype():
+            patterns, marker = match_type_to_pattern(patterns_list_item)
 
-                        elif there_is_training and num_of_blocks == 1:
-                            pass
+            for pattern in patterns:
+                marker_search = re.search(pattern, string_to_split[:marker_loc])
 
-                        else:
-                            logging.info(f'NEW RECO was not able to split per and loc for {string_to_split}')
-                            pass
+                if marker_search:
+                    if marker == 'loc':
+                        marker_loc = min(marker_search.span()[0] + 1, marker_loc)
+                    elif marker == 'per':
+                        marker_per = max(marker_search.span()[1], marker_per)
 
-            if marker_final:
-                self._update_reco_with_per_and_loc_blocks(string_to_split, block, marker_final)
+                    # INTERMEDIATE RESULT: IF PERSON FINISHES WHERE LOCATION STARTS
+                if marker_per == marker_loc:
+                    break
+            else:
+                continue
+            break
+        return marker_loc, marker_per
 
     def _split_per_and_loc_blocks_to_groups(self) -> None:
         """Split the recognized Block with aggregated persons/locations to separate Groups of individuals/addresses"""
