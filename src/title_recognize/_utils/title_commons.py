@@ -65,7 +65,6 @@ class PersonGroup:
 
 @dataclass
 class Block:
-    block_num: int = 0  # TODO can be removed
     init: str = None  # initial text, prettified
     reco: PersonGroup | str = None
     type: BlockType | str | None = None

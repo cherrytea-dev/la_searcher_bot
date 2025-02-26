@@ -1,5 +1,6 @@
 import logging
 import re
+from itertools import chain
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from .pattern_collections import PatternCollection
@@ -10,40 +11,46 @@ def match_type_to_pattern(pattern_type: PatternType) -> List[List[str]]:
     return PatternCollection().match_type_to_pattern(pattern_type)
 
 
-def recognize_a_pattern(
-    pattern_type: str, input_string: str
-) -> Tuple[Optional[List[Union[None, str, Block]]], Optional[str]]:
+def recognize_a_pattern(pattern_type: str, input_string: str) -> Tuple[list[Block], str | None]:
     """Recognize data in a string with help of given pattern type"""
 
-    block = None
+    match = None
     status = None
     activity = None
 
     patterns = match_type_to_pattern(pattern_type)
 
     if not patterns:
-        return None, None
+        return [], None
 
     for pattern in patterns:
-        block = re.search(pattern[0], input_string)
-        if block:
+        match = re.search(pattern[0], input_string)
+        if match:
             status = pattern[1]
             if pattern_type in {BlockType.ST, BlockType.TR, BlockType.ACT}:
                 activity = pattern[2]
             break
 
-    if not block:
-        return None, None
+    if not match:
+        return [], None
 
-    start_number = block.start()
-    end_number = block.end()
+    start_number = match.start()
+    end_number = match.end()
 
-    reco_part = Block(init=block.group(), reco=status, type=pattern_type, done=True)
+    rest_part_before = input_string[:start_number]
+    rest_part_after = input_string[end_number:]
 
-    rest_part_before = input_string[:start_number] if start_number != 0 else None
-    rest_part_after = input_string[end_number:] if end_number != len(input_string) else None
+    recognized_blocks: list[Block] = []
 
-    return [rest_part_before, reco_part, rest_part_after], activity
+    if rest_part_before:
+        recognized_blocks.append(Block(init=rest_part_before))
+
+    recognized_blocks.append(Block(init=match.group(), reco=status, type=pattern_type, done=True))
+
+    if rest_part_after:
+        recognized_blocks.append(Block(init=rest_part_after))
+
+    return recognized_blocks, activity
 
 
 class Tokenizer:
@@ -88,7 +95,7 @@ class Tokenizer:
             BlockType.ACT,
         ]
 
-        first_block = Block(block_num=0, init=recognition.pretty, done=False)
+        first_block = Block(init=recognition.pretty, done=False)
         recognition.blocks.append(first_block)
 
         # find status / training / aviation / activity – via PATTERNS
@@ -115,44 +122,27 @@ class Tokenizer:
     def _update_full_blocks_with_new(
         self,
         old_block: Block,
-        recognized_blocks: Optional[List[Union[None, str, Block]]],
+        recognized_blocks: list[Block],
     ) -> None:
         """Update the 'b1 Blocks' with the new recognized information"""
 
         if not recognized_blocks:
             return
 
-        curr_recognition_blocks_b1 = []
         recognition = self.recognition
-        init_num_of_the_block_to_split = recognition.blocks.index(old_block)
 
-        # 0. Get Blocks, which go BEFORE the recognition
-        for i in range(init_num_of_the_block_to_split):
-            curr_recognition_blocks_b1.append(recognition.blocks[i])
+        new_blocks: list[Block] = []
+        replaced_block_index = recognition.blocks.index(old_block)
 
-        # 1. Get Blocks, which ARE FORMED by the recognition
-        j = 0
-        for item in recognized_blocks:
-            if item and item != 'None':
-                if isinstance(item, str):
-                    new_block = Block(init=item, done=False)
-                else:
-                    new_block = item
-                new_block.block_num = init_num_of_the_block_to_split + j
-                j += 1
-                curr_recognition_blocks_b1.append(new_block)
+        new_blocks: list[Block] = list(
+            chain(
+                recognition.blocks[:replaced_block_index],
+                recognized_blocks,
+                recognition.blocks[replaced_block_index + 1 :],
+            )
+        )
 
-        # 2. Get Blocks, which go AFTER the recognition
-        prev_num_of_b1_blocks = len(recognition.blocks)
-        num_of_new_blocks = len([item for item in recognized_blocks if item])
-
-        if prev_num_of_b1_blocks - 1 - init_num_of_the_block_to_split > 0:
-            for i in range(prev_num_of_b1_blocks - init_num_of_the_block_to_split - 1):
-                new_block = recognition.blocks[init_num_of_the_block_to_split + 1 + i]
-                new_block.block_num = init_num_of_the_block_to_split + num_of_new_blocks + i
-                curr_recognition_blocks_b1.append(new_block)
-
-        recognition.blocks = curr_recognition_blocks_b1
+        recognition.blocks = new_blocks
 
     def _split_per_from_loc_blocks(self) -> None:
         """Split the string with persons and locations into two blocks of persons and locations"""
@@ -179,11 +169,11 @@ class Tokenizer:
         recognized_blocks = []
 
         if len(string_to_split[:marker]) > 0:
-            name_block = Block(block_num=block.block_num, init=string_to_split[:marker], done=True, type='PER')
+            name_block = Block(init=string_to_split[:marker], done=True, type='PER')
             recognized_blocks.append(name_block)
 
         if len(string_to_split[marker:]) > 0:
-            location_block = Block(block_num=block.block_num + 1, init=string_to_split[marker:], done=True, type='LOC')
+            location_block = Block(init=string_to_split[marker:], done=True, type='LOC')
             recognized_blocks.append(location_block)
 
         self._update_full_blocks_with_new(block, recognized_blocks)
