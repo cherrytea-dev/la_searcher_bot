@@ -1,7 +1,7 @@
 import logging
 import re
 from itertools import chain
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, List, Tuple
 
 from .pattern_collections import PatternCollection
 from .title_commons import Block, BlockType, PatternType, TitleRecognition, check_word_by_natasha
@@ -34,18 +34,15 @@ def recognize_a_pattern(pattern_type: str, input_string: str) -> Tuple[list[Bloc
     if not match:
         return [], None
 
-    start_number = match.start()
-    end_number = match.end()
-
-    rest_part_before = input_string[:start_number]
-    rest_part_after = input_string[end_number:]
+    rest_part_before = input_string[: match.start()]
+    rest_part_after = input_string[match.end() :]
 
     recognized_blocks: list[Block] = []
 
     if rest_part_before:
         recognized_blocks.append(Block(init=rest_part_before))
 
-    recognized_blocks.append(Block(init=match.group(), reco=status, type=pattern_type, done=True))
+    recognized_blocks.append(Block(init=match.group(), reco=status, type=pattern_type, done=True, activity=activity))
 
     if rest_part_after:
         recognized_blocks.append(Block(init=rest_part_after))
@@ -71,6 +68,7 @@ class Tokenizer:
         self._split_status_training_activity()
         self._split_per_from_loc_blocks()
         self._split_per_and_loc_blocks_to_groups()
+        self._calculate_activity()  # TODO move outside tokenizer
 
     @classmethod
     def _clean_and_prettify(cls, string: str) -> str:
@@ -100,24 +98,20 @@ class Tokenizer:
 
         # find status / training / aviation / activity – via PATTERNS
         for pattern_type in list_of_pattern_types:
-            for non_reco_block in recognition.blocks:
-                if non_reco_block.done:
+            for block in recognition.blocks:
+                if block.done:
                     continue
 
-                text_to_recognize = non_reco_block.init
-                recognized_blocks, recognized_activity = recognize_a_pattern(pattern_type, text_to_recognize)
-                self._update_full_blocks_with_new(non_reco_block, recognized_blocks)
-
-                # TODO move calculation of "act" attribute somewhere else
-                if recognition.act and recognized_activity and recognition.act != recognized_activity:
-                    logging.error(
-                        f'RARE CASE! recognized activity does not match: ' f'{recognition.act} != {recognized_activity}'
-                    )
-                    pass
-                if recognized_activity and not recognition.act:
-                    recognition.act = recognized_activity
+                recognized_blocks, recognized_activity = recognize_a_pattern(pattern_type, block.init)
+                self._update_full_blocks_with_new(block, recognized_blocks)
 
         return recognition
+
+    def _calculate_activity(self) -> None:
+        for block in self.recognition.blocks:
+            if block.activity and not self.recognition.act:
+                self.recognition.act = block.activity
+                return
 
     def _update_full_blocks_with_new(
         self,
@@ -249,7 +243,11 @@ class Tokenizer:
                 continue
 
             individual_stops = []
-            patterns = match_type_to_pattern(f'{block.type}_BY_INDIVIDUAL')
+
+            if block.type == 'PER':
+                patterns = match_type_to_pattern(BlockType.PER_BY_INDIVIDUAL)
+            elif block.type == 'LOC':
+                patterns = match_type_to_pattern(BlockType.LOC_BY_INDIVIDUAL)
 
             for pattern in patterns:
                 delimiters_list = re.finditer(pattern, block.init)

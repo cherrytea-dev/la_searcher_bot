@@ -69,6 +69,7 @@ class Block:
     reco: PersonGroup | str = None
     type: BlockType | str | None = None
     done: bool = False
+    activity: str | None = None
 
     def is_person(self) -> bool:
         return self.type and self.type.startswith('P')
