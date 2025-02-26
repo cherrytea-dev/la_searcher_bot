@@ -50,11 +50,17 @@ class TitleRecognizer:
     def __init__(self, recognition: TitleRecognition) -> None:
         self.recognition = recognition
 
-    def _process_recognition_act(self) -> None:
-        """temporatily move here strange calculation of 'act' attribute"""
+    def _calculate_activity(self) -> None:
         for block in self.recognition.blocks:
+            if block.activity and not self.recognition.act:
+                self.recognition.act = block.activity
+                break
+
+        for block in self.recognition.blocks:
+            # TODO very similar with upper code block
+            # maybe can be removed, tests are green
             if block.type == BlockType.ACT:
-                self.recognition.act = block.reco  # TODO move somewhere to TitleRecognizer
+                self.recognition.act = block.reco
             # MEMO: recognition.st is done on the later stages of title recognition
 
     def _define_person_block_display_name_and_age_range(self) -> None:
@@ -417,7 +423,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
     recognition = Tokenizer.get_recognition_from_str(line)
 
     recognizer = TitleRecognizer(recognition=recognition)
-    recognizer._process_recognition_act()  # TODO ??
+    recognizer._calculate_activity()  # TODO ??
     recognizer._define_person_display_name_and_age()
     recognizer._define_person_block_display_name_and_age_range()
     recognizer.recognition.st = recognizer._define_general_status()

@@ -10,27 +10,23 @@ class PatternCollection:
         if pattern_type in PatternType.all_without_mistype():
             raise ValueError()
 
-        patterns = []
-
         if pattern_type == BlockType.AVIA:
-            patterns = self._avia_patterns()
+            return self._avia_patterns()
 
         elif pattern_type == BlockType.TR:
-            patterns = self._tr_patterns()
+            return self._tr_patterns()
 
         elif pattern_type == BlockType.ST:
-            patterns = self._st_pattenrs()
+            return self._st_pattenrs()
 
         elif pattern_type == BlockType.ACT:
-            patterns = self._act_patterns()
+            return self._act_patterns()
 
         elif pattern_type == BlockType.LOC_BY_INDIVIDUAL:
-            patterns = self._loc_by_individual_patterns()
+            return self._loc_by_individual_patterns()
 
         elif pattern_type == BlockType.PER_BY_INDIVIDUAL:
-            patterns = self._per_by_individual_patterns()
-
-        return patterns
+            return self._per_by_individual_patterns()
 
     def match_type_to_pattern_with_marker(self, pattern_type: PatternType | BlockType) -> List[List[str]]:
         """Return a list of regex patterns (with additional parameters) for a specific type"""

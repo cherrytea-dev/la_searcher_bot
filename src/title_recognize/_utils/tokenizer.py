@@ -64,7 +64,6 @@ class Tokenizer:
         self._split_status_training_activity()
         self._split_per_from_loc_blocks()
         self._split_per_and_loc_blocks_to_groups()
-        self._calculate_activity()  # TODO move outside tokenizer
 
     @classmethod
     def _clean_and_prettify(cls, string: str) -> str:
@@ -102,12 +101,6 @@ class Tokenizer:
                 self._update_full_blocks_with_new(block, recognized_blocks)
 
         return recognition
-
-    def _calculate_activity(self) -> None:
-        for block in self.recognition.blocks:
-            if block.activity and not self.recognition.act:
-                self.recognition.act = block.activity
-                return
 
     def _update_full_blocks_with_new(
         self,
