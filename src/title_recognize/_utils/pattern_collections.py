@@ -7,13 +7,40 @@ class PatternCollection:
     def match_type_to_pattern(self, pattern_type: PatternType | BlockType) -> List[List[str]]:
         """Return a list of regex patterns (with additional parameters) for a specific type"""
 
-        if not pattern_type:
-            return None
+        if pattern_type in PatternType.all_without_mistype():
+            raise ValueError()
+
+        patterns = []
+
+        if pattern_type == BlockType.AVIA:
+            patterns = self._avia_patterns()
+
+        elif pattern_type == BlockType.TR:
+            patterns = self._tr_patterns()
+
+        elif pattern_type == BlockType.ST:
+            patterns = self._st_pattenrs()
+
+        elif pattern_type == BlockType.ACT:
+            patterns = self._act_patterns()
+
+        elif pattern_type == BlockType.LOC_BY_INDIVIDUAL:
+            patterns = self._loc_by_individual_patterns()
+
+        elif pattern_type == BlockType.PER_BY_INDIVIDUAL:
+            patterns = self._per_by_individual_patterns()
+
+        return patterns
+
+    def match_type_to_pattern_with_marker(self, pattern_type: PatternType | BlockType) -> List[List[str]]:
+        """Return a list of regex patterns (with additional parameters) for a specific type"""
+
+        if pattern_type not in PatternType.all_without_mistype():
+            raise ValueError()
 
         patterns = []
         index_type = 'per'
 
-        ################################
         if pattern_type == PatternType.LOC_BLOCK:
             index_type = 'loc'
             patterns = self._loc_block_patterns()
@@ -36,30 +63,7 @@ class PatternCollection:
         elif pattern_type == PatternType.PER_BY_LAST_NUM:
             patterns = self._per_by_last_num_patterns()
 
-        ################################
-        elif pattern_type == BlockType.AVIA:
-            patterns = self._avia_patterns()
-
-        elif pattern_type == BlockType.TR:
-            patterns = self._tr_patterns()
-
-        elif pattern_type == BlockType.ST:
-            patterns = self._st_pattenrs()
-
-        elif pattern_type == BlockType.ACT:
-            patterns = self._act_patterns()
-
-        elif pattern_type == BlockType.LOC_BY_INDIVIDUAL:
-            patterns = self._loc_by_individual_patterns()
-
-        elif pattern_type == BlockType.PER_BY_INDIVIDUAL:
-            patterns = self._per_by_individual_patterns()
-
-        ################################
-        if pattern_type in PatternType.all_without_mistype():
-            return patterns, index_type
-        else:
-            return patterns
+        return patterns, index_type
 
     def _per_by_individual_patterns(self):
         return [

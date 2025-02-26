@@ -1,24 +1,20 @@
 import logging
 import re
 from itertools import chain
-from typing import Any, List, Tuple
+from typing import Any
 
 from .pattern_collections import PatternCollection
 from .title_commons import Block, BlockType, PatternType, TitleRecognition, check_word_by_natasha
 
 
-def match_type_to_pattern(pattern_type: PatternType) -> List[List[str]]:
-    return PatternCollection().match_type_to_pattern(pattern_type)
-
-
-def recognize_a_pattern(pattern_type: str, input_string: str) -> Tuple[list[Block], str | None]:
+def recognize_a_pattern(pattern_type: str, input_string: str) -> tuple[list[Block], str | None]:
     """Recognize data in a string with help of given pattern type"""
 
     match = None
     status = None
     activity = None
 
-    patterns = match_type_to_pattern(pattern_type)
+    patterns = PatternCollection().match_type_to_pattern(pattern_type)
 
     if not patterns:
         return [], None
@@ -216,7 +212,7 @@ class Tokenizer:
         marker_loc = len(string_to_split)
         marker_per = 0
         for patterns_list_item in PatternType.all_without_mistype():
-            patterns, marker = match_type_to_pattern(patterns_list_item)
+            patterns, marker = PatternCollection().match_type_to_pattern_with_marker(patterns_list_item)
 
             for pattern in patterns:
                 marker_search = re.search(pattern, string_to_split[:marker_loc])
@@ -245,9 +241,9 @@ class Tokenizer:
             individual_stops = []
 
             if block.type == 'PER':
-                patterns = match_type_to_pattern(BlockType.PER_BY_INDIVIDUAL)
+                patterns = PatternCollection().match_type_to_pattern(BlockType.PER_BY_INDIVIDUAL)
             elif block.type == 'LOC':
-                patterns = match_type_to_pattern(BlockType.LOC_BY_INDIVIDUAL)
+                patterns = PatternCollection().match_type_to_pattern(BlockType.LOC_BY_INDIVIDUAL)
 
             for pattern in patterns:
                 delimiters_list = re.finditer(pattern, block.init)
