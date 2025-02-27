@@ -3,7 +3,7 @@ import re
 from itertools import chain
 from typing import Any
 
-from .pattern_collections import PatternCollection
+from .pattern_collections import PatternCollection, PatternCollectionWithMarker, get_mistype_patterns
 from .title_commons import Block, BlockType, PatternType, TitleRecognition, check_word_by_natasha
 
 
@@ -63,13 +63,13 @@ class Tokenizer:
     def _split_text_to_groups(self) -> None:
         self._split_status_training_activity()
         self._split_per_from_loc_blocks()
-        self._split_per_and_loc_blocks_to_groups()
+        self.recognition.groups = split_blocks_to_groups(self.recognition.blocks)
 
     @classmethod
     def _clean_and_prettify(cls, string: str) -> str:
         """Convert a string with known mistypes to the prettified view"""
 
-        patterns = PatternCollection.get_mistype_patterns()
+        patterns = get_mistype_patterns()
 
         for pattern in patterns:
             string = re.sub(pattern[0], pattern[1], string)
@@ -98,11 +98,11 @@ class Tokenizer:
                     continue
 
                 recognized_blocks, recognized_activity = recognize_a_pattern(pattern_type, block.init)
-                self._update_full_blocks_with_new(block, recognized_blocks)
+                self._replace_block_with_splitted_blocks(block, recognized_blocks)
 
         return recognition
 
-    def _update_full_blocks_with_new(
+    def _replace_block_with_splitted_blocks(
         self,
         old_block: Block,
         recognized_blocks: list[Block],
@@ -151,15 +151,14 @@ class Tokenizer:
 
         recognized_blocks = []
 
-        if len(string_to_split[:marker]) > 0:
-            name_block = Block(init=string_to_split[:marker], done=True, type='PER')
-            recognized_blocks.append(name_block)
+        person_part, location_part = string_to_split[:marker], string_to_split[marker:]
+        if person_part:
+            recognized_blocks.append(Block(init=person_part, done=True, type='PER'))
 
-        if len(string_to_split[marker:]) > 0:
-            location_block = Block(init=string_to_split[marker:], done=True, type='LOC')
-            recognized_blocks.append(location_block)
+        if location_part:
+            recognized_blocks.append(Block(init=location_part, done=True, type='LOC'))
 
-        self._update_full_blocks_with_new(block, recognized_blocks)
+        self._replace_block_with_splitted_blocks(block, recognized_blocks)
 
     def _get_position_between_location_and_person(
         self, recognition: TitleRecognition, string_to_split: str, marker_loc: int, marker_per: int
@@ -172,7 +171,6 @@ class Tokenizer:
         if last_not_loc_word_is_per:
             return marker_loc
 
-        # language=regexp
         patterns_2 = [
             [r'(?<=\W)\([А-Я][а-яА-Я,\s]*\)\W', ''],
             [r'\W*$', ''],
@@ -205,16 +203,19 @@ class Tokenizer:
         marker_loc = len(string_to_split)
         marker_per = 0
         for patterns_list_item in PatternType.all_without_mistype():
-            patterns, marker = PatternCollection().match_type_to_pattern_with_marker(patterns_list_item)
+            patterns, marker = PatternCollectionWithMarker().match_type_to_pattern_with_marker(patterns_list_item)
+            # TODO move 'marker' out from PatternCollection
 
             for pattern in patterns:
                 marker_search = re.search(pattern, string_to_split[:marker_loc])
 
-                if marker_search:
-                    if marker == 'loc':
-                        marker_loc = min(marker_search.span()[0] + 1, marker_loc)
-                    elif marker == 'per':
-                        marker_per = max(marker_search.span()[1], marker_per)
+                if not marker_search:
+                    continue
+
+                if marker == 'loc':
+                    marker_loc = min(marker_search.span()[0] + 1, marker_loc)
+                elif marker == 'per':
+                    marker_per = max(marker_search.span()[1], marker_per)
 
                     # INTERMEDIATE RESULT: IF PERSON FINISHES WHERE LOCATION STARTS
                 if marker_per == marker_loc:
@@ -222,52 +223,54 @@ class Tokenizer:
 
         return marker_loc, marker_per
 
-    def _split_per_and_loc_blocks_to_groups(self) -> None:
-        """Split the recognized Block with aggregated persons/locations to separate Groups of individuals/addresses"""
 
-        recognition = self.recognition
-        for block in recognition.blocks:
-            if block.type not in {'PER', 'LOC'}:
-                recognition.groups.append(block)
-                continue
+def split_blocks_to_groups(blocks: list[Block]) -> list[Block]:
+    """Split the recognized Block with aggregated persons/locations to separate Groups of individuals/addresses"""
 
-            individual_stops = []
+    result_groups: list[Block] = []
+    for block in blocks:
+        if block.type not in {'PER', 'LOC'}:
+            result_groups.append(block)  # as is
+            continue
 
-            if block.type == 'PER':
-                patterns = PatternCollection().match_type_to_pattern(BlockType.PER_BY_INDIVIDUAL)
-            elif block.type == 'LOC':
-                patterns = PatternCollection().match_type_to_pattern(BlockType.LOC_BY_INDIVIDUAL)
+        individual_stops = []
 
-            for pattern in patterns:
-                delimiters_list = re.finditer(pattern, block.init)
+        if block.type == 'PER':
+            patterns = PatternCollection().match_type_to_pattern(BlockType.PER_BY_INDIVIDUAL)
+        elif block.type == 'LOC':
+            patterns = PatternCollection().match_type_to_pattern(BlockType.LOC_BY_INDIVIDUAL)
 
-                if delimiters_list:
-                    for delimiters_line in delimiters_list:
-                        if delimiters_line.span()[1] != len(block.init):
-                            individual_stops.append(delimiters_line.span()[1])
+        for pattern in patterns:
+            delimiters_list = re.finditer(pattern, block.init)
 
-            individual_stops = list(set(individual_stops))
-            individual_stops.sort()
+            if delimiters_list:
+                for delimiters_line in delimiters_list:
+                    if delimiters_line.span()[1] != len(block.init):
+                        individual_stops.append(delimiters_line.span()[1])
 
-            block_start = 0
-            block_end = 0
+        individual_stops = list(set(individual_stops))
+        individual_stops.sort()
 
-            groups = []
-            for item in individual_stops:
-                block_end = item
-                groups.append(block.init[block_start:block_end])
-                block_start = block_end
+        block_start = 0
+        block_end = 0
 
-            if len(individual_stops) > 0:
-                groups.append(block.init[block_end:])
+        groups = []
+        for item in individual_stops:
+            block_end = item
+            groups.append(block.init[block_start:block_end])
+            block_start = block_end
 
-            if not groups:
-                groups = [block.init]
+        if len(individual_stops) > 0:
+            groups.append(block.init[block_end:])
 
-            for i, gr in enumerate(groups):
-                group = Block(
-                    init=gr,
-                    type=f'{block.type[0]}{i + 1}',
-                )
+        if not groups:
+            groups = [block.init]
 
-                recognition.groups.append(group)
+        for i, gr in enumerate(groups):
+            group = Block(
+                init=gr,
+                type=f'{block.type[0]}{i + 1}',
+            )
+
+            result_groups.append(group)
+    return result_groups
