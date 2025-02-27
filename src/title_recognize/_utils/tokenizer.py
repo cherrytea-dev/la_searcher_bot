@@ -3,8 +3,8 @@ import re
 from itertools import chain
 from typing import Any
 
-from .pattern_collections import PatternCollection, PatternCollectionWithMarker, get_mistype_patterns
-from .title_commons import Block, BlockType, PatternType, TitleRecognition, check_word_by_natasha
+from .pattern_collections import PatternCollection, PatternCollectionWithMarker
+from .title_commons import Block, BlockType, PatternType, check_word_by_natasha
 
 
 def recognize_a_pattern(pattern_type: str, input_string: str) -> tuple[list[Block], str | None]:
@@ -49,37 +49,18 @@ def recognize_a_pattern(pattern_type: str, input_string: str) -> tuple[list[Bloc
 class Tokenizer:
     """split input string to tokens"""
 
-    def __init__(self, recognition: TitleRecognition) -> None:
-        self.recognition = recognition
+    def __init__(self, pretty_text: str) -> None:
+        self.pretty_text = pretty_text
+        self.blocks: list[Block] = []
 
-    @classmethod
-    def get_recognition_from_str(cls, line: str) -> TitleRecognition:
-        prettified_line = cls._clean_and_prettify(line)
-        recognition = TitleRecognition(_initial_text=line, pretty=prettified_line)
-        tokenizer = cls(recognition)
-        tokenizer._split_text_to_groups()
-        return tokenizer.recognition
-
-    def _split_text_to_groups(self) -> None:
+    def split_text_to_blocks(self) -> list[Block]:
         self._split_status_training_activity()
         self._split_per_from_loc_blocks()
-        self.recognition.groups = split_blocks_to_groups(self.recognition.blocks)
-
-    @classmethod
-    def _clean_and_prettify(cls, string: str) -> str:
-        """Convert a string with known mistypes to the prettified view"""
-
-        patterns = get_mistype_patterns()
-
-        for pattern in patterns:
-            string = re.sub(pattern[0], pattern[1], string)
-
-        return string
+        return self.blocks
 
     def _split_status_training_activity(self) -> None:
         """Create an initial 'Recognition' object and recognize data for Status, Training, Activity, Avia"""
 
-        recognition = self.recognition
         list_of_pattern_types = [
             BlockType.ST,
             BlockType.ST,  # duplication – is not a mistake: there are cases when two status checks are necessary
@@ -88,19 +69,17 @@ class Tokenizer:
             BlockType.ACT,
         ]
 
-        first_block = Block(init=recognition.pretty, done=False)
-        recognition.blocks.append(first_block)
+        first_block = Block(init=self.pretty_text, done=False)
+        self.blocks.append(first_block)
 
         # find status / training / aviation / activity – via PATTERNS
         for pattern_type in list_of_pattern_types:
-            for block in recognition.blocks:
+            for block in self.blocks:
                 if block.done:
                     continue
 
                 recognized_blocks, recognized_activity = recognize_a_pattern(pattern_type, block.init)
                 self._replace_block_with_splitted_blocks(block, recognized_blocks)
-
-        return recognition
 
     def _replace_block_with_splitted_blocks(
         self,
@@ -112,37 +91,33 @@ class Tokenizer:
         if not recognized_blocks:
             return
 
-        recognition = self.recognition
-
         new_blocks: list[Block] = []
-        replaced_block_index = recognition.blocks.index(old_block)
+        replaced_block_index = self.blocks.index(old_block)
 
         new_blocks: list[Block] = list(
             chain(
-                recognition.blocks[:replaced_block_index],
+                self.blocks[:replaced_block_index],
                 recognized_blocks,
-                recognition.blocks[replaced_block_index + 1 :],
+                self.blocks[replaced_block_index + 1 :],
             )
         )
 
-        recognition.blocks = new_blocks
+        self.blocks = new_blocks
 
     def _split_per_from_loc_blocks(self) -> None:
         """Split the string with persons and locations into two blocks of persons and locations"""
 
-        recognition = self.recognition
-
-        for block in recognition.blocks:
+        for block in self.blocks:
             if block.type:
                 continue
-            self._split_block_to_person_and_location(recognition, block)
+            self._split_block_to_person_and_location(block)
 
-    def _split_block_to_person_and_location(self, recognition: TitleRecognition, block: Block) -> None:
+    def _split_block_to_person_and_location(self, block: Block) -> None:
         string_to_split = block.init
 
         marker_loc, marker_per = self._get_location_and_person_positions(string_to_split)
 
-        marker = self._get_position_between_location_and_person(recognition, string_to_split, marker_loc, marker_per)
+        marker = self._get_position_between_location_and_person(string_to_split, marker_loc, marker_per)
 
         if not marker:
             return
@@ -161,7 +136,7 @@ class Tokenizer:
         self._replace_block_with_splitted_blocks(block, recognized_blocks)
 
     def _get_position_between_location_and_person(
-        self, recognition: TitleRecognition, string_to_split: str, marker_loc: int, marker_per: int
+        self, string_to_split: str, marker_loc: int, marker_per: int
     ) -> int | None:
         if (marker_per == marker_loc) or (marker_per > 0):
             return marker_per
@@ -190,7 +165,7 @@ class Tokenizer:
 
         # let's check if there's any status defined for this activity
         # if yes – there's a status – that means we can treat all the following as PER
-        there_is_status = any(True for block in recognition.blocks if block.type == BlockType.ST)
+        there_is_status = any(True for block in self.blocks if block.type == BlockType.ST)
 
         if there_is_status:
             # if nothing helps – we're assuming all the words are Person with no Location
@@ -222,55 +197,3 @@ class Tokenizer:
                     return marker_loc, marker_per
 
         return marker_loc, marker_per
-
-
-def split_blocks_to_groups(blocks: list[Block]) -> list[Block]:
-    """Split the recognized Block with aggregated persons/locations to separate Groups of individuals/addresses"""
-
-    result_groups: list[Block] = []
-    for block in blocks:
-        if block.type not in {'PER', 'LOC'}:
-            result_groups.append(block)  # as is
-            continue
-
-        individual_stops = []
-
-        if block.type == 'PER':
-            patterns = PatternCollection().match_type_to_pattern(BlockType.PER_BY_INDIVIDUAL)
-        elif block.type == 'LOC':
-            patterns = PatternCollection().match_type_to_pattern(BlockType.LOC_BY_INDIVIDUAL)
-
-        for pattern in patterns:
-            delimiters_list = re.finditer(pattern, block.init)
-
-            if delimiters_list:
-                for delimiters_line in delimiters_list:
-                    if delimiters_line.span()[1] != len(block.init):
-                        individual_stops.append(delimiters_line.span()[1])
-
-        individual_stops = list(set(individual_stops))
-        individual_stops.sort()
-
-        block_start = 0
-        block_end = 0
-
-        groups = []
-        for item in individual_stops:
-            block_end = item
-            groups.append(block.init[block_start:block_end])
-            block_start = block_end
-
-        if len(individual_stops) > 0:
-            groups.append(block.init[block_end:])
-
-        if not groups:
-            groups = [block.init]
-
-        for i, gr in enumerate(groups):
-            group = Block(
-                init=gr,
-                type=f'{block.type[0]}{i + 1}',
-            )
-
-            result_groups.append(group)
-    return result_groups

@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from .pattern_collections import PatternCollection, get_mistype_patterns
 from .person import recognize_one_person_group
 from .title_commons import (
     Block,
@@ -420,7 +421,12 @@ class TitleRecognizer:
 def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
     """Recognize LA Thread Subject (Title) and return a dict of recognized parameters"""
 
-    recognition = Tokenizer.get_recognition_from_str(line)
+    prettified_line = clean_and_prettify_initial_text(line)
+    recognition = TitleRecognition(_initial_text=line, pretty=prettified_line)
+
+    tokenizer = Tokenizer(pretty_text=prettified_line)
+    recognition.blocks = tokenizer.split_text_to_blocks()
+    recognition.groups = split_blocks_to_groups(recognition.blocks)
 
     recognizer = TitleRecognizer(recognition=recognition)
     recognizer._calculate_activity()  # TODO ??
@@ -436,3 +442,66 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
     final_recognition = recognizer.generate_final_reco_dict()
 
     return final_recognition.model_dump(exclude_none=True)
+
+
+def clean_and_prettify_initial_text(string: str) -> str:
+    """Convert a string with known mistypes to the prettified view"""
+
+    patterns = get_mistype_patterns()
+
+    for pattern in patterns:
+        string = re.sub(pattern[0], pattern[1], string)
+
+    return string
+
+
+def split_blocks_to_groups(blocks: list[Block]) -> list[Block]:
+    """Split the recognized Block with aggregated persons/locations to separate Groups of individuals/addresses"""
+
+    result_groups: list[Block] = []
+    for block in blocks:
+        if block.type not in {'PER', 'LOC'}:
+            result_groups.append(block)  # as is
+            continue
+
+        individual_stops = []
+
+        if block.type == 'PER':
+            patterns = PatternCollection().match_type_to_pattern(BlockType.PER_BY_INDIVIDUAL)
+        elif block.type == 'LOC':
+            patterns = PatternCollection().match_type_to_pattern(BlockType.LOC_BY_INDIVIDUAL)
+
+        for pattern in patterns:
+            delimiters_list = re.finditer(pattern, block.init)
+
+            if delimiters_list:
+                for delimiters_line in delimiters_list:
+                    if delimiters_line.span()[1] != len(block.init):
+                        individual_stops.append(delimiters_line.span()[1])
+
+        individual_stops = list(set(individual_stops))
+        individual_stops.sort()
+
+        block_start = 0
+        block_end = 0
+
+        groups = []
+        for item in individual_stops:
+            block_end = item
+            groups.append(block.init[block_start:block_end])
+            block_start = block_end
+
+        if len(individual_stops) > 0:
+            groups.append(block.init[block_end:])
+
+        if not groups:
+            groups = [block.init]
+
+        for i, gr in enumerate(groups):
+            group = Block(
+                init=gr,
+                type=f'{block.type[0]}{i + 1}',
+            )
+
+            result_groups.append(group)
+    return result_groups
