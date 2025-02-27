@@ -81,7 +81,7 @@ class Block:
 @dataclass
 class TitleRecognition:
     _initial_text: str  # just save source string
-    pretty: str
+    _pretty: str
     blocks: list[Block] = field(default_factory=list)
     groups: list[Block] = field(default_factory=list)
     st: Any = None  # status

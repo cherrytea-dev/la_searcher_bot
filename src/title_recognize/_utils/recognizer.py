@@ -175,15 +175,15 @@ class TitleRecognizer:
         for block in self.recognition.blocks:
             if not block.is_location():
                 return
-            block.reco = ''
 
             # go to the level of LOCATION GROUPS (subgroup in locations block)
-            for individual_block in self.recognition.groups:
-                if individual_block.is_location():
-                    block.reco += f', {individual_block.reco}'
+            reco_parts = [
+                str(individual_block.reco)
+                for individual_block in self.recognition.groups
+                if individual_block.is_location()
+            ]
 
-            if block.reco:
-                block.reco = block.reco[2:]
+            block.reco = ', '.join(reco_parts)
 
     def _define_general_status(self) -> str:
         """In rare cases searches have 2 statuses: or by mistake or due to differences between lost persons' statues"""
@@ -422,10 +422,9 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
     """Recognize LA Thread Subject (Title) and return a dict of recognized parameters"""
 
     prettified_line = clean_and_prettify_initial_text(line)
-    recognition = TitleRecognition(_initial_text=line, pretty=prettified_line)
 
-    tokenizer = Tokenizer(pretty_text=prettified_line)
-    recognition.blocks = tokenizer.split_text_to_blocks()
+    recognition = TitleRecognition(_initial_text=line, _pretty=prettified_line)
+    recognition.blocks = Tokenizer(pretty_text=prettified_line).split_text_to_blocks()
     recognition.groups = split_blocks_to_groups(recognition.blocks)
 
     recognizer = TitleRecognizer(recognition=recognition)
@@ -498,10 +497,10 @@ def split_blocks_to_groups(blocks: list[Block]) -> list[Block]:
             groups = [block.init]
 
         for i, gr in enumerate(groups):
-            group = Block(
-                init=gr,
-                type=f'{block.type[0]}{i + 1}',
+            result_groups.append(
+                Block(
+                    init=gr,
+                    type=block.type,
+                )
             )
-
-            result_groups.append(group)
     return result_groups
