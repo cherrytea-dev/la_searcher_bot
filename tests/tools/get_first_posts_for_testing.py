@@ -1,5 +1,7 @@
+import csv
 import json
 import re
+from concurrent.futures import ProcessPoolExecutor
 from functools import lru_cache
 from pathlib import Path
 from random import randint
@@ -9,8 +11,11 @@ from unittest.mock import Mock, patch
 import requests
 from bs4 import BeautifulSoup, SoupStrainer
 from dotenv import load_dotenv
+from tqdm import tqdm
 
 from _dependencies.commons import AppConfig
+from title_recognize.main import recognize_title
+from title_recognize.main_old import recognize_title as recognize_title_old
 
 
 @lru_cache
@@ -27,6 +32,9 @@ def get_textx():
     folder_id = 276
 
     texts = []
+    """
+    just use table "searches.forum_search_title" to get examples
+    """
     requests_session = requests.Session()
     for start_num in (0, 25, 50, 75, 100):
         url = f'https://lizaalert.org/forum/viewforum.php?f={folder_id}&start={start_num}'
@@ -62,5 +70,41 @@ def get_textx():
     Path(filename).write_text(json.dumps(texts, indent=2, ensure_ascii=False))
 
 
+def recognize_and_write():
+    results = []
+
+    filename = 'build/searches.csv'
+    with open(filename, 'r') as file:
+        reader = csv.reader(file)
+        next(reader)
+
+        lines = [x[0] for x in reader]  # [:2]
+
+        with ProcessPoolExecutor(max_workers=8) as pool:
+            pool_results = pool.map(reco_one_title, lines)
+            for res in tqdm(pool_results, total=len(lines)):
+                results.append(res)
+
+    filename = 'build/new_recognition_results.json'
+    Path(filename).write_text(json.dumps(results, indent=2, ensure_ascii=False))
+
+
+def reco_one_title(line: str) -> dict:
+    try:
+        reco_result = recognize_title(line, 'full')
+    except:
+        reco_result = 'Error'
+    return {'title': line, 'result': reco_result}
+
+
+def reco_one_title_old_method(line: str) -> dict:
+    try:
+        reco_result = recognize_title_old(line, 'full')
+    except:
+        reco_result = 'Error'
+    return {'title': line, 'result': reco_result}
+
+
 if __name__ == '__main__':
-    get_textx()
+    # get_textx()
+    recognize_and_write()
