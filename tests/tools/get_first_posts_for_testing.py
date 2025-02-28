@@ -1,3 +1,4 @@
+from contextlib import suppress
 import csv
 import json
 import re
@@ -28,46 +29,32 @@ def fake_publish_to_pubsub(topic, message):
     print(f'Publishing to Pub/Sub topic: {topic}, message: {message}')
 
 
-def get_textx():
-    folder_id = 276
+def reco_one_title(line: str) -> dict:
+    try:
+        reco_result = recognize_title(line, 'full')
+    except:
+        reco_result = 'Error'
+    return {'title': line, 'result': reco_result}
 
-    texts = []
-    """
-    just use table "searches.forum_search_title" to get examples
-    """
-    requests_session = requests.Session()
-    for start_num in (0, 25, 50, 75, 100):
-        url = f'https://lizaalert.org/forum/viewforum.php?f={folder_id}&start={start_num}'
-        r = requests_session.get(url, timeout=10)  # for every folder - req'd daily at night forum update # noqa
 
-        only_tag = SoupStrainer('div', {'class': 'forumbg'})
-        soup = BeautifulSoup(r.content, features='lxml', parse_only=only_tag)
-        del r  # trying to free up memory
-        search_code_blocks = soup.find_all('dl', 'row-item')
-        del soup  # trying to free up memory
+def reco_one_title_old_method(line: str) -> dict:
+    try:
+        reco_result = recognize_title_old(line, 'full')
+    except:
+        reco_result = 'Error'
+    return {'title': line, 'result': reco_result}
 
-        for i, data_block in enumerate(search_code_blocks):
-            # First block is always not one we want
-            if i == 0:
-                continue
 
-            # In rare cases there are aliases from other folders, which have static titles – and we're avoiding them
-            if str(data_block).find('<dl class="row-item topic_moved">') > -1:
-                continue
-
-            # Current block which contains everything regarding certain search
-            search_title_block = data_block.find('a', 'topictitle')
-            # rare case: cleaning [size][b]...[/b][/size] tags
-            search_title = re.sub(r'\[/?(b|size.{0,6}|color.{0,10})]', '', search_title_block.next_element)
-            texts.append(search_title)
-            search_id = int(re.search(r'(?<=&t=)\d{2,8}', search_title_block['href']).group())
-
-            data = {'title': search_title}
-            print(search_title)
-            # title_reco_response = make_api_call('title_recognize', data)  # TODO can use local call in tests
-
-    filename = 'build/titles_for_recognize.json'
-    Path(filename).write_text(json.dumps(texts, indent=2, ensure_ascii=False))
+def compare_recognition(element: dict) -> dict | None:
+    old_reco = reco_one_title_old_method(element['title'])
+    if old_reco['result'] == element['result']:
+        return None
+    element['new_result'] = element['result']
+    del element['result']
+    element['old_result'] = old_reco
+    # element['old_result'] = old_reco['result']  # should be so
+    
+    return element
 
 
 def recognize_and_write():
@@ -89,22 +76,88 @@ def recognize_and_write():
     Path(filename).write_text(json.dumps(results, indent=2, ensure_ascii=False))
 
 
-def reco_one_title(line: str) -> dict:
-    try:
-        reco_result = recognize_title(line, 'full')
-    except:
-        reco_result = 'Error'
-    return {'title': line, 'result': reco_result}
+def recognize_old_and_compare():
+    diffs = []
+
+    filename = 'build/new_recognition_results.json'
+    filename_diffs = 'build/recognition_results_diffs.json'
+    new_reco_results = json.loads(Path(filename).read_text())  # [:2]
+
+    with ProcessPoolExecutor(max_workers=8) as pool:
+        pool_results = pool.map(compare_recognition, new_reco_results)
+        for res in tqdm(pool_results, total=len(new_reco_results)):
+            if res:
+                diffs.append(res)
+
+    Path(filename_diffs).write_text(json.dumps(diffs, indent=2, ensure_ascii=False))
 
 
-def reco_one_title_old_method(line: str) -> dict:
-    try:
-        reco_result = recognize_title_old(line, 'full')
-    except:
-        reco_result = 'Error'
-    return {'title': line, 'result': reco_result}
+def compare_with_age():
+    
+    final_diffs = []
+
+    filename_diffs = 'build/recognition_results_diffs.json'
+    filename_diffs_final = 'build/recognition_results_diffs_final.json'
+    diffs = json.loads(Path(filename_diffs).read_text())  # [:2]
+    for diff in diffs:
+        old_res = diff['old_result']["result"]
+        new_res = diff['result']
+        with suppress(Exception):
+            if not old_res['persons']['age_min']:
+                del old_res['persons']['age_min']
+        with suppress(Exception):
+            if not old_res['persons']['age_max']:
+                del old_res['persons']['age_max']
+
+        if new_res != old_res:
+            final_diffs.append(diff)
+
+    Path(filename_diffs_final).write_text(json.dumps(final_diffs, indent=2, ensure_ascii=False))
 
 
 if __name__ == '__main__':
     # get_textx()
-    recognize_and_write()
+    # recognize_and_write()
+    # recognize_old_and_compare()
+    compare_with_age()
+
+
+"""
+  {
+    "title": "Жив Краснов Алексей Александрович, 43 года, Остановочный пункт 3412 км, Мошковский район, НСО",
+    "result": "Error",
+    "old_result": {
+      "title": "Жив Краснов Алексей Александрович, 43 года, Остановочный пункт 3412 км, Мошковский район, НСО",
+      "result": {
+        "topic_type": "search",
+        "status": "НЖ",
+        "persons": {
+          "total_persons": 2,
+          "total_name": "Краснов",
+          "total_display_name": "Краснов + 1 чел. -1387–43 года",
+          "age_min": -1387,
+          "age_max": 43,
+          "person": [
+            {
+              "name": "Краснов",
+              "age": 43,
+              "display_name": "Краснов 43 года",
+              "number_of_persons": 1
+            },
+            {
+              "name": "Остановочный",
+              "age": -1387,
+              "display_name": "Остановочный -1387 лет",
+              "number_of_persons": 1
+            }
+          ]
+        },
+        "locations": [
+          {
+            "address": "км, Мошковский район, НСО"
+          }
+        ]
+      }
+    }
+  },
+"""

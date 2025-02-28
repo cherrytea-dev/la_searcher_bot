@@ -9,9 +9,9 @@ from dateutil import relativedelta
 from flask import Request
 from natasha import Doc, NewsEmbedding, NewsNERTagger, Segmenter
 
-from _dependencies.commons import setup_google_logging
+# from _dependencies.commons import setup_google_logging
 
-setup_google_logging()
+# setup_google_logging()
 
 
 def get_requested_title(request: Request) -> tuple[str, str]:
