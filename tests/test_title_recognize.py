@@ -6,6 +6,7 @@ from flask import Flask
 from title_recognize import main
 from title_recognize._utils.person import recognize_one_person_group
 from title_recognize._utils.title_commons import Block, PersonGroup, TitleRecognition
+from title_recognize.main_old import recognize_title as recognize_title_old
 
 
 @pytest.fixture
@@ -147,6 +148,8 @@ class TestRecognizeTitle:
             'topic_type': 'search',
             'status': 'Ищем',
             'persons': {
+                'age_max': None,
+                'age_min': None,
                 'total_persons': 3,
                 'total_name': 'женщина',
                 'total_display_name': 'Женщина + 2 чел.',
@@ -166,6 +169,8 @@ class TestRecognizeTitle:
             'topic_type': 'search',
             'status': 'Найден',
             'persons': {
+                'age_max': None,
+                'age_min': None,
                 'total_persons': 1,
                 'total_name': 'мужчина',
                 'total_display_name': 'Мужчина',
@@ -183,6 +188,8 @@ class TestRecognizeTitle:
             'topic_type': 'search',
             'status': 'Ищем',
             'persons': {
+                'age_max': None,
+                'age_min': None,
                 'total_persons': -1,
                 'total_name': 'Ярославская',
                 'total_display_name': 'Ярославская и ко.',
@@ -200,6 +207,8 @@ class TestRecognizeTitle:
             'topic_type': 'search',
             'status': 'Ищем и Найден',
             'persons': {
+                'age_max': None,
+                'age_min': None,
                 'total_persons': 2,
                 'total_name': 'мужчина',
                 'total_display_name': 'Мужчина + 1 чел.',
@@ -217,6 +226,8 @@ class TestRecognizeTitle:
             'topic_type': 'search',
             'status': 'Ищем и Найден',
             'persons': {
+                'age_max': None,
+                'age_min': None,
                 'total_persons': 2,
                 'total_name': 'мужчина',
                 'total_display_name': 'Мужчина + 1 чел.',
@@ -234,6 +245,8 @@ class TestRecognizeTitle:
             'topic_type': 'search',
             'status': 'Найден',
             'persons': {
+                'age_max': None,
+                'age_min': None,
                 'total_persons': 2,
                 'total_name': 'мужчина',
                 'total_display_name': 'Мужчина + 1 чел.',
@@ -252,6 +265,8 @@ class TestRecognizeTitle:
             'topic_type': 'search',
             'status': 'Найден',
             'persons': {
+                'age_max': None,
+                'age_min': None,
                 'total_persons': 2,
                 'total_name': 'мужчина',
                 'total_display_name': 'Мужчина + 1 чел.',
@@ -460,3 +475,50 @@ class TestPersonRecognizeAIGenerated:
             age_max=10,
             age_wording=None,
         )
+
+
+class TestCompare:
+    @pytest.mark.parametrize(
+        'title',
+        [
+            'ПАРАЛЛЕЛИ НА ВДНХ - закрытие площадки',
+            'Пропала бабушка',
+            'Встреча с новичками в пос. Ульт-Ягун',
+            'Учебный выход',
+            'УЧЕБНАЯ! Живы Тестова Ирина 20 лет и Тестова Татьяна Юрьевна 30 лет, г. Самара, Красноглинский р-н',
+            'ГОРОДСКОЙ УЧЕБНЫЙ ПОИСК',
+        ],
+    )
+    def test_diffs(self, title: str):
+        res_old = recognize_title_old(title, '')
+        res_new = main.recognize_title(title, '')
+        assert res_old == res_new
+
+    def test_wrong_age(self):
+        # TODO fix algorythm to recognize age correctly. Now it just describes current algorithm
+
+        text = 'Жив Краснов Алексей Александрович, 43 года, Остановочный пункт 3412 км, Мошковский район, НСО'
+        res_old = recognize_title_old(text, '')
+        res_new = main.recognize_title(text, '')
+        assert res_old == res_new
+        assert res_new == {
+            'topic_type': 'search',
+            'status': 'НЖ',
+            'persons': {
+                'total_persons': 2,
+                'total_name': 'Краснов',
+                'total_display_name': 'Краснов + 1 чел. -1387–43 года',
+                'age_min': -1387,
+                'age_max': 43,
+                'person': [
+                    {'name': 'Краснов', 'age': 43, 'display_name': 'Краснов 43 года', 'number_of_persons': 1},
+                    {
+                        'name': 'Остановочный',
+                        'age': -1387,
+                        'display_name': 'Остановочный -1387 лет',
+                        'number_of_persons': 1,
+                    },
+                ],
+            },
+            'locations': [{'address': 'км, Мошковский район, НСО'}],
+        }

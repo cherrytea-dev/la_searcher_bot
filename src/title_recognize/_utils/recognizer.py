@@ -19,17 +19,19 @@ from .tokenizer import Tokenizer
 
 class Person(BaseModel):
     name: str = Field(description='One-word description')
-    age: Optional[int] = Field(None, ge=0, le=199, description='Age in years')
-    age_min: Optional[int] = Field(None, ge=0, le=199, description='Minimum age in years')
-    age_max: Optional[int] = Field(None, ge=0, le=199, description='Maximum age in years')
+    age: Optional[int] = Field(None, description='Age in years')
+    age_min: Optional[int] = Field(None, description='Minimum age in years')
+    age_max: Optional[int] = Field(None, description='Maximum age in years')
+    # TODO validation for age: ge=0, le=199
     display_name: str = Field(description='Display name + age')
     number_of_persons: int = Field(..., ge=-1, le=9, description='Number of persons in this group, -1 or 1-9')
 
 
 class Persons(BaseModel):
     total_persons: Union[int, str] = Field(..., description="Total number of persons: 1-9, 'group', or 'undefined'")
-    age_min: Optional[int] = Field(None, ge=0, le=199, description='Minimum age across all persons')
-    age_max: Optional[int] = Field(None, ge=0, le=199, description='Maximum age across all persons')
+    age_min: Optional[int] = Field(None, description='Minimum age across all persons')
+    age_max: Optional[int] = Field(None, description='Maximum age across all persons')
+    # TODO validation for age: ge=0, le=199
     total_name: str = Field(description='Name of the first person')
     total_display_name: str = Field(description='Display name + age (age range)')
     person: List[Person] = Field(default_factory=list)
@@ -40,7 +42,7 @@ class Location(BaseModel):
 
 
 class RecognitionResult(BaseModel):
-    topic_type: TopicType
+    topic_type: TopicType = Field(TopicType.unrecognized)
     avia: Optional[bool] = Field(None, description='Only for search')
     status: Optional[str] = Field(None, description='Only for search / search reverse')
     persons: Optional[Persons] = Field(None, description='Only for search')
@@ -440,7 +442,27 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
     final_recognition = recognizer.generate_final_reco_dict()
 
-    return final_recognition.model_dump(exclude_none=True)
+    final_dict = final_recognition.model_dump(exclude_none=True)
+    if (
+        final_recognition.topic_type not in (TopicType.unrecognized, TopicType.search_training)
+        and 'persons' in final_dict
+    ):
+        # temporary patch for equality with result of old algorithm
+        if not final_recognition.persons.age_min:
+            final_dict['persons']['age_min'] = None
+        if not final_recognition.persons.age_max:
+            final_dict['persons']['age_max'] = None
+    if final_recognition.topic_type == TopicType.search_training:
+        # another patch
+        if not final_recognition.persons.person:
+            del final_dict['persons']['person']
+        else:
+            if not final_recognition.persons.age_min:
+                final_dict['persons']['age_min'] = None
+            if not final_recognition.persons.age_max:
+                final_dict['persons']['age_max'] = None
+
+    return final_dict
 
 
 def clean_and_prettify_initial_text(string: str) -> str:
