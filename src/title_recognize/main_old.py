@@ -2,6 +2,7 @@ import json
 import logging
 import re
 from datetime import datetime
+from functools import lru_cache
 from typing import Dict, Union
 
 import functions_framework
@@ -515,9 +516,8 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
 
         match_found = False
 
-        segmenter = Segmenter()
-        emb = NewsEmbedding()
-        ner_tagger = NewsNERTagger(emb)
+        segmenter = _get_segmenter()
+        ner_tagger = _get_tagger()
 
         doc = Doc(string_to_check)
         doc.segment(segmenter)
@@ -539,6 +539,15 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                     match_found = True
 
         return match_found
+
+    @lru_cache
+    def _get_tagger():
+        emb = NewsEmbedding()
+        return NewsNERTagger(emb)
+
+    @lru_cache
+    def _get_segmenter():
+        return Segmenter()
 
     def update_reco_with_per_and_loc_blocks(recognition, string_to_split, block, marker):
         """Update the Recognition object with two separated Blocks for Persons and Locations"""

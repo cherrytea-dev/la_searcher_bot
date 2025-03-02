@@ -93,14 +93,12 @@ class TitleRecognizer:
                     final_num_of_pers += num_of_persons
                 else:
                     final_num_of_pers = -1  # -1 stands for unrecognized number of people
-            
 
             self._process_age(persons_groups, person_group)
 
-            final_age_words = f' {person_group.age_wording}' if person_group.age_wording else ""
+            final_age_words = f' {person_group.age_wording}' if person_group.age_wording else ''
 
             for group in persons_groups:
-
                 # STEP 2. Define the pseudonym for the person / group
                 if group.reco.name:
                     num_of_persons = group.reco.num_of_per
@@ -132,7 +130,6 @@ class TitleRecognizer:
 
             person_group.display_name = final_pseudonym.capitalize()
             person_group.block_num = final_num_of_pers
-
 
     def _process_age(self, persons_groups: list[Block], person_group: PersonGroup) -> None:
         age_list = []

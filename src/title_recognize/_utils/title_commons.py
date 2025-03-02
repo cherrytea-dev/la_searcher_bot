@@ -1,6 +1,7 @@
 import re
 from dataclasses import dataclass, field
 from enum import Enum
+from functools import lru_cache
 from typing import Any
 
 from natasha import Doc, NewsEmbedding, NewsNERTagger, Segmenter
@@ -130,9 +131,8 @@ def check_word_by_natasha(string_to_check: str, direction: str) -> bool:
 
     match_found = False
 
-    segmenter = Segmenter()
-    emb = NewsEmbedding()
-    ner_tagger = NewsNERTagger(emb)
+    segmenter = _get_segmenter()
+    ner_tagger = _get_tagger()
 
     doc = Doc(string_to_check)
     doc.segment(segmenter)
@@ -155,3 +155,14 @@ def check_word_by_natasha(string_to_check: str, direction: str) -> bool:
                 match_found = True
 
     return match_found
+
+
+@lru_cache
+def _get_tagger() -> NewsNERTagger:
+    emb = NewsEmbedding()
+    return NewsNERTagger(emb)
+
+
+@lru_cache
+def _get_segmenter() -> Segmenter:
+    return Segmenter()
