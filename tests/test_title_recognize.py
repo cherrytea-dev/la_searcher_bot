@@ -494,6 +494,19 @@ class TestCompare:
         res_new = main.recognize_title(title, '')
         assert res_old == res_new
 
+    @pytest.mark.parametrize(
+        'title',
+        [
+            'Личность установлена. Называет себя Анна Предположительно 75-80 лет, найдена в Московском районе, г. Казань.',
+            'Личность установлена. Найдены, живы Неизвестные мужчина и женщина г. Тюмень,  Нижнетавдинский р-н, Тюменская область.',
+            'Учебная Родные найдены Иванова (Петрова) Анна Викторовна, 24 года, Ленинский АО,  г. Тюмень.',
+        ],
+    )
+    def test_rare_cases(self, title: str):
+        res_old = recognize_title_old(title, '')
+        res_new = main.recognize_title(title, '')
+        assert res_old == res_new
+
     def test_wrong_age(self):
         # TODO fix algorythm to recognize age correctly. Now it just describes current algorithm
 
