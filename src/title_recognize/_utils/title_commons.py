@@ -84,8 +84,8 @@ class TitleRecognition:
     _pretty: str
     blocks: list[Block] = field(default_factory=list)
     groups: list[Block] = field(default_factory=list)
-    st: Any = None  # status
-    act: Any = None  # activity
+    st: str | None = None  # status
+    act: str | None = None  # activity
     per_num: str | int | None = None  # count of persons
 
     @property

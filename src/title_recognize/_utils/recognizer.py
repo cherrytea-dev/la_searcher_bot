@@ -53,17 +53,14 @@ class TitleRecognizer:
     def __init__(self, recognition: TitleRecognition) -> None:
         self.recognition = recognition
 
-    def _calculate_activity(self) -> None:
+    def _calculate_activity(self) -> str:
         for block in self.recognition.blocks:
             if block.activity and not self.recognition.act:
-                self.recognition.act = block.activity
-                break
+                return block.activity
 
         for block in self.recognition.blocks:
-            # TODO very similar with upper code block
-            # maybe can be removed, tests are green
             if block.type == BlockType.ACT:
-                self.recognition.act = block.reco
+                return block.reco
             # MEMO: recognition.st is done on the later stages of title recognition
 
     def _define_person_block_display_name_and_age_range(self) -> None:
@@ -430,7 +427,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
     recognition.groups = split_blocks_to_groups(recognition.blocks)
 
     recognizer = TitleRecognizer(recognition=recognition)
-    recognizer._calculate_activity()  # TODO ??
+    recognition.act = recognizer._calculate_activity()  # TODO ??
     recognizer._define_person_display_name_and_age()
     recognizer._define_person_block_display_name_and_age_range()
     recognizer.recognition.st = recognizer._define_general_status()
@@ -499,10 +496,12 @@ def split_blocks_to_groups(blocks: list[Block]) -> list[Block]:
         for pattern in patterns:
             delimiters_list = re.finditer(pattern, block.init)
 
-            if delimiters_list:
-                for delimiters_line in delimiters_list:
-                    if delimiters_line.span()[1] != len(block.init):
-                        individual_stops.append(delimiters_line.span()[1])
+            if not delimiters_list:
+                continue
+
+            for delimiters_line in delimiters_list:
+                if delimiters_line.span()[1] != len(block.init):
+                    individual_stops.append(delimiters_line.span()[1])
 
         individual_stops = list(set(individual_stops))
         individual_stops.sort()
@@ -522,7 +521,7 @@ def split_blocks_to_groups(blocks: list[Block]) -> list[Block]:
         if not groups:
             groups = [block.init]
 
-        for i, gr in enumerate(groups):
+        for gr in groups:
             result_groups.append(
                 Block(
                     init=gr,

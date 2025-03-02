@@ -181,151 +181,156 @@ def _define_age_of_person_by_natasha(person_reco: PersonGroup, name_string: str)
 def recognize_one_person_group(person: Block) -> PersonGroup:
     """Recognize the Displayed Name (Pseudonym) for a SINGLE person/group as well as age"""
 
-    person_reco = PersonGroup()
-    name_string = person.init
-
-    # CASE 0. When the whole person is defined as "+N" only (NB – we already cut "+" before)
-    case_0 = re.search(
-        r'^\W{0,2}\d(?=(\W{0,2}(человека|женщины|мужчины|девочки|мальчика|бабушки|дедушки))?' r'\W{0,4}$)',
-        name_string,
-    )
-    if case_0:
-        person_reco.num_of_per = int(case_0.group())
-        if person_reco.num_of_per == 1:
-            person_reco.display_name = 'Человек'
-        elif person_reco.num_of_per in {2, 3, 4}:
-            person_reco.display_name = f'{person_reco.num_of_per} человека'
-        else:
-            person_reco.display_name = f'{person_reco.num_of_per} человек'
-        person_reco.name = person_reco.display_name
-
-        return person_reco
-
-    # CASE 1. When there is only one person like "age" (e.g. "Пропал 10 лет")
-    case = re.search(r'^1?\d?\d\W{0,3}(лет|года?)\W{0,2}$', name_string)
-    if case:
-        age = int(re.search(r'\d{1,3}', name_string).group())
-        person_reco.num_of_per = 1
-        person_reco.age = age
-        if person_reco.age < 18:
-            person_reco.name = 'Ребёнок'
-        else:
-            person_reco.name = 'Человек'
-        person_reco.display_name = f'{person_reco.name}{age_wording(person_reco.age)}'
-
-        return person_reco
-
-    # CASE 2. When the whole person is defined as "+N age, age" only
-    case_2 = re.search(
-        r'(?i)^\W{0,2}(\d(?!\d)|двое|трое)'
-        r'(?=(\W{0,2}(человека|женщины?|мужчины?|девочки|мальчика|бабушки|дедушки))?)',
-        name_string,
-    )
-    if case_2:
-        case_2 = case_2.group()
-        if len(case_2) == 1:
-            person_reco.num_of_per = int(case_2)
-        elif case_2[-4:] == 'двое':
-            person_reco.num_of_per = 2
-        elif case_2[-4:] == 'трое':
-            person_reco.num_of_per = 3
-
-        string_with_ages = name_string[re.search(case_2, name_string).span()[1] :]
-        ages_list = re.findall(r'1?\d?\d(?=\W)', string_with_ages)
-        ages_list = [int(x) for x in ages_list]
-        if ages_list:
-            ages_list.sort()
-            person_reco.age_min = int(ages_list[0])
-            person_reco.age_max = int(ages_list[-1])
-
-        if person_reco.num_of_per == 1:
-            if ages_list and person_reco.age_max < 18:
-                person_reco.display_name = 'Ребёнок'
-            else:
-                person_reco.display_name = 'Человек'
-        elif person_reco.num_of_per in {2, 3, 4}:
-            if ages_list and person_reco.age_max < 18:
-                person_reco.display_name = f'{person_reco.num_of_per} ребёнка'
-            else:
-                person_reco.display_name = f'{person_reco.num_of_per} человека'
-        else:
-            if ages_list and person_reco.age_max < 18:
-                person_reco.display_name = f'{person_reco.num_of_per} детей'
-            else:
-                person_reco.display_name = f'{person_reco.num_of_per} человек'
-
-        person_reco.name = person_reco.display_name
-
-        if person_reco.age_min and person_reco.age_max:
-            if person_reco.age_min != person_reco.age_max:
-                person_reco.display_name = (
-                    f'{person_reco.display_name} '
-                    f'{person_reco.age_min}–{person_reco.age_max}'
-                    f' {age_wording(person_reco.age_max)}'
-                )
-            else:
-                person_reco.display_name = (
-                    f'{person_reco.display_name} ' f'{person_reco.age_max}' f' {age_wording(person_reco.age_max)}'
-                )
-
-        return person_reco
-
-    # CASE 3. When the "person" is defined as plural form  and ages like "people age, age"
-    case_3 = re.search(
-        r'(?i)(?<!\d)(подростки|дети|люди|мужчины?|женщины?|мальчики|девочки|бабушки|дедушки)' r'\W{0,4}(?=\d)',
-        name_string,
-    )
-    if case_3:
-        case_3 = case_3.group()
-
-        person_reco.num_of_per = -1
-
-        string_with_ages = name_string[re.search(case_3, name_string).span()[1] :]
-        ages_list = re.findall(r'1?\d?\d(?=\W)', string_with_ages)
-        if ages_list:
-            ages_list.sort()
-            person_reco.age_min = int(ages_list[0])
-            person_reco.age_max = int(ages_list[-1])
-
-        if person_reco.age_max < 18:
-            person_reco.display_name = 'Дети'
-        else:
-            person_reco.display_name = 'Взрослые'
-
-        person_reco.name = person_reco.display_name
-
-        if person_reco.age_min and person_reco.age_max:
-            if person_reco.age_min != person_reco.age_max:
-                person_reco.display_name = (
-                    f'{person_reco.display_name} '
-                    f'{person_reco.age_min}–{person_reco.age_max}'
-                    f' {age_wording(person_reco.age_max)}'
-                )
-            else:
-                person_reco.display_name = (
-                    f'{person_reco.display_name} ' f'{person_reco.age_max}' f' {age_wording(person_reco.age_max)}'
-                )
-        return person_reco
-
-    # CASE 4. When the whole person is defined as "role" only
-    if re.search(
-        r'(?i)^(женщина|мужчина|декушка|человек|дочь|сын|жена|муж|отец|мать|папа|мама|' r'бабушка|дедушка)(?=\W{0,4}$)',
-        name_string,
-    ):
-        person_reco.num_of_per = 1
-        person_reco.name = re.search(r'(?i)^\w*(?=\W{0,4}$)', name_string).group()
-        person_reco.display_name = 'Человек'
-
-        return person_reco
-
-    # CASE 5. All the other more usual cases
-    person_reco.num_of_per, block = _define_number_of_persons(name_string)
-    person_reco = _define_age_of_person(block, name_string, person_reco)
-    person_reco = _define_display_name(block, person_reco)
-    person_reco = _define_age_of_person_by_natasha(person_reco, name_string)
-
-    return person_reco
+    return PersonRecognizer(person).recognize()
 
 
 class PersonRecognizer:
-    pass
+    def __init__(self, person: Block):
+        self.person = person
+
+    def recognize(self) -> PersonGroup:
+        person_reco = PersonGroup()
+        name_string = self.person.init
+
+        # CASE 0. When the whole person is defined as "+N" only (NB – we already cut "+" before)
+        case_0 = re.search(
+            r'^\W{0,2}\d(?=(\W{0,2}(человека|женщины|мужчины|девочки|мальчика|бабушки|дедушки))?' r'\W{0,4}$)',
+            name_string,
+        )
+        if case_0:
+            person_reco.num_of_per = int(case_0.group())
+            if person_reco.num_of_per == 1:
+                person_reco.display_name = 'Человек'
+            elif person_reco.num_of_per in {2, 3, 4}:
+                person_reco.display_name = f'{person_reco.num_of_per} человека'
+            else:
+                person_reco.display_name = f'{person_reco.num_of_per} человек'
+            person_reco.name = person_reco.display_name
+
+            return person_reco
+
+        # CASE 1. When there is only one person like "age" (e.g. "Пропал 10 лет")
+        case = re.search(r'^1?\d?\d\W{0,3}(лет|года?)\W{0,2}$', name_string)
+        if case:
+            age = int(re.search(r'\d{1,3}', name_string).group())
+            person_reco.num_of_per = 1
+            person_reco.age = age
+            if person_reco.age < 18:
+                person_reco.name = 'Ребёнок'
+            else:
+                person_reco.name = 'Человек'
+            person_reco.display_name = f'{person_reco.name}{age_wording(person_reco.age)}'
+
+            return person_reco
+
+        # CASE 2. When the whole person is defined as "+N age, age" only
+        case_2 = re.search(
+            r'(?i)^\W{0,2}(\d(?!\d)|двое|трое)'
+            r'(?=(\W{0,2}(человека|женщины?|мужчины?|девочки|мальчика|бабушки|дедушки))?)',
+            name_string,
+        )
+        if case_2:
+            case_2 = case_2.group()
+            if len(case_2) == 1:
+                person_reco.num_of_per = int(case_2)
+            elif case_2[-4:] == 'двое':
+                person_reco.num_of_per = 2
+            elif case_2[-4:] == 'трое':
+                person_reco.num_of_per = 3
+
+            string_with_ages = name_string[re.search(case_2, name_string).span()[1] :]
+            ages_list = re.findall(r'1?\d?\d(?=\W)', string_with_ages)
+            ages_list = [int(x) for x in ages_list]
+            if ages_list:
+                ages_list.sort()
+                person_reco.age_min = int(ages_list[0])
+                person_reco.age_max = int(ages_list[-1])
+
+            if person_reco.num_of_per == 1:
+                if ages_list and person_reco.age_max < 18:
+                    person_reco.display_name = 'Ребёнок'
+                else:
+                    person_reco.display_name = 'Человек'
+            elif person_reco.num_of_per in {2, 3, 4}:
+                if ages_list and person_reco.age_max < 18:
+                    person_reco.display_name = f'{person_reco.num_of_per} ребёнка'
+                else:
+                    person_reco.display_name = f'{person_reco.num_of_per} человека'
+            else:
+                if ages_list and person_reco.age_max < 18:
+                    person_reco.display_name = f'{person_reco.num_of_per} детей'
+                else:
+                    person_reco.display_name = f'{person_reco.num_of_per} человек'
+
+            person_reco.name = person_reco.display_name
+
+            if person_reco.age_min and person_reco.age_max:
+                if person_reco.age_min != person_reco.age_max:
+                    person_reco.display_name = (
+                        f'{person_reco.display_name} '
+                        f'{person_reco.age_min}–{person_reco.age_max}'
+                        f' {age_wording(person_reco.age_max)}'
+                    )
+                else:
+                    person_reco.display_name = (
+                        f'{person_reco.display_name} ' f'{person_reco.age_max}' f' {age_wording(person_reco.age_max)}'
+                    )
+
+            return person_reco
+
+        # CASE 3. When the "person" is defined as plural form  and ages like "people age, age"
+        case_3 = re.search(
+            r'(?i)(?<!\d)(подростки|дети|люди|мужчины?|женщины?|мальчики|девочки|бабушки|дедушки)' r'\W{0,4}(?=\d)',
+            name_string,
+        )
+        if case_3:
+            case_3 = case_3.group()
+
+            person_reco.num_of_per = -1
+
+            string_with_ages = name_string[re.search(case_3, name_string).span()[1] :]
+            ages_list = re.findall(r'1?\d?\d(?=\W)', string_with_ages)
+            if ages_list:
+                ages_list.sort()
+                person_reco.age_min = int(ages_list[0])
+                person_reco.age_max = int(ages_list[-1])
+
+            if person_reco.age_max < 18:
+                person_reco.display_name = 'Дети'
+            else:
+                person_reco.display_name = 'Взрослые'
+
+            person_reco.name = person_reco.display_name
+
+            if person_reco.age_min and person_reco.age_max:
+                if person_reco.age_min != person_reco.age_max:
+                    person_reco.display_name = (
+                        f'{person_reco.display_name} '
+                        f'{person_reco.age_min}–{person_reco.age_max}'
+                        f' {age_wording(person_reco.age_max)}'
+                    )
+                else:
+                    person_reco.display_name = (
+                        f'{person_reco.display_name} ' f'{person_reco.age_max}' f' {age_wording(person_reco.age_max)}'
+                    )
+            return person_reco
+
+        # CASE 4. When the whole person is defined as "role" only
+        if re.search(
+            r'(?i)^(женщина|мужчина|декушка|человек|дочь|сын|жена|муж|отец|мать|папа|мама|'
+            r'бабушка|дедушка)(?=\W{0,4}$)',
+            name_string,
+        ):
+            person_reco.num_of_per = 1
+            person_reco.name = re.search(r'(?i)^\w*(?=\W{0,4}$)', name_string).group()
+            person_reco.display_name = 'Человек'
+
+            return person_reco
+
+        # CASE 5. All the other more usual cases
+        person_reco.num_of_per, block = _define_number_of_persons(name_string)
+        person_reco = _define_age_of_person(block, name_string, person_reco)
+        person_reco = _define_display_name(block, person_reco)
+        person_reco = _define_age_of_person_by_natasha(person_reco, name_string)
+
+        return person_reco
