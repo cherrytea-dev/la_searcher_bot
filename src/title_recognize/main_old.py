@@ -486,6 +486,7 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                         logging.error(
                             f'RARE CASE! recognized activity does not match: '
                             f'{recognition.act} != {recognized_activity}'
+                            f' in title: {initial_title}'
                         )
                         pass
                     if recognized_activity and not recognition.act:

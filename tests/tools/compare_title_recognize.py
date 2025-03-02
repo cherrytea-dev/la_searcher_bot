@@ -43,7 +43,7 @@ def recognize_and_write():
         reader = csv.reader(file)
         next(reader)
 
-        lines = [x[0] for x in reader][:2000]
+        lines = [x[0] for x in reader]  # [:2000]
 
         with ProcessPoolExecutor(max_workers=12) as pool:
             pool_results = pool.map(compare_recognition, lines)

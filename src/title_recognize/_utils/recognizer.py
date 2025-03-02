@@ -443,11 +443,17 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
     final_recognition = recognizer.generate_final_reco_dict()
 
     final_dict = final_recognition.model_dump(exclude_none=True)
+    _temp_patch_result(final_recognition, final_dict)
+
+    return final_dict
+
+
+def _temp_patch_result(final_recognition: RecognitionResult, final_dict: dict) -> None:
+    # temporary patch for equality with result of old algorithm
     if (
         final_recognition.topic_type not in (TopicType.unrecognized, TopicType.search_training)
         and 'persons' in final_dict
     ):
-        # temporary patch for equality with result of old algorithm
         if not final_recognition.persons.age_min:
             final_dict['persons']['age_min'] = None
         if not final_recognition.persons.age_max:
@@ -461,8 +467,6 @@ def recognize_title(line: str, reco_type: str) -> Union[Dict, None]:
                 final_dict['persons']['age_min'] = None
             if not final_recognition.persons.age_max:
                 final_dict['persons']['age_max'] = None
-
-    return final_dict
 
 
 def clean_and_prettify_initial_text(string: str) -> str:
