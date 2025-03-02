@@ -32,6 +32,7 @@ def compare_recognition(line: str) -> dict | None:
     if new_reco == old_reco:
         return None
 
+    print(f'different results for line {line}')
     return {'title': line, 'old_reco': old_reco, 'new_reco': new_reco}
 
 
