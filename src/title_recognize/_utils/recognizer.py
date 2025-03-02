@@ -72,7 +72,8 @@ class TitleRecognizer:
         # level of PERSON BLOCKS (likely to be only one for each title)
 
         for block in persons_blocks:
-            block.reco = PersonGroup()
+            person_group = PersonGroup()
+            block.reco = person_group
             final_num_of_pers = 0
             num_of_groups_in_block = 0
             final_pseudonym = ''
@@ -92,22 +93,23 @@ class TitleRecognizer:
                     final_num_of_pers += num_of_persons
                 else:
                     final_num_of_pers = -1  # -1 stands for unrecognized number of people
+            
+
+            self._process_age(persons_groups, person_group)
+
+            final_age_words = f' {person_group.age_wording}' if person_group.age_wording else ""
+
+            for group in persons_groups:
 
                 # STEP 2. Define the pseudonym for the person / group
                 if group.reco.name:
+                    num_of_persons = group.reco.num_of_per
                     if not final_pseudonym:
                         if num_of_persons > 1:
                             final_pseudonym = group.reco.display_name
                         else:
                             final_pseudonym = group.reco.name
-                        block.reco.name = group.reco.name
-
-            self._process_age(persons_groups, block)
-
-            if block.reco.age_wording:
-                final_age_words = f' {block.reco.age_wording}'
-            else:
-                final_age_words = ''
+                        person_group.name = group.reco.name
 
             num_of_per_blocks = len(persons_blocks)
             num_of_per_groups = len(persons_groups)
@@ -117,8 +119,8 @@ class TitleRecognizer:
                 if final_pseudonym in {'дети', 'люди', 'подростки'}:
                     final_pseudonym = f'{final_pseudonym}{final_age_words}'
                 elif num_of_per_blocks == 1 and num_of_per_groups == 1:
-                    if not block.reco.age:  # added due to 5052
-                        final_pseudonym = block.reco.name
+                    if not person_group.age:  # added due to 5052
+                        final_pseudonym = person_group.name
                 else:
                     final_pseudonym = (
                         f'{final_pseudonym} + {final_num_of_pers - first_group_num_of_pers} ' f'чел.{final_age_words}'
@@ -128,10 +130,11 @@ class TitleRecognizer:
             else:
                 final_pseudonym = f'{final_pseudonym} и Ко.{final_age_words}'
 
-            block.reco.display_name = final_pseudonym.capitalize()
-            block.reco.block_num = final_num_of_pers
+            person_group.display_name = final_pseudonym.capitalize()
+            person_group.block_num = final_num_of_pers
 
-    def _process_age(self, persons_groups: list[Block], block: Block) -> None:
+
+    def _process_age(self, persons_groups: list[Block], person_group: PersonGroup) -> None:
         age_list = []
         for group in persons_groups:
             if group.reco.age or group.reco.age == 0:
@@ -156,8 +159,8 @@ class TitleRecognizer:
             final_age = []
             final_age_wording = None
 
-        block.reco.age = final_age
-        block.reco.age_wording = final_age_wording
+        person_group.age = final_age
+        person_group.age_wording = final_age_wording
 
     def _prettify_loc_group_address(self) -> None:
         """Prettify (delete unneeded symbols) every location address"""

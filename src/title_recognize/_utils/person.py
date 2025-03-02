@@ -5,7 +5,7 @@ from typing import Tuple
 
 from dateutil import relativedelta
 
-from .title_commons import Block, PersonGroup, TitleRecognition, age_wording, check_word_by_natasha
+from .title_commons import Block, PersonGroup, age_wording, check_word_by_natasha
 
 
 def recognize_one_person_group(person: Block) -> PersonGroup:
@@ -148,6 +148,7 @@ class PersonRecognizer:
         string_with_ages = self.name_string[re.search(case_3, self.name_string).span()[1] :]
         ages_list = re.findall(r'1?\d?\d(?=\W)', string_with_ages)
         if ages_list:
+            # TODO fix and merge with similar code
             ages_list.sort()
             person_reco.age_min = int(ages_list[0])
             person_reco.age_max = int(ages_list[-1])
