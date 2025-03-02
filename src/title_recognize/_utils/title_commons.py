@@ -56,12 +56,18 @@ class PersonGroup:
     block_num: int | None = None
     type: Any = None  # TODO rename
     num_of_per: int | None = None
-    display_name: Any = None
-    name: Any = None
+    display_name: str | None = None
+    name: str | None = None
     age: int | list[int] | None = None
     age_min: int | None = None
     age_max: int | None = None
     age_wording: str | None = None
+
+    def is_child(self) -> bool:
+        return self.age_max < 18
+
+    def is_child_2(self) -> bool:
+        return self.age is not None and self.age < 18
 
 
 @dataclass

@@ -64,7 +64,7 @@ class PersonRecognizer:
             age = int(re.search(r'\d{1,3}', self.name_string).group())
             person_reco.num_of_per = 1
             person_reco.age = age
-            if person_reco.age < 18:
+            if person_reco.is_child_2():
                 person_reco.name = 'Ребёнок'
             else:
                 person_reco.name = 'Человек'
@@ -100,17 +100,17 @@ class PersonRecognizer:
             person_reco.age_max = int(ages_list[-1])
 
         if person_reco.num_of_per == 1:
-            if ages_list and person_reco.age_max < 18:
+            if ages_list and person_reco.is_child():
                 person_reco.display_name = 'Ребёнок'
             else:
                 person_reco.display_name = 'Человек'
         elif person_reco.num_of_per in {2, 3, 4}:
-            if ages_list and person_reco.age_max < 18:
+            if ages_list and person_reco.is_child():
                 person_reco.display_name = f'{person_reco.num_of_per} ребёнка'
             else:
                 person_reco.display_name = f'{person_reco.num_of_per} человека'
         else:
-            if ages_list and person_reco.age_max < 18:
+            if ages_list and person_reco.is_child():
                 person_reco.display_name = f'{person_reco.num_of_per} детей'
             else:
                 person_reco.display_name = f'{person_reco.num_of_per} человек'
@@ -153,7 +153,7 @@ class PersonRecognizer:
             person_reco.age_min = int(ages_list[0])
             person_reco.age_max = int(ages_list[-1])
 
-        if person_reco.age_max < 18:
+        if person_reco.is_child():
             person_reco.display_name = 'Дети'
         else:
             person_reco.display_name = 'Взрослые'
@@ -194,8 +194,9 @@ class PersonRecognizer:
         person_reco.num_of_per, match = self._define_number_of_persons(name_string)
         self._define_age_of_person(match, name_string, person_reco)
         self._define_age_wording(person_reco)
+        self._define_name(match, person_reco)
         self._define_display_name(match, person_reco)
-        self._define_age_of_person_by_natasha(person_reco, name_string)
+        self._define_number_of_persons_by_natasha(person_reco, name_string)
         return person_reco
 
     def _define_number_of_persons(self, name_string: str) -> Tuple[int, Match]:
@@ -278,18 +279,20 @@ class PersonRecognizer:
             if block_2:
                 person_reco.num_of_per = 1
                 pattern_type = pattern[1]
+                found_value = block_2.group()
+
                 if pattern_type == 'age_months':
-                    months = block_2.group()
+                    months = found_value
                 if pattern_type == 'date_full':
-                    date_full = block_2.group()
+                    date_full = found_value
                 elif pattern_type == 'date_short':
-                    date_short = block_2.group()
+                    date_short = found_value
                 elif pattern_type == 'age':
-                    age = block_2.group()
+                    age = found_value
                 elif pattern_type == 'year':
-                    year = block_2.group()
+                    year = found_value
                 elif pattern_type == 'number':
-                    number = block_2.group()
+                    number = found_value
 
         if date_full:
             date = datetime.strptime(date_full, '%d.%m.%Y')
@@ -323,17 +326,19 @@ class PersonRecognizer:
         else:
             person_reco.age_wording = ''
 
+    def _define_name(self, match: Match, person_reco: PersonGroup) -> None:
+        if match:
+            person_reco.name = match.group()
+        else:
+            if person_reco.is_child_2():
+                person_reco.name = 'Ребёнок'
+            else:
+                person_reco.name = 'Человек'
+
     def _define_display_name(self, match: Match, person_reco: PersonGroup) -> None:
         """Define and record the name / pseudonym that will be displayed to users"""
 
         # DISPLAY NAME (PSEUDONYM) IDENTIFICATION
-        if match:
-            person_reco.name = match.group()
-        else:
-            if person_reco.age and int(person_reco.age) < 18:
-                person_reco.name = 'Ребёнок'
-            else:
-                person_reco.name = 'Человек'
 
         display_name = f'{person_reco.name}{person_reco.age_wording}'
         person_reco.display_name = display_name.capitalize()
@@ -345,8 +350,8 @@ class PersonRecognizer:
             d = person_reco.display_name
             person_reco.display_name = f'{d[:letter_to_up]}{d[letter_to_up].capitalize()}{d[letter_to_up + 1:]}'
 
-    def _define_age_of_person_by_natasha(self, person_reco: PersonGroup, name_string: str) -> None:
-        """Define and return the age for a person if the predecessor symbols are recognized as Person by Natasha"""
+    def _define_number_of_persons_by_natasha(self, person_reco: PersonGroup, name_string: str) -> None:
+        """Check if name_string is a name and set num_of_per to 1 if yes"""
 
         # last chance to define number of persons in group - with help of Natasha
         if person_reco.num_of_per != -1:

@@ -54,6 +54,10 @@ def recognize_and_write():
 
     filename = 'build/comparison.json'
     Path(filename).write_text(json.dumps(results, indent=2, ensure_ascii=False))
+    if not results:
+        print('Identical results')
+    else:
+        print(f'Different results saved to {filename}')
 
 
 if __name__ == '__main__':
