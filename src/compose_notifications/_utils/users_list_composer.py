@@ -304,38 +304,29 @@ class UserListFilter:
             LEFT JOIN user_pref_search_filtering upsf 
                 ON upsf.user_id=u.user_id and 'whitelist' = ANY(upsf.filter_name)
             WHERE 
-                upsf.filter_name is not null AND NOT
-            (
-                (	exists(
-                            -- user following any other active (not stopped) search
-                            select 1 FROM user_pref_search_whitelist upswls
-                            JOIN searches s ON search_forum_num=upswls.search_id 
-                            WHERE 
-                                upswls.user_id=u.user_id 
-                                and upswls.search_id != :forum_search_num 
-                                and upswls.search_following_mode=:following_mode_on
-                                and s.status != 'СТОП'
+                (upsf.filter_name is not null AND NOT
+                    ( -- one suppressing condition: the user is not following this search and there is another followed not stopped search
+                        not exists
+                            (
+                                select 1 from user_pref_search_whitelist upswls 
+                                WHERE 
+                                    upswls.user_id=u.user_id 
+                                    and upswls.search_id = :forum_search_num 
+                                    and upswls.search_following_mode=:following_mode_on
                             )
-                    AND
-                    not exists(
-                            -- user following this search
-                            select 1 from user_pref_search_whitelist upswls 
-                            WHERE 
-                                upswls.user_id=u.user_id 
-                                and upswls.search_id = :forum_search_num 
-                                and upswls.search_following_mode=:following_mode_on
-                                )
-                ) 
-                OR exists(
-                        -- user stopped following this search
-                        select 1 from user_pref_search_whitelist upswls 
-                        WHERE 
-                            upswls.user_id=u.user_id 
-                            and upswls.search_id = :forum_search_num 
-                            and upswls.search_following_mode=:following_mode_off
-                        )
-            )
-            OR upsf.filter_name is null
+                        and exists
+                            (
+                                select 1 FROM user_pref_search_whitelist upswls
+                                JOIN searches s ON search_forum_num=upswls.search_id 
+                                WHERE 
+                                    upswls.user_id=u.user_id 
+                                    and upswls.search_id != :forum_search_num 
+                                    and upswls.search_following_mode=:following_mode_on
+                                    and s.status != 'СТОП'
+                            )
+                    )
+                )
+                OR upsf.filter_name is null
             ;
         """)
         rows = self.conn.execute(
