@@ -311,11 +311,22 @@ class TestUsersFilter:
 
         assert user in cropped_users
 
-    def test_filter_users_not_following_this_search_3(self, connection, dict_notif_type_status_change):
-        line_in_change_log = LineInChangeLogFactory.build()
+    def test_filter_users_not_following_this_search_but_have_no_another_following(
+        self, connection, dict_notif_type_status_change
+    ):
+        """
+        User stopped following this search, but have no other searches to follow.
+        Should receive notification.
+        """
+
+        search = db_factories.SearchFactory.create_sync(status='NOT СТОП')
+        line_in_change_log = LineInChangeLogFactory.build(forum_search_num=search.search_forum_num)
+
         user = UserFactory.build()
         user_model = db_factories.UserFactory.create_sync(user_id=user.user_id)
+
         db_factories.UserPrefSearchFilteringFactory.create_sync(user_id=user.user_id, filter_name=['whitelist'])
+
         db_factories.UserPrefSearchWhitelistFactory.create_sync(
             user=user_model,
             search_id=line_in_change_log.forum_search_num,
@@ -325,7 +336,42 @@ class TestUsersFilter:
         filterer = UserListFilter(connection, line_in_change_log, [user])
         cropped_users = filterer._filter_users_not_following_this_search()
 
+        assert user in cropped_users
+
+    def test_filter_users_not_following_this_search_and_have_another_following(
+        self, connection, dict_notif_type_status_change
+    ):
+        """
+        User stopped following search 1, but have search 2 to follow.
+        Should receive notification for search 2 only.
+        """
+        search_1 = db_factories.SearchFactory.create_sync(status='NOT СТОП')
+        search_2 = db_factories.SearchFactory.create_sync(status='NOT СТОП')
+        line_in_change_log_1 = LineInChangeLogFactory.build(forum_search_num=search_1.search_forum_num)
+        line_in_change_log_2 = LineInChangeLogFactory.build(forum_search_num=search_2.search_forum_num)
+
+        user = UserFactory.build()
+        user_model = db_factories.UserFactory.create_sync(user_id=user.user_id)
+        db_factories.UserPrefSearchFilteringFactory.create_sync(user_id=user.user_id, filter_name=['whitelist'])
+
+        db_factories.UserPrefSearchWhitelistFactory.create_sync(
+            user=user_model,
+            search_id=line_in_change_log_1.forum_search_num,
+            search_following_mode=SearchFollowingMode.OFF,
+        )
+        db_factories.UserPrefSearchWhitelistFactory.create_sync(
+            user=user_model,
+            search_id=line_in_change_log_2.forum_search_num,
+            search_following_mode=SearchFollowingMode.ON,
+        )
+
+        filterer = UserListFilter(connection, line_in_change_log_1, [user])
+        cropped_users = filterer._filter_users_not_following_this_search()
         assert user not in cropped_users
+
+        filterer = UserListFilter(connection, line_in_change_log_2, [user])
+        cropped_users = filterer._filter_users_not_following_this_search()
+        assert user in cropped_users
 
     def test_filter_users_not_following_this_search_4(self, connection, dict_notif_type_status_change):
         line_in_change_log = LineInChangeLogFactory.build()
