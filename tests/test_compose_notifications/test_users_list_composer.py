@@ -311,7 +311,6 @@ class TestUsersFilter:
 
         assert user in cropped_users
 
-
     def test_filter_users_not_following_this_search_but_have_no_another_following(
         self, connection, dict_notif_type_status_change
     ):
@@ -374,7 +373,6 @@ class TestUsersFilter:
         cropped_users = filterer._filter_users_not_following_this_search()
         assert user in cropped_users
 
-    
     def test_filter_users_not_following_this_search_4(self, connection, dict_notif_type_status_change):
         line_in_change_log = LineInChangeLogFactory.build()
         user = UserFactory.build()
