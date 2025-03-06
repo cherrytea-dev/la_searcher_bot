@@ -108,8 +108,6 @@ class UsersListComposer:
                 change_type=new_record.change_type,
                 forum_folder=new_record.forum_folder,
                 topic_type_id=new_record.topic_type_id,
-                forum_search_num=new_record.forum_search_num,
-                following_mode_on=SearchFollowingMode.ON,
             ).fetchall()
 
             analytics_sql_finish = datetime.datetime.now()
