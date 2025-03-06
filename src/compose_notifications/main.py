@@ -119,7 +119,7 @@ def delete_ended_search_following(conn, new_record: LineInChangeLog) -> None:  #
                 and s.status in('НЖ','НП','Найден')
                 )
                                 """)
-        conn.execute(stmt, a=new_record.forum_search_num)
+        conn.execute(stmt)
         ##conn.execute(stmt, a=new_record.forum_search_num)
         logging.info(
             f'Search id={new_record.forum_search_num} with status {new_record.status} is been deleted from user_pref_search_whitelist.'
