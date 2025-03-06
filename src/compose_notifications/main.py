@@ -109,12 +109,18 @@ def create_user_notifications_from_change_log_record(
 def delete_ended_search_following(conn, new_record: LineInChangeLog) -> None:  # issue425
     ### Delete from user_pref_search_whitelist if the search goes to one of ending statuses
 
-    finished_statuses = ['Завершен', 'НЖ', 'НП', 'Найден']
+    ##finished_statuses = ['Завершен', 'НЖ', 'НП', 'Найден']
     if new_record.change_type == ChangeType.topic_status_change and new_record.status in finished_statuses:
         stmt = sqlalchemy.text("""
-            DELETE FROM user_pref_search_whitelist WHERE search_id=:a;
+            DELETE FROM user_pref_search_whitelist upswl 
+            WHERE exists
+                (select 1 from searches s
+                where s.search_forum_num=upswl.search_id
+                and s.status in('НЖ','НП','Найден')
+                )
                                 """)
         conn.execute(stmt, a=new_record.forum_search_num)
+        ##conn.execute(stmt, a=new_record.forum_search_num)
         logging.info(
             f'Search id={new_record.forum_search_num} with status {new_record.status} is been deleted from user_pref_search_whitelist.'
         )
