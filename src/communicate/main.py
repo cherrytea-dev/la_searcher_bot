@@ -284,6 +284,8 @@ def compose_user_preferences_message(cur: cursor, user_id: int) -> List[Union[Li
                 prefs_wording += ' &#8226; о комментариях Инфорга\n'
             elif user_pref_line[0] == 'first_post_changes':
                 prefs_wording += ' &#8226; об изменениях в первом посте\n'
+            elif user_pref_line[0] == 'all_in_followed_search':
+                prefs_wording += ' &#8226; в отслеживаемом поиске - все уведомления\n'
             elif user_pref_line[0] == 'bot_news':
                 pass
             else:
@@ -960,6 +962,7 @@ def save_preference(cur: cursor, user_id: int, preference: str):
         'topic_field_trip_change': 6,
         'topic_coords_change': 7,
         'topic_first_post_change': 8,
+        'topic_all_in_followed_search': 9,
         'bot_news': 20,
         'all': 30,
         'not_defined': 99,
@@ -972,6 +975,7 @@ def save_preference(cur: cursor, user_id: int, preference: str):
         'field_trips_change': 6,
         'coords_change': 7,
         'first_post_changes': 8,
+        'all_in_followed_search': 9,
     }
 
     def execute_insert(user: int, preference_name: str):
@@ -1049,6 +1053,7 @@ def save_preference(cur: cursor, user_id: int, preference: str):
         '-field_trips_change',
         '-coords_change',
         '-first_post_changes',
+        '-all_in_followed_search',
     }:
         if preference == '-all':
             execute_insert(user_id, 'bot_news')
@@ -2780,6 +2785,7 @@ def process_update(update: Update) -> str:
     b_act_field_trips_change = 'включить: об изменениях в выездах'
     b_act_coords_change = 'включить: о смене места штаба'
     b_act_first_post_change = 'включить: об изменениях в первом посте'
+    b_act_all_in_followed_search = 'включить: в отслеживаемых поисках - все уведомления'
     b_deact_all = 'настроить более гибко'
     b_deact_new_search = 'отключить: о новых поисках'
     b_deact_stat_change = 'отключить: об изменениях статусов'
@@ -2789,6 +2795,7 @@ def process_update(update: Update) -> str:
     b_deact_field_trips_change = 'отключить: об изменениях в выездах'
     b_deact_coords_change = 'отключить: о смене места штаба'
     b_deact_first_post_change = 'отключить: об изменениях в первом посте'
+    b_deact_all_in_followed_search = 'включить: в отслеживаемых поисках - все уведомления'
 
     # Settings - coordinates
     b_coords_auto_def = KeyboardButton(text='автоматически определить "домашние координаты"', request_location=True)
@@ -4010,6 +4017,8 @@ def process_update(update: Update) -> str:
                 b_deact_coords_change,
                 b_act_first_post_change,
                 b_deact_first_post_change,
+                b_act_all_in_followed_search,
+                b_deact_all_in_followed_search,
             }:
                 # save preference for +ALL
                 if got_message == b_act_all:
@@ -4132,7 +4141,7 @@ def process_update(update: Update) -> str:
                     bot_message = 'Вы отписались от уведомлений о смене места (координат) штаба'
                     save_preference(cur, user_id, '-coords_change')
 
-                # save preference for -FirstPostChanges
+                # save preference for +FirstPostChanges
                 elif got_message == b_act_first_post_change:
                     bot_message = (
                         'Теперь вы будете получать уведомления о важных изменениях в Первом Посте'
@@ -4147,6 +4156,20 @@ def process_update(update: Update) -> str:
                         ' Инфорга c описанием каждого поиска'
                     )
                     save_preference(cur, user_id, '-first_post_changes')
+
+                # save preference for +all_in_followed_search
+                elif got_message == b_act_all_in_followed_search:
+                    bot_message = (
+                        'Теперь во время отслеживания поиска будут все уведомления по нему.'
+                    )
+                    save_preference(cur, user_id, 'all_in_followed_search')
+
+                # save preference for -all_in_followed_search
+                elif got_message == b_deact_all_in_followed_search:
+                    bot_message = (
+                        'Теперь по отслеживаемым поискам будут уведомления как обычно (только настроенные).'
+                    )
+                    save_preference(cur, user_id, '-all_in_followed_search')
 
                 # GET what are preferences
                 elif got_message == b_set_pref_notif_type:
@@ -4182,6 +4205,7 @@ def process_update(update: Update) -> str:
                         [b_act_all_comments],
                         [b_act_inforg_com],
                         [b_act_first_post_change],
+                        [b_act_all_in_followed_search],
                         [b_back_to_start],
                     ]
 
@@ -4198,6 +4222,8 @@ def process_update(update: Update) -> str:
                             keyboard_notifications_flexible[4] = [b_deact_inforg_com]
                         elif line == 'first_post_changes':
                             keyboard_notifications_flexible[5] = [b_deact_first_post_change]
+                        elif line == 'all_in_followed_search':
+                            keyboard_notifications_flexible[6] = [b_deact_all_in_followed_search]
 
                 reply_markup = ReplyKeyboardMarkup(keyboard_notifications_flexible, resize_keyboard=True)
 
