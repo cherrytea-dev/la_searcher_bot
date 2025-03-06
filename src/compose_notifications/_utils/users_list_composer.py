@@ -37,12 +37,30 @@ class UsersListComposer:
                         SELECT user_id, array_agg(pref_id) AS agg
                         FROM user_preferences GROUP BY user_id),
                     ---
-                    user_notif_type_pref AS (
+                    user_notif_type_pref AS 
+                    (
                         SELECT user_id, CASE WHEN 30 = ANY(agg) THEN True ELSE False END AS all_notifs
                         FROM user_notif_pref_prep
-                        WHERE (30 = ANY(agg) OR :change_type = ANY(agg))
-                            AND NOT (4 = ANY(agg)  /* 4 is topic_inforg_comment_new */
-                            AND :change_type = 2)), /* 2 is topic_title_change */ /*AK20240409:issue13*/
+                        WHERE 
+                            (   30 = ANY(agg) 
+                            OR :change_type = ANY(agg)
+                            OR exists
+                                (
+                                    select 1 FROM user_pref_search_whitelist upswls
+                                    JOIN searches s ON search_forum_num=upswls.search_id 
+                                    WHERE 
+                                        upswls.user_id=u.user_id 
+                                        and upswls.search_id != :forum_search_num 
+                                        and upswls.search_following_mode=:following_mode_on
+                                        and s.status != 'СТОП'
+                                )
+                            )
+                            AND NOT 
+                            (
+                                4 = ANY(agg)  /* 4 is topic_inforg_comment_new */
+                                AND :change_type = 2 /* 2 is topic_title_change */ /*AK20240409:issue13*/
+                            )
+                        ), 
                     ---
                     user_folders_prep AS (
                         SELECT user_id, forum_folder_num,
@@ -108,6 +126,8 @@ class UsersListComposer:
                 change_type=new_record.change_type,
                 forum_folder=new_record.forum_folder,
                 topic_type_id=new_record.topic_type_id,
+                forum_search_num=new_record.forum_search_num,
+                following_mode_on=SearchFollowingMode.ON,
             ).fetchall()
 
             analytics_sql_finish = datetime.datetime.now()
