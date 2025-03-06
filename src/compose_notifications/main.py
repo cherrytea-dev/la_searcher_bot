@@ -106,6 +106,20 @@ def create_user_notifications_from_change_log_record(
     notification_maker.record_notification_statistics()
     return analytics_iterations_finish  # TODO can we move it out of this function?
 
+def delete_ended_search_following(conn, new_record: LineInChangeLog) -> None:  # issue425
+    ### Delete from user_pref_search_whitelist if the search goes to one of ending statuses
+
+    finished_statuses = ['Завершен', 'НЖ', 'НП', 'Найден']
+    if new_record.change_type == ChangeType.topic_status_change and new_record.status in finished_statuses:
+        stmt = sqlalchemy.text("""
+            DELETE FROM user_pref_search_whitelist WHERE search_id=:a;
+                                """)
+        conn.execute(stmt, a=new_record.forum_search_num)
+        logging.info(
+            f'Search id={new_record.forum_search_num} with status {new_record.status} is been deleted from user_pref_search_whitelist.'
+        )
+    return None
+
 
 def main(event: dict, context: Context) -> None:
     """key function which is initiated by Pub/Sub"""
@@ -148,6 +162,7 @@ def main(event: dict, context: Context) -> None:
         if new_record:
             list_of_users = UsersListComposer(conn).get_users_list_for_line_in_change_log(new_record)
             list_of_users = UserListFilter(conn, new_record, list_of_users).apply()
+            none_var = delete_ended_search_following(conn, new_record)
 
             analytics_iterations_finish = create_user_notifications_from_change_log_record(
                 analytics_start_of_func,
