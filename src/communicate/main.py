@@ -4159,16 +4159,12 @@ def process_update(update: Update) -> str:
 
                 # save preference for +all_in_followed_search
                 elif got_message == b_act_all_in_followed_search:
-                    bot_message = (
-                        'Теперь во время отслеживания поиска будут все уведомления по нему.'
-                    )
+                    bot_message = 'Теперь во время отслеживания поиска будут все уведомления по нему.'
                     save_preference(cur, user_id, 'all_in_followed_search')
 
                 # save preference for -all_in_followed_search
                 elif got_message == b_deact_all_in_followed_search:
-                    bot_message = (
-                        'Теперь по отслеживаемым поискам будут уведомления как обычно (только настроенные).'
-                    )
+                    bot_message = 'Теперь по отслеживаемым поискам будут уведомления как обычно (только настроенные).'
                     save_preference(cur, user_id, '-all_in_followed_search')
 
                 # GET what are preferences
