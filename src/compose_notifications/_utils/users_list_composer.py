@@ -44,15 +44,24 @@ class UsersListComposer:
                         WHERE 
                             (   30 = ANY(agg) 
                             OR :change_type = ANY(agg)
-                            OR exists
-                                (
-                                    select 1 FROM user_pref_search_whitelist upswls
-                                    JOIN searches s ON search_forum_num=upswls.search_id 
-                                    WHERE 
-                                        upswls.user_id=u.user_id 
-                                        and upswls.search_id != :forum_search_num 
-                                        and upswls.search_following_mode=:following_mode_on
-                                        and s.status != 'СТОП'
+                            OR (exists
+                                    (select 1 from user_preferences up
+                                    where up.user_id=u.user_id and up.preference='all_in_followed_search'
+                                    )
+                                and exists
+                                    (select 1 from user_pref_search_filtering upsf
+                                    where upsf.user_id=u.user_id and 'whitelist' = ANY(upsf.filter_name)
+                                    )
+                                and exists
+                                    (
+                                        select 1 FROM user_pref_search_whitelist upswls
+                                        JOIN searches s ON search_forum_num=upswls.search_id 
+                                        WHERE 
+                                            upswls.user_id=u.user_id 
+                                            and upswls.search_id != :forum_search_num 
+                                            and upswls.search_following_mode=:following_mode_on
+                                            and s.status != 'СТОП'
+                                    )
                                 )
                             )
                             AND NOT 
