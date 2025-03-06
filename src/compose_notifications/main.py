@@ -9,7 +9,7 @@ from google.cloud.functions.context import Context
 from sqlalchemy.engine.base import Connection
 
 from _dependencies.cloud_func_parallel_guard import check_and_save_event_id
-from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
+from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool, ChangeType
 from _dependencies.misc import (
     generate_random_function_id,
     get_triggering_function,
@@ -110,7 +110,7 @@ def create_user_notifications_from_change_log_record(
 def delete_ended_search_following(conn, new_record: LineInChangeLog) -> None:  # issue425
     ### Delete from user_pref_search_whitelist if the search goes to one of ending statuses
 
-    ##finished_statuses = ['Завершен', 'НЖ', 'НП', 'Найден']
+    finished_statuses = ['Завершен', 'НЖ', 'НП', 'Найден']
     if new_record.change_type == ChangeType.topic_status_change and new_record.status in finished_statuses:
         stmt = sqlalchemy.text("""
             DELETE FROM user_pref_search_whitelist upswl 
@@ -169,7 +169,7 @@ def main(event: dict, context: Context) -> None:
         if new_record:
             list_of_users = UsersListComposer(conn).get_users_list_for_line_in_change_log(new_record)
             list_of_users = UserListFilter(conn, new_record, list_of_users).apply()
-            none_var = delete_ended_search_following(conn, new_record)
+            delete_ended_search_following(conn, new_record)
 
             analytics_iterations_finish = create_user_notifications_from_change_log_record(
                 analytics_start_of_func,
