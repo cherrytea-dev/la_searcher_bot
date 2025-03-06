@@ -106,6 +106,7 @@ def create_user_notifications_from_change_log_record(
     notification_maker.record_notification_statistics()
     return analytics_iterations_finish  # TODO can we move it out of this function?
 
+
 def delete_ended_search_following(conn, new_record: LineInChangeLog) -> None:  # issue425
     ### Delete from user_pref_search_whitelist if the search goes to one of ending statuses
 

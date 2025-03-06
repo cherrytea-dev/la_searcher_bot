@@ -86,7 +86,6 @@ class LogRecordComposer:
         make_clickable_name(new_record)
         make_emoji(new_record)
 
-
     def _enrich_new_record_from_searches(self, r_line: LineInChangeLog) -> None:
         """add the additional data from Searches into New Records"""
 
