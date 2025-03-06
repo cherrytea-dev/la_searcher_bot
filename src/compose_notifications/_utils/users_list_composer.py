@@ -46,7 +46,7 @@ class UsersListComposer:
                             OR :change_type = ANY(agg)
                             OR (exists
                                     (select 1 from user_preferences up
-                                    where up.user_id=u.user_id and up.preference='all_in_followed_search'
+                                    where up.user_id=u.user_id and up.pref_id=9 /*it is equal to up.preference='all_in_followed_search'*/
                                     )
                                 and exists
                                     (select 1 from user_pref_search_filtering upsf
