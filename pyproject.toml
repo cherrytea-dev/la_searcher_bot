@@ -48,6 +48,7 @@ develop = [
     "types-cffi",
     "types-colorama",
     "types-pyOpenSSL",
+    "tqdm",
 
 ]
 
@@ -149,7 +150,7 @@ omit = ["*/tests/*"]
 [tool.mypy]
 mypy_path = "src"
 disallow_untyped_defs = true
-exclude = ["tests", "env", "venv"]
+exclude = ["tests", "env", "venv", "src/title_recognize/main_old.py"]
 files = [
     # "src/_dependencies/",
     "src/api_get_active_searches/",
@@ -166,7 +167,7 @@ files = [
     # "src/manage_users/",
     # "src/send_debug_to_admin/",
     "src/send_notifications/",
-    # "src/title_recognize/",
+    "src/title_recognize/",
     "src/user_provide_info/",
     # "src/users_activate/",
 ]
@@ -176,4 +177,4 @@ install_types = true
 no_implicit_optional = false
 non_interactive = true
 follow_untyped_imports = true
-# plugins = ["pydantic.mypy"]
+plugins = ["pydantic.mypy"]
