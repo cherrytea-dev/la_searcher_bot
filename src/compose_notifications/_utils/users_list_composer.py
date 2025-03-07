@@ -40,26 +40,28 @@ class UsersListComposer:
                     user_notif_type_pref AS 
                     (
                         SELECT user_list.user_id, CASE WHEN 30 = ANY(agg) THEN True ELSE False END AS all_notifs
-                        FROM user_list ulist
-                        LEFT JOIN user_notif_pref_prep unpp ON unpp.user_id=ulist.user_id
-                        WHERE (30 = ANY(agg) OR :change_type = ANY(agg)
-                            OR (/* 'all types in a followed search' mode is on*/
-                                exists(select 1 from user_preferences up
-                                    where up.user_id=user_list.user_id and up.pref_id=9 /*it is equal to up.preference='all_in_followed_search'*/
-                                    )
-                                and /*following mode is on*/
-                                    exists (select 1 from user_pref_search_filtering upsf
-                                    where upsf.user_id=user_list.user_id and 'whitelist' = ANY(upsf.filter_name)
-                                    )
-                                and  /*this is followed search*/
-                                    exists(
-                                        select 1 FROM user_pref_search_whitelist upswls
-                                        JOIN searches s ON search_forum_num=upswls.search_id 
-                                        WHERE 
-                                            upswls.user_id=user_list.user_id 
-                                            and upswls.search_id = :forum_search_num 
-                                            and upswls.search_following_mode=:following_mode_on
-                                    )
+                        FROM user_notif_pref_prep unpp
+                        JOIN user_list ulist ON ulist.user_id=unpp.user_id
+                        WHERE 
+                            (30 = ANY(agg) OR :change_type = ANY(agg)
+                                OR 
+                                (/* 'all types in a followed search' mode is on*/
+                                    exists(select 1 from user_preferences up
+                                        where up.user_id=user_list.user_id and up.pref_id=9 /*it is equal to up.preference='all_in_followed_search'*/
+                                        )
+                                    and /*following mode is on*/
+                                        exists (select 1 from user_pref_search_filtering upsf
+                                        where upsf.user_id=user_list.user_id and 'whitelist' = ANY(upsf.filter_name)
+                                        )
+                                    and  /*this is followed search*/
+                                        exists(
+                                            select 1 FROM user_pref_search_whitelist upswls
+                                            JOIN searches s ON search_forum_num=upswls.search_id 
+                                            WHERE 
+                                                upswls.user_id=user_list.user_id 
+                                                and upswls.search_id = :forum_search_num 
+                                                and upswls.search_following_mode=:following_mode_on
+                                        )
                                 )
                             )
                             AND NOT 
