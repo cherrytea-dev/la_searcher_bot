@@ -9,7 +9,7 @@ from google.cloud.functions.context import Context
 from sqlalchemy.engine.base import Connection
 
 from _dependencies.cloud_func_parallel_guard import check_and_save_event_id
-from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
+from _dependencies.commons import ChangeType, Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
 from _dependencies.misc import (
     generate_random_function_id,
     get_triggering_function,
@@ -105,6 +105,24 @@ def create_user_notifications_from_change_log_record(
     # final step – update statistics on how many users received notifications on new searches
     notification_maker.record_notification_statistics()
     return analytics_iterations_finish  # TODO can we move it out of this function?
+
+
+def delete_ended_search_following(conn: Connection, new_record: LineInChangeLog) -> None:  # issue425
+    ### Delete from user_pref_search_whitelist if the search goes to one of ending statuses
+    ###May be used iin main() after list_of_users = UserListFilter
+    ###Supposedly unnecessary
+
+    finished_statuses = ['Завершен', 'НЖ', 'НП', 'Найден']
+    if new_record.change_type == ChangeType.topic_status_change and new_record.status in finished_statuses:
+        stmt = sqlalchemy.text("""
+            DELETE FROM user_pref_search_whitelist upswl 
+            WHERE upswl.search_id=:forum_search_num
+                                """)
+        conn.execute(stmt, forum_search_num=new_record.forum_search_num)
+        logging.info(
+            f'Search id={new_record.forum_search_num} with status {new_record.status} is been deleted from user_pref_search_whitelist.'
+        )
+    return None
 
 
 def main(event: dict, context: Context) -> None:

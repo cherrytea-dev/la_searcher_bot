@@ -75,7 +75,6 @@ class LogRecordComposer:
         return new_record
 
     def _enrich_new_record(self, new_record: LineInChangeLog) -> None:
-        self._delete_ended_search_following(new_record)  # issue425
         # enrich New Records List with all the updates that should be in notifications
         self._enrich_new_record_from_searches(new_record)
         self._enrich_new_record_with_search_activities(new_record)
@@ -86,20 +85,6 @@ class LogRecordComposer:
 
         make_clickable_name(new_record)
         make_emoji(new_record)
-
-    def _delete_ended_search_following(self, new_record: LineInChangeLog) -> None:  # issue425
-        ### Delete from user_pref_search_whitelist if the search goes to one of ending statuses
-
-        finished_statuses = ['Завершен', 'НЖ', 'НП', 'Найден']
-        if new_record.change_type == ChangeType.topic_status_change and new_record.status in finished_statuses:
-            stmt = sqlalchemy.text("""
-                DELETE FROM user_pref_search_whitelist WHERE search_id=:a;
-                                   """)
-            self.conn.execute(stmt, a=new_record.forum_search_num)
-            logging.info(
-                f'Search id={new_record.forum_search_num} with status {new_record.status} is been deleted from user_pref_search_whitelist.'
-            )
-        return None
 
     def _enrich_new_record_from_searches(self, r_line: LineInChangeLog) -> None:
         """add the additional data from Searches into New Records"""
