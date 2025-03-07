@@ -39,17 +39,18 @@ class UsersListComposer:
                     ---
                     user_notif_type_pref AS 
                         (
-                        SELECT user_id, CASE WHEN 30 = ANY(agg) THEN True ELSE False END AS all_notifs
-                        FROM user_notif_pref_prep
+                        SELECT ulist.user_id, CASE WHEN 30 = ANY(agg) THEN True ELSE False END AS all_notifs
+                        FROM user_notif_pref_prep unpp
+                        JOIN user_list ulist ON ulist.user_id=unpp.user_id
                         WHERE 
                             (   30 = ANY(agg) 
                             OR :change_type = ANY(agg)
                             OR exists
                                 (
                                     select 1 FROM user_pref_search_whitelist upswls
-                                    JOIN searches s ON search_forum_num=upswls.search_id 
+                                    JOIN searches s ON s.search_forum_num=upswls.search_id 
                                     WHERE 
-                                        upswls.user_id=u.user_id 
+                                        upswls.user_id=ulist.user_id 
                                         and upswls.search_id != :forum_search_num 
                                         and upswls.search_following_mode=:following_mode_on
                                         and s.status != 'СТОП'
