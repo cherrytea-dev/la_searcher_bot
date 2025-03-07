@@ -109,19 +109,16 @@ def create_user_notifications_from_change_log_record(
 
 def delete_ended_search_following(conn: Connection, new_record: LineInChangeLog) -> None:  # issue425
     ### Delete from user_pref_search_whitelist if the search goes to one of ending statuses
+    ###May be used iin main() after list_of_users = UserListFilter
+    ###Supposedly unnecessary
 
     finished_statuses = ['Завершен', 'НЖ', 'НП', 'Найден']
     if new_record.change_type == ChangeType.topic_status_change and new_record.status in finished_statuses:
         stmt = sqlalchemy.text("""
             DELETE FROM user_pref_search_whitelist upswl 
-            WHERE exists
-                (select 1 from searches s
-                where s.search_forum_num=upswl.search_id
-                and s.status in('НЖ','НП','Найден')
-                )
+            WHERE upswl.search_id=:forum_search_num
                                 """)
-        conn.execute(stmt)
-        ##conn.execute(stmt, a=new_record.forum_search_num)
+        conn.execute(stmt, forum_search_num=new_record.forum_search_num)
         logging.info(
             f'Search id={new_record.forum_search_num} with status {new_record.status} is been deleted from user_pref_search_whitelist.'
         )
@@ -169,7 +166,6 @@ def main(event: dict, context: Context) -> None:
         if new_record:
             list_of_users = UsersListComposer(conn).get_users_list_for_line_in_change_log(new_record)
             list_of_users = UserListFilter(conn, new_record, list_of_users).apply()
-            delete_ended_search_following(conn, new_record)
 
             analytics_iterations_finish = create_user_notifications_from_change_log_record(
                 analytics_start_of_func,

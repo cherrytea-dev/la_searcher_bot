@@ -37,12 +37,37 @@ class UsersListComposer:
                         SELECT user_id, array_agg(pref_id) AS agg
                         FROM user_preferences GROUP BY user_id),
                     ---
-                    user_notif_type_pref AS (
-                        SELECT user_id, CASE WHEN 30 = ANY(agg) THEN True ELSE False END AS all_notifs
-                        FROM user_notif_pref_prep
-                        WHERE (30 = ANY(agg) OR :change_type = ANY(agg))
-                            AND NOT (4 = ANY(agg)  /* 4 is topic_inforg_comment_new */
-                            AND :change_type = 2)), /* 2 is topic_title_change */ /*AK20240409:issue13*/
+                    user_notif_type_pref AS 
+                    (
+                        SELECT user_list.user_id, CASE WHEN 30 = ANY(agg) THEN True ELSE False END AS all_notifs
+                        FROM user_list ulist
+                        LEFT JOIN user_notif_pref_prep unpp ON unpp.user_id=ulist.user_id
+                        WHERE (30 = ANY(agg) OR :change_type = ANY(agg)
+                            OR (/* 'all types in a followed search' mode is on*/
+                                exists(select 1 from user_preferences up
+                                    where up.user_id=user_list.user_id and up.pref_id=9 /*it is equal to up.preference='all_in_followed_search'*/
+                                    )
+                                and /*following mode is on*/
+                                    exists (select 1 from user_pref_search_filtering upsf
+                                    where upsf.user_id=user_list.user_id and 'whitelist' = ANY(upsf.filter_name)
+                                    )
+                                and  /*this is followed search*/
+                                    exists(
+                                        select 1 FROM user_pref_search_whitelist upswls
+                                        JOIN searches s ON search_forum_num=upswls.search_id 
+                                        WHERE 
+                                            upswls.user_id=user_list.user_id 
+                                            and upswls.search_id = :forum_search_num 
+                                            and upswls.search_following_mode=:following_mode_on
+                                    )
+                                )
+                            )
+                            AND NOT 
+                            (
+                                4 = ANY(agg)  /* 4 is topic_inforg_comment_new */
+                                AND :change_type = 2 /* 2 is topic_title_change */ /*AK20240409:issue13*/
+                            )
+                        ), 
                     ---
                     user_folders_prep AS (
                         SELECT user_id, forum_folder_num,
