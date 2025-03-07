@@ -7,7 +7,7 @@ on:
     branches : [main]
     paths:
       - 'src/_dependencies/*'
-      - 'src/title_recognize/*' # UPD HERE!
+      - 'src/title_recognize/**' # UPD HERE!
       - '.github/workflows/deploy_title_recognize.yml' # UPD HERE!
 
 jobs:
