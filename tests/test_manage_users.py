@@ -99,7 +99,7 @@ class TestSaveUpdatedStatusForUser:
         user = UserFactory.create_sync(user_id=user_id, status='active')
         timestamp = datetime.now()
 
-        main.save_updated_status_for_user('block_user', user_id, timestamp)
+        main.save_updated_status_for_user(main.Action.block_user, user_id, timestamp)
 
         updated_user: User = get_session().query(User).filter_by(user_id=user_id).first()
         assert updated_user.status == 'blocked'
@@ -115,7 +115,7 @@ class TestSaveUpdatedStatusForUser:
         user = UserFactory.create_sync(user_id=user_id, status='blocked')
         timestamp = datetime.now()
 
-        main.save_updated_status_for_user('unblock_user', user_id, timestamp)
+        main.save_updated_status_for_user(main.Action.unblock_user, user_id, timestamp)
 
         updated_user: User = get_session().query(User).filter_by(user_id=user_id).first()
         assert updated_user.status == 'unblocked'
@@ -130,7 +130,7 @@ class TestSaveUpdatedStatusForUser:
     def test_new_user(self, user_id: int):
         timestamp = datetime.now()
 
-        main.save_updated_status_for_user('new', user_id, timestamp)
+        main.save_updated_status_for_user(main.Action.new, user_id, timestamp)
 
         user: User = get_session().query(User).filter_by(user_id=user_id).first()
         assert user is None  # 'new' action doesn't update the users table
