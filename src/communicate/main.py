@@ -4180,7 +4180,7 @@ def process_update(update: Update) -> str:
 
                 if got_message == b_act_all:
                     keyboard_notifications_flexible = [[b_deact_all], [b_back_to_start]]
-                elif got_message == b_deact_all:
+                elif got_message == b_deact_all: ##default state?
                     keyboard_notifications_flexible = [
                         [b_act_all],
                         [b_deact_new_search],
