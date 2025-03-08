@@ -137,3 +137,11 @@ class UserPrefSearchFiltering(db_models.Base):
 
 class UserPrefSearchFilteringFactory(BaseFactory[UserPrefSearchFiltering]):
     pass
+
+
+class UserOnboardingFactory(BaseFactory[db_models.UserOnboarding]):
+    pass
+
+
+class UserStatusesHistoryFactory(BaseFactory[db_models.UserStatusesHistory]):
+    pass
