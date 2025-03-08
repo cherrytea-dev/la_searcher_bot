@@ -1,7 +1,10 @@
 import base64
 import logging
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, Optional
+
+from pydantic import BaseModel, Field
 
 from _dependencies.commons import sql_connect_by_psycopg2
 from _dependencies.misc import process_pubsub_message
@@ -166,42 +169,47 @@ def save_default_notif_settings(user_id: int) -> None:
     return None
 
 
+class Action(str, Enum):
+    block_user = 'block_user'
+    unblock_user = 'unblock_user'
+    new = 'new'
+    delete_user = 'delete_user'
+    update_onboarding = 'update_onboarding'
+
+
+class ReceivedDictInfoModel(BaseModel):
+    user: int  # id
+    username: str = ''
+
+
+class ReceivedDictModel(BaseModel):
+    action: Action
+    time: datetime = Field(default_factory=datetime.now)
+    info: ReceivedDictInfoModel
+    step: str = 'unrecognized'
+
+
 def main(event: Dict[str, bytes], context: str) -> str:  # noqa
     """main function"""
 
     try:
-        received_dict = process_pubsub_message(event)
-        if received_dict:
-            action = received_dict['action']
+        received_dict_raw = process_pubsub_message(event)
+        received_dict = ReceivedDictModel.model_validate(received_dict_raw)
+        action = received_dict.action
 
-            if action in {'block_user', 'unblock_user', 'new', 'delete_user'}:
-                curr_user_id = received_dict['info']['user']
-                try:
-                    timestamp = datetime.strptime(received_dict['time'], '%Y-%m-%d %H:%M:%S.%f')
+        if action in {Action.block_user, Action.unblock_user, Action.new, Action.delete_user}:
+            curr_user_id = received_dict.info.user
+            # save in table user_statuses_history and table users (for non-new users)
+            save_updated_status_for_user(action, curr_user_id, received_dict.time)
 
-                except:  # noqa
-                    timestamp = datetime.now()
-                # save in table user_statuses_history and table users (for non-new users)
-                save_updated_status_for_user(action, curr_user_id, timestamp)
+            if action == Action.new:
+                # save in table users
+                save_new_user(curr_user_id, received_dict.info.username, received_dict.time)
+                # save in table user_preferences
+                save_default_notif_settings(curr_user_id)
 
-                if action == 'new':
-                    username = received_dict['info']['username']
-                    # save in table users
-                    save_new_user(curr_user_id, username, timestamp)
-                    # save in table user_preferences
-                    save_default_notif_settings(curr_user_id)
-
-            elif action in {'update_onboarding'}:
-                curr_user_id = received_dict['info']['user']
-                try:
-                    timestamp = datetime.strptime(received_dict['time'], '%Y-%m-%d %H:%M:%S.%f')
-                except:  # noqa
-                    timestamp = datetime.now()
-                try:
-                    step_name = received_dict['step']
-                except:  # noqa
-                    step_name = 'unrecognized'
-                save_onboarding_step(curr_user_id, step_name, timestamp)
+        elif action in {Action.update_onboarding}:
+            save_onboarding_step(received_dict.info.user, received_dict.step, received_dict.time)
 
     except Exception as e:
         logging.error('User management script failed:' + repr(e))
