@@ -46,18 +46,22 @@ class UsersListComposer:
                             (30 = ANY(agg) OR :change_type = ANY(agg)
                                 OR 
                                 (/* 'all types in a followed search' mode is on*/
-                                    exists(select 1 from user_preferences up
-                                        where up.user_id=ulist.user_id and up.pref_id=9 /*it is equal to up.preference='all_in_followed_search'*/
-                                        )
+                                    (
+                                        exists(select 1 from user_preferences up
+                                            where up.user_id=ulist.user_id and up.pref_id=9 
+                                            /*it is equal to up.preference='all_in_followed_search'*/
+                                            )
+                                        or :change_type = 1  -- status_changes
+                                    )
                                     and /*following mode is on*/
                                         exists (select 1 from user_pref_search_filtering upsf
-                                        where upsf.user_id=ulist.user_id and 'whitelist' = ANY(upsf.filter_name)
+                                                    where upsf.user_id=ulist.user_id and 'whitelist' = ANY(upsf.filter_name)
                                         )
                                     and  /*this is followed search*/
                                         exists(
                                             select 1 FROM user_pref_search_whitelist upswls
                                             JOIN searches s ON search_forum_num=upswls.search_id 
-                                            WHERE 
+                                            where 
                                                 upswls.user_id=ulist.user_id 
                                                 and upswls.search_id = :forum_search_num 
                                                 and upswls.search_following_mode=:following_mode_on
@@ -136,9 +140,11 @@ class UsersListComposer:
                 forum_folder=new_record.forum_folder,
                 topic_type_id=new_record.topic_type_id,
                 forum_search_num=new_record.forum_search_num,
+                forum_search_status=new_record.new_status,
                 following_mode_on=SearchFollowingMode.ON,
             ).fetchall()
 
+            logging.info(f'Fetched users for search {forum_search_num=} with {new_record.new_status=}.')
             analytics_sql_finish = datetime.datetime.now()
             duration_sql = round((analytics_sql_finish - analytics_start).total_seconds(), 2)
             logging.info(f'time: {analytics_prefix} sql – {duration_sql} sec')
@@ -323,7 +329,7 @@ class UserListFilter:
         return temp_user_list
 
     def _filter_users_not_following_this_search(self) -> list[User]:
-        # 5. FOLLOW SEARCH. crop the list of users, excluding Users who is not following this search
+        # 5. FOLLOW SEARCH. crop the list of users accordingly to the rules of search following
         users_list_outcome = self.users
         record = self.new_record
         logging.info(f'Crop user list step 5: forum_search_num=={record.forum_search_num}')
@@ -333,8 +339,9 @@ class UserListFilter:
             LEFT JOIN user_pref_search_filtering upsf 
                 ON upsf.user_id=u.user_id and 'whitelist' = ANY(upsf.filter_name)
             WHERE 
-                (upsf.filter_name is not null AND NOT
-                    ( -- one suppressing condition: the user is not following this search and there is another followed not stopped search
+                (upsf.filter_name is not null 
+                    AND NOT
+                    ( -- 1st suppressing condition: the user is not following this search and there is another followed not stopped search
                         not exists
                             (
                                 select 1 from user_pref_search_whitelist upswls 
@@ -346,13 +353,21 @@ class UserListFilter:
                         and exists
                             (
                                 select 1 FROM user_pref_search_whitelist upswls
-                                JOIN searches s ON search_forum_num=upswls.search_id 
+                                JOIN searches s ON s.search_forum_num=upswls.search_id 
                                 WHERE 
                                     upswls.user_id=u.user_id 
                                     and upswls.search_id != :forum_search_num 
                                     and upswls.search_following_mode=:following_mode_on
-                                    and s.status != 'СТОП'
+                                    and s.status not in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
                             )
+                    )
+                    AND NOT exists -- 2nd suppressing condition: the search is in blacklist for this user 
+                    (
+                        select 1 from user_pref_search_whitelist upswls 
+                        WHERE 
+                            upswls.user_id=u.user_id 
+                            and upswls.search_id = :forum_search_num 
+                            and upswls.search_following_mode=:following_mode_off
                     )
                 )
                 OR upsf.filter_name is null
