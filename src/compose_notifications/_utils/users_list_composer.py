@@ -358,7 +358,7 @@ class UserListFilter:
                                         upswls.user_id=u.user_id 
                                         and upswls.search_id != :forum_search_num 
                                         and upswls.search_following_mode=:following_mode_on
-                                        and s.search_status not in 
+                                        and s.status not in 
                                             ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
                                 )
                         )
