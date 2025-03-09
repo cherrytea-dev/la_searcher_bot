@@ -6,6 +6,7 @@ import sqlalchemy
 from sqlalchemy.engine.base import Engine
 
 from _dependencies.misc import notify_admin
+from identify_updates_of_topics._utils.topics_commons import SearchSummary
 
 
 def save_function_into_register(db: Engine, context, start_time, function_id, change_log_ids):
@@ -181,3 +182,133 @@ def get_last_api_call_time_from_psql(db: sqlalchemy.engine, geocoder: str):
             conn.close()
 
     return last_call
+
+
+def rewrite_snapshot_in_sql(db2: Engine, folder_num, folder_summary: list[SearchSummary]):
+    """rewrite the freshly-parsed snapshot into sql table 'forum_summary_snapshot'"""
+
+    with db2.connect() as conn:
+        sql_text = sqlalchemy.text("""DELETE FROM forum_summary_snapshot WHERE forum_folder_id = :a;""")
+        conn.execute(sql_text, a=folder_num)
+
+        sql_text = sqlalchemy.text(
+            """INSERT INTO forum_summary_snapshot (search_forum_num, parsed_time, forum_search_title,
+            search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, display_name, age_min,
+            age_max, status, city_locations, topic_type_id)
+            VALUES (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
+        )
+        # FIXME – add status
+        for line in folder_summary:
+            conn.execute(
+                sql_text,
+                a=line.topic_id,
+                b=line.parsed_time,
+                d=line.title,
+                e=line.start_time,
+                f=line.num_of_replies,
+                g=line.age,
+                h=line.name,
+                i=line.folder_id,
+                j=line.topic_type,
+                k=line.display_name,
+                l=line.age_min,
+                m=line.age_max,
+                n=line.new_status,
+                o=str(line.locations),
+                p=line.topic_type_id,
+            )
+        conn.close()
+
+    return None
+
+
+def write_comment(
+    db,
+    search_num,
+    comment_num,
+    comment_url,
+    comment_author_nickname,
+    comment_author_link,
+    comment_forum_global_id,
+    comment_text,
+    ignore,
+):
+    with db.connect() as conn:
+        if comment_text:
+            if not ignore:
+                stmt = sqlalchemy.text(
+                    """INSERT INTO comments (comment_url, comment_text, comment_author_nickname,
+                        comment_author_link, search_forum_num, comment_num, comment_global_num)
+                        VALUES (:a, :b, :c, :d, :e, :f, :g); """
+                )
+                conn.execute(
+                    stmt,
+                    a=comment_url,
+                    b=comment_text,
+                    c=comment_author_nickname,
+                    d=comment_author_link,
+                    e=search_num,
+                    f=comment_num,
+                    g=comment_forum_global_id,
+                )
+            else:
+                stmt = sqlalchemy.text(
+                    """INSERT INTO comments (comment_url, comment_text, comment_author_nickname,
+                        comment_author_link, search_forum_num, comment_num, notification_sent)
+                        VALUES (:a, :b, :c, :d, :e, :f, :g); """
+                )
+                conn.execute(
+                    stmt,
+                    a=comment_url,
+                    b=comment_text,
+                    c=comment_author_nickname,
+                    d=comment_author_link,
+                    e=search_num,
+                    f=comment_num,
+                    g='n',
+                )
+
+        conn.close()
+
+
+def update_coordinates_in_db(db, search_id, coords):
+    with db.connect() as conn:
+        stmt = sqlalchemy.text(
+            'SELECT latitude, longitude, coord_type FROM search_coordinates WHERE search_id=:a LIMIT 1;'
+        )
+        old_coords = conn.execute(stmt, a=search_id).fetchone()
+
+        if coords[0] != 0 and coords[1] != 0:
+            if old_coords is None:
+                stmt = sqlalchemy.text(
+                    """INSERT INTO search_coordinates (search_id, latitude, longitude, coord_type, upd_time)
+                        VALUES (:a, :b, :c, :d, CURRENT_TIMESTAMP); """
+                )
+                conn.execute(stmt, a=search_id, b=coords[0], c=coords[1], d=coords[2])
+            else:
+                # when coords are in search_coordinates table
+                old_lat, old_lon, old_type = old_coords
+                do_update = False
+                if not old_type:
+                    do_update = True
+                elif not (old_type[0] != '4' and coords[2][0] == '4'):
+                    do_update = True
+                elif old_type[0] == '4' and coords[2][0] == '4' and (old_lat != coords[0] or old_lon != coords[1]):
+                    do_update = True
+
+                if do_update:
+                    stmt = sqlalchemy.text(
+                        """UPDATE search_coordinates SET latitude=:a, longitude=:b, coord_type=:c,
+                            upd_time=CURRENT_TIMESTAMP WHERE search_id=:d; """
+                    )
+                    conn.execute(stmt, a=coords[0], b=coords[1], c=coords[2], d=search_id)
+
+            # case when coords are not defined, but there were saved coords type 1 or 2 – so we need to mark as deleted
+        elif old_coords and old_coords[2] and old_coords[2][0] in {'1', '2'}:
+            stmt = sqlalchemy.text(
+                """UPDATE search_coordinates SET coord_type=:a, upd_time=CURRENT_TIMESTAMP
+                       WHERE search_id=:b; """
+            )
+            conn.execute(stmt, a=coords[2], b=search_id)
+
+        conn.close()

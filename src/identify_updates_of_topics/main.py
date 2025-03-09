@@ -25,50 +25,25 @@ from identify_updates_of_topics._utils.database import (
     get_geolocation_form_psql,
     get_last_api_call_time_from_psql,
     get_the_list_of_ignored_folders,
+    rewrite_snapshot_in_sql,
     save_function_into_register,
     save_geolocation_in_psql,
     save_last_api_call_time_to_psql,
     save_place_in_psql,
+    update_coordinates_in_db,
+    write_comment,
 )
-from identify_updates_of_topics._utils.topics_commons import ChangeLogLine, SearchSummary
+from identify_updates_of_topics._utils.forum import (
+    define_start_time_of_search,
+    parse_address_from_title,
+    parse_search_profile,
+    profile_get_managers,
+    profile_get_type_of_activity,
+    visibility_check,
+)
+from identify_updates_of_topics._utils.topics_commons import ChangeLogLine, SearchSummary, get_requests_session
 
 setup_google_logging()
-
-
-# Sessions – to reuse for reoccurring requests
-requests_session = None
-
-# to be reused by different functions
-block_of_profile_rough_code = None
-
-dict_status_words = {
-    'жив': 'one',
-    'жива': 'one',
-    'живы': 'many',
-    'завершен': 'na',
-    'завершён': 'na',
-    'идет': 'na',
-    'идёт': 'na',
-    'информации': 'na',
-    'найден': 'one',
-    'найдена': 'one',
-    'найдены': 'many',
-    'погиб': 'one',
-    'погибла': 'one',
-    'погибли': 'many',
-    'поиск': 'na',
-    'приостановлен': 'na',
-    'проверка': 'na',
-    'похищен': 'one',
-    'похищена': 'one',
-    'похищены': 'many',
-    'пропал': 'one',
-    'пропала': 'one',
-    'пропали': 'many',
-    'остановлен': 'na',
-    'стоп': 'na',
-    'эвакуация': 'na',
-}
 
 
 def set_cloud_storage(bucket_name: str, folder_num: int) -> Blob:
@@ -238,249 +213,10 @@ def get_coordinates(db: Engine, address: str) -> Tuple[None, None]:
     return None, None
 
 
-def parse_address_from_title(initial_title: str) -> str:
-    after_age = 0
-    age_dict = [' год ', ' год', ' года ', ' года', ' лет ', ' лет', 'г.р.', '(г.р.),', 'лет)', 'лет,']
-    for word in age_dict:
-        age_words = initial_title.find(word)
-        if age_words == -1:
-            pass
-        else:
-            after_age = max(after_age, age_words + len(word))
-
-    if after_age > 0:
-        address_string = initial_title[after_age:].strip()
-    else:
-        numbers = [int(float(s)) for s in re.findall(r'\d*\d', initial_title)]
-        if numbers and numbers[0]:
-            age_words = initial_title.find(str(numbers[0]))
-            if age_words == -1:
-                address_string = initial_title
-            else:
-                after_age = age_words + len(str(numbers[0]))
-                address_string = initial_title[after_age:].strip()
-        else:
-            address_string = initial_title
-
-    # ABOVE is not optimized - but with this part ages are excluded better (for cases when there are 2 persons)
-    trigger_of_age_mentions = True
-
-    while trigger_of_age_mentions:
-        trigger_of_age_mentions = False
-        for word in age_dict:
-            if address_string.find(word) > -1:
-                trigger_of_age_mentions = True
-                after_age = address_string.find(word) + len(word)
-                address_string = address_string[after_age:]
-
-    useless_symbols = {'.', ',', ' ', ':', ';' '!', ')'}
-    trigger_of_useless_symbols = True
-
-    while trigger_of_useless_symbols:
-        trigger_of_useless_symbols = False
-        for word in useless_symbols:
-            if address_string[0 : len(word)] == word:
-                trigger_of_useless_symbols = True
-                address_string = address_string[len(word) :]
-
-    # case when there's "г.о." instead of "городской округ"
-    if address_string.find('г.о.') != -1:
-        address_string = address_string.replace('г.о.', 'городской округ')
-
-    # case when there's "муниципальный округ"
-    if address_string.find('м.о.') != -1:
-        address_string = address_string.replace('м.о.', 'муниципальный округ')
-
-    # case when 'мкрн' or 'мкр'
-    if address_string.find('мкрн') != -1:
-        address_string = address_string.replace('мкрн', '')
-    if address_string.find('мкр') != -1:
-        address_string = address_string.replace('мкр', '')
-
-    # case with 'р-н' and 'АО'
-    if address_string.find('р-н') != -1 and address_string.find('АО') != -1:
-        by_word = address_string.split()
-        word_with_ao = None
-        for word in by_word:
-            if word.find('АО') != -1:
-                word_with_ao = word
-        if word_with_ao:
-            address_string = address_string.replace(word_with_ao, '')
-
-    # case with 'р-н' or 'р-на' or 'р-он'
-    if address_string.find('р-на') != -1:
-        address_string = address_string.replace('р-на', 'район')
-    if address_string.find('р-н') != -1:
-        address_string = address_string.replace('р-н', 'район')
-    if address_string.find('р-он') != -1:
-        address_string = address_string.replace('р-он', 'район')
-
-    # case with 'обл'
-    if address_string.find('обл.') != -1:
-        address_string = address_string.replace('обл.', 'область')
-
-    # case with 'НСО'
-    if address_string.find('НСО') != -1:
-        address_string = address_string.replace('НСО', 'Новосибирская область')
-
-    # case with 'МО'
-    if address_string.find('МО') != -1:
-        mo_dict = {' МО ', ' МО,'}
-        for word in mo_dict:
-            if address_string.find(word) != -1:
-                address_string = address_string.replace(word, 'Московская область')
-        if address_string[-3:] == ' МО':
-            address_string = address_string[:-3] + ' Московская область'
-
-    # case with 'ЛО'
-    if address_string.find('ЛО') != -1:
-        mo_dict = {' ЛО ', ' ЛО,'}
-        for word in mo_dict:
-            if address_string.find(word) != -1:
-                address_string = address_string.replace(word, 'Ленинградская область')
-        if address_string[-3:] == ' ЛО':
-            address_string = address_string[:-3] + ' Ленинградская область'
-
-    # in case "г.Сочи"
-    if address_string.find('г.Сочи') != -1:
-        address_string = address_string.replace('г.Сочи', 'Сочи')
-    if address_string.find('г. Сочи') != -1:
-        address_string = address_string.replace('г. Сочи', 'Сочи')
-
-    # case with 'района'
-    if address_string.find('района') != -1:
-        by_word = address_string.split()
-        prev_word = None
-        this_word = None
-        for k in range(len(by_word) - 1):
-            if by_word[k + 1] == 'района':
-                prev_word = by_word[k]
-                this_word = by_word[k + 1]
-                break
-        if prev_word and this_word:
-            address_string = address_string.replace(prev_word, prev_word[:-3] + 'ий')
-            address_string = address_string.replace(this_word, this_word[:-1])
-
-    # case with 'области'
-    if address_string.find('области') != -1:
-        by_word = address_string.split()
-        prev_word = None
-        this_word = None
-        for k in range(len(by_word) - 1):
-            if by_word[k + 1] == 'области':
-                prev_word = by_word[k]
-                this_word = by_word[k + 1]
-                break
-        if prev_word and this_word:
-            address_string = address_string.replace(prev_word, prev_word[:-2] + 'ая')
-            address_string = address_string.replace(this_word, this_word[:-1] + 'ь')
-
-    # add all the cases ABOVE
-    # delete garbage in the beginning of string
-    try:
-        first_num = re.search(r'\d', address_string).start()
-    except:  # noqa
-        first_num = 0
-    try:
-        first_letter = re.search(r'[а-яА-Я]', address_string).start()
-    except:  # noqa
-        first_letter = 0
-
-    new_start = max(first_num, first_letter)
-
-    if address_string.lower().find('г. москва') != -1 or address_string.lower().find('г.москва') != -1:
-        address_string = address_string.replace('г.', '')
-
-    # add Russia to be sure
-    # Openstreetmap.org treats Krym as Ukraine - so for search purposes Russia is avoided
-    if (
-        address_string
-        and address_string.lower().find('крым') == -1
-        and address_string.lower().find('севастополь') == -1
-    ):
-        address_string = address_string[new_start:] + ', Россия'
-
-    # case - first "с.", "п." and "д." are often misinterpreted - so it's easier to remove it
-    wrong_first_symbols_dict = {
-        ' ',
-        ',',
-        ')',
-        '.',
-        'с.',
-        'д.',
-        'п.',
-        'г.',
-        'гп',
-        'пос.',
-        'уч-к',
-        'р,',
-        'р.',
-        'г,',
-        'ст.',
-        'л.',
-        'дер ',
-        'дер.',
-        'пгт ',
-        'ж/д',
-        'б/о',
-        'пгт.',
-        'х.',
-        'ст-ца',
-        'с-ца',
-        'стан.',
-    }
-
-    trigger_of_wrong_symbols = True
-
-    while trigger_of_wrong_symbols:
-        this_iteration_bring_no_changes = True
-
-        for wrong_symbols in wrong_first_symbols_dict:
-            if address_string[: len(wrong_symbols)] == wrong_symbols:
-                # if the first symbols are from wrong symbols list - we delete them
-                address_string = address_string[len(wrong_symbols) :]
-                this_iteration_bring_no_changes = False
-
-        if this_iteration_bring_no_changes:
-            trigger_of_wrong_symbols = False
-
-    # ONE-TIME EXCEPTIONS:
-    if address_string.find('г. Сольцы, Новгородская обл. – г. Санкт-Петербург'):
-        address_string = address_string.replace(
-            'г. Сольцы, Новгородская область – г. Санкт-Петербург', 'г. Сольцы, Новгородская область'
-        )
-    if address_string.find('Орехово-Зуевский район'):
-        address_string = address_string.replace('Орехово-Зуевский район', 'Орехово-Зуевский городской округ')
-    if address_string.find('НТ Нефтяник'):
-        address_string = address_string.replace('СНТ Нефтяник', 'СНТ Нефтянник')
-    if address_string.find('Коченевский'):
-        address_string = address_string.replace('Коченевский', 'Коченёвский')
-    if address_string.find('Самара - с. Красный Яр'):
-        address_string = address_string.replace('г. Самара - с. Красный Яр', 'Красный Яр')
-    if address_string.find('укреево-Плессо'):
-        address_string = address_string.replace('Букреево-Плессо', 'Букреево Плёсо')
-    if address_string.find('Москва Москва: Юго-Западный АО, '):
-        address_string = address_string.replace('г.Москва Москва: Юго-Западный АО, ', 'ЮЗАО, Москва, ')
-    if address_string.find(' Луховицы - д.Алтухово'):
-        address_string = address_string.replace(' Луховицы - д. Алтухово, Зарайский городской округ,', 'Луховицы')
-    if address_string.find('Сагкт-Петербург'):
-        address_string = address_string.replace('Сагкт-Петербург', 'Санкт-Петербург')
-    if address_string.find('Краснозерский'):
-        address_string = address_string.replace('Краснозерский', 'Краснозёрский')
-    if address_string.find('Толмачевское'):
-        address_string = address_string.replace('Толмачевское', 'Толмачёвское')
-    if address_string.find('Кочевский'):
-        address_string = address_string.replace('Кочевский', 'Кочёвский')
-    if address_string.find('Чесцы'):
-        address_string = address_string.replace('Чесцы', 'Часцы')
-
-    return address_string
-
-
-def parse_coordinates(db: connection, search_num) -> List[Union[int, str]]:
+def parse_coordinates_of_search(db: connection, search_num) -> List[Union[int, str]]:
     """finds coordinates of the search"""
 
-    global requests_session
+    requests_session = get_requests_session()
 
     # DEBUG - function execution time counter
     func_start = datetime.now()
@@ -691,48 +427,9 @@ def update_coordinates(db: Engine, list_of_search_objects: list[SearchSummary]) 
             continue
 
         logging.info(f'search coordinates should be saved for {search_id=}')
-        coords = parse_coordinates(db, search_id)
+        coords = parse_coordinates_of_search(db, search_id)
 
-        with db.connect() as conn:
-            stmt = sqlalchemy.text(
-                'SELECT latitude, longitude, coord_type FROM search_coordinates WHERE search_id=:a LIMIT 1;'
-            )
-            old_coords = conn.execute(stmt, a=search_id).fetchone()
-
-            if coords[0] != 0 and coords[1] != 0:
-                if old_coords is None:
-                    stmt = sqlalchemy.text(
-                        """INSERT INTO search_coordinates (search_id, latitude, longitude, coord_type, upd_time)
-                        VALUES (:a, :b, :c, :d, CURRENT_TIMESTAMP); """
-                    )
-                    conn.execute(stmt, a=search_id, b=coords[0], c=coords[1], d=coords[2])
-                else:
-                    # when coords are in search_coordinates table
-                    old_lat, old_lon, old_type = old_coords
-                    do_update = False
-                    if not old_type:
-                        do_update = True
-                    elif not (old_type[0] != '4' and coords[2][0] == '4'):
-                        do_update = True
-                    elif old_type[0] == '4' and coords[2][0] == '4' and (old_lat != coords[0] or old_lon != coords[1]):
-                        do_update = True
-
-                    if do_update:
-                        stmt = sqlalchemy.text(
-                            """UPDATE search_coordinates SET latitude=:a, longitude=:b, coord_type=:c,
-                            upd_time=CURRENT_TIMESTAMP WHERE search_id=:d; """
-                        )
-                        conn.execute(stmt, a=coords[0], b=coords[1], c=coords[2], d=search_id)
-
-            # case when coords are not defined, but there were saved coords type 1 or 2 – so we need to mark as deleted
-            elif old_coords and old_coords[2] and old_coords[2][0] in {'1', '2'}:
-                stmt = sqlalchemy.text(
-                    """UPDATE search_coordinates SET coord_type=:a, upd_time=CURRENT_TIMESTAMP
-                       WHERE search_id=:b; """
-                )
-                conn.execute(stmt, a=coords[2], b=search_id)
-
-            conn.close()
+        update_coordinates_in_db(db, search_id, coords)
 
     return None
 
@@ -741,235 +438,10 @@ def sql_connect() -> sqlalchemy.engine.Engine:
     return sqlalchemy_get_pool(5, 120)
 
 
-def define_start_time_of_search(blocks):
-    """define search start time & date"""
-
-    start_datetime_as_string = blocks.find('div', 'topic-poster responsive-hide left-box')
-    start_datetime = start_datetime_as_string.time['datetime']
-
-    return start_datetime
-
-
-def profile_get_type_of_activity(text_of_activity: str) -> list[str]:
-    """get the status of the search activities: is there HQ, is there Active duties"""
-
-    activity_type = []
-    hq = None
-
-    # Cases with HQ
-    if text_of_activity.lower().find('штаб свернут') > -1:
-        hq = 'no'
-    elif text_of_activity.lower().find('штаб свёрнут') > -1:
-        hq = 'no'
-    elif text_of_activity.lower().find('штаб свëрнут') > -1:
-        hq = 'no'
-
-    if hq == 'no':
-        activity_type.append('9 - hq closed')
-    else:
-        if text_of_activity.lower().find('сбор') > -1:
-            hq = 'now'
-        elif text_of_activity.lower().find('штаб работает') > -1:
-            hq = 'now'
-        elif text_of_activity.lower().find('выезд сейчас') > -1:
-            hq = 'now'
-        elif text_of_activity.lower().find('внимание, выезд') > -1:
-            hq = 'now'
-        elif text_of_activity.lower().find('внимание выезд') > -1:
-            hq = 'now'
-        elif text_of_activity.lower().find('внимание! выезд') > -1:
-            hq = 'now'
-
-        if hq == 'now':
-            activity_type.append('1 - hq now')
-        else:
-            if text_of_activity.lower().find('штаб мобильный') > -1:
-                hq = 'mobile'
-
-            if hq == 'mobile':
-                activity_type.append('2 - hq mobile')
-            else:
-                if text_of_activity.lower().find('выезд ожидается') > -1:
-                    hq = 'will'
-                elif text_of_activity.lower().find('ожидается выезд') > -1:
-                    hq = 'will'
-                elif text_of_activity.lower().find('выезд планируется') > -1:
-                    hq = 'will'
-                elif text_of_activity.lower().find('планируется выезд') > -1:
-                    hq = 'will'
-                elif text_of_activity.lower().find('готовится выезд') > -1:
-                    hq = 'will'
-                elif text_of_activity.lower().find('выезд готовится') > -1:
-                    hq = 'will'
-
-                if hq == 'will':
-                    activity_type.append('1 - hq will')
-
-    # Cases with Autonom
-    if hq not in {'mobile, now, will'}:
-        if text_of_activity.lower().find('опрос') > -1:
-            hq = 'autonom'
-        if text_of_activity.lower().find('оклейка') > -1:
-            hq = 'autonom'
-    if text_of_activity.lower().find('автоном') > -1 and not text_of_activity.lower().find('нет автоном'):
-        hq = 'autonom'
-    elif text_of_activity.lower().find('двойк') > -1:
-        hq = 'autonom'
-
-    if hq == 'autonom':
-        activity_type.append('6 - autonom')
-
-    # Specific Tasks
-    if text_of_activity.lower().find('забрать оборудование') > -1:
-        activity_type.append('3 - hardware logistics')
-    elif text_of_activity.lower().find('забрать комплект оборудования') > -1:
-        activity_type.append('3 - hardware logistics')
-
-    activity_type.sort()
-
-    return activity_type
-
-
-def profile_get_managers(text_of_managers: str) -> list[str]:
-    """define list of managers out of profile plain text"""
-
-    managers = []
-
-    try:
-        list_of_lines = text_of_managers.split('\n')
-
-        # Define the block of text with managers which starts with ------
-        zero_line = None
-        for i in range(len(list_of_lines)):
-            if list_of_lines[i].find('--------') > -1:
-                zero_line = i + 1
-                break
-
-        # If there's a telegram link in a new line - to move it to prev line
-        for i in range(len(list_of_lines) - 1):
-            if list_of_lines[i + 1][0:21] == 'https://telegram.im/@':
-                list_of_lines[i] += ' ' + list_of_lines[i + 1]
-                list_of_lines[i + 1] = ''
-            if list_of_lines[i + 1][0:14] == 'https://t.me/':
-                list_of_lines[i] += ' ' + list_of_lines[i + 1]
-                list_of_lines[i + 1] = ''
-
-        list_of_roles = [
-            'Координатор-консультант',
-            'Координатор',
-            'Инфорг',
-            'Старшая на месте',
-            'Старший на месте',
-            'ДИ ',
-            'СНМ',
-        ]
-
-        for line in list_of_lines[zero_line:]:
-            line_by_word = line.split()
-            for i in range(len(line_by_word)):
-                for role in list_of_roles:
-                    if str(line_by_word[i]).find(role) > -1:
-                        manager_line = line_by_word[i]
-                        for j in range(len(line_by_word) - i - 1):
-                            if line_by_word[i + j + 1].find(role) == -1:
-                                manager_line += ' ' + str(line_by_word[i + j + 1])
-                            else:
-                                break
-
-                        # Block of minor RARE CASE corrections
-                        manager_line = manager_line.replace(',,', ',')
-                        manager_line = manager_line.replace(':,', ':')
-                        manager_line = manager_line.replace(', ,', ',')
-                        manager_line = manager_line.replace('  ', ' ')
-
-                        managers.append(manager_line)
-                        break
-
-        # replace telegram contacts with nice links
-        for manager in managers:
-            for word in manager.split(' '):
-                nickname = None
-
-                if word.find('https://telegram.im/') > -1:
-                    nickname = word[20:]
-
-                if word.find('https://t.me/') > -1:
-                    nickname = word[13:]
-
-                if nickname:
-                    # tip: sometimes there are two @ in the beginning (by human mistake)
-                    while nickname[0] == '@':
-                        nickname = nickname[1:]
-
-                    # tip: sometimes the last symbol is wrong
-                    while nickname[-1:] in {'.', ',', ' '}:
-                        nickname = nickname[:-1]
-
-                    manager = manager.replace(word, f'<a href="https://t.me/{nickname}">@{nickname}</a>')
-
-        # FIXME – for debug
-        logging.info('DBG.P.101.Managers_list:')
-        for manager in managers:
-            logging.info(manager)
-        # FIXME ^^^
-
-    except Exception as e:
-        logging.info('DBG.P.102.EXC:')
-        logging.exception(e)
-
-    return managers
-
-
-def parse_search_profile(search_num) -> str | None:
-    """get search activities list"""
-
-    global block_of_profile_rough_code
-    global requests_session
-
-    url_beginning = 'https://lizaalert.org/forum/viewtopic.php?t='
-    url_to_topic = url_beginning + str(search_num)
-
-    try:
-        r = requests_session.get(url_to_topic)  # noqa
-        if not visibility_check(r, search_num):
-            return None
-
-        soup = BeautifulSoup(r.content, features='html.parser')
-
-    except Exception as e:
-        logging.info(f'DBG.P.50.EXC: unable to parse a specific Topic with address: {url_to_topic} error:')
-        logging.exception(e)
-        soup = None
-
-    # open the first post
-    block_of_profile_rough_code = soup.find('div', 'content')
-
-    # excluding <line-through> tags
-    for deleted in block_of_profile_rough_code.findAll('span', {'style': 'text-decoration:line-through'}):
-        deleted.extract()
-
-    # add telegram links to text (to be sure next step won't cut these links), type 1
-    for a_tag in block_of_profile_rough_code.find_all('a'):
-        if a_tag.get('href')[0:20] == 'https://telegram.im/':
-            a_tag.replace_with(a_tag['href'])
-
-    # add telegram links to text (to be sure next step won't cut these links), type 2
-    for a_tag in block_of_profile_rough_code.find_all('a'):
-        if a_tag.get('href')[0:13] == 'https://t.me/':
-            a_tag.replace_with(a_tag['href'])
-
-    left_text = block_of_profile_rough_code.text.strip()
-
-    """DEBUG"""
-    logging.info('DBG.Profile:' + left_text)
-
-    return left_text
-
-
 def parse_one_folder(db: Engine, folder_id) -> Tuple[List, List[SearchSummary]]:
     """parse forum folder with searches' summaries"""
 
-    global requests_session
+    requests_session = get_requests_session()
 
     topic_type_dict = {'search': 0, 'search reverse': 1, 'search patrol': 2, 'search training': 3, 'event': 10}
 
@@ -1115,33 +587,10 @@ def parse_one_folder(db: Engine, folder_id) -> Tuple[List, List[SearchSummary]]:
     return titles_and_num_of_replies, folder_summary
 
 
-def visibility_check(r, topic_id) -> bool:
-    """check topic's visibility: if hidden or deleted"""
-
-    check_content = copy.copy(r.content)
-    check_content = check_content.decode('utf-8')
-    check_content = None if re.search(r'502 Bad Gateway', check_content) else check_content
-    site_unavailable = False if check_content else True
-    topic_deleted = True if check_content and re.search(r'Запрошенной темы не существует', check_content) else False
-    topic_hidden = (
-        True
-        if check_content and re.search(r'Для просмотра этого форума вы должны быть авторизованы', check_content)
-        else False
-    )
-    if site_unavailable:
-        return False
-    elif topic_deleted or topic_hidden:
-        visibility = 'deleted' if topic_deleted else 'hidden'
-        publish_to_pubsub(Topics.topic_for_topic_management, {'topic_id': topic_id, 'visibility': visibility})
-        return False
-
-    return True
-
-
 def parse_one_comment(db: Engine, search_num, comment_num) -> bool:
     """parse all details on a specific comment in topic (by sequence number)"""
 
-    global requests_session
+    requests_session = get_requests_session()
 
     comment_url = f'https://lizaalert.org/forum/viewtopic.php?&t={search_num}&start={comment_num}'
     there_are_inforg_comments = False
@@ -1210,42 +659,17 @@ def parse_one_comment(db: Engine, search_num, comment_num) -> bool:
             if comment_text.lower()[0:6] == 'резерв' or comment_text.lower()[0:15] == 'рассылка билайн':
                 ignore = True
 
-        with db.connect() as conn:
-            if comment_text:
-                if not ignore:
-                    stmt = sqlalchemy.text(
-                        """INSERT INTO comments (comment_url, comment_text, comment_author_nickname,
-                        comment_author_link, search_forum_num, comment_num, comment_global_num)
-                        VALUES (:a, :b, :c, :d, :e, :f, :g); """
-                    )
-                    conn.execute(
-                        stmt,
-                        a=comment_url,
-                        b=comment_text,
-                        c=comment_author_nickname,
-                        d=comment_author_link,
-                        e=search_num,
-                        f=comment_num,
-                        g=comment_forum_global_id,
-                    )
-                else:
-                    stmt = sqlalchemy.text(
-                        """INSERT INTO comments (comment_url, comment_text, comment_author_nickname,
-                        comment_author_link, search_forum_num, comment_num, notification_sent)
-                        VALUES (:a, :b, :c, :d, :e, :f, :g); """
-                    )
-                    conn.execute(
-                        stmt,
-                        a=comment_url,
-                        b=comment_text,
-                        c=comment_author_nickname,
-                        d=comment_author_link,
-                        e=search_num,
-                        f=comment_num,
-                        g='n',
-                    )
-
-            conn.close()
+        write_comment(
+            db,
+            search_num,
+            comment_num,
+            comment_url,
+            comment_author_nickname,
+            comment_author_link,
+            comment_forum_global_id,
+            comment_text,
+            ignore,
+        )
 
     except ConnectionResetError:
         logging.info('There is a connection error')
@@ -1610,67 +1034,29 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
     return change_log_ids
 
 
+def update_checker(current_hash, folder_num):
+    """compare prev snapshot and freshly-parsed snapshot, returns NO or YES and Previous hash"""
+
+    # pre-set default output from the function
+    upd_trigger = False
+
+    # read the previous snapshot from Storage and save it as output[1]
+    previous_hash = read_snapshot_from_cloud_storage('bucket_for_snapshot_storage', folder_num)
+
+    # if new snapshot differs from the old one – then let's update the old with the new one
+    if current_hash != previous_hash:
+        # update hash in Storage
+        write_snapshot_to_cloud_storage('bucket_for_snapshot_storage', current_hash, folder_num)
+
+        upd_trigger = True
+
+    logging.info(f'folder = {folder_num}, update trigger = {upd_trigger}, prev snapshot as string = {previous_hash}')
+
+    return upd_trigger
+
+
 def process_one_folder(db: Engine, folder_to_parse: str) -> Tuple[bool, List]:
     """process one forum folder: check for updates, upload them into cloud sql"""
-
-    def update_checker(current_hash, folder_num):
-        """compare prev snapshot and freshly-parsed snapshot, returns NO or YES and Previous hash"""
-
-        # pre-set default output from the function
-        upd_trigger = False
-
-        # read the previous snapshot from Storage and save it as output[1]
-        previous_hash = read_snapshot_from_cloud_storage('bucket_for_snapshot_storage', folder_num)
-
-        # if new snapshot differs from the old one – then let's update the old with the new one
-        if current_hash != previous_hash:
-            # update hash in Storage
-            write_snapshot_to_cloud_storage('bucket_for_snapshot_storage', current_hash, folder_num)
-
-            upd_trigger = True
-
-        logging.info(
-            f'folder = {folder_num}, update trigger = {upd_trigger}, prev snapshot as string = {previous_hash}'
-        )
-
-        return upd_trigger
-
-    def rewrite_snapshot_in_sql(db2: Engine, folder_num, folder_summary: list[SearchSummary]):
-        """rewrite the freshly-parsed snapshot into sql table 'forum_summary_snapshot'"""
-
-        with db2.connect() as conn:
-            sql_text = sqlalchemy.text("""DELETE FROM forum_summary_snapshot WHERE forum_folder_id = :a;""")
-            conn.execute(sql_text, a=folder_num)
-
-            sql_text = sqlalchemy.text(
-                """INSERT INTO forum_summary_snapshot (search_forum_num, parsed_time, forum_search_title,
-                search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type, display_name, age_min,
-                age_max, status, city_locations, topic_type_id)
-                VALUES (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
-            )
-            # FIXME – add status
-            for line in folder_summary:
-                conn.execute(
-                    sql_text,
-                    a=line.topic_id,
-                    b=line.parsed_time,
-                    d=line.title,
-                    e=line.start_time,
-                    f=line.num_of_replies,
-                    g=line.age,
-                    h=line.name,
-                    i=line.folder_id,
-                    j=line.topic_type,
-                    k=line.display_name,
-                    l=line.age_min,
-                    m=line.age_max,
-                    n=line.new_status,
-                    o=str(line.locations),
-                    p=line.topic_type_id,
-                )
-            conn.close()
-
-        return None
 
     change_log_ids = []
 
@@ -1707,7 +1093,7 @@ def process_one_folder(db: Engine, folder_to_parse: str) -> Tuple[bool, List]:
 def main(event, context) -> None:  # noqa
     """main function triggered by pub/sub"""
 
-    global requests_session
+    requests_session = get_requests_session()
 
     function_id = generate_random_function_id()
     folders_list = []

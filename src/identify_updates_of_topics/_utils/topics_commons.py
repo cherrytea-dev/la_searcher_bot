@@ -1,5 +1,17 @@
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any
+
+from requests import Session
+
+
+@lru_cache
+def get_requests_session() -> Session:
+    return Session()
+
+
+# to be reused by different functions
+block_of_profile_rough_code = None
 
 
 @dataclass

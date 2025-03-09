@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
+import identify_updates_of_topics._utils.forum
 from _dependencies.commons import sqlalchemy_get_pool
 from identify_updates_of_topics import main
 from tests.common import get_event_with_data
@@ -28,8 +29,9 @@ def common_patches():
         return {'status': 'ok', 'recognition': reco_data}
 
     with (
-        patch.object(main, 'requests_session', requests.Session()),
+        # patch.object(main, 'requests_session', requests.Session()),
         patch.object(main, 'make_api_call', fake_api_call),
+        # patch('identify_updates_of_topics._utils.topics_commons.get_requests_session', requests.Session()),
         # patch.object(main, 'parse_search_profile', Mock(return_value='foo')),
         # patch('compose_notifications.main.call_self_if_need_compose_more'),  # avoid recursion in tests
     ):
@@ -39,7 +41,7 @@ def common_patches():
 @pytest.fixture()
 def mock_http_get():
     with (
-        patch.object(main.requests_session, 'get') as mock_http,
+        patch.object(main.get_requests_session(), 'get') as mock_http,
     ):
         yield mock_http
 
@@ -117,7 +119,7 @@ def test_parse_one_comment(db, mock_http_get):
 def test_parse_search_profile(db, mock_http_get):
     # NO SMOKE TEST identify_updates_of_topics.main.parse_search_profile
     mock_http_get.return_value.content = Path('tests/fixtures/forum_comment.html').read_bytes()
-    res = main.parse_search_profile(1)
+    res = identify_updates_of_topics._utils.forum.parse_search_profile(1)
     assert res
 
 
@@ -131,5 +133,5 @@ def test_visibility_check():
     # NO SMOKE TEST identify_updates_of_topics.main.visibility_check
     response = Mock()
     response.content = b'foo'
-    page_is_visible = main.visibility_check(response, 1)
+    page_is_visible = identify_updates_of_topics._utils.forum.visibility_check(response, 1)
     assert page_is_visible
