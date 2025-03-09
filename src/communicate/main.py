@@ -1010,9 +1010,8 @@ def save_preference(cur: cursor, user_id: int, preference: str):
         result = False
 
         for line in pref_list:
-            line_id = pref_dict[line]
             cur.execute(
-                """SELECT id FROM user_preferences WHERE user_id=%s AND preference=%s LIMIT 1;""", (user, line_id)
+                """SELECT id FROM user_preferences WHERE user_id=%s AND preference=%s LIMIT 1;""", (user, line)
             )
 
             if str(cur.fetchone()) != 'None':
