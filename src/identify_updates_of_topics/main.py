@@ -3,11 +3,9 @@ and saves into PSQL if there are any updates"""
 
 import ast
 import copy
-import json
 import logging
 import re
 import time
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional, Tuple, Union
 
@@ -23,6 +21,16 @@ from yandex_geocoder import Client, exceptions
 
 from _dependencies.commons import Topics, get_app_config, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
 from _dependencies.misc import generate_random_function_id, make_api_call, notify_admin, process_pubsub_message_v3
+from identify_updates_of_topics._utils.database import (
+    get_geolocation_form_psql,
+    get_last_api_call_time_from_psql,
+    get_the_list_of_ignored_folders,
+    save_function_into_register,
+    save_geolocation_in_psql,
+    save_last_api_call_time_to_psql,
+    save_place_in_psql,
+)
+from identify_updates_of_topics._utils.topics_commons import ChangeLogLine, SearchSummary
 
 setup_google_logging()
 
@@ -61,48 +69,6 @@ dict_status_words = {
     'стоп': 'na',
     'эвакуация': 'na',
 }
-dict_ignore = {'', ':'}
-
-
-@dataclass
-class ChangeLogLine:
-    parsed_time: Any = None
-    topic_id: Any = None
-    changed_field: Any = None
-    new_value: Any = None
-    parameters: Any = None
-    change_type: Any = None
-
-
-@dataclass
-class SearchSummary:
-    topic_type: Any = None
-    topic_type_id: Any = None
-    topic_id: Any = None
-    parsed_time: Any = None
-    status: Any = None
-    title: Any = None
-    link: Any = None
-    start_time: Any = None
-    num_of_replies: Any = None
-    name: Any = None
-    display_name: Any = None
-    age: Any = None
-    searches_table_id: Any = None
-    folder_id: Any = None
-    age_max: Any = None
-    age_min: Any = None
-    num_of_persons: Any = None
-    locations: Any = None
-    new_status: Any = None
-    full_dict: Any = None
-
-    def __str__(self):
-        return (
-            f'{self.parsed_time} – {self.folder_id} / {self.topic_id} : {self.name} - {self.age} – '
-            f'{self.num_of_replies}. NEW: {self.display_name} – {self.age_min} – {self.age_max} – '
-            f'{self.num_of_persons}'
-        )
 
 
 def set_cloud_storage(bucket_name: str, folder_num: int) -> Blob:
@@ -141,65 +107,6 @@ def read_snapshot_from_cloud_storage(bucket_to_read, folder_num):
     return contents
 
 
-def read_yaml_from_cloud_storage(bucket_to_read, folder_num):
-    """reads yaml in cloud storage"""
-
-    try:
-        blob = set_cloud_storage(bucket_to_read, folder_num)
-        contents_as_bytes = blob.download_as_string()
-        contents = contents_as_bytes
-    except:  # noqa
-        contents = None
-
-    return contents
-
-
-def save_last_api_call_time_to_psql(db: Engine, geocoder: str) -> bool:
-    """Used to track time of the last api call to geocoders. Saves the current timestamp in UTC in psql"""
-
-    conn = None
-    try:
-        conn = db.connect()
-        stmt = sqlalchemy.text(
-            """UPDATE geocode_last_api_call SET timestamp=:a AT TIME ZONE 'UTC' WHERE geocoder=:b;"""
-        )
-        conn.execute(stmt, a=datetime.now(timezone.utc), b=geocoder)
-        conn.close()
-
-        return True
-
-    except Exception as e:
-        logging.info(f'UNSUCCESSFUL saving last api call time to geocoder {geocoder}')
-        logging.exception(e)
-        notify_admin(f'UNSUCCESSFUL saving last api call time to geocoder {geocoder}')
-        if conn:
-            conn.close()
-
-        return False
-
-
-def get_last_api_call_time_from_psql(db: sqlalchemy.engine, geocoder: str):
-    """Used to track time of the last api call to geocoders. Gets the last timestamp in UTC saved in psql"""
-
-    conn = None
-    last_call = None
-    try:
-        conn = db.connect()
-        stmt = sqlalchemy.text("""SELECT timestamp FROM geocode_last_api_call WHERE geocoder=:a LIMIT 1;""")
-        last_call = conn.execute(stmt, a=geocoder).fetchone()
-        last_call = last_call[0]
-        conn.close()
-
-    except Exception as e:
-        logging.info(f'UNSUCCESSFUL getting last api call time of geocoder {geocoder}')
-        logging.exception(e)
-        notify_admin(f'UNSUCCESSFUL getting last api call time of geocoder {geocoder}')
-        if conn:
-            conn.close()
-
-    return last_call
-
-
 def rate_limit_for_api(db: Engine, geocoder: str) -> None:
     """sleeps certain time if api calls are too frequent"""
 
@@ -227,113 +134,63 @@ def rate_limit_for_api(db: Engine, geocoder: str) -> None:
     return None
 
 
+def get_coordinates_from_address_by_osm(address_string: str) -> Tuple[Any, Any]:
+    """return coordinates on the request of address string"""
+    """NB! openstreetmap requirements: NO more than 1 request per 1 second, no doubling requests"""
+    """MEMO: documentation on API: https://operations.osmfoundation.org/policies/nominatim/"""
+
+    latitude = None
+    longitude = None
+    osm_identifier = get_app_config().osm_identifier
+    geolocator = Nominatim(user_agent=osm_identifier)
+
+    try:
+        search_location = geolocator.geocode(address_string, timeout=10000)
+        logging.info(f'geo_location by osm: {search_location}')
+        if search_location:
+            latitude, longitude = search_location.latitude, search_location.longitude
+
+    except Exception as e6:
+        logging.info(f'Error in func get_coordinates_from_address_by_osm for address: {address_string}. Repr: ')
+        logging.exception(e6)
+        notify_admin('ERROR: get_coords_from_address failed.')
+
+    return latitude, longitude
+
+
+def get_coordinates_from_address_by_yandex(address_string: str) -> tuple[float | None, float | None]:
+    """return coordinates on the request of address string, geocoded by yandex"""
+
+    latitude = None
+    longitude = None
+    yandex_api_key = get_app_config().yandex_api_key
+    yandex_client = Client(yandex_api_key)
+
+    try:
+        coordinates = yandex_client.coordinates(address_string)
+        logging.info(f'geo_location by yandex: {coordinates}')
+    except Exception as e2:
+        coordinates = None
+        if isinstance(e2, exceptions.NothingFound):
+            logging.info(f'address "{address_string}" not found by yandex')
+        elif (
+            isinstance(e2, exceptions.YandexGeocoderException)
+            or isinstance(e2, exceptions.UnexpectedResponse)
+            or isinstance(e2, exceptions.InvalidKey)
+        ):
+            logging.info('unexpected yandex error')
+        else:
+            logging.info('unexpected error:')
+            logging.exception(e2)
+
+    if coordinates:
+        longitude, latitude = float(coordinates[0]), float(coordinates[1])
+
+    return latitude, longitude
+
+
 def get_coordinates(db: Engine, address: str) -> Tuple[None, None]:
     """convert address string into a pair of coordinates"""
-
-    def get_geolocation_form_psql(db2, address_string: str):
-        """get results of geocoding from psql"""
-
-        with db2.connect() as conn:
-            stmt = sqlalchemy.text(
-                """SELECT address, status, latitude, longitude, geocoder from geocoding WHERE address=:a
-                ORDER BY id DESC LIMIT 1; """
-            )
-            saved_result = conn.execute(stmt, a=address_string).fetchone()
-            conn.close()
-
-        logging.info(f'{address_string=}')
-        logging.info(f'{saved_result=}')
-
-        # there is a psql record on this address - no geocoding activities are required
-        if saved_result:
-            if saved_result[1] == 'ok':
-                latitude = saved_result[2]
-                longitude = saved_result[3]
-                geocoder = saved_result[4]
-                return 'ok', latitude, longitude, geocoder
-
-            elif saved_result[1] == 'fail':
-                return 'fail', None, None, None
-
-        return None, None, None, None
-
-    def save_geolocation_in_psql(db2: Engine, address_string: str, status: str, latitude, longitude, geocoder: str):
-        """save results of geocoding to avoid multiple requests to openstreetmap service"""
-        """the Geocoder HTTP API may not exceed 1000 per day"""
-
-        try:
-            with db2.connect() as conn:
-                stmt = sqlalchemy.text(
-                    """INSERT INTO geocoding (address, status, latitude, longitude, geocoder, timestamp) VALUES
-                    (:a, :b, :c, :d, :e, :f)
-                    ON CONFLICT(address) DO
-                    UPDATE SET status=EXCLUDED.status, latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude,
-                    geocoder=EXCLUDED.geocoder, timestamp=EXCLUDED.timestamp;"""
-                )
-                conn.execute(
-                    stmt, a=address_string, b=status, c=latitude, d=longitude, e=geocoder, f=datetime.now(timezone.utc)
-                )
-                conn.close()
-
-        except Exception as e2:
-            logging.info(f'ERROR: saving geolocation to psql failed: {address_string}, {status}')
-            logging.exception(e2)
-            notify_admin(f'ERROR: saving geolocation to psql failed: {address_string}, {status}')
-
-        return None
-
-    def get_coordinates_from_address_by_osm(address_string: str) -> Tuple[Any, Any]:
-        """return coordinates on the request of address string"""
-        """NB! openstreetmap requirements: NO more than 1 request per 1 second, no doubling requests"""
-        """MEMO: documentation on API: https://operations.osmfoundation.org/policies/nominatim/"""
-
-        latitude = None
-        longitude = None
-        osm_identifier = get_app_config().osm_identifier
-        geolocator = Nominatim(user_agent=osm_identifier)
-
-        try:
-            search_location = geolocator.geocode(address_string, timeout=10000)
-            logging.info(f'geo_location by osm: {search_location}')
-            if search_location:
-                latitude, longitude = search_location.latitude, search_location.longitude
-
-        except Exception as e6:
-            logging.info(f'Error in func get_coordinates_from_address_by_osm for address: {address_string}. Repr: ')
-            logging.exception(e6)
-            notify_admin('ERROR: get_coords_from_address failed.')
-
-        return latitude, longitude
-
-    def get_coordinates_from_address_by_yandex(address_string: str) -> tuple[float | None, float | None]:
-        """return coordinates on the request of address string, geocoded by yandex"""
-
-        latitude = None
-        longitude = None
-        yandex_api_key = get_app_config().yandex_api_key
-        yandex_client = Client(yandex_api_key)
-
-        try:
-            coordinates = yandex_client.coordinates(address_string)
-            logging.info(f'geo_location by yandex: {coordinates}')
-        except Exception as e2:
-            coordinates = None
-            if isinstance(e2, exceptions.NothingFound):
-                logging.info(f'address "{address_string}" not found by yandex')
-            elif (
-                isinstance(e2, exceptions.YandexGeocoderException)
-                or isinstance(e2, exceptions.UnexpectedResponse)
-                or isinstance(e2, exceptions.InvalidKey)
-            ):
-                logging.info('unexpected yandex error')
-            else:
-                logging.info('unexpected error:')
-                logging.exception(e2)
-
-        if coordinates:
-            longitude, latitude = float(coordinates[0]), float(coordinates[1])
-
-        return latitude, longitude
 
     try:
         # check if this address was already geolocated and saved to psql
@@ -381,277 +238,249 @@ def get_coordinates(db: Engine, address: str) -> Tuple[None, None]:
     return None, None
 
 
+def parse_address_from_title(initial_title: str) -> str:
+    after_age = 0
+    age_dict = [' год ', ' год', ' года ', ' года', ' лет ', ' лет', 'г.р.', '(г.р.),', 'лет)', 'лет,']
+    for word in age_dict:
+        age_words = initial_title.find(word)
+        if age_words == -1:
+            pass
+        else:
+            after_age = max(after_age, age_words + len(word))
+
+    if after_age > 0:
+        address_string = initial_title[after_age:].strip()
+    else:
+        numbers = [int(float(s)) for s in re.findall(r'\d*\d', initial_title)]
+        if numbers and numbers[0]:
+            age_words = initial_title.find(str(numbers[0]))
+            if age_words == -1:
+                address_string = initial_title
+            else:
+                after_age = age_words + len(str(numbers[0]))
+                address_string = initial_title[after_age:].strip()
+        else:
+            address_string = initial_title
+
+    # ABOVE is not optimized - but with this part ages are excluded better (for cases when there are 2 persons)
+    trigger_of_age_mentions = True
+
+    while trigger_of_age_mentions:
+        trigger_of_age_mentions = False
+        for word in age_dict:
+            if address_string.find(word) > -1:
+                trigger_of_age_mentions = True
+                after_age = address_string.find(word) + len(word)
+                address_string = address_string[after_age:]
+
+    useless_symbols = {'.', ',', ' ', ':', ';' '!', ')'}
+    trigger_of_useless_symbols = True
+
+    while trigger_of_useless_symbols:
+        trigger_of_useless_symbols = False
+        for word in useless_symbols:
+            if address_string[0 : len(word)] == word:
+                trigger_of_useless_symbols = True
+                address_string = address_string[len(word) :]
+
+    # case when there's "г.о." instead of "городской округ"
+    if address_string.find('г.о.') != -1:
+        address_string = address_string.replace('г.о.', 'городской округ')
+
+    # case when there's "муниципальный округ"
+    if address_string.find('м.о.') != -1:
+        address_string = address_string.replace('м.о.', 'муниципальный округ')
+
+    # case when 'мкрн' or 'мкр'
+    if address_string.find('мкрн') != -1:
+        address_string = address_string.replace('мкрн', '')
+    if address_string.find('мкр') != -1:
+        address_string = address_string.replace('мкр', '')
+
+    # case with 'р-н' and 'АО'
+    if address_string.find('р-н') != -1 and address_string.find('АО') != -1:
+        by_word = address_string.split()
+        word_with_ao = None
+        for word in by_word:
+            if word.find('АО') != -1:
+                word_with_ao = word
+        if word_with_ao:
+            address_string = address_string.replace(word_with_ao, '')
+
+    # case with 'р-н' or 'р-на' or 'р-он'
+    if address_string.find('р-на') != -1:
+        address_string = address_string.replace('р-на', 'район')
+    if address_string.find('р-н') != -1:
+        address_string = address_string.replace('р-н', 'район')
+    if address_string.find('р-он') != -1:
+        address_string = address_string.replace('р-он', 'район')
+
+    # case with 'обл'
+    if address_string.find('обл.') != -1:
+        address_string = address_string.replace('обл.', 'область')
+
+    # case with 'НСО'
+    if address_string.find('НСО') != -1:
+        address_string = address_string.replace('НСО', 'Новосибирская область')
+
+    # case with 'МО'
+    if address_string.find('МО') != -1:
+        mo_dict = {' МО ', ' МО,'}
+        for word in mo_dict:
+            if address_string.find(word) != -1:
+                address_string = address_string.replace(word, 'Московская область')
+        if address_string[-3:] == ' МО':
+            address_string = address_string[:-3] + ' Московская область'
+
+    # case with 'ЛО'
+    if address_string.find('ЛО') != -1:
+        mo_dict = {' ЛО ', ' ЛО,'}
+        for word in mo_dict:
+            if address_string.find(word) != -1:
+                address_string = address_string.replace(word, 'Ленинградская область')
+        if address_string[-3:] == ' ЛО':
+            address_string = address_string[:-3] + ' Ленинградская область'
+
+    # in case "г.Сочи"
+    if address_string.find('г.Сочи') != -1:
+        address_string = address_string.replace('г.Сочи', 'Сочи')
+    if address_string.find('г. Сочи') != -1:
+        address_string = address_string.replace('г. Сочи', 'Сочи')
+
+    # case with 'района'
+    if address_string.find('района') != -1:
+        by_word = address_string.split()
+        prev_word = None
+        this_word = None
+        for k in range(len(by_word) - 1):
+            if by_word[k + 1] == 'района':
+                prev_word = by_word[k]
+                this_word = by_word[k + 1]
+                break
+        if prev_word and this_word:
+            address_string = address_string.replace(prev_word, prev_word[:-3] + 'ий')
+            address_string = address_string.replace(this_word, this_word[:-1])
+
+    # case with 'области'
+    if address_string.find('области') != -1:
+        by_word = address_string.split()
+        prev_word = None
+        this_word = None
+        for k in range(len(by_word) - 1):
+            if by_word[k + 1] == 'области':
+                prev_word = by_word[k]
+                this_word = by_word[k + 1]
+                break
+        if prev_word and this_word:
+            address_string = address_string.replace(prev_word, prev_word[:-2] + 'ая')
+            address_string = address_string.replace(this_word, this_word[:-1] + 'ь')
+
+    # add all the cases ABOVE
+    # delete garbage in the beginning of string
+    try:
+        first_num = re.search(r'\d', address_string).start()
+    except:  # noqa
+        first_num = 0
+    try:
+        first_letter = re.search(r'[а-яА-Я]', address_string).start()
+    except:  # noqa
+        first_letter = 0
+
+    new_start = max(first_num, first_letter)
+
+    if address_string.lower().find('г. москва') != -1 or address_string.lower().find('г.москва') != -1:
+        address_string = address_string.replace('г.', '')
+
+    # add Russia to be sure
+    # Openstreetmap.org treats Krym as Ukraine - so for search purposes Russia is avoided
+    if (
+        address_string
+        and address_string.lower().find('крым') == -1
+        and address_string.lower().find('севастополь') == -1
+    ):
+        address_string = address_string[new_start:] + ', Россия'
+
+    # case - first "с.", "п." and "д." are often misinterpreted - so it's easier to remove it
+    wrong_first_symbols_dict = {
+        ' ',
+        ',',
+        ')',
+        '.',
+        'с.',
+        'д.',
+        'п.',
+        'г.',
+        'гп',
+        'пос.',
+        'уч-к',
+        'р,',
+        'р.',
+        'г,',
+        'ст.',
+        'л.',
+        'дер ',
+        'дер.',
+        'пгт ',
+        'ж/д',
+        'б/о',
+        'пгт.',
+        'х.',
+        'ст-ца',
+        'с-ца',
+        'стан.',
+    }
+
+    trigger_of_wrong_symbols = True
+
+    while trigger_of_wrong_symbols:
+        this_iteration_bring_no_changes = True
+
+        for wrong_symbols in wrong_first_symbols_dict:
+            if address_string[: len(wrong_symbols)] == wrong_symbols:
+                # if the first symbols are from wrong symbols list - we delete them
+                address_string = address_string[len(wrong_symbols) :]
+                this_iteration_bring_no_changes = False
+
+        if this_iteration_bring_no_changes:
+            trigger_of_wrong_symbols = False
+
+    # ONE-TIME EXCEPTIONS:
+    if address_string.find('г. Сольцы, Новгородская обл. – г. Санкт-Петербург'):
+        address_string = address_string.replace(
+            'г. Сольцы, Новгородская область – г. Санкт-Петербург', 'г. Сольцы, Новгородская область'
+        )
+    if address_string.find('Орехово-Зуевский район'):
+        address_string = address_string.replace('Орехово-Зуевский район', 'Орехово-Зуевский городской округ')
+    if address_string.find('НТ Нефтяник'):
+        address_string = address_string.replace('СНТ Нефтяник', 'СНТ Нефтянник')
+    if address_string.find('Коченевский'):
+        address_string = address_string.replace('Коченевский', 'Коченёвский')
+    if address_string.find('Самара - с. Красный Яр'):
+        address_string = address_string.replace('г. Самара - с. Красный Яр', 'Красный Яр')
+    if address_string.find('укреево-Плессо'):
+        address_string = address_string.replace('Букреево-Плессо', 'Букреево Плёсо')
+    if address_string.find('Москва Москва: Юго-Западный АО, '):
+        address_string = address_string.replace('г.Москва Москва: Юго-Западный АО, ', 'ЮЗАО, Москва, ')
+    if address_string.find(' Луховицы - д.Алтухово'):
+        address_string = address_string.replace(' Луховицы - д. Алтухово, Зарайский городской округ,', 'Луховицы')
+    if address_string.find('Сагкт-Петербург'):
+        address_string = address_string.replace('Сагкт-Петербург', 'Санкт-Петербург')
+    if address_string.find('Краснозерский'):
+        address_string = address_string.replace('Краснозерский', 'Краснозёрский')
+    if address_string.find('Толмачевское'):
+        address_string = address_string.replace('Толмачевское', 'Толмачёвское')
+    if address_string.find('Кочевский'):
+        address_string = address_string.replace('Кочевский', 'Кочёвский')
+    if address_string.find('Чесцы'):
+        address_string = address_string.replace('Чесцы', 'Часцы')
+
+    return address_string
+
+
 def parse_coordinates(db: connection, search_num) -> List[Union[int, str]]:
     """finds coordinates of the search"""
 
     global requests_session
-
-    def parse_address_from_title(initial_title: str) -> str:
-        after_age = 0
-        age_dict = [' год ', ' год', ' года ', ' года', ' лет ', ' лет', 'г.р.', '(г.р.),', 'лет)', 'лет,']
-        for word in age_dict:
-            age_words = initial_title.find(word)
-            if age_words == -1:
-                pass
-            else:
-                after_age = max(after_age, age_words + len(word))
-
-        if after_age > 0:
-            address_string = initial_title[after_age:].strip()
-        else:
-            numbers = [int(float(s)) for s in re.findall(r'\d*\d', initial_title)]
-            if numbers and numbers[0]:
-                age_words = initial_title.find(str(numbers[0]))
-                if age_words == -1:
-                    address_string = initial_title
-                else:
-                    after_age = age_words + len(str(numbers[0]))
-                    address_string = initial_title[after_age:].strip()
-            else:
-                address_string = initial_title
-
-        # ABOVE is not optimized - but with this part ages are excluded better (for cases when there are 2 persons)
-        trigger_of_age_mentions = True
-
-        while trigger_of_age_mentions:
-            trigger_of_age_mentions = False
-            for word in age_dict:
-                if address_string.find(word) > -1:
-                    trigger_of_age_mentions = True
-                    after_age = address_string.find(word) + len(word)
-                    address_string = address_string[after_age:]
-
-        useless_symbols = {'.', ',', ' ', ':', ';' '!', ')'}
-        trigger_of_useless_symbols = True
-
-        while trigger_of_useless_symbols:
-            trigger_of_useless_symbols = False
-            for word in useless_symbols:
-                if address_string[0 : len(word)] == word:
-                    trigger_of_useless_symbols = True
-                    address_string = address_string[len(word) :]
-
-        # case when there's "г.о." instead of "городской округ"
-        if address_string.find('г.о.') != -1:
-            address_string = address_string.replace('г.о.', 'городской округ')
-
-        # case when there's "муниципальный округ"
-        if address_string.find('м.о.') != -1:
-            address_string = address_string.replace('м.о.', 'муниципальный округ')
-
-        # case when 'мкрн' or 'мкр'
-        if address_string.find('мкрн') != -1:
-            address_string = address_string.replace('мкрн', '')
-        if address_string.find('мкр') != -1:
-            address_string = address_string.replace('мкр', '')
-
-        # case with 'р-н' and 'АО'
-        if address_string.find('р-н') != -1 and address_string.find('АО') != -1:
-            by_word = address_string.split()
-            word_with_ao = None
-            for word in by_word:
-                if word.find('АО') != -1:
-                    word_with_ao = word
-            if word_with_ao:
-                address_string = address_string.replace(word_with_ao, '')
-
-        # case with 'р-н' or 'р-на' or 'р-он'
-        if address_string.find('р-на') != -1:
-            address_string = address_string.replace('р-на', 'район')
-        if address_string.find('р-н') != -1:
-            address_string = address_string.replace('р-н', 'район')
-        if address_string.find('р-он') != -1:
-            address_string = address_string.replace('р-он', 'район')
-
-        # case with 'обл'
-        if address_string.find('обл.') != -1:
-            address_string = address_string.replace('обл.', 'область')
-
-        # case with 'НСО'
-        if address_string.find('НСО') != -1:
-            address_string = address_string.replace('НСО', 'Новосибирская область')
-
-        # case with 'МО'
-        if address_string.find('МО') != -1:
-            mo_dict = {' МО ', ' МО,'}
-            for word in mo_dict:
-                if address_string.find(word) != -1:
-                    address_string = address_string.replace(word, 'Московская область')
-            if address_string[-3:] == ' МО':
-                address_string = address_string[:-3] + ' Московская область'
-
-        # case with 'ЛО'
-        if address_string.find('ЛО') != -1:
-            mo_dict = {' ЛО ', ' ЛО,'}
-            for word in mo_dict:
-                if address_string.find(word) != -1:
-                    address_string = address_string.replace(word, 'Ленинградская область')
-            if address_string[-3:] == ' ЛО':
-                address_string = address_string[:-3] + ' Ленинградская область'
-
-        # in case "г.Сочи"
-        if address_string.find('г.Сочи') != -1:
-            address_string = address_string.replace('г.Сочи', 'Сочи')
-        if address_string.find('г. Сочи') != -1:
-            address_string = address_string.replace('г. Сочи', 'Сочи')
-
-        # case with 'района'
-        if address_string.find('района') != -1:
-            by_word = address_string.split()
-            prev_word = None
-            this_word = None
-            for k in range(len(by_word) - 1):
-                if by_word[k + 1] == 'района':
-                    prev_word = by_word[k]
-                    this_word = by_word[k + 1]
-                    break
-            if prev_word and this_word:
-                address_string = address_string.replace(prev_word, prev_word[:-3] + 'ий')
-                address_string = address_string.replace(this_word, this_word[:-1])
-
-        # case with 'области'
-        if address_string.find('области') != -1:
-            by_word = address_string.split()
-            prev_word = None
-            this_word = None
-            for k in range(len(by_word) - 1):
-                if by_word[k + 1] == 'области':
-                    prev_word = by_word[k]
-                    this_word = by_word[k + 1]
-                    break
-            if prev_word and this_word:
-                address_string = address_string.replace(prev_word, prev_word[:-2] + 'ая')
-                address_string = address_string.replace(this_word, this_word[:-1] + 'ь')
-
-        # add all the cases ABOVE
-        # delete garbage in the beginning of string
-        try:
-            first_num = re.search(r'\d', address_string).start()
-        except:  # noqa
-            first_num = 0
-        try:
-            first_letter = re.search(r'[а-яА-Я]', address_string).start()
-        except:  # noqa
-            first_letter = 0
-
-        new_start = max(first_num, first_letter)
-
-        if address_string.lower().find('г. москва') != -1 or address_string.lower().find('г.москва') != -1:
-            address_string = address_string.replace('г.', '')
-
-        # add Russia to be sure
-        # Openstreetmap.org treats Krym as Ukraine - so for search purposes Russia is avoided
-        if (
-            address_string
-            and address_string.lower().find('крым') == -1
-            and address_string.lower().find('севастополь') == -1
-        ):
-            address_string = address_string[new_start:] + ', Россия'
-
-        # case - first "с.", "п." and "д." are often misinterpreted - so it's easier to remove it
-        wrong_first_symbols_dict = {
-            ' ',
-            ',',
-            ')',
-            '.',
-            'с.',
-            'д.',
-            'п.',
-            'г.',
-            'гп',
-            'пос.',
-            'уч-к',
-            'р,',
-            'р.',
-            'г,',
-            'ст.',
-            'л.',
-            'дер ',
-            'дер.',
-            'пгт ',
-            'ж/д',
-            'б/о',
-            'пгт.',
-            'х.',
-            'ст-ца',
-            'с-ца',
-            'стан.',
-        }
-
-        trigger_of_wrong_symbols = True
-
-        while trigger_of_wrong_symbols:
-            this_iteration_bring_no_changes = True
-
-            for wrong_symbols in wrong_first_symbols_dict:
-                if address_string[: len(wrong_symbols)] == wrong_symbols:
-                    # if the first symbols are from wrong symbols list - we delete them
-                    address_string = address_string[len(wrong_symbols) :]
-                    this_iteration_bring_no_changes = False
-
-            if this_iteration_bring_no_changes:
-                trigger_of_wrong_symbols = False
-
-        # ONE-TIME EXCEPTIONS:
-        if address_string.find('г. Сольцы, Новгородская обл. – г. Санкт-Петербург'):
-            address_string = address_string.replace(
-                'г. Сольцы, Новгородская область – г. Санкт-Петербург', 'г. Сольцы, Новгородская область'
-            )
-        if address_string.find('Орехово-Зуевский район'):
-            address_string = address_string.replace('Орехово-Зуевский район', 'Орехово-Зуевский городской округ')
-        if address_string.find('НТ Нефтяник'):
-            address_string = address_string.replace('СНТ Нефтяник', 'СНТ Нефтянник')
-        if address_string.find('Коченевский'):
-            address_string = address_string.replace('Коченевский', 'Коченёвский')
-        if address_string.find('Самара - с. Красный Яр'):
-            address_string = address_string.replace('г. Самара - с. Красный Яр', 'Красный Яр')
-        if address_string.find('укреево-Плессо'):
-            address_string = address_string.replace('Букреево-Плессо', 'Букреево Плёсо')
-        if address_string.find('Москва Москва: Юго-Западный АО, '):
-            address_string = address_string.replace('г.Москва Москва: Юго-Западный АО, ', 'ЮЗАО, Москва, ')
-        if address_string.find(' Луховицы - д.Алтухово'):
-            address_string = address_string.replace(' Луховицы - д. Алтухово, Зарайский городской округ,', 'Луховицы')
-        if address_string.find('Сагкт-Петербург'):
-            address_string = address_string.replace('Сагкт-Петербург', 'Санкт-Петербург')
-        if address_string.find('Краснозерский'):
-            address_string = address_string.replace('Краснозерский', 'Краснозёрский')
-        if address_string.find('Толмачевское'):
-            address_string = address_string.replace('Толмачевское', 'Толмачёвское')
-        if address_string.find('Кочевский'):
-            address_string = address_string.replace('Кочевский', 'Кочёвский')
-        if address_string.find('Чесцы'):
-            address_string = address_string.replace('Чесцы', 'Часцы')
-
-        return address_string
-
-    def save_place_in_psql(db2, address_string):
-        """save a link search to address in sql table search_places"""
-
-        try:
-            with db2.connect() as conn:
-                # check if this record already exists
-                stmt = sqlalchemy.text(
-                    """SELECT search_id FROM search_places
-                    WHERE search_id=:a AND address=:b;"""
-                )
-                prev_data = conn.execute(stmt, a=search_num, b=address_string).fetchone()
-
-                # if it's a new info
-                if not prev_data:
-                    stmt = sqlalchemy.text(
-                        """INSERT INTO search_places (search_id, address, timestamp)
-                        VALUES (:a, :b, :c); """
-                    )
-                    conn.execute(stmt, a=search_num, b=address_string, c=datetime.now())
-
-                conn.close()
-
-        except Exception as e7:
-            logging.info('DBG.P.EXC.110: ')
-            logging.exception(e7)
-            notify_admin('ERROR: saving place to psql failed: ' + address_string + ', ' + search_num)
-
-        return None
 
     # DEBUG - function execution time counter
     func_start = datetime.now()
@@ -832,7 +661,7 @@ def parse_coordinates(db: connection, search_num) -> List[Union[int, str]]:
         try:
             address = parse_address_from_title(title)
             if address:
-                save_place_in_psql(db, address)
+                save_place_in_psql(db, address, search_num)
                 lat, lon = get_coordinates(db, address)
                 if lat and lon:
                     coord_type = '4. coordinates by address'
@@ -1873,51 +1702,6 @@ def process_one_folder(db: Engine, folder_to_parse: str) -> Tuple[bool, List]:
     logging.info(debug_message)
 
     return update_trigger, change_log_ids
-
-
-def get_the_list_of_ignored_folders(db: Engine) -> list[int]:
-    """get the list of folders which does not contain searches – thus should be ignored"""
-
-    with db.connect() as conn:
-        sql_text = sqlalchemy.text(
-            """SELECT folder_id FROM geo_folders WHERE folder_type != 'searches' AND folder_type != 'events';"""
-        )
-        raw_list = conn.execute(sql_text).fetchall()
-
-        list_of_ignored_folders = [int(line[0]) for line in raw_list]
-
-    return list_of_ignored_folders
-
-
-def save_function_into_register(db: Engine, context, start_time, function_id, change_log_ids):
-    """save current function into functions_registry"""
-
-    try:
-        event_id = context.event_id
-        json_of_params = json.dumps({'ch_id': change_log_ids})
-
-        with db.connect() as conn:
-            sql_text = sqlalchemy.text("""INSERT INTO functions_registry
-                                                      (event_id, time_start, cloud_function_name, function_id,
-                                                      time_finish, params)
-                                                      VALUES (:a, :b, :c, :d, :e, :f)
-                                                      /*action='save_ide_topics_function' */;""")
-            conn.execute(
-                sql_text,
-                a=event_id,
-                b=start_time,
-                c='identify_updates_of_topics',
-                d=function_id,
-                e=datetime.now(),
-                f=json_of_params,
-            )
-            logging.info(f'function {function_id} was saved in functions_registry')
-
-    except Exception as e:
-        logging.info(f'function {function_id} was NOT ABLE to be saved in functions_registry')
-        logging.exception(e)
-
-    return None
 
 
 def main(event, context) -> None:  # noqa
