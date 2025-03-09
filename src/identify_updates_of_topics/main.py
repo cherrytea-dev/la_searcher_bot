@@ -45,41 +45,36 @@ from identify_updates_of_topics._utils.topics_commons import ChangeLogLine, Sear
 
 setup_google_logging()
 
-
-def set_cloud_storage(bucket_name: str, folder_num: int) -> Blob:
-    """sets the basic parameters for connection to txt file in cloud storage, which stores searches snapshots"""
-
-    if isinstance(folder_num, int) or folder_num == 'geocode':
-        blob_name = str(folder_num) + '.txt'
-    else:
-        blob_name = folder_num
-    storage_client = storage.Client()
-    bucket = storage_client.get_bucket(bucket_name)
-    blob = bucket.blob(blob_name)
-
-    return blob
+BUCKET_NAME = 'bucket_for_snapshot_storage'
 
 
-def write_snapshot_to_cloud_storage(bucket_to_write, what_to_write, folder_num):
-    """writes current search's snapshot to txt file in cloud storage"""
+class CloudStorage:
+    def read_folder_hash(self, folder_num: str) -> str | None:
+        try:
+            blob = self._set_cloud_storage(folder_num)
+            contents_as_bytes = blob.download_as_string()
+            contents = str(contents_as_bytes, 'utf-8')
+        except:  # noqa
+            contents = None
 
-    blob = set_cloud_storage(bucket_to_write, folder_num)
-    blob.upload_from_string(what_to_write)
+        return contents
 
-    return None
+    def write_folder_hash(self, data: Any, folder_num: str) -> None:
+        blob = self._set_cloud_storage(folder_num)
+        blob.upload_from_string(data)
 
+    def _set_cloud_storage(self, folder_num: str) -> Blob:
+        """sets the basic parameters for connection to txt file in cloud storage, which stores searches snapshots"""
 
-def read_snapshot_from_cloud_storage(bucket_to_read, folder_num):
-    """reads previous search's snapshot from txt file in cloud storage"""
+        if isinstance(folder_num, int) or folder_num == 'geocode':
+            blob_name = str(folder_num) + '.txt'
+        else:
+            blob_name = folder_num
+        storage_client = storage.Client()
+        bucket = storage_client.get_bucket(BUCKET_NAME)
+        blob = bucket.blob(blob_name)
 
-    try:
-        blob = set_cloud_storage(bucket_to_read, folder_num)
-        contents_as_bytes = blob.download_as_string()
-        contents = str(contents_as_bytes, 'utf-8')
-    except:  # noqa
-        contents = None
-
-    return contents
+        return blob
 
 
 def rate_limit_for_api(db: Engine, geocoder: str) -> None:
@@ -1039,14 +1034,15 @@ def update_checker(current_hash, folder_num):
 
     # pre-set default output from the function
     upd_trigger = False
+    folder_hash_storage = CloudStorage()
 
     # read the previous snapshot from Storage and save it as output[1]
-    previous_hash = read_snapshot_from_cloud_storage('bucket_for_snapshot_storage', folder_num)
+    previous_hash = folder_hash_storage.read_folder_hash(folder_num)
 
     # if new snapshot differs from the old one – then let's update the old with the new one
     if current_hash != previous_hash:
         # update hash in Storage
-        write_snapshot_to_cloud_storage('bucket_for_snapshot_storage', current_hash, folder_num)
+        folder_hash_storage.write_folder_hash(current_hash, folder_num)
 
         upd_trigger = True
 

@@ -98,16 +98,6 @@ def test_main_full_scenario(mock_http_get):
         main.main(get_event_with_data(str(data)), 'context')
 
 
-def test_set_cloud_storage():
-    # NO SMOKE TEST identify_updates_of_topics.main.set_cloud_storage
-    main.set_cloud_storage('name', 1)
-
-
-def test_write_snapshot_to_cloud_storage():
-    # NO SMOKE TEST identify_updates_of_topics.main.write_snapshot_to_cloud_storage
-    main.write_snapshot_to_cloud_storage('name', b'some', 1)
-
-
 def test_parse_one_comment(db, mock_http_get):
     # NO SMOKE TEST identify_updates_of_topics.main.parse_one_comment
     mock_http_get.return_value.content = Path('tests/fixtures/forum_comment.html').read_bytes()
