@@ -60,7 +60,6 @@ class UsersListComposer:
                                     and  /*this is followed search*/
                                         exists(
                                             select 1 FROM user_pref_search_whitelist upswls
-                                            JOIN searches s ON search_forum_num=upswls.search_id 
                                             where 
                                                 upswls.user_id=ulist.user_id 
                                                 and upswls.search_id = :forum_search_num 
@@ -140,7 +139,6 @@ class UsersListComposer:
                 forum_folder=new_record.forum_folder,
                 topic_type_id=new_record.topic_type_id,
                 forum_search_num=new_record.forum_search_num,
-                forum_search_status=new_record.new_status,
                 following_mode_on=SearchFollowingMode.ON,
             ).fetchall()
 
