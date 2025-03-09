@@ -351,12 +351,11 @@ class UserListFilter:
                         and exists
                             (
                                 select 1 FROM user_pref_search_whitelist upswls
-                                JOIN searches s ON s.search_forum_num=upswls.search_id 
                                 WHERE 
                                     upswls.user_id=u.user_id 
                                     and upswls.search_id != :forum_search_num 
                                     and upswls.search_following_mode=:following_mode_on
-                                    and s.status not in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
+                                    and :search_new_status not in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
                             )
                     )
                     AND NOT exists -- 2nd suppressing condition: the search is in blacklist for this user 
@@ -374,6 +373,7 @@ class UserListFilter:
         rows = self.conn.execute(
             sql_text_,
             forum_search_num=record.forum_search_num,
+            search_new_status=new_record.new_status,
             following_mode_on=SearchFollowingMode.ON,
             following_mode_off=SearchFollowingMode.OFF,
         ).fetchall()
