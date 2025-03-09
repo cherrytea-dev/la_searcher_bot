@@ -309,6 +309,7 @@ class TestUsersFilter:
         filterer = UserListFilter(connection, line_in_change_log, [user])
         cropped_users = filterer._filter_users_not_following_this_search()
 
+        assert line_in_change_log.new_status not in ['СТОП', 'Завершен', 'НЖ', 'НП', 'Найден']
         assert user in cropped_users
 
     def test_filter_users_not_following_this_search_but_have_no_another_following(
