@@ -353,7 +353,7 @@ class UserListFilter:
                             and not exists
                                 (
                                     select 1 FROM user_pref_search_whitelist upswls
-                                    join searches s on s.forum_search_num=upswls.search_id
+                                    join searches s on s.search_forum_num=upswls.search_id
                                     WHERE 
                                         upswls.user_id=u.user_id 
                                         and upswls.search_id != :forum_search_num 
