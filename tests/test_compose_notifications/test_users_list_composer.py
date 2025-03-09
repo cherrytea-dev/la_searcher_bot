@@ -327,11 +327,12 @@ class TestUsersFilter:
 
         db_factories.UserPrefSearchFilteringFactory.create_sync(user_id=user.user_id, filter_name=['whitelist'])
 
-        db_factories.UserPrefSearchWhitelistFactory.create_sync(
-            user=user_model,
-            search_id=line_in_change_log.forum_search_num,
-            search_following_mode=SearchFollowingMode.OFF,
-        )
+        ## ToDo: SearchFollowingMode.OFF is not suitable for this test
+        # db_factories.UserPrefSearchWhitelistFactory.create_sync(
+        #     user=user_model,
+        #     search_id=line_in_change_log.forum_search_num,
+        #     search_following_mode=SearchFollowingMode.OFF,
+        # )
 
         filterer = UserListFilter(connection, line_in_change_log, [user])
         cropped_users = filterer._filter_users_not_following_this_search()
