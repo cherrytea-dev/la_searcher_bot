@@ -337,35 +337,39 @@ class UserListFilter:
             LEFT JOIN user_pref_search_filtering upsf 
                 ON upsf.user_id=u.user_id and 'whitelist' = ANY(upsf.filter_name)
             WHERE 
-                (upsf.filter_name is not null 
-                    AND NOT
-                    ( -- 1st suppressing condition: the user is not following this search and there is another followed not stopped search
-                        not exists
-                            (
-                                select 1 from user_pref_search_whitelist upswls 
-                                WHERE 
-                                    upswls.user_id=u.user_id 
-                                    and upswls.search_id = :forum_search_num 
-                                    and upswls.search_following_mode=:following_mode_on
-                            )
-                        and exists
-                            (
-                                select 1 FROM user_pref_search_whitelist upswls
-                                WHERE 
-                                    upswls.user_id=u.user_id 
-                                    and upswls.search_id != :forum_search_num 
-                                    and upswls.search_following_mode=:following_mode_on
-                                    and :search_new_status not in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
-                            )
-                    )
+                (   upsf.filter_name is not null 
+                    AND
+                        ( -- 1st condition: the user is following this search and it is not stopped
+                            exists
+                                (
+                                    select 1 from user_pref_search_whitelist upswls 
+                                    WHERE 
+                                        upswls.user_id=u.user_id 
+                                        and upswls.search_id = :forum_search_num 
+                                        and upswls.search_following_mode=:following_mode_on
+                                        and :search_new_status not in 
+                                            ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
+                                )
+                            and not exists
+                                (
+                                    select 1 FROM user_pref_search_whitelist upswls
+                                    join searches s on s.forum_search_num=upswls.search_id
+                                    WHERE 
+                                        upswls.user_id=u.user_id 
+                                        and upswls.search_id != :forum_search_num 
+                                        and upswls.search_following_mode=:following_mode_on
+                                        and s.search_status not in 
+                                            ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
+                                )
+                        )
                     AND NOT exists -- 2nd suppressing condition: the search is in blacklist for this user 
-                    (
-                        select 1 from user_pref_search_whitelist upswls 
-                        WHERE 
-                            upswls.user_id=u.user_id 
-                            and upswls.search_id = :forum_search_num 
-                            and upswls.search_following_mode=:following_mode_off
-                    )
+                        (
+                            select 1 from user_pref_search_whitelist upswls 
+                            WHERE 
+                                upswls.user_id=u.user_id 
+                                and upswls.search_id = :forum_search_num 
+                                and upswls.search_following_mode=:following_mode_off
+                        )
                 )
                 OR upsf.filter_name is null
             ;
