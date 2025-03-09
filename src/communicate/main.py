@@ -1010,7 +1010,8 @@ def save_preference(cur: cursor, user_id: int, preference: str):
         result = False
 
         for line in pref_list:
-            cur.execute("""SELECT id FROM user_preferences WHERE user_id=%s AND preference=%s LIMIT 1;""", (user, line))
+            line_id = pref_dict[line]
+            cur.execute("""SELECT id FROM user_preferences WHERE user_id=%s AND preference=%s LIMIT 1;""", (user, line_id))
 
             if str(cur.fetchone()) != 'None':
                 result = True
@@ -1022,7 +1023,7 @@ def save_preference(cur: cursor, user_id: int, preference: str):
         execute_delete(user_id, [])
         execute_insert(user_id, preference)
 
-    elif preference in {'new_searches', 'status_changes', 'title_changes', 'comments_changes', 'first_post_changes'}:
+    elif preference in {'new_searches', 'status_changes', 'title_changes', 'comments_changes', 'first_post_changes','all_in_followed_search'}:
         if execute_check(user_id, ['all']):
             execute_insert(user_id, 'bot_news')
         execute_delete(user_id, ['all'])
@@ -1053,6 +1054,7 @@ def save_preference(cur: cursor, user_id: int, preference: str):
         '-field_trips_change',
         '-coords_change',
         '-first_post_changes',
+        '-all_in_followed_search',
     }:
         if preference == '-all':
             execute_insert(user_id, 'bot_news')
