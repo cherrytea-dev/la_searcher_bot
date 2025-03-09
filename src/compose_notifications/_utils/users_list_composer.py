@@ -142,7 +142,7 @@ class UsersListComposer:
                 following_mode_on=SearchFollowingMode.ON,
             ).fetchall()
 
-            logging.info(f'Fetched users for search {forum_search_num=} with {new_record.new_status=}.')
+            logging.info(f'Fetched users for search {new_record.forum_search_num=} with {new_record.new_status=}.')
             analytics_sql_finish = datetime.datetime.now()
             duration_sql = round((analytics_sql_finish - analytics_start).total_seconds(), 2)
             logging.info(f'time: {analytics_prefix} sql – {duration_sql} sec')
@@ -373,7 +373,7 @@ class UserListFilter:
         rows = self.conn.execute(
             sql_text_,
             forum_search_num=record.forum_search_num,
-            search_new_status=new_record.new_status,
+            search_new_status=record.new_status,
             following_mode_on=SearchFollowingMode.ON,
             following_mode_off=SearchFollowingMode.OFF,
         ).fetchall()
