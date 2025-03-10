@@ -35,11 +35,13 @@ from identify_updates_of_topics._utils.database import (
 )
 from identify_updates_of_topics._utils.forum import (
     define_start_time_of_search,
-    parse_address_from_title,
     parse_search_profile,
+    visibility_check,
+)
+from identify_updates_of_topics._utils.parse import (
+    parse_address_from_title,
     profile_get_managers,
     profile_get_type_of_activity,
-    visibility_check,
 )
 from identify_updates_of_topics._utils.topics_commons import ChangeLogLine, SearchSummary, get_requests_session
 

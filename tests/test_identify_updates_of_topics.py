@@ -5,6 +5,7 @@ import pytest
 import requests
 
 import identify_updates_of_topics._utils.forum
+from identify_updates_of_topics._utils import parse
 from _dependencies.commons import sqlalchemy_get_pool
 from identify_updates_of_topics import main
 from tests.common import get_event_with_data
@@ -88,8 +89,6 @@ def test_process_one_folder(db, mock_http_get):
 
 
 def test_main_full_scenario(mock_http_get):
-    # NO SMOKE TEST identify_updates_of_topics.main.main
-
     mock_http_get.return_value.content = Path('tests/fixtures/forum_folder_276.html').read_bytes()
 
     forum_search_folder_id = 276
@@ -99,28 +98,56 @@ def test_main_full_scenario(mock_http_get):
 
 
 def test_parse_one_comment(db, mock_http_get):
-    # NO SMOKE TEST identify_updates_of_topics.main.parse_one_comment
     mock_http_get.return_value.content = Path('tests/fixtures/forum_comment.html').read_bytes()
 
     there_are_inforg_comments = main.parse_one_comment(db, 1, 1)
     assert there_are_inforg_comments
 
 
-def test_parse_search_profile(db, mock_http_get):
-    # NO SMOKE TEST identify_updates_of_topics.main.parse_search_profile
-    mock_http_get.return_value.content = Path('tests/fixtures/forum_comment.html').read_bytes()
-    res = identify_updates_of_topics._utils.forum.parse_search_profile(1)
-    assert res
+def test_parse_search_profile_mock(mock_http_get):
+    mock_http_get.return_value.content = Path('tests/fixtures/forum_topic.html').read_bytes()
+    left_text = identify_updates_of_topics._utils.forum.parse_search_profile(83087)
+    assert left_text == (
+        'Сидорова (Иванова) Надежда Петровна, 30 лет, д. Никольская\n\t\t\t\t\t\t\t\t\t\tСлобода, '
+        'Жуковский р-он, Брянская обл. \n\n\t\t\t\t\t\t\t\t6 октября 2024 года заблудилась в лесу.\n\n\n\n'
+        'Приметы: рост 156 см, худощавого телосложения,\n\t\t\t\t\t\t\t\tволосы рыжие, глаза голубые.\n\n'
+        'Была одета: темно-синяя куртка, синие спортивные\n\t\t\t\t\t\t\t\tштаны, разноцветые резиновые сапоги, платок.\n\n'
+        'С собой: желтый рюкзак.\n\nКарты\n\nОриентировка на\n\t\t\t\t\t\t\t\t\t\tпечать\n\n'
+        'Ориентировка на\n\t\t\t\t\t\t\t\t\t\tрепост\n\n\t\t\t\t\t\t\t\t--------------------------------------------------\n'
+        'Найдена, жива.\n\nСБОР: \nКоординаты\n\t\t\t\t\t\t\t\t\t\tсбора:\n\n'
+        'ШТАБ \nКоординаты\n\t\t\t\t\t\t\t\t\t\tштаба:\n\n\n'
+        'СНМ: Лагутин Саша \nИнфорги: Светлана gLA_NAs 89001234567, 89001234567\n'
+        'https://t.me/gLA_NAs\n\t\t\t\t\t\t\t\tОльга Вжик 89001234567, 89001234567 '
+        'https://t.me/Ol_Massarova\n\nПредоставлять комментарии по\n\t\t\t\t\t\t\t\t\t\tпоиску для СМИ '
+        'могут только координатор или инфорг поиска, а также представители\n\t\t\t\t\t\t\t\t\t\tпресс-службы «ЛизаАлерт».'
+        ' \n\t\t\t\t\t\t\t\t\t\tЕсли же представитель СМИ хочет приехать на поиск, он может сообщить '
+        'о своем\n\t\t\t\t\t\t\t\t\t\tжелании на горячую линию отряда\n\t\t\t\t\t\t\t\t\t\t8(800)700-54-52 '
+        'или на почту smi@lizaalert.org'
+    )
+
+
+@pytest.mark.parametrize(
+    'cleaned_text, activity_type',
+    [
+        ('штаб свернут', '9 - hq closed'),
+        ('штаб работает', '1 - hq now'),
+        ('автоном', '6 - autonom'),
+        ('нет автоном, забрать оборудование', '3 - hardware logistics'),
+        ('опрос', '6 - autonom'),
+        ('забрать оборудование', '3 - hardware logistics'),
+    ],
+)
+def test_parse_activity(cleaned_text: str, activity_type: str):
+    activities = parse.profile_get_type_of_activity(cleaned_text)
+    assert activities == [activity_type]
 
 
 def test_update_change_log_and_searches(db):
-    # NO SMOKE TEST identify_updates_of_topics.main.update_change_log_and_searches
     res = main.update_change_log_and_searches(db, 1)
     pass
 
 
 def test_visibility_check():
-    # NO SMOKE TEST identify_updates_of_topics.main.visibility_check
     response = Mock()
     response.content = b'foo'
     page_is_visible = identify_updates_of_topics._utils.forum.visibility_check(response, 1)

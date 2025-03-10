@@ -54,11 +54,11 @@ def get_the_list_of_ignored_folders(db: Engine) -> list[int]:
     return list_of_ignored_folders
 
 
-def save_place_in_psql(db2, address_string, search_num):
+def save_place_in_psql(db: Engine, address_string, search_num):
     """save a link search to address in sql table search_places"""
 
     try:
-        with db2.connect() as conn:
+        with db.connect() as conn:
             # check if this record already exists
             stmt = sqlalchemy.text(
                 """SELECT search_id FROM search_places
@@ -84,12 +84,12 @@ def save_place_in_psql(db2, address_string, search_num):
     return None
 
 
-def save_geolocation_in_psql(db2: Engine, address_string: str, status: str, latitude, longitude, geocoder: str):
+def save_geolocation_in_psql(db: Engine, address_string: str, status: str, latitude, longitude, geocoder: str):
     """save results of geocoding to avoid multiple requests to openstreetmap service"""
     """the Geocoder HTTP API may not exceed 1000 per day"""
 
     try:
-        with db2.connect() as conn:
+        with db.connect() as conn:
             stmt = sqlalchemy.text(
                 """INSERT INTO geocoding (address, status, latitude, longitude, geocoder, timestamp) VALUES
                 (:a, :b, :c, :d, :e, :f)
@@ -110,10 +110,10 @@ def save_geolocation_in_psql(db2: Engine, address_string: str, status: str, lati
     return None
 
 
-def get_geolocation_form_psql(db2, address_string: str):
+def get_geolocation_form_psql(db: Engine, address_string: str):
     """get results of geocoding from psql"""
 
-    with db2.connect() as conn:
+    with db.connect() as conn:
         stmt = sqlalchemy.text(
             """SELECT address, status, latitude, longitude, geocoder from geocoding WHERE address=:a
             ORDER BY id DESC LIMIT 1; """
@@ -162,7 +162,7 @@ def save_last_api_call_time_to_psql(db: Engine, geocoder: str) -> bool:
         return False
 
 
-def get_last_api_call_time_from_psql(db: sqlalchemy.engine, geocoder: str):
+def get_last_api_call_time_from_psql(db: Engine, geocoder: str):
     """Used to track time of the last api call to geocoders. Gets the last timestamp in UTC saved in psql"""
 
     conn = None
@@ -184,10 +184,10 @@ def get_last_api_call_time_from_psql(db: sqlalchemy.engine, geocoder: str):
     return last_call
 
 
-def rewrite_snapshot_in_sql(db2: Engine, folder_num, folder_summary: list[SearchSummary]):
+def rewrite_snapshot_in_sql(db: Engine, folder_num, folder_summary: list[SearchSummary]):
     """rewrite the freshly-parsed snapshot into sql table 'forum_summary_snapshot'"""
 
-    with db2.connect() as conn:
+    with db.connect() as conn:
         sql_text = sqlalchemy.text("""DELETE FROM forum_summary_snapshot WHERE forum_folder_id = :a;""")
         conn.execute(sql_text, a=folder_num)
 
@@ -219,11 +219,9 @@ def rewrite_snapshot_in_sql(db2: Engine, folder_num, folder_summary: list[Search
             )
         conn.close()
 
-    return None
-
 
 def write_comment(
-    db,
+    db: Engine,
     search_num,
     comment_num,
     comment_url,
