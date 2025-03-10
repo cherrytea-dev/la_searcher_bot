@@ -139,7 +139,7 @@ class UsersListComposer:
                 forum_folder=new_record.forum_folder,
                 topic_type_id=new_record.topic_type_id,
                 forum_search_num=int(new_record.forum_search_num),
-                following_mode_on=SearchFollowingMode.ON
+                following_mode_on=SearchFollowingMode.ON,
             ).fetchall()
 
             logging.info(f'Fetched users for search {new_record.forum_search_num=} with {new_record.new_status=}.')
@@ -378,7 +378,7 @@ class UserListFilter:
             forum_search_num=record.forum_search_num,
             search_new_status=record.new_status,
             following_mode_on=SearchFollowingMode.ON,
-            following_mode_off=SearchFollowingMode.OFF
+            following_mode_off=SearchFollowingMode.OFF,
         ).fetchall()
         logging.info(f'Crop user list step 5: len(rows)=={len(rows)}')
 

@@ -394,11 +394,11 @@ class TestUsersFilter:
 
     def test_filter_users_not_following_this_search_5(self, connection, dict_notif_type_status_change):
         line_in_change_log = LineInChangeLogFactory.build()
-        
+
         user = UserFactory.build()
         user_model = db_factories.UserFactory.create_sync(user_id=user.user_id)
         db_factories.UserPrefSearchFilteringFactory.create_sync(user_id=user.user_id, filter_name=['whitelist'])
-        
+
         stopped_search = db_factories.SearchFactory.create_sync(status='СТОП')
         db_factories.UserPrefSearchWhitelistFactory.create_sync(
             user=user_model,
