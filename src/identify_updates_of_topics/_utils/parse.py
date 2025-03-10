@@ -48,18 +48,14 @@ def parse_address_from_title(initial_title: str) -> str:
                 address_string = address_string[len(word) :]
 
     # case when there's "г.о." instead of "городской округ"
-    if address_string.find('г.о.') != -1:
-        address_string = address_string.replace('г.о.', 'городской округ')
+    address_string = address_string.replace('г.о.', 'городской округ')
 
     # case when there's "муниципальный округ"
-    if address_string.find('м.о.') != -1:
-        address_string = address_string.replace('м.о.', 'муниципальный округ')
+    address_string = address_string.replace('м.о.', 'муниципальный округ')
 
     # case when 'мкрн' or 'мкр'
-    if address_string.find('мкрн') != -1:
-        address_string = address_string.replace('мкрн', '')
-    if address_string.find('мкр') != -1:
-        address_string = address_string.replace('мкр', '')
+    address_string = address_string.replace('мкрн', '')
+    address_string = address_string.replace('мкр', '')
 
     # case with 'р-н' and 'АО'
     if address_string.find('р-н') != -1 and address_string.find('АО') != -1:
@@ -72,20 +68,15 @@ def parse_address_from_title(initial_title: str) -> str:
             address_string = address_string.replace(word_with_ao, '')
 
     # case with 'р-н' or 'р-на' or 'р-он'
-    if address_string.find('р-на') != -1:
-        address_string = address_string.replace('р-на', 'район')
-    if address_string.find('р-н') != -1:
-        address_string = address_string.replace('р-н', 'район')
-    if address_string.find('р-он') != -1:
-        address_string = address_string.replace('р-он', 'район')
+    address_string = address_string.replace('р-на', 'район')
+    address_string = address_string.replace('р-н', 'район')
+    address_string = address_string.replace('р-он', 'район')
 
     # case with 'обл'
-    if address_string.find('обл.') != -1:
-        address_string = address_string.replace('обл.', 'область')
+    address_string = address_string.replace('обл.', 'область')
 
     # case with 'НСО'
-    if address_string.find('НСО') != -1:
-        address_string = address_string.replace('НСО', 'Новосибирская область')
+    address_string = address_string.replace('НСО', 'Новосибирская область')
 
     # case with 'МО'
     if address_string.find('МО') != -1:
@@ -93,7 +84,7 @@ def parse_address_from_title(initial_title: str) -> str:
         for word in mo_dict:
             if address_string.find(word) != -1:
                 address_string = address_string.replace(word, 'Московская область')
-        if address_string[-3:] == ' МО':
+        if address_string.endswith(' МО'):
             address_string = address_string[:-3] + ' Московская область'
 
     # case with 'ЛО'
@@ -102,14 +93,12 @@ def parse_address_from_title(initial_title: str) -> str:
         for word in mo_dict:
             if address_string.find(word) != -1:
                 address_string = address_string.replace(word, 'Ленинградская область')
-        if address_string[-3:] == ' ЛО':
+        if address_string.endswith(' ЛО'):
             address_string = address_string[:-3] + ' Ленинградская область'
 
     # in case "г.Сочи"
-    if address_string.find('г.Сочи') != -1:
-        address_string = address_string.replace('г.Сочи', 'Сочи')
-    if address_string.find('г. Сочи') != -1:
-        address_string = address_string.replace('г. Сочи', 'Сочи')
+    address_string = address_string.replace('г.Сочи', 'Сочи')
+    address_string = address_string.replace('г. Сочи', 'Сочи')
 
     # case with 'района'
     if address_string.find('района') != -1:
@@ -152,7 +141,7 @@ def parse_address_from_title(initial_title: str) -> str:
 
     new_start = max(first_num, first_letter)
 
-    if address_string.lower().find('г. москва') != -1 or address_string.lower().find('г.москва') != -1:
+    if 'г. москва' in address_string.lower() or 'г.москва' in address_string.lower():
         address_string = address_string.replace('г.', '')
 
     # add Russia to be sure
