@@ -349,7 +349,7 @@ class UserListFilter:
                                         and upswls.search_id = :forum_search_num 
                                         and upswls.search_following_mode=:following_mode_on
                                 )
-                            and not exists
+                            /*  DEBUG and not exists
                                 (
                                     select 1 FROM user_pref_search_whitelist upswls
                                     join searches s on s.search_forum_num=upswls.search_id
@@ -359,7 +359,7 @@ class UserListFilter:
                                         and upswls.search_following_mode=:following_mode_on
                                         and s.status not in 
                                             ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
-                                )
+                                )  */
                         )
                     AND NOT exists -- 2nd suppressing condition: the search is in blacklist for this user 
                         (
