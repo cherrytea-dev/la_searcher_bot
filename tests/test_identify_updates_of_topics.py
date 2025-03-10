@@ -142,6 +142,12 @@ def test_parse_activity(cleaned_text: str, activity_type: str):
     assert activities == [activity_type]
 
 
+def test_parse_activity_wrong_case():
+    # seems to be wrong
+    activities = parse.profile_get_type_of_activity('сбор автоном')
+    assert activities == ['1 - hq now', '6 - autonom']
+
+
 def test_update_change_log_and_searches(db):
     res = main.update_change_log_and_searches(db, 1)
     pass

@@ -254,10 +254,8 @@ def profile_get_type_of_activity(text_of_activity: str) -> list[str]:
         'штаб свёрнут',
         'штаб свëрнут',
     ]
-    if any(keyword in text_of_activity for keyword in hq_keywords):
+    if _contains_any_text_of(text_of_activity, hq_keywords):
         hq = 'no'
-
-    if hq == 'no':
         activity_type.append('9 - hq closed')
     else:
         now_keywords = [
@@ -268,16 +266,12 @@ def profile_get_type_of_activity(text_of_activity: str) -> list[str]:
             'внимание выезд',
             'внимание! выезд',
         ]
-        if any(keyword in text_of_activity for keyword in now_keywords):
+        if _contains_any_text_of(text_of_activity, now_keywords):
             hq = 'now'
-
-        if hq == 'now':
             activity_type.append('1 - hq now')
         else:
             if text_of_activity.find('штаб мобильный') > -1:
                 hq = 'mobile'
-
-            if hq == 'mobile':
                 activity_type.append('2 - hq mobile')
             else:
                 will_keywords = [
@@ -288,10 +282,8 @@ def profile_get_type_of_activity(text_of_activity: str) -> list[str]:
                     'готовится выезд',
                     'выезд готовится',
                 ]
-                if any(keyword in text_of_activity for keyword in will_keywords):
+                if _contains_any_text_of(text_of_activity, will_keywords):
                     hq = 'will'
-
-                if hq == 'will':
                     activity_type.append('1 - hq will')
 
     # Cases with Autonom
@@ -318,6 +310,10 @@ def profile_get_type_of_activity(text_of_activity: str) -> list[str]:
     activity_type.sort()
 
     return activity_type
+
+
+def _contains_any_text_of(text_of_activity: str, keywords: list[str]) -> bool:
+    return any(keyword in text_of_activity for keyword in keywords)
 
 
 def profile_get_managers(text_of_managers: str) -> list[str]:
