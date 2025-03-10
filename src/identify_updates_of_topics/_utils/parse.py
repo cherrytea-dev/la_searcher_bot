@@ -68,9 +68,12 @@ def parse_address_from_title(initial_title: str) -> str:
             address_string = address_string.replace(word_with_ao, '')
 
     # case with 'р-н' or 'р-на' or 'р-он'
-    address_string = address_string.replace('р-на', 'район')
-    address_string = address_string.replace('р-н', 'район')
-    address_string = address_string.replace('р-он', 'район')
+    replaces = [
+        ('р-на', 'район'),
+        ('р-н', 'район'),
+        ('р-он', 'район'),
+    ]
+    address_string = _replace_all(address_string, replaces)
 
     # case with 'обл'
     address_string = address_string.replace('обл.', 'область')
@@ -198,35 +201,29 @@ def parse_address_from_title(initial_title: str) -> str:
             trigger_of_wrong_symbols = False
 
     # ONE-TIME EXCEPTIONS:
-    if address_string.find('г. Сольцы, Новгородская обл. – г. Санкт-Петербург'):
-        address_string = address_string.replace(
-            'г. Сольцы, Новгородская область – г. Санкт-Петербург', 'г. Сольцы, Новгородская область'
-        )
-    if address_string.find('Орехово-Зуевский район'):
-        address_string = address_string.replace('Орехово-Зуевский район', 'Орехово-Зуевский городской округ')
-    if address_string.find('НТ Нефтяник'):
-        address_string = address_string.replace('СНТ Нефтяник', 'СНТ Нефтянник')
-    if address_string.find('Коченевский'):
-        address_string = address_string.replace('Коченевский', 'Коченёвский')
-    if address_string.find('Самара - с. Красный Яр'):
-        address_string = address_string.replace('г. Самара - с. Красный Яр', 'Красный Яр')
-    if address_string.find('укреево-Плессо'):
-        address_string = address_string.replace('Букреево-Плессо', 'Букреево Плёсо')
-    if address_string.find('Москва Москва: Юго-Западный АО, '):
-        address_string = address_string.replace('г.Москва Москва: Юго-Западный АО, ', 'ЮЗАО, Москва, ')
-    if address_string.find(' Луховицы - д.Алтухово'):
-        address_string = address_string.replace(' Луховицы - д. Алтухово, Зарайский городской округ,', 'Луховицы')
-    if address_string.find('Сагкт-Петербург'):
-        address_string = address_string.replace('Сагкт-Петербург', 'Санкт-Петербург')
-    if address_string.find('Краснозерский'):
-        address_string = address_string.replace('Краснозерский', 'Краснозёрский')
-    if address_string.find('Толмачевское'):
-        address_string = address_string.replace('Толмачевское', 'Толмачёвское')
-    if address_string.find('Кочевский'):
-        address_string = address_string.replace('Кочевский', 'Кочёвский')
-    if address_string.find('Чесцы'):
-        address_string = address_string.replace('Чесцы', 'Часцы')
+    common_replaces = [
+        ('г. Сольцы, Новгородская область – г. Санкт-Петербург', 'г. Сольцы, Новгородская область'),
+        ('Орехово-Зуевский район', 'Орехово-Зуевский городской округ'),
+        ('СНТ Нефтяник', 'СНТ Нефтянник'),
+        ('Коченевский', 'Коченёвский'),
+        ('г. Самара - с. Красный Яр', 'Красный Яр'),
+        ('Букреево-Плессо', 'Букреево Плёсо'),
+        ('г.Москва Москва: Юго-Западный АО, ', 'ЮЗАО, Москва, '),
+        (' Луховицы - д. Алтухово, Зарайский городской округ,', 'Луховицы'),
+        ('Сагкт-Петербург', 'Санкт-Петербург'),
+        ('Краснозерский', 'Краснозёрский'),
+        ('Толмачевское', 'Толмачёвское'),
+        ('Кочевский', 'Кочёвский'),
+        ('Чесцы', 'Часцы'),
+    ]
+    address_string = _replace_all(address_string, common_replaces)
 
+    return address_string
+
+
+def _replace_all(address_string: str, replaces: list[tuple[str, str]]) -> str:
+    for src, dst in replaces:
+        address_string = address_string.replace(src, dst)
     return address_string
 
 
