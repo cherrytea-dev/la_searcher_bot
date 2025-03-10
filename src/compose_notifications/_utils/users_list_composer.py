@@ -138,8 +138,8 @@ class UsersListComposer:
                 change_type=new_record.change_type,
                 forum_folder=new_record.forum_folder,
                 topic_type_id=new_record.topic_type_id,
-                forum_search_num=new_record.forum_search_num,
-                following_mode_on=SearchFollowingMode.ON,
+                forum_search_num=int(new_record.forum_search_num),
+                following_mode_on=SearchFollowingMode.ON
             ).fetchall()
 
             logging.info(f'Fetched users for search {new_record.forum_search_num=} with {new_record.new_status=}.')
@@ -340,7 +340,7 @@ class UserListFilter:
                 (   upsf.filter_name is not null 
                     AND :search_new_status not in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
                     AND
-                        ( -- 1st condition: the user is following this search and it is not stopped
+                        ( /* 1st condition: the user is following this search */
                             exists
                                 (
                                     select 1 from user_pref_search_whitelist upswls 
@@ -349,17 +349,6 @@ class UserListFilter:
                                         and upswls.search_id = :forum_search_num 
                                         and upswls.search_following_mode=:following_mode_on
                                 )
-                            /*  DEBUG and not exists
-                                (
-                                    select 1 FROM user_pref_search_whitelist upswls
-                                    join searches s on s.search_forum_num=upswls.search_id
-                                    WHERE 
-                                        upswls.user_id=u.user_id 
-                                        and upswls.search_id != :forum_search_num 
-                                        and upswls.search_following_mode=:following_mode_on
-                                        and s.status not in 
-                                            ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
-                                )  */
                         )
                     AND NOT exists -- 2nd suppressing condition: the search is in blacklist for this user 
                         (
@@ -378,7 +367,7 @@ class UserListFilter:
             forum_search_num=record.forum_search_num,
             search_new_status=record.new_status,
             following_mode_on=SearchFollowingMode.ON,
-            following_mode_off=SearchFollowingMode.OFF,
+            following_mode_off=SearchFollowingMode.OFF
         ).fetchall()
         logging.info(f'Crop user list step 5: len(rows)=={len(rows)}')
 
