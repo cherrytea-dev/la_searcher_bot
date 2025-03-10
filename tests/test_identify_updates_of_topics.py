@@ -56,7 +56,7 @@ def test_main():
 def test_get_cordinates(db):
     data = 'Москва, Ярославское шоссе 123'
     with patch('identify_updates_of_topics.main.rate_limit_for_api'):
-        res = main.get_coordinates(db, data)
+        res = main.get_coordinates_by_address(db, data)
     assert res == (None, None)
 
 
@@ -125,3 +125,11 @@ def test_visibility_check():
     response.content = b'foo'
     page_is_visible = identify_updates_of_topics._utils.forum.visibility_check(response, 1)
     assert page_is_visible
+
+
+def test_parse_coordinates_of_search(db, mock_http_get):
+    mock_http_get.return_value.content = Path('tests/fixtures/forum_topic.html').read_bytes()
+
+    search_id = 1
+    res = main.parse_coordinates_of_search(db, search_id)
+    assert res == (53.510722, 33.637365, '3. deleted coord')

@@ -310,5 +310,3 @@ def update_coordinates_in_db(db, search_id, coords):
                        WHERE search_id=:b; """
             )
             conn.execute(stmt, a=coords[2], b=search_id)
-
-        conn.close()

@@ -21,19 +21,15 @@ def define_start_time_of_search(blocks):
 def visibility_check(resp: requests.Response, topic_id) -> bool:
     """check topic's visibility: if hidden or deleted"""
 
-    check_content = copy.copy(resp.content)
-    check_content = check_content.decode('utf-8')
-    check_content = None if re.search(r'502 Bad Gateway', check_content) else check_content
-    site_unavailable = False if check_content else True
-    topic_deleted = True if check_content and re.search(r'Запрошенной темы не существует', check_content) else False
-    topic_hidden = (
-        True
-        if check_content and re.search(r'Для просмотра этого форума вы должны быть авторизованы', check_content)
-        else False
-    )
+    check_content = resp.content.decode('utf-8')
+    site_unavailable = '502 Bad Gateway' in check_content
     if site_unavailable:
         return False
-    elif topic_deleted or topic_hidden:
+
+    topic_deleted = 'Запрошенной темы не существует' in check_content
+    topic_hidden = 'Для просмотра этого форума вы должны быть авторизованы' in check_content
+
+    if topic_deleted or topic_hidden:
         visibility = 'deleted' if topic_deleted else 'hidden'
         publish_to_pubsub(Topics.topic_for_topic_management, {'topic_id': topic_id, 'visibility': visibility})
         # TODO can replace with direct sql query
@@ -48,8 +44,7 @@ def parse_search_profile(search_num) -> str | None:
     global block_of_profile_rough_code
     requests_session = get_requests_session()
 
-    url_beginning = 'https://lizaalert.org/forum/viewtopic.php?t='
-    url_to_topic = url_beginning + str(search_num)
+    url_to_topic = f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
 
     try:
         r = requests_session.get(url_to_topic)  # noqa
@@ -59,8 +54,7 @@ def parse_search_profile(search_num) -> str | None:
         soup = BeautifulSoup(r.content, features='html.parser')
 
     except Exception as e:
-        logging.info(f'DBG.P.50.EXC: unable to parse a specific Topic with address: {url_to_topic} error:')
-        logging.exception(e)
+        logging.exception(f'DBG.P.50.EXC: unable to parse a specific Topic with address: {url_to_topic} error:')
         soup = None
 
     # open the first post
@@ -72,12 +66,12 @@ def parse_search_profile(search_num) -> str | None:
 
     # add telegram links to text (to be sure next step won't cut these links), type 1
     for a_tag in block_of_profile_rough_code.find_all('a'):
-        if a_tag.get('href')[0:20] == 'https://telegram.im/':
+        if a_tag.get('href').startswith('https://telegram.im/'):
             a_tag.replace_with(a_tag['href'])
 
     # add telegram links to text (to be sure next step won't cut these links), type 2
     for a_tag in block_of_profile_rough_code.find_all('a'):
-        if a_tag.get('href')[0:13] == 'https://t.me/':
+        if a_tag.get('href').startswith('https://t.me/'):
             a_tag.replace_with(a_tag['href'])
 
     left_text = block_of_profile_rough_code.text.strip()
@@ -105,10 +99,10 @@ def profile_get_managers(text_of_managers: str) -> list[str]:
 
         # If there's a telegram link in a new line - to move it to prev line
         for i in range(len(list_of_lines) - 1):
-            if list_of_lines[i + 1][0:21] == 'https://telegram.im/@':
+            if list_of_lines[i + 1].startswith('https://telegram.im/@'):
                 list_of_lines[i] += ' ' + list_of_lines[i + 1]
                 list_of_lines[i + 1] = ''
-            if list_of_lines[i + 1][0:14] == 'https://t.me/':
+            if list_of_lines[i + 1].startswith('https://t.me/'):
                 list_of_lines[i] += ' ' + list_of_lines[i + 1]
                 list_of_lines[i + 1] = ''
 
@@ -172,8 +166,7 @@ def profile_get_managers(text_of_managers: str) -> list[str]:
         # FIXME ^^^
 
     except Exception as e:
-        logging.info('DBG.P.102.EXC:')
-        logging.exception(e)
+        logging.exception('DBG.P.102.EXC:')
 
     return managers
 
