@@ -1,5 +1,3 @@
-import pytest
-from unittest.mock import patch
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -7,9 +5,9 @@ import pytest
 import requests
 
 import identify_updates_of_topics._utils.forum
-from identify_updates_of_topics._utils import parse
 from _dependencies.commons import sqlalchemy_get_pool
 from identify_updates_of_topics import main
+from identify_updates_of_topics._utils import parse
 from tests.common import get_event_with_data
 from title_recognize.main import recognize_title
 
@@ -223,3 +221,39 @@ def test_parse_address_from_title(initial_title, expected_output):
 
     if fact_out != expected_output:
         raise AssertionError(f'input: {initial_title},\nactual output is: {fact_out},\nexpected: {expected_output}')
+
+
+class TestProfileGetManagers:
+    def test_profile_get_managers_1(self):
+        # Test case 1: Normal case
+        text_of_managers = '--------\nКоординатор-консультант John Doe\nКоординатор Jane Smith\nИнфорг Bob Johnson\nСтаршая на месте Alice Brown\nСтарший на месте Charlie Davis\nДИ Emily Wilson\nСНМ Michael Taylor'
+        expected_output = [
+            'Координатор-консультант John Doe',
+            'Координатор Jane Smith',
+            'Инфорг Bob Johnson',
+            'СНМ Michael Taylor',
+        ]
+        assert parse.profile_get_managers(text_of_managers) == expected_output
+
+    def test_profile_get_managers_2(self):
+        # Test case 2: No managers mentioned
+        text_of_managers = '--------\nNo managers mentioned'
+        expected_output = []
+        assert parse.profile_get_managers(text_of_managers) == expected_output
+
+    def test_profile_get_managers_3(self):
+        # Test case 3: Managers mentioned but not in the list_of_roles
+        text_of_managers = '--------\nManager John Doe\nManager Jane Smith\nManager Bob Johnson'
+        expected_output = []
+        assert parse.profile_get_managers(text_of_managers) == expected_output
+
+    def test_profile_get_managers_4(self):
+        # Test case 5: Managers mentioned and in the list_of_roles with telegram links
+        text_of_managers = '--------\nКоординатор-консультант John Doe https://telegram.im/@johndoe\nКоординатор Jane Smith https://t.me/janesmith\nИнфорг Bob Johnson https://telegram.im/@bobjohnson\nСтаршая на месте Alice Brown https://t.me/alicebrown\nСтарший на месте Charlie Davis https://telegram.im/@charliedavis\nДИ Emily Wilson https://t.me/emilywilson\nСНМ Michael Taylor https://telegram.im/@michaeltaylor'
+        expected_output = [
+            'Координатор-консультант John Doe https://telegram.im/@johndoe',
+            'Координатор Jane Smith https://t.me/janesmith',
+            'Инфорг Bob Johnson https://telegram.im/@bobjohnson',
+            'СНМ Michael Taylor https://telegram.im/@michaeltaylor',
+        ]
+        assert parse.profile_get_managers(text_of_managers) == expected_output
