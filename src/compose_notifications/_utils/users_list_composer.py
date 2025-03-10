@@ -338,6 +338,7 @@ class UserListFilter:
                 ON upsf.user_id=u.user_id and 'whitelist' = ANY(upsf.filter_name)
             WHERE 
                 (   upsf.filter_name is not null 
+                    AND :search_new_status not in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
                     AND
                         ( -- 1st condition: the user is following this search and it is not stopped
                             exists
@@ -347,8 +348,6 @@ class UserListFilter:
                                         upswls.user_id=u.user_id 
                                         and upswls.search_id = :forum_search_num 
                                         and upswls.search_following_mode=:following_mode_on
-                                        and :search_new_status not in 
-                                            ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
                                 )
                             and not exists
                                 (
