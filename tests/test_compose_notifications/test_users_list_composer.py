@@ -298,10 +298,10 @@ class TestUsersFilter:
     def test_filter_users_not_following_this_search_2(self, connection, dict_notif_type_status_change):
         line_in_change_log = LineInChangeLogFactory.build()
         user = UserFactory.build()
-        db_factories.UserFactory.create_sync(user_id=user.user_id)
+        user_model = db_factories.UserFactory.create_sync(user_id=user.user_id)
         db_factories.UserPrefSearchFilteringFactory.create_sync(user_id=user.user_id, filter_name=['whitelist'])
         db_factories.UserPrefSearchWhitelistFactory.create_sync(
-            user_id=user.user_id,
+            user=user_model,
             search_id=line_in_change_log.forum_search_num,
             search_following_mode=SearchFollowingMode.ON,
         )
@@ -309,6 +309,7 @@ class TestUsersFilter:
         filterer = UserListFilter(connection, line_in_change_log, [user])
         cropped_users = filterer._filter_users_not_following_this_search()
 
+        assert line_in_change_log.new_status not in ['СТОП', 'Завершен', 'НЖ', 'НП', 'Найден']
         assert user in cropped_users
 
     def test_filter_users_not_following_this_search_but_have_no_another_following(
@@ -327,11 +328,12 @@ class TestUsersFilter:
 
         db_factories.UserPrefSearchFilteringFactory.create_sync(user_id=user.user_id, filter_name=['whitelist'])
 
-        db_factories.UserPrefSearchWhitelistFactory.create_sync(
-            user=user_model,
-            search_id=line_in_change_log.forum_search_num,
-            search_following_mode=SearchFollowingMode.OFF,
-        )
+        ## ToDo: SearchFollowingMode.OFF is not suitable for this test
+        # db_factories.UserPrefSearchWhitelistFactory.create_sync(
+        #     user=user_model,
+        #     search_id=line_in_change_log.forum_search_num,
+        #     search_following_mode=SearchFollowingMode.OFF,
+        # )
 
         filterer = UserListFilter(connection, line_in_change_log, [user])
         cropped_users = filterer._filter_users_not_following_this_search()
@@ -392,10 +394,12 @@ class TestUsersFilter:
 
     def test_filter_users_not_following_this_search_5(self, connection, dict_notif_type_status_change):
         line_in_change_log = LineInChangeLogFactory.build()
+
         user = UserFactory.build()
         user_model = db_factories.UserFactory.create_sync(user_id=user.user_id)
-        stopped_search = db_factories.SearchFactory.create_sync(status='СТОП')
         db_factories.UserPrefSearchFilteringFactory.create_sync(user_id=user.user_id, filter_name=['whitelist'])
+
+        stopped_search = db_factories.SearchFactory.create_sync(status='СТОП')
         db_factories.UserPrefSearchWhitelistFactory.create_sync(
             user=user_model,
             search_id=stopped_search.search_forum_num,
