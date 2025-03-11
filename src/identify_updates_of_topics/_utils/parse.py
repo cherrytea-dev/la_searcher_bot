@@ -32,7 +32,7 @@ def parse_address_from_title(initial_title: str) -> str:
     while trigger_of_age_mentions:
         trigger_of_age_mentions = False
         for word in age_dict:
-            if address_string.find(word) > -1:
+            if word in address_string:
                 trigger_of_age_mentions = True
                 after_age = address_string.find(word) + len(word)
                 address_string = address_string[after_age:]
@@ -58,11 +58,11 @@ def parse_address_from_title(initial_title: str) -> str:
     address_string = address_string.replace('мкр', '')
 
     # case with 'р-н' and 'АО'
-    if address_string.find('р-н') != -1 and address_string.find('АО') != -1:
+    if 'р-н' in address_string and 'АО' in address_string:
         by_word = address_string.split()
         word_with_ao = None
         for word in by_word:
-            if word.find('АО') != -1:
+            if 'АО' in word:
                 word_with_ao = word
         if word_with_ao:
             address_string = address_string.replace(word_with_ao, '')
@@ -82,10 +82,10 @@ def parse_address_from_title(initial_title: str) -> str:
     address_string = address_string.replace('НСО', 'Новосибирская область')
 
     # case with 'МО'
-    if address_string.find('МО') != -1:
+    if 'МО' in address_string:
         mo_dict = {' МО ', ' МО,'}
         for word in mo_dict:
-            if address_string.find(word) != -1:
+            if word in address_string:
                 address_string = address_string.replace(word, 'Московская область')
         if address_string.endswith(' МО'):
             address_string = address_string[:-3] + ' Московская область'
@@ -94,7 +94,7 @@ def parse_address_from_title(initial_title: str) -> str:
     if address_string.find('ЛО') != -1:
         mo_dict = {' ЛО ', ' ЛО,'}
         for word in mo_dict:
-            if address_string.find(word) != -1:
+            if word in address_string:
                 address_string = address_string.replace(word, 'Ленинградская область')
         if address_string.endswith(' ЛО'):
             address_string = address_string[:-3] + ' Ленинградская область'
@@ -104,7 +104,7 @@ def parse_address_from_title(initial_title: str) -> str:
     address_string = address_string.replace('г. Сочи', 'Сочи')
 
     # case with 'района'
-    if address_string.find('района') != -1:
+    if 'района' in address_string:
         by_word = address_string.split()
         prev_word = None
         this_word = None
@@ -118,7 +118,7 @@ def parse_address_from_title(initial_title: str) -> str:
             address_string = address_string.replace(this_word, this_word[:-1])
 
     # case with 'области'
-    if address_string.find('области') != -1:
+    if 'области' in address_string:
         by_word = address_string.split()
         prev_word = None
         this_word = None
@@ -149,11 +149,7 @@ def parse_address_from_title(initial_title: str) -> str:
 
     # add Russia to be sure
     # Openstreetmap.org treats Krym as Ukraine - so for search purposes Russia is avoided
-    if (
-        address_string
-        and address_string.lower().find('крым') == -1
-        and address_string.lower().find('севастополь') == -1
-    ):
+    if address_string and 'крым' not in address_string.lower() and 'севастополь' not in address_string.lower():
         address_string = address_string[new_start:] + ', Россия'
 
     # case - first "с.", "п." and "д." are often misinterpreted - so it's easier to remove it
