@@ -5,21 +5,18 @@ import ast
 import copy
 import logging
 import re
-import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import Any, List, Optional, Tuple, Union
 
 import requests
 import sqlalchemy
 from bs4 import BeautifulSoup, SoupStrainer  # noqa
-from geopy.geocoders import Nominatim
 from google.cloud import storage
 from google.cloud.storage.blob import Blob
 from psycopg2.extensions import connection
 from sqlalchemy.engine.base import Engine
-from yandex_geocoder import Client, exceptions
 
-from _dependencies.commons import Topics, get_app_config, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
+from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
 from _dependencies.misc import generate_random_function_id, make_api_call, notify_admin, process_pubsub_message_v3
 from identify_updates_of_topics._utils.database import (
     _delete_search,
@@ -31,7 +28,6 @@ from identify_updates_of_topics._utils.database import (
     _write_change_log,
     _write_search,
     get_geolocation_form_psql,
-    get_last_api_call_time_from_psql,
     get_the_list_of_ignored_folders,
     rewrite_snapshot_in_sql,
     save_function_into_register,
@@ -40,6 +36,11 @@ from identify_updates_of_topics._utils.database import (
     save_place_in_psql,
     update_coordinates_in_db,
     write_comment,
+)
+from identify_updates_of_topics._utils.external_api import (
+    get_coordinates_from_address_by_osm,
+    get_coordinates_from_address_by_yandex,
+    rate_limit_for_api,
 )
 from identify_updates_of_topics._utils.forum import (
     define_start_time_of_search,
@@ -85,88 +86,6 @@ class CloudStorage:
         blob = bucket.blob(blob_name)
 
         return blob
-
-
-def rate_limit_for_api(db: Engine, geocoder: str) -> None:
-    """sleeps certain time if api calls are too frequent"""
-
-    # check that next request won't be in less a SECOND from previous
-    prev_api_call_time = get_last_api_call_time_from_psql(db=db, geocoder=geocoder)
-
-    if not prev_api_call_time:
-        return None
-
-    if geocoder == 'yandex':
-        return None
-
-    now_utc = datetime.now(timezone.utc)
-    time_delta_bw_now_and_next_request = prev_api_call_time - now_utc + timedelta(seconds=1)
-
-    logging.info(f'{prev_api_call_time=}')
-    logging.info(f'{now_utc=}')
-    logging.info(f'{time_delta_bw_now_and_next_request=}')
-
-    if time_delta_bw_now_and_next_request.total_seconds() > 0:
-        time.sleep(time_delta_bw_now_and_next_request.total_seconds())
-        logging.info(f'rate limit for {geocoder}: sleep {time_delta_bw_now_and_next_request.total_seconds()}')
-        notify_admin(f'rate limit for {geocoder}: sleep {time_delta_bw_now_and_next_request.total_seconds()}')
-
-    return None
-
-
-def get_coordinates_from_address_by_osm(address_string: str) -> Tuple[Any, Any]:
-    """return coordinates on the request of address string"""
-    """NB! openstreetmap requirements: NO more than 1 request per 1 second, no doubling requests"""
-    """MEMO: documentation on API: https://operations.osmfoundation.org/policies/nominatim/"""
-
-    latitude = None
-    longitude = None
-    osm_identifier = get_app_config().osm_identifier
-    geolocator = Nominatim(user_agent=osm_identifier)
-
-    try:
-        search_location = geolocator.geocode(address_string, timeout=10000)
-        logging.info(f'geo_location by osm: {search_location}')
-        if search_location:
-            latitude, longitude = search_location.latitude, search_location.longitude
-
-    except Exception as e6:
-        logging.info(f'Error in func get_coordinates_from_address_by_osm for address: {address_string}. Repr: ')
-        logging.exception(e6)
-        notify_admin('ERROR: get_coords_from_address failed.')
-
-    return latitude, longitude
-
-
-def get_coordinates_from_address_by_yandex(address_string: str) -> tuple[float | None, float | None]:
-    """return coordinates on the request of address string, geocoded by yandex"""
-
-    latitude = None
-    longitude = None
-    yandex_api_key = get_app_config().yandex_api_key
-    yandex_client = Client(yandex_api_key)
-
-    try:
-        coordinates = yandex_client.coordinates(address_string)
-        logging.info(f'geo_location by yandex: {coordinates}')
-    except Exception as e2:
-        coordinates = None
-        if isinstance(e2, exceptions.NothingFound):
-            logging.info(f'address "{address_string}" not found by yandex')
-        elif (
-            isinstance(e2, exceptions.YandexGeocoderException)
-            or isinstance(e2, exceptions.UnexpectedResponse)
-            or isinstance(e2, exceptions.InvalidKey)
-        ):
-            logging.info('unexpected yandex error')
-        else:
-            logging.info('unexpected error:')
-            logging.exception(e2)
-
-    if coordinates:
-        longitude, latitude = float(coordinates[0]), float(coordinates[1])
-
-    return latitude, longitude
 
 
 def get_coordinates_by_address(db: Engine, address: str) -> Tuple[None, None]:
@@ -720,72 +639,18 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
 
         """1. move UPD to Change Log"""
         change_log_updates_list: list[ChangeLogLine] = []
-        there_are_inforg_comments = False
 
         for snapshot_line in curr_snapshot_list:
             for searches_line in prev_searches_list:
                 if snapshot_line.topic_id != searches_line.topic_id:
-                    continue
+                    continue  # TODO we are merging two lists here. It's slow.
 
-                if snapshot_line.status != searches_line.status:
-                    change_log_line = ChangeLogLine(
-                        parsed_time=snapshot_line.parsed_time,
-                        topic_id=snapshot_line.topic_id,
-                        changed_field='status_change',
-                        new_value=snapshot_line.status,
-                        parameters='',
-                        change_type=1,  # TODO use change_type_id in enum from compose_notifications
-                    )
+                changes = _detect_changes(db, snapshot_line, searches_line)
+                change_log_updates_list.extend(changes)
 
-                    change_log_updates_list.append(change_log_line)
-
-                if snapshot_line.title != searches_line.title:
-                    change_log_line = ChangeLogLine(
-                        parsed_time=snapshot_line.parsed_time,
-                        topic_id=snapshot_line.topic_id,
-                        changed_field='title_change',
-                        new_value=snapshot_line.title,
-                        parameters='',
-                        change_type=2,
-                    )
-
-                    change_log_updates_list.append(change_log_line)
-
-                if snapshot_line.num_of_replies > searches_line.num_of_replies:
-                    change_log_line = ChangeLogLine(
-                        parsed_time=snapshot_line.parsed_time,
-                        topic_id=snapshot_line.topic_id,
-                        changed_field='replies_num_change',
-                        new_value=snapshot_line.num_of_replies,
-                        parameters='',
-                        change_type=3,
-                    )
-
-                    change_log_updates_list.append(change_log_line)
-
-                    for k in range(snapshot_line.num_of_replies - searches_line.num_of_replies):
-                        flag_if_comment_was_from_inforg = parse_one_comment(
-                            db, snapshot_line.topic_id, searches_line.num_of_replies + 1 + k
-                        )
-                        if flag_if_comment_was_from_inforg:
-                            there_are_inforg_comments = True
-
-                    if there_are_inforg_comments:
-                        change_log_line = ChangeLogLine(
-                            parsed_time=snapshot_line.parsed_time,
-                            topic_id=snapshot_line.topic_id,
-                            changed_field='inforg_replies',
-                            new_value=snapshot_line.num_of_replies,
-                            parameters='',
-                            change_type=4,
-                        )
-
-                        change_log_updates_list.append(change_log_line)
-
-        if change_log_updates_list:
-            for line in change_log_updates_list:  # TODO
-                change_log_id = _write_change_log(conn, line)
-                change_log_ids.append(change_log_id)
+        for line in change_log_updates_list:  # TODO
+            change_log_id = _write_change_log(conn, line)
+            change_log_ids.append(change_log_id)
 
         """2. move ADD to Change Log """
         new_topics_from_snapshot_list: list[SearchSummary] = []
@@ -804,7 +669,7 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
 
         for snapshot_line in new_topics_from_snapshot_list:
             change_type_id = 0
-            change_type_name = 'new_search'
+            change_type_name = 'new_search'  # TODO enum from existing in compose_notifications
 
             change_log_line = ChangeLogLine(
                 parsed_time=snapshot_line.parsed_time,
@@ -822,19 +687,18 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
                 change_log_ids.append(change_log_id)
 
         """3. ADD to Searches"""
-        if new_topics_from_snapshot_list:
-            for line in new_topics_from_snapshot_list:
-                _write_search(conn, line)
+        for line in new_topics_from_snapshot_list:
+            _write_search(conn, line)
 
-                search_num = line.topic_id
-                parsed_profile_text = parse_search_profile(search_num)
-                search_activities = profile_get_type_of_activity(parsed_profile_text)
-                _update_search_activities(conn, search_num, search_activities)
+            search_num = line.topic_id
+            parsed_profile_text = parse_search_profile(search_num)
+            search_activities = profile_get_type_of_activity(parsed_profile_text)
+            _update_search_activities(conn, search_num, search_activities)
 
-                # Define managers of the search
-                managers = profile_get_managers(parsed_profile_text)
-                logging.debug(f'DBG.P.104:Managers: {managers}')
-                _update_search_managers(conn, search_num, managers)
+            # Define managers of the search
+            managers = profile_get_managers(parsed_profile_text)
+            logging.debug(f'DBG.P.104:Managers: {managers}')
+            _update_search_managers(conn, search_num, managers)
 
         """4 DEL UPD from Searches"""
         searches_to_delete = []
@@ -870,15 +734,72 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
             for line in new_topics_from_snapshot_list:
                 _write_search(conn, line)
 
-        conn.close()
-
     # DEBUG - function execution time counter
     func_finish = datetime.now()
     func_execution_time_ms = func_finish - func_start
     logging.info(f'DBG.P.5.process_delta() exec time: {func_execution_time_ms}')
-    # DEBUG - function execution time counter
 
     return change_log_ids
+
+
+def _detect_changes(db: Engine, snapshot_line: SearchSummary, searches_line: SearchSummary) -> list[ChangeLogLine]:
+    change_log_updates_list: list[ChangeLogLine] = []
+    there_are_inforg_comments = False
+    if snapshot_line.status != searches_line.status:
+        change_log_line = ChangeLogLine(
+            parsed_time=snapshot_line.parsed_time,
+            topic_id=snapshot_line.topic_id,
+            changed_field='status_change',
+            new_value=snapshot_line.status,
+            parameters='',
+            change_type=1,  # TODO use change_type_id in enum from compose_notifications
+        )
+
+        change_log_updates_list.append(change_log_line)
+
+    if snapshot_line.title != searches_line.title:
+        change_log_line = ChangeLogLine(
+            parsed_time=snapshot_line.parsed_time,
+            topic_id=snapshot_line.topic_id,
+            changed_field='title_change',
+            new_value=snapshot_line.title,
+            parameters='',
+            change_type=2,
+        )
+
+        change_log_updates_list.append(change_log_line)
+
+    if snapshot_line.num_of_replies > searches_line.num_of_replies:
+        change_log_line = ChangeLogLine(
+            parsed_time=snapshot_line.parsed_time,
+            topic_id=snapshot_line.topic_id,
+            changed_field='replies_num_change',
+            new_value=snapshot_line.num_of_replies,
+            parameters='',
+            change_type=3,
+        )
+
+        change_log_updates_list.append(change_log_line)
+
+        for k in range(snapshot_line.num_of_replies - searches_line.num_of_replies):
+            flag_if_comment_was_from_inforg = parse_one_comment(
+                db, snapshot_line.topic_id, searches_line.num_of_replies + 1 + k
+            )
+            if flag_if_comment_was_from_inforg:
+                there_are_inforg_comments = True
+
+        if there_are_inforg_comments:
+            change_log_line = ChangeLogLine(
+                parsed_time=snapshot_line.parsed_time,
+                topic_id=snapshot_line.topic_id,
+                changed_field='inforg_replies',
+                new_value=snapshot_line.num_of_replies,
+                parameters='',
+                change_type=4,
+            )
+
+            change_log_updates_list.append(change_log_line)
+    return change_log_updates_list
 
 
 def update_checker(current_hash, folder_num):

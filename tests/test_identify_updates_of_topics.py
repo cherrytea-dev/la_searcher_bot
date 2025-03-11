@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
+import identify_updates_of_topics._utils.external_api
 import identify_updates_of_topics._utils.forum
 from _dependencies.commons import sqlalchemy_get_pool
 from identify_updates_of_topics import main
@@ -64,7 +65,7 @@ def test_get_cordinates(db):
 def test_rate_limit_for_api(db):
     data = 'Москва, Ярославское шоссе 123'
 
-    main.rate_limit_for_api(db, data)
+    identify_updates_of_topics._utils.external_api.rate_limit_for_api(db, data)
 
 
 def test_parse_one_folder(db, mock_http_get):
