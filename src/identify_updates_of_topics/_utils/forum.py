@@ -200,10 +200,13 @@ class ForumClient:
         )
 
     def _get_topic_content(self, search_num: int) -> bytes:
-        url = f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
+        url = self._get_topic_url(search_num)
         resp = self.session.get(url, timeout=10)  # for every folder - req'd daily at night forum update # noqa
         resp.raise_for_status()
         return resp.content
+
+    def _get_topic_url(self, search_num: int) -> str:
+        return f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
 
     def parse_search_profile(self, search_num: int) -> str | None:
         """get raw search text"""
@@ -231,3 +234,210 @@ class ForumClient:
         logging.debug('DBG.Profile:' + left_text)
 
         return left_text
+
+    def parse_coordinates_of_search(self, search_num) -> tuple[float, float, str, str]:
+        """finds coordinates of the search"""
+        url_to_topic = self._get_topic_url(search_num)
+        lat = 0
+        lon = 0
+        coord_type = ''
+        search_code_blocks = None
+        title = ''
+
+        try:
+            content = self._get_topic_content(search_num)
+            if not visibility_check_content(content, search_num):
+                return [0, 0, '', '']
+        except Exception as e:
+            logging.exception('Can`t get topic %s', url_to_topic)
+            return [0, 0, '', '']
+
+        try:
+            soup = BeautifulSoup(content, features='html.parser')
+
+            # parse title
+            title_code = soup.find('h2', {'class': 'topic-title'})
+            title = title_code.text
+
+            # open the first post
+            search_code_blocks = soup.find('div', 'content')
+
+            if not search_code_blocks:
+                return [lat, lon, coord_type, title]
+
+            # removing <br> tags
+            for e in search_code_blocks.findAll('br'):
+                e.extract()
+
+        except Exception as e:
+            logging.info(f'unable to parse a specific thread with address {url_to_topic} error is {repr(e)}')
+
+        if not search_code_blocks:
+            return [0, 0, '', '']
+
+        # FIRST CASE = THERE ARE COORDINATES w/ a WORD Coordinates
+        lat, lon, coord_type = parse_coords_case_1(search_code_blocks)
+
+        # SECOND CASE = THERE ARE COORDINATES w/o a WORD Coordinates
+        if lat == 0:
+            # make an independent variable
+            lat, lon, coord_type = _parse_coords_case_2(search_code_blocks)
+
+        # THIRD CASE = DELETED COORDINATES
+        if lat == 0:
+            # make an independent variable
+            lat, lon, coord_type = _parse_coords_case_3(search_code_blocks)
+        return [lat, lon, coord_type, title]
+
+
+def parse_coords_case_1(search_code_blocks: BeautifulSoup) -> tuple[float, float, str]:
+    lat, lon, coord_type = 0, 0, ''
+    try:
+        # make an independent variable
+        a = copy.copy(search_code_blocks)
+
+        # remove a text with strike-through
+        b = a.find_all('span', {'style': 'text-decoration:line-through'})
+        for i in range(len(b)):
+            b[i].decompose()
+
+            # preparing a list of 100-character strings which starts with Coord mentioning
+        e = []
+        i = 0
+        f = str(a).lower()
+
+        while i < len(f):
+            if f[i:].find('коорд') > 0:
+                d = i + f[i:].find('коорд')
+                e.append(f[d : (d + 100)])
+                if d == 0 or d == -1:
+                    i = len(f)
+                else:
+                    i = d + 1
+            else:
+                i = len(f)
+
+            # extract exact numbers & match if they look like coordinates
+        for i in range(len(e)):
+            g = [float(s) for s in re.findall(r'-?\d+\.?\d*', e[i])]
+            if len(g) > 1:
+                for j in range(len(g) - 1):
+                    try:
+                        # Majority of coords in RU: lat in [40-80], long in [20-180], expected min format = XX.XXX
+                        if (
+                            3 < (g[j] // 10) < 8
+                            and len(str(g[j])) > 5
+                            and 1 < (g[j + 1] // 10) < 19
+                            and len(str(g[j + 1])) > 5
+                        ):
+                            lat = g[j]
+                            lon = g[j + 1]
+                            coord_type = '1. coordinates w/ word coord'
+                    except Exception as e2:
+                        logging.exception('DBG.P.36.EXC. Coords-1:')
+
+    except Exception as e:
+        logging.exception('Can`t get coorditates from search_code_blocks')
+    return lat, lon, coord_type
+
+
+def _parse_coords_case_2(search_code_blocks: BeautifulSoup) -> tuple[float, float, str]:
+    lat, lon, coord_type = 0, 0, ''
+    a = copy.copy(search_code_blocks)
+
+    try:
+        # remove a text with strike-through
+        b = a.find_all('span', {'style': 'text-decoration:line-through'})
+        for i in range(len(b)):
+            b[i].decompose()
+
+            # removing <span> tags
+        for e in a.findAll('span'):
+            e.replace_with(e.text)
+
+            # removing <img> tags
+        for e in a.findAll('img'):
+            e.extract()
+
+            # removing <a> tags
+        for e in a.findAll('a'):
+            e.extract()
+
+            # removing <strong> tags
+        for e in a.findAll('strong'):
+            e.replace_with(e.text)
+
+            # converting to string
+        b = re.sub(r'\n\s*\n', r' ', a.get_text().strip(), flags=re.M)
+        c = re.sub(r'\n', r' ', b)
+        g = [float(s) for s in re.findall(r'-?\d+\.?\d*', c)]
+        if len(g) > 1:
+            for j in range(len(g) - 1):
+                try:
+                    # Majority of coords in RU: lat in [40-80], long in [20-180], expected min format = XX.XXX
+                    if (
+                        3 < (g[j] // 10) < 8
+                        and len(str(g[j])) > 5
+                        and 1 < (g[j + 1] // 10) < 19
+                        and len(str(g[j + 1])) > 5
+                    ):
+                        lat = g[j]
+                        lon = g[j + 1]
+                        coord_type = '2. coordinates w/o word coord'
+                except Exception as e2:
+                    logging.exception('DBG.P.36.EXC. Coords-2:')
+    except Exception as e:
+        logging.info('Exception 2')
+        logging.exception(e)
+        pass
+    return lat, lon, coord_type
+
+
+def _parse_coords_case_3(search_code_blocks: BeautifulSoup) -> tuple[float, float, str]:
+    lat, lon, coord_type = 0, 0, ''
+
+    a = copy.copy(search_code_blocks)
+
+    try:
+        # get a text with strike-through
+        a = a.find_all('span', {'style': 'text-decoration:line-through'})
+        if a:
+            for line in a:
+                b = re.sub(r'\n\s*\n', r' ', line.get_text().strip(), flags=re.M)
+                c = re.sub(r'\n', r' ', b)
+                g = [float(s) for s in re.findall(r'-?\d+\.?\d*', c)]
+                if len(g) > 1:
+                    for j in range(len(g) - 1):
+                        try:
+                            # Majority of coords in RU: lat in [40-80], long in [20-180],
+                            # expected minimal format = XX.XXX
+                            if (
+                                3 < (g[j] // 10) < 8
+                                and len(str(g[j])) > 5
+                                and 1 < (g[j + 1] // 10) < 19
+                                and len(str(g[j + 1])) > 5
+                            ):
+                                lat = g[j]
+                                lon = g[j + 1]
+                                coord_type = '3. deleted coord'
+                        except Exception as e2:
+                            logging.info('DBG.P.36.EXC. Coords-1:')
+                            logging.exception(e2)
+    except Exception as e:
+        logging.info('exception:')
+        logging.exception(e)
+        pass
+    return lat, lon, coord_type
+
+    # requests_session = get_requests_session()
+
+    # # DEBUG - function execution time counter
+    # func_start = datetime.now()
+
+    # url_to_topic = f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
+
+    # lat = 0
+    # lon = 0
+    # coord_type = ''
+    # search_code_blocks = None
+    # title = None

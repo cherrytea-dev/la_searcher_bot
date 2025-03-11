@@ -2,13 +2,12 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-import requests
 
 import identify_updates_of_topics._utils.external_api
 import identify_updates_of_topics._utils.forum
 from _dependencies.commons import sqlalchemy_get_pool
 from identify_updates_of_topics import main
-from identify_updates_of_topics._utils import parse
+from identify_updates_of_topics._utils import forum, parse
 from tests.common import get_event_with_data
 from title_recognize.main import recognize_title
 
@@ -84,7 +83,7 @@ def test_process_one_folder(db, mock_http_get):
     mock_http_get.return_value.content = Path('tests/fixtures/forum_folder_276.html').read_bytes()
 
     forum_search_folder_id = 276
-    with patch.object(main, 'parse_search_profile', Mock(return_value='foo')):
+    with patch.object(forum.ForumClient, 'parse_search_profile', Mock(return_value='foo')):
         update_trigger, changed_ids = main.process_one_folder(db, forum_search_folder_id)
     assert update_trigger is True
 
@@ -94,7 +93,7 @@ def test_main_full_scenario(mock_http_get):
 
     forum_search_folder_id = 276
     data = [(forum_search_folder_id,)]
-    with patch.object(main, 'parse_search_profile', Mock(return_value='foo')):
+    with patch.object(forum.ForumClient, 'parse_search_profile', Mock(return_value='foo')):
         main.main(get_event_with_data(str(data)), 'context')
 
 
