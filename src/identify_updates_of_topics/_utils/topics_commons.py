@@ -4,6 +4,8 @@ from typing import Any
 
 from requests import Session
 
+from _dependencies.commons import ChangeType, TopicType
+
 
 @lru_cache
 def get_requests_session() -> Session:
@@ -18,10 +20,10 @@ block_of_profile_rough_code = None
 class ChangeLogLine:
     parsed_time: Any = None
     topic_id: Any = None
-    changed_field: Any = None
+    changed_field: Any = None  # maybe obsolete too
     new_value: Any = None
-    parameters: Any = None
-    change_type: Any = None
+    parameters: Any = None  # obsolete
+    change_type: ChangeType = None
 
 
 @dataclass

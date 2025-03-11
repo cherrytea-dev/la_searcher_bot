@@ -16,7 +16,7 @@ from google.cloud.storage.blob import Blob
 from psycopg2.extensions import connection
 from sqlalchemy.engine.base import Engine
 
-from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
+from _dependencies.commons import ChangeType, Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
 from _dependencies.misc import generate_random_function_id, make_api_call, notify_admin, process_pubsub_message_v3
 from identify_updates_of_topics._utils.database import (
     _delete_search,
@@ -529,7 +529,7 @@ def parse_one_folder(db: Engine, folder_id) -> Tuple[List, List[SearchSummary]]:
     return titles_and_num_of_replies, folder_summary
 
 
-def parse_one_comment(db: Engine, search_num, comment_num) -> bool:
+def parse_one_comment(db: Engine, search_num, comment_num: int) -> bool:
     """parse all details on a specific comment in topic (by sequence number)"""
 
     requests_session = get_requests_session()
@@ -752,7 +752,7 @@ def _detect_changes(db: Engine, snapshot_line: SearchSummary, searches_line: Sea
             changed_field='status_change',
             new_value=snapshot_line.status,
             parameters='',
-            change_type=1,  # TODO use change_type_id in enum from compose_notifications
+            change_type=ChangeType.topic_status_change,
         )
 
         change_log_updates_list.append(change_log_line)
@@ -764,7 +764,7 @@ def _detect_changes(db: Engine, snapshot_line: SearchSummary, searches_line: Sea
             changed_field='title_change',
             new_value=snapshot_line.title,
             parameters='',
-            change_type=2,
+            change_type=ChangeType.topic_title_change,
         )
 
         change_log_updates_list.append(change_log_line)
@@ -776,7 +776,7 @@ def _detect_changes(db: Engine, snapshot_line: SearchSummary, searches_line: Sea
             changed_field='replies_num_change',
             new_value=snapshot_line.num_of_replies,
             parameters='',
-            change_type=3,
+            change_type=ChangeType.topic_comment_new,
         )
 
         change_log_updates_list.append(change_log_line)
@@ -784,7 +784,7 @@ def _detect_changes(db: Engine, snapshot_line: SearchSummary, searches_line: Sea
         for k in range(snapshot_line.num_of_replies - searches_line.num_of_replies):
             flag_if_comment_was_from_inforg = parse_one_comment(
                 db, snapshot_line.topic_id, searches_line.num_of_replies + 1 + k
-            )
+            )  # TODO could extract out of here?
             if flag_if_comment_was_from_inforg:
                 there_are_inforg_comments = True
 
@@ -795,33 +795,27 @@ def _detect_changes(db: Engine, snapshot_line: SearchSummary, searches_line: Sea
                 changed_field='inforg_replies',
                 new_value=snapshot_line.num_of_replies,
                 parameters='',
-                change_type=4,
+                change_type=ChangeType.topic_inforg_comment_new,
             )
 
             change_log_updates_list.append(change_log_line)
     return change_log_updates_list
 
 
-def update_checker(current_hash, folder_num):
+def update_checker(current_hash: str, folder_num: int) -> bool:
     """compare prev snapshot and freshly-parsed snapshot, returns NO or YES and Previous hash"""
 
-    # pre-set default output from the function
-    upd_trigger = False
     folder_hash_storage = CloudStorage()
 
-    # read the previous snapshot from Storage and save it as output[1]
     previous_hash = folder_hash_storage.read_folder_hash(folder_num)
+    if current_hash == previous_hash:
+        return False
 
-    # if new snapshot differs from the old one – then let's update the old with the new one
-    if current_hash != previous_hash:
-        # update hash in Storage
-        folder_hash_storage.write_folder_hash(current_hash, folder_num)
+    # update hash in Storage
+    folder_hash_storage.write_folder_hash(current_hash, folder_num)
+    logging.info(f'folder = {folder_num}, hash is updated, prev snapshot as string = {previous_hash}')
 
-        upd_trigger = True
-
-    logging.info(f'folder = {folder_num}, update trigger = {upd_trigger}, prev snapshot as string = {previous_hash}')
-
-    return upd_trigger
+    return True
 
 
 def process_one_folder(db: Engine, folder_to_parse: str) -> Tuple[bool, List]:
@@ -833,30 +827,28 @@ def process_one_folder(db: Engine, folder_to_parse: str) -> Tuple[bool, List]:
     titles_and_num_of_replies, new_folder_summary = parse_one_folder(db, folder_to_parse)
 
     update_trigger = False
-    debug_message = f'folder {folder_to_parse} has NO new updates'
 
-    if new_folder_summary:
-        # transform the current snapshot into the string to be able to compare it: string vs string
-        curr_snapshot_as_one_dimensional_list = [y for x in titles_and_num_of_replies for y in x]
-        curr_snapshot_as_string = ','.join(map(str, curr_snapshot_as_one_dimensional_list))
+    if not new_folder_summary:
+        return False, []
 
-        # get the prev snapshot as string from cloud storage & get the trigger if there are updates at all
-        update_trigger = update_checker(curr_snapshot_as_string, folder_to_parse)
+    # transform the current snapshot into the string to be able to compare it: string vs string
+    curr_snapshot_as_one_dimensional_list = [y for x in titles_and_num_of_replies for y in x]
+    curr_snapshot_as_string = ','.join(map(str, curr_snapshot_as_one_dimensional_list))
 
-        # only for case when current snapshot differs from previous
-        if update_trigger:
-            debug_message = f'folder {folder_to_parse} HAS an update'
+    # get the prev snapshot as string from cloud storage & get the trigger if there are updates at all
+    update_trigger = update_checker(curr_snapshot_as_string, folder_to_parse)
 
-            rewrite_snapshot_in_sql(db, folder_to_parse, new_folder_summary)
+    if not update_trigger:
+        return False, []
 
-            logging.info(f'starting updating change_log and searches tables for folder {folder_to_parse}')
+    rewrite_snapshot_in_sql(db, folder_to_parse, new_folder_summary)
 
-            change_log_ids = update_change_log_and_searches(db, folder_to_parse)
-            update_coordinates(db, new_folder_summary)
+    logging.info(f'starting updating change_log and searches tables for folder {folder_to_parse}')
 
-    logging.info(debug_message)
+    change_log_ids = update_change_log_and_searches(db, folder_to_parse)
+    update_coordinates(db, new_folder_summary)
 
-    return update_trigger, change_log_ids
+    return True, change_log_ids
 
 
 def main(event, context) -> None:  # noqa
