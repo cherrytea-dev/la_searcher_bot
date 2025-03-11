@@ -24,6 +24,7 @@ from _dependencies.misc import generate_random_function_id, make_api_call, notif
 from identify_updates_of_topics._utils.database import (
     _get_current_snapshots_list,
     _get_prev_searches,
+    _write_change_log_1,
     _write_search,
     get_geolocation_form_psql,
     get_last_api_call_time_from_psql,
@@ -778,22 +779,9 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
                         change_log_updates_list.append(change_log_line)
 
         if change_log_updates_list:
-            stmt = sqlalchemy.text(
-                """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters,
-                change_type) values (:a, :b, :c, :d, :e, :f) RETURNING id;"""
-            )
-
             for line in change_log_updates_list:  # TODO
-                raw_data = conn.execute(
-                    stmt,
-                    a=line.parsed_time,
-                    b=line.topic_id,
-                    c=line.changed_field,
-                    d=line.new_value,
-                    e=line.parameters,
-                    f=line.change_type,
-                ).fetchone()
-                change_log_ids.append(raw_data[0])
+                change_log_id = _write_change_log_1(conn, line)
+                change_log_ids.append(change_log_id)
 
         """2. move ADD to Change Log """
         new_topics_from_snapshot_list: list[SearchSummary] = []
@@ -825,20 +813,9 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
             change_log_new_topics_list.append(change_log_line)
 
         if change_log_new_topics_list:
-            stmt = sqlalchemy.text(
-                """INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type)
-                values (:a, :b, :c, :d, :e) RETURNING id;"""
-            )
             for line in change_log_new_topics_list:
-                raw_data = conn.execute(
-                    stmt,
-                    a=line.parsed_time,
-                    b=line.topic_id,
-                    c=line.changed_field,
-                    d=line.new_value,
-                    e=line.change_type,
-                ).fetchone()
-                change_log_ids.append(raw_data[0])
+                change_log_id = _write_change_log_1(conn, line)
+                change_log_ids.append(change_log_id)
 
         """3. ADD to Searches"""
         if new_topics_from_snapshot_list:

@@ -8,7 +8,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.engine.base import Engine
 
 from _dependencies.misc import notify_admin
-from identify_updates_of_topics._utils.topics_commons import SearchSummary
+from identify_updates_of_topics._utils.topics_commons import ChangeLogLine, SearchSummary
 
 
 def save_function_into_register(db: Engine, context, start_time, function_id, change_log_ids):
@@ -405,3 +405,23 @@ def _get_prev_searches(conn: connection) -> list[SearchSummary]:
         )
         prev_searches_list.append(search)
     return prev_searches_list
+
+
+def _write_change_log_1(conn: connection, line: ChangeLogLine) -> int:
+    # TODO field "parameters is obsolete"
+    stmt = sqlalchemy.text("""
+        INSERT INTO change_log 
+            (parsed_time, search_forum_num, changed_field, new_value, parameters, change_type) 
+            values (:a, :b, :c, :d, :e, :f) 
+        RETURNING id;
+                           """)
+    raw_data = conn.execute(
+        stmt,
+        a=line.parsed_time,
+        b=line.topic_id,
+        c=line.changed_field,
+        d=line.new_value,
+        e=line.parameters,
+        f=line.change_type,
+    ).fetchone()
+    return raw_data[0]
