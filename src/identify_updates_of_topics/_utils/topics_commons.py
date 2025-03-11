@@ -29,7 +29,7 @@ class ChangeLogLine:
 @dataclass
 class SearchSummary:
     topic_type: Any = None
-    topic_type_id: Any = None
+    topic_type_id: TopicType = None
     topic_id: Any = None
     parsed_time: Any = None
     status: Any = None

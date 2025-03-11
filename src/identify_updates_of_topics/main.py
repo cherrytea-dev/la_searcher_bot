@@ -1,6 +1,8 @@
 """Script takes as input the list of recently-updated forum folders. Then it parses first 20 searches (aka topics)
 and saves into PSQL if there are any updates"""
 
+from dataclasses import dataclass
+
 import ast
 import copy
 import logging
@@ -16,7 +18,14 @@ from google.cloud.storage.blob import Blob
 from psycopg2.extensions import connection
 from sqlalchemy.engine.base import Engine
 
-from _dependencies.commons import ChangeType, Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
+from _dependencies.commons import (
+    ChangeType,
+    TopicType,
+    Topics,
+    publish_to_pubsub,
+    setup_google_logging,
+    sqlalchemy_get_pool,
+)
 from _dependencies.misc import generate_random_function_id, make_api_call, notify_admin, process_pubsub_message_v3
 from identify_updates_of_topics._utils.database import (
     _delete_search,
@@ -380,29 +389,30 @@ def sql_connect() -> sqlalchemy.engine.Engine:
     return sqlalchemy_get_pool(5, 120)
 
 
-def parse_one_folder(db: Engine, folder_id) -> Tuple[List, List[SearchSummary]]:
-    """parse forum folder with searches' summaries"""
+@dataclass
+class ForumFolderContentItem:
+    search_title: str
+    search_id: int
+    search_replies_num: int
+    start_datetime: Any
 
-    requests_session = get_requests_session()
 
-    topic_type_dict = {'search': 0, 'search reverse': 1, 'search patrol': 2, 'search training': 3, 'event': 10}
+class ForumClient:
+    def _get_folder_content(self, folder_id) -> bytes:
+        requests_session = get_requests_session()
+        url = f'https://lizaalert.org/forum/viewforum.php?f={folder_id}'
+        resp = requests_session.get(url, timeout=10)  # for every folder - req'd daily at night forum update # noqa
+        resp.raise_for_status()
+        return resp.content
 
-    # TODO - "topics_summary_in_folder" – is an old type of list, which was deprecated as an outcome of this script,
-    #  now we need to delete it completely
-    topics_summary_in_folder = []
-    titles_and_num_of_replies = []
-    folder_summary: list[SearchSummary] = []
-    current_datetime = datetime.now()
-    url = f'https://lizaalert.org/forum/viewforum.php?f={folder_id}'
-    try:
-        r = requests_session.get(url, timeout=10)  # for every folder - req'd daily at night forum update # noqa
-
+    def get_folder_content(self, folder_id: int) -> list[ForumFolderContentItem]:
+        content = self._get_folder_content(folder_id)
         only_tag = SoupStrainer('div', {'class': 'forumbg'})
-        soup = BeautifulSoup(r.content, features='lxml', parse_only=only_tag)
-        del r  # trying to free up memory
+        soup = BeautifulSoup(content, features='lxml', parse_only=only_tag)
         search_code_blocks = soup.find_all('dl', 'row-item')
         del soup  # trying to free up memory
 
+        summaries: list[ForumFolderContentItem] = []
         for i, data_block in enumerate(search_code_blocks):
             # First block is always not one we want
             if i == 0:
@@ -420,7 +430,35 @@ def parse_one_folder(db: Engine, folder_id) -> Tuple[List, List[SearchSummary]]:
             search_replies_num = int(data_block.find('dd', 'posts').next_element)
             start_datetime = define_start_time_of_search(data_block)
 
-            data = {'title': search_title}
+            summaries.append(ForumFolderContentItem(search_title, search_id, search_replies_num, start_datetime))
+
+        del search_code_blocks
+
+        return summaries
+
+
+def parse_one_folder(db: Engine, folder_id) -> Tuple[List, List[SearchSummary]]:
+    """parse forum folder with searches' summaries"""
+
+    topic_type_dict = {
+        'search': TopicType.search_regular,
+        'search reverse': TopicType.search_reverse,
+        'search patrol': TopicType.search_patrol,
+        'search training': TopicType.search_training,
+        'event': TopicType.event,
+    }
+
+    # TODO - "topics_summary_in_folder" – is an old type of list, which was deprecated as an outcome of this script,
+    #  now we need to delete it completely
+    topics_summary_in_folder = []
+    titles_and_num_of_replies = []
+    folder_summary: list[SearchSummary] = []
+    current_datetime = datetime.now()
+    forum_client = ForumClient()
+    folder_content_items = forum_client.get_folder_content(folder_id)
+    try:
+        for forum_search_item in folder_content_items:
+            data = {'title': forum_search_item.search_title}
             try:
                 title_reco_response = make_api_call('title_recognize', data)  # TODO can use local call in tests
 
@@ -457,10 +495,10 @@ def parse_one_folder(db: Engine, folder_id) -> Tuple[List, List[SearchSummary]]:
 
                     search_summary_object = SearchSummary(
                         parsed_time=current_datetime,
-                        topic_id=search_id,
-                        title=search_title,
-                        start_time=start_datetime,
-                        num_of_replies=search_replies_num,
+                        topic_id=forum_search_item.search_id,
+                        title=forum_search_item.search_title,
+                        start_time=forum_search_item.start_datetime,
+                        num_of_replies=forum_search_item.search_replies_num,
                         name=person_fam_name,
                         folder_id=folder_id,
                     )
@@ -495,19 +533,19 @@ def parse_one_folder(db: Engine, folder_id) -> Tuple[List, List[SearchSummary]]:
 
                     search_summary = [
                         current_datetime,
-                        search_id,
+                        forum_search_item.search_id,
                         search_summary_object.status,
-                        search_title,
+                        forum_search_item.search_title,
                         '',
-                        start_datetime,
-                        search_replies_num,
+                        forum_search_item.start_datetime,
+                        forum_search_item.search_replies_num,
                         search_summary_object.age_min,
                         person_fam_name,
                         folder_id,
                     ]
                     topics_summary_in_folder.append(search_summary)
 
-                    parsed_wo_date = [search_title, search_replies_num]
+                    parsed_wo_date = [forum_search_item.search_title, forum_search_item.search_replies_num]
                     titles_and_num_of_replies.append(parsed_wo_date)
 
             except Exception as e:
@@ -515,8 +553,6 @@ def parse_one_folder(db: Engine, folder_id) -> Tuple[List, List[SearchSummary]]:
                 notify_admin(f'TEMP - THIS BIG ERROR HAPPENED, {data=}, {type(data)=}')
                 logging.error(e)
                 logging.exception(e)
-
-        del search_code_blocks
 
     # To catch timeout once a day in the night
     except (requests.exceptions.Timeout, ConnectionResetError, Exception) as e:
@@ -529,7 +565,7 @@ def parse_one_folder(db: Engine, folder_id) -> Tuple[List, List[SearchSummary]]:
     return titles_and_num_of_replies, folder_summary
 
 
-def parse_one_comment(db: Engine, search_num, comment_num: int) -> bool:
+def parse_and_write_one_comment(db: Engine, search_num, comment_num: int) -> bool:
     """parse all details on a specific comment in topic (by sequence number)"""
 
     requests_session = get_requests_session()
@@ -598,7 +634,7 @@ def parse_one_comment(db: Engine, search_num, comment_num: int) -> bool:
         # Define exclusions (comments of Inforg with "резерв" and "рассылка билайн"
         ignore = False
         if there_are_inforg_comments:
-            if comment_text.lower()[0:6] == 'резерв' or comment_text.lower()[0:15] == 'рассылка билайн':
+            if comment_text.lower().endswith('резерв') or comment_text.lower().endswith('рассылка билайн'):
                 ignore = True
 
         write_comment(
@@ -782,7 +818,7 @@ def _detect_changes(db: Engine, snapshot_line: SearchSummary, searches_line: Sea
         change_log_updates_list.append(change_log_line)
 
         for k in range(snapshot_line.num_of_replies - searches_line.num_of_replies):
-            flag_if_comment_was_from_inforg = parse_one_comment(
+            flag_if_comment_was_from_inforg = parse_and_write_one_comment(
                 db, snapshot_line.topic_id, searches_line.num_of_replies + 1 + k
             )  # TODO could extract out of here?
             if flag_if_comment_was_from_inforg:

@@ -101,7 +101,7 @@ def test_main_full_scenario(mock_http_get):
 def test_parse_one_comment(db, mock_http_get):
     mock_http_get.return_value.content = Path('tests/fixtures/forum_comment.html').read_bytes()
 
-    there_are_inforg_comments = main.parse_one_comment(db, 1, 1)
+    there_are_inforg_comments = main.parse_and_write_one_comment(db, 1, 1)
     assert there_are_inforg_comments
 
 
