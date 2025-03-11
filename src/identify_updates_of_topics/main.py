@@ -22,9 +22,13 @@ from yandex_geocoder import Client, exceptions
 from _dependencies.commons import Topics, get_app_config, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
 from _dependencies.misc import generate_random_function_id, make_api_call, notify_admin, process_pubsub_message_v3
 from identify_updates_of_topics._utils.database import (
+    _delete_search,
+    _get_current_searches,
     _get_current_snapshots_list,
     _get_prev_searches,
-    _write_change_log_1,
+    _update_search_activities,
+    _update_search_managers,
+    _write_change_log,
     _write_search,
     get_geolocation_form_psql,
     get_last_api_call_time_from_psql,
@@ -730,7 +734,7 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
                         changed_field='status_change',
                         new_value=snapshot_line.status,
                         parameters='',
-                        change_type=1,
+                        change_type=1,  # TODO use change_type_id in enum from compose_notifications
                     )
 
                     change_log_updates_list.append(change_log_line)
@@ -780,7 +784,7 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
 
         if change_log_updates_list:
             for line in change_log_updates_list:  # TODO
-                change_log_id = _write_change_log_1(conn, line)
+                change_log_id = _write_change_log(conn, line)
                 change_log_ids.append(change_log_id)
 
         """2. move ADD to Change Log """
@@ -814,7 +818,7 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
 
         if change_log_new_topics_list:
             for line in change_log_new_topics_list:
-                change_log_id = _write_change_log_1(conn, line)
+                change_log_id = _write_change_log(conn, line)
                 change_log_ids.append(change_log_id)
 
         """3. ADD to Searches"""
@@ -823,43 +827,17 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
                 _write_search(conn, line)
 
                 search_num = line.topic_id
-
                 parsed_profile_text = parse_search_profile(search_num)
                 search_activities = profile_get_type_of_activity(parsed_profile_text)
-
-                logging.info(f'DBG.P.103:Search activities: {search_activities}')
-
-                # mark all old activities as deactivated
-                sql_text = sqlalchemy.text(
-                    """UPDATE search_activities SET activity_status = 'deactivated' WHERE search_forum_num=:a; """
-                )
-                conn.execute(sql_text, a=search_num)
-
-                # add the latest activities for the search
-                for activity_line in search_activities:
-                    sql_text = sqlalchemy.text(
-                        """INSERT INTO search_activities (search_forum_num, activity_type, activity_status,
-                        timestamp) values ( :a, :b, :c, :d); """
-                    )
-                    conn.execute(sql_text, a=search_num, b=activity_line, c='ongoing', d=datetime.now())
+                _update_search_activities(conn, search_num, search_activities)
 
                 # Define managers of the search
                 managers = profile_get_managers(parsed_profile_text)
-
-                logging.info(f'DBG.P.104:Managers: {managers}')
-
-                if managers:
-                    try:
-                        sql_text = sqlalchemy.text(
-                            """INSERT INTO search_attributes (search_forum_num, attribute_name, attribute_value,
-                            timestamp) values ( :a, :b, :c, :d); """
-                        )
-                        conn.execute(sql_text, a=search_num, b='managers', c=str(managers), d=datetime.now())
-                    except Exception as e:
-                        logging.exception(e)
+                logging.debug(f'DBG.P.104:Managers: {managers}')
+                _update_search_managers(conn, search_num, managers)
 
         """4 DEL UPD from Searches"""
-        delete_lines_from_summary_list = []
+        searches_to_delete = []
 
         for snapshot_line in curr_snapshot_list:
             for searches_line in prev_searches_list:
@@ -869,34 +847,14 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
                         or snapshot_line.title != searches_line.title
                         or snapshot_line.num_of_replies != searches_line.num_of_replies
                     ):
-                        delete_lines_from_summary_list.append(snapshot_line)
+                        searches_to_delete.append(snapshot_line)
 
-        if delete_lines_from_summary_list:
-            stmt = sqlalchemy.text("""DELETE FROM searches WHERE search_forum_num=:a;""")
-            for line in delete_lines_from_summary_list:
-                conn.execute(stmt, a=int(line.topic_id))
+        for line in searches_to_delete:
+            # TODO mass deletion
+            _delete_search(conn, line.topic_id)
 
         """5. UPD added to Searches"""
-        searches_full_list = conn.execute(
-            """SELECT search_forum_num, parsed_time, status, forum_search_title, search_start_time,
-            num_of_replies, family_name, age, id, forum_folder_id FROM searches;"""
-        ).fetchall()
-        curr_searches_list = []
-        for searches_line in searches_full_list:
-            search = SearchSummary()
-            (
-                search.topic_id,
-                search.parsed_time,
-                search.status,
-                search.title,
-                search.start_time,
-                search.num_of_replies,
-                search.name,
-                search.age,
-                search.searches_table_id,
-                search.folder_id,
-            ) = list(searches_line)
-            curr_searches_list.append(search)
+        curr_searches_list = _get_current_searches(conn)
 
         new_topics_from_snapshot_list = []
 
