@@ -1,8 +1,6 @@
 """Script takes as input the list of recently-updated forum folders. Then it parses first 20 searches (aka topics)
 and saves into PSQL if there are any updates"""
 
-from dataclasses import dataclass
-
 import ast
 import copy
 import logging
@@ -12,7 +10,7 @@ from typing import Any, List, Optional, Tuple, Union
 
 import requests
 import sqlalchemy
-from bs4 import BeautifulSoup, SoupStrainer  # noqa
+from bs4 import BeautifulSoup  # noqa
 from google.cloud import storage
 from google.cloud.storage.blob import Blob
 from psycopg2.extensions import connection
@@ -20,8 +18,8 @@ from sqlalchemy.engine.base import Engine
 
 from _dependencies.commons import (
     ChangeType,
-    TopicType,
     Topics,
+    TopicType,
     publish_to_pubsub,
     setup_google_logging,
     sqlalchemy_get_pool,
@@ -52,8 +50,8 @@ from identify_updates_of_topics._utils.external_api import (
     rate_limit_for_api,
 )
 from identify_updates_of_topics._utils.forum import (
-    define_start_time_of_search,
-    parse_search_profile,
+    ForumClient,
+    get_requests_session,
     visibility_check,
 )
 from identify_updates_of_topics._utils.parse import (
@@ -61,7 +59,7 @@ from identify_updates_of_topics._utils.parse import (
     profile_get_managers,
     profile_get_type_of_activity,
 )
-from identify_updates_of_topics._utils.topics_commons import ChangeLogLine, SearchSummary, get_requests_session
+from identify_updates_of_topics._utils.topics_commons import ChangeLogLine, SearchSummary
 
 setup_google_logging()
 
@@ -389,54 +387,6 @@ def sql_connect() -> sqlalchemy.engine.Engine:
     return sqlalchemy_get_pool(5, 120)
 
 
-@dataclass
-class ForumFolderContentItem:
-    search_title: str
-    search_id: int
-    search_replies_num: int
-    start_datetime: Any
-
-
-class ForumClient:
-    def _get_folder_content(self, folder_id) -> bytes:
-        requests_session = get_requests_session()
-        url = f'https://lizaalert.org/forum/viewforum.php?f={folder_id}'
-        resp = requests_session.get(url, timeout=10)  # for every folder - req'd daily at night forum update # noqa
-        resp.raise_for_status()
-        return resp.content
-
-    def get_folder_content(self, folder_id: int) -> list[ForumFolderContentItem]:
-        content = self._get_folder_content(folder_id)
-        only_tag = SoupStrainer('div', {'class': 'forumbg'})
-        soup = BeautifulSoup(content, features='lxml', parse_only=only_tag)
-        search_code_blocks = soup.find_all('dl', 'row-item')
-        del soup  # trying to free up memory
-
-        summaries: list[ForumFolderContentItem] = []
-        for i, data_block in enumerate(search_code_blocks):
-            # First block is always not one we want
-            if i == 0:
-                continue
-
-            # In rare cases there are aliases from other folders, which have static titles – and we're avoiding them
-            if str(data_block).find('<dl class="row-item topic_moved">') > -1:
-                continue
-
-            # Current block which contains everything regarding certain search
-            search_title_block = data_block.find('a', 'topictitle')
-            # rare case: cleaning [size][b]...[/b][/size] tags
-            search_title = re.sub(r'\[/?(b|size.{0,6}|color.{0,10})]', '', search_title_block.next_element)
-            search_id = int(re.search(r'(?<=&t=)\d{2,8}', search_title_block['href']).group())
-            search_replies_num = int(data_block.find('dd', 'posts').next_element)
-            start_datetime = define_start_time_of_search(data_block)
-
-            summaries.append(ForumFolderContentItem(search_title, search_id, search_replies_num, start_datetime))
-
-        del search_code_blocks
-
-        return summaries
-
-
 def parse_one_folder(db: Engine, folder_id) -> Tuple[List, List[SearchSummary]]:
     """parse forum folder with searches' summaries"""
 
@@ -455,10 +405,10 @@ def parse_one_folder(db: Engine, folder_id) -> Tuple[List, List[SearchSummary]]:
     folder_summary: list[SearchSummary] = []
     current_datetime = datetime.now()
     forum_client = ForumClient()
-    folder_content_items = forum_client.get_folder_content(folder_id)
+    folder_content_items = forum_client.get_folder_searches(folder_id)
     try:
         for forum_search_item in folder_content_items:
-            data = {'title': forum_search_item.search_title}
+            data = {'title': forum_search_item.title}
             try:
                 title_reco_response = make_api_call('title_recognize', data)  # TODO can use local call in tests
 
@@ -496,9 +446,9 @@ def parse_one_folder(db: Engine, folder_id) -> Tuple[List, List[SearchSummary]]:
                     search_summary_object = SearchSummary(
                         parsed_time=current_datetime,
                         topic_id=forum_search_item.search_id,
-                        title=forum_search_item.search_title,
+                        title=forum_search_item.title,
                         start_time=forum_search_item.start_datetime,
-                        num_of_replies=forum_search_item.search_replies_num,
+                        num_of_replies=forum_search_item.replies_count,
                         name=person_fam_name,
                         folder_id=folder_id,
                     )
@@ -535,17 +485,17 @@ def parse_one_folder(db: Engine, folder_id) -> Tuple[List, List[SearchSummary]]:
                         current_datetime,
                         forum_search_item.search_id,
                         search_summary_object.status,
-                        forum_search_item.search_title,
+                        forum_search_item.title,
                         '',
                         forum_search_item.start_datetime,
-                        forum_search_item.search_replies_num,
+                        forum_search_item.replies_count,
                         search_summary_object.age_min,
                         person_fam_name,
                         folder_id,
                     ]
                     topics_summary_in_folder.append(search_summary)
 
-                    parsed_wo_date = [forum_search_item.search_title, forum_search_item.search_replies_num]
+                    parsed_wo_date = [forum_search_item.title, forum_search_item.replies_count]
                     titles_and_num_of_replies.append(parsed_wo_date)
 
             except Exception as e:
@@ -568,91 +518,25 @@ def parse_one_folder(db: Engine, folder_id) -> Tuple[List, List[SearchSummary]]:
 def parse_and_write_one_comment(db: Engine, search_num, comment_num: int) -> bool:
     """parse all details on a specific comment in topic (by sequence number)"""
 
-    requests_session = get_requests_session()
-
-    comment_url = f'https://lizaalert.org/forum/viewtopic.php?&t={search_num}&start={comment_num}'
-    there_are_inforg_comments = False
-
     try:
-        r = requests_session.get(comment_url)  # noqa
-
-        if not visibility_check(r, search_num):
-            return False
-
-        soup = BeautifulSoup(r.content, features='lxml')
-        search_code_blocks = soup.find('div', 'post')
-
-        # finding USERNAME
-        comment_author_block = search_code_blocks.find('a', 'username')
-        if not comment_author_block:
-            comment_author_block = search_code_blocks.find('a', 'username-coloured')
-        try:
-            comment_author_nickname = comment_author_block.text
-        except Exception as e:
-            logging.info(f'exception for search={search_num} and comment={comment_num}')
-            logging.exception(e)
-            comment_author_nickname = 'unidentified_username'
-
-        if comment_author_nickname[:6].lower() == 'инфорг' and comment_author_nickname != 'Инфорг кинологов':
-            there_are_inforg_comments = True
-
-        # finding LINK to user profile
-        try:
-            comment_author_link = int(''.join(filter(str.isdigit, comment_author_block['href'][36:43])))
-
-        except Exception as e:
-            logging.info(
-                'Here is an exception 9 for search '
-                + str(search_num)
-                + ', and comment '
-                + str(comment_num)
-                + ' error: '
-                + repr(e)
-            )
-            try:
-                comment_author_link = int(
-                    ''.join(filter(str.isdigit, search_code_blocks.find('a', 'username-coloured')['href'][36:43]))
-                )
-            except Exception as e2:
-                logging.info('Here is an exception 10' + repr(e2))
-                comment_author_link = 'unidentified_link'
-
-        # finding the global comment id
-        comment_forum_global_id = int(search_code_blocks.find('p', 'author').findNext('a')['href'][-6:])
-
-        # finding TEXT of the comment
-        comment_text_0 = search_code_blocks.find('div', 'content')
-        try:
-            # external_span = comment_text_0.blockquote.extract()
-            comment_text_1 = comment_text_0.text
-        except Exception as e:
-            logging.info(f'exception for search={search_num} and comment={comment_num}')
-            logging.exception(e)
-            comment_text_1 = comment_text_0.text
-        comment_text = ' '.join(comment_text_1.split())
-
-        # Define exclusions (comments of Inforg with "резерв" and "рассылка билайн"
-        ignore = False
-        if there_are_inforg_comments:
-            if comment_text.lower().endswith('резерв') or comment_text.lower().endswith('рассылка билайн'):
-                ignore = True
-
+        forum_client = ForumClient()
+        comment_data = forum_client.get_comment_data(search_num, comment_num)
         write_comment(
             db,
-            search_num,
-            comment_num,
-            comment_url,
-            comment_author_nickname,
-            comment_author_link,
-            comment_forum_global_id,
-            comment_text,
-            ignore,
+            comment_data.search_num,
+            comment_data.comment_num,
+            comment_data.comment_url,
+            comment_data.comment_author_nickname,
+            comment_data.comment_author_link,
+            comment_data.comment_forum_global_id,
+            comment_data.comment_text,
+            comment_data.ignore,
         )
 
     except ConnectionResetError:
         logging.info('There is a connection error')
 
-    return there_are_inforg_comments
+    return comment_data.inforg_comment_present
 
 
 def update_change_log_and_searches(db: Engine, folder_num) -> List:
@@ -727,7 +611,7 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
             _write_search(conn, line)
 
             search_num = line.topic_id
-            parsed_profile_text = parse_search_profile(search_num)
+            parsed_profile_text = ForumClient().parse_search_profile(search_num)
             search_activities = profile_get_type_of_activity(parsed_profile_text)
             _update_search_activities(conn, search_num, search_activities)
 
@@ -896,7 +780,6 @@ def main(event, context) -> None:  # noqa
     folders_list = []
 
     analytics_func_start = datetime.now()
-    requests_session = requests.Session()
 
     message_from_pubsub = process_pubsub_message_v3(event)
     list_from_pubsub = ast.literal_eval(message_from_pubsub) if message_from_pubsub else None

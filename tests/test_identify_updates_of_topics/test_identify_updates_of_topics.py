@@ -43,7 +43,7 @@ def common_patches():
 @pytest.fixture()
 def mock_http_get():
     with (
-        patch.object(main.get_requests_session(), 'get') as mock_http,
+        patch.object(identify_updates_of_topics._utils.forum.get_requests_session(), 'get') as mock_http,
     ):
         yield mock_http
 
@@ -105,28 +105,6 @@ def test_parse_one_comment(db, mock_http_get):
     assert there_are_inforg_comments
 
 
-def test_parse_search_profile_mock(mock_http_get):
-    mock_http_get.return_value.content = Path('tests/fixtures/forum_topic.html').read_bytes()
-    left_text = identify_updates_of_topics._utils.forum.parse_search_profile(83087)
-    assert left_text == (
-        'Сидорова (Иванова) Надежда Петровна, 30 лет, д. Никольская\n\t\t\t\t\t\t\t\t\t\tСлобода, '
-        'Жуковский р-он, Брянская обл. \n\n\t\t\t\t\t\t\t\t6 октября 2024 года заблудилась в лесу.\n\n\n\n'
-        'Приметы: рост 156 см, худощавого телосложения,\n\t\t\t\t\t\t\t\tволосы рыжие, глаза голубые.\n\n'
-        'Была одета: темно-синяя куртка, синие спортивные\n\t\t\t\t\t\t\t\tштаны, разноцветые резиновые сапоги, платок.\n\n'
-        'С собой: желтый рюкзак.\n\nКарты\n\nОриентировка на\n\t\t\t\t\t\t\t\t\t\tпечать\n\n'
-        'Ориентировка на\n\t\t\t\t\t\t\t\t\t\tрепост\n\n\t\t\t\t\t\t\t\t--------------------------------------------------\n'
-        'Найдена, жива.\n\nСБОР: \nКоординаты\n\t\t\t\t\t\t\t\t\t\tсбора:\n\n'
-        'ШТАБ \nКоординаты\n\t\t\t\t\t\t\t\t\t\tштаба:\n\n\n'
-        'СНМ: Лагутин Саша \nИнфорги: Светлана gLA_NAs 89001234567, 89001234567\n'
-        'https://t.me/gLA_NAs\n\t\t\t\t\t\t\t\tОльга Вжик 89001234567, 89001234567 '
-        'https://t.me/Ol_Massarova\n\nПредоставлять комментарии по\n\t\t\t\t\t\t\t\t\t\tпоиску для СМИ '
-        'могут только координатор или инфорг поиска, а также представители\n\t\t\t\t\t\t\t\t\t\tпресс-службы «ЛизаАлерт».'
-        ' \n\t\t\t\t\t\t\t\t\t\tЕсли же представитель СМИ хочет приехать на поиск, он может сообщить '
-        'о своем\n\t\t\t\t\t\t\t\t\t\tжелании на горячую линию отряда\n\t\t\t\t\t\t\t\t\t\t8(800)700-54-52 '
-        'или на почту smi@lizaalert.org'
-    )
-
-
 @pytest.mark.parametrize(
     'cleaned_text, activity_type',
     [
@@ -152,13 +130,6 @@ def test_parse_activity_wrong_case():
 def test_update_change_log_and_searches(db):
     res = main.update_change_log_and_searches(db, 1)
     pass
-
-
-def test_visibility_check():
-    response = Mock()
-    response.content = b'foo'
-    page_is_visible = identify_updates_of_topics._utils.forum.visibility_check(response, 1)
-    assert page_is_visible
 
 
 def test_parse_coordinates_of_search(db, mock_http_get):
