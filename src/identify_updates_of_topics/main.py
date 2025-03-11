@@ -22,6 +22,9 @@ from yandex_geocoder import Client, exceptions
 from _dependencies.commons import Topics, get_app_config, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
 from _dependencies.misc import generate_random_function_id, make_api_call, notify_admin, process_pubsub_message_v3
 from identify_updates_of_topics._utils.database import (
+    _get_current_snapshots_list,
+    _get_prev_searches,
+    _write_search,
     get_geolocation_form_psql,
     get_last_api_call_time_from_psql,
     get_the_list_of_ignored_folders,
@@ -701,68 +704,8 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
     func_start = datetime.now()
 
     with db.connect() as conn:
-        sql_text = sqlalchemy.text(
-            """SELECT search_forum_num, parsed_time, status, forum_search_title, search_start_time,
-            num_of_replies, family_name, age, id, forum_folder_id, topic_type, display_name, age_min, age_max,
-            status, city_locations, topic_type_id
-            FROM forum_summary_snapshot WHERE
-            forum_folder_id = :a; """
-        )
-        snapshot = conn.execute(sql_text, a=folder_num).fetchall()
-        curr_snapshot_list: list[SearchSummary] = []
-        for line in snapshot:
-            snapshot_line = SearchSummary()
-            (
-                snapshot_line.topic_id,
-                snapshot_line.parsed_time,
-                snapshot_line.status,
-                snapshot_line.title,
-                snapshot_line.start_time,
-                snapshot_line.num_of_replies,
-                snapshot_line.name,
-                snapshot_line.age,
-                snapshot_line.searches_table_id,
-                snapshot_line.folder_id,
-                snapshot_line.topic_type,
-                snapshot_line.display_name,
-                snapshot_line.age_min,
-                snapshot_line.age_max,
-                snapshot_line.new_status,
-                snapshot_line.locations,
-                snapshot_line.topic_type_id,
-            ) = list(line)
-
-            curr_snapshot_list.append(snapshot_line)
-
-        # TODO - in future: should the number of searches be limited? Probably to JOIN change_log and WHERE folder=...
-        searches_full_list = conn.execute(
-            """SELECT search_forum_num, parsed_time, status, forum_search_title, search_start_time,
-            num_of_replies, family_name, age, id, forum_folder_id,
-            topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id FROM searches;"""
-        ).fetchall()
-        prev_searches_list = []
-        for searches_line in searches_full_list:
-            search = SearchSummary()
-            (
-                search.topic_id,
-                search.parsed_time,
-                search.status,
-                search.title,
-                search.start_time,
-                search.num_of_replies,
-                search.name,
-                search.age,
-                search.searches_table_id,
-                search.folder_id,
-                search.topic_type,
-                search.display_name,
-                search.age_min,
-                search.age_max,
-                search.new_status,
-                search.locations,
-                search.topic_type_id,
-            ) = list(searches_line)
-            prev_searches_list.append(search)
+        curr_snapshot_list = _get_current_snapshots_list(folder_num, conn)
+        prev_searches_list = _get_prev_searches(conn)
 
         # FIXME – temp – just to check how many lines
         print(f'TEMP – len of prev_searches_list = {len(prev_searches_list)}')
@@ -771,7 +714,7 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
         # FIXME ^^^
 
         """1. move UPD to Change Log"""
-        change_log_updates_list = []
+        change_log_updates_list: list[ChangeLogLine] = []
         there_are_inforg_comments = False
 
         for snapshot_line in curr_snapshot_list:
@@ -865,7 +808,7 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
             if new_search_flag == 1:
                 new_topics_from_snapshot_list.append(snapshot_line)
 
-        change_log_new_topics_list = []
+        change_log_new_topics_list: list[ChangeLogLine] = []
 
         for snapshot_line in new_topics_from_snapshot_list:
             change_type_id = 0
@@ -899,31 +842,8 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
 
         """3. ADD to Searches"""
         if new_topics_from_snapshot_list:
-            stmt = sqlalchemy.text(
-                """INSERT INTO searches (search_forum_num, parsed_time, forum_search_title,
-                search_start_time, num_of_replies, age, family_name, forum_folder_id, topic_type,
-                display_name, age_min, age_max, status, city_locations, topic_type_id)
-                VALUES (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
-            )
             for line in new_topics_from_snapshot_list:
-                conn.execute(
-                    stmt,
-                    a=line.topic_id,
-                    b=line.parsed_time,
-                    d=line.title,
-                    e=line.start_time,
-                    f=line.num_of_replies,
-                    g=line.age,
-                    h=line.name,
-                    i=line.folder_id,
-                    j=line.topic_type,
-                    k=line.display_name,
-                    l=line.age_min,
-                    m=line.age_max,
-                    n=line.new_status,
-                    o=str(line.locations),
-                    p=line.topic_type_id,
-                )
+                _write_search(conn, line)
 
                 search_num = line.topic_id
 
@@ -1012,31 +932,8 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
             if new_search_flag == 1:
                 new_topics_from_snapshot_list.append(snapshot_line)
         if new_topics_from_snapshot_list:
-            stmt = sqlalchemy.text(
-                """INSERT INTO searches (search_forum_num, parsed_time, forum_search_title,
-                search_start_time, num_of_replies, age, family_name, forum_folder_id,
-                topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id) values
-                (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
-            )
             for line in new_topics_from_snapshot_list:
-                conn.execute(
-                    stmt,
-                    a=line.topic_id,
-                    b=line.parsed_time,
-                    d=line.title,
-                    e=line.start_time,
-                    f=line.num_of_replies,
-                    g=line.age,
-                    h=line.name,
-                    i=line.folder_id,
-                    j=line.topic_type,
-                    k=line.display_name,
-                    l=line.age_min,
-                    m=line.age_max,
-                    n=line.new_status,
-                    o=str(line.locations),
-                    p=line.topic_type_id,
-                )
+                _write_search(conn, line)
 
         conn.close()
 

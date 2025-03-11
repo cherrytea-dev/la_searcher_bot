@@ -3,6 +3,8 @@ import logging
 from datetime import datetime, timezone
 
 import sqlalchemy
+from psycopg2.extensions import connection
+from sqlalchemy.engine import Connection
 from sqlalchemy.engine.base import Engine
 
 from _dependencies.misc import notify_admin
@@ -308,3 +310,98 @@ def update_coordinates_in_db(db, search_id, coords):
                        WHERE search_id=:b; """
             )
             conn.execute(stmt, a=coords[2], b=search_id)
+
+
+def _get_current_snapshots_list(folder_num: int, conn: Connection) -> list[SearchSummary]:
+    sql_text = sqlalchemy.text("""
+            SELECT search_forum_num, parsed_time, status, forum_search_title, search_start_time,
+            num_of_replies, family_name, age, id, forum_folder_id, topic_type, display_name, age_min, age_max,
+            status, city_locations, topic_type_id
+            FROM forum_summary_snapshot 
+            WHERE forum_folder_id = :a; 
+                               """)
+    rows = conn.execute(sql_text, a=folder_num).fetchall()
+    curr_snapshot_list: list[SearchSummary] = []
+    for row in rows:
+        snapshot_line = SearchSummary(
+            topic_id=row[0],
+            parsed_time=row[1],
+            status=row[2],
+            title=row[3],
+            start_time=row[4],
+            num_of_replies=row[5],
+            name=row[6],
+            age=row[7],
+            searches_table_id=row[8],
+            folder_id=row[9],
+            topic_type=row[10],
+            display_name=row[11],
+            age_min=row[12],
+            age_max=row[13],
+            new_status=row[14],
+            locations=row[15],
+            topic_type_id=row[16],
+        )
+        curr_snapshot_list.append(snapshot_line)
+    return curr_snapshot_list
+
+
+def _write_search(conn: connection, line: SearchSummary) -> None:
+    stmt = sqlalchemy.text(
+        """INSERT INTO searches (search_forum_num, parsed_time, forum_search_title,
+        search_start_time, num_of_replies, age, family_name, forum_folder_id,
+        topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id) values
+        (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
+    )
+    conn.execute(
+        stmt,
+        a=line.topic_id,
+        b=line.parsed_time,
+        d=line.title,
+        e=line.start_time,
+        f=line.num_of_replies,
+        g=line.age,
+        h=line.name,
+        i=line.folder_id,
+        j=line.topic_type,
+        k=line.display_name,
+        l=line.age_min,
+        m=line.age_max,
+        n=line.new_status,
+        o=str(line.locations),
+        p=line.topic_type_id,
+    )
+
+
+def _get_prev_searches(conn: connection) -> list[SearchSummary]:
+    # TODO - in future: should the number of searches be limited? Probably to JOIN change_log and WHERE folder=...
+    rows = conn.execute("""
+        SELECT 
+            search_forum_num, parsed_time, status, forum_search_title, search_start_time,
+            num_of_replies, family_name, age, id, forum_folder_id,
+            topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id 
+        FROM searches;
+                                      """).fetchall()
+    prev_searches_list: list[SearchSummary] = []
+    for r in rows:
+        search = SearchSummary(
+            topic_id=r[0],
+            parsed_time=r[1],
+            status=r[2],
+            title=r[3],
+            start_time=r[4],
+            num_of_replies=r[5],
+            name=r[6],
+            age=r[7],
+            searches_table_id=r[8],
+            folder_id=r[9],
+            topic_type=r[10],
+            display_name=r[11],
+            age_min=r[12],
+            age_max=r[13],
+            new_status=r[14],
+            locations=r[15],
+            topic_type_id=r[16],
+        )
+        prev_searches_list.append(search)
+    return prev_searches_list
