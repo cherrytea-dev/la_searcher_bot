@@ -17,6 +17,9 @@ def get_coordinates_from_address_by_osm(address_string: str) -> Tuple[Any, Any]:
     """NB! openstreetmap requirements: NO more than 1 request per 1 second, no doubling requests"""
     """MEMO: documentation on API: https://operations.osmfoundation.org/policies/nominatim/"""
 
+    if not address_string:
+        return None, None
+
     latitude = None
     longitude = None
     osm_identifier = get_app_config().osm_identifier
