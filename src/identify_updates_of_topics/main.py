@@ -89,7 +89,7 @@ class CloudStorage:
         return blob
 
 
-def get_coordinates_by_address(db: Engine, address: str) -> Tuple[None, None]:
+def get_coordinates_by_address(db: Engine, address: str) -> tuple[float, float] | tuple[None, None]:
     """convert address string into a pair of coordinates"""
 
     try:
@@ -131,8 +131,7 @@ def get_coordinates_by_address(db: Engine, address: str) -> Tuple[None, None]:
         return lat, lon
 
     except Exception as e:
-        logging.info('TEMP - LOC - New getting coordinates from title failed')
-        logging.exception(e)
+        logging.exception('TEMP - LOC - New getting coordinates from title failed')
         notify_admin('ERROR: major geocoding script failed')
 
     return None, None

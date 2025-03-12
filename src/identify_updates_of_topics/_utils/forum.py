@@ -276,12 +276,10 @@ class ForumClient:
 
         # SECOND CASE = THERE ARE COORDINATES w/o a WORD Coordinates
         if lat == 0:
-            # make an independent variable
             lat, lon, coord_type = _parse_coords_case_2(search_code_blocks)
 
         # THIRD CASE = DELETED COORDINATES
         if lat == 0:
-            # make an independent variable
             lat, lon, coord_type = _parse_coords_case_3(search_code_blocks)
         return [lat, lon, coord_type, title]
 
@@ -314,26 +312,12 @@ def _parse_coords_case_1(search_code_blocks: BeautifulSoup) -> tuple[float, floa
                 i = len(f)
 
             # extract exact numbers & match if they look like coordinates
-        for i in range(len(e)):
-            g = [float(s) for s in re.findall(r'-?\d+\.?\d*', e[i])]
-            if len(g) > 1:
-                for j in range(len(g) - 1):
-                    try:
-                        # Majority of coords in RU: lat in [40-80], long in [20-180], expected min format = XX.XXX
-                        if (
-                            3 < (g[j] // 10) < 8
-                            and len(str(g[j])) > 5
-                            and 1 < (g[j + 1] // 10) < 19
-                            and len(str(g[j + 1])) > 5
-                        ):
-                            lat = g[j]
-                            lon = g[j + 1]
-                            coord_type = '1. coordinates w/ word coord'
-                    except Exception as e2:
-                        logging.exception('DBG.P.36.EXC. Coords-1:')
+        for c in e:
+            coord_type = '1. coordinates w/ word coord'
+            lat, lon, coord_type = _extract_coords_from_string(c, coord_type)
 
     except Exception as e:
-        logging.exception('Can`t get coorditates from search_code_blocks')
+        logging.exception('Error extracting coordinates case 1')
     return lat, lon, coord_type
 
 
@@ -366,26 +350,12 @@ def _parse_coords_case_2(search_code_blocks: BeautifulSoup) -> tuple[float, floa
             # converting to string
         b = re.sub(r'\n\s*\n', r' ', a.get_text().strip(), flags=re.M)
         c = re.sub(r'\n', r' ', b)
-        g = [float(s) for s in re.findall(r'-?\d+\.?\d*', c)]
-        if len(g) > 1:
-            for j in range(len(g) - 1):
-                try:
-                    # Majority of coords in RU: lat in [40-80], long in [20-180], expected min format = XX.XXX
-                    if (
-                        3 < (g[j] // 10) < 8
-                        and len(str(g[j])) > 5
-                        and 1 < (g[j + 1] // 10) < 19
-                        and len(str(g[j + 1])) > 5
-                    ):
-                        lat = g[j]
-                        lon = g[j + 1]
-                        coord_type = '2. coordinates w/o word coord'
-                except Exception as e2:
-                    logging.exception('DBG.P.36.EXC. Coords-2:')
+
+        coord_type = '2. coordinates w/o word coord'
+        lat, lon, coord_type = _extract_coords_from_string(c, coord_type)
+
     except Exception as e:
-        logging.info('Exception 2')
-        logging.exception(e)
-        pass
+        logging.exception('Error extracting coordinates case 2')
     return lat, lon, coord_type
 
 
@@ -397,30 +367,34 @@ def _parse_coords_case_3(search_code_blocks: BeautifulSoup) -> tuple[float, floa
     try:
         # get a text with strike-through
         a = a.find_all('span', {'style': 'text-decoration:line-through'})
-        if a:
-            for line in a:
-                b = re.sub(r'\n\s*\n', r' ', line.get_text().strip(), flags=re.M)
-                c = re.sub(r'\n', r' ', b)
-                g = [float(s) for s in re.findall(r'-?\d+\.?\d*', c)]
-                if len(g) > 1:
-                    for j in range(len(g) - 1):
-                        try:
-                            # Majority of coords in RU: lat in [40-80], long in [20-180],
-                            # expected minimal format = XX.XXX
-                            if (
-                                3 < (g[j] // 10) < 8
-                                and len(str(g[j])) > 5
-                                and 1 < (g[j + 1] // 10) < 19
-                                and len(str(g[j + 1])) > 5
-                            ):
-                                lat = g[j]
-                                lon = g[j + 1]
-                                coord_type = '3. deleted coord'
-                        except Exception as e2:
-                            logging.info('DBG.P.36.EXC. Coords-1:')
-                            logging.exception(e2)
+        for line in a:
+            b = re.sub(r'\n\s*\n', r' ', line.get_text().strip(), flags=re.M)
+            c = re.sub(r'\n', r' ', b)
+            coord_type = '3. deleted coord'
+            lat, lon, coord_type = _extract_coords_from_string(c, coord_type)
+
     except Exception as e:
-        logging.info('exception:')
-        logging.exception(e)
-        pass
+        logging.exception('Error extracting coordinates case 3')
     return lat, lon, coord_type
+
+
+def _extract_coords_from_string(c, coord_type):
+    lat, lon = 0, 0
+    g = [float(s) for s in re.findall(r'-?\d+\.?\d*', c)]
+    if len(g) > 1:
+        for j in range(len(g) - 1):
+            try:
+                first = g[j]
+                second = g[j + 1]
+                if _check_if_coordinates(first, second):
+                    lat, lon = first, second
+            except Exception as e2:
+                logging.exception('Cannot extract coordinates from list of floats')
+    return lat, lon, coord_type
+
+
+def _check_if_coordinates(first: float, second: float) -> bool:
+    # Majority of coords in RU: lat in [40-80], long in [20-180], expected min format = XX.XXX
+    if (3 < (first // 10) < 8 and len(str(first)) > 5) and (1 < (second // 10) < 19 and len(str(second)) > 5):
+        return True
+    return False
