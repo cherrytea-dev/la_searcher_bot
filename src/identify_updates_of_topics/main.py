@@ -47,14 +47,7 @@ from identify_updates_of_topics._utils.external_api import (
     get_coordinates_from_address_by_yandex,
     rate_limit_for_api,
 )
-from identify_updates_of_topics._utils.forum import (
-    ForumClient,
-    _parse_coords_case_2,
-    _parse_coords_case_3,
-    get_requests_session,
-    parse_coords_case_1,
-    visibility_check,
-)
+from identify_updates_of_topics._utils.forum import ForumClient
 from identify_updates_of_topics._utils.parse import (
     parse_address_from_title,
     profile_get_managers,
@@ -627,5 +620,4 @@ def main(event, context) -> None:  # noqa
         message_for_pubsub = {'triggered_by_func_id': function_id, 'text': "let's compose notifications"}
         publish_to_pubsub(Topics.topic_for_notification, message_for_pubsub)
 
-    get_requests_session().close()
     db.dispose()

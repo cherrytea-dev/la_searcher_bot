@@ -244,12 +244,8 @@ class ForumClient:
         search_code_blocks = None
         title = ''
 
-        try:
-            content = self._get_topic_content(search_num)
-            if not visibility_check_content(content, search_num):
-                return [0, 0, '', '']
-        except Exception as e:
-            logging.exception('Can`t get topic %s', url_to_topic)
+        content = self._get_topic_content(search_num)
+        if not visibility_check_content(content, search_num):
             return [0, 0, '', '']
 
         try:
@@ -270,13 +266,13 @@ class ForumClient:
                 e.extract()
 
         except Exception as e:
-            logging.info(f'unable to parse a specific thread with address {url_to_topic} error is {repr(e)}')
+            logging.error(f'unable to parse a specific thread with address {url_to_topic} error is {repr(e)}')
 
         if not search_code_blocks:
             return [0, 0, '', '']
 
         # FIRST CASE = THERE ARE COORDINATES w/ a WORD Coordinates
-        lat, lon, coord_type = parse_coords_case_1(search_code_blocks)
+        lat, lon, coord_type = _parse_coords_case_1(search_code_blocks)
 
         # SECOND CASE = THERE ARE COORDINATES w/o a WORD Coordinates
         if lat == 0:
@@ -290,7 +286,7 @@ class ForumClient:
         return [lat, lon, coord_type, title]
 
 
-def parse_coords_case_1(search_code_blocks: BeautifulSoup) -> tuple[float, float, str]:
+def _parse_coords_case_1(search_code_blocks: BeautifulSoup) -> tuple[float, float, str]:
     lat, lon, coord_type = 0, 0, ''
     try:
         # make an independent variable
@@ -428,16 +424,3 @@ def _parse_coords_case_3(search_code_blocks: BeautifulSoup) -> tuple[float, floa
         logging.exception(e)
         pass
     return lat, lon, coord_type
-
-    # requests_session = get_requests_session()
-
-    # # DEBUG - function execution time counter
-    # func_start = datetime.now()
-
-    # url_to_topic = f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
-
-    # lat = 0
-    # lon = 0
-    # coord_type = ''
-    # search_code_blocks = None
-    # title = None
