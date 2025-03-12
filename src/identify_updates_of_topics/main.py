@@ -53,15 +53,14 @@ def main(event, context) -> None:  # noqa
     list_of_folders_with_updates = []
     change_log_ids = []
 
-    if folders_list:
-        for folder in folders_list:
-            logging.info(f'start checking if folder {folder} has any updates')
+    for folder in folders_list:
+        logging.info(f'start checking if folder {folder} has any updates')
 
-            update_trigger, one_folder_change_log_ids = FolderUpdater(db, folder).run()
+        update_trigger, one_folder_change_log_ids = FolderUpdater(db, folder).run()
 
-            if update_trigger:
-                list_of_folders_with_updates.append(folder)
-                change_log_ids += one_folder_change_log_ids
+        if update_trigger:
+            list_of_folders_with_updates.append(folder)
+            change_log_ids += one_folder_change_log_ids
 
     logging.info(f"Here's a list of folders with updates: {list_of_folders_with_updates}")
     logging.info(f"Here's a list of change_log ids created: {change_log_ids}")

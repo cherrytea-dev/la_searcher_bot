@@ -3,9 +3,6 @@ from typing import Any
 
 from _dependencies.commons import ChangeType, TopicType
 
-# to be reused by different functions
-block_of_profile_rough_code = None
-
 
 @dataclass
 class ChangeLogLine:

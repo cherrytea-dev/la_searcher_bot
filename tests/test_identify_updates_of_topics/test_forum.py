@@ -3,9 +3,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-import identify_updates_of_topics._utils.external_api
-import identify_updates_of_topics._utils.forum
-from identify_updates_of_topics._utils.forum import ForumClient, ForumCommentItem, ForumSearchItem
+from identify_updates_of_topics._utils.forum import ForumClient, ForumCommentItem, ForumSearchItem, is_content_visible
 
 
 class TestForumClient:
@@ -90,7 +88,5 @@ def _normallize_text(text: str) -> str:
 
 
 def test_visibility_check():
-    response = Mock()
-    response.content = b'foo'
-    page_is_visible = identify_updates_of_topics._utils.forum.visibility_check(response, 1)
+    page_is_visible = is_content_visible(b'foo', 1)
     assert page_is_visible

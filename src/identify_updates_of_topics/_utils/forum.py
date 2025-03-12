@@ -5,12 +5,11 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 
-import requests
+
 from bs4 import BeautifulSoup, SoupStrainer
 from requests import Session
 
 from _dependencies.commons import Topics, publish_to_pubsub
-from identify_updates_of_topics._utils.topics_commons import block_of_profile_rough_code
 
 
 def define_start_time_of_search(blocks):
@@ -22,13 +21,7 @@ def define_start_time_of_search(blocks):
     return start_datetime
 
 
-def visibility_check(resp: requests.Response, topic_id) -> bool:
-    """check topic's visibility: if hidden or deleted"""
-
-    return visibility_check_content(resp.content, topic_id)
-
-
-def visibility_check_content(content: bytes, topic_id) -> bool:
+def is_content_visible(content: bytes, topic_id) -> bool:
     """check topic's visibility: if hidden or deleted"""
 
     check_content = content.decode('utf-8')
@@ -126,7 +119,7 @@ class ForumClient:
 
     def get_comment_data(self, search_num: int, comment_num: int) -> ForumCommentItem | None:
         content = self._get_comment_content(search_num, comment_num)
-        if not visibility_check_content(content, search_num):
+        if not is_content_visible(content, search_num):
             return None
 
         soup = BeautifulSoup(content, features='lxml')
@@ -211,7 +204,7 @@ class ForumClient:
     def parse_search_profile(self, search_num: int) -> str | None:
         """get raw search text"""
         content = self._get_topic_content(search_num)
-        if not visibility_check_content(content, search_num):
+        if not is_content_visible(content, search_num):
             return None
         soup = BeautifulSoup(content, features='html.parser')
 
@@ -245,7 +238,7 @@ class ForumClient:
         title = ''
 
         content = self._get_topic_content(search_num)
-        if not visibility_check_content(content, search_num):
+        if not is_content_visible(content, search_num):
             return [0, 0, '', '']
 
         try:
