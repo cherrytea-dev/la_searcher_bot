@@ -244,8 +244,8 @@ def send_location_to_api(
             if 'longitude' in params.keys():
                 longitude = f'&longitude={params["longitude"]}'
 
-        logging.info(latitude)
-        logging.info(longitude)
+        logging.debug(latitude)
+        logging.debug(longitude)
 
         request_text = f'https://api.telegram.org/bot{bot_token}/sendLocation?chat_id={user_id}{latitude}{longitude}'
 
@@ -354,11 +354,11 @@ def send_message_to_api(
                 reply_markup_encoded = urllib.parse.quote(reply_markup_string)
                 reply_markup = f'&reply_markup={reply_markup_encoded}'
 
-                logging.info(f'{reply_markup_temp=}')
-                logging.info(f'{reply_markup_json=}')
-                logging.info(f'{reply_markup_string=}')
-                logging.info(f'{reply_markup_encoded=}')
-                logging.info(f'{reply_markup=}')
+                logging.debug(f'{reply_markup_temp=}')
+                logging.debug(f'{reply_markup_json=}')
+                logging.debug(f'{reply_markup_string=}')
+                logging.debug(f'{reply_markup_encoded=}')
+                logging.debug(f'{reply_markup=}')
 
         message_encoded = urllib.parse.quote(message)
 
