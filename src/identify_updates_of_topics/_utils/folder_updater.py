@@ -92,6 +92,7 @@ class FolderUpdater:
     def __init__(self, db: Engine, folder_num: int) -> None:
         self.db = db
         self.folder_num = folder_num
+        # TODO ForumClient here too
 
     def run(self) -> tuple[bool, list[int]]:
         """process one forum folder: check for updates, upload them into cloud sql"""
@@ -136,9 +137,6 @@ class FolderUpdater:
             'event': TopicType.event,
         }
 
-        # TODO - "topics_summary_in_folder" – is an old type of list, which was deprecated as an outcome of this script,
-        #  now we need to delete it completely
-        topics_summary_in_folder = []
         titles_and_num_of_replies = []
         folder_summary: list[SearchSummary] = []
         current_datetime = datetime.now()
@@ -146,8 +144,8 @@ class FolderUpdater:
         folder_content_items = forum_client.get_folder_searches(self.folder_num)
         try:
             for forum_search_item in folder_content_items:
-                data = {'title': forum_search_item.title}
                 try:
+                    data = {'title': forum_search_item.title}
                     title_reco_response = make_api_call('title_recognize', data)  # TODO can use local call in tests
 
                     if (
@@ -191,7 +189,6 @@ class FolderUpdater:
                             folder_id=self.folder_num,
                         )
                         search_summary_object.topic_type = title_reco_dict['topic_type']
-
                         search_summary_object.topic_type_id = topic_type_dict[search_summary_object.topic_type]
 
                         if 'persons' in title_reco_dict.keys():
@@ -219,20 +216,6 @@ class FolderUpdater:
 
                         folder_summary.append(search_summary_object)
 
-                        search_summary = [
-                            current_datetime,
-                            forum_search_item.search_id,
-                            search_summary_object.status,
-                            forum_search_item.title,
-                            '',
-                            forum_search_item.start_datetime,
-                            forum_search_item.replies_count,
-                            search_summary_object.age_min,
-                            person_fam_name,
-                            self.folder_num,
-                        ]
-                        topics_summary_in_folder.append(search_summary)
-
                         parsed_wo_date = [forum_search_item.title, forum_search_item.replies_count]
                         titles_and_num_of_replies.append(parsed_wo_date)
 
@@ -245,10 +228,7 @@ class FolderUpdater:
         # To catch timeout once a day in the night
         except (requests.exceptions.Timeout, ConnectionResetError, Exception) as e:
             logging.exception(e)
-            topics_summary_in_folder = []
             folder_summary = []
-
-        logging.info(f'folder = {self.folder_num}, old_topics_summary = {topics_summary_in_folder}')
 
         return titles_and_num_of_replies, folder_summary
 
