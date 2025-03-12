@@ -354,11 +354,9 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
         curr_snapshot_list = _get_current_snapshots_list(folder_num, conn)
         prev_searches_list = _get_prev_searches(conn)
 
-        # FIXME – temp – just to check how many lines
         print(f'TEMP – len of prev_searches_list = {len(prev_searches_list)}')
         if len(prev_searches_list) > 5000:
-            logging.info('TEMP - you use too big table Searches, it should be optimized')
-        # FIXME ^^^
+            logging.warning('TEMP - you use too big table Searches, it should be optimized')
 
         """1. move UPD to Change Log"""
         change_log_updates_list: list[ChangeLogLine] = []
@@ -368,7 +366,8 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
                 if snapshot_line.topic_id != searches_line.topic_id:
                     continue  # TODO we are merging two lists here. It's slow.
 
-                changes = _detect_changes(db, snapshot_line, searches_line)
+                there_are_inforg_comments = _parse_comments_and_detect_inforg_comments(db, snapshot_line, searches_line)
+                changes = _detect_changes(snapshot_line, searches_line, there_are_inforg_comments)
                 change_log_updates_list.extend(changes)
 
         for line in change_log_updates_list:  # TODO
@@ -391,8 +390,8 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
         change_log_new_topics_list: list[ChangeLogLine] = []
 
         for snapshot_line in new_topics_from_snapshot_list:
-            change_type_id = 0
-            change_type_name = 'new_search'  # TODO enum from existing in compose_notifications
+            change_type_id = ChangeType.topic_new
+            change_type_name = 'new_search'
 
             change_log_line = ChangeLogLine(
                 parsed_time=snapshot_line.parsed_time,
@@ -443,19 +442,19 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
         """5. UPD added to Searches"""
         curr_searches_list = _get_current_searches(conn)
 
-        new_topics_from_snapshot_list = []
+        new_searches: list[SearchSummary] = []
 
         for snapshot_line in curr_snapshot_list:
             new_search_flag = 1
             for searches_line in curr_searches_list:
                 if snapshot_line.topic_id == searches_line.topic_id:
                     new_search_flag = 0
-                    break
+                    break  # search already exists
             if new_search_flag == 1:
-                new_topics_from_snapshot_list.append(snapshot_line)
-        if new_topics_from_snapshot_list:
-            for line in new_topics_from_snapshot_list:
-                _write_search(conn, line)
+                new_searches.append(snapshot_line)
+
+        for line in new_searches:
+            _write_search(conn, line)
 
     # DEBUG - function execution time counter
     func_finish = datetime.now()
@@ -465,63 +464,75 @@ def update_change_log_and_searches(db: Engine, folder_num) -> List:
     return change_log_ids
 
 
-def _detect_changes(db: Engine, snapshot_line: SearchSummary, searches_line: SearchSummary) -> list[ChangeLogLine]:
+def _parse_comments_and_detect_inforg_comments(
+    db: Engine, snapshot_line: SearchSummary, searches_line: SearchSummary
+) -> bool:
+    if snapshot_line.num_of_replies <= searches_line.num_of_replies:
+        return False
+
+    there_are_inforg_comments = False
+    for k in range(snapshot_line.num_of_replies - searches_line.num_of_replies):
+        flag_if_comment_was_from_inforg = parse_and_write_one_comment(
+            db, snapshot_line.topic_id, searches_line.num_of_replies + 1 + k
+        )
+        if flag_if_comment_was_from_inforg:
+            there_are_inforg_comments = True
+
+    return there_are_inforg_comments
+
+
+def _detect_changes(
+    snapshot_line: SearchSummary, searches_line: SearchSummary, there_are_inforg_comments: bool
+) -> list[ChangeLogLine]:
     change_log_updates_list: list[ChangeLogLine] = []
     there_are_inforg_comments = False
     if snapshot_line.status != searches_line.status:
-        change_log_line = ChangeLogLine(
-            parsed_time=snapshot_line.parsed_time,
-            topic_id=snapshot_line.topic_id,
-            changed_field='status_change',
-            new_value=snapshot_line.status,
-            parameters='',
-            change_type=ChangeType.topic_status_change,
-        )
-
-        change_log_updates_list.append(change_log_line)
-
-    if snapshot_line.title != searches_line.title:
-        change_log_line = ChangeLogLine(
-            parsed_time=snapshot_line.parsed_time,
-            topic_id=snapshot_line.topic_id,
-            changed_field='title_change',
-            new_value=snapshot_line.title,
-            parameters='',
-            change_type=ChangeType.topic_title_change,
-        )
-
-        change_log_updates_list.append(change_log_line)
-
-    if snapshot_line.num_of_replies > searches_line.num_of_replies:
-        change_log_line = ChangeLogLine(
-            parsed_time=snapshot_line.parsed_time,
-            topic_id=snapshot_line.topic_id,
-            changed_field='replies_num_change',
-            new_value=snapshot_line.num_of_replies,
-            parameters='',
-            change_type=ChangeType.topic_comment_new,
-        )
-
-        change_log_updates_list.append(change_log_line)
-
-        for k in range(snapshot_line.num_of_replies - searches_line.num_of_replies):
-            flag_if_comment_was_from_inforg = parse_and_write_one_comment(
-                db, snapshot_line.topic_id, searches_line.num_of_replies + 1 + k
-            )  # TODO could extract out of here?
-            if flag_if_comment_was_from_inforg:
-                there_are_inforg_comments = True
-
-        if there_are_inforg_comments:
-            change_log_line = ChangeLogLine(
+        change_log_updates_list.append(
+            ChangeLogLine(
                 parsed_time=snapshot_line.parsed_time,
                 topic_id=snapshot_line.topic_id,
-                changed_field='inforg_replies',
+                changed_field='status_change',
+                new_value=snapshot_line.status,
+                parameters='',
+                change_type=ChangeType.topic_status_change,
+            )
+        )
+
+    if snapshot_line.title != searches_line.title:
+        change_log_updates_list.append(
+            ChangeLogLine(
+                parsed_time=snapshot_line.parsed_time,
+                topic_id=snapshot_line.topic_id,
+                changed_field='title_change',
+                new_value=snapshot_line.title,
+                parameters='',
+                change_type=ChangeType.topic_title_change,
+            )
+        )
+
+    if snapshot_line.num_of_replies > searches_line.num_of_replies:
+        change_log_updates_list.append(
+            ChangeLogLine(
+                parsed_time=snapshot_line.parsed_time,
+                topic_id=snapshot_line.topic_id,
+                changed_field='replies_num_change',
                 new_value=snapshot_line.num_of_replies,
                 parameters='',
-                change_type=ChangeType.topic_inforg_comment_new,
+                change_type=ChangeType.topic_comment_new,
             )
+        )
 
-            change_log_updates_list.append(change_log_line)
+        if there_are_inforg_comments:
+            change_log_updates_list.append(
+                ChangeLogLine(
+                    parsed_time=snapshot_line.parsed_time,
+                    topic_id=snapshot_line.topic_id,
+                    changed_field='inforg_replies',
+                    new_value=snapshot_line.num_of_replies,
+                    parameters='',
+                    change_type=ChangeType.topic_inforg_comment_new,
+                )
+            )
     return change_log_updates_list
 
 
