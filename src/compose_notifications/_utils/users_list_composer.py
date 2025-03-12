@@ -338,9 +338,10 @@ class UserListFilter:
                 ON upsf.user_id=u.user_id and 'whitelist' = ANY(upsf.filter_name)
             WHERE 
                 (   upsf.filter_name is not null 
-                    AND NOT
-                        ( /* 1st condition: the user is following this search */
-                            NOT exists
+                    AND NOT /* condition to suppress notifications */
+                        (   :change_type != 1 /* 1 means status_change which we should not suppress */
+                            /* the user is not following this search */
+                            AND NOT exists
                                 (
                                     select 1 from user_pref_search_whitelist upswls 
                                     WHERE 
@@ -350,7 +351,7 @@ class UserListFilter:
                                         AND :search_new_status 
                                             not in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
                                 )
-                            AND exists
+                            AND exists  /* another followed saerch in active status */
                                 (
                                     select 1 from user_pref_search_whitelist upswls
                                     join searches s on s.search_forum_num = upswls.search_id
@@ -377,6 +378,7 @@ class UserListFilter:
             sql_text_,
             forum_search_num=record.forum_search_num,
             search_new_status=record.new_status,
+            change_type=record.change_type,
             following_mode_on=SearchFollowingMode.ON,
             following_mode_off=SearchFollowingMode.OFF,
         ).fetchall()
