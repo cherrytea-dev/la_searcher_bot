@@ -221,7 +221,7 @@ def iterate_over_notifications(
             # check if there are any non-notified users
             messages = check_for_notifs_to_send(cur, select_doubling=False)
             analytics_sql_duration = seconds_between_round_2(analytics_sql_start)
-            logging.info(f'time: {analytics_sql_duration:.2f} – reading sql')
+            logging.debug(f'time: {analytics_sql_duration:.2f} – reading sql')
 
             if not messages:
                 if not is_first_wait:
@@ -259,7 +259,7 @@ def _process_message_sending(
     conn: connection,
     message_to_send: MessageToSend,
 ) -> None:
-    logging.info('time: -------------- loop start -------------')
+    logging.debug('time: -------------- loop start -------------')
     logging.info(f'{message_to_send}')
     analytics_sm_start = datetime.datetime.now()
 
@@ -271,7 +271,7 @@ def _process_message_sending(
     result = send_single_message(get_app_config().bot_api_token__prod, message_to_send, session)
 
     analytics_send_start_finish = seconds_between_round_2(analytics_pre_sending_msg)
-    logging.info(f'time: {analytics_send_start_finish:.2f} – sending msg')
+    logging.debug(f'time: {analytics_send_start_finish:.2f} – sending msg')
 
     # save result of sending telegram notification into SQL notif_by_user
     with conn.cursor() as cur:
@@ -309,11 +309,11 @@ def _process_logs_with_completed_sending(
     creation_time = message_to_send.created
 
     duration_complete_vs_create_minutes = seconds_between_round_2(creation_time)
-    logging.info(f'metric: creation to completion time – {duration_complete_vs_create_minutes} min')
+    logging.debug(f'metric: creation to completion time – {duration_complete_vs_create_minutes} min')
     time_analytics.delays.append(duration_complete_vs_create_minutes)
 
     duration_complete_vs_parsed_time_minutes = seconds_between_round_2(change_log_upd_time or datetime.datetime.now())
-    logging.info(f'metric: parsing to completion time – {duration_complete_vs_parsed_time_minutes} min')
+    logging.debug(f'metric: parsing to completion time – {duration_complete_vs_parsed_time_minutes} min')
     time_analytics.parsed_times.append(duration_complete_vs_parsed_time_minutes)
 
 
