@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 
-
 from bs4 import BeautifulSoup, SoupStrainer
 from requests import Session
 

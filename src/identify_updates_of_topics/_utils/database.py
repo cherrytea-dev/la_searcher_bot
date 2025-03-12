@@ -271,7 +271,7 @@ def write_comment(
         conn.close()
 
 
-def update_coordinates_in_db(db, search_id, coords):
+def update_coordinates_in_db(db: Engine, search_id, coords):
     with db.connect() as conn:
         stmt = sqlalchemy.text(
             'SELECT latitude, longitude, coord_type FROM search_coordinates WHERE search_id=:a LIMIT 1;'
@@ -347,12 +347,14 @@ def _get_current_snapshots_list(folder_num: int, conn: Connection) -> list[Searc
 
 
 def _write_search(conn: connection, line: SearchSummary) -> None:
-    stmt = sqlalchemy.text(
-        """INSERT INTO searches (search_forum_num, parsed_time, forum_search_title,
-        search_start_time, num_of_replies, age, family_name, forum_folder_id,
-        topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id) values
-        (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); """
-    )
+    stmt = sqlalchemy.text("""
+        INSERT INTO searches 
+            (search_forum_num, parsed_time, forum_search_title,
+            search_start_time, num_of_replies, age, family_name, forum_folder_id,
+            topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id) 
+        values
+            (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); 
+                           """)
     conn.execute(
         stmt,
         a=line.topic_id,

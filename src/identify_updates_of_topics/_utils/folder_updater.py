@@ -5,6 +5,7 @@ from typing import Any
 import requests
 from google.cloud import storage
 from google.cloud.storage.blob import Blob
+from sqlalchemy.engine import Connection
 from sqlalchemy.engine.base import Engine
 
 from _dependencies.commons import ChangeType, TopicType
@@ -31,7 +32,7 @@ from identify_updates_of_topics._utils.external_api import (
     get_coordinates_from_address_by_yandex,
     rate_limit_for_api,
 )
-from identify_updates_of_topics._utils.forum import ForumClient
+from identify_updates_of_topics._utils.forum import ForumClient, ForumSearchItem
 from identify_updates_of_topics._utils.parse import (
     parse_address_from_title,
     profile_get_managers,
@@ -92,7 +93,8 @@ class FolderUpdater:
     def __init__(self, db: Engine, folder_num: int) -> None:
         self.db = db
         self.folder_num = folder_num
-        # TODO ForumClient here too
+        self.forum_client = ForumClient()
+        # TODO ForumClient to incoming params
 
     def run(self) -> tuple[bool, list[int]]:
         """process one forum folder: check for updates, upload them into cloud sql"""
@@ -117,18 +119,51 @@ class FolderUpdater:
         if not update_trigger:
             return False, []
 
-        rewrite_snapshot_in_sql(self.db, self.folder_num, new_folder_summary)
+        rewrite_snapshot_in_sql(
+            self.db, self.folder_num, new_folder_summary
+        )  # TODO can move into _update_change_log_and_searches?
 
         logging.info(f'starting updating change_log and searches tables for folder {self.folder_num}')
 
         change_log_ids = self._update_change_log_and_searches()
-        self.update_coordinates(new_folder_summary)
+        self._update_coordinates(new_folder_summary)
 
         return True, change_log_ids
 
     def _parse_one_folder(self) -> tuple[list, list[SearchSummary]]:
         """parse forum folder with searches' summaries"""
 
+        titles_and_num_of_replies = []
+        folder_summary: list[SearchSummary] = []
+        current_datetime = datetime.now()
+
+        folder_content_items = self.forum_client.get_folder_searches(self.folder_num)
+        try:
+            for forum_search_item in folder_content_items:
+                try:
+                    self._parse_one_search(
+                        current_datetime, titles_and_num_of_replies, folder_summary, forum_search_item
+                    )
+
+                except Exception as e:
+                    title = forum_search_item.title
+                    logging.exception(f'TEMP - THIS BIG ERROR HAPPENED, {title=}')
+                    notify_admin(f'TEMP - THIS BIG ERROR HAPPENED, {title=}')
+
+        # To catch timeout once a day in the night
+        except (requests.exceptions.Timeout, ConnectionResetError, Exception) as e:
+            logging.exception('Error while parsing folder')
+            folder_summary = []
+
+        return titles_and_num_of_replies, folder_summary
+
+    def _parse_one_search(
+        self,
+        current_datetime: datetime,
+        titles_and_num_of_replies: list,
+        folder_summary: list[SearchSummary],
+        forum_search_item: ForumSearchItem,
+    ) -> None:
         topic_type_dict = {
             'search': TopicType.search_regular,
             'search reverse': TopicType.search_reverse,
@@ -137,105 +172,80 @@ class FolderUpdater:
             'event': TopicType.event,
         }
 
-        titles_and_num_of_replies = []
-        folder_summary: list[SearchSummary] = []
-        current_datetime = datetime.now()
-        forum_client = ForumClient()
-        folder_content_items = forum_client.get_folder_searches(self.folder_num)
-        try:
-            for forum_search_item in folder_content_items:
-                try:
-                    data = {'title': forum_search_item.title}
-                    title_reco_response = make_api_call('title_recognize', data)  # TODO can use local call in tests
+        data = {'title': forum_search_item.title}
+        title_reco_response = make_api_call('title_recognize', data)  # TODO can use local call in tests
 
-                    if (
-                        title_reco_response
-                        and 'status' in title_reco_response.keys()
-                        and title_reco_response['status'] == 'ok'
-                    ):
-                        title_reco_dict = title_reco_response['recognition']
-                    else:
-                        title_reco_dict = {'topic_type': 'UNRECOGNIZED'}
+        if title_reco_response and 'status' in title_reco_response.keys() and title_reco_response['status'] == 'ok':
+            title_reco_dict = title_reco_response['recognition']
+        else:
+            title_reco_dict = {'topic_type': 'UNRECOGNIZED'}
 
-                    logging.info(f'{title_reco_dict=}')
+        logging.info(f'{title_reco_dict=}')
 
-                    # NEW exclude non-relevant searches
-                    if title_reco_dict['topic_type'] in {
-                        'search',
-                        'search training',
-                        'search reverse',
-                        'search patrol',
-                        'event',
-                    }:
-                        # FIXME – 06.11.2023 – work to delete function "define_family_name_from_search_title_new"
-                        if title_reco_dict['topic_type'] == 'event':
-                            person_fam_name = None
-                        else:
-                            try:
-                                person_fam_name = title_reco_dict['persons']['total_name']  # noqa
-                            except Exception as ex:
-                                logging.exception(ex)
-                                notify_admin(repr(ex))
-                                person_fam_name = 'БВП'
-                        # FIXME ^^^
+        # NEW exclude non-relevant searches
+        if title_reco_dict['topic_type'] not in {
+            'search',
+            'search training',
+            'search reverse',
+            'search patrol',
+            'event',
+        }:
+            return
 
-                        search_summary_object = SearchSummary(
-                            parsed_time=current_datetime,
-                            topic_id=forum_search_item.search_id,
-                            title=forum_search_item.title,
-                            start_time=forum_search_item.start_datetime,
-                            num_of_replies=forum_search_item.replies_count,
-                            name=person_fam_name,
-                            folder_id=self.folder_num,
-                        )
-                        search_summary_object.topic_type = title_reco_dict['topic_type']
-                        search_summary_object.topic_type_id = topic_type_dict[search_summary_object.topic_type]
+        # FIXME – 06.11.2023 – work to delete function "define_family_name_from_search_title_new"
+        if title_reco_dict['topic_type'] == 'event':
+            person_fam_name = None
+        else:
+            try:
+                person_fam_name = title_reco_dict['persons']['total_name']  # noqa
+            except Exception as ex:
+                logging.exception(ex)
+                notify_admin(repr(ex))
+                person_fam_name = 'БВП'
+                # FIXME ^^^
 
-                        if 'persons' in title_reco_dict.keys():
-                            if 'total_display_name' in title_reco_dict['persons'].keys():
-                                search_summary_object.display_name = title_reco_dict['persons']['total_display_name']
-                            if 'age_min' in title_reco_dict['persons'].keys():
-                                search_summary_object.age_min = title_reco_dict['persons']['age_min']
-                                search_summary_object.age = title_reco_dict['persons']['age_min']  # Due to the field
-                                # "age" in searches which is integer, so we cannot indicate a range
-                            if 'age_max' in title_reco_dict['persons'].keys():
-                                search_summary_object.age_max = title_reco_dict['persons']['age_max']
+        search_summary_object = SearchSummary(
+            parsed_time=current_datetime,
+            topic_id=forum_search_item.search_id,
+            title=forum_search_item.title,
+            start_time=forum_search_item.start_datetime,
+            num_of_replies=forum_search_item.replies_count,
+            name=person_fam_name,
+            folder_id=self.folder_num,
+        )
+        search_summary_object.topic_type = title_reco_dict['topic_type']
+        search_summary_object.topic_type_id = topic_type_dict[search_summary_object.topic_type]
 
-                        if 'status' in title_reco_dict.keys():
-                            search_summary_object.new_status = title_reco_dict['status']
-                            search_summary_object.status = title_reco_dict['status']
+        if 'persons' in title_reco_dict.keys():
+            if 'total_display_name' in title_reco_dict['persons'].keys():
+                search_summary_object.display_name = title_reco_dict['persons']['total_display_name']
+            if 'age_min' in title_reco_dict['persons'].keys():
+                search_summary_object.age_min = title_reco_dict['persons']['age_min']
+                search_summary_object.age = title_reco_dict['persons']['age_min']  # Due to the field
+                # "age" in searches which is integer, so we cannot indicate a range
+            if 'age_max' in title_reco_dict['persons'].keys():
+                search_summary_object.age_max = title_reco_dict['persons']['age_max']
 
-                        if 'locations' in title_reco_dict.keys():
-                            list_of_location_cities = [x['address'] for x in title_reco_dict['locations']]
-                            list_of_location_coords = []
-                            for location_city in list_of_location_cities:
-                                city_lat, city_lon = self.get_coordinates_by_address(location_city)
-                                if city_lat and city_lon:
-                                    list_of_location_coords.append([city_lat, city_lon])
-                            search_summary_object.locations = list_of_location_coords
+        if 'status' in title_reco_dict.keys():
+            search_summary_object.new_status = title_reco_dict['status']
+            search_summary_object.status = title_reco_dict['status']
 
-                        folder_summary.append(search_summary_object)
+        if 'locations' in title_reco_dict.keys():
+            list_of_location_cities = [x['address'] for x in title_reco_dict['locations']]
+            list_of_location_coords = []
+            for location_city in list_of_location_cities:
+                city_lat, city_lon = self.get_coordinates_by_address(location_city)
+                if city_lat and city_lon:
+                    list_of_location_coords.append([city_lat, city_lon])
+            search_summary_object.locations = list_of_location_coords
 
-                        parsed_wo_date = [forum_search_item.title, forum_search_item.replies_count]
-                        titles_and_num_of_replies.append(parsed_wo_date)
+        folder_summary.append(search_summary_object)
 
-                except Exception as e:
-                    logging.info(f'TEMP - THIS BIG ERROR HAPPENED, {data=}')
-                    notify_admin(f'TEMP - THIS BIG ERROR HAPPENED, {data=}, {type(data)=}')
-                    logging.error(e)
-                    logging.exception(e)
-
-        # To catch timeout once a day in the night
-        except (requests.exceptions.Timeout, ConnectionResetError, Exception) as e:
-            logging.exception(e)
-            folder_summary = []
-
-        return titles_and_num_of_replies, folder_summary
+        parsed_wo_date = [forum_search_item.title, forum_search_item.replies_count]
+        titles_and_num_of_replies.append(parsed_wo_date)
 
     def _update_change_log_and_searches(self) -> list[int]:
         """update of SQL tables 'searches' and 'change_log' on the changes vs previous parse"""
-
-        change_log_ids = []
 
         # DEBUG - function execution time counter
         func_start = datetime.now()
@@ -248,111 +258,108 @@ class FolderUpdater:
             if len(prev_searches_list) > 5000:
                 logging.warning('TEMP - you use too big table Searches, it should be optimized')
 
-            """1. move UPD to Change Log"""
-            change_log_updates_list: list[ChangeLogLine] = []
+            change_log_ids = self._write_updated_searches(conn, curr_snapshot_list, prev_searches_list)
 
-            for snapshot_line in curr_snapshot_list:
-                for searches_line in prev_searches_list:
-                    if snapshot_line.topic_id != searches_line.topic_id:
-                        continue  # TODO we are merging two lists here. It's slow.
-
-                    there_are_inforg_comments = self._parse_comments_and_detect_inforg_comments(
-                        snapshot_line, searches_line
-                    )
-                    changes = self._detect_changes(snapshot_line, searches_line, there_are_inforg_comments)
-                    change_log_updates_list.extend(changes)
-
-            for line in change_log_updates_list:  # TODO
-                change_log_id = _write_change_log(conn, line)
-                change_log_ids.append(change_log_id)
-
-            """2. move ADD to Change Log """
-            new_topics_from_snapshot_list: list[SearchSummary] = []
-
-            for snapshot_line in curr_snapshot_list:
-                new_search_flag = 1
-                for searches_line in prev_searches_list:
-                    if snapshot_line.topic_id == searches_line.topic_id:
-                        new_search_flag = 0
-                        break
-
-                if new_search_flag == 1:
-                    new_topics_from_snapshot_list.append(snapshot_line)
-
-            change_log_new_topics_list: list[ChangeLogLine] = []
-
-            for snapshot_line in new_topics_from_snapshot_list:
-                change_type_id = ChangeType.topic_new
-                change_type_name = 'new_search'
-
-                change_log_line = ChangeLogLine(
-                    parsed_time=snapshot_line.parsed_time,
-                    topic_id=snapshot_line.topic_id,
-                    changed_field=change_type_name,
-                    new_value=snapshot_line.title,
-                    parameters='',
-                    change_type=change_type_id,
-                )
-                change_log_new_topics_list.append(change_log_line)
-
-            if change_log_new_topics_list:
-                for line in change_log_new_topics_list:
-                    change_log_id = _write_change_log(conn, line)
-                    change_log_ids.append(change_log_id)
-
-            """3. ADD to Searches"""
-            for line in new_topics_from_snapshot_list:
-                _write_search(conn, line)
-
-                search_num = line.topic_id
-                parsed_profile_text = ForumClient().parse_search_profile(search_num)
-                search_activities = profile_get_type_of_activity(parsed_profile_text)
-                _update_search_activities(conn, search_num, search_activities)
-
-                # Define managers of the search
-                managers = profile_get_managers(parsed_profile_text)
-                logging.debug(f'DBG.P.104:Managers: {managers}')
-                _update_search_managers(conn, search_num, managers)
+            new_change_log_ids = self._write_new_searches(conn, curr_snapshot_list, prev_searches_list)
+            change_log_ids.extend(new_change_log_ids)
 
             """4 DEL UPD from Searches"""
-            searches_to_delete = []
-
-            for snapshot_line in curr_snapshot_list:
-                for searches_line in prev_searches_list:
-                    if snapshot_line.topic_id == searches_line.topic_id:
-                        if (
-                            snapshot_line.status != searches_line.status
-                            or snapshot_line.title != searches_line.title
-                            or snapshot_line.num_of_replies != searches_line.num_of_replies
-                        ):
-                            searches_to_delete.append(snapshot_line)
-
-            for line in searches_to_delete:
-                # TODO mass deletion
-                _delete_search(conn, line.topic_id)
+            self._delete_and_write_searches_again(conn, curr_snapshot_list, prev_searches_list)  # TODO ???
 
             """5. UPD added to Searches"""
-            curr_searches_list = _get_current_searches(conn)
-
-            new_searches: list[SearchSummary] = []
-
-            for snapshot_line in curr_snapshot_list:
-                new_search_flag = 1
-                for searches_line in curr_searches_list:
-                    if snapshot_line.topic_id == searches_line.topic_id:
-                        new_search_flag = 0
-                        break  # search already exists
-                if new_search_flag == 1:
-                    new_searches.append(snapshot_line)
-
-            for line in new_searches:
-                _write_search(conn, line)
 
         # DEBUG - function execution time counter
         func_finish = datetime.now()
         func_execution_time_ms = func_finish - func_start
         logging.info(f'DBG.P.5.process_delta() exec time: {func_execution_time_ms}')
 
+        return change_log_ids
+
+    def _delete_and_write_searches_again(
+        self, conn: Connection, curr_snapshot_list: list[SearchSummary], prev_searches_list: list[SearchSummary]
+    ) -> None:
+        searches_to_delete = []
+
+        for snapshot_line in curr_snapshot_list:
+            for searches_line in prev_searches_list:
+                if snapshot_line.topic_id == searches_line.topic_id:
+                    if (
+                        snapshot_line.status != searches_line.status
+                        or snapshot_line.title != searches_line.title
+                        or snapshot_line.num_of_replies != searches_line.num_of_replies
+                    ):
+                        searches_to_delete.append(snapshot_line)
+                        # TODO we really deleting all these searches? for what? to write back later?
+
+        for line in searches_to_delete:
+            # TODO mass deletion
+            _delete_search(conn, line.topic_id)
+
+        curr_searches_list = _get_current_searches(conn)
+        curr_searches_ids = set([search.topic_id for search in curr_searches_list])
+
+        for snapshot_line in curr_snapshot_list:
+            if snapshot_line.topic_id not in curr_searches_ids:
+                _write_search(conn, snapshot_line)
+
+    def _write_new_searches(
+        self, conn: Connection, curr_snapshot_list: list[SearchSummary], prev_searches_list: list[SearchSummary]
+    ) -> list[int]:
+        prev_searches_topic_ids = set([search.topic_id for search in prev_searches_list])
+
+        new_topics = [x for x in curr_snapshot_list if x.topic_id not in prev_searches_topic_ids]
+
+        """ADD to Searches"""
+        for line in new_topics:
+            _write_search(conn, line)
+
+            search_num = line.topic_id
+            parsed_profile_text = self.forum_client.parse_search_profile(search_num)
+            search_activities = profile_get_type_of_activity(parsed_profile_text)
+            _update_search_activities(conn, search_num, search_activities)
+
+            # Define managers of the search
+            managers = profile_get_managers(parsed_profile_text)
+            logging.debug(f'DBG.P.104:Managers: {managers}')
+            _update_search_managers(conn, search_num, managers)
+
+        """write change_log records"""
+        change_log_ids: list[int] = []
+        for snapshot_line in new_topics:
+            line = ChangeLogLine(
+                parsed_time=snapshot_line.parsed_time,
+                topic_id=snapshot_line.topic_id,
+                changed_field='new_search',
+                new_value=snapshot_line.title,
+                parameters='',
+                change_type=ChangeType.topic_new,
+            )
+
+            change_log_id = _write_change_log(conn, line)
+            change_log_ids.append(change_log_id)
+
+        return change_log_ids
+
+    def _write_updated_searches(
+        self, conn: Connection, curr_snapshot_list: list[SearchSummary], prev_searches_list: list[SearchSummary]
+    ) -> list[int]:
+        change_log_ids: list[int] = []
+        change_log_updates_list: list[ChangeLogLine] = []
+
+        for snapshot_line in curr_snapshot_list:
+            for searches_line in prev_searches_list:
+                if snapshot_line.topic_id != searches_line.topic_id:
+                    continue  # TODO we are merging two lists here. It's slow.
+
+                there_are_inforg_comments = self._parse_comments_and_detect_inforg_comments(
+                    snapshot_line, searches_line
+                )
+                changes = self._detect_changes(snapshot_line, searches_line, there_are_inforg_comments)
+                change_log_updates_list.extend(changes)
+
+        for line in change_log_updates_list:  # TODO
+            change_log_id = _write_change_log(conn, line)
+            change_log_ids.append(change_log_id)
         return change_log_ids
 
     def _parse_comments_and_detect_inforg_comments(
@@ -363,7 +370,7 @@ class FolderUpdater:
 
         there_are_inforg_comments = False
         for k in range(snapshot_line.num_of_replies - searches_line.num_of_replies):
-            flag_if_comment_was_from_inforg = self.parse_and_write_one_comment(
+            flag_if_comment_was_from_inforg = self._parse_and_write_one_comment(
                 snapshot_line.topic_id, searches_line.num_of_replies + 1 + k
             )
             if flag_if_comment_was_from_inforg:
@@ -371,12 +378,11 @@ class FolderUpdater:
 
         return there_are_inforg_comments
 
-    def parse_and_write_one_comment(self, search_num, comment_num: int) -> bool:
+    def _parse_and_write_one_comment(self, search_num, comment_num: int) -> bool:
         """parse all details on a specific comment in topic (by sequence number)"""
 
         try:
-            forum_client = ForumClient()
-            comment_data = forum_client.get_comment_data(search_num, comment_num)
+            comment_data = self.forum_client.get_comment_data(search_num, comment_num)
             write_comment(
                 self.db,
                 comment_data.search_num,
@@ -390,11 +396,11 @@ class FolderUpdater:
             )
 
         except ConnectionResetError:
-            logging.info('There is a connection error')
+            logging.error('There is a connection error')
 
         return comment_data.inforg_comment_present
 
-    def update_coordinates(self, list_of_search_objects: list[SearchSummary]) -> None:
+    def _update_coordinates(self, list_of_search_objects: list[SearchSummary]) -> None:
         """Record search coordinates to PSQL"""
 
         for search in list_of_search_objects:
@@ -405,19 +411,19 @@ class FolderUpdater:
                 continue
 
             logging.info(f'search coordinates should be saved for {search_id=}')
-            coords = self.parse_coordinates_of_search(search_id)
+            coords = self._parse_coordinates_of_search(search_id)
 
             update_coordinates_in_db(self.db, search_id, coords)
 
         return None
 
-    def parse_coordinates_of_search(self, search_num) -> tuple[float, float, str]:
+    def _parse_coordinates_of_search(self, search_num) -> tuple[float, float, str]:
         """finds coordinates of the search"""
 
         # DEBUG - function execution time counter
         func_start = datetime.now()
 
-        lat, lon, coord_type, title = ForumClient().parse_coordinates_of_search(search_num)
+        lat, lon, coord_type, title = self.forum_client.parse_coordinates_of_search(search_num)
 
         # FOURTH CASE = COORDINATES FROM ADDRESS
         if lat == 0:

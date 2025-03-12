@@ -3,8 +3,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from identify_updates_of_topics._utils.external_api import rate_limit_for_api
 from identify_updates_of_topics import main
+from identify_updates_of_topics._utils.external_api import rate_limit_for_api
 from identify_updates_of_topics._utils.forum import ForumClient
 from tests.common import get_event_with_data
 

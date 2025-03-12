@@ -1,9 +1,8 @@
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-
-from identify_updates_of_topics._utils.forum import ForumClient
 from identify_updates_of_topics._utils.folder_updater import FolderUpdater
+from identify_updates_of_topics._utils.forum import ForumClient
 
 
 class TestFolderUpdater:
@@ -29,7 +28,7 @@ class TestFolderUpdater:
     def test_parse_one_comment(self, db, mock_http_get):
         mock_http_get.return_value.content = Path('tests/fixtures/forum_comment.html').read_bytes()
 
-        there_are_inforg_comments = FolderUpdater(db, 1).parse_and_write_one_comment(1, 1)
+        there_are_inforg_comments = FolderUpdater(db, 1)._parse_and_write_one_comment(1, 1)
         assert there_are_inforg_comments
 
     def test_get_cordinates(self, db):
@@ -46,5 +45,5 @@ class TestFolderUpdater:
         mock_http_get.return_value.content = Path('tests/fixtures/forum_topic.html').read_bytes()
 
         search_id = 1
-        res = FolderUpdater(db, search_id).parse_coordinates_of_search(search_id)
+        res = FolderUpdater(db, search_id)._parse_coordinates_of_search(search_id)
         assert res == (53.510722, 33.637365, '3. deleted coord')

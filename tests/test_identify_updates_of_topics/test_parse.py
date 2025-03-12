@@ -2,8 +2,8 @@ import pytest
 
 from identify_updates_of_topics._utils.parse import (
     parse_address_from_title,
-    profile_get_type_of_activity,
     profile_get_managers,
+    profile_get_type_of_activity,
 )
 
 
