@@ -5,29 +5,7 @@ import pytest
 
 import identify_updates_of_topics._utils.external_api
 import identify_updates_of_topics._utils.forum
-from identify_updates_of_topics import main
 from identify_updates_of_topics._utils.forum import ForumClient, ForumCommentItem, ForumSearchItem
-from title_recognize.main import recognize_title
-
-
-@pytest.fixture(autouse=True)
-def common_patches():
-    def fake_api_call(function: str, data: dict):
-        reco_data = recognize_title(data['title'], None)
-        return {'status': 'ok', 'recognition': reco_data}
-
-    with (
-        patch.object(main, 'make_api_call', fake_api_call),
-    ):
-        yield
-
-
-@pytest.fixture()
-def mock_http_get():
-    with (
-        patch.object(identify_updates_of_topics._utils.forum.get_requests_session(), 'get') as mock_http,
-    ):
-        yield mock_http
 
 
 class TestForumClient:

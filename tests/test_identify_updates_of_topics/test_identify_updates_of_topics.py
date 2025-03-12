@@ -4,47 +4,12 @@ from unittest.mock import Mock, patch
 import pytest
 
 import identify_updates_of_topics._utils.external_api
+import identify_updates_of_topics._utils.folder_updater
 import identify_updates_of_topics._utils.forum
-from _dependencies.commons import sqlalchemy_get_pool
 from identify_updates_of_topics import main
-from identify_updates_of_topics._utils import forum, parse
+from identify_updates_of_topics._utils import folder_updater, forum, parse
 from tests.common import get_event_with_data
 from title_recognize.main import recognize_title
-
-
-@pytest.fixture
-def db():
-    return sqlalchemy_get_pool(10, 10)
-
-
-@pytest.fixture(autouse=True)
-def patch_google_cloud_storage():
-    with patch('google.cloud.storage.Client'):
-        yield
-
-
-@pytest.fixture(autouse=True)
-def common_patches():
-    def fake_api_call(function: str, data: dict):
-        reco_data = recognize_title(data['title'], None)
-        return {'status': 'ok', 'recognition': reco_data}
-
-    with (
-        # patch.object(main, 'requests_session', requests.Session()),
-        patch.object(main, 'make_api_call', fake_api_call),
-        # patch('identify_updates_of_topics._utils.topics_commons.get_requests_session', requests.Session()),
-        # patch.object(main, 'parse_search_profile', Mock(return_value='foo')),
-        # patch('compose_notifications.main.call_self_if_need_compose_more'),  # avoid recursion in tests
-    ):
-        yield
-
-
-@pytest.fixture()
-def mock_http_get():
-    with (
-        patch.object(identify_updates_of_topics._utils.forum.get_requests_session(), 'get') as mock_http,
-    ):
-        yield mock_http
 
 
 def test_main():
@@ -54,38 +19,10 @@ def test_main():
     assert True
 
 
-def test_get_cordinates(db):
-    data = 'Москва, Ярославское шоссе 123'
-    with patch('identify_updates_of_topics.main.rate_limit_for_api'):
-        res = main.get_coordinates_by_address(db, data)
-    assert res == (None, None)
-
-
 def test_rate_limit_for_api(db):
     data = 'Москва, Ярославское шоссе 123'
 
     identify_updates_of_topics._utils.external_api.rate_limit_for_api(db, data)
-
-
-def test_parse_one_folder(db, mock_http_get):
-    mock_http_get.return_value.content = Path('tests/fixtures/forum_folder_276.html').read_bytes()
-
-    forum_search_folder_id = 276
-    summaries, details = main.parse_one_folder(db, forum_search_folder_id)
-    assert summaries == [
-        ['Жив Иванов Иван, 10 лет, ЗАО, г. Москва', 29],
-        ['Пропал Петров Петр Петрович, 48 лет, ЗелАО, г. Москва - Тверская обл.', 116],
-    ]
-    assert len(details) == 2
-
-
-def test_process_one_folder(db, mock_http_get):
-    mock_http_get.return_value.content = Path('tests/fixtures/forum_folder_276.html').read_bytes()
-
-    forum_search_folder_id = 276
-    with patch.object(forum.ForumClient, 'parse_search_profile', Mock(return_value='foo')):
-        update_trigger, changed_ids = main.process_one_folder(db, forum_search_folder_id)
-    assert update_trigger is True
 
 
 def test_main_full_scenario(mock_http_get):
@@ -95,13 +32,6 @@ def test_main_full_scenario(mock_http_get):
     data = [(forum_search_folder_id,)]
     with patch.object(forum.ForumClient, 'parse_search_profile', Mock(return_value='foo')):
         main.main(get_event_with_data(str(data)), 'context')
-
-
-def test_parse_one_comment(db, mock_http_get):
-    mock_http_get.return_value.content = Path('tests/fixtures/forum_comment.html').read_bytes()
-
-    there_are_inforg_comments = main.parse_and_write_one_comment(db, 1, 1)
-    assert there_are_inforg_comments
 
 
 @pytest.mark.parametrize(
@@ -126,16 +56,11 @@ def test_parse_activity_wrong_case():
     assert activities == ['1 - hq now', '6 - autonom']
 
 
-def test_update_change_log_and_searches(db):
-    res = main.update_change_log_and_searches(db, 1)
-    pass
-
-
 def test_parse_coordinates_of_search(db, mock_http_get):
     mock_http_get.return_value.content = Path('tests/fixtures/forum_topic.html').read_bytes()
 
     search_id = 1
-    res = main.parse_coordinates_of_search(db, search_id)
+    res = folder_updater.FolderUpdater(db, search_id).parse_coordinates_of_search(search_id)
     assert res == (53.510722, 33.637365, '3. deleted coord')
 
 
