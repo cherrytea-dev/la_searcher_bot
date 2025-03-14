@@ -138,7 +138,6 @@ class DBClient:
         """Used to track time of the last api call to geocoders. Gets the last timestamp in UTC saved in psql"""
 
         with self.connect() as conn:
-            last_call = None
             try:
                 stmt = sqlalchemy.text("""
                     SELECT timestamp FROM geocode_last_api_call 

@@ -231,9 +231,7 @@ class ForumClient:
     def parse_coordinates_of_search(self, search_num) -> tuple[float, float, str, str]:
         """finds coordinates of the search"""
         url_to_topic = self._get_topic_url(search_num)
-        lat = 0
-        lon = 0
-        coord_type = ''
+        lat, lon = 0, 0
         search_code_blocks = None
         title = ''
 
@@ -252,7 +250,7 @@ class ForumClient:
             search_code_blocks = soup.find('div', 'content')
 
             if not search_code_blocks:
-                return [lat, lon, coord_type, title]
+                return [0, 0, '', title]
 
             # removing <br> tags
             for e in search_code_blocks.findAll('br'):
@@ -265,113 +263,111 @@ class ForumClient:
             return [0, 0, '', '']
 
         # FIRST CASE = THERE ARE COORDINATES w/ a WORD Coordinates
-        lat, lon, coord_type = _parse_coords_case_1(search_code_blocks)
+        try:
+            coord_type = '1. coordinates w/ word coord'
+            lat, lon = _parse_coords_case_1(search_code_blocks)
+        except Exception as e:
+            logging.exception('Error extracting coordinates case 1')
 
         # SECOND CASE = THERE ARE COORDINATES w/o a WORD Coordinates
-        if lat == 0:
-            lat, lon, coord_type = _parse_coords_case_2(search_code_blocks)
+        if not lat:
+            try:
+                coord_type = '2. coordinates w/o word coord'
+                lat, lon = _parse_coords_case_2(search_code_blocks)
+            except Exception as e:
+                logging.exception('Error extracting coordinates case 2')
 
         # THIRD CASE = DELETED COORDINATES
-        if lat == 0:
-            lat, lon, coord_type = _parse_coords_case_3(search_code_blocks)
+        if not lat:
+            try:
+                coord_type = '3. deleted coord'
+                lat, lon = _parse_coords_case_3(search_code_blocks)
+            except Exception as e:
+                logging.exception('Error extracting coordinates case 3')
+
         return [lat, lon, coord_type, title]
 
 
-def _parse_coords_case_1(search_code_blocks: BeautifulSoup) -> tuple[float, float, str]:
-    lat, lon, coord_type = 0, 0, ''
-    try:
-        # make an independent variable
-        a = copy.copy(search_code_blocks)
+def _parse_coords_case_1(search_code_blocks: BeautifulSoup) -> tuple[float, float]:
+    # make an independent variable
+    a = copy.copy(search_code_blocks)
 
-        # remove a text with strike-through
-        b = a.find_all('span', {'style': 'text-decoration:line-through'})
-        for i in range(len(b)):
-            b[i].decompose()
+    # remove a text with strike-through
+    b = a.find_all('span', {'style': 'text-decoration:line-through'})
+    for i in range(len(b)):
+        b[i].decompose()
 
-            # preparing a list of 100-character strings which starts with Coord mentioning
-        e = []
-        i = 0
-        f = str(a).lower()
+    # preparing a list of 100-character strings which starts with Coord mentioning
+    e = []
+    i = 0
+    f = str(a).lower()
 
-        while i < len(f):
-            if f[i:].find('коорд') > 0:
-                d = i + f[i:].find('коорд')
-                e.append(f[d : (d + 100)])
-                if d == 0 or d == -1:
-                    i = len(f)
-                else:
-                    i = d + 1
-            else:
+    while i < len(f):
+        if f[i:].find('коорд') > 0:
+            d = i + f[i:].find('коорд')
+            e.append(f[d : (d + 100)])
+            if d == 0 or d == -1:
                 i = len(f)
+            else:
+                i = d + 1
+        else:
+            i = len(f)
 
-            # extract exact numbers & match if they look like coordinates
-        for c in e:
-            coord_type = '1. coordinates w/ word coord'
-            lat, lon, coord_type = _extract_coords_from_string(c, coord_type)
+        # extract exact numbers & match if they look like coordinates
+    lat, lon = 0, 0
+    for c in e:
+        lat, lon = _extract_coords_from_string(c)
 
-    except Exception as e:
-        logging.exception('Error extracting coordinates case 1')
-    return lat, lon, coord_type
+    return lat, lon
 
 
-def _parse_coords_case_2(search_code_blocks: BeautifulSoup) -> tuple[float, float, str]:
-    lat, lon, coord_type = 0, 0, ''
+def _parse_coords_case_2(search_code_blocks: BeautifulSoup) -> tuple[float, float]:
     a = copy.copy(search_code_blocks)
 
-    try:
-        # remove a text with strike-through
-        b = a.find_all('span', {'style': 'text-decoration:line-through'})
-        for i in range(len(b)):
-            b[i].decompose()
+    # remove a text with strike-through
+    b = a.find_all('span', {'style': 'text-decoration:line-through'})
+    for i in range(len(b)):
+        b[i].decompose()
 
-            # removing <span> tags
-        for e in a.findAll('span'):
-            e.replace_with(e.text)
+        # removing <span> tags
+    for e in a.findAll('span'):
+        e.replace_with(e.text)
 
-            # removing <img> tags
-        for e in a.findAll('img'):
-            e.extract()
+        # removing <img> tags
+    for e in a.findAll('img'):
+        e.extract()
 
-            # removing <a> tags
-        for e in a.findAll('a'):
-            e.extract()
+        # removing <a> tags
+    for e in a.findAll('a'):
+        e.extract()
 
-            # removing <strong> tags
-        for e in a.findAll('strong'):
-            e.replace_with(e.text)
+        # removing <strong> tags
+    for e in a.findAll('strong'):
+        e.replace_with(e.text)
 
-            # converting to string
-        b = re.sub(r'\n\s*\n', r' ', a.get_text().strip(), flags=re.M)
+        # converting to string
+    b = re.sub(r'\n\s*\n', r' ', a.get_text().strip(), flags=re.M)
+    c = re.sub(r'\n', r' ', b)
+
+    return _extract_coords_from_string(c)
+
+
+def _parse_coords_case_3(search_code_blocks: BeautifulSoup) -> tuple[float, float]:
+    lat, lon = 0, 0
+
+    a = copy.copy(search_code_blocks)
+
+    # get a text with strike-through
+    a = a.find_all('span', {'style': 'text-decoration:line-through'})
+    for line in a:
+        b = re.sub(r'\n\s*\n', r' ', line.get_text().strip(), flags=re.M)
         c = re.sub(r'\n', r' ', b)
+        lat, lon = _extract_coords_from_string(c)
 
-        coord_type = '2. coordinates w/o word coord'
-        lat, lon, coord_type = _extract_coords_from_string(c, coord_type)
-
-    except Exception as e:
-        logging.exception('Error extracting coordinates case 2')
-    return lat, lon, coord_type
+    return lat, lon
 
 
-def _parse_coords_case_3(search_code_blocks: BeautifulSoup) -> tuple[float, float, str]:
-    lat, lon, coord_type = 0, 0, ''
-
-    a = copy.copy(search_code_blocks)
-
-    try:
-        # get a text with strike-through
-        a = a.find_all('span', {'style': 'text-decoration:line-through'})
-        for line in a:
-            b = re.sub(r'\n\s*\n', r' ', line.get_text().strip(), flags=re.M)
-            c = re.sub(r'\n', r' ', b)
-            coord_type = '3. deleted coord'
-            lat, lon, coord_type = _extract_coords_from_string(c, coord_type)
-
-    except Exception as e:
-        logging.exception('Error extracting coordinates case 3')
-    return lat, lon, coord_type
-
-
-def _extract_coords_from_string(c, coord_type):
+def _extract_coords_from_string(c) -> tuple[float, float]:
     lat, lon = 0, 0
     g = [float(s) for s in re.findall(r'-?\d+\.?\d*', c)]
     if len(g) > 1:
@@ -383,7 +379,7 @@ def _extract_coords_from_string(c, coord_type):
                     lat, lon = first, second
             except Exception as e2:
                 logging.exception('Cannot extract coordinates from list of floats')
-    return lat, lon, coord_type
+    return lat, lon
 
 
 def _check_if_coordinates(first: float, second: float) -> bool:

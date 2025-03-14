@@ -116,34 +116,24 @@ class FolderUpdater:
     def _parse_one_folder(self) -> tuple[list, list[SearchSummary]]:
         """parse forum folder with searches' summaries"""
 
-        titles_and_num_of_replies = []
         folder_summary: list[SearchSummary] = []
         current_datetime = datetime.now()
 
         folder_content_items = self.forum.get_folder_searches(self.folder_num)
-        try:
-            for forum_search_item in folder_content_items:
-                try:
-                    self._parse_one_search(
-                        current_datetime, titles_and_num_of_replies, folder_summary, forum_search_item
-                    )
+        for forum_search_item in folder_content_items:
+            try:
+                self._parse_one_search(current_datetime, folder_summary, forum_search_item)
 
-                except Exception as e:
-                    title = forum_search_item.title
-                    logging.exception(f'TEMP - THIS BIG ERROR HAPPENED, {title=}')
-                    notify_admin(f'TEMP - THIS BIG ERROR HAPPENED, {title=}')
+            except Exception as e:
+                logging.exception(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
+                notify_admin(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
 
-        # To catch timeout once a day in the night
-        except (requests.exceptions.Timeout, ConnectionResetError, Exception) as e:
-            logging.exception('Error while parsing folder')
-            folder_summary = []
-
+        titles_and_num_of_replies = [[x.title, x.num_of_replies] for x in folder_summary]
         return titles_and_num_of_replies, folder_summary
 
     def _parse_one_search(
         self,
         current_datetime: datetime,
-        titles_and_num_of_replies: list,
         folder_summary: list[SearchSummary],
         forum_search_item: ForumSearchItem,
     ) -> None:
@@ -163,7 +153,7 @@ class FolderUpdater:
         else:
             title_reco_dict = {'topic_type': 'UNRECOGNIZED'}
 
-        logging.info(f'{title_reco_dict=}')
+        logging.debug(f'{title_reco_dict=}')
 
         # NEW exclude non-relevant searches
         if title_reco_dict['topic_type'] not in {
@@ -224,9 +214,6 @@ class FolderUpdater:
 
         folder_summary.append(search_summary_object)
 
-        parsed_wo_date = [forum_search_item.title, forum_search_item.replies_count]
-        titles_and_num_of_replies.append(parsed_wo_date)
-
     def _update_change_log_and_searches(self) -> list[int]:
         """update of SQL tables 'searches' and 'change_log' on the changes vs previous parse"""
 
@@ -247,8 +234,6 @@ class FolderUpdater:
 
         """4 DEL UPD from Searches"""
         self._delete_and_write_searches_again(curr_snapshot_list, prev_searches_list)  # TODO ???
-
-        """5. UPD added to Searches"""
 
         # DEBUG - function execution time counter
         func_finish = datetime.now()
@@ -395,7 +380,7 @@ class FolderUpdater:
         lat, lon, coord_type, title = self.forum.parse_coordinates_of_search(search_num)
 
         # FOURTH CASE = COORDINATES FROM ADDRESS
-        if lat == 0:
+        if not lat:
             try:
                 address = parse_address_from_title(title)
                 if address:
@@ -488,7 +473,7 @@ class FolderUpdater:
                 self._rate_limit_for_api(geocoder='osm')
                 lat, lon = get_coordinates_from_address_by_osm(address)
                 api_call_time_saved = self.db.save_last_api_call_time_to_psql(geocoder='osm')
-                logging.info(f'{api_call_time_saved=}')
+                logging.debug(f'{api_call_time_saved=}')
 
                 if lat and lon:
                     saved_status = 'ok'
@@ -501,7 +486,7 @@ class FolderUpdater:
                 self._rate_limit_for_api(geocoder='yandex')
                 lat, lon = get_coordinates_from_address_by_yandex(address)
                 api_call_time_saved = self.db.save_last_api_call_time_to_psql(geocoder='yandex')
-                logging.info(f'{api_call_time_saved=}')
+                logging.debug(f'{api_call_time_saved=}')
 
                 if lat and lon:
                     saved_status = 'ok'
@@ -524,10 +509,10 @@ class FolderUpdater:
         prev_api_call_time = self.db.get_last_api_call_time_from_psql(geocoder)  # TODO
 
         if not prev_api_call_time:
-            return None
+            return
 
         if geocoder == 'yandex':
-            return None
+            return
 
         now_utc = datetime.now(timezone.utc)
         time_delta_bw_now_and_next_request = prev_api_call_time - now_utc + timedelta(seconds=1)
@@ -540,5 +525,3 @@ class FolderUpdater:
             time.sleep(time_delta_bw_now_and_next_request.total_seconds())
             logging.debug(f'rate limit for {geocoder}: sleep {time_delta_bw_now_and_next_request.total_seconds()}')
             notify_admin(f'rate limit for {geocoder}: sleep {time_delta_bw_now_and_next_request.total_seconds()}')
-
-        return None
