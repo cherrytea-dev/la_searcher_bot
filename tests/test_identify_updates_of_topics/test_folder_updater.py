@@ -44,7 +44,7 @@ class TestFolderUpdater:
         data = 'Москва, Ярославское шоссе 123'
         with patch.object(FolderUpdater, '_rate_limit_for_api'):
             res = FolderUpdater(db_client, 1).get_coordinates_by_address(data)
-        assert res == (None, None)
+        assert res == (0.0, 0.0)
 
     def test_update_change_log_and_searches(self, db_client):
         res = FolderUpdater(db_client, 1)._update_change_log_and_searches()

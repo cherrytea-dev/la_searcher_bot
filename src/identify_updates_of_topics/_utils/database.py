@@ -196,45 +196,26 @@ class DBClient:
                 )
 
     def write_comment(self, comment_data: ForumCommentItem) -> None:
-        # TODO merge queries
-
         with self.connect() as conn:
             if not comment_data.comment_text:
                 return
-            if not comment_data.ignore:
-                stmt = sqlalchemy.text("""
-                    INSERT INTO comments 
-                        (comment_url, comment_text, comment_author_nickname, 
-                        comment_author_link, search_forum_num, comment_num, comment_global_num)
-                    VALUES (:a, :b, :c, :d, :e, :f, :g); 
-                                       """)
-                conn.execute(
-                    stmt,
-                    a=comment_data.comment_url,
-                    b=comment_data.comment_text,
-                    c=comment_data.comment_author_nickname,
-                    d=comment_data.comment_author_link,
-                    e=comment_data.search_num,
-                    f=comment_data.comment_num,
-                    g=comment_data.comment_forum_global_id,
-                )
-            else:
-                stmt = sqlalchemy.text("""
-                    INSERT INTO comments 
-                        (comment_url, comment_text, comment_author_nickname,
-                        comment_author_link, search_forum_num, comment_num, notification_sent)
-                    VALUES (:a, :b, :c, :d, :e, :f, :g); 
-                                       """)
-                conn.execute(
-                    stmt,
-                    a=comment_data.comment_url,
-                    b=comment_data.comment_text,
-                    c=comment_data.comment_author_nickname,
-                    d=comment_data.comment_author_link,
-                    e=comment_data.search_num,
-                    f=comment_data.comment_num,
-                    g='n',
-                )
+            stmt = sqlalchemy.text("""
+                INSERT INTO comments 
+                    (comment_url, comment_text, comment_author_nickname,
+                    comment_author_link, search_forum_num, comment_num, notification_sent, comment_global_num)
+                VALUES (:a, :b, :c, :d, :e, :f, :g, :h); 
+                                    """)
+            conn.execute(
+                stmt,
+                a=comment_data.comment_url,
+                b=comment_data.comment_text,
+                c=comment_data.comment_author_nickname,
+                d=comment_data.comment_author_link,
+                e=comment_data.search_num,
+                f=comment_data.comment_num,
+                g='n' if comment_data.ignore else None,
+                h=None if comment_data.ignore else comment_data.comment_forum_global_id,
+            )
 
     def update_coordinates_in_db(self, search_id: int, coords: tuple[float, float, str]) -> None:
         with self.connect() as conn:
