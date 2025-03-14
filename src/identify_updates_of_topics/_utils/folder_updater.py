@@ -226,7 +226,7 @@ class FolderUpdater:
         func_start = datetime.now()
 
         curr_snapshot_list = self.db.get_current_snapshots_list(self.folder_num)
-        prev_searches_list = self.db.get_prev_searches()
+        prev_searches_list = self.db.get_searches()
 
         print(f'TEMP – len of prev_searches_list = {len(prev_searches_list)}')
         if len(prev_searches_list) > 5000:
@@ -267,7 +267,7 @@ class FolderUpdater:
             # TODO mass deletion
             self.db.delete_search(line.topic_id)
 
-        curr_searches_list = self.db.get_current_searches()
+        curr_searches_list = self.db.get_searches()
         curr_searches_ids = set([search.topic_id for search in curr_searches_list])
 
         for snapshot_line in curr_snapshot_list:

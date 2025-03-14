@@ -323,7 +323,7 @@ class DBClient:
                 p=line.topic_type_id,
             )
 
-    def get_prev_searches(self) -> list[SearchSummary]:
+    def get_searches(self) -> list[SearchSummary]:
         # TODO - in future: should the number of searches be limited? Probably to JOIN change_log and WHERE folder=...
         with self.connect() as conn:
             rows = conn.execute("""
@@ -356,32 +356,6 @@ class DBClient:
                 )
                 prev_searches_list.append(search)
             return prev_searches_list
-
-    def get_current_searches(self) -> list[SearchSummary]:
-        # TODO could be merged with _get_prev_searches?
-        with self.connect() as conn:
-            rows = conn.execute("""
-                SELECT
-                    search_forum_num, parsed_time, status, forum_search_title, search_start_time,
-                    num_of_replies, family_name, age, id, forum_folder_id
-                FROM searches;
-                                """).fetchall()
-            curr_searches_list: list[SearchSummary] = []
-            for row in rows:
-                s = SearchSummary(
-                    topic_id=row[0],
-                    parsed_time=row[1],
-                    status=row[2],
-                    title=row[3],
-                    start_time=row[4],
-                    num_of_replies=row[5],
-                    name=row[6],
-                    age=row[7],
-                    searches_table_id=row[8],
-                    folder_id=row[9],
-                )
-                curr_searches_list.append(s)
-            return curr_searches_list
 
     def write_change_log(self, line: ChangeLogLine) -> int:
         # TODO field "parameters is obsolete"
