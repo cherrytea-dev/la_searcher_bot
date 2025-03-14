@@ -1,7 +1,6 @@
 import copy
 import logging
 import re
-from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 
@@ -9,6 +8,7 @@ from bs4 import BeautifulSoup, SoupStrainer
 from requests import Session
 
 from _dependencies.commons import Topics, publish_to_pubsub
+from identify_updates_of_topics._utils.topics_commons import ForumCommentItem, ForumSearchItem
 
 
 def define_start_time_of_search(blocks):
@@ -38,27 +38,6 @@ def is_content_visible(content: bytes, topic_id) -> bool:
         return False
 
     return True
-
-
-@dataclass
-class ForumSearchItem:
-    title: str
-    search_id: int
-    replies_count: int
-    start_datetime: str
-
-
-@dataclass
-class ForumCommentItem:
-    search_num: int
-    comment_num: int
-    comment_url: str
-    comment_author_nickname: str
-    comment_author_link: str
-    comment_forum_global_id: int
-    comment_text: str
-    ignore: bool
-    inforg_comment_present: bool
 
 
 @lru_cache
@@ -132,8 +111,7 @@ class ForumClient:
         try:
             comment_author_nickname = comment_author_block.text
         except Exception as e:
-            logging.info(f'exception for search={search_num} and comment={comment_num}')
-            logging.exception(e)
+            logging.exception(f'exception for search={search_num} and comment={comment_num}')
             comment_author_nickname = 'unidentified_username'
 
         if comment_author_nickname[:6].lower() == 'инфорг' and comment_author_nickname != 'Инфорг кинологов':
@@ -169,8 +147,7 @@ class ForumClient:
             # external_span = comment_text_0.blockquote.extract()
             comment_text_1 = comment_text_0.text
         except Exception as e:
-            logging.info(f'exception for search={search_num} and comment={comment_num}')
-            logging.exception(e)
+            logging.exception(f'exception for search={search_num} and comment={comment_num}')
             comment_text_1 = comment_text_0.text
         comment_text = ' '.join(comment_text_1.split())
 
@@ -231,13 +208,13 @@ class ForumClient:
     def parse_coordinates_of_search(self, search_num) -> tuple[float, float, str, str]:
         """finds coordinates of the search"""
         url_to_topic = self._get_topic_url(search_num)
-        lat, lon = 0, 0
+        lat, lon = 0.0, 0.0
         search_code_blocks = None
         title = ''
 
         content = self._get_topic_content(search_num)
         if not is_content_visible(content, search_num):
-            return [0, 0, '', '']
+            return [0.0, 0.0, '', '']
 
         try:
             soup = BeautifulSoup(content, features='html.parser')
@@ -298,7 +275,7 @@ def _parse_coords_case_1(search_code_blocks: BeautifulSoup) -> tuple[float, floa
         b[i].decompose()
 
     # preparing a list of 100-character strings which starts with Coord mentioning
-    e = []
+    e: list[str] = []
     i = 0
     f = str(a).lower()
 
@@ -314,7 +291,7 @@ def _parse_coords_case_1(search_code_blocks: BeautifulSoup) -> tuple[float, floa
             i = len(f)
 
         # extract exact numbers & match if they look like coordinates
-    lat, lon = 0, 0
+    lat, lon = 0.0, 0.0
     for c in e:
         lat, lon = _extract_coords_from_string(c)
 
@@ -353,7 +330,7 @@ def _parse_coords_case_2(search_code_blocks: BeautifulSoup) -> tuple[float, floa
 
 
 def _parse_coords_case_3(search_code_blocks: BeautifulSoup) -> tuple[float, float]:
-    lat, lon = 0, 0
+    lat, lon = 0.0, 0.0
 
     a = copy.copy(search_code_blocks)
 
@@ -367,18 +344,16 @@ def _parse_coords_case_3(search_code_blocks: BeautifulSoup) -> tuple[float, floa
     return lat, lon
 
 
-def _extract_coords_from_string(c) -> tuple[float, float]:
-    lat, lon = 0, 0
-    g = [float(s) for s in re.findall(r'-?\d+\.?\d*', c)]
-    if len(g) > 1:
-        for j in range(len(g) - 1):
-            try:
-                first = g[j]
-                second = g[j + 1]
-                if _check_if_coordinates(first, second):
-                    lat, lon = first, second
-            except Exception as e2:
-                logging.exception('Cannot extract coordinates from list of floats')
+def _extract_coords_from_string(search_str: str) -> tuple[float, float]:
+    groups = [float(s) for s in re.findall(r'-?\d+\.?\d*', search_str)]
+    if len(groups) < 2:
+        return 0.0, 0.0
+
+    lat, lon = 0.0, 0.0
+    for i in range(len(groups) - 1):
+        first, second = groups[i], groups[i + 1]
+        if _check_if_coordinates(first, second):
+            lat, lon = first, second
     return lat, lon
 
 

@@ -1,6 +1,8 @@
 """Script takes as input the list of recently-updated forum folders. Then it parses first 20 searches (aka topics)
 and saves into PSQL if there are any updates"""
 
+from google.cloud.functions.context import Context
+
 import ast
 import logging
 from datetime import datetime
@@ -24,7 +26,7 @@ def sql_connect() -> sqlalchemy.engine.Engine:
     return sqlalchemy_get_pool(5, 120)
 
 
-def main(event, context) -> None:  # noqa
+def main(event: dict[str, bytes], context: Context) -> None:  # noqa
     """main function triggered by pub/sub"""
 
     function_id = generate_random_function_id()

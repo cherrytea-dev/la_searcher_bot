@@ -36,3 +36,24 @@ class SearchSummary:
     locations: Any = None
     new_status: Any = None
     full_dict: Any = None
+
+
+@dataclass
+class ForumSearchItem:
+    title: str
+    search_id: int
+    replies_count: int
+    start_datetime: str
+
+
+@dataclass
+class ForumCommentItem:
+    search_num: int
+    comment_num: int
+    comment_url: str
+    comment_author_nickname: str
+    comment_author_link: str
+    comment_forum_global_id: int
+    comment_text: str
+    ignore: bool
+    inforg_comment_present: bool

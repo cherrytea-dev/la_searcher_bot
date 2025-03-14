@@ -15,13 +15,18 @@ from identify_updates_of_topics._utils.external_api import (
     get_coordinates_from_address_by_osm,
     get_coordinates_from_address_by_yandex,
 )
-from identify_updates_of_topics._utils.forum import ForumClient, ForumCommentItem, ForumSearchItem
+from identify_updates_of_topics._utils.forum import ForumClient
 from identify_updates_of_topics._utils.parse import (
     parse_address_from_title,
     profile_get_managers,
     profile_get_type_of_activity,
 )
-from identify_updates_of_topics._utils.topics_commons import ChangeLogLine, SearchSummary
+from identify_updates_of_topics._utils.topics_commons import (
+    ChangeLogLine,
+    ForumCommentItem,
+    ForumSearchItem,
+    SearchSummary,
+)
 
 
 class CloudStorage:
@@ -277,10 +282,9 @@ class FolderUpdater:
         new_topics = [x for x in curr_snapshot_list if x.topic_id not in prev_searches_topic_ids]
 
         """ADD to Searches"""
-        for line in new_topics:
-            self.db.write_search(line)
-
-            search_num = line.topic_id
+        for search_summary_line in new_topics:
+            self.db.write_search(search_summary_line)
+            search_num = search_summary_line.topic_id
             parsed_profile_text = self.forum.parse_search_profile(search_num)
             search_activities = profile_get_type_of_activity(parsed_profile_text)
             self.db.update_search_activities(search_num, search_activities)
@@ -339,16 +343,10 @@ class FolderUpdater:
         for k in range(snapshot_line.num_of_replies - searches_line.num_of_replies):
             comment_number = searches_line.num_of_replies + 1 + k
             comment_data = self.forum.get_comment_data(snapshot_line.topic_id, comment_number)
-            self.db.write_comment(
-                comment_data.search_num,
-                comment_data.comment_num,
-                comment_data.comment_url,
-                comment_data.comment_author_nickname,
-                comment_data.comment_author_link,
-                comment_data.comment_forum_global_id,
-                comment_data.comment_text,
-                comment_data.ignore,
-            )
+            if not comment_data:
+                continue
+
+            self.db.write_comment(comment_data)
 
             there_are_inforg_comments = there_are_inforg_comments or comment_data.inforg_comment_present
 
@@ -371,7 +369,7 @@ class FolderUpdater:
 
         return None
 
-    def _parse_coordinates_of_search(self, search_num) -> tuple[float, float, str]:
+    def _parse_coordinates_of_search(self, search_num: int) -> tuple[float, float, str]:
         """finds coordinates of the search"""
 
         # DEBUG - function execution time counter
@@ -384,7 +382,7 @@ class FolderUpdater:
             try:
                 address = parse_address_from_title(title)
                 if address:
-                    self.db.save_place_in_psql(self.db, address, search_num)
+                    self.db.save_place_in_psql(address, search_num)
                     lat, lon = self.get_coordinates_by_address(address)
                     if lat and lon:
                         coord_type = '4. coordinates by address'

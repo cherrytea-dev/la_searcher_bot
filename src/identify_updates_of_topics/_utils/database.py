@@ -1,6 +1,8 @@
+from identify_updates_of_topics._utils.topics_commons import ForumCommentItem, ForumSearchItem
 import json
 import logging
 from datetime import datetime, timezone
+from google.cloud.functions.context import Context
 
 import sqlalchemy
 from sqlalchemy.engine import Connection
@@ -17,7 +19,9 @@ class DBClient:
     def connect(self) -> Connection:
         return self._db.connect()
 
-    def save_function_into_register(self, context, start_time, function_id, change_log_ids) -> None:
+    def save_function_into_register(
+        self, context: Context, start_time: datetime, function_id: int, change_log_ids: list[int]
+    ) -> None:
         """save current function into functions_registry"""
 
         event_id = context.event_id
@@ -54,7 +58,7 @@ class DBClient:
 
         return list_of_ignored_folders
 
-    def save_place_in_psql(self, address_string, search_num) -> None:
+    def save_place_in_psql(self, address_string: str, search_num: int) -> None:
         """save a link search to address in sql table search_places"""
 
         with self.connect() as conn:
@@ -74,7 +78,9 @@ class DBClient:
                                        """)
                 conn.execute(stmt, a=search_num, b=address_string, c=datetime.now())
 
-    def save_geolocation_in_psql(self, address_string: str, status: str, latitude, longitude, geocoder: str):
+    def save_geolocation_in_psql(
+        self, address_string: str, status: str, latitude: float, longitude: float, geocoder: str
+    ) -> None:
         """save results of geocoding to avoid multiple requests to openstreetmap service"""
         """the Geocoder HTTP API may not exceed 1000 per day"""
 
@@ -90,7 +96,7 @@ class DBClient:
                 stmt, a=address_string, b=status, c=latitude, d=longitude, e=geocoder, f=datetime.now(timezone.utc)
             )
 
-    def get_geolocation_form_psql(self, address_string: str):
+    def get_geolocation_form_psql(self, address_string: str) -> tuple[str | None, float, float, str]:
         """get results of geocoding from psql"""
 
         with self.connect() as conn:
@@ -105,7 +111,7 @@ class DBClient:
 
         # there is a psql record on this address - no geocoding activities are required
         if not saved_result:
-            return None, None, None, None
+            return None, 0.0, 0.0, ''
 
         if saved_result[1] == 'ok':
             latitude = saved_result[2]
@@ -114,7 +120,7 @@ class DBClient:
             return 'ok', latitude, longitude, geocoder
 
         elif saved_result[1] == 'fail':
-            return 'fail', None, None, None
+            return 'fail', 0.0, 0.0, ''
 
     def save_last_api_call_time_to_psql(self, geocoder: str) -> bool:
         """Used to track time of the last api call to geocoders. Saves the current timestamp in UTC in psql"""
@@ -152,7 +158,7 @@ class DBClient:
 
         return None
 
-    def rewrite_snapshot_in_sql(self, folder_num, folder_summary: list[SearchSummary]) -> None:
+    def rewrite_snapshot_in_sql(self, folder_num: int, folder_summary: list[SearchSummary]) -> None:
         """rewrite the freshly-parsed snapshot into sql table 'forum_summary_snapshot'"""
 
         with self.connect() as conn:
@@ -189,23 +195,13 @@ class DBClient:
                     p=line.topic_type_id,
                 )
 
-    def write_comment(
-        self,
-        search_num,
-        comment_num,
-        comment_url,
-        comment_author_nickname,
-        comment_author_link,
-        comment_forum_global_id,
-        comment_text,
-        ignore,
-    ):
-        # TODO can use ForumCommentItem
+    def write_comment(self, comment_data: ForumCommentItem) -> None:
         # TODO merge queries
+
         with self.connect() as conn:
-            if not comment_text:
+            if not comment_data.comment_text:
                 return
-            if not ignore:
+            if not comment_data.ignore:
                 stmt = sqlalchemy.text("""
                     INSERT INTO comments 
                         (comment_url, comment_text, comment_author_nickname, 
@@ -214,13 +210,13 @@ class DBClient:
                                        """)
                 conn.execute(
                     stmt,
-                    a=comment_url,
-                    b=comment_text,
-                    c=comment_author_nickname,
-                    d=comment_author_link,
-                    e=search_num,
-                    f=comment_num,
-                    g=comment_forum_global_id,
+                    a=comment_data.comment_url,
+                    b=comment_data.comment_text,
+                    c=comment_data.comment_author_nickname,
+                    d=comment_data.comment_author_link,
+                    e=comment_data.search_num,
+                    f=comment_data.comment_num,
+                    g=comment_data.comment_forum_global_id,
                 )
             else:
                 stmt = sqlalchemy.text("""
@@ -231,16 +227,16 @@ class DBClient:
                                        """)
                 conn.execute(
                     stmt,
-                    a=comment_url,
-                    b=comment_text,
-                    c=comment_author_nickname,
-                    d=comment_author_link,
-                    e=search_num,
-                    f=comment_num,
+                    a=comment_data.comment_url,
+                    b=comment_data.comment_text,
+                    c=comment_data.comment_author_nickname,
+                    d=comment_data.comment_author_link,
+                    e=comment_data.search_num,
+                    f=comment_data.comment_num,
                     g='n',
                 )
 
-    def update_coordinates_in_db(self, search_id, coords):
+    def update_coordinates_in_db(self, search_id: int, coords: tuple[float, float, str]) -> None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 SELECT latitude, longitude, coord_type 
@@ -248,7 +244,7 @@ class DBClient:
                                    """)
             old_coords = conn.execute(stmt, a=search_id).fetchone()
 
-            if coords[0] != 0 and coords[1] != 0:
+            if coords[0] and coords[1]:
                 if old_coords is None:
                     stmt = sqlalchemy.text("""
                         INSERT INTO search_coordinates 

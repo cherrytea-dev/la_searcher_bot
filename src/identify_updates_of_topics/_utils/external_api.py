@@ -8,13 +8,13 @@ from _dependencies.commons import get_app_config
 from _dependencies.misc import notify_admin
 
 
-def get_coordinates_from_address_by_osm(address_string: str) -> tuple[float, float] | tuple[None, None]:
+def get_coordinates_from_address_by_osm(address_string: str) -> tuple[float, float]:
     """return coordinates on the request of address string"""
     """NB! openstreetmap requirements: NO more than 1 request per 1 second, no doubling requests"""
     """MEMO: documentation on API: https://operations.osmfoundation.org/policies/nominatim/"""
 
     if not address_string:
-        return None, None
+        return 0.0, 0.0
 
     geolocator = Nominatim(user_agent=get_app_config().osm_identifier)
 
@@ -28,10 +28,10 @@ def get_coordinates_from_address_by_osm(address_string: str) -> tuple[float, flo
         logging.exception(f'Error in func get_coordinates_from_address_by_osm for address: {address_string}.')
         notify_admin('ERROR: get_coords_from_address failed.')
 
-    return None, None
+    return 0.0, 0.0
 
 
-def get_coordinates_from_address_by_yandex(address_string: str) -> tuple[float, float] | tuple[None, None]:
+def get_coordinates_from_address_by_yandex(address_string: str) -> tuple[float, float]:
     """return coordinates on the request of address string, geocoded by yandex"""
 
     yandex_client = Client(get_app_config().yandex_api_key)
@@ -49,4 +49,4 @@ def get_coordinates_from_address_by_yandex(address_string: str) -> tuple[float, 
     except Exception:
         logging.exception('unexpected error:')
 
-    return None, None
+    return 0.0, 0.0

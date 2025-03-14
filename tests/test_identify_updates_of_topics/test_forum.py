@@ -3,7 +3,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from identify_updates_of_topics._utils.forum import ForumClient, ForumCommentItem, ForumSearchItem, is_content_visible
+from identify_updates_of_topics._utils.forum import ForumClient, is_content_visible
+from identify_updates_of_topics._utils.topics_commons import ForumCommentItem, ForumSearchItem
 
 
 class TestForumClient:
