@@ -32,7 +32,7 @@ from identify_updates_of_topics._utils.external_api import (
     get_coordinates_from_address_by_yandex,
     rate_limit_for_api,
 )
-from identify_updates_of_topics._utils.forum import ForumClient, ForumSearchItem
+from identify_updates_of_topics._utils.forum import ForumClient, ForumSearchItem, ForumCommentItem
 from identify_updates_of_topics._utils.parse import (
     parse_address_from_title,
     profile_get_managers,
@@ -370,19 +370,8 @@ class FolderUpdater:
 
         there_are_inforg_comments = False
         for k in range(snapshot_line.num_of_replies - searches_line.num_of_replies):
-            flag_if_comment_was_from_inforg = self._parse_and_write_one_comment(
-                snapshot_line.topic_id, searches_line.num_of_replies + 1 + k
-            )
-            if flag_if_comment_was_from_inforg:
-                there_are_inforg_comments = True
-
-        return there_are_inforg_comments
-
-    def _parse_and_write_one_comment(self, search_num, comment_num: int) -> bool:
-        """parse all details on a specific comment in topic (by sequence number)"""
-
-        try:
-            comment_data = self.forum_client.get_comment_data(search_num, comment_num)
+            comment_number = searches_line.num_of_replies + 1 + k
+            comment_data = self.forum_client.get_comment_data(snapshot_line.topic_id, comment_number)
             write_comment(
                 self.db,
                 comment_data.search_num,
@@ -395,10 +384,9 @@ class FolderUpdater:
                 comment_data.ignore,
             )
 
-        except ConnectionResetError:
-            logging.error('There is a connection error')
+            there_are_inforg_comments = there_are_inforg_comments or comment_data.inforg_comment_present
 
-        return comment_data.inforg_comment_present
+        return there_are_inforg_comments
 
     def _update_coordinates(self, list_of_search_objects: list[SearchSummary]) -> None:
         """Record search coordinates to PSQL"""

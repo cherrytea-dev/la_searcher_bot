@@ -11,35 +11,29 @@ from _dependencies.misc import notify_admin
 from identify_updates_of_topics._utils.topics_commons import ChangeLogLine, SearchSummary
 
 
-def save_function_into_register(db: Engine, context, start_time, function_id, change_log_ids):
+def save_function_into_register(db: Engine, context, start_time, function_id, change_log_ids) -> None:
     """save current function into functions_registry"""
 
-    try:
-        event_id = context.event_id
-        json_of_params = json.dumps({'ch_id': change_log_ids})
+    event_id = context.event_id
+    json_of_params = json.dumps({'ch_id': change_log_ids})
 
-        with db.connect() as conn:
-            sql_text = sqlalchemy.text("""INSERT INTO functions_registry
-                                                      (event_id, time_start, cloud_function_name, function_id,
-                                                      time_finish, params)
-                                                      VALUES (:a, :b, :c, :d, :e, :f)
-                                                      /*action='save_ide_topics_function' */;""")
-            conn.execute(
-                sql_text,
-                a=event_id,
-                b=start_time,
-                c='identify_updates_of_topics',
-                d=function_id,
-                e=datetime.now(),
-                f=json_of_params,
-            )
-            logging.info(f'function {function_id} was saved in functions_registry')
-
-    except Exception as e:
-        logging.info(f'function {function_id} was NOT ABLE to be saved in functions_registry')
-        logging.exception(e)
-
-    return None
+    with db.connect() as conn:
+        sql_text = sqlalchemy.text("""
+            INSERT INTO functions_registry
+            (event_id, time_start, cloud_function_name, function_id, time_finish, params)
+            VALUES (:a, :b, :c, :d, :e, :f)
+            /*action='save_ide_topics_function' */;
+                                    """)
+        conn.execute(
+            sql_text,
+            a=event_id,
+            b=start_time,
+            c='identify_updates_of_topics',
+            d=function_id,
+            e=datetime.now(),
+            f=json_of_params,
+        )
+        logging.debug(f'function {function_id} was saved in functions_registry')
 
 
 def get_the_list_of_ignored_folders(db: Engine) -> list[int]:
@@ -56,60 +50,41 @@ def get_the_list_of_ignored_folders(db: Engine) -> list[int]:
     return list_of_ignored_folders
 
 
-def save_place_in_psql(db: Engine, address_string, search_num):
+def save_place_in_psql(db: Engine, address_string, search_num) -> None:
     """save a link search to address in sql table search_places"""
 
-    try:
-        with db.connect() as conn:
-            # check if this record already exists
+    with db.connect() as conn:
+        # check if this record already exists
+        stmt = sqlalchemy.text(
+            """SELECT search_id FROM search_places
+            WHERE search_id=:a AND address=:b;"""
+        )
+        prev_data = conn.execute(stmt, a=search_num, b=address_string).fetchone()
+
+        # if it's a new info
+        if not prev_data:
             stmt = sqlalchemy.text(
-                """SELECT search_id FROM search_places
-                WHERE search_id=:a AND address=:b;"""
+                """INSERT INTO search_places (search_id, address, timestamp)
+                VALUES (:a, :b, :c); """
             )
-            prev_data = conn.execute(stmt, a=search_num, b=address_string).fetchone()
-
-            # if it's a new info
-            if not prev_data:
-                stmt = sqlalchemy.text(
-                    """INSERT INTO search_places (search_id, address, timestamp)
-                    VALUES (:a, :b, :c); """
-                )
-                conn.execute(stmt, a=search_num, b=address_string, c=datetime.now())
-
-            conn.close()
-
-    except Exception as e7:
-        logging.info('DBG.P.EXC.110: ')
-        logging.exception(e7)
-        notify_admin('ERROR: saving place to psql failed: ' + address_string + ', ' + search_num)
-
-    return None
+            conn.execute(stmt, a=search_num, b=address_string, c=datetime.now())
 
 
 def save_geolocation_in_psql(db: Engine, address_string: str, status: str, latitude, longitude, geocoder: str):
     """save results of geocoding to avoid multiple requests to openstreetmap service"""
     """the Geocoder HTTP API may not exceed 1000 per day"""
 
-    try:
-        with db.connect() as conn:
-            stmt = sqlalchemy.text(
-                """INSERT INTO geocoding (address, status, latitude, longitude, geocoder, timestamp) VALUES
-                (:a, :b, :c, :d, :e, :f)
-                ON CONFLICT(address) DO
-                UPDATE SET status=EXCLUDED.status, latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude,
-                geocoder=EXCLUDED.geocoder, timestamp=EXCLUDED.timestamp;"""
-            )
-            conn.execute(
-                stmt, a=address_string, b=status, c=latitude, d=longitude, e=geocoder, f=datetime.now(timezone.utc)
-            )
-            conn.close()
-
-    except Exception as e2:
-        logging.info(f'ERROR: saving geolocation to psql failed: {address_string}, {status}')
-        logging.exception(e2)
-        notify_admin(f'ERROR: saving geolocation to psql failed: {address_string}, {status}')
-
-    return None
+    with db.connect() as conn:
+        stmt = sqlalchemy.text(
+            """INSERT INTO geocoding (address, status, latitude, longitude, geocoder, timestamp) VALUES
+            (:a, :b, :c, :d, :e, :f)
+            ON CONFLICT(address) DO
+            UPDATE SET status=EXCLUDED.status, latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude,
+            geocoder=EXCLUDED.geocoder, timestamp=EXCLUDED.timestamp;"""
+        )
+        conn.execute(
+            stmt, a=address_string, b=status, c=latitude, d=longitude, e=geocoder, f=datetime.now(timezone.utc)
+        )
 
 
 def get_geolocation_form_psql(db: Engine, address_string: str):
@@ -186,7 +161,7 @@ def get_last_api_call_time_from_psql(db: Engine, geocoder: str):
     return last_call
 
 
-def rewrite_snapshot_in_sql(db: Engine, folder_num, folder_summary: list[SearchSummary]):
+def rewrite_snapshot_in_sql(db: Engine, folder_num, folder_summary: list[SearchSummary]) -> None:
     """rewrite the freshly-parsed snapshot into sql table 'forum_summary_snapshot'"""
 
     with db.connect() as conn:
@@ -233,40 +208,43 @@ def write_comment(
     comment_text,
     ignore,
 ):
+    # TODO can use ForumCommentItem
+    # TODO merge queries
     with db.connect() as conn:
-        if comment_text:
-            if not ignore:
-                stmt = sqlalchemy.text(
-                    """INSERT INTO comments (comment_url, comment_text, comment_author_nickname,
-                        comment_author_link, search_forum_num, comment_num, comment_global_num)
-                        VALUES (:a, :b, :c, :d, :e, :f, :g); """
-                )
-                conn.execute(
-                    stmt,
-                    a=comment_url,
-                    b=comment_text,
-                    c=comment_author_nickname,
-                    d=comment_author_link,
-                    e=search_num,
-                    f=comment_num,
-                    g=comment_forum_global_id,
-                )
-            else:
-                stmt = sqlalchemy.text(
-                    """INSERT INTO comments (comment_url, comment_text, comment_author_nickname,
-                        comment_author_link, search_forum_num, comment_num, notification_sent)
-                        VALUES (:a, :b, :c, :d, :e, :f, :g); """
-                )
-                conn.execute(
-                    stmt,
-                    a=comment_url,
-                    b=comment_text,
-                    c=comment_author_nickname,
-                    d=comment_author_link,
-                    e=search_num,
-                    f=comment_num,
-                    g='n',
-                )
+        if not comment_text:
+            return
+        if not ignore:
+            stmt = sqlalchemy.text(
+                """INSERT INTO comments (comment_url, comment_text, comment_author_nickname,
+                    comment_author_link, search_forum_num, comment_num, comment_global_num)
+                    VALUES (:a, :b, :c, :d, :e, :f, :g); """
+            )
+            conn.execute(
+                stmt,
+                a=comment_url,
+                b=comment_text,
+                c=comment_author_nickname,
+                d=comment_author_link,
+                e=search_num,
+                f=comment_num,
+                g=comment_forum_global_id,
+            )
+        else:
+            stmt = sqlalchemy.text(
+                """INSERT INTO comments (comment_url, comment_text, comment_author_nickname,
+                    comment_author_link, search_forum_num, comment_num, notification_sent)
+                    VALUES (:a, :b, :c, :d, :e, :f, :g); """
+            )
+            conn.execute(
+                stmt,
+                a=comment_url,
+                b=comment_text,
+                c=comment_author_nickname,
+                d=comment_author_link,
+                e=search_num,
+                f=comment_num,
+                g='n',
+            )
 
         conn.close()
 

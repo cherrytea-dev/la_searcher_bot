@@ -25,12 +25,6 @@ class TestFolderUpdater:
             update_trigger, changed_ids = FolderUpdater(db, forum_search_folder_id).run()
         assert update_trigger is True
 
-    def test_parse_one_comment(self, db, mock_http_get):
-        mock_http_get.return_value.content = Path('tests/fixtures/forum_comment.html').read_bytes()
-
-        there_are_inforg_comments = FolderUpdater(db, 1)._parse_and_write_one_comment(1, 1)
-        assert there_are_inforg_comments
-
     def test_get_cordinates(self, db):
         data = 'Москва, Ярославское шоссе 123'
         with patch('identify_updates_of_topics._utils.folder_updater.rate_limit_for_api'):

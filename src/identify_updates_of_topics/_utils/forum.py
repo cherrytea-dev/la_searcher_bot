@@ -117,6 +117,7 @@ class ForumClient:
         return resp.content
 
     def get_comment_data(self, search_num: int, comment_num: int) -> ForumCommentItem | None:
+        """parse all details on a specific comment in topic (by sequence number)"""
         content = self._get_comment_content(search_num, comment_num)
         if not is_content_visible(content, search_num):
             return None
