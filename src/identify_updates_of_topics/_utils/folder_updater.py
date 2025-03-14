@@ -1,38 +1,21 @@
 import logging
-from datetime import datetime
+import time
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import requests
 from google.cloud import storage
 from google.cloud.storage.blob import Blob
-from sqlalchemy.engine import Connection
 from sqlalchemy.engine.base import Engine
 
 from _dependencies.commons import ChangeType, TopicType
 from _dependencies.misc import make_api_call, notify_admin
-from identify_updates_of_topics._utils.database import (
-    _delete_search,
-    _get_current_searches,
-    _get_current_snapshots_list,
-    _get_prev_searches,
-    _update_search_activities,
-    _update_search_managers,
-    _write_change_log,
-    _write_search,
-    get_geolocation_form_psql,
-    rewrite_snapshot_in_sql,
-    save_geolocation_in_psql,
-    save_last_api_call_time_to_psql,
-    save_place_in_psql,
-    update_coordinates_in_db,
-    write_comment,
-)
+from identify_updates_of_topics._utils.database import DBClient
 from identify_updates_of_topics._utils.external_api import (
     get_coordinates_from_address_by_osm,
     get_coordinates_from_address_by_yandex,
-    rate_limit_for_api,
 )
-from identify_updates_of_topics._utils.forum import ForumClient, ForumSearchItem, ForumCommentItem
+from identify_updates_of_topics._utils.forum import ForumClient, ForumCommentItem, ForumSearchItem
 from identify_updates_of_topics._utils.parse import (
     parse_address_from_title,
     profile_get_managers,
@@ -90,10 +73,10 @@ def update_checker(current_hash: str, folder_num: int) -> bool:
 
 class FolderUpdater:
     # TODO split: FolderUpdater and maybe SearchUpdater
-    def __init__(self, db: Engine, folder_num: int) -> None:
-        self.db = db
+    def __init__(self, db_client: DBClient, folder_num: int) -> None:
         self.folder_num = folder_num
         self.forum_client = ForumClient()
+        self.db_client = db_client
         # TODO ForumClient to incoming params
 
     def run(self) -> tuple[bool, list[int]]:
@@ -119,8 +102,8 @@ class FolderUpdater:
         if not update_trigger:
             return False, []
 
-        rewrite_snapshot_in_sql(
-            self.db, self.folder_num, new_folder_summary
+        self.db_client.rewrite_snapshot_in_sql(
+            self.folder_num, new_folder_summary
         )  # TODO can move into _update_change_log_and_searches?
 
         logging.info(f'starting updating change_log and searches tables for folder {self.folder_num}')
@@ -250,23 +233,22 @@ class FolderUpdater:
         # DEBUG - function execution time counter
         func_start = datetime.now()
 
-        with self.db.connect() as conn:
-            curr_snapshot_list = _get_current_snapshots_list(self.folder_num, conn)
-            prev_searches_list = _get_prev_searches(conn)
+        curr_snapshot_list = self.db_client.get_current_snapshots_list(self.folder_num)
+        prev_searches_list = self.db_client.get_prev_searches()
 
-            print(f'TEMP – len of prev_searches_list = {len(prev_searches_list)}')
-            if len(prev_searches_list) > 5000:
-                logging.warning('TEMP - you use too big table Searches, it should be optimized')
+        print(f'TEMP – len of prev_searches_list = {len(prev_searches_list)}')
+        if len(prev_searches_list) > 5000:
+            logging.warning('TEMP - you use too big table Searches, it should be optimized')
 
-            change_log_ids = self._write_updated_searches(conn, curr_snapshot_list, prev_searches_list)
+        change_log_ids = self._write_updated_searches(curr_snapshot_list, prev_searches_list)
 
-            new_change_log_ids = self._write_new_searches(conn, curr_snapshot_list, prev_searches_list)
-            change_log_ids.extend(new_change_log_ids)
+        new_change_log_ids = self._write_new_searches(curr_snapshot_list, prev_searches_list)
+        change_log_ids.extend(new_change_log_ids)
 
-            """4 DEL UPD from Searches"""
-            self._delete_and_write_searches_again(conn, curr_snapshot_list, prev_searches_list)  # TODO ???
+        """4 DEL UPD from Searches"""
+        self._delete_and_write_searches_again(curr_snapshot_list, prev_searches_list)  # TODO ???
 
-            """5. UPD added to Searches"""
+        """5. UPD added to Searches"""
 
         # DEBUG - function execution time counter
         func_finish = datetime.now()
@@ -276,7 +258,7 @@ class FolderUpdater:
         return change_log_ids
 
     def _delete_and_write_searches_again(
-        self, conn: Connection, curr_snapshot_list: list[SearchSummary], prev_searches_list: list[SearchSummary]
+        self, curr_snapshot_list: list[SearchSummary], prev_searches_list: list[SearchSummary]
     ) -> None:
         searches_to_delete = []
 
@@ -293,17 +275,17 @@ class FolderUpdater:
 
         for line in searches_to_delete:
             # TODO mass deletion
-            _delete_search(conn, line.topic_id)
+            self.db_client.delete_search(line.topic_id)
 
-        curr_searches_list = _get_current_searches(conn)
+        curr_searches_list = self.db_client.get_current_searches()
         curr_searches_ids = set([search.topic_id for search in curr_searches_list])
 
         for snapshot_line in curr_snapshot_list:
             if snapshot_line.topic_id not in curr_searches_ids:
-                _write_search(conn, snapshot_line)
+                self.db_client.write_search(snapshot_line)
 
     def _write_new_searches(
-        self, conn: Connection, curr_snapshot_list: list[SearchSummary], prev_searches_list: list[SearchSummary]
+        self, curr_snapshot_list: list[SearchSummary], prev_searches_list: list[SearchSummary]
     ) -> list[int]:
         prev_searches_topic_ids = set([search.topic_id for search in prev_searches_list])
 
@@ -311,17 +293,17 @@ class FolderUpdater:
 
         """ADD to Searches"""
         for line in new_topics:
-            _write_search(conn, line)
+            self.db_client.write_search(line)
 
             search_num = line.topic_id
             parsed_profile_text = self.forum_client.parse_search_profile(search_num)
             search_activities = profile_get_type_of_activity(parsed_profile_text)
-            _update_search_activities(conn, search_num, search_activities)
+            self.db_client.update_search_activities(search_num, search_activities)
 
             # Define managers of the search
             managers = profile_get_managers(parsed_profile_text)
             logging.debug(f'DBG.P.104:Managers: {managers}')
-            _update_search_managers(conn, search_num, managers)
+            self.db_client.update_search_managers(search_num, managers)
 
         """write change_log records"""
         change_log_ids: list[int] = []
@@ -335,13 +317,13 @@ class FolderUpdater:
                 change_type=ChangeType.topic_new,
             )
 
-            change_log_id = _write_change_log(conn, line)
+            change_log_id = self.db_client.write_change_log(line)
             change_log_ids.append(change_log_id)
 
         return change_log_ids
 
     def _write_updated_searches(
-        self, conn: Connection, curr_snapshot_list: list[SearchSummary], prev_searches_list: list[SearchSummary]
+        self, curr_snapshot_list: list[SearchSummary], prev_searches_list: list[SearchSummary]
     ) -> list[int]:
         change_log_ids: list[int] = []
         change_log_updates_list: list[ChangeLogLine] = []
@@ -358,7 +340,7 @@ class FolderUpdater:
                 change_log_updates_list.extend(changes)
 
         for line in change_log_updates_list:  # TODO
-            change_log_id = _write_change_log(conn, line)
+            change_log_id = self.db_client.write_change_log(line)
             change_log_ids.append(change_log_id)
         return change_log_ids
 
@@ -372,8 +354,7 @@ class FolderUpdater:
         for k in range(snapshot_line.num_of_replies - searches_line.num_of_replies):
             comment_number = searches_line.num_of_replies + 1 + k
             comment_data = self.forum_client.get_comment_data(snapshot_line.topic_id, comment_number)
-            write_comment(
-                self.db,
+            self.db_client.write_comment(
                 comment_data.search_num,
                 comment_data.comment_num,
                 comment_data.comment_url,
@@ -401,7 +382,7 @@ class FolderUpdater:
             logging.info(f'search coordinates should be saved for {search_id=}')
             coords = self._parse_coordinates_of_search(search_id)
 
-            update_coordinates_in_db(self.db, search_id, coords)
+            self.db_client.update_coordinates_in_db(search_id, coords)
 
         return None
 
@@ -418,7 +399,7 @@ class FolderUpdater:
             try:
                 address = parse_address_from_title(title)
                 if address:
-                    save_place_in_psql(self.db, address, search_num)
+                    self.db_client.save_place_in_psql(self.db, address, search_num)
                     lat, lon = self.get_coordinates_by_address(address)
                     if lat and lon:
                         coord_type = '4. coordinates by address'
@@ -494,7 +475,7 @@ class FolderUpdater:
 
         try:
             # check if this address was already geolocated and saved to psql
-            saved_status, lat, lon, saved_geocoder = get_geolocation_form_psql(self.db, address)
+            saved_status, lat, lon, saved_geocoder = self.db_client.get_geolocation_form_psql(address)
 
             if lat and lon:
                 return lat, lon
@@ -504,29 +485,29 @@ class FolderUpdater:
 
             elif not saved_status:
                 # when there's no saved record
-                rate_limit_for_api(db=self.db, geocoder='osm')
+                self._rate_limit_for_api(geocoder='osm')
                 lat, lon = get_coordinates_from_address_by_osm(address)
-                api_call_time_saved = save_last_api_call_time_to_psql(db=self.db, geocoder='osm')
+                api_call_time_saved = self.db_client.save_last_api_call_time_to_psql(geocoder='osm')
                 logging.info(f'{api_call_time_saved=}')
 
                 if lat and lon:
                     saved_status = 'ok'
-                    save_geolocation_in_psql(self.db, address, saved_status, lat, lon, 'osm')
+                    self.db_client.save_geolocation_in_psql(address, saved_status, lat, lon, 'osm')
                 else:
                     saved_status = 'fail'
 
             if saved_status == 'fail' and (saved_geocoder == 'osm' or not saved_geocoder):
                 # then we need to geocode with yandex
-                rate_limit_for_api(db=self.db, geocoder='yandex')
+                self._rate_limit_for_api(geocoder='yandex')
                 lat, lon = get_coordinates_from_address_by_yandex(address)
-                api_call_time_saved = save_last_api_call_time_to_psql(db=self.db, geocoder='yandex')
+                api_call_time_saved = self.db_client.save_last_api_call_time_to_psql(geocoder='yandex')
                 logging.info(f'{api_call_time_saved=}')
 
                 if lat and lon:
                     saved_status = 'ok'
                 else:
                     saved_status = 'fail'
-                save_geolocation_in_psql(self.db, address, saved_status, lat, lon, 'yandex')
+                self.db_client.save_geolocation_in_psql(address, saved_status, lat, lon, 'yandex')
 
             return lat, lon
 
@@ -535,3 +516,29 @@ class FolderUpdater:
             notify_admin('ERROR: major geocoding script failed')
 
         return None, None
+
+    def _rate_limit_for_api(self, geocoder: str) -> None:
+        """sleeps certain time if api calls are too frequent"""
+
+        # check that next request won't be in less a SECOND from previous
+        prev_api_call_time = self.db_client.get_last_api_call_time_from_psql(geocoder)  # TODO
+
+        if not prev_api_call_time:
+            return None
+
+        if geocoder == 'yandex':
+            return None
+
+        now_utc = datetime.now(timezone.utc)
+        time_delta_bw_now_and_next_request = prev_api_call_time - now_utc + timedelta(seconds=1)
+
+        logging.debug(f'{prev_api_call_time=}')
+        logging.debug(f'{now_utc=}')
+        logging.debug(f'{time_delta_bw_now_and_next_request=}')
+
+        if time_delta_bw_now_and_next_request.total_seconds() > 0:
+            time.sleep(time_delta_bw_now_and_next_request.total_seconds())
+            logging.debug(f'rate limit for {geocoder}: sleep {time_delta_bw_now_and_next_request.total_seconds()}')
+            notify_admin(f'rate limit for {geocoder}: sleep {time_delta_bw_now_and_next_request.total_seconds()}')
+
+        return None

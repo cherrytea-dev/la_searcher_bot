@@ -14,10 +14,7 @@ from _dependencies.commons import (
     sqlalchemy_get_pool,
 )
 from _dependencies.misc import generate_random_function_id, notify_admin, process_pubsub_message_v3
-from identify_updates_of_topics._utils.database import (
-    get_the_list_of_ignored_folders,
-    save_function_into_register,
-)
+from identify_updates_of_topics._utils.database import DBClient
 from identify_updates_of_topics._utils.folder_updater import FolderUpdater
 
 setup_google_logging()
@@ -40,7 +37,8 @@ def main(event, context) -> None:  # noqa
     logging.info(f'received message from pub/sub: {message_from_pubsub}')
 
     db = sql_connect()
-    list_of_ignored_folders = get_the_list_of_ignored_folders(db)
+    db_client = DBClient(db)
+    list_of_ignored_folders = db_client.get_the_list_of_ignored_folders()
 
     if list_from_pubsub:
         folders_list = [int(line[0]) for line in list_from_pubsub if int(line[0]) not in list_of_ignored_folders]
@@ -56,7 +54,7 @@ def main(event, context) -> None:  # noqa
     for folder in folders_list:
         logging.info(f'start checking if folder {folder} has any updates')
 
-        update_trigger, one_folder_change_log_ids = FolderUpdater(db, folder).run()
+        update_trigger, one_folder_change_log_ids = FolderUpdater(db_client, folder).run()
 
         if update_trigger:
             list_of_folders_with_updates.append(folder)
@@ -66,7 +64,7 @@ def main(event, context) -> None:  # noqa
     logging.info(f"Here's a list of change_log ids created: {change_log_ids}")
 
     if list_of_folders_with_updates:
-        save_function_into_register(db, context, analytics_func_start, function_id, change_log_ids)
+        db_client.save_function_into_register(context, analytics_func_start, function_id, change_log_ids)
 
         message_for_pubsub = {'triggered_by_func_id': function_id, 'text': "let's compose notifications"}
         publish_to_pubsub(Topics.topic_for_notification, message_for_pubsub)

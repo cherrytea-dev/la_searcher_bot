@@ -30,7 +30,7 @@ def mock_http_get():
         yield mock_http
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def db():
     return sqlalchemy_get_pool(10, 10)
 

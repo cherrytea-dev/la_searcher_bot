@@ -1,6 +1,4 @@
 import logging
-import time
-from datetime import datetime, timedelta, timezone
 from typing import Any, Tuple
 
 from geopy.geocoders import Nominatim
@@ -9,7 +7,6 @@ from yandex_geocoder import Client, exceptions
 
 from _dependencies.commons import get_app_config
 from _dependencies.misc import notify_admin
-from identify_updates_of_topics._utils.database import get_last_api_call_time_from_psql
 
 
 def get_coordinates_from_address_by_osm(address_string: str) -> Tuple[Any, Any]:
@@ -68,30 +65,3 @@ def get_coordinates_from_address_by_yandex(address_string: str) -> tuple[float |
         longitude, latitude = float(coordinates[0]), float(coordinates[1])
 
     return latitude, longitude
-
-
-def rate_limit_for_api(db: Engine, geocoder: str) -> None:
-    """sleeps certain time if api calls are too frequent"""
-
-    # check that next request won't be in less a SECOND from previous
-    prev_api_call_time = get_last_api_call_time_from_psql(db=db, geocoder=geocoder)
-
-    if not prev_api_call_time:
-        return None
-
-    if geocoder == 'yandex':
-        return None
-
-    now_utc = datetime.now(timezone.utc)
-    time_delta_bw_now_and_next_request = prev_api_call_time - now_utc + timedelta(seconds=1)
-
-    logging.info(f'{prev_api_call_time=}')
-    logging.info(f'{now_utc=}')
-    logging.info(f'{time_delta_bw_now_and_next_request=}')
-
-    if time_delta_bw_now_and_next_request.total_seconds() > 0:
-        time.sleep(time_delta_bw_now_and_next_request.total_seconds())
-        logging.info(f'rate limit for {geocoder}: sleep {time_delta_bw_now_and_next_request.total_seconds()}')
-        notify_admin(f'rate limit for {geocoder}: sleep {time_delta_bw_now_and_next_request.total_seconds()}')
-
-    return None
