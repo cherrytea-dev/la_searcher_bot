@@ -75,8 +75,8 @@ class FolderUpdater:
     # TODO split: FolderUpdater and maybe SearchUpdater
     def __init__(self, db_client: DBClient, folder_num: int) -> None:
         self.folder_num = folder_num
-        self.forum_client = ForumClient()
-        self.db_client = db_client
+        self.forum = ForumClient()
+        self.db = db_client
         # TODO ForumClient to incoming params
 
     def run(self) -> tuple[bool, list[int]]:
@@ -102,7 +102,7 @@ class FolderUpdater:
         if not update_trigger:
             return False, []
 
-        self.db_client.rewrite_snapshot_in_sql(
+        self.db.rewrite_snapshot_in_sql(
             self.folder_num, new_folder_summary
         )  # TODO can move into _update_change_log_and_searches?
 
@@ -120,7 +120,7 @@ class FolderUpdater:
         folder_summary: list[SearchSummary] = []
         current_datetime = datetime.now()
 
-        folder_content_items = self.forum_client.get_folder_searches(self.folder_num)
+        folder_content_items = self.forum.get_folder_searches(self.folder_num)
         try:
             for forum_search_item in folder_content_items:
                 try:
@@ -233,8 +233,8 @@ class FolderUpdater:
         # DEBUG - function execution time counter
         func_start = datetime.now()
 
-        curr_snapshot_list = self.db_client.get_current_snapshots_list(self.folder_num)
-        prev_searches_list = self.db_client.get_prev_searches()
+        curr_snapshot_list = self.db.get_current_snapshots_list(self.folder_num)
+        prev_searches_list = self.db.get_prev_searches()
 
         print(f'TEMP – len of prev_searches_list = {len(prev_searches_list)}')
         if len(prev_searches_list) > 5000:
@@ -275,14 +275,14 @@ class FolderUpdater:
 
         for line in searches_to_delete:
             # TODO mass deletion
-            self.db_client.delete_search(line.topic_id)
+            self.db.delete_search(line.topic_id)
 
-        curr_searches_list = self.db_client.get_current_searches()
+        curr_searches_list = self.db.get_current_searches()
         curr_searches_ids = set([search.topic_id for search in curr_searches_list])
 
         for snapshot_line in curr_snapshot_list:
             if snapshot_line.topic_id not in curr_searches_ids:
-                self.db_client.write_search(snapshot_line)
+                self.db.write_search(snapshot_line)
 
     def _write_new_searches(
         self, curr_snapshot_list: list[SearchSummary], prev_searches_list: list[SearchSummary]
@@ -293,17 +293,17 @@ class FolderUpdater:
 
         """ADD to Searches"""
         for line in new_topics:
-            self.db_client.write_search(line)
+            self.db.write_search(line)
 
             search_num = line.topic_id
-            parsed_profile_text = self.forum_client.parse_search_profile(search_num)
+            parsed_profile_text = self.forum.parse_search_profile(search_num)
             search_activities = profile_get_type_of_activity(parsed_profile_text)
-            self.db_client.update_search_activities(search_num, search_activities)
+            self.db.update_search_activities(search_num, search_activities)
 
             # Define managers of the search
             managers = profile_get_managers(parsed_profile_text)
             logging.debug(f'DBG.P.104:Managers: {managers}')
-            self.db_client.update_search_managers(search_num, managers)
+            self.db.update_search_managers(search_num, managers)
 
         """write change_log records"""
         change_log_ids: list[int] = []
@@ -317,7 +317,7 @@ class FolderUpdater:
                 change_type=ChangeType.topic_new,
             )
 
-            change_log_id = self.db_client.write_change_log(line)
+            change_log_id = self.db.write_change_log(line)
             change_log_ids.append(change_log_id)
 
         return change_log_ids
@@ -340,7 +340,7 @@ class FolderUpdater:
                 change_log_updates_list.extend(changes)
 
         for line in change_log_updates_list:  # TODO
-            change_log_id = self.db_client.write_change_log(line)
+            change_log_id = self.db.write_change_log(line)
             change_log_ids.append(change_log_id)
         return change_log_ids
 
@@ -353,8 +353,8 @@ class FolderUpdater:
         there_are_inforg_comments = False
         for k in range(snapshot_line.num_of_replies - searches_line.num_of_replies):
             comment_number = searches_line.num_of_replies + 1 + k
-            comment_data = self.forum_client.get_comment_data(snapshot_line.topic_id, comment_number)
-            self.db_client.write_comment(
+            comment_data = self.forum.get_comment_data(snapshot_line.topic_id, comment_number)
+            self.db.write_comment(
                 comment_data.search_num,
                 comment_data.comment_num,
                 comment_data.comment_url,
@@ -382,7 +382,7 @@ class FolderUpdater:
             logging.info(f'search coordinates should be saved for {search_id=}')
             coords = self._parse_coordinates_of_search(search_id)
 
-            self.db_client.update_coordinates_in_db(search_id, coords)
+            self.db.update_coordinates_in_db(search_id, coords)
 
         return None
 
@@ -392,14 +392,14 @@ class FolderUpdater:
         # DEBUG - function execution time counter
         func_start = datetime.now()
 
-        lat, lon, coord_type, title = self.forum_client.parse_coordinates_of_search(search_num)
+        lat, lon, coord_type, title = self.forum.parse_coordinates_of_search(search_num)
 
         # FOURTH CASE = COORDINATES FROM ADDRESS
         if lat == 0:
             try:
                 address = parse_address_from_title(title)
                 if address:
-                    self.db_client.save_place_in_psql(self.db, address, search_num)
+                    self.db.save_place_in_psql(self.db, address, search_num)
                     lat, lon = self.get_coordinates_by_address(address)
                     if lat and lon:
                         coord_type = '4. coordinates by address'
@@ -475,7 +475,7 @@ class FolderUpdater:
 
         try:
             # check if this address was already geolocated and saved to psql
-            saved_status, lat, lon, saved_geocoder = self.db_client.get_geolocation_form_psql(address)
+            saved_status, lat, lon, saved_geocoder = self.db.get_geolocation_form_psql(address)
 
             if lat and lon:
                 return lat, lon
@@ -487,12 +487,12 @@ class FolderUpdater:
                 # when there's no saved record
                 self._rate_limit_for_api(geocoder='osm')
                 lat, lon = get_coordinates_from_address_by_osm(address)
-                api_call_time_saved = self.db_client.save_last_api_call_time_to_psql(geocoder='osm')
+                api_call_time_saved = self.db.save_last_api_call_time_to_psql(geocoder='osm')
                 logging.info(f'{api_call_time_saved=}')
 
                 if lat and lon:
                     saved_status = 'ok'
-                    self.db_client.save_geolocation_in_psql(address, saved_status, lat, lon, 'osm')
+                    self.db.save_geolocation_in_psql(address, saved_status, lat, lon, 'osm')
                 else:
                     saved_status = 'fail'
 
@@ -500,14 +500,14 @@ class FolderUpdater:
                 # then we need to geocode with yandex
                 self._rate_limit_for_api(geocoder='yandex')
                 lat, lon = get_coordinates_from_address_by_yandex(address)
-                api_call_time_saved = self.db_client.save_last_api_call_time_to_psql(geocoder='yandex')
+                api_call_time_saved = self.db.save_last_api_call_time_to_psql(geocoder='yandex')
                 logging.info(f'{api_call_time_saved=}')
 
                 if lat and lon:
                     saved_status = 'ok'
                 else:
                     saved_status = 'fail'
-                self.db_client.save_geolocation_in_psql(address, saved_status, lat, lon, 'yandex')
+                self.db.save_geolocation_in_psql(address, saved_status, lat, lon, 'yandex')
 
             return lat, lon
 
@@ -521,7 +521,7 @@ class FolderUpdater:
         """sleeps certain time if api calls are too frequent"""
 
         # check that next request won't be in less a SECOND from previous
-        prev_api_call_time = self.db_client.get_last_api_call_time_from_psql(geocoder)  # TODO
+        prev_api_call_time = self.db.get_last_api_call_time_from_psql(geocoder)  # TODO
 
         if not prev_api_call_time:
             return None

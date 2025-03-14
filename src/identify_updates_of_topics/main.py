@@ -36,8 +36,8 @@ def main(event, context) -> None:  # noqa
     list_from_pubsub = ast.literal_eval(message_from_pubsub) if message_from_pubsub else None
     logging.info(f'received message from pub/sub: {message_from_pubsub}')
 
-    db = sql_connect()
-    db_client = DBClient(db)
+    db_conn_pool = sql_connect()
+    db_client = DBClient(db_conn_pool)
     list_of_ignored_folders = db_client.get_the_list_of_ignored_folders()
 
     if list_from_pubsub:
@@ -69,4 +69,4 @@ def main(event, context) -> None:  # noqa
         message_for_pubsub = {'triggered_by_func_id': function_id, 'text': "let's compose notifications"}
         publish_to_pubsub(Topics.topic_for_notification, message_for_pubsub)
 
-    db.dispose()
+    db_conn_pool.dispose()
