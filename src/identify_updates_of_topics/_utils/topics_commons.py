@@ -7,12 +7,12 @@ from _dependencies.commons import ChangeType, TopicType
 
 @dataclass
 class ChangeLogLine:
-    parsed_time: Any = None
-    topic_id: Any = None
-    changed_field: Any = None  # maybe obsolete too
+    change_type: ChangeType
+    parsed_time: datetime
+    topic_id: int
     new_value: Any = None
+    changed_field: Any = None  # maybe obsolete too
     parameters: Any = None  # obsolete
-    change_type: ChangeType = None
 
 
 @dataclass
@@ -23,11 +23,12 @@ class SearchSummary:
     topic_type: str
     parsed_time: datetime
     status: str
+    new_status: str
     title: str
     # link: Any = None
     start_time: datetime
     num_of_replies: int
-    name: str
+    name: str | None = None
     display_name: str = ''
     age: int | None = None
     searches_table_id: Any = None
@@ -35,7 +36,6 @@ class SearchSummary:
     age_min: int | None = None
     num_of_persons: int | None = None
     locations: Any = None
-    new_status: Any = None
     # full_dict: Any = None
 
 
@@ -44,7 +44,7 @@ class ForumSearchItem:
     title: str
     search_id: int
     replies_count: int
-    start_datetime: str
+    start_datetime: datetime
 
 
 @dataclass

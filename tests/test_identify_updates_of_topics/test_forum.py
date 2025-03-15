@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -27,13 +28,13 @@ class TestForumClient:
                 title='Жив Иванов Иван, 10 лет, ЗАО, г. Москва',
                 search_id=85471,
                 replies_count=29,
-                start_datetime='2025-01-13T14:10:25+00:00',
+                start_datetime=datetime(2025, 1, 13, 14, 10, 25, tzinfo=timezone.utc),
             ),
             ForumSearchItem(
                 title='Пропал Петров Петр Петрович, 48 лет, ЗелАО, г. Москва - Тверская обл.',
                 search_id=81634,
                 replies_count=116,
-                start_datetime='2024-08-27T15:40:22+00:00',
+                start_datetime=datetime(2024, 8, 27, 15, 40, 22, tzinfo=timezone.utc),
             ),
         ]
 

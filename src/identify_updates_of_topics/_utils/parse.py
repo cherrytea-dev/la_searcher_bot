@@ -134,11 +134,11 @@ def parse_address_from_title(initial_title: str) -> str:
     # add all the cases ABOVE
     # delete garbage in the beginning of string
     try:
-        first_num = re.search(r'\d', address_string).start()
-    except:  # noqa
+        first_num = re.search(r'\d', address_string).start()  # type:ignore[union-attr]
+    except:
         first_num = 0
     try:
-        first_letter = re.search(r'[а-яА-Я]', address_string).start()
+        first_letter = re.search(r'[а-яА-Я]', address_string).start()  # type:ignore[union-attr]
     except:  # noqa
         first_letter = 0
 

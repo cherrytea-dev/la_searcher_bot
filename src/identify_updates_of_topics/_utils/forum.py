@@ -1,9 +1,11 @@
 import copy
 import logging
 import re
+from datetime import datetime
 from functools import lru_cache
-from typing import Any
+from typing import Any, no_type_check
 
+# no_type_check for BeautifulSoap magic
 from bs4 import BeautifulSoup, SoupStrainer
 from requests import Session
 
@@ -11,16 +13,17 @@ from _dependencies.commons import Topics, publish_to_pubsub
 from identify_updates_of_topics._utils.topics_commons import ForumCommentItem, ForumSearchItem
 
 
+@no_type_check
 def define_start_time_of_search(blocks):
     """define search start time & date"""
 
     start_datetime_as_string = blocks.find('div', 'topic-poster responsive-hide left-box')
     start_datetime = start_datetime_as_string.time['datetime']
 
-    return start_datetime
+    return datetime.fromisoformat(start_datetime)
 
 
-def is_content_visible(content: bytes, topic_id) -> bool:
+def is_content_visible(content: bytes, topic_id: int) -> bool:
     """check topic's visibility: if hidden or deleted"""
 
     check_content = content.decode('utf-8')
@@ -46,7 +49,7 @@ def get_requests_session() -> Session:
 
 
 class ForumClient:
-    def __init__(self):
+    def __init__(self) -> None:
         self.session = get_requests_session()
 
     def _get_folder_content(self, folder_id: int) -> bytes:
@@ -55,6 +58,7 @@ class ForumClient:
         resp.raise_for_status()
         return resp.content
 
+    @no_type_check
     def get_folder_searches(self, folder_id: int) -> list[ForumSearchItem]:
         content = self._get_folder_content(folder_id)
         only_tag = SoupStrainer('div', {'class': 'forumbg'})
@@ -95,6 +99,7 @@ class ForumClient:
         resp.raise_for_status()
         return resp.content
 
+    @no_type_check
     def get_comment_data(self, search_num: int, comment_num: int) -> ForumCommentItem | None:
         """parse all details on a specific comment in topic (by sequence number)"""
         content = self._get_comment_content(search_num, comment_num)
@@ -178,6 +183,7 @@ class ForumClient:
     def _get_topic_url(self, search_num: int) -> str:
         return f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
 
+    @no_type_check
     def parse_search_profile(self, search_num: int) -> str | None:
         """get raw search text"""
         content = self._get_topic_content(search_num)
@@ -205,7 +211,8 @@ class ForumClient:
 
         return left_text
 
-    def parse_coordinates_of_search(self, search_num) -> tuple[float, float, str, str]:
+    @no_type_check
+    def parse_coordinates_of_search(self, search_num: int) -> tuple[float, float, str, str]:
         """finds coordinates of the search"""
         url_to_topic = self._get_topic_url(search_num)
         lat, lon = 0.0, 0.0
@@ -265,6 +272,7 @@ class ForumClient:
         return [lat, lon, coord_type, title]
 
 
+@no_type_check
 def _parse_coords_case_1(search_code_blocks: BeautifulSoup) -> tuple[float, float]:
     # make an independent variable
     a = copy.copy(search_code_blocks)
@@ -298,6 +306,7 @@ def _parse_coords_case_1(search_code_blocks: BeautifulSoup) -> tuple[float, floa
     return lat, lon
 
 
+@no_type_check
 def _parse_coords_case_2(search_code_blocks: BeautifulSoup) -> tuple[float, float]:
     a = copy.copy(search_code_blocks)
 
@@ -329,6 +338,7 @@ def _parse_coords_case_2(search_code_blocks: BeautifulSoup) -> tuple[float, floa
     return _extract_coords_from_string(c)
 
 
+@no_type_check
 def _parse_coords_case_3(search_code_blocks: BeautifulSoup) -> tuple[float, float]:
     lat, lon = 0.0, 0.0
 

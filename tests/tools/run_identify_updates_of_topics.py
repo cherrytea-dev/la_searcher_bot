@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 from _dependencies.commons import AppConfig
 from identify_updates_of_topics import main
+from identify_updates_of_topics._utils import folder_updater
 from tests.common import get_event_with_data
 from title_recognize.main import recognize_title
 
@@ -19,7 +20,7 @@ def get_dotenv_config() -> AppConfig:
     return AppConfig()
 
 
-class LocalFileStorage(main.CloudStorage):
+class LocalFileStorage(folder_updater.CloudStorage):
     path = 'build/storage/folder_hash'
 
     def read_folder_hash(self, snapshot_name: str) -> str:
@@ -47,8 +48,8 @@ if __name__ == '__main__':
         patch('_dependencies.misc.publish_to_pubsub', fake_publish_to_pubsub),
         patch('identify_updates_of_topics._utils.forum.publish_to_pubsub', fake_publish_to_pubsub),
         patch.object(main, 'publish_to_pubsub', fake_publish_to_pubsub),
-        patch.object(main, 'CloudStorage', LocalFileStorage),
-        patch.object(main, 'make_api_call', fake_api_call),
+        patch.object(folder_updater, 'CloudStorage', LocalFileStorage),
+        patch.object(folder_updater, 'make_api_call', fake_api_call),
         # patch.object(main, 'notify_admin', lambda x: print(f'Admin notification: {x}')),
     ):
         folders = [(276, None)]

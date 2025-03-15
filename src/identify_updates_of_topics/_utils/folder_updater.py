@@ -32,7 +32,7 @@ from identify_updates_of_topics._utils.topics_commons import (
 class CloudStorage:
     BUCKET_NAME = 'bucket_for_snapshot_storage'
 
-    def read_folder_hash(self, folder_num: str) -> str | None:
+    def read_folder_hash(self, folder_num: int) -> str | None:
         try:
             blob = self._set_cloud_storage(folder_num)
             contents_as_bytes = blob.download_as_string()
@@ -42,22 +42,18 @@ class CloudStorage:
 
         return contents
 
-    def write_folder_hash(self, data: Any, folder_num: str) -> None:
+    def write_folder_hash(self, data: Any, folder_num: int) -> None:
         blob = self._set_cloud_storage(folder_num)
         blob.upload_from_string(data)
 
-    def _set_cloud_storage(self, folder_num: str) -> Blob:
+    def _set_cloud_storage(self, folder_num: int) -> Blob:
         """sets the basic parameters for connection to txt file in cloud storage, which stores searches snapshots"""
 
-        if isinstance(folder_num, int) or folder_num == 'geocode':
-            blob_name = str(folder_num) + '.txt'
-        else:
-            blob_name = folder_num
-        storage_client = storage.Client()
+        storage_client = storage.Client()  # TODO move to class initialization
         bucket = storage_client.get_bucket(self.BUCKET_NAME)
-        blob = bucket.blob(blob_name)
 
-        return blob
+        blob_name = f'{folder_num}.txt'
+        return bucket.blob(blob_name)
 
 
 def update_checker(current_hash: str, folder_num: int) -> bool:
@@ -165,13 +161,7 @@ class FolderUpdater:
         if title_reco_dict.topic_type == RecognitionTopicType.event:
             person_fam_name = None
         else:
-            try:
-                person_fam_name = title_reco_dict.persons.total_name
-            except Exception as ex:
-                logging.exception(ex)
-                notify_admin(repr(ex))
-                person_fam_name = 'БВП'
-                # FIXME ^^^
+            person_fam_name = title_reco_dict.persons.total_name if title_reco_dict.persons else 'БВП'
 
         search_summary_object = SearchSummary(
             parsed_time=current_datetime,
@@ -183,8 +173,8 @@ class FolderUpdater:
             folder_id=self.folder_num,
             topic_type=title_reco_dict.topic_type,
             topic_type_id=topic_type_dict[title_reco_dict.topic_type],
-            new_status=title_reco_dict.status,
-            status=title_reco_dict.status,
+            new_status=title_reco_dict.status or '',
+            status=title_reco_dict.status or '',
         )
 
         if title_reco_dict.persons:
