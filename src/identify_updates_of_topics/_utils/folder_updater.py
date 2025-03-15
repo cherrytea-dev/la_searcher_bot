@@ -3,14 +3,13 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-import requests
 from google.cloud import storage
 from google.cloud.storage.blob import Blob
 from sqlalchemy.engine.base import Engine
 
 from _dependencies.commons import ChangeType, TopicType
 from _dependencies.misc import make_api_call, notify_admin
-from _dependencies.recognition_schema import RecognitionResult
+from _dependencies.recognition_schema import RecognitionResult, RecognitionTopicType
 from identify_updates_of_topics._utils.database import DBClient
 from identify_updates_of_topics._utils.external_api import (
     get_coordinates_from_address_by_osm,
@@ -155,28 +154,19 @@ class FolderUpdater:
         title_reco_response = make_api_call('title_recognize', data)  # TODO can use local call in tests
 
         if title_reco_response and 'status' in title_reco_response.keys() and title_reco_response['status'] == 'ok':
-            title_reco_dict = title_reco_response['recognition']
+            title_reco_dict = RecognitionResult.model_validate(title_reco_response['recognition'])
+            # TODO validate whole response
         else:
-            title_reco_dict = {'topic_type': 'UNRECOGNIZED'}
+            return
 
         logging.debug(f'{title_reco_dict=}')
 
-        # NEW exclude non-relevant searches
-        if title_reco_dict['topic_type'] not in {
-            'search',
-            'search training',
-            'search reverse',
-            'search patrol',
-            'event',
-        }:
-            return
-
         # FIXME – 06.11.2023 – work to delete function "define_family_name_from_search_title_new"
-        if title_reco_dict['topic_type'] == 'event':
+        if title_reco_dict.topic_type == RecognitionTopicType.event:
             person_fam_name = None
         else:
             try:
-                person_fam_name = title_reco_dict['persons']['total_name']  # noqa
+                person_fam_name = title_reco_dict.persons.total_name
             except Exception as ex:
                 logging.exception(ex)
                 notify_admin(repr(ex))
@@ -191,26 +181,21 @@ class FolderUpdater:
             num_of_replies=forum_search_item.replies_count,
             name=person_fam_name,
             folder_id=self.folder_num,
+            topic_type=title_reco_dict.topic_type,
+            topic_type_id=topic_type_dict[title_reco_dict.topic_type],
+            new_status=title_reco_dict.status,
+            status=title_reco_dict.status,
         )
-        search_summary_object.topic_type = title_reco_dict['topic_type']
-        search_summary_object.topic_type_id = topic_type_dict[search_summary_object.topic_type]
 
-        if 'persons' in title_reco_dict.keys():
-            if 'total_display_name' in title_reco_dict['persons'].keys():
-                search_summary_object.display_name = title_reco_dict['persons']['total_display_name']
-            if 'age_min' in title_reco_dict['persons'].keys():
-                search_summary_object.age_min = title_reco_dict['persons']['age_min']
-                search_summary_object.age = title_reco_dict['persons']['age_min']  # Due to the field
-                # "age" in searches which is integer, so we cannot indicate a range
-            if 'age_max' in title_reco_dict['persons'].keys():
-                search_summary_object.age_max = title_reco_dict['persons']['age_max']
+        if title_reco_dict.persons:
+            search_summary_object.display_name = title_reco_dict.persons.total_display_name
+            search_summary_object.age = title_reco_dict.persons.age_min
+            # Due to the field "age" in searches which is integer, so we cannot indicate a range
+            search_summary_object.age_min = title_reco_dict.persons.age_min
+            search_summary_object.age_max = title_reco_dict.persons.age_max
 
-        if 'status' in title_reco_dict.keys():
-            search_summary_object.new_status = title_reco_dict['status']
-            search_summary_object.status = title_reco_dict['status']
-
-        if 'locations' in title_reco_dict.keys():
-            list_of_location_cities = [x['address'] for x in title_reco_dict['locations']]
+        if title_reco_dict.locations:
+            list_of_location_cities = [loc.address for loc in title_reco_dict.locations]
             list_of_location_coords = []
             for location_city in list_of_location_cities:
                 city_lat, city_lon = self.get_coordinates_by_address(location_city)
