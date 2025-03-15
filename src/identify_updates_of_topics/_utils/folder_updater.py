@@ -10,6 +10,7 @@ from sqlalchemy.engine.base import Engine
 
 from _dependencies.commons import ChangeType, TopicType
 from _dependencies.misc import make_api_call, notify_admin
+from _dependencies.recognition_schema import RecognitionResult
 from identify_updates_of_topics._utils.database import DBClient
 from identify_updates_of_topics._utils.external_api import (
     get_coordinates_from_address_by_osm,
@@ -250,7 +251,7 @@ class FolderUpdater:
     def _delete_and_write_searches_again(
         self, curr_snapshot_list: list[SearchSummary], prev_searches_list: list[SearchSummary]
     ) -> None:
-        searches_to_delete = []
+        searches_to_delete: list[SearchSummary] = []
 
         for snapshot_line in curr_snapshot_list:
             for searches_line in prev_searches_list:

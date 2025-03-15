@@ -1,7 +1,6 @@
 import logging
 
 from geopy.geocoders import Nominatim
-
 from yandex_geocoder import Client, exceptions
 
 from _dependencies.commons import get_app_config

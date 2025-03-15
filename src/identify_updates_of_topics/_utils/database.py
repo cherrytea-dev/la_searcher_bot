@@ -1,15 +1,19 @@
-from identify_updates_of_topics._utils.topics_commons import ForumCommentItem, ForumSearchItem
 import json
 import logging
 from datetime import datetime, timezone
-from google.cloud.functions.context import Context
 
 import sqlalchemy
+from google.cloud.functions.context import Context
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.base import Engine
 
 from _dependencies.misc import notify_admin
-from identify_updates_of_topics._utils.topics_commons import ChangeLogLine, SearchSummary
+from identify_updates_of_topics._utils.topics_commons import (
+    ChangeLogLine,
+    ForumCommentItem,
+    ForumSearchItem,
+    SearchSummary,
+)
 
 
 class DBClient:

@@ -1,13 +1,12 @@
 """Script takes as input the list of recently-updated forum folders. Then it parses first 20 searches (aka topics)
 and saves into PSQL if there are any updates"""
 
-from google.cloud.functions.context import Context
-
 import ast
 import logging
 from datetime import datetime
 
 import sqlalchemy
+from google.cloud.functions.context import Context
 
 from _dependencies.commons import (
     Topics,
