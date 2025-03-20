@@ -393,9 +393,12 @@ class UserListFilter:
 
         following_users_ids = set([row[0] for row in rows])
         temp_user_list = [user for user in users_list_outcome if user.user_id in following_users_ids]
+        
+        debug_user_id = 552487421
+        debug_user_inside = debug_user_id in following_users_ids
 
         logging.info(
-            f'Crop user list step 5: User List crop due to whitelisting: {len(users_list_outcome)} --> {len(temp_user_list)}'
+            f'User List crop due to whitelisting: {len(users_list_outcome)} --> {len(temp_user_list)}, {debug_user_inside=}'
         )
         return temp_user_list
 
