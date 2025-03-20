@@ -393,7 +393,7 @@ class UserListFilter:
 
         following_users_ids = set([row[0] for row in rows])
         temp_user_list = [user for user in users_list_outcome if user.user_id in following_users_ids]
-        
+
         debug_user_id = 552487421
         debug_user_inside = debug_user_id in following_users_ids
 
