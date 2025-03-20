@@ -334,13 +334,10 @@ class UserListFilter:
         debug_user_id = 552487421
         debug_user_inside = False
         for user in users_list_outcome:
-            if user.user_id==debug_user_id:
+            if user.user_id == debug_user_id:
                 debug_user_inside = True
                 break
-        logging.info(
-            f'Before User List crop due to whitelisting for {record.forum_search_num=}: {debug_user_inside=}'
-        )
-
+        logging.info(f'Before User List crop due to whitelisting for {record.forum_search_num=}: {debug_user_inside=}')
 
         temp_user_list: list[User] = []
         sql_text_ = sqlalchemy.text("""
