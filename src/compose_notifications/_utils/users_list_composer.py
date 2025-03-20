@@ -330,7 +330,7 @@ class UserListFilter:
         # 5. FOLLOW SEARCH. crop the list of users accordingly to the rules of search following
         users_list_outcome = self.users
         record = self.new_record
-        logging.info(f'Crop user list step 5: forum_search_num=={record.forum_search_num}')
+        logging.info(f'Crop user list step 5: {record.forum_search_num=}')
         temp_user_list: list[User] = []
         sql_text_ = sqlalchemy.text("""
             SELECT u.user_id FROM users u
@@ -398,7 +398,7 @@ class UserListFilter:
         debug_user_inside = debug_user_id in following_users_ids
 
         logging.info(
-            f'User List crop due to whitelisting: {len(users_list_outcome)} --> {len(temp_user_list)}, {debug_user_inside=}'
+            f'User List crop due to whitelisting for {record.forum_search_num=}: {len(users_list_outcome)} --> {len(temp_user_list)}, {debug_user_inside=}'
         )
         return temp_user_list
 
