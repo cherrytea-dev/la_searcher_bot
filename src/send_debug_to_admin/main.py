@@ -4,7 +4,8 @@ To receive notifications one should be marked as Admin in PSQL"""
 import base64
 import datetime
 import logging
-from typing import Any, Optional
+
+from google.cloud.functions.context import Context
 
 from _dependencies.commons import get_app_config, setup_google_logging
 from _dependencies.misc import process_pubsub_message_v2, process_sending_message_async_other_bot
@@ -15,7 +16,7 @@ logging.getLogger('telegram.vendor.ptb_urllib3.urllib3').setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 
-def send_message(admin_user_id, message):
+def send_message(admin_user_id: int, message: str) -> None:
     """send individual notification message to telegram (debug)"""
 
     try:
@@ -27,12 +28,10 @@ def send_message(admin_user_id, message):
         process_sending_message_async_other_bot(user_id=admin_user_id, data=data)
 
     except Exception as e:
-        logging.info('[send_debug]: send debug to telegram failed')
-        logging.exception(e)
+        logging.exception('[send_debug]: send debug to telegram failed')
 
         try:
             debug_message = f'ERROR! {datetime.datetime.now()}: {e}'
-
             data = {'text': debug_message}
             process_sending_message_async_other_bot(user_id=admin_user_id, data=data)
 
@@ -42,11 +41,11 @@ def send_message(admin_user_id, message):
     return None
 
 
-def main(event, context):  # noqa
-    """main function, envoked by pub/sub, which sends the notification to Admin"""  # noqa
+def main(event: dict[str, bytes], context: Context) -> None:
+    """main function, envoked by pub/sub, which sends the notification to Admin"""
 
     pubsub_message = base64.b64decode(event['data']).decode('utf-8')
-    logging.info('[send_debug]: received from pubsub: {}'.format(pubsub_message))  # noqa
+    logging.info(f'[send_debug]: received from pubsub: {pubsub_message}')
 
     message_from_pubsub = process_pubsub_message_v2(event)
 
