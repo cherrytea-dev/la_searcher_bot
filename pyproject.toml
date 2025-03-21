@@ -163,7 +163,7 @@ files = [
     "src/connect_to_forum/",                # TODO refact
     "src/identify_updates_of_first_posts/",
     # "src/identify_updates_of_topics/",
-    # "src/manage_topics/",
+    "src/manage_topics/",
     "src/manage_users/",
     # "src/send_debug_to_admin/",
     "src/send_notifications/",
