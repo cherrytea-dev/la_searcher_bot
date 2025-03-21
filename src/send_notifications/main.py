@@ -71,7 +71,7 @@ class MessageToSend:
     failed: datetime.datetime | None
 
 
-def check_for_notifs_to_send(cur: cursor, select_doubling: bool) -> list[MessageToSend]:
+def get_notifs_to_send(cur: cursor, select_doubling: bool) -> list[MessageToSend]:
     """return a notification which should be sent"""
 
     # TODO: can "doubling" calculation be done not dynamically but as a field of table?
@@ -109,6 +109,7 @@ def check_for_notifs_to_send(cur: cursor, select_doubling: bool) -> list[Message
                     WHERE 
                         completed IS NULL AND
                         cancelled IS NULL AND
+                        (failed IS NULL OR failed < %s) AND
                         (change_log_id, user_id, message_type) {"IN" if select_doubling else "NOT IN"} (
                             {duplicated_notifications_query}
                         )
@@ -120,7 +121,8 @@ def check_for_notifs_to_send(cur: cursor, select_doubling: bool) -> list[Message
                     ;
                     """
 
-    cur.execute(notifications_query)
+    delay_to_retry_send_failed_messages = datetime.timedelta(minutes=5)
+    cur.execute(notifications_query, (datetime.datetime.now() - delay_to_retry_send_failed_messages,))
     notifications = cur.fetchall()
     return [MessageToSend(*notification) for notification in notifications]
 
@@ -219,7 +221,7 @@ def iterate_over_notifications(
             analytics_sql_start = datetime.datetime.now()
 
             # check if there are any non-notified users
-            messages = check_for_notifs_to_send(cur, select_doubling=False)
+            messages = get_notifs_to_send(cur, select_doubling=False)
             analytics_sql_duration = seconds_between_round_2(analytics_sql_start)
             logging.debug(f'time: {analytics_sql_duration:.2f} – reading sql')
 
@@ -244,7 +246,7 @@ def iterate_over_notifications(
             wait(futures)
 
             if time_is_out(time_analytics.script_start_time):
-                if check_for_notifs_to_send(cur, select_doubling=False):
+                if get_notifs_to_send(cur, select_doubling=False):
                     message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'next iteration'}
                     publish_to_pubsub(Topics.topic_to_send_notifications, message_for_pubsub)
                 break
@@ -288,7 +290,7 @@ def _process_message_sending(
 
 
 def _process_doubling_messages(cur: cursor) -> None:
-    messages = check_for_notifs_to_send(cur, select_doubling=True)
+    messages = get_notifs_to_send(cur, select_doubling=True)
     if messages:
         notify_admin(f'cancelled_due_to_doubling! {len(messages)} messages are doubling')
 

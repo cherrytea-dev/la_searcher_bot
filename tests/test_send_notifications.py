@@ -37,7 +37,7 @@ def local_patches():
 
 def test_main_no_message():
     # NO SMOKE TEST send_notifications.main.main
-    with patch('send_notifications.main.check_for_notifs_to_send', MagicMock(return_value=[])):
+    with patch('send_notifications.main.get_notifs_to_send', MagicMock(return_value=[])):
         main.main(MagicMock(), 'context')
     assert True
 
@@ -81,9 +81,9 @@ def test_check_for_notifs_to_send():
     )
 
     with sql_connect_by_psycopg2() as conn, conn.cursor() as cur:
-        doubling_messages = main.check_for_notifs_to_send(cur, True)
+        doubling_messages = main.get_notifs_to_send(cur, True)
         doubling_message_ids = [x.message_id for x in doubling_messages]
-        unique_messages = main.check_for_notifs_to_send(cur, False)
+        unique_messages = main.get_notifs_to_send(cur, False)
         unique_message_ids = [x.message_id for x in unique_messages]
 
         assert doubling_notification_1.message_id in doubling_message_ids
@@ -125,6 +125,22 @@ def test_send_single_message():
     assert res == 'completed'
 
 
+@pytest.mark.xdist_group(name='send_notifications')
+def test_get_notifications_1():
+    notif_failed_now = NotSentNotificationFactory.create_sync(
+        failed=datetime.datetime.now(),
+    )
+    notif_failed_six_minutes_ago = NotSentNotificationFactory.create_sync(
+        failed=datetime.datetime.now() - datetime.timedelta(minutes=6),
+    )
+
+    with sql_connect_by_psycopg2() as conn, conn.cursor() as cursor:
+        messages = main.get_notifs_to_send(cursor, select_doubling=False)
+
+    assert not any(x.message_id == notif_failed_now.message_id for x in messages)
+    assert any(x.message_id == notif_failed_six_minutes_ago.message_id for x in messages)
+
+
 @pytest.mark.skip(reason='performance test')
 class TestPerformance:
     def test_generate_message_batch(self):
@@ -139,4 +155,4 @@ class TestPerformance:
 
         with patch('send_notifications.main.MESSAGES_BATCH_SIZE', batch_size):
             with sql_connect_by_psycopg2() as conn, conn.cursor() as cur:
-                benchmark(main.check_for_notifs_to_send, cur, True)
+                benchmark(main.get_notifs_to_send, cur, True)
