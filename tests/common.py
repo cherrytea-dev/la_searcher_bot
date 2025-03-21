@@ -3,7 +3,7 @@ import inspect
 from dataclasses import is_dataclass
 from datetime import date, datetime
 from functools import lru_cache
-from typing import Any, Callable
+from typing import Any, Callable, TypeVar
 from unittest.mock import MagicMock
 
 import psycopg2
@@ -11,8 +11,11 @@ import sqlalchemy
 from dotenv import load_dotenv
 from polyfactory.factories import dataclass_factory
 from pydantic_settings import SettingsConfigDict
+from sqlalchemy.orm import Session
 
 from _dependencies.commons import AppConfig, Topics, sql_connect_by_psycopg2, sqlalchemy_get_pool
+
+T = TypeVar('T')
 
 
 class AppTestConfig(AppConfig):
@@ -149,3 +152,10 @@ def topic_to_receiver_function(topic_name: Topics):
 
     else:
         raise ValueError(f'Unknown topic {topic_name}')
+
+
+def find_model(session: Session, model: type[T], **kwargs: Any) -> T | None:
+    query = session.query(model)
+    for key, value in kwargs.items():
+        query = query.filter_by(**{key: value})
+    return query.first()
