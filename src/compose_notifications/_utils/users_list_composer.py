@@ -330,7 +330,15 @@ class UserListFilter:
         # 5. FOLLOW SEARCH. crop the list of users accordingly to the rules of search following
         users_list_outcome = self.users
         record = self.new_record
-        logging.info(f'Crop user list step 5: forum_search_num=={record.forum_search_num}')
+
+        debug_user_id = 552487421
+        debug_user_inside = False
+        for user in users_list_outcome:
+            if user.user_id == debug_user_id:
+                debug_user_inside = True
+                break
+        logging.info(f'Before User list crop due to whitelisting for {record.forum_search_num=}: {debug_user_inside=}')
+
         temp_user_list: list[User] = []
         sql_text_ = sqlalchemy.text("""
             SELECT u.user_id FROM users u
@@ -389,13 +397,16 @@ class UserListFilter:
             following_mode_on=SearchFollowingMode.ON,
             following_mode_off=SearchFollowingMode.OFF,
         ).fetchall()
-        logging.info(f'Crop user list step 5: len(rows)=={len(rows)}')
+        logging.info(f'Crop user list due to whitelisting: len(rows)=={len(rows)}')
 
         following_users_ids = set([row[0] for row in rows])
         temp_user_list = [user for user in users_list_outcome if user.user_id in following_users_ids]
 
+        debug_user_id = 552487421
+        debug_user_inside = debug_user_id in following_users_ids
+
         logging.info(
-            f'Crop user list step 5: User List crop due to whitelisting: {len(users_list_outcome)} --> {len(temp_user_list)}'
+            f'User List crop due to whitelisting for {record.forum_search_num=}: {len(users_list_outcome)} --> {len(temp_user_list)}, {debug_user_inside=}'
         )
         return temp_user_list
 
