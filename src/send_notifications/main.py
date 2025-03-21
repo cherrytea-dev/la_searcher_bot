@@ -44,7 +44,7 @@ SCRIPT_SOFT_TIMEOUT_SECONDS = 60  # after which iterations should stop to preven
 INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 70  # window within which we check for started parallel function
 SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS = 5
 MESSAGES_BATCH_SIZE = 100
-WORKERS_COUNT = 4
+WORKERS_COUNT = 8
 
 
 @dataclass
