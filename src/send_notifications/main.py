@@ -112,7 +112,7 @@ def check_for_notifs_to_send(cur: cursor, select_doubling: bool) -> list[Message
                         (change_log_id, user_id, message_type) {"IN" if select_doubling else "NOT IN"} (
                             {duplicated_notifications_query}
                         )
-                    ORDER BY message_id
+                    ORDER BY user_id
                     LIMIT {MESSAGES_BATCH_SIZE}
                     FOR NO KEY UPDATE
  
