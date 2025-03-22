@@ -339,6 +339,29 @@ class UserListFilter:
                 break
         logging.info(f'Before User list crop due to whitelisting for {record.forum_search_num=}: {debug_user_inside=}')
 
+        logging.info(f'{record=}')
+
+        sql_text_ = sqlalchemy.text("""
+            SELECT * FROM user_pref_search_filtering upsf
+            WHERE upsf.user_id=:debug_user_id;
+        """)
+        upsf_for_debug_user = self.conn.execute(
+            sql_text_,
+            debug_user_id=debug_user_id,
+        ).fetchall()
+        logging.info(f'{upsf_for_debug_user=}')
+
+        sql_text_ = sqlalchemy.text("""
+            SELECT 'upswls*',upswls.*, 's*', s.* FROM user_pref_search_whitelist upswls
+            LEFT JOIN searches s on s.search_forum_num=upswls.search_id
+            WHERE upswls.user_id=:debug_user_id;
+        """)
+        upswls_for_debug_user = self.conn.execute(
+            sql_text_,
+            debug_user_id=debug_user_id,
+        ).fetchall()
+        logging.info(f'{upswls_for_debug_user=}')
+
         temp_user_list: list[User] = []
         sql_text_ = sqlalchemy.text("""
             SELECT u.user_id FROM users u
