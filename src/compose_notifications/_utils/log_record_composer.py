@@ -31,7 +31,7 @@ class LogRecordComposer:
 
         query = sqlalchemy.text(f"""
             SELECT 
-                search_forum_num, new_value, id, change_type 
+                search_forum_num, changed_field, new_value, id, change_type 
             FROM change_log
             WHERE 
                 (notification_sent is NULL
@@ -61,9 +61,10 @@ class LogRecordComposer:
 
         new_record = LineInChangeLog(
             forum_search_num=one_line_in_change_log[0],
-            new_value=one_line_in_change_log[1],
-            change_log_id=one_line_in_change_log[2],
-            change_type=one_line_in_change_log[3],
+            changed_field=one_line_in_change_log[1],
+            new_value=one_line_in_change_log[2],
+            change_log_id=one_line_in_change_log[3],
+            change_type=one_line_in_change_log[4],
         )
 
         # TODO – there was a filtering for duplication: Inforg comments vs All Comments, but after restructuring

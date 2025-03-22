@@ -64,7 +64,7 @@ def call_self_if_need_compose_more(conn: Connection, function_id: int) -> None:
     """check if there are any notifications remained to be composed"""
 
     check = conn.execute("""
-        SELECT 1 FROM change_log
+        SELECT search_forum_num, changed_field, new_value, id, change_type FROM change_log
         WHERE notification_sent is NULL
         OR notification_sent='s' LIMIT 1; 
                          """).fetchall()

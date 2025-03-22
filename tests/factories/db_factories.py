@@ -145,11 +145,3 @@ class UserOnboardingFactory(BaseFactory[db_models.UserOnboarding]):
 
 class UserStatusesHistoryFactory(BaseFactory[db_models.UserStatusesHistory]):
     pass
-
-
-class GeocodingFactory(BaseFactory[db_models.Geocoding]):
-    pass
-
-
-class ForumSummarySnapshotFactory(BaseFactory[db_models.ForumSummarySnapshot]):
-    pass

@@ -97,6 +97,7 @@ class TestChangeLogExtractor:
     ):
         record = main.LogRecordComposer(conn=connection, record_id=change_log_db_record_status_change.id).get_line()
         assert record.change_log_id == change_log_db_record_status_change.id
+        assert record.changed_field == change_log_db_record_status_change.changed_field
         assert record.forum_search_num == change_log_db_record_status_change.search_forum_num
 
         assert record.title == search_record.forum_search_title
