@@ -343,8 +343,7 @@ class UserListFilter:
 
         sql_text_ = sqlalchemy.text("""
             SELECT * FROM user_pref_search_filtering upsf
-            WHERE upsf.user_id=:debug_user_id
-            ;
+            WHERE upsf.user_id=:debug_user_id;
         """)
         upsf_for_debug_user = self.conn.execute(
             sql_text_,
@@ -355,8 +354,7 @@ class UserListFilter:
         sql_text_ = sqlalchemy.text("""
             SELECT 'upswls*',upswls.*, 's*', s.* FROM user_pref_search_whitelist upswls
             LEFT JOIN searches s on s.search_forum_num=upswls.search_id
-            WHERE upswls.user_id=:debug_user_id
-            ;
+            WHERE upswls.user_id=:debug_user_id;
         """)
         upswls_for_debug_user = self.conn.execute(
             sql_text_,
