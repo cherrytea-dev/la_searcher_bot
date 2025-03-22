@@ -207,6 +207,7 @@ class UserListFilter:
         self.users = self._filter_users_by_age_settings()
         self.users = self._filter_users_by_search_radius()
         self.users = self._filter_users_with_prepared_messages()
+        self.users = self._filter_users_blacklist()
         self.users = self._filter_users_not_following_this_search()
 
         return self.users
@@ -326,8 +327,42 @@ class UserListFilter:
         logging.info(f'User List crop due to doubling: {len(users_list_outcome)} --> {len(temp_user_list)}')
         return temp_user_list
 
+    def _filter_users_blacklist(self) -> list[User]:
+        # 5. NOT FOLLOW SEARCH. crop the list of users accordingly to the rules of search following
+
+        users_list_outcome = self.users
+        record = self.new_record
+
+        temp_user_list: list[User] = []
+        sql_text_ = sqlalchemy.text("""
+            SELECT u.user_id FROM users u
+            LEFT JOIN user_pref_search_filtering upsf
+                ON upsf.user_id=u.user_id AND 'whitelist' = ANY(upsf.filter_name)
+            LEFT JOIN user_pref_search_whitelist upswls
+                ON upswls.user_id=u.user_id AND upswls.search_following_mode=:following_mode_off
+            WHERE
+                upswls.search_id = :forum_search_num
+                AND upsf.filter_id is not null
+            ;
+        """)
+        rows = self.conn.execute(
+            sql_text_,
+            forum_search_num=record.forum_search_num,
+            following_mode_off=SearchFollowingMode.OFF,
+        ).fetchall()
+        logging.info(f'Crop user list due to blacklisting: len(rows)=={len(rows)}')
+
+        blacklist_users_ids = set([row[0] for row in rows])
+        temp_user_list = [user for user in users_list_outcome if user.user_id not in blacklist_users_ids]
+
+        return temp_user_list
+
     def _filter_users_not_following_this_search(self) -> list[User]:
         # 5. FOLLOW SEARCH. crop the list of users accordingly to the rules of search following
+
+        """
+        TODO decompose. blacklist to separate step; reformat conditions in query.
+        """
         users_list_outcome = self.users
         record = self.new_record
 
