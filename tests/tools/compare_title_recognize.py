@@ -5,6 +5,7 @@ from pathlib import Path
 
 from tqdm import tqdm
 
+from _dependencies.recognition_schema import RecognitionResult
 from title_recognize.main import recognize_title
 from title_recognize.main_old import recognize_title as recognize_title_old
 
@@ -12,7 +13,9 @@ from title_recognize.main_old import recognize_title as recognize_title_old
 def reco_one_title(line: str) -> dict:
     try:
         reco_result = recognize_title(line, 'full')
+        RecognitionResult.model_validate(reco_result)
     except:
+        print('reco_result not validated for title:' + line)
         reco_result = 'Error'
     return {'title': line, 'result': reco_result}
 
