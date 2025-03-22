@@ -1,10 +1,8 @@
 import logging
 import re
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
-from pydantic import ConfigDict, ValidationError
-
-from _dependencies.recognition_schema import Location, Person, PersonsSummary, RecognitionResult, RecognitionTopicType
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .pattern_collections import BlockTypePatternCollection, get_mistype_patterns
 from .person import recognize_one_person_group
@@ -14,9 +12,42 @@ from .title_commons import (
     PersonGroup,
     PersonGroupSummary,
     TitleRecognition,
+    TopicType,
     age_wording,
 )
 from .tokenizer import Tokenizer
+
+
+class Person(BaseModel):
+    name: str = Field(description='One-word description')
+    age: Optional[int] = Field(None, description='Age in years')
+    age_min: Optional[int] = Field(None, description='Minimum age in years')
+    age_max: Optional[int] = Field(None, description='Maximum age in years')
+    # TODO validation for age: ge=0, le=199
+    display_name: str = Field(description='Display name + age')
+    number_of_persons: int = Field(..., ge=-1, le=9, description='Number of persons in this group, -1 or 1-9')
+
+
+class PersonsSummary(BaseModel):
+    total_persons: Union[int, str] = Field(..., description="Total number of persons: 1-9, 'group', or 'undefined'")
+    age_min: Optional[int] = Field(None, description='Minimum age across all persons')
+    age_max: Optional[int] = Field(None, description='Maximum age across all persons')
+    # TODO validation for age: ge=0, le=199
+    total_name: str = Field(description='Name of the first person')
+    total_display_name: str = Field(description='Display name + age (age range)')
+    person: List[Person] = Field(default_factory=list)
+
+
+class Location(BaseModel):
+    address: str
+
+
+class RecognitionResult(BaseModel):
+    topic_type: TopicType | str = Field(TopicType.unrecognized)
+    avia: Optional[bool] = Field(None, description='Only for search')
+    status: Optional[str] = Field(None, description='Only for search / search reverse')
+    persons: Optional[PersonsSummary] = Field(None, description='Only for search')
+    locations: Optional[List[Location]] = Field(None, description='Only for search')
 
 
 class TitleRecognizer:
@@ -274,7 +305,7 @@ class TitleRecognizer:
         if self.recognition.act:
             return self.recognition.act
 
-        return RecognitionTopicType.unrecognized
+        return TopicType.unrecognized
 
     def _patch_recognition_act_and_st(self) -> None:
         """maybe it can be moved somewhere else"""
@@ -373,14 +404,14 @@ def recognize_title(line: str, reco_type: str | None) -> Union[Dict, None]:
 def _temp_patch_result(final_recognition: RecognitionResult, final_dict: dict) -> None:
     # temporary patch for equality with result of old algorithm
     if (
-        final_recognition.topic_type not in (RecognitionTopicType.unrecognized, RecognitionTopicType.search_training)
+        final_recognition.topic_type not in (TopicType.unrecognized, TopicType.search_training)
         and final_recognition.persons
     ):
         if not final_recognition.persons.age_min:
             final_dict['persons']['age_min'] = None
         if not final_recognition.persons.age_max:
             final_dict['persons']['age_max'] = None
-    if final_recognition.topic_type == RecognitionTopicType.search_training and final_recognition.persons:
+    if final_recognition.topic_type == TopicType.search_training and final_recognition.persons:
         # another patch
         if not final_recognition.persons.person:
             del final_dict['persons']['person']

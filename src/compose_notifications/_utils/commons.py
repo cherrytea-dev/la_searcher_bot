@@ -54,6 +54,7 @@ class Comment:
 @dataclass
 class LineInChangeLog:
     forum_search_num: int
+    changed_field: str  # not used, can be removed
     new_value: str
     change_log_id: int
     change_type: ChangeType

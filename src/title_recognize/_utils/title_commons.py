@@ -9,6 +9,16 @@ from natasha import Doc, NewsEmbedding, NewsNERTagger, Segmenter
 from _dependencies.misc import age_writer
 
 
+class TopicType(str, Enum):
+    search = 'search'
+    search_reverse = 'search reverse'
+    search_patrol = 'search patrol'
+    search_training = 'search training'
+    event = 'event'
+    info = 'info'
+    unrecognized = 'UNRECOGNIZED'
+
+
 class BlockType(str, Enum):
     AVIA = 'AVIA'
     TR = 'TR'  # training
