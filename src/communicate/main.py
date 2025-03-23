@@ -3619,9 +3619,11 @@ def process_update(update: Update) -> str:
                     for line in database:
                         all_searches_marked.append(list(line)[0])
 
+                    # Searches that are not showed in the active searches list
                     diff_searches_marked = list(set(all_searches_marked) - set(searches_marked))
 
                     if len(diff_searches_marked) > 0:
+                        # Exclude them from following
                         diff_searches_marked_str = ', '.join(diff_searches_marked)
                         cur.execute(
                             """DELETE FROM user_pref_search_whitelist 
