@@ -3538,13 +3538,6 @@ def process_update(update: Update) -> str:
                     else:
                         # issue#425 show the inline keyboard
 
-                        ##TBD. May be will be useful to show quantity of marked searches
-                        #                        searches_marked = 0
-                        #                        for region_keyboard in keyboard:
-                        #                            for ikb_line in region_keyboard:
-                        #                                if ikb_line[0].get("callback_data") and not ikb_line[0]["text"][:1]=='  ':
-                        #                                    searches_marked += 1
-
                         for i, region_keyboard in enumerate(keyboard):
                             if i == 0:
                                 bot_message = """МЕНЮ АКТУАЛЬНЫХ ПОИСКОВ ДЛЯ ОТСЛЕЖИВАНИЯ.
@@ -3591,13 +3584,71 @@ def process_update(update: Update) -> str:
                                 'chat_id': user_id,
                                 'text': bot_message,
                             }
-                            context = f'{user_id=}, context_step=b1'
+                            context = f'{user_id=}, context_step=b03'
                             response = make_api_call('sendMessage', bot_token, params, context)
-                            logging.info(f'{response=}; {user_id=}; context_step=b2')
+                            logging.info(f'{response=}; {user_id=}; context_step=b04')
                             result = process_response_of_api_call(user_id, response)
-                            logging.info(f'{result=}; {user_id=}; context_step=b3')
+                            logging.info(f'{result=}; {user_id=}; context_step=b05')
                             inline_processing(cur, response, params)
                     ##msg_sent_by_specific_code for combined ikb end
+
+                    searches_marked = []
+                    for region_keyboard in keyboard:
+                        for ikb_line in region_keyboard:
+                            if ikb_line[0].get("callback_data") and not ikb_line[0]["text"][:1]=='  ':
+                                searches_marked.append(int(ikb_line[0]["callback_data"]["hash"]))
+
+                    cur.execute("""
+                                SELECT DISTINCT upswl.search_id
+                                FROM user_pref_search_whitelist upswl 
+                                WHERE upswl.user_id=%(user_id)s
+                                and upswl.search_following_mode is not null
+                                ;""", {'user_id': user_id},
+                                )
+                    database = cur.fetchall()
+                    all_searches_marked = []
+                    for line in database:
+                        all_searches_marked.append(list(line)[0])
+
+                    diff_searches_marked = list(set(all_searches_marked) - set(searches_marked))
+
+                    if len(diff_searches_marked)>0:
+                        bot_message = """ВНИМАНИЕ! Есть еще поиски (""" + str(len(diff_searches_marked)) + """), помеченные для отслеживания, не попавшие в список выше.
+Рекомендуется отключить их отслеживание, чтобы они не мешали в получении уведомлений по остальным поискам."""
+                        keyboard = [
+                            [
+                                {
+                                    'text': 'Отключить отслеживание не попавших в список',
+                                    'callback_data': '{"action":"search_follow_exclude_not_listed"}',
+                                }
+                            ]
+                        ]
+
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    logging.info(f'{bot_message=}; {region_keyboard=}; context_step=b10')
+                    # process_sending_message_async(user_id=user_id, data=data)
+                    context = f'Before if reply_markup and not isinstance(reply_markup, dict): {reply_markup=}, context_step=b11'
+                    logging.info(f'{context=}: {reply_markup=}')
+                    if reply_markup and not isinstance(reply_markup, dict):
+                        reply_markup = reply_markup.to_dict()
+                        context = (
+                            f'After reply_markup.to_dict(): {reply_markup=}; {user_id=}; context_step=b12a'
+                        )
+                        logging.info(f'{context=}: {reply_markup=}')
+
+                    params = {
+                        'parse_mode': 'HTML',
+                        'disable_web_page_preview': True,
+                        'reply_markup': reply_markup,
+                        'chat_id': user_id,
+                        'text': bot_message,
+                    }
+                    context = f'{user_id=}, context_step=b13'
+                    response = make_api_call('sendMessage', bot_token, params, context)
+                    logging.info(f'{response=}; {user_id=}; context_step=b14')
+                    result = process_response_of_api_call(user_id, response)
+                    logging.info(f'{result=}; {user_id=}; context_step=b15')
+                    inline_processing(cur, response, params)
 
                     # saving the last message from bot
                     try:
