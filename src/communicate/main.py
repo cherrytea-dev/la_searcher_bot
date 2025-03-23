@@ -12,6 +12,7 @@ import re
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
@@ -50,6 +51,12 @@ setup_google_logging()
 # Important – these are not errors, but jest informational warnings that there were retries, that's why we exclude them
 logging.getLogger('telegram.vendor.ptb_urllib3.urllib3').setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
+
+
+class SearchFollowingMode(str, Enum):
+    # in table 'user_pref_search_whitelist'
+    ON = '👀 '
+    OFF = '❌ '
 
 
 standard_modifier = {'on': '✅ ', 'off': '☐ '}
@@ -1697,7 +1704,7 @@ def manage_search_whiteness(
 
     def record_search_whiteness(user: int, search_id: int, new_mark_value) -> None:
         """Save a certain user_pref_search_whitelist for a certain user_id into the DB"""
-        if new_mark_value in ['👀 ', '❌ ']:
+        if new_mark_value in [SearchFollowingMode.ON, SearchFollowingMode.OFF]:
             cur.execute(
                 """INSERT INTO user_pref_search_whitelist (user_id, search_id, timestamp, search_following_mode) 
                             VALUES (%s, %s, %s, %s) ON CONFLICT (user_id, search_id) DO UPDATE SET timestamp=%s, search_following_mode=%s;""",
@@ -1736,10 +1743,10 @@ def manage_search_whiteness(
         ikb_row = ikb[pushed_row_index]
         old_mark_value = ikb_row[0]['text'][:2]
         if old_mark_value == '  ':
-            new_mark_value = '👀 '
+            new_mark_value = SearchFollowingMode.ON
             bot_message = 'Поиск добавлен в белый список.'
-        elif old_mark_value == '👀 ':
-            new_mark_value = '❌ '
+        elif old_mark_value == SearchFollowingMode.ON:
+            new_mark_value = SearchFollowingMode.OFF
             bot_message = 'Поиск добавлен в черный список.'
         else:
             new_mark_value = '  '
@@ -3595,16 +3602,18 @@ def process_update(update: Update) -> str:
                     searches_marked = []
                     for region_keyboard in keyboard:
                         for ikb_line in region_keyboard:
-                            if ikb_line[0].get("callback_data") and not ikb_line[0]["text"][:1]=='  ':
-                                searches_marked.append(int(ikb_line[0]["callback_data"]["hash"]))
+                            if ikb_line[0].get('callback_data') and not ikb_line[0]['text'][:1] == '  ':
+                                searches_marked.append(int(ikb_line[0]['callback_data']['hash']))
 
-                    cur.execute("""
+                    cur.execute(
+                        """
                                 SELECT DISTINCT upswl.search_id
                                 FROM user_pref_search_whitelist upswl 
                                 WHERE upswl.user_id=%(user_id)s
                                 and upswl.search_following_mode is not null
-                                ;""", {'user_id': user_id},
-                                )
+                                ;""",
+                        {'user_id': user_id},
+                    )
                     database = cur.fetchall()
                     all_searches_marked = []
                     for line in database:
@@ -3612,43 +3621,15 @@ def process_update(update: Update) -> str:
 
                     diff_searches_marked = list(set(all_searches_marked) - set(searches_marked))
 
-                    if len(diff_searches_marked)>0:
-                        bot_message = """ВНИМАНИЕ! Есть еще поиски (""" + str(len(diff_searches_marked)) + """), помеченные для отслеживания, не попавшие в список выше.
-Рекомендуется отключить их отслеживание, чтобы они не мешали в получении уведомлений по остальным поискам."""
-                        keyboard = [
-                            [
-                                {
-                                    'text': 'Отключить отслеживание не попавших в список',
-                                    'callback_data': '{"action":"search_follow_exclude_not_listed"}',
-                                }
-                            ]
-                        ]
-
-                    reply_markup = InlineKeyboardMarkup(keyboard)
-                    logging.info(f'{bot_message=}; {region_keyboard=}; context_step=b10')
-                    # process_sending_message_async(user_id=user_id, data=data)
-                    context = f'Before if reply_markup and not isinstance(reply_markup, dict): {reply_markup=}, context_step=b11'
-                    logging.info(f'{context=}: {reply_markup=}')
-                    if reply_markup and not isinstance(reply_markup, dict):
-                        reply_markup = reply_markup.to_dict()
-                        context = (
-                            f'After reply_markup.to_dict(): {reply_markup=}; {user_id=}; context_step=b12a'
+                    if len(diff_searches_marked) > 0:
+                        diff_searches_marked_str = ', '.join(diff_searches_marked)
+                        cur.execute(
+                            """DELETE FROM user_pref_search_whitelist 
+                                    WHERE user_id=%s
+                                    AND search_id IN(%s)
+                                    ;""",
+                            (user_id, diff_searches_marked_str),
                         )
-                        logging.info(f'{context=}: {reply_markup=}')
-
-                    params = {
-                        'parse_mode': 'HTML',
-                        'disable_web_page_preview': True,
-                        'reply_markup': reply_markup,
-                        'chat_id': user_id,
-                        'text': bot_message,
-                    }
-                    context = f'{user_id=}, context_step=b13'
-                    response = make_api_call('sendMessage', bot_token, params, context)
-                    logging.info(f'{response=}; {user_id=}; context_step=b14')
-                    result = process_response_of_api_call(user_id, response)
-                    logging.info(f'{result=}; {user_id=}; context_step=b15')
-                    inline_processing(cur, response, params)
 
                     # saving the last message from bot
                     try:
