@@ -373,16 +373,28 @@ def compose_msg_on_all_last_searches_ikb(cur: cursor, region: int, user_id: int)
 
     # download the list from SEARCHES sql table
     cur.execute(
-        """SELECT s2.*, upswl.search_following_mode FROM 
-            (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
-            FROM searches 
-            WHERE forum_folder_id=%(region)s 
-            ORDER BY search_start_time DESC 
-            LIMIT 20) s2 
-        LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
-        LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=%(user_id)s
-        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
-        ORDER BY s2.search_start_time DESC;""",
+        """
+        SELECT *
+        FROM(
+                SELECT s2.*, upswl.search_following_mode FROM 
+                    (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
+                    FROM searches 
+                    WHERE forum_folder_id=%(region)s 
+                    ORDER BY search_start_time DESC 
+                    LIMIT 20) s2 
+                LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
+                LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=%(user_id)s
+                WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+            UNION
+                SELECT s2.*, upswl.search_following_mode FROM 
+                    (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
+                    FROM searches 
+                    WHERE forum_folder_id=%(region)s 
+                    ) s2 
+                INNER JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=%(user_id)s
+            )q
+            ORDER BY search_start_time DESC
+        ;""",
         {'region': region, 'user_id': user_id},
     )
 
@@ -530,7 +542,7 @@ def compose_msg_on_active_searches_in_one_reg_ikb(
             search_following_mode,
         ) = list(line)
 
-        if time_counter_since_search_start(search.start_time)[1] >= 60:
+        if time_counter_since_search_start(search.start_time)[1] >= 60 and not search_following_mode:
             continue
 
         time_since_start = time_counter_since_search_start(search.start_time)[0]
