@@ -4,6 +4,7 @@
 3. checks active searches' visibility (accessible for everyone, restricted to a certain group or permanently deleted).
 Updates are either saved in PSQL or send via pub/sub to other scripts"""
 
+from google.cloud.functions.context import Context
 import datetime
 import hashlib
 import logging
@@ -479,12 +480,10 @@ def update_first_posts_and_statuses():
     return None
 
 
-def main(event, context):  # noqa
-    """main function"""
-
+def main(event: dict, context: Context) -> None:
     # to avoid function invocation except when it was initiated by scheduler (and pub/sub message was not doubled)
     if datetime.datetime.now().second > 5:
-        return None
+        return
 
     global bad_gateway_counter
     bad_gateway_counter = 0
@@ -497,9 +496,7 @@ def main(event, context):  # noqa
     update_visibility_for_one_hidden_topic()
 
     if bad_gateway_counter > 3:
-        publish_to_pubsub(Topics.topic_notify_admin, f'[che_posts]: Bad Gateway {bad_gateway_counter} times')
+        notify_admin(f'[che_posts]: Bad Gateway {bad_gateway_counter} times')
 
     # Close the open session
     requests_session.close()
-
-    return None
