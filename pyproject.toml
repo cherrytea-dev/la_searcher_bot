@@ -154,8 +154,8 @@ exclude = ["tests", "env", "venv", "src/title_recognize/main_old.py"]
 files = [
     # "src/_dependencies/",
     "src/api_get_active_searches/",
-    # "src/archive_notifications/",
-    # "src/archive_to_bigquery/",
+    "src/archive_notifications/",
+    "src/archive_to_bigquery/",
     # "src/check_first_posts_for_changes/",
     "src/check_topics_by_upd_time/",
     # "src/communicate/",

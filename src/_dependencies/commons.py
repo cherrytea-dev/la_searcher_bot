@@ -24,6 +24,8 @@ class Topics(Enum):
     topic_for_user_management = 'topic_for_user_management'
     parse_user_profile_from_forum = 'parse_user_profile_from_forum'
     topic_to_send_notifications = 'topic_to_send_notifications'
+    topic_to_archive_notifs = 'topic_to_archive_notifs'
+    topic_to_archive_to_bigquery = 'topic_to_archive_to_bigquery'
 
 
 @lru_cache

@@ -2,9 +2,10 @@ import logging
 from typing import Any, Optional
 
 import sqlalchemy
+from google.cloud.functions.context import Context
 from sqlalchemy.engine.base import Connection
 
-from _dependencies.commons import publish_to_pubsub, sqlalchemy_get_pool
+from _dependencies.commons import Topics, publish_to_pubsub, sqlalchemy_get_pool
 
 # setup_google_logging()
 # do we need google cloud logging here?
@@ -14,7 +15,7 @@ def sql_connect() -> sqlalchemy.engine.Engine:
     return sqlalchemy_get_pool(20, 0)
 
 
-def move_notifications_to_history_in_psql(conn: Connection) -> str:
+def move_notifications_to_history_in_psql(conn: Connection) -> Topics:
     """move all "completed" notifications to psql table __history"""
 
     # checker – gives us a minimal date in notif_by_user, which is at least 2 hours older than current
@@ -25,17 +26,17 @@ def move_notifications_to_history_in_psql(conn: Connection) -> str:
                         ON nm.change_log_id=cl.id
                         WHERE cl.parsed_time < NOW() - INTERVAL '2 hour' ORDER BY 1 LIMIT 1;
                         """)
-    oldest_date_nbu = conn.execute(stmt).fetchone()
+    oldest_date_nbu = conn.execute(stmt).fetchone()[0]
 
-    if oldest_date_nbu[0]:
-        logging.info('The oldest date in notif_by_user: {}'.format(oldest_date_nbu[0]))
+    if oldest_date_nbu:
+        logging.info(f'The oldest date in notif_by_user: {oldest_date_nbu}')
 
         # DEBUG 1
         stmt = sqlalchemy.text("""
                     SELECT MIN(mailing_id) FROM notif_by_user;
                     """)
         query_result = conn.execute(stmt).fetchone()
-        logging.info('The mailing_id to be updated in nbu: {}'.format(query_result[0]))
+        logging.info(f'The mailing_id to be updated in nbu: {query_result[0]}')
 
         # migrate all records with "lowest" mailing_id from notif_by_user to notif_by_user__history
         stmt = sqlalchemy.text("""
@@ -56,7 +57,7 @@ def move_notifications_to_history_in_psql(conn: Connection) -> str:
             """)
         conn.execute(stmt)
 
-        result = 'topic_to_archive_notifs'
+        return Topics.topic_to_archive_notifs
 
     else:
         logging.info('nothing to migrate in notif_by_user')
@@ -72,42 +73,39 @@ def move_notifications_to_history_in_psql(conn: Connection) -> str:
         oldest_date_nbus = conn.execute(stmt).fetchone()
         logging.info('The oldest date in notif_by_user_status: {}'.format(oldest_date_nbus[0]))
 
-        if oldest_date_nbus[0]:
-            logging.info('The oldest date in notif_by_user_status: {}'.format(oldest_date_nbus[0]))
-
-            # DEBUG 1
-            stmt = sqlalchemy.text("""
-                                    SELECT MIN(mailing_id) FROM notif_by_user_status;
-                                    """)
-            query_result = conn.execute(stmt).fetchone()
-            logging.info('The mailing_id to be updated in nbus: {}'.format(query_result[0]))
-
-            # migrate all records with "lowest" mailing_id from notif_by_user_status to notif_by_user__history
-            stmt = sqlalchemy.text("""
-                            INSERT INTO notif_by_user_status__history
-                            SELECT * FROM notif_by_user_status
-                            WHERE mailing_id = (
-                                    SELECT MIN(mailing_id) FROM notif_by_user_status
-                                );
-                            """)
-            conn.execute(stmt)
-
-            # delete the old stuff
-            stmt = sqlalchemy.text("""
-                                DELETE FROM notif_by_user_status
-                                WHERE mailing_id = (
-                                    SELECT MIN(mailing_id) FROM notif_by_user_status
-                                )
-                            """)
-            conn.execute(stmt)
-
-            result = 'topic_to_archive_notifs'
-
-        else:
-            result = 'topic_to_archive_to_bigquery'
+        if not oldest_date_nbus[0]:
             logging.info('nothing to migrate in notif_by_user_status')
+            return Topics.topic_to_archive_to_bigquery
 
-    return result
+        logging.info('The oldest date in notif_by_user_status: {}'.format(oldest_date_nbus[0]))
+
+        # DEBUG 1
+        stmt = sqlalchemy.text("""
+                                SELECT MIN(mailing_id) FROM notif_by_user_status;
+                                """)
+        query_result = conn.execute(stmt).fetchone()
+        logging.info('The mailing_id to be updated in nbus: {}'.format(query_result[0]))
+
+        # migrate all records with "lowest" mailing_id from notif_by_user_status to notif_by_user__history
+        stmt = sqlalchemy.text("""
+                        INSERT INTO notif_by_user_status__history
+                        SELECT * FROM notif_by_user_status
+                        WHERE mailing_id = (
+                                SELECT MIN(mailing_id) FROM notif_by_user_status
+                            );
+                        """)
+        conn.execute(stmt)
+
+        # delete the old stuff
+        stmt = sqlalchemy.text("""
+                            DELETE FROM notif_by_user_status
+                            WHERE mailing_id = (
+                                SELECT MIN(mailing_id) FROM notif_by_user_status
+                            )
+                        """)
+        conn.execute(stmt)
+
+        return Topics.topic_to_archive_notifs
 
 
 def move_first_posts_to_history_in_psql(conn: Connection) -> None:
@@ -205,23 +203,17 @@ def move_first_posts_to_history_in_psql(conn: Connection) -> None:
 
     logging.info('first_posts for elder snapshots are deleted from search_first_posts')
 
-    return None
 
-
-def main(event, context):  # noqa
+def main(event: dict[str, bytes], context: Context) -> None:
     """main function"""
 
     pool = sql_connect()
-    conn = pool.connect()
+    with pool.connect() as conn:
+        next_action = move_notifications_to_history_in_psql(conn)
 
-    result = move_notifications_to_history_in_psql(conn)
+        if next_action:
+            publish_to_pubsub(next_action, 'go')
+        if next_action == Topics.topic_to_archive_to_bigquery:
+            move_first_posts_to_history_in_psql(conn)
 
-    if result:
-        publish_to_pubsub(result, 'go')
-    if result == 'topic_to_archive_to_bigquery':
-        move_first_posts_to_history_in_psql(conn)
-
-    conn.close()
     pool.dispose()
-
-    return None
