@@ -3640,40 +3640,6 @@ def process_update(update: Update) -> str:
                             inline_processing(cur, response, params)
                     ##msg_sent_by_specific_code for combined ikb end
 
-                    searches_marked = []
-                    for region_keyboard in keyboard:
-                        for ikb_line in region_keyboard:
-                            if ikb_line[0].get('callback_data') and not ikb_line[0]['text'][:1] == '  ':
-                                searches_marked.append(int(ikb_line[0]['callback_data']['hash']))
-
-                    cur.execute(
-                        """
-                                SELECT DISTINCT upswl.search_id
-                                FROM user_pref_search_whitelist upswl 
-                                WHERE upswl.user_id=%(user_id)s
-                                and upswl.search_following_mode is not null
-                                ;""",
-                        {'user_id': user_id},
-                    )
-                    database = cur.fetchall()
-                    all_searches_marked = []
-                    for line in database:
-                        all_searches_marked.append(list(line)[0])
-
-                    # Searches that are not showed in the active searches list
-                    diff_searches_marked = list(set(all_searches_marked) - set(searches_marked))
-
-                    if len(diff_searches_marked) > 0:
-                        # Exclude them from following
-                        diff_searches_marked_str = ', '.join(diff_searches_marked)
-                        cur.execute(
-                            """DELETE FROM user_pref_search_whitelist 
-                                    WHERE user_id=%s
-                                    AND search_id IN(%s)
-                                    ;""",
-                            (user_id, diff_searches_marked_str),
-                        )
-
                     # saving the last message from bot
                     try:
                         cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
