@@ -5,7 +5,7 @@ on:
     branches : [main]
     paths:
       - 'src/_dependencies/*'
-      - 'src/send_notifications/*' # UPD HERE!
+      - 'src/send_notifications/**' # UPD HERE!
       - '.github/workflows/deploy_send_notifications.yml' # UPD HERE!
 
 jobs:
@@ -33,6 +33,7 @@ jobs:
             runtime: python310
             entry_point: main
             region: europe-west3
+            docker_registry: artifact-registry
             timeout: 540
             max_instances: 1
             memory_mb: 256 # ex value 8192
