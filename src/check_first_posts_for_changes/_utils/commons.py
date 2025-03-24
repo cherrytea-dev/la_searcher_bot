@@ -1,33 +1,26 @@
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
 class Search:
-    def __init__(self, topic_id=None):
-        self.topic_id = topic_id
+    topic_id: int
 
 
+@dataclass
 class PercentGroup:
-    def __init__(
-        self,
-        n=None,
-        start_percent=None,
-        finish_percent=None,
-        start_num=None,
-        finish_num=None,
-        frequency=None,
-        first_delay=None,
-        searches=None,  # noqa
-    ):
-        searches = []
-        self.n = n
-        self.sp = start_percent
-        self.fp = finish_percent
-        self.sn = start_num
-        self.fn = finish_num
-        self.f = frequency
-        self.d = first_delay
-        self.s = searches
+    n: int
+    start_percent: int
+    finish_percent: int
+    frequency: int
+    first_delay: int
+    start_num: int = 0
+    finish_num: int = 0
+    searches: list[Search] = field(default_factory=list)  # searches
 
     def __str__(self):
-        days = f' or {int(self.f // 1440)} day(s)' if self.f >= 1440 else ''
+        days = f' or {int(self.frequency // 1440)} day(s)' if self.frequency >= 1440 else ''
         return (
-            f'N{self.n: <2}: {self.sp}%–{self.fp}%. Updated every {self.f} minute(s){days}. '
-            f'First delay = {self.d} minutes. nums {self.sn}-{self.fn}. num of searches {len(self.s)}'
+            f'N{self.n: <2}: {self.start_percent}%–{self.finish_percent}%. Updated every {self.frequency} minute(s){days}. '
+            f'First delay = {self.first_delay} minutes. nums {self.start_num}-{self.finish_num}. num of searches {len(self.searches)}'
         )

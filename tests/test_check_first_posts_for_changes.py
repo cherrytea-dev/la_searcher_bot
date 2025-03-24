@@ -8,5 +8,6 @@ def test_main():
     assert True
 
 
-def test_1():
-    pass
+def test_generate_list_of_topic_groups():
+    res = main.generate_list_of_topic_groups()
+    assert len(res) == 20
