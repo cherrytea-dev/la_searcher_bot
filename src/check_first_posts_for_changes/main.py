@@ -5,60 +5,26 @@
 Updates are either saved in PSQL or send via pub/sub to other scripts"""
 
 import datetime
-import hashlib
 import logging
-import re
 from functools import lru_cache
 from typing import Any
 
-import requests
-import sqlalchemy  # idea for optimization – to move to psycopg2
 from google.cloud.functions.context import Context
 
 from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
-from _dependencies.misc import make_api_call, notify_admin
+from _dependencies.misc import notify_admin
 
 from ._utils.commons import PercentGroup, Search
 from ._utils.database import DBClient
+from ._utils.forum import FirstPostData, define_topic_visibility_by_topic_id, get_first_post
 
 setup_google_logging()
 
 
 @lru_cache
 def get_db_client() -> DBClient:
-    return DBClient(db=sql_connect())
-
-
-def sql_connect() -> sqlalchemy.engine.Engine:
-    return sqlalchemy_get_pool(5, 120)
-
-
-def define_topic_visibility_by_content(content: str) -> str:
-    """define visibility for the topic's content: regular, hidden or deleted"""
-
-    if content.find('Запрошенной темы не существует.') > -1:
-        visibility = 'deleted'
-    elif content.find('Для просмотра этого форума вы должны быть авторизованы') > -1:
-        visibility = 'hidden'
-    else:
-        visibility = 'regular'
-
-    return visibility
-
-
-def define_topic_visibility_by_topic_id(search_num: int) -> tuple[bool, str]:
-    """check is the existing search was deleted or hidden"""
-
-    content, site_unavailable = parse_search(search_num)
-
-    if site_unavailable:
-        return None, None
-
-    topic_visibility = define_topic_visibility_by_content(content)
-
-    logging.info(f'visibility for search {search_num} is defined as {topic_visibility}')
-
-    return site_unavailable, topic_visibility
+    pool = sqlalchemy_get_pool(5, 120)
+    return DBClient(db=pool)
 
 
 def update_one_topic_visibility(search_id: int) -> None:
@@ -91,72 +57,6 @@ def update_visibility_for_one_hidden_topic() -> None:
 
     except Exception as e:
         logging.exception('exception in update_visibility_for_one_hidden_topic')
-
-
-def parse_search(search_num) -> tuple[str, bool]:
-    """parse the whole search page"""
-
-    requests_session = requests.Session()
-
-    try:
-        url = f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
-        r = requests_session.get(url, timeout=10)  # seconds – not sure if it is efficient in this case
-        content = r.content.decode('utf-8')
-        content = None if content.find('502 Bad Gateway') > 0 else content
-        site_unavailable = False if content else True
-
-    except (requests.exceptions.ReadTimeout, Exception) as e:
-        logging.info(f'[che_posts]: site unavailable: {e.__class__.__name__}')
-        content = None
-        site_unavailable = True
-
-    return content, site_unavailable
-
-
-def get_status_from_content_and_send_to_topic_management(topic_id: str, act_content: str) -> None:
-    """block to check if Status of the search has changed – if so send a pub/sub to topic_management"""
-
-    # get the Title out of page content (intentionally avoid BS4 to make pack slimmer)
-    pre_title = re.search(r'<h2 class="topic-title"><a href=.{1,500}</a>', act_content)
-    pre_title = pre_title.group() if pre_title else None
-    pre_title = re.search(r'">.{1,500}</a>', pre_title[32:]) if pre_title else None
-    title = pre_title.group()[2:-4] if pre_title else None
-
-    if not title:
-        return
-
-    # language=regexp
-    patterns = [[r'(?i)(^\W{0,2}|(?<=\W))(пропал[аи]?\W{1,3})', 'Ищем']]
-
-    status = None
-    for pattern in patterns:
-        if re.search(pattern[0], title):
-            status = pattern[1]
-            break
-
-    if not status:
-        try:
-            data = {'title': title, 'reco_type': 'status_only'}
-            title_reco_response = make_api_call('title_recognize', data)
-
-            if title_reco_response and 'status' in title_reco_response.keys() and title_reco_response['status'] == 'ok':
-                title_reco_dict = title_reco_response['recognition']
-                if 'status' in title_reco_dict.keys():
-                    status = title_reco_dict['status']
-            else:
-                title_reco_dict = {'topic_type': 'UNRECOGNIZED'}
-
-            logging.info(f'{title_reco_dict=}')
-
-        except Exception as ex:
-            logging.exception(ex)
-            notify_admin(repr(ex))
-
-    if not status or status == 'Ищем':
-        return
-
-    publish_to_pubsub(Topics.topic_for_topic_management, {'topic_id': topic_id, 'status': status})
-    # TODO use direct topic change
 
 
 def generate_list_of_topic_groups() -> list[PercentGroup]:
@@ -211,75 +111,6 @@ def enrich_groups_with_topics(list_of_groups: list[PercentGroup], list_of_s: lis
                 group_2.searches.append(search)
 
     return list_of_groups
-
-
-def prettify_content(content: str) -> str:
-    """remove the irrelevant code from the first page content"""
-
-    # TODO - seems can be much simplified with regex
-    # cut the wording of the first post
-    start = content.find('<div class="content">')
-    content = content[(start + 21) :]
-
-    # find the next block and limit the content till this block
-    next_block = content.find('<div class="back2top">')
-    content = content[: (next_block - 12)]
-
-    # cut out div closure
-    fin_div = content.rfind('</div>')
-    content = content[:fin_div]
-
-    # cut blank symbols in the end of code
-    finish = content.rfind('>')
-    content = content[: (finish + 1)]
-
-    # exclude dynamic info – views of the pictures
-    patterns = re.findall(r'\) \d+ просмотр(?:а|ов)?', content)
-    if patterns:
-        for word in patterns:
-            content = content.replace(word, ')')
-
-    # exclude dynamic info - token / creation time / sid / etc / footer
-    patterns_list = [
-        r'value="\S{10}"',
-        r'value="\S{32}"',
-        r'value="\S{40}"',
-        r'sid=\S{32}&amp;',
-        r'всего редактировалось \d+ раз.',  # AK:issue#9
-        r'<span class="footer-info"><span title="SQL time:.{120,130}</span></span>',
-    ]
-
-    patterns = []
-    for pat in patterns_list:
-        patterns += re.findall(pat, content)
-
-    for word in patterns:
-        content = content.replace(word, '')
-
-    return content
-
-
-def get_first_post(search_num: int) -> tuple[str | None, str, bool, bool, str | None]:
-    """parse the first post of search"""
-
-    cont, forum_unavailable = parse_search(search_num)
-    not_found = True if cont and re.search(r'Запрошенной темы не существует', cont) else False
-
-    if forum_unavailable or not_found:
-        hash_num = None
-        return hash_num, cont, forum_unavailable, not_found, None
-
-    # FIXME – deactivated on Feb 6 2023 because seems it's not correct that this script should check status
-    # FIXME – activated on Feb 7 2023 –af far as there were 2 searches w/o status updated
-    get_status_from_content_and_send_to_topic_management(search_num, cont)
-    topic_visibility = define_topic_visibility_by_content(cont)
-
-    cont = prettify_content(cont)
-
-    # craft a hash for this content
-    hash_num = hashlib.md5(cont.encode()).hexdigest()
-
-    return hash_num, cont, forum_unavailable, not_found, topic_visibility
 
 
 def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:

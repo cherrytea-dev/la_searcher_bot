@@ -18,7 +18,7 @@ class PercentGroup:
     finish_num: int = 0
     searches: list[Search] = field(default_factory=list)  # searches
 
-    def __str__(self):
+    def __str__(self) -> str:
         days = f' or {int(self.frequency // 1440)} day(s)' if self.frequency >= 1440 else ''
         return (
             f'N{self.n: <2}: {self.start_percent}%–{self.finish_percent}%. Updated every {self.frequency} minute(s){days}. '

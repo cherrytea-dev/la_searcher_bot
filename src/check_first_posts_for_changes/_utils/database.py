@@ -4,7 +4,7 @@ import sqlalchemy
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.base import Engine
 
-from .commons import PercentGroup, Search
+from .commons import Search
 
 
 class DBClient:
@@ -28,14 +28,14 @@ class DBClient:
             # TODO can be empty
             return int(hidden_topic[0]), hidden_topic[1]
 
-    def delete_search_health_check(self, search_id) -> None:
+    def delete_search_health_check(self, search_id: int) -> None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 DELETE FROM search_health_check WHERE search_forum_num=:a;
                                    """)
             conn.execute(stmt, a=search_id)
 
-    def write_search_health_check(self, search_id, visibility) -> None:
+    def write_search_health_check(self, search_id: int, visibility: str) -> None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 INSERT INTO search_health_check 
@@ -70,7 +70,7 @@ class DBClient:
             # form the list-like table
             return [Search(topic_id=line[0]) for line in raw_sql_extract]
 
-    def create_search_first_post(self, topic_id, act_hash, act_content) -> None:
+    def create_search_first_post(self, topic_id: int, act_hash: str, act_content: str) -> None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 INSERT INTO search_first_posts
@@ -79,7 +79,7 @@ class DBClient:
                                     """)
             conn.execute(stmt, a=topic_id, b=datetime.datetime.now(), c=act_hash, d=act_content, e=1)
 
-    def mark_search_first_post_as_not_actual(self, topic_id) -> None:
+    def mark_search_first_post_as_not_actual(self, topic_id: int) -> None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 UPDATE search_first_posts 
@@ -88,7 +88,7 @@ class DBClient:
                                     """)
             conn.execute(stmt, a=topic_id)
 
-    def get_search_first_post_actual_hash(self, topic_id) -> str | None:
+    def get_search_first_post_actual_hash(self, topic_id: int) -> str | None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 SELECT content_hash, num_of_checks, content 
