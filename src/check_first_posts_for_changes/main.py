@@ -4,20 +4,29 @@
 3. checks active searches' visibility (accessible for everyone, restricted to a certain group or permanently deleted).
 Updates are either saved in PSQL or send via pub/sub to other scripts"""
 
-from google.cloud.functions.context import Context
 import datetime
 import hashlib
 import logging
 import re
-from typing import Any, List, Optional, Tuple
+from functools import lru_cache
+from typing import Any
 
 import requests
 import sqlalchemy  # idea for optimization – to move to psycopg2
+from google.cloud.functions.context import Context
 
 from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
 from _dependencies.misc import make_api_call, notify_admin
 
+from ._utils.commons import PercentGroup, Search
+from ._utils.database import DBClient
+
 setup_google_logging()
+
+
+@lru_cache
+def get_db_client() -> DBClient:
+    return DBClient(db=sql_connect())
 
 
 def sql_connect() -> sqlalchemy.engine.Engine:
@@ -27,41 +36,6 @@ def sql_connect() -> sqlalchemy.engine.Engine:
 requests_session = requests.Session()
 
 bad_gateway_counter = 0
-
-
-class Search:
-    def __init__(self, topic_id=None):
-        self.topic_id = topic_id
-
-
-class PercentGroup:
-    def __init__(
-        self,
-        n=None,
-        start_percent=None,
-        finish_percent=None,
-        start_num=None,
-        finish_num=None,
-        frequency=None,
-        first_delay=None,
-        searches=None,  # noqa
-    ):
-        searches = []
-        self.n = n
-        self.sp = start_percent
-        self.fp = finish_percent
-        self.sn = start_num
-        self.fn = finish_num
-        self.f = frequency
-        self.d = first_delay
-        self.s = searches
-
-    def __str__(self):
-        days = f' or {int(self.f // 1440)} day(s)' if self.f >= 1440 else ''
-        return (
-            f'N{self.n: <2}: {self.sp}%–{self.fp}%. Updated every {self.f} minute(s){days}. '
-            f'First delay = {self.d} minutes. nums {self.sn}-{self.fn}. num of searches {len(self.s)}'
-        )
 
 
 def define_topic_visibility_by_content(content: str) -> str:
@@ -77,7 +51,7 @@ def define_topic_visibility_by_content(content: str) -> str:
     return visibility
 
 
-def define_topic_visibility_by_topic_id(search_num) -> Tuple[bool, str]:
+def define_topic_visibility_by_topic_id(search_num) -> tuple[bool, str]:
     """check is the existing search was deleted or hidden"""
 
     content, site_unavailable = parse_search(search_num)
@@ -92,71 +66,39 @@ def define_topic_visibility_by_topic_id(search_num) -> Tuple[bool, str]:
     return site_unavailable, topic_visibility
 
 
-def update_one_topic_visibility(search_id):
+def update_one_topic_visibility(search_id) -> None:
     """record in psql the visibility of one topic: regular, deleted or hidden"""
 
     forum_unavailable, visibility = define_topic_visibility_by_topic_id(search_id)
     logging.info(f'Visibility checked for {search_id}: visibility = {visibility}')
 
     if forum_unavailable or not visibility:
-        return None
+        return
 
-    pool = sql_connect()
-    with pool.connect() as conn:
-        try:
-            stmt = sqlalchemy.text("""DELETE FROM search_health_check WHERE search_forum_num=:a;""")
-            conn.execute(stmt, a=search_id)
+    db_client = get_db_client()
+    try:
+        db_client.delete_search_health_check(search_id)
+        db_client.write_search_health_check(search_id, visibility)
+        logging.info(f'Visibility updated for {search_id} and set as {visibility}')
 
-            stmt = sqlalchemy.text("""INSERT INTO search_health_check (search_forum_num, timestamp, status)
-                                      VALUES (:a, :b, :c);""")
-            conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=visibility)
-
-            logging.info(f'Visibility updated for {search_id} and set as {visibility}')
-            logging.info('---------------')
-
-        except Exception as e:
-            logging.info('exception in update_one_topic_visibility')
-            logging.exception(e)
-
-        conn.close()
-    pool.dispose()
-
-    return None
+    except Exception as e:
+        logging.exception('exception in update_one_topic_visibility')
 
 
-def update_visibility_for_one_hidden_topic():
+def update_visibility_for_one_hidden_topic() -> None:
     """check if the hidden search was unhidden"""
 
-    global requests_session
-
-    pool = sql_connect()
-    conn = pool.connect()
-
     try:
-        hidden_topic = conn.execute("""
-            SELECT h.search_forum_num, s.status
-            FROM search_health_check AS h LEFT JOIN searches AS s
-            ON h.search_forum_num=s.search_forum_num
-            WHERE h.status = 'hidden' ORDER BY RANDOM() LIMIT 1;
-            /*action='get_one_hidden_topic' */;""").fetchone()
-
-        hidden_topic_id = int(hidden_topic[0])
-        current_status = hidden_topic[1]
+        hidden_topic_id, current_status = get_db_client().get_random_hidden_topic()
         if current_status in {'Ищем', 'Возобновлен'}:
             logging.info(f'we start checking visibility for topic {hidden_topic_id}')
             update_one_topic_visibility(hidden_topic_id)
 
     except Exception as e:
-        logging.info('exception in update_visibility_for_one_hidden_topic')
-        logging.exception(e)
-
-    conn.close()
-    pool.dispose()
-
-    return None
+        logging.exception('exception in update_visibility_for_one_hidden_topic')
 
 
-def parse_search(search_num) -> Tuple[str, bool]:
+def parse_search(search_num) -> tuple[str, bool]:
     """parse the whole search page"""
 
     global requests_session
@@ -227,47 +169,7 @@ def get_status_from_content_and_send_to_topic_management(topic_id: str, act_cont
 def update_first_posts_and_statuses():
     """update first posts for topics"""
 
-    def get_list_of_topics():
-        """get best list of searches for which first posts should be checked"""
-
-        base_table_of_objects = []
-
-        pool_2 = sql_connect()
-        conn_2 = pool_2.connect()
-
-        try:
-            raw_sql_extract = conn_2.execute("""
-                WITH
-                s AS (SELECT search_forum_num, search_start_time, forum_folder_id FROM searches
-                    WHERE status = 'Ищем'),
-                h AS (SELECT search_forum_num, status FROM search_health_check),
-                f AS (SELECT folder_id, folder_type FROM geo_folders
-                    WHERE folder_type IS NULL OR folder_type = 'searches')
-
-                SELECT s.search_forum_num, s.search_start_time FROM s
-                LEFT JOIN h ON s.search_forum_num=h.search_forum_num
-                JOIN f ON s.forum_folder_id=f.folder_id
-                WHERE (h.status != 'deleted' AND h.status != 'hidden') or h.status IS NULL
-                ORDER BY 2 DESC
-                /*action='get_list_of_searches_for_first_post_and_status_update 3.0' */
-                ;""").fetchall()
-
-            # form the list-like table
-            if raw_sql_extract:
-                for line_2 in raw_sql_extract:
-                    new_object = Search(topic_id=line_2[0])
-                    base_table_of_objects.append(new_object)
-
-        except Exception as e2:
-            logging.info('exception in get_list_of_searches_for_first_post_update')
-            logging.exception(e2)
-
-        conn_2.close()
-        pool_2.dispose()
-
-        return base_table_of_objects
-
-    def generate_list_of_topic_groups() -> List[PercentGroup]:
+    def generate_list_of_topic_groups() -> list[PercentGroup]:
         """generate N search groups, groups needed to define which part of all searches will be checked now"""
 
         percent_step = 5
@@ -288,7 +190,7 @@ def update_first_posts_and_statuses():
 
         return list_of_groups
 
-    def define_which_topic_groups_to_be_checked(list_of_groups: List[PercentGroup]) -> List[PercentGroup]:
+    def define_which_topic_groups_to_be_checked(list_of_groups: list[PercentGroup]) -> list[PercentGroup]:
         """gives an output of 2 groups that should be checked for this time"""
 
         start_time = datetime.datetime(2023, 1, 1, 0, 0, 0)
@@ -302,7 +204,7 @@ def update_first_posts_and_statuses():
 
         return curr_minute_list
 
-    def enrich_groups_with_topics(list_of_groups: List[PercentGroup], list_of_s: List) -> List[PercentGroup]:
+    def enrich_groups_with_topics(list_of_groups: list[PercentGroup], list_of_s: list) -> list[PercentGroup]:
         """add searches to the chosen groups"""
 
         num_of_searches = len(list_of_s)
@@ -386,14 +288,13 @@ def update_first_posts_and_statuses():
 
         return hash_num, cont, forum_unavailable, not_found, topic_visibility
 
-    def update_first_posts_in_sql(searches_list):
+    def update_first_posts_in_sql(searches_list: list[Search]):
         """generate a list of topic_ids with updated first posts and record in it PSQL"""
 
         num_of_searches_counter = 0
         num_of_site_errors_counter = 0
         list_of_searches_with_updated_f_posts = []
-        pool = sql_connect()
-        conn = pool.connect()
+        db_client = get_db_client()
         try:
             for line in searches_list:
                 num_of_searches_counter += 1
@@ -401,41 +302,18 @@ def update_first_posts_and_statuses():
                 act_hash, act_content, site_unavailable, topic_not_found, topic_visibility = get_first_post(topic_id)
 
                 if not site_unavailable and not topic_not_found:
-                    # check the latest hash
-                    stmt = sqlalchemy.text("""
-                            SELECT content_hash, num_of_checks, content from search_first_posts WHERE search_id=:a
-                            AND actual = TRUE;
-                            """)
-                    raw_data = conn.execute(stmt, a=topic_id).fetchone()
+                    last_hash = db_client.get_search_first_post_actual_hash(topic_id)
 
-                    # if record for this search – exists
-                    if raw_data:
-                        last_hash = raw_data[0]
-
+                    if last_hash:
                         # if record for this search – outdated
                         if act_hash != last_hash and topic_visibility == 'regular':
-                            # set all prev records as Actual = False
-                            stmt = sqlalchemy.text("""
-                                    UPDATE search_first_posts SET actual = FALSE WHERE search_id = :a;
-                                    """)
-                            conn.execute(stmt, a=topic_id)
-
-                            # add new record
-                            stmt = sqlalchemy.text("""
-                                    INSERT INTO search_first_posts
-                                    (search_id, timestamp, actual, content_hash, content, num_of_checks)
-                                    VALUES (:a, :b, TRUE, :c, :d, :e);
-                                    """)
-                            conn.execute(stmt, a=topic_id, b=datetime.datetime.now(), c=act_hash, d=act_content, e=1)
-
+                            db_client.mark_search_first_post_as_not_actual(topic_id)
+                            db_client.create_search_first_post(topic_id, act_hash, act_content)
                             list_of_searches_with_updated_f_posts.append(topic_id)
 
                     # if record for this search – does not exist – add a new record
                     else:
-                        stmt = sqlalchemy.text("""INSERT INTO search_first_posts
-                                                  (search_id, timestamp, actual, content_hash, content, num_of_checks)
-                                                  VALUES (:a, :b, TRUE, :c, :d, :e);""")
-                        conn.execute(stmt, a=topic_id, b=datetime.datetime.now(), c=act_hash, d=act_content, e=1)
+                        db_client.create_search_first_post(topic_id, act_hash, act_content)
 
                 elif site_unavailable:
                     num_of_site_errors_counter += 1
@@ -451,9 +329,6 @@ def update_first_posts_and_statuses():
             logging.info('exception in update_first_posts_and_statuses')
             logging.exception(e)
 
-        conn.close()
-        pool.dispose()
-
         logging.info(f'first posts checked for {num_of_searches_counter} searches')
 
         return list_of_searches_with_updated_f_posts
@@ -461,7 +336,7 @@ def update_first_posts_and_statuses():
     global bad_gateway_counter
     global requests_session
 
-    list_of_searches = get_list_of_topics()
+    list_of_searches = get_db_client().get_list_of_topics()
     groups_list_all = generate_list_of_topic_groups()
     groups_list_now = define_which_topic_groups_to_be_checked(groups_list_all)
     groups_list_now = enrich_groups_with_topics(groups_list_now, list_of_searches)
