@@ -14,7 +14,7 @@ class DBClient:
     def connect(self) -> Connection:
         return self._db.connect()
 
-    def get_random_hidden_topic(self) -> tuple[int, str]:
+    def get_random_hidden_topic(self) -> tuple[int, str] | None:
         with self.connect() as conn:
             hidden_topic = conn.execute("""
                 SELECT h.search_forum_num, s.status
@@ -25,8 +25,10 @@ class DBClient:
                 /*action='get_one_hidden_topic' */;
                                         """).fetchone()
 
-            # TODO can be empty
-            return int(hidden_topic[0]), hidden_topic[1]
+            if hidden_topic:
+                return int(hidden_topic[0]), hidden_topic[1]
+            else:
+                return None
 
     def delete_search_health_check(self, search_id: int) -> None:
         with self.connect() as conn:

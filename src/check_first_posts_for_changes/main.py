@@ -49,10 +49,11 @@ def update_visibility_for_one_hidden_topic() -> None:
     """check if the hidden search was unhidden"""
 
     try:
-        hidden_topic_id, current_status = get_db_client().get_random_hidden_topic()
+        hidden_topic_data = get_db_client().get_random_hidden_topic()
+        topic_id, current_status = hidden_topic_data
         if current_status in {'Ищем', 'Возобновлен'}:
-            logging.info(f'we start checking visibility for topic {hidden_topic_id}')
-            update_one_topic_visibility(hidden_topic_id)
+            logging.info(f'we start checking visibility for topic {topic_id}')
+            update_one_topic_visibility(topic_id)
 
     except Exception as e:
         logging.exception('exception in update_visibility_for_one_hidden_topic')
