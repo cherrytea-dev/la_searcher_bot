@@ -7,7 +7,7 @@ on:
     branches : [main]
     paths:
       - 'src/_dependencies/*'
-      - 'src/send_debug_to_admin/*' # UPD HERE!
+      - 'src/send_debug_to_admin/**' # UPD HERE!
       - '.github/workflows/deploy_send_debug_to_admin.yml' # UPD HERE!
 
 jobs:

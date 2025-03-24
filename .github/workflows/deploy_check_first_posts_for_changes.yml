@@ -7,7 +7,7 @@ on:
     branches : [main]
     paths:
       - 'src/_dependencies/*'
-      - 'src/check_first_posts_for_changes/*' # UPD HERE!
+      - 'src/check_first_posts_for_changes/**' # UPD HERE!
       - '.github/workflows/deploy_check_first_posts_for_changes.yml' # UPD HERE!
 
 jobs:
@@ -34,6 +34,7 @@ jobs:
             runtime: python310
             entry_point: main # UPD HERE! main function
             region: europe-west3
+            docker_registry: artifact-registry
             timeout: 540 # UPD HERE!
             max_instances: 1 # UPD HERE!
             # memory_mb: 8192 # UPD HERE!
