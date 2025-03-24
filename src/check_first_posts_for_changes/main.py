@@ -33,11 +33,6 @@ def sql_connect() -> sqlalchemy.engine.Engine:
     return sqlalchemy_get_pool(5, 120)
 
 
-requests_session = requests.Session()
-
-bad_gateway_counter = 0
-
-
 def define_topic_visibility_by_content(content: str) -> str:
     """define visibility for the topic's content: regular, hidden or deleted"""
 
@@ -101,8 +96,7 @@ def update_visibility_for_one_hidden_topic() -> None:
 def parse_search(search_num) -> tuple[str, bool]:
     """parse the whole search page"""
 
-    global requests_session
-    global bad_gateway_counter
+    requests_session = requests.Session()
 
     try:
         url = f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
@@ -166,175 +160,178 @@ def get_status_from_content_and_send_to_topic_management(topic_id: str, act_cont
     return None
 
 
+def generate_list_of_topic_groups() -> list[PercentGroup]:
+    """generate N search groups, groups needed to define which part of all searches will be checked now"""
+
+    percent_step = 5
+    list_of_groups = []
+    current_percent = 0
+
+    while current_percent < 100:
+        n = int(current_percent / percent_step)
+        new_group = PercentGroup(
+            n=n,
+            start_percent=current_percent,
+            finish_percent=min(100, current_percent + percent_step - 1),
+            frequency=2**n,
+            first_delay=2 ** (n - 1) - 1 if n != 0 else 0,
+        )
+        list_of_groups.append(new_group)
+        current_percent += percent_step
+
+    return list_of_groups
+
+
+def define_which_topic_groups_to_be_checked(list_of_groups: list[PercentGroup]) -> list[PercentGroup]:
+    """gives an output of 2 groups that should be checked for this time"""
+
+    start_time = datetime.datetime(2023, 1, 1, 0, 0, 0)
+    curr_minute = int(((datetime.datetime.now() - start_time).total_seconds() / 60) // 1)
+
+    curr_minute_list = []
+    for group_2 in list_of_groups:
+        if not ((curr_minute - group_2.d) % group_2.f):
+            curr_minute_list.append(group_2)
+            logging.info(f'Group to be checked {group_2}')
+
+    return curr_minute_list
+
+
+def enrich_groups_with_topics(list_of_groups: list[PercentGroup], list_of_s: list) -> list[PercentGroup]:
+    """add searches to the chosen groups"""
+
+    num_of_searches = len(list_of_s)
+
+    for group_2 in list_of_groups:
+        group_2.sn = int((group_2.sp * num_of_searches / 100) // 1)
+        group_2.fn = min(int(((group_2.fp + 1) * num_of_searches / 100) // 1 - 1), len(list_of_s))
+
+    for j, search in enumerate(list_of_s):
+        for group_2 in list_of_groups:
+            if group_2.sn <= j <= group_2.fn:
+                group_2.s.append(search)
+
+    return list_of_groups
+
+
+def prettify_content(content: str) -> str:
+    """remove the irrelevant code from the first page content"""
+
+    # TODO - seems can be much simplified with regex
+    # cut the wording of the first post
+    start = content.find('<div class="content">')
+    content = content[(start + 21) :]
+
+    # find the next block and limit the content till this block
+    next_block = content.find('<div class="back2top">')
+    content = content[: (next_block - 12)]
+
+    # cut out div closure
+    fin_div = content.rfind('</div>')
+    content = content[:fin_div]
+
+    # cut blank symbols in the end of code
+    finish = content.rfind('>')
+    content = content[: (finish + 1)]
+
+    # exclude dynamic info – views of the pictures
+    patterns = re.findall(r'\) \d+ просмотр(?:а|ов)?', content)
+    if patterns:
+        for word in patterns:
+            content = content.replace(word, ')')
+
+    # exclude dynamic info - token / creation time / sid / etc / footer
+    patterns_list = [
+        r'value="\S{10}"',
+        r'value="\S{32}"',
+        r'value="\S{40}"',
+        r'sid=\S{32}&amp;',
+        r'всего редактировалось \d+ раз.',  # AK:issue#9
+        r'<span class="footer-info"><span title="SQL time:.{120,130}</span></span>',
+    ]
+
+    patterns = []
+    for pat in patterns_list:
+        patterns += re.findall(pat, content)
+
+    if patterns:
+        for word in patterns:
+            content = content.replace(word, '')
+
+    return content
+
+
+def get_first_post(search_num):
+    """parse the first post of search"""
+
+    cont, forum_unavailable = parse_search(search_num)
+    not_found = True if cont and re.search(r'Запрошенной темы не существует', cont) else False
+
+    if forum_unavailable or not_found:
+        hash_num = None
+        return hash_num, cont, forum_unavailable, not_found, None
+
+    # FIXME – deactivated on Feb 6 2023 because seems it's not correct that this script should check status
+    # FIXME – activated on Feb 7 2023 –af far as there were 2 searches w/o status updated
+    get_status_from_content_and_send_to_topic_management(search_num, cont)
+    topic_visibility = define_topic_visibility_by_content(cont)
+
+    cont = prettify_content(cont)
+
+    # craft a hash for this content
+    hash_num = hashlib.md5(cont.encode()).hexdigest()
+
+    return hash_num, cont, forum_unavailable, not_found, topic_visibility
+
+
+def update_first_posts_in_sql(searches_list: list[Search]):
+    """generate a list of topic_ids with updated first posts and record in it PSQL"""
+
+    num_of_searches_counter = 0
+    num_of_site_errors_counter = 0
+    list_of_searches_with_updated_f_posts = []
+    db_client = get_db_client()
+    try:
+        for line in searches_list:
+            num_of_searches_counter += 1
+            topic_id = line.topic_id
+            act_hash, act_content, site_unavailable, topic_not_found, topic_visibility = get_first_post(topic_id)
+
+            if not site_unavailable and not topic_not_found:
+                last_hash = db_client.get_search_first_post_actual_hash(topic_id)
+
+                if last_hash:
+                    # if record for this search – outdated
+                    if act_hash != last_hash and topic_visibility == 'regular':
+                        db_client.mark_search_first_post_as_not_actual(topic_id)
+                        db_client.create_search_first_post(topic_id, act_hash, act_content)
+                        list_of_searches_with_updated_f_posts.append(topic_id)
+
+                # if record for this search – does not exist – add a new record
+                else:
+                    db_client.create_search_first_post(topic_id, act_hash, act_content)
+
+            elif site_unavailable:
+                num_of_site_errors_counter += 1
+                logging.info(f'forum unavailable for search {topic_id}')
+                if num_of_site_errors_counter > 3:
+                    notify_admin(f'LA FORUM UNAVAILABLE, che_posts tried {num_of_site_errors_counter} times.')
+                    break
+
+            elif topic_not_found:
+                update_one_topic_visibility(topic_id)
+
+    except Exception as e:
+        logging.info('exception in update_first_posts_and_statuses')
+        logging.exception(e)
+
+    logging.info(f'first posts checked for {num_of_searches_counter} searches')
+
+    return list_of_searches_with_updated_f_posts
+
+
 def update_first_posts_and_statuses():
     """update first posts for topics"""
-
-    def generate_list_of_topic_groups() -> list[PercentGroup]:
-        """generate N search groups, groups needed to define which part of all searches will be checked now"""
-
-        percent_step = 5
-        list_of_groups = []
-        current_percent = 0
-
-        while current_percent < 100:
-            n = int(current_percent / percent_step)
-            new_group = PercentGroup(
-                n=n,
-                start_percent=current_percent,
-                finish_percent=min(100, current_percent + percent_step - 1),
-                frequency=2**n,
-                first_delay=2 ** (n - 1) - 1 if n != 0 else 0,
-            )
-            list_of_groups.append(new_group)
-            current_percent += percent_step
-
-        return list_of_groups
-
-    def define_which_topic_groups_to_be_checked(list_of_groups: list[PercentGroup]) -> list[PercentGroup]:
-        """gives an output of 2 groups that should be checked for this time"""
-
-        start_time = datetime.datetime(2023, 1, 1, 0, 0, 0)
-        curr_minute = int(((datetime.datetime.now() - start_time).total_seconds() / 60) // 1)
-
-        curr_minute_list = []
-        for group_2 in list_of_groups:
-            if not ((curr_minute - group_2.d) % group_2.f):
-                curr_minute_list.append(group_2)
-                logging.info(f'Group to be checked {group_2}')
-
-        return curr_minute_list
-
-    def enrich_groups_with_topics(list_of_groups: list[PercentGroup], list_of_s: list) -> list[PercentGroup]:
-        """add searches to the chosen groups"""
-
-        num_of_searches = len(list_of_s)
-
-        for group_2 in list_of_groups:
-            group_2.sn = int((group_2.sp * num_of_searches / 100) // 1)
-            group_2.fn = min(int(((group_2.fp + 1) * num_of_searches / 100) // 1 - 1), len(list_of_s))
-
-        for j, search in enumerate(list_of_s):
-            for group_2 in list_of_groups:
-                if group_2.sn <= j <= group_2.fn:
-                    group_2.s.append(search)
-
-        return list_of_groups
-
-    def prettify_content(content: str) -> str:
-        """remove the irrelevant code from the first page content"""
-
-        # TODO - seems can be much simplified with regex
-        # cut the wording of the first post
-        start = content.find('<div class="content">')
-        content = content[(start + 21) :]
-
-        # find the next block and limit the content till this block
-        next_block = content.find('<div class="back2top">')
-        content = content[: (next_block - 12)]
-
-        # cut out div closure
-        fin_div = content.rfind('</div>')
-        content = content[:fin_div]
-
-        # cut blank symbols in the end of code
-        finish = content.rfind('>')
-        content = content[: (finish + 1)]
-
-        # exclude dynamic info – views of the pictures
-        patterns = re.findall(r'\) \d+ просмотр(?:а|ов)?', content)
-        if patterns:
-            for word in patterns:
-                content = content.replace(word, ')')
-
-        # exclude dynamic info - token / creation time / sid / etc / footer
-        patterns_list = [
-            r'value="\S{10}"',
-            r'value="\S{32}"',
-            r'value="\S{40}"',
-            r'sid=\S{32}&amp;',
-            r'всего редактировалось \d+ раз.',  # AK:issue#9
-            r'<span class="footer-info"><span title="SQL time:.{120,130}</span></span>',
-        ]
-
-        patterns = []
-        for pat in patterns_list:
-            patterns += re.findall(pat, content)
-
-        if patterns:
-            for word in patterns:
-                content = content.replace(word, '')
-
-        return content
-
-    def get_first_post(search_num):
-        """parse the first post of search"""
-
-        cont, forum_unavailable = parse_search(search_num)
-        not_found = True if cont and re.search(r'Запрошенной темы не существует', cont) else False
-
-        if forum_unavailable or not_found:
-            hash_num = None
-            return hash_num, cont, forum_unavailable, not_found, None
-
-        # FIXME – deactivated on Feb 6 2023 because seems it's not correct that this script should check status
-        # FIXME – activated on Feb 7 2023 –af far as there were 2 searches w/o status updated
-        get_status_from_content_and_send_to_topic_management(search_num, cont)
-        topic_visibility = define_topic_visibility_by_content(cont)
-
-        cont = prettify_content(cont)
-
-        # craft a hash for this content
-        hash_num = hashlib.md5(cont.encode()).hexdigest()
-
-        return hash_num, cont, forum_unavailable, not_found, topic_visibility
-
-    def update_first_posts_in_sql(searches_list: list[Search]):
-        """generate a list of topic_ids with updated first posts and record in it PSQL"""
-
-        num_of_searches_counter = 0
-        num_of_site_errors_counter = 0
-        list_of_searches_with_updated_f_posts = []
-        db_client = get_db_client()
-        try:
-            for line in searches_list:
-                num_of_searches_counter += 1
-                topic_id = line.topic_id
-                act_hash, act_content, site_unavailable, topic_not_found, topic_visibility = get_first_post(topic_id)
-
-                if not site_unavailable and not topic_not_found:
-                    last_hash = db_client.get_search_first_post_actual_hash(topic_id)
-
-                    if last_hash:
-                        # if record for this search – outdated
-                        if act_hash != last_hash and topic_visibility == 'regular':
-                            db_client.mark_search_first_post_as_not_actual(topic_id)
-                            db_client.create_search_first_post(topic_id, act_hash, act_content)
-                            list_of_searches_with_updated_f_posts.append(topic_id)
-
-                    # if record for this search – does not exist – add a new record
-                    else:
-                        db_client.create_search_first_post(topic_id, act_hash, act_content)
-
-                elif site_unavailable:
-                    num_of_site_errors_counter += 1
-                    logging.info(f'forum unavailable for search {topic_id}')
-                    if num_of_site_errors_counter > 3:
-                        notify_admin(f'LA FORUM UNAVAILABLE, che_posts tried {num_of_site_errors_counter} times.')
-                        break
-
-                elif topic_not_found:
-                    update_one_topic_visibility(topic_id)
-
-        except Exception as e:
-            logging.info('exception in update_first_posts_and_statuses')
-            logging.exception(e)
-
-        logging.info(f'first posts checked for {num_of_searches_counter} searches')
-
-        return list_of_searches_with_updated_f_posts
-
-    global bad_gateway_counter
-    global requests_session
 
     list_of_searches = get_db_client().get_list_of_topics()
     groups_list_all = generate_list_of_topic_groups()
@@ -360,9 +357,6 @@ def main(event: dict, context: Context) -> None:
     if datetime.datetime.now().second > 5:
         return
 
-    global bad_gateway_counter
-    bad_gateway_counter = 0
-
     # BLOCK 1. for checking if the first posts were changed
     update_first_posts_and_statuses()
 
@@ -370,8 +364,5 @@ def main(event: dict, context: Context) -> None:
     # It is done in this script only because there's no better place. Ant these are circa 40 hidden topics at all.
     update_visibility_for_one_hidden_topic()
 
-    if bad_gateway_counter > 3:
-        notify_admin(f'[che_posts]: Bad Gateway {bad_gateway_counter} times')
-
-    # Close the open session
-    requests_session.close()
+    # if bad_gateway_counter > 3:
+    #     notify_admin(f'[che_posts]: Bad Gateway {bad_gateway_counter} times')
