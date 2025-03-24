@@ -113,7 +113,7 @@ def parse_search(search_num) -> tuple[str, bool]:
     return content, site_unavailable
 
 
-def get_status_from_content_and_send_to_topic_management(topic_id: str, act_content: str):
+def get_status_from_content_and_send_to_topic_management(topic_id: str, act_content: str) -> None:
     """block to check if Status of the search has changed – if so send a pub/sub to topic_management"""
 
     # get the Title out of page content (intentionally avoid BS4 to make pack slimmer)
@@ -123,7 +123,7 @@ def get_status_from_content_and_send_to_topic_management(topic_id: str, act_cont
     title = pre_title.group()[2:-4] if pre_title else None
 
     if not title:
-        return None
+        return
 
     # language=regexp
     patterns = [[r'(?i)(^\W{0,2}|(?<=\W))(пропал[аи]?\W{1,3})', 'Ищем']]
@@ -153,11 +153,10 @@ def get_status_from_content_and_send_to_topic_management(topic_id: str, act_cont
             notify_admin(repr(ex))
 
     if not status or status == 'Ищем':
-        return None
+        return
 
     publish_to_pubsub(Topics.topic_for_topic_management, {'topic_id': topic_id, 'status': status})
-
-    return None
+    # TODO use direct topic change
 
 
 def generate_list_of_topic_groups() -> list[PercentGroup]:
@@ -254,9 +253,8 @@ def prettify_content(content: str) -> str:
     for pat in patterns_list:
         patterns += re.findall(pat, content)
 
-    if patterns:
-        for word in patterns:
-            content = content.replace(word, '')
+    for word in patterns:
+        content = content.replace(word, '')
 
     return content
 
@@ -322,8 +320,7 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
                 update_one_topic_visibility(topic_id)
 
     except Exception as e:
-        logging.info('exception in update_first_posts_and_statuses')
-        logging.exception(e)
+        logging.exception('exception in update_first_posts_and_statuses')
 
     logging.info(f'first posts checked for {num_of_searches_counter} searches')
 
