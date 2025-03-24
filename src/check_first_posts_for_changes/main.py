@@ -7,7 +7,6 @@ Updates are either saved in PSQL or send via pub/sub to other scripts"""
 import datetime
 import logging
 from functools import lru_cache
-from typing import Any
 
 from google.cloud.functions.context import Context
 
@@ -16,7 +15,7 @@ from _dependencies.misc import notify_admin
 
 from ._utils.commons import PercentGroup, Search
 from ._utils.database import DBClient
-from ._utils.forum import FirstPostData, define_topic_visibility_by_topic_id, get_first_post
+from ._utils.forum import define_topic_visibility_by_topic_id, get_first_post
 
 setup_google_logging()
 
@@ -59,7 +58,7 @@ def update_visibility_for_one_hidden_topic() -> None:
         logging.exception('exception in update_visibility_for_one_hidden_topic')
 
 
-def generate_list_of_topic_groups() -> list[PercentGroup]:
+def _generate_list_of_topic_groups() -> list[PercentGroup]:
     """generate N search groups, groups needed to define which part of all searches will be checked now"""
 
     percent_step = 5
@@ -81,8 +80,9 @@ def generate_list_of_topic_groups() -> list[PercentGroup]:
     return list_of_groups
 
 
-def define_which_topic_groups_to_be_checked(list_of_groups: list[PercentGroup]) -> list[PercentGroup]:
+def _define_which_topic_groups_to_be_checked() -> list[PercentGroup]:
     """gives an output of 2 groups that should be checked for this time"""
+    list_of_groups = _generate_list_of_topic_groups()
 
     start_time = datetime.datetime(2023, 1, 1, 0, 0, 0)
     curr_minute = int(((datetime.datetime.now() - start_time).total_seconds() / 60) // 1)
@@ -91,26 +91,31 @@ def define_which_topic_groups_to_be_checked(list_of_groups: list[PercentGroup]) 
     for group_2 in list_of_groups:
         if not ((curr_minute - group_2.first_delay) % group_2.frequency):
             curr_minute_list.append(group_2)
-            logging.info(f'Group to be checked {group_2}')
+            logging.debug(f'Group to be checked {group_2}')
 
     return curr_minute_list
 
 
-def enrich_groups_with_topics(list_of_groups: list[PercentGroup], list_of_s: list[Search]) -> list[PercentGroup]:
+def get_topics_to_check() -> list[Search]:
     """add searches to the chosen groups"""
+    topics_to_check: list[Search] = []
 
-    num_of_searches = len(list_of_s)
+    # TODO maybe there is better method of randomizing?
+    searches = get_db_client().get_list_of_topics()
+    list_of_groups = _define_which_topic_groups_to_be_checked()
+
+    num_of_searches = len(searches)
 
     for group_2 in list_of_groups:
         group_2.start_num = int((group_2.start_percent * num_of_searches / 100) // 1)
-        group_2.finish_num = min(int(((group_2.finish_percent + 1) * num_of_searches / 100) // 1 - 1), len(list_of_s))
+        group_2.finish_num = min(int(((group_2.finish_percent + 1) * num_of_searches / 100) // 1 - 1), len(searches))
 
-    for j, search in enumerate(list_of_s):
+    for j, search in enumerate(searches):
         for group_2 in list_of_groups:
             if group_2.start_num <= j <= group_2.finish_num:
-                group_2.searches.append(search)
+                topics_to_check.append(search)
 
-    return list_of_groups
+    return topics_to_check
 
 
 def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
@@ -124,31 +129,31 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
         for line in searches_list:
             num_of_searches_counter += 1
             topic_id = line.topic_id
-            act_hash, act_content, site_unavailable, topic_not_found, topic_visibility = get_first_post(topic_id)
+            post_data = get_first_post(topic_id)
 
-            if not site_unavailable and not topic_not_found:
-                last_hash = db_client.get_search_first_post_actual_hash(topic_id)
-
-                if last_hash:
-                    # if record for this search – outdated
-                    if act_hash != last_hash and topic_visibility == 'regular':
-                        db_client.mark_search_first_post_as_not_actual(topic_id)
-                        db_client.create_search_first_post(topic_id, act_hash, act_content)
-                        list_of_searches_with_updated_f_posts.append(topic_id)
-
-                # if record for this search – does not exist – add a new record
-                else:
-                    db_client.create_search_first_post(topic_id, act_hash, act_content)
-
-            elif site_unavailable:
+            if post_data.forum_unavailable:
                 num_of_site_errors_counter += 1
                 logging.info(f'forum unavailable for search {topic_id}')
                 if num_of_site_errors_counter > 3:
                     notify_admin(f'LA FORUM UNAVAILABLE, che_posts tried {num_of_site_errors_counter} times.')
                     break
 
-            elif topic_not_found:
+            elif post_data.not_found:
                 update_one_topic_visibility(topic_id)
+
+            else:
+                last_hash = db_client.get_search_first_post_actual_hash(topic_id)
+
+                if last_hash:
+                    # if record for this search – outdated
+                    if post_data.hash_num != last_hash and post_data.topic_visibility == 'regular':
+                        db_client.mark_search_first_post_as_not_actual(topic_id)
+                        db_client.create_search_first_post(topic_id, post_data.hash_num, post_data.content)
+                        list_of_searches_with_updated_f_posts.append(topic_id)
+
+                # if record for this search – does not exist – add a new record
+                else:
+                    db_client.create_search_first_post(topic_id, post_data.hash_num, post_data.content)
 
     except Exception as e:
         logging.exception('exception in update_first_posts_and_statuses')
@@ -161,21 +166,17 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
 def update_first_posts_and_statuses() -> None:
     """update first posts for topics"""
 
-    list_of_searches = get_db_client().get_list_of_topics()
-    groups_list_all = generate_list_of_topic_groups()
-    groups_list_now = define_which_topic_groups_to_be_checked(groups_list_all)
-    groups_list_now = enrich_groups_with_topics(groups_list_now, list_of_searches)
-    topics_list_now = [line for group in groups_list_now for line in group.searches]
+    topics_to_check = get_topics_to_check()
 
-    if not topics_list_now:
+    if not topics_to_check:
         return
 
-    list_of_topics_with_updated_first_posts = update_first_posts_in_sql(topics_list_now)
+    topics_with_updated_first_posts = update_first_posts_in_sql(topics_to_check)
 
-    if not list_of_topics_with_updated_first_posts:
+    if not topics_with_updated_first_posts:
         return
 
-    publish_to_pubsub(Topics.topic_for_first_post_processing, list_of_topics_with_updated_first_posts)
+    publish_to_pubsub(Topics.topic_for_first_post_processing, topics_with_updated_first_posts)
 
 
 def main(event: dict, context: Context) -> None:

@@ -9,5 +9,5 @@ def test_main():
 
 
 def test_generate_list_of_topic_groups():
-    res = main.generate_list_of_topic_groups()
+    res = main._generate_list_of_topic_groups()
     assert len(res) == 20

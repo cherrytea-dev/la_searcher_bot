@@ -12,11 +12,11 @@ from _dependencies.recognition_schema import RecognitionResult
 
 @dataclass
 class FirstPostData:
-    hash_num: str
-    cont: str
+    hash_num: str | None
+    content: str
     forum_unavailable: bool
     not_found: bool
-    topic_visibility: str
+    topic_visibility: str | None
 
 
 def define_topic_visibility_by_content(content: str) -> str:
@@ -44,7 +44,7 @@ def parse_search(search_num: int) -> tuple[str, bool]:
         content = None if content.find('502 Bad Gateway') > 0 else content
         site_unavailable = False if content else True
 
-    except (requests.exceptions.ReadTimeout, Exception) as e:
+    except requests.exceptions.RequestException as e:
         logging.info(f'[che_posts]: site unavailable: {e.__class__.__name__}')
         content = None
         site_unavailable = True
@@ -63,7 +63,7 @@ def _recognize_status_with_title_recognize(title: str) -> str | None:
     return None
 
 
-def change_topic_status(topic_id: str, act_content: str) -> None:
+def change_topic_status(topic_id: int, act_content: str) -> None:
     """block to check if Status of the search has changed – if so send a pub/sub to topic_management"""
 
     # get the Title out of page content (intentionally avoid BS4 to make pack slimmer)
@@ -147,15 +147,20 @@ def prettify_content(content: str) -> str:
     return content
 
 
-def get_first_post(search_num: int) -> tuple[str | None, str, bool, bool, str | None]:
+def get_first_post(search_num: int) -> FirstPostData:
     """parse the first post of search"""
 
     cont, forum_unavailable = parse_search(search_num)
     not_found = True if cont and re.search(r'Запрошенной темы не существует', cont) else False
 
     if forum_unavailable or not_found:
-        hash_num = None
-        return hash_num, cont, forum_unavailable, not_found, None
+        return FirstPostData(
+            hash_num=None,
+            content=cont,
+            forum_unavailable=forum_unavailable,
+            not_found=not_found,
+            topic_visibility=None,
+        )
 
     # FIXME – deactivated on Feb 6 2023 because seems it's not correct that this script should check status
     # FIXME – activated on Feb 7 2023 –af far as there were 2 searches w/o status updated
@@ -167,7 +172,13 @@ def get_first_post(search_num: int) -> tuple[str | None, str, bool, bool, str | 
     # craft a hash for this content
     hash_num = hashlib.md5(cont.encode()).hexdigest()
 
-    return hash_num, cont, forum_unavailable, not_found, topic_visibility
+    return FirstPostData(
+        hash_num=hash_num,
+        content=cont,
+        forum_unavailable=forum_unavailable,
+        not_found=not_found,
+        topic_visibility=topic_visibility,
+    )
 
 
 def define_topic_visibility_by_topic_id(search_num: int) -> tuple[bool, str]:
