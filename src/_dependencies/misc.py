@@ -13,6 +13,7 @@ import google.cloud.logging
 import google.oauth2.id_token
 import requests
 from psycopg2.extensions import cursor
+from retry import retry
 from retry.api import retry_call
 from telegram.ext import Application, ContextTypes
 
@@ -25,6 +26,7 @@ def notify_admin(message) -> None:
     publish_to_pubsub(Topics.topic_notify_admin, message)
 
 
+@retry(Exception, tries=3, delay=3)
 def make_api_call(function: str, data: dict) -> dict:
     """makes an API call to another Google Cloud Function"""
 
@@ -37,8 +39,9 @@ def make_api_call(function: str, data: dict) -> dict:
     id_token = google.oauth2.id_token.fetch_id_token(auth_req, audience)
     headers = {'Authorization': f'Bearer {id_token}', 'Content-Type': 'application/json'}
 
-    r = requests.post(endpoint, json=data, headers=headers)
-    content = r.json()
+    response = requests.post(endpoint, json=data, headers=headers, timeout=30)
+    response.raise_for_status()
+    content = response.json()
 
     return content
 
