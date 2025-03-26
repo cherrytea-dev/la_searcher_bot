@@ -96,6 +96,9 @@ class TestUsersListComposer:
         assert not first_user.user_longitude
 
     def test_one_change_type(self, connection: Connection):
+        """ToDo: fix this test because now it sometimes fails with error:
+        duplicate key value violates unique constraint "user_topic_type"',
+          'D': 'Key (user_id, topic_type_id)=(1, 0) already exists."""
         record = LineInChangeLogFactory.build(change_type=ChangeType.topic_first_post_change)
 
         user = create_user_with_preferences(
