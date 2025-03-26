@@ -381,9 +381,18 @@ def compose_msg_on_all_last_searches_ikb(cur: cursor, region: int, user_id: int,
 
     sql_text = """
         SELECT DISTINCT search_forum_num, search_start_time, display_name, status, status, family_name, age, search_following_mode
-        FROM(   """
+        FROM(   -- q
+                SELECT s21.*, upswl.search_following_mode FROM 
+                    (SELECT search_forum_num, search_start_time, display_name, s01.status as new_status, s01.status, family_name, age 
+                    FROM searches s01
+                    ) s21 
+                INNER JOIN user_pref_search_whitelist upswl 
+                    ON upswl.search_id=s21.search_forum_num and upswl.user_id=%(user_id)s
+                        and upswl.search_following_mode=%(search_follow_on)s 
+                """
     if not only_followed:
         sql_text += """
+            UNION
                 SELECT s2.*, upswl.search_following_mode FROM 
                     (SELECT search_forum_num, search_start_time, display_name, s00.status as new_status, s00.status, family_name, age 
                     FROM searches s00
@@ -393,17 +402,11 @@ def compose_msg_on_all_last_searches_ikb(cur: cursor, region: int, user_id: int,
                 LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
                 LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=%(user_id)s
                 WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
-            UNION"""
+            """
     sql_text += """
-                SELECT s21.*, upswl.search_following_mode FROM 
-                    (SELECT search_forum_num, search_start_time, display_name, s01.status as new_status, s01.status, family_name, age 
-                    FROM searches s01
-                    ) s21 
-                INNER JOIN user_pref_search_whitelist upswl 
-                    ON upswl.search_id=s21.search_forum_num and upswl.user_id=%(user_id)s
-                        and upswl.search_following_mode=%(search_follow_on)s 
             )q
         ORDER BY search_start_time DESC
+        LIMIT 20
         ;"""
 
     cur.execute(
