@@ -541,7 +541,12 @@ def compose_msg_on_active_searches_in_one_reg_ikb(
 
     cur.execute(
         sql_text,
-        {'region': region, 'user_id': user_id, 'only_followed': only_followed},
+        {
+            'region': region,
+            'user_id': user_id,
+            'only_followed': only_followed,
+            'search_follow_on': SearchFollowingMode.ON,
+        },
     )
     searches_list = cur.fetchall()
 
