@@ -12,6 +12,7 @@ import re
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
@@ -50,6 +51,12 @@ setup_google_logging()
 # Important – these are not errors, but jest informational warnings that there were retries, that's why we exclude them
 logging.getLogger('telegram.vendor.ptb_urllib3.urllib3').setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
+
+
+class SearchFollowingMode(str, Enum):
+    # in table 'user_pref_search_whitelist'
+    ON = '👀 '
+    OFF = '❌ '
 
 
 standard_modifier = {'on': '✅ ', 'off': '☐ '}
@@ -362,20 +369,21 @@ def search_button_row_ikb(search_following_mode, search_status, search_id, searc
     return ikb_row
 
 
-def compose_msg_on_all_last_searches_ikb(cur: cursor, region: int, user_id: int) -> List:
+def compose_msg_on_all_last_searches_ikb(cur: cursor, region: int, user_id: int, only_followed: bool) -> List:
     """Compose a part of message on the list of recent searches"""
     # issue#425 it is ikb variant of the above function, returns data formated for inline keyboard
     # 1st element of returned list is general info and should be popped
     # rest elements are searches to be showed as inline buttons
+    # 24.03.2025: followed in whitelist searches to be showed regardless of region settings and the 60-days expiration, even in 'СТОП'
 
     pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='
     ikb = []
 
-    # download the list from SEARCHES sql table
-    cur.execute(
-        """
-        SELECT *
-        FROM(
+    sql_text = """
+        SELECT DISTINCT search_forum_num, search_start_time, display_name, status, status, family_name, age, search_following_mode
+        FROM(   """
+    if not only_followed:
+        sql_text += """
                 SELECT s2.*, upswl.search_following_mode FROM 
                     (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
                     FROM searches 
@@ -385,17 +393,22 @@ def compose_msg_on_all_last_searches_ikb(cur: cursor, region: int, user_id: int)
                 LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
                 LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=%(user_id)s
                 WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
-            UNION
+            UNION"""
+    sql_text += """
                 SELECT s2.*, upswl.search_following_mode FROM 
                     (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
                     FROM searches 
-                    WHERE forum_folder_id=%(region)s 
                     ) s2 
-                INNER JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=%(user_id)s
+                INNER JOIN user_pref_search_whitelist upswl 
+                    ON upswl.search_id=s2.search_forum_num and upswl.user_id=%(user_id)s
+                        and upswl.search_following_mode=%(search_follow_on)s 
             )q
-            ORDER BY search_start_time DESC
-        ;""",
-        {'region': region, 'user_id': user_id},
+        ORDER BY search_start_time DESC
+        ;"""
+
+    cur.execute(
+        sql_text,
+        {'region': region, 'user_id': user_id, 'search_follow_on': SearchFollowingMode.ON},
     )
 
     database = cur.fetchall()
@@ -495,29 +508,40 @@ def compose_msg_on_active_searches_in_one_reg(cur: cursor, region: int, user_dat
 
 
 def compose_msg_on_active_searches_in_one_reg_ikb(
-    cur: cursor, region: int, user_data: Tuple[str, str], user_id: int
+    cur: cursor, region: int, user_data: Tuple[str, str], user_id: int, only_followed: bool
 ) -> List:
     """Compose a part of message on the list of active searches in the given region with relation to user's coords"""
     # issue#425 it is ikb variant of the above function, returns data formated for inline keyboard
     # 1st element of returned list is general info and should be popped
     # rest elements are searches to be showed as inline buttons
+    # 24.03.2025: followed in whitelist searches to be showed regardless of region settings and the 60-days expiration, even in 'СТОП'
 
     pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='
     ikb = []
 
-    cur.execute(
-        """SELECT s2.*, upswl.search_following_mode FROM 
+    sql_text = """
+        SELECT s2.*, upswl.search_following_mode FROM 
             (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
             s.topic_type, s.family_name, s.age 
             FROM searches s 
             LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
-            WHERE (s.status='Ищем' OR s.status='Возобновлен') 
-                AND s.forum_folder_id=%(region)s ORDER BY s.search_start_time DESC) s2 
+            WHERE s.forum_folder_id=%(region)s
+                AND (s.status='Ищем' OR s.status='Возобновлен' or not %(only_followed)b)
+            ORDER BY s.search_start_time DESC) s2 
         LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
-        LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=%(user_id)s
-        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
-        ORDER BY s2.search_start_time DESC;""",
-        {'region': region, 'user_id': user_id},
+        LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=%(user_id)s"""
+    if only_followed:
+        sql_text += """
+        WHERE upswl.search_following_mode=%(search_follow_on)s"""
+    else:
+        sql_text += """
+        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular')"""
+    sql_text += """
+        ORDER BY s2.search_start_time DESC;"""
+
+    cur.execute(
+        sql_text,
+        {'region': region, 'user_id': user_id, 'only_followed': only_followed},
     )
     searches_list = cur.fetchall()
 
@@ -631,7 +655,7 @@ def compose_full_message_on_list_of_searches(
 
 
 def compose_full_message_on_list_of_searches_ikb(
-    cur: cursor, list_type: str, user_id: int, region: int, region_name: str
+    cur: cursor, list_type: str, user_id: int, region: int, region_name: str, only_followed: bool
 ):  # issue#425
     """Compose a Final message on the list of searches in the given region"""
     # issue#425 This variant of the above function returns data in format used to compose inline keyboard
@@ -647,7 +671,7 @@ def compose_full_message_on_list_of_searches_ikb(
     url = f'https://lizaalert.org/forum/viewforum.php?f={region}'
     # combine the list of last 20 searches
     if list_type == 'all':
-        ikb += compose_msg_on_all_last_searches_ikb(cur, region, user_id)
+        ikb += compose_msg_on_all_last_searches_ikb(cur, region, user_id, only_followed)
         logging.info('ikb += compose_msg_on_all_last_searches_ikb == ' + str(ikb))
 
         if len(ikb) > 0:
@@ -668,7 +692,7 @@ def compose_full_message_on_list_of_searches_ikb(
 
     # Combine the list of the latest active searches
     else:
-        ikb += compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_id)
+        ikb += compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_id, only_followed)
         logging.info(f'ikb += compose_msg_on_active_searches_in_one_reg_ikb == {ikb}; ({region=})')
 
         if len(ikb) > 0:
@@ -1697,7 +1721,7 @@ def manage_search_whiteness(
 
     def record_search_whiteness(user: int, search_id: int, new_mark_value) -> None:
         """Save a certain user_pref_search_whitelist for a certain user_id into the DB"""
-        if new_mark_value in ['👀 ', '❌ ']:
+        if new_mark_value in [SearchFollowingMode.ON, SearchFollowingMode.OFF]:
             cur.execute(
                 """INSERT INTO user_pref_search_whitelist (user_id, search_id, timestamp, search_following_mode) 
                             VALUES (%s, %s, %s, %s) ON CONFLICT (user_id, search_id) DO UPDATE SET timestamp=%s, search_following_mode=%s;""",
@@ -1736,10 +1760,10 @@ def manage_search_whiteness(
         ikb_row = ikb[pushed_row_index]
         old_mark_value = ikb_row[0]['text'][:2]
         if old_mark_value == '  ':
-            new_mark_value = '👀 '
+            new_mark_value = SearchFollowingMode.ON
             bot_message = 'Поиск добавлен в белый список.'
-        elif old_mark_value == '👀 ':
-            new_mark_value = '❌ '
+        elif old_mark_value == SearchFollowingMode.ON:
+            new_mark_value = SearchFollowingMode.OFF
             bot_message = 'Поиск добавлен в черный список.'
         else:
             new_mark_value = '  '
@@ -3502,8 +3526,27 @@ def process_update(update: Update) -> str:
                     keyboard = []  # to combine monolit ikb for all user's regions
                     ikb_searches_count = 0
 
+                    cur.execute(
+                        """SELECT DISTINCT s.forum_folder_id 
+                            FROM searches s 
+                            INNER JOIN user_pref_search_whitelist upswl 
+                                ON upswl.search_id=s.search_forum_num
+                                AND upswl.user_id=%(user_id)s
+                                AND upswl.search_following_mode=%(search_follow_on)s
+                        ;""",
+                        {'user_id': user_id, 'search_follow_on': SearchFollowingMode.ON},
+                    )
+                    lines = cur.fetchall()
+
+                    user_regions_plus_followed = user_regions
+                    followed_regions_not_in_preffs = []
+                    for line in lines:
+                        if int(list(line)[0]) not in user_regions:
+                            followed_regions_not_in_preffs.append(int(list(line)[0]))
+                            user_regions_plus_followed.append(int(list(line)[0]))
+
                     region_name = ''
-                    for region in user_regions:
+                    for region in user_regions_plus_followed:
                         for line in folders_list:
                             if line[0] == region:
                                 region_name = line[1]
@@ -3513,7 +3556,12 @@ def process_update(update: Update) -> str:
                         # check if region – is an archive folder: if so – it can be sent only to 'all'
                         if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
                             new_region_ikb_list = compose_full_message_on_list_of_searches_ikb(
-                                cur, temp_dict[got_message], user_id, region, region_name
+                                cur,
+                                temp_dict[got_message],
+                                user_id,
+                                region,
+                                region_name,
+                                only_followed=(region in followed_regions_not_in_preffs),
                             )
                             keyboard.append(new_region_ikb_list)
                             ikb_searches_count += len(new_region_ikb_list) - 1  ##number of searches in the region
@@ -3537,13 +3585,6 @@ def process_update(update: Update) -> str:
                         inline_processing(cur, response, params)
                     else:
                         # issue#425 show the inline keyboard
-
-                        ##TBD. May be will be useful to show quantity of marked searches
-                        #                        searches_marked = 0
-                        #                        for region_keyboard in keyboard:
-                        #                            for ikb_line in region_keyboard:
-                        #                                if ikb_line[0].get("callback_data") and not ikb_line[0]["text"][:1]=='  ':
-                        #                                    searches_marked += 1
 
                         for i, region_keyboard in enumerate(keyboard):
                             if i == 0:
@@ -3591,11 +3632,11 @@ def process_update(update: Update) -> str:
                                 'chat_id': user_id,
                                 'text': bot_message,
                             }
-                            context = f'{user_id=}, context_step=b1'
+                            context = f'{user_id=}, context_step=b03'
                             response = make_api_call('sendMessage', bot_token, params, context)
-                            logging.info(f'{response=}; {user_id=}; context_step=b2')
+                            logging.info(f'{response=}; {user_id=}; context_step=b04')
                             result = process_response_of_api_call(user_id, response)
-                            logging.info(f'{result=}; {user_id=}; context_step=b3')
+                            logging.info(f'{result=}; {user_id=}; context_step=b05')
                             inline_processing(cur, response, params)
                     ##msg_sent_by_specific_code for combined ikb end
 

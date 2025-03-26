@@ -188,6 +188,7 @@ class TestGetUserDataFromDb:
 
     def test_get_user_data_from_db_valid_user_without_radius(self):
         # Create user and related data using factories
+        # ToDo Make this test stable, now it fails sometimes
         user = UserFactory.create_sync()
         user_id = user.user_id
         UserCoordinateFactory.create_sync(user_id=user_id, latitude='55.7558', longitude='37.6173')
