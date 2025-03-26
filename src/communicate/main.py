@@ -526,7 +526,7 @@ def compose_msg_on_active_searches_in_one_reg_ikb(
             FROM searches s 
             LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
             WHERE s.forum_folder_id=%(region)s
-                AND (s.status='Ищем' OR s.status='Возобновлен' or not %(only_followed)b)
+                AND (s.status='Ищем' OR s.status='Возобновлен' or not %(only_followed)s)
             ORDER BY s.search_start_time DESC) s2 
         LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
         LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=%(user_id)s"""
