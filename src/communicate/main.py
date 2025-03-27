@@ -540,7 +540,8 @@ def compose_msg_on_active_searches_in_one_reg_ikb(
         sql_text += """
         WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular')"""
     sql_text += """
-        ORDER BY s2.search_start_time DESC;"""
+        ORDER BY s2.search_start_time DESC
+        LIMIT 20;"""
 
     cur.execute(
         sql_text,
