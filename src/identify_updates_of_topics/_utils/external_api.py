@@ -38,7 +38,7 @@ def get_coordinates_from_address_by_yandex(address_string: str) -> tuple[float, 
     try:
         coordinates = yandex_client.coordinates(address_string)
         logging.info(f'geo_location by yandex: {coordinates}')
-        return float(coordinates[0]), float(coordinates[1])
+        return float(coordinates[1]), float(coordinates[0])
     except exceptions.NothingFound:
         logging.info(f'address "{address_string}" not found by yandex')
 
