@@ -14,7 +14,8 @@ from retry import retry
 @dataclass
 class FirstPostData:
     hash_num: str | None
-    content: str
+    raw_content: str
+    prettified_content: str
     not_found: bool
     topic_visibility: str | None
 
@@ -32,7 +33,7 @@ def define_topic_visibility_by_content(content: str) -> str:
 
 
 @retry(requests.exceptions.RequestException, tries=3, delay=10)
-def parse_search(search_num: int) -> str:
+def get_search_raw_content(search_num: int) -> str:
     """parse the whole search page"""
 
     url = f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
@@ -143,37 +144,26 @@ def prettify_content(content: str) -> str:
 def get_first_post(search_num: int) -> FirstPostData | None:
     """parse the first post of search"""
 
-    cont = parse_search(search_num)
-    not_found = True if cont and re.search(r'Запрошенной темы не существует', cont) else False
+    raw_content = get_search_raw_content(search_num)
+    not_found = True if raw_content and re.search(r'Запрошенной темы не существует', raw_content) else False
 
     if not_found:
         return None
 
     # FIXME – deactivated on Feb 6 2023 because seems it's not correct that this script should check status
     # FIXME – activated on Feb 7 2023 –af far as there were 2 searches w/o status updated
-    _change_topic_status(search_num, cont)
-    topic_visibility = define_topic_visibility_by_content(cont)
+    _change_topic_status(search_num, raw_content)
+    topic_visibility = define_topic_visibility_by_content(raw_content)
 
-    cont = prettify_content(cont)
+    prettified_content = prettify_content(raw_content)
 
     # craft a hash for this content
-    hash_num = hashlib.md5(cont.encode()).hexdigest()
+    hash_num = hashlib.md5(prettified_content.encode()).hexdigest()
 
     return FirstPostData(
         hash_num=hash_num,
-        content=cont,
+        raw_content=raw_content,
+        prettified_content=prettified_content,
         not_found=not_found,
         topic_visibility=topic_visibility,
     )
-
-
-def define_topic_visibility_by_topic_id(search_num: int) -> tuple[bool, str]:
-    """check is the existing search was deleted or hidden"""
-
-    content = parse_search(search_num)
-
-    topic_visibility = define_topic_visibility_by_content(content)
-
-    logging.info(f'visibility for search {search_num} is defined as {topic_visibility}')
-
-    return topic_visibility

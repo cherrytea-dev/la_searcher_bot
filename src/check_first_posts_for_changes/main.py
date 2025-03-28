@@ -11,11 +11,15 @@ from functools import lru_cache
 from google.cloud.functions.context import Context
 
 from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
-from _dependencies.misc import notify_admin
+
 
 from ._utils.commons import PercentGroup, Search
 from ._utils.database import DBClient
-from ._utils.forum import define_topic_visibility_by_topic_id, get_first_post
+from ._utils.forum import (
+    get_first_post,
+    get_search_raw_content,
+    define_topic_visibility_by_content,
+)
 
 setup_google_logging()
 
@@ -26,14 +30,10 @@ def get_db_client() -> DBClient:
     return DBClient(db=pool)
 
 
-def update_one_topic_visibility(search_id: int) -> None:
+def update_one_topic_visibility(search_id: int, visibility: str) -> None:
     """record in psql the visibility of one topic: regular, deleted or hidden"""
 
-    visibility = define_topic_visibility_by_topic_id(search_id)
-
-    if not visibility:
-        return
-
+    # TODO enum for visibility
     db_client = get_db_client()
     db_client.delete_search_health_check(search_id)
     db_client.write_search_health_check(search_id, visibility)
@@ -45,7 +45,10 @@ def update_visibility_for_one_hidden_topic() -> None:
 
     hidden_topic_id = get_db_client().get_random_hidden_topic_id()
     logging.info(f'we start checking visibility for topic {hidden_topic_id}')
-    update_one_topic_visibility(hidden_topic_id)
+    post_content = get_search_raw_content(hidden_topic_id)
+    visibility = define_topic_visibility_by_content(post_content)
+    if visibility:
+        update_one_topic_visibility(hidden_topic_id, visibility)
 
 
 def _generate_list_of_topic_groups() -> list[PercentGroup]:
@@ -121,7 +124,7 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
             post_data = get_first_post(topic_id)
 
             if not post_data:
-                update_one_topic_visibility(topic_id)
+                update_one_topic_visibility(topic_id, 'deleted')
 
             else:
                 last_hash = db_client.get_search_first_post_actual_hash(topic_id)
@@ -130,12 +133,12 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
                     # if record for this search – outdated
                     if post_data.hash_num != last_hash and post_data.topic_visibility == 'regular':
                         db_client.mark_search_first_post_as_not_actual(topic_id)
-                        db_client.create_search_first_post(topic_id, post_data.hash_num, post_data.content)
+                        db_client.create_search_first_post(topic_id, post_data.hash_num, post_data.prettified_content)
                         list_of_searches_with_updated_f_posts.append(topic_id)
 
                 # if record for this search – does not exist – add a new record
                 else:
-                    db_client.create_search_first_post(topic_id, post_data.hash_num, post_data.content)
+                    db_client.create_search_first_post(topic_id, post_data.hash_num, post_data.prettified_content)
 
     except Exception as e:
         logging.exception('exception in update_first_posts_and_statuses')
