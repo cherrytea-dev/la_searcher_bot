@@ -86,3 +86,25 @@ def test_main():
 def test_generate_list_of_topic_groups():
     res = main._generate_list_of_topic_groups()
     assert len(res) == 20
+
+
+def test__define_which_topic_groups_to_be_checked():
+    res = main._define_which_topic_groups_to_be_checked()
+    assert res
+
+
+def test_get_topics_to_check():
+    cnt = 10
+    geofolder = db_factories.GeoFolderFactory.create_sync(
+        folder_type='searches',
+    )
+    for _ in range(cnt):
+        search = db_factories.SearchFactory.create_sync(
+            status='Ищем',
+            forum_folder_id=geofolder.folder_id,
+        )
+        search_health_check = db_factories.SearchHealthCheckFactory.create_sync(
+            search_forum_num=search.search_forum_num,
+        )
+    topics_to_check = main.get_topics_to_check()
+    assert topics_to_check
