@@ -26,7 +26,11 @@ def db(patch_app_config):
 
 class TestDBClient:
     def test_get_random_hidden_topic(self, db_client: DBClient, session: Session):
-        db_client.get_random_hidden_topic()
+        search = db_factories.SearchFactory.create_sync(status='Ищем')
+        search_health_check = db_factories.SearchHealthCheckFactory.create_sync(
+            search_forum_num=search.search_forum_num, status='hidden'
+        )
+        assert db_client.get_random_hidden_topic_id()
 
     def test_delete_search_health_check(self, db_client: DBClient, session: Session):
         model = db_factories.SearchHealthCheckFactory.create_sync()

@@ -29,34 +29,23 @@ def get_db_client() -> DBClient:
 def update_one_topic_visibility(search_id: int) -> None:
     """record in psql the visibility of one topic: regular, deleted or hidden"""
 
-    forum_unavailable, visibility = define_topic_visibility_by_topic_id(search_id)
-    logging.info(f'Visibility checked for {search_id}: visibility = {visibility}')
+    visibility = define_topic_visibility_by_topic_id(search_id)
 
-    if forum_unavailable or not visibility:
+    if not visibility:
         return
 
     db_client = get_db_client()
-    try:
-        db_client.delete_search_health_check(search_id)
-        db_client.write_search_health_check(search_id, visibility)
-        logging.info(f'Visibility updated for {search_id} and set as {visibility}')
-
-    except Exception as e:
-        logging.exception('exception in update_one_topic_visibility')
+    db_client.delete_search_health_check(search_id)
+    db_client.write_search_health_check(search_id, visibility)
+    logging.info(f'Visibility updated for {search_id} and set as {visibility}')
 
 
 def update_visibility_for_one_hidden_topic() -> None:
     """check if the hidden search was unhidden"""
 
-    try:
-        hidden_topic_data = get_db_client().get_random_hidden_topic()
-        topic_id, current_status = hidden_topic_data
-        if current_status in {'Ищем', 'Возобновлен'}:
-            logging.info(f'we start checking visibility for topic {topic_id}')
-            update_one_topic_visibility(topic_id)
-
-    except Exception as e:
-        logging.exception('exception in update_visibility_for_one_hidden_topic')
+    hidden_topic_id = get_db_client().get_random_hidden_topic_id()
+    logging.info(f'we start checking visibility for topic {hidden_topic_id}')
+    update_one_topic_visibility(hidden_topic_id)
 
 
 def _generate_list_of_topic_groups() -> list[PercentGroup]:
@@ -123,7 +112,6 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
     """generate a list of topic_ids with updated first posts and record in it PSQL"""
 
     num_of_searches_counter = 0
-    num_of_site_errors_counter = 0
     list_of_searches_with_updated_f_posts: list[int] = []
     db_client = get_db_client()
     try:
@@ -132,14 +120,7 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
             topic_id = line.topic_id
             post_data = get_first_post(topic_id)
 
-            if post_data.forum_unavailable:
-                num_of_site_errors_counter += 1
-                logging.info(f'forum unavailable for search {topic_id}')
-                if num_of_site_errors_counter > 3:
-                    notify_admin(f'LA FORUM UNAVAILABLE, che_posts tried {num_of_site_errors_counter} times.')
-                    break
-
-            elif post_data.not_found:
+            if not post_data:
                 update_one_topic_visibility(topic_id)
 
             else:

@@ -8,13 +8,13 @@ import requests
 from _dependencies.commons import Topics, publish_to_pubsub
 from _dependencies.misc import make_api_call
 from _dependencies.recognition_schema import RecognitionResult
+from retry import retry
 
 
 @dataclass
 class FirstPostData:
     hash_num: str | None
     content: str
-    forum_unavailable: bool
     not_found: bool
     topic_visibility: str | None
 
@@ -23,33 +23,26 @@ def define_topic_visibility_by_content(content: str) -> str:
     """define visibility for the topic's content: regular, hidden or deleted"""
 
     if content.find('Запрошенной темы не существует.') > -1:
-        visibility = 'deleted'
-    elif content.find('Для просмотра этого форума вы должны быть авторизованы') > -1:
-        visibility = 'hidden'
-    else:
-        visibility = 'regular'
+        return 'deleted'
 
-    return visibility
+    if content.find('Для просмотра этого форума вы должны быть авторизованы') > -1:
+        return 'hidden'
+
+    return 'regular'
 
 
-def parse_search(search_num: int) -> tuple[str, bool]:
+@retry(requests.exceptions.RequestException, tries=3, delay=10)
+def parse_search(search_num: int) -> str:
     """parse the whole search page"""
 
-    requests_session = requests.Session()
+    url = f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
+    response = requests.get(url, timeout=10)  # seconds – not sure if it is efficient in this case
+    response.raise_for_status()
+    str_content = response.content.decode('utf-8')
+    if str_content.find('502 Bad Gateway'):
+        raise requests.exceptions.RequestException('forum unavailable')
 
-    try:
-        url = f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
-        r = requests_session.get(url, timeout=10)  # seconds – not sure if it is efficient in this case
-        content = r.content.decode('utf-8')
-        content = None if content.find('502 Bad Gateway') > 0 else content
-        site_unavailable = False if content else True
-
-    except requests.exceptions.RequestException as e:
-        logging.info(f'[che_posts]: site unavailable: {e.__class__.__name__}')
-        content = None
-        site_unavailable = True
-
-    return content, site_unavailable
+    return str_content
 
 
 def _recognize_status_with_title_recognize(title: str) -> str | None:
@@ -63,7 +56,7 @@ def _recognize_status_with_title_recognize(title: str) -> str | None:
     return None
 
 
-def change_topic_status(topic_id: int, act_content: str) -> None:
+def _change_topic_status(topic_id: int, act_content: str) -> None:
     """block to check if Status of the search has changed – if so send a pub/sub to topic_management"""
 
     # get the Title out of page content (intentionally avoid BS4 to make pack slimmer)
@@ -72,7 +65,6 @@ def change_topic_status(topic_id: int, act_content: str) -> None:
     if not title:
         return
 
-    # language=regexp
     status = _parse_status_from_title(title)
 
     if not status:
@@ -81,6 +73,7 @@ def change_topic_status(topic_id: int, act_content: str) -> None:
     if not status or status == 'Ищем':
         return
 
+    # TODO change status right here
     publish_to_pubsub(Topics.topic_for_topic_management, {'topic_id': topic_id, 'status': status})
 
 
@@ -147,24 +140,18 @@ def prettify_content(content: str) -> str:
     return content
 
 
-def get_first_post(search_num: int) -> FirstPostData:
+def get_first_post(search_num: int) -> FirstPostData | None:
     """parse the first post of search"""
 
-    cont, forum_unavailable = parse_search(search_num)
+    cont = parse_search(search_num)
     not_found = True if cont and re.search(r'Запрошенной темы не существует', cont) else False
 
-    if forum_unavailable or not_found:
-        return FirstPostData(
-            hash_num=None,
-            content=cont,
-            forum_unavailable=forum_unavailable,
-            not_found=not_found,
-            topic_visibility=None,
-        )
+    if not_found:
+        return None
 
     # FIXME – deactivated on Feb 6 2023 because seems it's not correct that this script should check status
     # FIXME – activated on Feb 7 2023 –af far as there were 2 searches w/o status updated
-    change_topic_status(search_num, cont)
+    _change_topic_status(search_num, cont)
     topic_visibility = define_topic_visibility_by_content(cont)
 
     cont = prettify_content(cont)
@@ -175,7 +162,6 @@ def get_first_post(search_num: int) -> FirstPostData:
     return FirstPostData(
         hash_num=hash_num,
         content=cont,
-        forum_unavailable=forum_unavailable,
         not_found=not_found,
         topic_visibility=topic_visibility,
     )
@@ -184,13 +170,10 @@ def get_first_post(search_num: int) -> FirstPostData:
 def define_topic_visibility_by_topic_id(search_num: int) -> tuple[bool, str]:
     """check is the existing search was deleted or hidden"""
 
-    content, site_unavailable = parse_search(search_num)
-
-    if site_unavailable:
-        return None, None
+    content = parse_search(search_num)
 
     topic_visibility = define_topic_visibility_by_content(content)
 
     logging.info(f'visibility for search {search_num} is defined as {topic_visibility}')
 
-    return site_unavailable, topic_visibility
+    return topic_visibility
