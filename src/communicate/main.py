@@ -535,7 +535,8 @@ def compose_msg_on_active_searches_in_one_reg_ikb(
                 (s.status='Ищем' OR s.status='Возобновлен'
                 and (shc.status is NULL or shc.status'ok' or shc.status='regular')
                 )
-            or upswl.search_following_mode=%(search_follow_on)s
+            or (upswl.search_following_mode=%(search_follow_on)s
+                and s.status in('Ищем', 'Возобновлен', 'СТОП')
             )
         ORDER BY s.search_start_time DESC
         LIMIT 20;"""
@@ -545,7 +546,6 @@ def compose_msg_on_active_searches_in_one_reg_ikb(
         {
             'region': region,
             'user_id': user_id,
-            'only_followed': only_followed,
             'search_follow_on': SearchFollowingMode.ON,
         },
     )
@@ -698,7 +698,7 @@ def compose_full_message_on_list_of_searches_ikb(
 
     # Combine the list of the latest active searches
     else:
-        ikb += compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_id, only_followed)
+        ikb += compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_id)
         logging.info(f'ikb += compose_msg_on_active_searches_in_one_reg_ikb == {ikb}; ({region=})')
 
         if len(ikb) > 0:
