@@ -524,24 +524,20 @@ def compose_msg_on_active_searches_in_one_reg_ikb(
     ikb = []
 
     sql_text = """
-        SELECT s2.*, upswl.search_following_mode FROM 
-            (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
-            s.topic_type, s.family_name, s.age 
-            FROM searches s 
-            LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
-            WHERE s.forum_folder_id=%(region)s
-                AND (s.status='Ищем' OR s.status='Возобновлен' or not %(only_followed)s)
-            ORDER BY s.search_start_time DESC) s2 
-        LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
-        LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=%(user_id)s"""
-    if only_followed:
-        sql_text += """
-        WHERE upswl.search_following_mode=%(search_follow_on)s"""
-    else:
-        sql_text += """
-        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular')"""
-    sql_text += """
-        ORDER BY s2.search_start_time DESC
+        SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
+        s.topic_type, s.family_name, s.age, upswl.search_following_mode
+        FROM searches s 
+        LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
+        LEFT JOIN search_health_check shc ON s.search_forum_num=shc.search_forum_num
+        LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s.search_forum_num and upswl.user_id=%(user_id)s
+        WHERE s.forum_folder_id=%(region)s
+        AND (
+                (s.status='Ищем' OR s.status='Возобновлен'
+                and (shc.status is NULL or shc.status'ok' or shc.status='regular')
+                )
+            or upswl.search_following_mode=%(search_follow_on)s
+            )
+        ORDER BY s.search_start_time DESC
         LIMIT 20;"""
 
     cur.execute(
