@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -7,11 +8,23 @@ from sqlalchemy.orm import Session
 
 from _dependencies.commons import sqlalchemy_get_pool
 from check_first_posts_for_changes import main
+from check_first_posts_for_changes._utils import forum
 from check_first_posts_for_changes._utils.database import DBClient
 from tests.common import find_model
 from tests.factories import db_factories, db_models
 
 fake = Faker()
+
+
+@pytest.fixture(autouse=True)
+def patch_http():
+    pass  # disable http mocking
+
+
+@pytest.fixture
+def mock_topic_management():
+    with patch.object(forum, '_change_topic_status'):
+        yield
 
 
 @pytest.fixture(scope='session')
@@ -89,11 +102,13 @@ def test_main():
 
 def test_generate_list_of_topic_groups():
     res = main._generate_list_of_topic_groups()
+
     assert len(res) == 20
 
 
 def test__define_which_topic_groups_to_be_checked():
     res = main._define_which_topic_groups_to_be_checked()
+
     assert res
 
 
@@ -110,5 +125,45 @@ def test_get_topics_to_check():
         search_health_check = db_factories.SearchHealthCheckFactory.create_sync(
             search_forum_num=search.search_forum_num,
         )
+
     topics_to_check = main.get_topics_to_check()
+
     assert topics_to_check
+
+
+def test_update_one_topic_visibility(session):
+    search_health_check = db_factories.SearchHealthCheckFactory.create_sync()
+    old_status = search_health_check.status
+    topic_id = search_health_check.search_forum_num
+
+    main.update_one_topic_visibility(topic_id, 'hidden')
+
+    assert not find_model(session, db_models.SearchHealthCheck, search_forum_num=topic_id, status=old_status)
+    assert find_model(session, db_models.SearchHealthCheck, search_forum_num=topic_id, status='hidden')
+
+
+class TestForum:
+    def test_get_search_raw_content(self, requests_mock):
+        search_num = 1
+        text = Path('tests/fixtures/forum_viewtopic_first_post.html').read_text()
+        requests_mock.get(
+            f'https://lizaalert.org/forum/viewtopic.php?t={search_num}',
+            text=text,
+        )
+
+        res = forum.get_search_raw_content(search_num)
+
+        assert res
+
+    def test_get_first_post(self, requests_mock, mock_topic_management):
+        search_num = 1
+        text = Path('tests/fixtures/forum_viewtopic_first_post.html').read_text()
+        requests_mock.get(
+            f'https://lizaalert.org/forum/viewtopic.php?t={search_num}',
+            text=text,
+        )
+
+        res = forum.get_first_post(search_num)
+
+        assert res.topic_visibility == 'regular'
+        assert res.hash_num == '30439b2156a1c8050154c142dda4d04c'

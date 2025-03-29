@@ -4,11 +4,11 @@ import re
 from dataclasses import dataclass
 
 import requests
+from retry import retry
 
 from _dependencies.commons import Topics, publish_to_pubsub
 from _dependencies.misc import make_api_call
 from _dependencies.recognition_schema import RecognitionResult
-from retry import retry
 
 
 @dataclass
@@ -40,7 +40,7 @@ def get_search_raw_content(search_num: int) -> str:
     response = requests.get(url, timeout=10)  # seconds – not sure if it is efficient in this case
     response.raise_for_status()
     str_content = response.content.decode('utf-8')
-    if str_content.find('502 Bad Gateway'):
+    if str_content.find('502 Bad Gateway') != -1:
         raise requests.exceptions.RequestException('forum unavailable')
 
     return str_content
@@ -57,11 +57,11 @@ def _recognize_status_with_title_recognize(title: str) -> str | None:
     return None
 
 
-def _change_topic_status(topic_id: int, act_content: str) -> None:
+def _change_topic_status(topic_id: int, topic_content: str) -> None:
     """block to check if Status of the search has changed – if so send a pub/sub to topic_management"""
 
     # get the Title out of page content (intentionally avoid BS4 to make pack slimmer)
-    title = _parse_title(act_content)
+    title = _parse_title(topic_content)
 
     if not title:
         return

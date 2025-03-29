@@ -12,13 +12,12 @@ from google.cloud.functions.context import Context
 
 from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
 
-
 from ._utils.commons import PercentGroup, Search
 from ._utils.database import DBClient
 from ._utils.forum import (
+    define_topic_visibility_by_content,
     get_first_post,
     get_search_raw_content,
-    define_topic_visibility_by_content,
 )
 
 setup_google_logging()
