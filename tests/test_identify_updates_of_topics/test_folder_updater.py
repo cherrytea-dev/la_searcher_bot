@@ -58,15 +58,20 @@ class TestFolderUpdaterChangeLogCreation:
         assert find_model(session, db_models.Search, search_forum_num=search_summary.topic_id)
 
     def test_changed_search(self, session, folder_updater: PatchedFolderUpdater):
-        search_summary = SearchSummaryFactory.build(folder_id=folder_updater.folder_num)
+        start_replies = 2
+        search_summary = SearchSummaryFactory.build(
+            folder_id=folder_updater.folder_num,
+            num_of_replies=start_replies + 1,
+        )
         existed_search = db_factories.SearchFactory.create_sync(
             search_forum_num=search_summary.topic_id,
             forum_folder_id=search_summary.folder_id,
+            num_of_replies=start_replies,
         )
 
         change_log_ids = folder_updater._update_change_log_and_searches([search_summary])
 
-        assert len(change_log_ids) == 2
+        assert len(change_log_ids) == 4
         assert find_model(
             session,
             db_models.ChangeLog,
@@ -78,6 +83,18 @@ class TestFolderUpdaterChangeLogCreation:
             db_models.ChangeLog,
             id=change_log_ids[1],
             change_type=ChangeType.topic_title_change,
+        )
+        assert find_model(
+            session,
+            db_models.ChangeLog,
+            id=change_log_ids[2],
+            change_type=ChangeType.topic_comment_new,
+        )
+        assert find_model(
+            session,
+            db_models.ChangeLog,
+            id=change_log_ids[3],
+            change_type=ChangeType.topic_inforg_comment_new,
         )
 
 
