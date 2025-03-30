@@ -537,6 +537,7 @@ def compose_msg_on_active_searches_in_one_reg_ikb(
                 )
             or (upswl.search_following_mode=%(search_follow_on)s
                 and s.status in('Ищем', 'Возобновлен', 'СТОП')
+                )
             )
         ORDER BY s.search_start_time DESC
         LIMIT 20;"""
