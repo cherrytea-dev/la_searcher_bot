@@ -4413,4 +4413,3 @@ def process_update(update: Update) -> str:
     conn_psy.close()
 
     return 'finished successfully. in was a regular conversational message'
-    

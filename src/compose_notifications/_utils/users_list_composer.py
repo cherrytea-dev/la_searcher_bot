@@ -474,4 +474,3 @@ def check_if_age_requirements_met(search_ages: tuple[int | None, int | None], us
         ):
             return True
     return False
-    
