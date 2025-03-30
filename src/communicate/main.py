@@ -3759,7 +3759,7 @@ def process_update(update: Update) -> str:
                 bot_message = 'Роль tester удалена. Приходите еще! :-) Возвращаемся в главное меню.'
                 reply_markup = reply_markup_main
 
-            elif got_message.lower() == b_test_search_follow_mode_on: # issue425
+            elif got_message.lower() == b_test_search_follow_mode_on:  # issue425
                 set_search_follow_mode(cur, user_id, True)
                 bot_message = 'Возможность отслеживания поисков включена. Возвращаемся в главное меню.'
                 reply_markup = reply_markup_main
@@ -4413,3 +4413,4 @@ def process_update(update: Update) -> str:
     conn_psy.close()
 
     return 'finished successfully. in was a regular conversational message'
+    
