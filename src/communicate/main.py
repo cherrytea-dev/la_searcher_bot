@@ -3690,7 +3690,7 @@ def process_update(update: Update) -> str:
                             except Exception as e:
                                 logging.info('failed to save the last message from bot')
                                 logging.exception(e)
-                    
+
                     # issue425 Button for turn on search following mode
                     if 'tester' in get_user_sys_roles(cur, user_id):
                         try:
@@ -3759,7 +3759,7 @@ def process_update(update: Update) -> str:
                 bot_message = 'Роль tester удалена. Приходите еще! :-) Возвращаемся в главное меню.'
                 reply_markup = reply_markup_main
 
-            elif got_message.lower() == b_test_search_follow_mode_on: #issue425
+            elif got_message.lower() == b_test_search_follow_mode_on: # issue425
                 set_search_follow_mode(cur, user_id, True)
                 bot_message = 'Возможность отслеживания поисков включена. Возвращаемся в главное меню.'
                 reply_markup = reply_markup_main
