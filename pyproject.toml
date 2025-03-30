@@ -157,7 +157,7 @@ files = [
     "src/api_get_active_searches/",
     "src/archive_notifications/",
     "src/archive_to_bigquery/",
-    # "src/check_first_posts_for_changes/",
+    "src/check_first_posts_for_changes/",
     "src/check_topics_by_upd_time/",
     # "src/communicate/",
     "src/compose_notifications/",
