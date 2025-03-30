@@ -1,13 +1,11 @@
 from copy import deepcopy
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 import pytest
 
 from _dependencies.commons import ChangeType
 from identify_updates_of_topics._utils.folder_updater import FolderUpdater
 from identify_updates_of_topics._utils.forum import ForumClient
-from identify_updates_of_topics._utils.topics_commons import ForumCommentItem
 from tests.common import find_model
 from tests.factories import db_factories, db_models
 from tests.test_identify_updates_of_topics.factories import SearchSummaryFactory, fake
@@ -23,40 +21,28 @@ def folder_updater(db_client) -> PatchedFolderUpdater:
 
 
 class FakeForum(ForumClient):
-    def parse_search_profile(self, search_num: int) -> str:
-        # return super().parse_search_profile(search_num)
-        return f'Profile for search {search_num}'
+    def _get_folder_content(self, folder_id: int) -> bytes:
+        return Path('tests/fixtures/forum_folder_179_with_subfolders.html').read_bytes()
 
-    def parse_coordinates_of_search(self, search_num):
-        return super().parse_coordinates_of_search(search_num)
+    def _get_comment_content(self, search_num: int, comment_num: int) -> bytes:
+        return Path('tests/fixtures/forum_comment.html').read_bytes()
 
-    def get_folder_searches(self, folder_id):
-        return super().get_folder_searches(folder_id)
-
-    def get_comment_data(self, search_num, comment_num) -> ForumCommentItem:
-        return super().get_comment_data(search_num, comment_num)
-
-    def setup(self, searches=None, comments=None, search_coords=None, search_summaries=None) -> None:
-        pass
+    def _get_topic_content(self, search_num: int) -> bytes:
+        return Path('tests/fixtures/forum_topic.html').read_bytes()
 
 
 class TestFolderUpdater:
-    def test_parse_one_folder(self, mock_http_get, folder_updater: PatchedFolderUpdater):
-        mock_http_get.return_value.content = Path('tests/fixtures/forum_folder_276.html').read_bytes()
-
+    def test_parse_one_folder(self, folder_updater: PatchedFolderUpdater):
         summaries, details = folder_updater._parse_one_folder()
 
         assert summaries == [
-            ['Жив Иванов Иван, 10 лет, ЗАО, г. Москва', 29],
-            ['Пропал Петров Петр Петрович, 48 лет, ЗелАО, г. Москва - Тверская обл.', 116],
+            ['Пропала Иванова Лидия 77 лет, г. Моршанск, Тамбовская обл.', 2],
+            ['Жив Иванов Иван 55 лет, Чистые пруды, Тамбовская обл.', 13],
         ]
         assert len(details) == 2
 
-    def test_process_one_folder(self, mock_http_get, folder_updater: PatchedFolderUpdater):
-        mock_http_get.return_value.content = Path('tests/fixtures/forum_folder_276.html').read_bytes()
-
-        with patch.object(folder_updater.forum, 'parse_search_profile', Mock(return_value='foo')):
-            update_trigger, changed_ids = folder_updater.run()
+    def test_process_one_folder(self, folder_updater: PatchedFolderUpdater):
+        update_trigger, changed_ids = folder_updater.run()
 
         assert update_trigger is True
 
@@ -72,15 +58,20 @@ class TestFolderUpdaterChangeLogCreation:
         assert find_model(session, db_models.Search, search_forum_num=search_summary.topic_id)
 
     def test_changed_search(self, session, folder_updater: PatchedFolderUpdater):
-        search_summary = SearchSummaryFactory.build(folder_id=folder_updater.folder_num)
+        start_replies = 2
+        search_summary = SearchSummaryFactory.build(
+            folder_id=folder_updater.folder_num,
+            num_of_replies=start_replies + 1,
+        )
         existed_search = db_factories.SearchFactory.create_sync(
             search_forum_num=search_summary.topic_id,
             forum_folder_id=search_summary.folder_id,
+            num_of_replies=start_replies,
         )
 
         change_log_ids = folder_updater._update_change_log_and_searches([search_summary])
 
-        assert len(change_log_ids) == 2
+        assert len(change_log_ids) == 4
         assert find_model(
             session,
             db_models.ChangeLog,
@@ -92,6 +83,18 @@ class TestFolderUpdaterChangeLogCreation:
             db_models.ChangeLog,
             id=change_log_ids[1],
             change_type=ChangeType.topic_title_change,
+        )
+        assert find_model(
+            session,
+            db_models.ChangeLog,
+            id=change_log_ids[2],
+            change_type=ChangeType.topic_comment_new,
+        )
+        assert find_model(
+            session,
+            db_models.ChangeLog,
+            id=change_log_ids[3],
+            change_type=ChangeType.topic_inforg_comment_new,
         )
 
 

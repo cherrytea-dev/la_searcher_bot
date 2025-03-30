@@ -11,10 +11,10 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 2
 
     steps:
       - uses: actions/checkout@v3
-
       - name: Build containers and run tests
         run: |
           make ci-test

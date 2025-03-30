@@ -40,11 +40,13 @@ idna==2.10
 intervaltree==3.1.0
 ipymarkup==0.9.0
 lxml==4.9.1
+multidict==6.2.0
 natasha==1.4.0
 navec==0.10.0
 nest-asyncio==1.6.0
 numpy==2.2.1
 pg8000==1.19.4
+propcache==0.3.1
 proto-plus==1.25.0
 protobuf==4.25.5
 psycopg2-binary==2.9.5
@@ -78,3 +80,4 @@ tzlocal==5.2
 urllib3==1.26.18
 yandex-geocoder==3.0.1
 yargy==0.16.0
+yarl==1.18.3
