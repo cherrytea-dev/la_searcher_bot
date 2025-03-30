@@ -512,7 +512,7 @@ def compose_msg_on_active_searches_in_one_reg(cur: cursor, region: int, user_dat
 
 
 def compose_msg_on_active_searches_in_one_reg_ikb(
-    cur: cursor, region: int, user_data: Tuple[str, str], user_id: int, only_followed: bool
+    cur: cursor, region: int, user_data: Tuple[str, str], user_id: int
 ) -> List:
     """Compose a part of message on the list of active searches in the given region with relation to user's coords"""
     # issue#425 it is ikb variant of the above function, returns data formated for inline keyboard
