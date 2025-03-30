@@ -368,7 +368,7 @@ class UserListFilter:
             LEFT JOIN user_pref_search_filtering upsf 
                 ON upsf.user_id=u.user_id and 'whitelist' = ANY(upsf.filter_name)
             WHERE 
-                (   upsf.filter_name is not null 
+                (   upsf.filter_name is not null /* user has activated following mode */
                     AND NOT /* condition to suppress notifications */
                         (   /* the user is not following this search */
                             NOT exists
