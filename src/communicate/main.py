@@ -533,7 +533,7 @@ def compose_msg_on_active_searches_in_one_reg_ikb(
         WHERE s.forum_folder_id=%(region)s
         AND (
                 (s.status='Ищем' OR s.status='Возобновлен'
-                and (shc.status is NULL or shc.status'ok' or shc.status='regular')
+                and (shc.status is NULL or shc.status='ok' or shc.status='regular')
                 )
             or (upswl.search_following_mode=%(search_follow_on)s
                 and s.status in('Ищем', 'Возобновлен', 'СТОП')
