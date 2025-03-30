@@ -52,7 +52,7 @@ def get_search_raw_content(search_num: int) -> str:
     except requests.exceptions.RequestException as exc:
         raise ForumUnavailable() from exc
 
-    response.raise_for_status()
+    # response.raise_for_status()
     str_content = response.content.decode('utf-8')
     if str_content.find('502 Bad Gateway') != -1:
         raise ForumUnavailable()
