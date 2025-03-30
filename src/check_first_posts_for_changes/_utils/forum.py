@@ -12,6 +12,10 @@ from _dependencies.misc import make_api_call
 from _dependencies.recognition_schema import RecognitionResult
 
 
+class ForumUnavailable(Exception):
+    pass
+
+
 @dataclass
 class FirstPostData:
     hash_num: str
@@ -38,16 +42,20 @@ def define_topic_visibility_by_content(content: str) -> str:
     return 'regular'
 
 
-@retry(requests.exceptions.RequestException, tries=3, delay=10)
+@retry(ForumUnavailable, tries=3, delay=10)
 def get_search_raw_content(search_num: int) -> str:
     """parse the whole search page"""
 
     url = f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
-    response = get_requests_session().get(url, timeout=10)  # seconds – not sure if it is efficient in this case
+    try:
+        response = get_requests_session().get(url, timeout=10)  # seconds – not sure if it is efficient in this case
+    except requests.exceptions.RequestException as exc:
+        raise ForumUnavailable() from exc
+
     response.raise_for_status()
     str_content = response.content.decode('utf-8')
     if str_content.find('502 Bad Gateway') != -1:
-        raise requests.exceptions.RequestException('forum unavailable')
+        raise ForumUnavailable()
 
     return str_content
 

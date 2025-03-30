@@ -15,6 +15,7 @@ from _dependencies.commons import Topics, publish_to_pubsub, setup_google_loggin
 from ._utils.commons import PercentGroup, Search
 from ._utils.database import DBClient
 from ._utils.forum import (
+    ForumUnavailable,
     define_topic_visibility_by_content,
     get_first_post,
     get_search_raw_content,
@@ -121,16 +122,21 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
     db_client = get_db_client()
     try:
         for line in searches_list:
-            num_of_searches_counter += 1
             topic_id = line.topic_id
             hash_updated = _update_one_topic_hash(db_client, topic_id)
             if hash_updated:
                 list_of_searches_with_updated_f_posts.append(topic_id)
+            num_of_searches_counter += 1
 
-    except Exception as e:
-        logging.exception('exception in update_first_posts_and_statuses')
+    except ForumUnavailable:
+        logging.warning('forum unavailable')
 
-    logging.info(f'first posts checked for {num_of_searches_counter} searches')
+    logging.info(
+        (
+            f'first posts checked for {num_of_searches_counter} searches; '
+            f'updated hashes of {len(list_of_searches_with_updated_f_posts)} searches'
+        )
+    )
 
     return list_of_searches_with_updated_f_posts
 
@@ -184,7 +190,7 @@ def main(event: dict, context: Context) -> None:
 
     # BLOCK 2. small bonus: check one of topics, which has visibility='hidden' to check if it was not unhidden later.
     # It is done in this script only because there's no better place. Ant these are circa 40 hidden topics at all.
-    update_visibility_for_one_hidden_topic()
-
-    # if bad_gateway_counter > 3:
-    #     notify_admin(f'[che_posts]: Bad Gateway {bad_gateway_counter} times')
+    try:
+        update_visibility_for_one_hidden_topic()
+    except ForumUnavailable:
+        pass  # nothing to do, just wait
