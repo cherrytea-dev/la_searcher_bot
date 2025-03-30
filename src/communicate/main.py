@@ -385,11 +385,11 @@ def compose_msg_on_all_last_searches_ikb(cur: cursor, region: int, user_id: int,
                 SELECT s21.*, upswl.search_following_mode FROM 
                     (SELECT search_forum_num, search_start_time, display_name, s01.status as new_status, s01.status, family_name, age 
                     FROM searches s01
+                    WHERE forum_folder_id=%(region)s 
                     ) s21 
                 INNER JOIN user_pref_search_whitelist upswl 
                     ON upswl.search_id=s21.search_forum_num and upswl.user_id=%(user_id)s
                         and upswl.search_following_mode=%(search_follow_on)s 
-                WHERE forum_folder_id=%(region)s 
                 """
     if not only_followed:
         sql_text += """
