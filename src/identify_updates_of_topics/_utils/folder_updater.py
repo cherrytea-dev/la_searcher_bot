@@ -204,7 +204,7 @@ class FolderUpdater:
         # TODO maybe we dont need snapshots at all. new_folder_summary is enough.
         prev_searches_list = self.db.get_searches(self.folder_num)
 
-        logging.debug(f'TEMP – len of prev_searches_list = {len(prev_searches_list)}')
+        print(f'TEMP – len of prev_searches_list = {len(prev_searches_list)}')
         if len(prev_searches_list) > 5000:
             logging.warning('TEMP - you use too big table Searches, it should be optimized')
 
