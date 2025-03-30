@@ -53,6 +53,10 @@ class UsersListComposer:
                                             )
                                         or :change_type = 1  -- status_changes
                                     )
+                                    and /* the user is tester */
+                                        exists (select 1 from user_roles ur
+                                            where ur.user_id=ulist.user_id and ur.role='tester'
+                                        )
                                     and /*following mode is on*/
                                         exists (select 1 from user_pref_search_filtering upsf
                                                     where upsf.user_id=ulist.user_id and 'whitelist' = ANY(upsf.filter_name)
@@ -368,7 +372,12 @@ class UserListFilter:
             LEFT JOIN user_pref_search_filtering upsf 
                 ON upsf.user_id=u.user_id and 'whitelist' = ANY(upsf.filter_name)
             WHERE 
-                (   upsf.filter_name is not null 
+                (   upsf.filter_name is not null /* user has activated following mode */
+                    AND /* the user is tester */
+                        exists 
+                            (select 1 from user_roles ur
+                            where ur.user_id=u.user_id and ur.role='tester'
+                            )
                     AND NOT /* condition to suppress notifications */
                         (   /* the user is not following this search */
                             NOT exists
@@ -474,3 +483,4 @@ def check_if_age_requirements_met(search_ages: tuple[int | None, int | None], us
         ):
             return True
     return False
+    
