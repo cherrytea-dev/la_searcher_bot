@@ -115,6 +115,7 @@ identify_updates_of_topics = [
     "natasha==1.4.0",               # recognition of person and location within text string
     "google-cloud-storage==2.10.0",
     "google-auth==2.19.1",          # for API calls to other Google Cloud Functions
+    "yarl==1.18.3",
 ]
 
 manage_topics = []

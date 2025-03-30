@@ -7,6 +7,7 @@ from typing import Any, no_type_check  # no_type_check for BeautifulSoup magic
 
 from bs4 import BeautifulSoup, SoupStrainer
 from requests import Session
+from yarl import URL
 
 from _dependencies.commons import Topics, publish_to_pubsub
 
@@ -218,7 +219,9 @@ class ForumClient:
                 comment_author_link = 'unidentified_link'
 
         # finding the global comment id
-        comment_forum_global_id = int(search_code_blocks.find('p', 'author').findNext('a')['href'][-6:])
+        comment_link = search_code_blocks.find('p', 'author').findNext('a')['href']
+        url = URL(comment_link)
+        comment_forum_global_id = int(url.query.get('p'))
 
         # finding TEXT of the comment
         comment_text_0 = search_code_blocks.find('div', 'content')
