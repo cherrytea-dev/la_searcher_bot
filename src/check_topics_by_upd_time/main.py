@@ -293,23 +293,26 @@ class FolderUpdateChecker:
         """Check if there are changes in folder that contain other folders"""
         page_summary = []
 
-        soup = self._fetch_and_parse_forum_page()
+        soup = self._fetch_and_parse_main_forum_page()
         search_code_blocks = soup.find_all('div', {'class': 'forabg'})
-        if search_code_blocks:
-            search_code_blocks = self._filter_search_code_blocks(search_code_blocks)  # type:ignore[assignment]
+        if not search_code_blocks:
+            # forum unavailable or something else
+            return []
 
-            for block in search_code_blocks:
-                folders = block.find_all('li', {'class': 'row'})
-                for folder in folders:
-                    folder_num, folder_time_str, folder_time = self._extract_folder_info(folder)
+        search_code_blocks = self._filter_search_code_blocks(search_code_blocks)  # type:ignore[assignment]
 
-                    if folder_num in self.useless_folders:
-                        continue
-                    page_summary.append([folder_num, folder_time_str, folder_time])
+        for block in search_code_blocks:
+            folders = block.find_all('li', {'class': 'row'})
+            for folder in folders:
+                folder_num, folder_time_str, folder_time = self._extract_folder_info(folder)
+
+                if folder_num in self.useless_folders:
+                    continue
+                page_summary.append([folder_num, folder_time_str, folder_time])
 
         return page_summary
 
-    def _fetch_and_parse_forum_page(self) -> BeautifulSoup:
+    def _fetch_and_parse_main_forum_page(self) -> BeautifulSoup:
         r = retry_call(get_session().get, fkwargs={'url': self.url, 'timeout': 20}, tries=5)
         only_tag = SoupStrainer('div', {'class': 'forabg'})
         return BeautifulSoup(r.content, features='lxml', parse_only=only_tag)
@@ -369,6 +372,9 @@ def get_updated_root_folders() -> list[str]:
     now = datetime.datetime.now()
     folder_checker = FolderUpdateChecker()
     list_of_folders_and_times = folder_checker.check_updates_in_folder_with_folders()
+    if not list_of_folders_and_times:
+        logging.info('No folders with new info were found')
+        return []
 
     last_update_time = max(x[2] for x in list_of_folders_and_times)
     time_diff_in_min = time_delta(now, last_update_time)
