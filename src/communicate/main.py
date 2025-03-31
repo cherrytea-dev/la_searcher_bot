@@ -46,21 +46,35 @@ from _dependencies.misc import (
 from communicate._utils.common import distance_to_search
 from communicate._utils.database import (
     add_user_sys_role,
+    check_if_new_user,
     check_if_user_has_no_regions,
+    check_onboarding_step,
+    compose_msg_on_user_setting_fullness,
+    compose_user_preferences_message,
     delete_last_user_inline_dialogue,
     delete_user_coordinates,
     delete_user_sys_role,
+    get_geo_folders_db,
+    get_last_bot_msg,
     get_last_user_inline_dialogue,
     get_search_follow_mode,
+    get_user_forum_attributes_db,
+    get_user_reg_folders_preferences,
     get_user_regions_from_db,
     get_user_role,
     get_user_sys_roles,
+    save_bot_reply_to_user,
     save_last_user_inline_dialogue,
+    save_last_user_message_in_db,
+    save_preference,
     save_user_coordinates,
     save_user_message_to_bot,
     save_user_pref_role,
     save_user_pref_topic_type,
+    save_user_pref_urgency,
+    set_search_follow_mode,
     show_user_coordinates,
+    write_user_forum_attributes_db,
 )
 
 setup_google_logging()
@@ -282,45 +296,6 @@ class AllButtons:
 
     def temp_all_keys(self):
         return [k for k, v in self.__dict__.items()]
-
-
-def compose_user_preferences_message(cur: cursor, user_id: int) -> List[Union[List[str], str]]:
-    """Compose a text for user on which types of notifications are enabled for zir"""
-
-    cur.execute("""SELECT preference FROM user_preferences WHERE user_id=%s ORDER BY preference;""", (user_id,))
-    user_prefs = cur.fetchall()
-
-    prefs_wording = ''
-    prefs_list = []
-    if user_prefs and len(user_prefs) > 0:
-        for user_pref_line in user_prefs:
-            prefs_list.append(user_pref_line[0])
-            if user_pref_line[0] == 'all':
-                prefs_wording += 'все сообщения'
-            elif user_pref_line[0] == 'new_searches':
-                prefs_wording += ' &#8226; о новых поисках\n'
-            elif user_pref_line[0] == 'status_changes':
-                prefs_wording += ' &#8226; об изменении статуса\n'
-            elif user_pref_line[0] == 'title_changes':
-                prefs_wording += ' &#8226; об изменении заголовка\n'
-            elif user_pref_line[0] == 'comments_changes':
-                prefs_wording += ' &#8226; о всех комментариях\n'
-            elif user_pref_line[0] == 'inforg_comments':
-                prefs_wording += ' &#8226; о комментариях Инфорга\n'
-            elif user_pref_line[0] == 'first_post_changes':
-                prefs_wording += ' &#8226; об изменениях в первом посте\n'
-            elif user_pref_line[0] == 'all_in_followed_search':
-                prefs_wording += ' &#8226; в отслеживаемом поиске - все уведомления\n'
-            elif user_pref_line[0] == 'bot_news':
-                pass
-            else:
-                prefs_wording += 'неизвестная настройка'
-    else:
-        prefs_wording += 'пока нет включенных уведомлений'
-
-    prefs_wording_and_list = [prefs_wording, prefs_list]
-
-    return prefs_wording_and_list
 
 
 def compose_msg_on_all_last_searches(cur: cursor, region: int) -> str:
@@ -730,203 +705,7 @@ def compose_full_message_on_list_of_searches_ikb(
     return ikb
 
 
-def check_if_new_user(cur: cursor, user_id: int) -> bool:
-    """check if the user is new or not"""
-
-    cur.execute("""SELECT user_id FROM users WHERE user_id=%s LIMIT 1;""", (user_id,))
-
-    info_on_user_from_users = str(cur.fetchone())
-
-    if info_on_user_from_users == 'None':
-        user_is_new = True
-    else:
-        user_is_new = False
-
-    return user_is_new
-
-
-def save_user_pref_urgency(
-    cur, user_id, urgency_value, b_pref_urgency_highest, b_pref_urgency_high, b_pref_urgency_medium, b_pref_urgency_low
-):
-    """save user urgency"""
-
-    urgency_dict = {
-        b_pref_urgency_highest: {'pref_id': 0, 'pref_name': 'highest'},
-        b_pref_urgency_high: {'pref_id': 1, 'pref_name': 'high'},
-        b_pref_urgency_medium: {'pref_id': 2, 'pref_name': 'medium'},
-        b_pref_urgency_low: {'pref_id': 3, 'pref_name': 'low'},
-    }
-
-    try:
-        pref_id = urgency_dict[urgency_value]['pref_id']
-        pref_name = urgency_dict[urgency_value]['pref_name']
-    except:  # noqa
-        pref_id = 99
-        pref_name = 'unidentified'
-
-    cur.execute("""DELETE FROM user_pref_urgency WHERE user_id=%s;""", (user_id,))
-    cur.execute(
-        """INSERT INTO user_pref_urgency (user_id, pref_id, pref_name, timestamp) VALUES (%s, %s, %s, %s);""",
-        (user_id, pref_id, pref_name, datetime.datetime.now()),
-    )
-
-    logging.info(f'urgency set as {pref_name} for user_id {user_id}')
-
-    return None
-
-
-def get_user_reg_folders_preferences(cur: cursor, user_id: int) -> List[int]:
-    """Return user's regional preferences"""
-
-    user_prefs_list = []
-
-    try:
-        cur.execute('SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=%s;', (user_id,))
-        user_reg_prefs_array = cur.fetchall()
-
-        for line in user_reg_prefs_array:
-            user_prefs_list.append(line[0])
-
-        logging.info(str(user_prefs_list))
-
-    except Exception as e:
-        logging.info(f'failed to get user regional prefs for user {user_id}')
-        logging.exception(e)
-
-    return user_prefs_list
-
-
 # issue#425
-def save_preference(cur: cursor, user_id: int, preference: str):
-    """Save user preference on types of notifications to be sent by bot"""
-
-    # the master-table is dict_notif_types:
-
-    pref_dict = {
-        'topic_new': 0,
-        'topic_status_change': 1,
-        'topic_title_change': 2,
-        'topic_comment_new': 3,
-        'topic_inforg_comment_new': 4,
-        'topic_field_trip_new': 5,
-        'topic_field_trip_change': 6,
-        'topic_coords_change': 7,
-        'topic_first_post_change': 8,
-        'topic_all_in_followed_search': 9,
-        'bot_news': 20,
-        'all': 30,
-        'not_defined': 99,
-        'new_searches': 0,
-        'status_changes': 1,
-        'title_changes': 2,
-        'comments_changes': 3,
-        'inforg_comments': 4,
-        'field_trips_new': 5,
-        'field_trips_change': 6,
-        'coords_change': 7,
-        'first_post_changes': 8,
-        'all_in_followed_search': 9,
-    }
-
-    def execute_insert(user: int, preference_name: str):
-        """execute SQL INSERT command"""
-
-        preference_id = pref_dict[preference_name]
-        cur.execute(
-            """INSERT INTO user_preferences 
-                        (user_id, preference, pref_id) 
-                        VALUES (%s, %s, %s) 
-                        ON CONFLICT DO NOTHING;""",
-            (user, preference_name, preference_id),
-        )
-
-        return None
-
-    def execute_delete(user: int, list_of_prefs: List[str]):
-        """execute SQL DELETE command"""
-
-        if list_of_prefs:
-            for line in list_of_prefs:
-                line_id = pref_dict[line]
-                cur.execute("""DELETE FROM user_preferences WHERE user_id=%s AND pref_id=%s;""", (user, line_id))
-        else:
-            cur.execute("""DELETE FROM user_preferences WHERE user_id=%s;""", (user,))
-
-        return None
-
-    def execute_check(user, pref_list):
-        """execute SQL SELECT command and returns TRUE / FALSE if something found"""
-
-        result = False
-
-        for line in pref_list:
-            cur.execute("""SELECT id FROM user_preferences WHERE user_id=%s AND preference=%s LIMIT 1;""", (user, line))
-
-            if str(cur.fetchone()) != 'None':
-                result = True
-                break
-
-        return result
-
-    if preference == 'all':
-        execute_delete(user_id, [])
-        execute_insert(user_id, preference)
-
-    elif preference in {
-        'new_searches',
-        'status_changes',
-        'title_changes',
-        'comments_changes',
-        'first_post_changes',
-        'all_in_followed_search',
-    }:
-        if execute_check(user_id, ['all']):
-            execute_insert(user_id, 'bot_news')
-        execute_delete(user_id, ['all'])
-
-        execute_insert(user_id, preference)
-
-        if preference == 'comments_changes':
-            execute_delete(user_id, ['inforg_comments'])
-
-    elif preference == 'inforg_comments':
-        if not execute_check(user_id, ['all', 'comments_changes']):
-            execute_insert(user_id, preference)
-
-    elif preference in {'field_trips_new', 'field_trips_change', 'coords_change'}:
-        # FIXME – temp deactivation unlit feature will be ready for prod
-        # FIXME – to be added to "new_searches" etc group
-        # if not execute_check(user_id, ['all']):
-        execute_insert(user_id, preference)
-
-    elif preference in {
-        '-new_searches',
-        '-status_changes',
-        '-comments_changes',
-        '-inforg_comments',
-        '-title_changes',
-        '-all',
-        '-field_trips_new',
-        '-field_trips_change',
-        '-coords_change',
-        '-first_post_changes',
-        '-all_in_followed_search',
-    }:
-        if preference == '-all':
-            execute_insert(user_id, 'bot_news')
-            execute_insert(user_id, 'new_searches')
-            execute_insert(user_id, 'status_changes')
-            execute_insert(user_id, 'inforg_comments')
-            execute_insert(user_id, 'first_post_changes')
-        elif preference == '-comments_changes':
-            execute_insert(user_id, 'inforg_comments')
-
-        preference = preference[1:]
-        execute_delete(user_id, [preference])
-
-    return None
-
-
 def update_and_download_list_of_regions(
     cur: cursor, user_id: int, got_message: str, b_menu_set_region: str, b_fed_dist_pick_other: str
 ) -> str:
@@ -1118,33 +897,6 @@ def update_and_download_list_of_regions(
         )
 
     return msg
-
-
-def get_last_bot_msg(cur: cursor, user_id: int) -> str:
-    """Get the last bot message to user to define if user is expected to give exact answer"""
-
-    cur.execute(
-        """
-        SELECT msg_type FROM msg_from_bot WHERE user_id=%s LIMIT 1;
-        """,
-        (user_id,),
-    )
-
-    extract = cur.fetchone()
-    logging.info('get the last bot message to user to define if user is expected to give exact answer')
-    logging.info(str(extract))
-
-    if extract and extract != 'None':
-        msg_type = extract[0]
-    else:
-        msg_type = None
-
-    if msg_type:
-        logging.info(f'before this message bot was waiting for {msg_type} from user {user_id}')
-    else:
-        logging.info(f'before this message bot was NOT waiting anything from user {user_id}')
-
-    return msg_type
 
 
 def generate_yandex_maps_place_link(lat: Union[float, str], lon: Union[float, str], param: str) -> str:
@@ -1667,15 +1419,7 @@ def manage_linking_to_forum(
 
     if got_message == b_set_forum_nick:
         # TODO: if user_is linked to forum so
-        cur.execute(
-            """SELECT forum_username, forum_user_id 
-                       FROM user_forum_attributes 
-                       WHERE status='verified' AND user_id=%s 
-                       ORDER BY timestamp DESC 
-                       LIMIT 1;""",
-            (user_id,),
-        )
-        saved_forum_user = cur.fetchone()
+        saved_forum_user = get_user_forum_attributes_db(cur, user_id)
 
         if not saved_forum_user:
             bot_message = (
@@ -1714,12 +1458,7 @@ def manage_linking_to_forum(
 
     elif got_message in {b_yes_its_me}:
         # Write "verified" for user
-        cur.execute(
-            """UPDATE user_forum_attributes SET status='verified'
-                WHERE user_id=%s and timestamp =
-                (SELECT MAX(timestamp) FROM user_forum_attributes WHERE user_id=%s);""",
-            (user_id, user_id),
-        )
+        write_user_forum_attributes_db(cur, user_id)
 
         bot_message = (
             'Отлично, мы записали: теперь бот будет понимать, кто вы на форуме.\nЭто поможет '
@@ -1761,31 +1500,6 @@ def save_onboarding_step(user_id: str, username: str, step: str) -> None:
     publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
 
     return None
-
-
-def check_onboarding_step(cur: cursor, user_id: int, user_is_new: bool) -> Tuple[int, str]:
-    """checks the latest step of onboarding"""
-
-    if user_is_new:
-        return 0, 'start'
-
-    try:
-        cur.execute(
-            """SELECT step_id, step_name, timestamp FROM user_onboarding 
-                               WHERE user_id=%s ORDER BY step_id DESC;""",
-            (user_id,),
-        )
-        raw_data = cur.fetchone()
-        if raw_data:
-            step_id, step_name, time = list(raw_data)
-        else:
-            step_id, step_name = 99, None
-
-    except Exception as e:
-        logging.exception(e)
-        step_id, step_name = 99, None
-
-    return step_id, step_name
 
 
 async def leave_chat_async(context: ContextTypes.DEFAULT_TYPE):
@@ -2112,6 +1826,7 @@ def get_basic_update_parameters(update: Update):
 
 def save_new_user(user_id: int, username: str) -> None:
     """send pubsub message to dedicated script to save new user"""
+    # TODO remove pub/sub, create user directly
 
     username = username if username else 'unknown'
     message_for_pubsub = {
@@ -2213,20 +1928,6 @@ def process_block_unblock_user(user_id, user_new_status):
     return None
 
 
-def save_bot_reply_to_user(cur: cursor, user_id: int, bot_message: str) -> None:
-    """save bot's reply to user in psql"""
-
-    if len(bot_message) > 27 and bot_message[28] in {'Актуальные поиски за 60 дней', 'Последние 20 поисков в разде'}:
-        bot_message = bot_message[28]
-
-    cur.execute(
-        """INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);""",
-        (user_id, 'bot', datetime.datetime.now(), bot_message),
-    )
-
-    return None
-
-
 def get_coordinates_from_string(got_message: str, lat_placeholder, lon_placeholder) -> Tuple[float, float]:
     """gets coordinates from string"""
 
@@ -2282,12 +1983,7 @@ def process_user_coordinates(
         bot_request_aft_usr_msg = 'not_defined'
 
     try:
-        cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
-
-        cur.execute(
-            """INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);""",
-            (user_id, datetime.datetime.now(), bot_request_aft_usr_msg),
-        )
+        save_last_user_message_in_db(cur, user_id, bot_request_aft_usr_msg)
 
     except Exception as e:
         logging.info('failed to update the last saved message from bot')
@@ -2310,111 +2006,6 @@ def run_onboarding(user_id: int, username: str, onboarding_step_id: int, got_mes
     return onboarding_step_id
 
 
-def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
-    """Create a text of message, which describes the degree on how complete user's profile is.
-    More settings set – more complete profile it. It's done to motivate users to set the most tailored settings."""
-
-    if not cur or not user_id:
-        return None
-
-    try:
-        cur.execute(
-            """SELECT
-                            user_id 
-                            , CASE WHEN role IS NOT NULL THEN TRUE ELSE FALSE END as role 
-                            , CASE WHEN (SELECT TRUE FROM user_pref_age WHERE user_id=%s LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS age
-                            , CASE WHEN (SELECT TRUE FROM user_coordinates WHERE user_id=%s LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS coords    
-                            , CASE WHEN (SELECT TRUE FROM user_pref_radius WHERE user_id=%s LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS radius
-                            , CASE WHEN (SELECT TRUE FROM user_pref_region WHERE user_id=%s LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS region
-                            , CASE WHEN (SELECT TRUE FROM user_pref_topic_type WHERE user_id=%s LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS topic_type
-                            , CASE WHEN (SELECT TRUE FROM user_pref_urgency WHERE user_id=%s LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS urgency
-                            , CASE WHEN (SELECT TRUE FROM user_preferences WHERE user_id=%s 
-                                AND preference!='bot_news' LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS notif_type
-                            , CASE WHEN (SELECT TRUE FROM user_regional_preferences WHERE user_id=%s LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS region_old
-                            , CASE WHEN (SELECT TRUE FROM user_forum_attributes WHERE user_id=%s
-                                AND status = 'verified' LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS forum
-                        FROM users WHERE user_id=%s;
-                        """,
-            (
-                user_id,
-                user_id,
-                user_id,
-                user_id,
-                user_id,
-                user_id,
-                user_id,
-                user_id,
-                user_id,
-                user_id,
-            ),
-        )
-
-        raw_data = cur.fetchone()
-
-        if not raw_data:
-            return None
-
-        (
-            _,
-            pref_role,
-            pref_age,
-            pref_coords,
-            pref_radius,
-            pref_region,
-            pref_topic_type,
-            pref_urgency,
-            pref_notif_type,
-            pref_region_old,
-            pref_forum,
-        ) = raw_data
-
-        list_of_settings = [pref_notif_type, pref_region_old, pref_coords, pref_radius, pref_age, pref_forum]
-        user_score = int(round(sum(list_of_settings) / len(list_of_settings) * 100, 0))
-
-        logging.info(f'List of user settings activation: {list_of_settings=}')
-        logging.info(f'User settings completeness score is {user_score}')
-
-        if user_score == 100:
-            return None
-
-        user_score_emoji = (
-            f'{user_score // 10}\U0000fe0f\U000020e3{user_score - (user_score // 10) * 10}\U0000fe0f\U000020e3'
-        )
-        message_text = (
-            f'Вы настроили бот на {user_score_emoji}%.\n\nЧтобы сделать бот максимально эффективным '
-            f'именно для вас, рекомендуем настроить следующие параметры:\n'
-        )
-        if not pref_notif_type:
-            message_text += ' - Тип уведомлений,\n'
-        if not pref_region_old:
-            message_text += ' - Регион,\n'
-        if not pref_coords:
-            message_text += ' - Домашние координаты,\n'
-        if not pref_radius:
-            message_text += ' - Максимальный радиус,\n'
-        if not pref_age:
-            message_text += ' - Возрастные группы БВП,\n'
-        if not pref_forum:
-            message_text += ' - Связать бот с форумом ЛА,\n'
-        message_text = message_text[:-2]
-
-        return message_text
-
-    except Exception as e:
-        logging.info('Exception in "compose_msg_on_user_setting_fullness" function')
-        logging.exception(e)
-        return None
-
-
 def if_user_enables(callback: Dict) -> Union[None, bool]:
     """check if user wants to enable or disable a feature"""
     user_wants_to_enable = None
@@ -2425,17 +2016,6 @@ def if_user_enables(callback: Dict) -> Union[None, bool]:
         user_wants_to_enable = False
 
     return user_wants_to_enable
-
-
-def set_search_follow_mode(cur: cursor, user_id: int, new_value: bool) -> None:
-    filter_name_value = ['whitelist'] if new_value else ['']
-    logging.info(f'{filter_name_value=}')
-    cur.execute(
-        """INSERT INTO user_pref_search_filtering (user_id, filter_name) values (%s, %s)
-                    ON CONFLICT (user_id) DO UPDATE SET filter_name=%s;""",
-        (user_id, filter_name_value, filter_name_value),
-    )
-    return None
 
 
 def main(request: Request) -> str:
@@ -3245,13 +2825,7 @@ def process_update(update: Update) -> str:
                     c_view_act_searches: 'active',
                 }
 
-                cur.execute(
-                    """
-                    SELECT folder_id, folder_display_name FROM geo_folders_view WHERE folder_type='searches';
-                    """
-                )
-
-                folders_list = cur.fetchall()
+                folders_list = get_geo_folders_db(cur)
 
                 if get_search_follow_mode(cur, user_id) and 'tester' in get_user_sys_roles(cur, user_id):
                     # issue#425 make inline keyboard - list of searches
