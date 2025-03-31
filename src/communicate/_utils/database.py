@@ -161,6 +161,13 @@ def show_user_coordinates(cur: cursor, user_id: int) -> Tuple[str, str]:
     return lat, lon
 
 
+def get_saved_user_coordinates(cur, user_id):
+    cur.execute('SELECT latitude, longitude FROM user_coordinates WHERE user_id=%s LIMIT 1;', (user_id,))
+
+    user_data = cur.fetchone()
+    return user_data
+
+
 def save_user_coordinates(cur: cursor, user_id: int, input_latitude: float, input_longitude: float) -> None:
     """Save / update user "home" coordinates"""
 
@@ -683,3 +690,164 @@ def get_age_prefs(cur, user_id):
     cur.execute("""SELECT period_min, period_max FROM user_pref_age WHERE user_id=%s;""", (user_id,))
     raw_list_of_periods = cur.fetchall()
     return raw_list_of_periods
+
+
+def get_existing_user_settings(cur, user_id):
+    cur.execute(
+        """SELECT
+                            user_id 
+                            , CASE WHEN role IS NOT NULL THEN TRUE ELSE FALSE END as role 
+                            , CASE WHEN (SELECT TRUE FROM user_pref_age WHERE user_id=%s LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS age
+                            , CASE WHEN (SELECT TRUE FROM user_coordinates WHERE user_id=%s LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS coords    
+                            , CASE WHEN (SELECT TRUE FROM user_pref_radius WHERE user_id=%s LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS radius
+                            , CASE WHEN (SELECT TRUE FROM user_pref_region WHERE user_id=%s LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS region
+                            , CASE WHEN (SELECT TRUE FROM user_pref_topic_type WHERE user_id=%s LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS topic_type
+                            , CASE WHEN (SELECT TRUE FROM user_pref_urgency WHERE user_id=%s LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS urgency
+                            , CASE WHEN (SELECT TRUE FROM user_preferences WHERE user_id=%s 
+                                AND preference!='bot_news' LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS notif_type
+                            , CASE WHEN (SELECT TRUE FROM user_regional_preferences WHERE user_id=%s LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS region_old
+                            , CASE WHEN (SELECT TRUE FROM user_forum_attributes WHERE user_id=%s
+                                AND status = 'verified' LIMIT 1) 
+                                THEN TRUE ELSE FALSE END AS forum
+                        FROM users WHERE user_id=%s;
+                        """,
+        (
+            user_id,
+            user_id,
+            user_id,
+            user_id,
+            user_id,
+            user_id,
+            user_id,
+            user_id,
+            user_id,
+            user_id,
+        ),
+    )
+
+    raw_data = cur.fetchone()
+    return raw_data
+
+
+def get_all_user_preferences(cur, user_id):
+    cur.execute("""SELECT preference FROM user_preferences WHERE user_id=%s ORDER BY preference;""", (user_id,))
+    user_prefs = cur.fetchall()
+    return user_prefs
+
+
+def get_all_active_searches_in_one_region_2(cur, region, user_id):
+    sql_text = """
+        SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
+        s.topic_type, s.family_name, s.age, upswl.search_following_mode
+        FROM searches s 
+        LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
+        LEFT JOIN search_health_check shc ON s.search_forum_num=shc.search_forum_num
+        LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s.search_forum_num and upswl.user_id=%(user_id)s
+        WHERE s.forum_folder_id=%(region)s
+        AND (
+                (s.status='Ищем' OR s.status='Возобновлен'
+                and (shc.status is NULL or shc.status='ok' or shc.status='regular')
+                )
+            or (upswl.search_following_mode=%(search_follow_on)s
+                and s.status in('Ищем', 'Возобновлен', 'СТОП')
+                )
+            )
+        ORDER BY s.search_start_time DESC
+        LIMIT 20;"""
+
+    cur.execute(
+        sql_text,
+        {
+            'region': region,
+            'user_id': user_id,
+            'search_follow_on': SearchFollowingMode.ON,
+        },
+    )
+    searches_list = cur.fetchall()
+    return searches_list
+
+
+def get_all_searches_in_one_region(cur, region):
+    cur.execute(
+        """SELECT s2.* FROM 
+            (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
+            FROM searches 
+            WHERE forum_folder_id=%s 
+            ORDER BY search_start_time DESC 
+            LIMIT 20) s2 
+        LEFT JOIN search_health_check shc 
+        ON s2.search_forum_num=shc.search_forum_num 
+        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+        ORDER BY s2.search_start_time DESC;""",
+        (region,),
+    )
+
+    database = cur.fetchall()
+    return database
+
+
+def get_all_last_searches_in_region(cur, region, user_id, only_followed):
+    sql_text = """
+        SELECT DISTINCT search_forum_num, search_start_time, display_name, status, status, family_name, age, search_following_mode
+        FROM(   -- q
+                SELECT s21.*, upswl.search_following_mode FROM 
+                    (SELECT search_forum_num, search_start_time, display_name, s01.status as new_status, s01.status, family_name, age 
+                    FROM searches s01
+                    WHERE forum_folder_id=%(region)s 
+                    ) s21 
+                INNER JOIN user_pref_search_whitelist upswl 
+                    ON upswl.search_id=s21.search_forum_num and upswl.user_id=%(user_id)s
+                        and upswl.search_following_mode=%(search_follow_on)s 
+                """
+    if not only_followed:
+        sql_text += """
+            UNION
+                SELECT s2.*, upswl.search_following_mode FROM 
+                    (SELECT search_forum_num, search_start_time, display_name, s00.status as new_status, s00.status, family_name, age 
+                    FROM searches s00
+                    WHERE forum_folder_id=%(region)s 
+                    ORDER BY search_start_time DESC 
+                    LIMIT 20) s2 
+                LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
+                LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=%(user_id)s
+                WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+            """
+    sql_text += """
+            )q
+        ORDER BY search_start_time DESC
+        LIMIT 20
+        ;"""
+
+    cur.execute(
+        sql_text,
+        {'region': region, 'user_id': user_id, 'search_follow_on': SearchFollowingMode.ON},
+    )
+
+    database = cur.fetchall()
+    return database
+
+
+def get_active_searches_in_one_region(cur, region):
+    cur.execute(
+        """SELECT s2.* FROM 
+            (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
+            s.topic_type, s.family_name, s.age 
+            FROM searches s 
+            LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
+            WHERE (s.status='Ищем' OR s.status='Возобновлен') 
+                AND s.forum_folder_id=%s ORDER BY s.search_start_time DESC) s2 
+        LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
+        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+        ORDER BY s2.search_start_time DESC;""",
+        (region,),
+    )
+    searches_list = cur.fetchall()
+    return searches_list
