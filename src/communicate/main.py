@@ -7,7 +7,6 @@ import datetime
 import hashlib
 import json
 import logging
-import math
 import re
 import urllib.parse
 import urllib.request
@@ -43,6 +42,20 @@ from _dependencies.misc import (
     notify_admin,
     process_sending_message_async,
     time_counter_since_search_start,
+)
+from communicate._utils.common import distance_to_search
+from communicate._utils.database import (
+    add_user_sys_role,
+    delete_last_user_inline_dialogue,
+    delete_user_coordinates,
+    delete_user_sys_role,
+    get_last_user_inline_dialogue,
+    get_search_follow_mode,
+    get_user_role,
+    save_last_user_inline_dialogue,
+    save_user_coordinates,
+    save_user_message_to_bot,
+    show_user_coordinates,
 )
 
 setup_google_logging()
@@ -795,107 +808,6 @@ def save_user_pref_urgency(
     return None
 
 
-def save_user_coordinates(cur: cursor, user_id: int, input_latitude: float, input_longitude: float) -> None:
-    """Save / update user "home" coordinates"""
-
-    cur.execute('DELETE FROM user_coordinates WHERE user_id=%s;', (user_id,))
-
-    now = datetime.datetime.now()
-    cur.execute(
-        """INSERT INTO user_coordinates (user_id, latitude, longitude, upd_time) values (%s, %s, %s, %s);""",
-        (user_id, input_latitude, input_longitude, now),
-    )
-
-    return None
-
-
-def show_user_coordinates(cur: cursor, user_id: int) -> Tuple[str, str]:
-    """Return the saved user "home" coordinates"""
-
-    cur.execute("""SELECT latitude, longitude FROM user_coordinates WHERE user_id=%s LIMIT 1;""", (user_id,))
-
-    try:
-        lat, lon = list(cur.fetchone())
-    except:  # noqa
-        lat = None
-        lon = None
-
-    return lat, lon
-
-
-def delete_user_coordinates(cur: cursor, user_id: int) -> None:
-    """Delete the saved user "home" coordinates"""
-
-    cur.execute('DELETE FROM user_coordinates WHERE user_id=%s;', (user_id,))
-
-    return None
-
-
-def distance_to_search(search_lat, search_lon, user_let, user_lon, coded_style=True):
-    """Return the distance and direction from user "home" coordinates to the search coordinates"""
-
-    r = 6373.0  # radius of the Earth
-
-    # coordinates in radians
-    lat1 = math.radians(float(search_lat))
-    lon1 = math.radians(float(search_lon))
-    lat2 = math.radians(float(user_let))
-    lon2 = math.radians(float(user_lon))
-
-    # change in coordinates
-    d_lon = lon2 - lon1
-
-    d_lat = lat2 - lat1
-
-    # Haversine formula
-    a = math.sin(d_lat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(d_lon / 2) ** 2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-    distance = r * c
-    dist = round(distance)
-
-    # define direction
-
-    def calc_bearing(lat_2, lon_2, lat_1, lon_1):
-        d_lon_ = lon_2 - lon_1
-        x = math.cos(math.radians(lat_2)) * math.sin(math.radians(d_lon_))
-        y = math.cos(math.radians(lat_1)) * math.sin(math.radians(lat_2)) - math.sin(math.radians(lat_1)) * math.cos(
-            math.radians(lat_2)
-        ) * math.cos(math.radians(d_lon_))
-        bearing = math.atan2(x, y)
-        bearing = math.degrees(bearing)
-
-        return bearing
-
-    def calc_nsew(lat_1, lon_1, lat_2, lon_2, coded_style=True):
-        # indicators of the direction, like ↖︎
-        if coded_style:
-            points = [
-                '&#8593;&#xFE0E;',
-                '&#8599;&#xFE0F;',
-                '&#8594;&#xFE0E;',
-                '&#8600;&#xFE0E;',
-                '&#8595;&#xFE0E;',
-                '&#8601;&#xFE0E;',
-                '&#8592;&#xFE0E;',
-                '&#8598;&#xFE0E;',
-            ]
-        else:
-            points = ['⬆️', '↗️', '➡️', '↘️', '⬇️', '↙️', '⬅️', '↖️']
-
-        bearing = calc_bearing(lat_1, lon_1, lat_2, lon_2)
-        bearing += 22.5
-        bearing = bearing % 360
-        bearing = int(bearing / 45)  # values 0 to 7
-        nsew = points[bearing]
-
-        return nsew
-
-    direction = calc_nsew(lat1, lon1, lat2, lon2, coded_style)
-
-    return [dist, direction]
-
-
 def get_user_reg_folders_preferences(cur: cursor, user_id: int) -> List[int]:
     """Return user's regional preferences"""
 
@@ -917,79 +829,7 @@ def get_user_reg_folders_preferences(cur: cursor, user_id: int) -> List[int]:
     return user_prefs_list
 
 
-def get_user_role(cur: cursor, user_id: int):
-    """Return user's role"""
-
-    user_role = None
-
-    try:
-        cur.execute('SELECT role FROM users WHERE user_id=%s LIMIT 1;', (user_id,))
-        user_role = cur.fetchone()
-        if user_role:
-            user_role = user_role[0]
-
-        logging.info(f'user {user_id} role is {user_role}')
-
-    except Exception as e:
-        logging.info(f'failed to get user role for user {user_id}')
-        logging.exception(e)
-
-    return user_role
-
-
 # issue#425
-def get_user_sys_roles(cur, user_id):
-    """Return user's roles in system"""
-
-    user_roles = ['']
-
-    try:
-        cur.execute('SELECT role FROM user_roles WHERE user_id=%s;', (user_id,))
-        lines = cur.fetchall()
-        for line in lines:
-            user_roles.append(line[0])
-        logging.info(f'user {user_id} role has roles {user_roles=}')
-    except Exception as e:
-        logging.info(f'failed to get from user_roles for user {user_id}')
-        logging.exception(e)
-
-    return user_roles
-
-
-def add_user_sys_role(cur, user_id, sys_role_name):
-    """Saves user's role in system"""
-
-    try:
-        cur.execute(
-            """INSERT INTO user_roles (user_id, role) 
-                    VALUES (%s, %s) ON CONFLICT DO NOTHING;""",
-            (user_id, sys_role_name),
-        )
-
-    except Exception as e:
-        logging.info(f'failed to insert into user_roles for user {user_id}')
-        logging.exception(e)
-
-    return None
-
-
-def delete_user_sys_role(cur, user_id, sys_role_name):
-    """Deletes user's role in system"""
-
-    try:
-        cur.execute(
-            """DELETE FROM user_roles 
-                    WHERE user_id=%s and role=%s;""",
-            (user_id, sys_role_name),
-        )
-
-    except Exception as e:
-        logging.info(f'failed to delete from user_roles for user {user_id}')
-        logging.exception(e)
-
-    return None
-
-
 def save_preference(cur: cursor, user_id: int, preference: str):
     """Save user preference on types of notifications to be sent by bot"""
 
@@ -2450,17 +2290,6 @@ def save_bot_reply_to_user(cur: cursor, user_id: int, bot_message: str) -> None:
     return None
 
 
-def save_user_message_to_bot(cur: cursor, user_id: int, got_message: str) -> None:
-    """save user's message to bot in psql"""
-
-    cur.execute(
-        """INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);""",
-        (user_id, 'user', datetime.datetime.now(), got_message),
-    )
-
-    return None
-
-
 def get_coordinates_from_string(got_message: str, lat_placeholder, lon_placeholder) -> Tuple[float, float]:
     """gets coordinates from string"""
 
@@ -2659,47 +2488,6 @@ def if_user_enables(callback: Dict) -> Union[None, bool]:
         user_wants_to_enable = False
 
     return user_wants_to_enable
-
-
-def save_last_user_inline_dialogue(cur, user_id: int, message_id: int) -> None:
-    """Save to DB the user's last interaction via inline buttons"""
-
-    cur.execute(
-        """INSERT INTO communications_last_inline_msg 
-                    (user_id, timestamp, message_id) values (%s, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', %s)
-                    ON CONFLICT (user_id, message_id) DO 
-                    UPDATE SET timestamp=CURRENT_TIMESTAMP AT TIME ZONE 'UTC';""",
-        (user_id, message_id),
-    )
-    return None
-
-
-def get_last_user_inline_dialogue(cur, user_id: int) -> list:
-    """Get from DB the user's last interaction via inline buttons"""
-
-    cur.execute("""SELECT message_id FROM communications_last_inline_msg WHERE user_id=%s;""", (user_id,))
-    message_id_lines = cur.fetchall()
-
-    message_id_list = []
-    if message_id_lines and len(message_id_lines) > 0:
-        for message_id_line in message_id_lines:
-            message_id_list.append(message_id_line[0])
-
-    return message_id_list
-
-
-def delete_last_user_inline_dialogue(cur, user_id: int) -> None:
-    """Delete form DB the user's last interaction via inline buttons"""
-
-    cur.execute("""DELETE FROM communications_last_inline_msg WHERE user_id=%s;""", (user_id,))
-    return None
-
-
-def get_search_follow_mode(cur, user_id: int):
-    cur.execute("""SELECT filter_name FROM user_pref_search_filtering WHERE user_id=%s LIMIT 1;""", (user_id,))
-    result_fetched = cur.fetchone()
-    result = result_fetched and 'whitelist' in result_fetched[0]
-    return result
 
 
 def set_search_follow_mode(cur: cursor, user_id: int, new_value: bool) -> None:
