@@ -337,18 +337,17 @@ class DBClient:
             ).fetchone()
             return row[0]
 
-    def get_searches(self, forum_folder_num: int) -> list[SearchSummary]:
+    def get_searches(self) -> list[SearchSummary]:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 SELECT 
                     search_forum_num, parsed_time, status, forum_search_title, search_start_time,
                     num_of_replies, family_name, age, id, forum_folder_id,
                     topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id 
-                FROM searches
-                WHERE forum_folder_id = :a;
+                FROM searches;
                                     """)
 
-            rows = conn.execute(stmt, a=forum_folder_num).fetchall()
+            rows = conn.execute(stmt).fetchall()
             prev_searches_list: list[SearchSummary] = []
             for r in rows:
                 search = SearchSummary(
