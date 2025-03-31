@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, Mock
 import pytest
 from psycopg2.extensions import cursor
 
+import communicate._utils.common
 import communicate._utils.handlers
 import communicate._utils.message_sending
 from _dependencies.commons import get_app_config, sql_connect_by_psycopg2
@@ -23,11 +24,11 @@ def test_update_and_download_list_of_regions():
 def test_manage_search_follow_mode(cur):
     # NO SMOKE TEST communicate.main.manage_search_follow_mode
     user_action = 'search_follow_mode_on'
-    bot_answer = main.manage_search_follow_mode(cur, '1', {'action': user_action}, 2, 3, 'token')
+    bot_answer = communicate._utils.handlers.manage_search_follow_mode(cur, '1', {'action': user_action}, 2, 3, 'token')
     assert bot_answer == 'Режим выбора поисков для отслеживания включен.'
 
     user_action = 'search_follow_mode_off'
-    bot_answer = main.manage_search_follow_mode(cur, '1', {'action': user_action}, 2, 3, 'token')
+    bot_answer = communicate._utils.handlers.manage_search_follow_mode(cur, '1', {'action': user_action}, 2, 3, 'token')
     assert bot_answer == 'Режим выбора поисков для отслеживания отключен.'
 
 
@@ -35,7 +36,7 @@ def test_manage_search_whiteness(cur):
     # NO SMOKE TEST communicate.main.manage_search_whiteness
     cb_query = get_callback_query()
     user_callback = {'action': 'search_follow_mode', 'hash': '123', 'text': '   '}
-    res = main.manage_search_whiteness(cur, 1, user_callback, 1, cb_query, 'token')
+    res = communicate._utils.handlers.manage_search_whiteness(cur, 1, user_callback, 1, cb_query, 'token')
 
     assert res[0] == 'foo'
 
@@ -44,11 +45,11 @@ def test_manage_topic_type(cur):
     # NO SMOKE TEST communicate.main.manage_topic_type
     cb_query = get_callback_query()
     user_callback = {'action': 'on', 'hash': '7bf077a5', 'text': '   '}
-    res = main.manage_topic_type(
+    res = communicate._utils.handlers.manage_topic_type(
         cur,
         1,
         'foo',
-        main.AllButtons(main.full_buttons_dict),
+        communicate._utils.common.AllButtons(main.full_buttons_dict),
         user_callback,
         1,
         'token',
@@ -80,7 +81,7 @@ def test_manage_age(cur):
 
 def test_save_onboarding_step():
     # NO SMOKE TEST communicate.main.save_onboarding_step
-    res = main.save_onboarding_step(1, 'testuser', 'step')
+    res = communicate._utils.common.save_onboarding_step(1, 'testuser', 'step')
 
     assert res is None
 

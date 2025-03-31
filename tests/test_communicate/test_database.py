@@ -5,7 +5,7 @@ from faker import Faker
 from psycopg2.extensions import cursor
 
 from _dependencies.commons import get_app_config, sql_connect_by_psycopg2
-from communicate import main
+from communicate._utils import handlers
 from communicate._utils.database import DBClient
 from tests.common import find_model
 from tests.factories import db_factories, db_models
@@ -37,6 +37,6 @@ def test_manage_search_whiteness(cur):
     cb_query = get_callback_query()
     user_callback = {'action': 'search_follow_mode', 'hash': '123', 'text': '   '}
 
-    res = main.manage_search_whiteness(cur, 1, user_callback, 1, cb_query, 'token')
+    res = handlers.manage_search_whiteness(cur, 1, user_callback, 1, cb_query, 'token')
 
     assert res[0] == 'foo'
