@@ -184,3 +184,76 @@ def save_user_coordinates(cur: cursor, user_id: int, input_latitude: float, inpu
     )
 
     return None
+
+
+def check_if_user_has_no_regions(cur, user_id):
+    """check if the user has at least one region"""
+
+    cur.execute("""SELECT user_id FROM user_regional_preferences WHERE user_id=%s LIMIT 1;""", (user_id,))
+
+    info_on_user_from_users = str(cur.fetchone())
+
+    if info_on_user_from_users == 'None':
+        no_regions = True
+    else:
+        no_regions = False
+
+    return no_regions
+
+
+def save_user_pref_role(cur, user_id, role_desc):
+    """save user role"""
+
+    role_dict = {
+        'я состою в ЛизаАлерт': 'member',
+        'я хочу помогать ЛизаАлерт': 'new_member',
+        'я ищу человека': 'relative',
+        'у меня другая задача': 'other',
+        'не хочу говорить': 'no_answer',
+    }
+
+    try:
+        role = role_dict[role_desc]
+    except:  # noqa
+        role = 'unidentified'
+
+    cur.execute("""UPDATE users SET role=%s where user_id=%s;""", (role, user_id))
+
+    logging.info(f'[comm]: user {user_id} selected role {role}')
+
+    return role
+
+
+def save_user_pref_topic_type(cur, user_id, pref_id, user_role):
+    def save(pref_type_id):
+        cur.execute(
+            """INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp) 
+                                            values (%s, %s, %s) ON CONFLICT (user_id, topic_type_id) DO NOTHING;""",
+            (user_id, pref_type_id, datetime.datetime.now()),
+        )
+        return None
+
+    if not (cur and user_id and pref_id):
+        return None
+
+    if pref_id == 'default':
+        if user_role in {'member', 'new_member'}:
+            default_topic_type_id = [0, 3, 4, 5]  # 0=regular, 3=training, 4=info_support, 5=resonance
+        else:
+            default_topic_type_id = [0, 4, 5]  # 0=regular, 4=info_support, 5=resonance
+
+        for type_id in default_topic_type_id:
+            save(type_id)
+
+    else:
+        save(pref_id)
+
+    return None
+
+
+def get_user_regions_from_db(cur, user_id):
+    cur.execute("""SELECT forum_folder_num from user_regional_preferences WHERE user_id=%s;""", (user_id,))
+
+    user_curr_regs_temp = cur.fetchall()
+    user_curr_regs = [reg[0] for reg in user_curr_regs_temp]
+    return user_curr_regs
