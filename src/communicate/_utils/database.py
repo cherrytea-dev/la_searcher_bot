@@ -1,6 +1,6 @@
 import datetime
 import logging
-from typing import List, Tuple, Union
+from typing import List, Tuple
 
 from psycopg2.extensions import cursor
 
@@ -268,45 +268,6 @@ def get_geo_folders_db(cur):
 
     folders_list = cur.fetchall()
     return folders_list
-
-
-def compose_user_preferences_message(cur: cursor, user_id: int) -> List[Union[List[str], str]]:
-    """Compose a text for user on which types of notifications are enabled for zir"""
-
-    cur.execute("""SELECT preference FROM user_preferences WHERE user_id=%s ORDER BY preference;""", (user_id,))
-    user_prefs = cur.fetchall()
-
-    prefs_wording = ''
-    prefs_list = []
-    if user_prefs and len(user_prefs) > 0:
-        for user_pref_line in user_prefs:
-            prefs_list.append(user_pref_line[0])
-            if user_pref_line[0] == 'all':
-                prefs_wording += 'все сообщения'
-            elif user_pref_line[0] == 'new_searches':
-                prefs_wording += ' &#8226; о новых поисках\n'
-            elif user_pref_line[0] == 'status_changes':
-                prefs_wording += ' &#8226; об изменении статуса\n'
-            elif user_pref_line[0] == 'title_changes':
-                prefs_wording += ' &#8226; об изменении заголовка\n'
-            elif user_pref_line[0] == 'comments_changes':
-                prefs_wording += ' &#8226; о всех комментариях\n'
-            elif user_pref_line[0] == 'inforg_comments':
-                prefs_wording += ' &#8226; о комментариях Инфорга\n'
-            elif user_pref_line[0] == 'first_post_changes':
-                prefs_wording += ' &#8226; об изменениях в первом посте\n'
-            elif user_pref_line[0] == 'all_in_followed_search':
-                prefs_wording += ' &#8226; в отслеживаемом поиске - все уведомления\n'
-            elif user_pref_line[0] == 'bot_news':
-                pass
-            else:
-                prefs_wording += 'неизвестная настройка'
-    else:
-        prefs_wording += 'пока нет включенных уведомлений'
-
-    prefs_wording_and_list = [prefs_wording, prefs_list]
-
-    return prefs_wording_and_list
 
 
 def check_if_new_user(cur: cursor, user_id: int) -> bool:
@@ -600,111 +561,6 @@ def save_last_user_message_in_db(cur, user_id, bot_request_aft_usr_msg):
         """INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);""",
         (user_id, datetime.datetime.now(), bot_request_aft_usr_msg),
     )
-
-
-def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
-    """Create a text of message, which describes the degree on how complete user's profile is.
-    More settings set – more complete profile it. It's done to motivate users to set the most tailored settings."""
-
-    if not cur or not user_id:
-        return None
-
-    try:
-        cur.execute(
-            """SELECT
-                            user_id 
-                            , CASE WHEN role IS NOT NULL THEN TRUE ELSE FALSE END as role 
-                            , CASE WHEN (SELECT TRUE FROM user_pref_age WHERE user_id=%s LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS age
-                            , CASE WHEN (SELECT TRUE FROM user_coordinates WHERE user_id=%s LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS coords    
-                            , CASE WHEN (SELECT TRUE FROM user_pref_radius WHERE user_id=%s LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS radius
-                            , CASE WHEN (SELECT TRUE FROM user_pref_region WHERE user_id=%s LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS region
-                            , CASE WHEN (SELECT TRUE FROM user_pref_topic_type WHERE user_id=%s LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS topic_type
-                            , CASE WHEN (SELECT TRUE FROM user_pref_urgency WHERE user_id=%s LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS urgency
-                            , CASE WHEN (SELECT TRUE FROM user_preferences WHERE user_id=%s 
-                                AND preference!='bot_news' LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS notif_type
-                            , CASE WHEN (SELECT TRUE FROM user_regional_preferences WHERE user_id=%s LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS region_old
-                            , CASE WHEN (SELECT TRUE FROM user_forum_attributes WHERE user_id=%s
-                                AND status = 'verified' LIMIT 1) 
-                                THEN TRUE ELSE FALSE END AS forum
-                        FROM users WHERE user_id=%s;
-                        """,
-            (
-                user_id,
-                user_id,
-                user_id,
-                user_id,
-                user_id,
-                user_id,
-                user_id,
-                user_id,
-                user_id,
-                user_id,
-            ),
-        )
-
-        raw_data = cur.fetchone()
-
-        if not raw_data:
-            return None
-
-        (
-            _,
-            pref_role,
-            pref_age,
-            pref_coords,
-            pref_radius,
-            pref_region,
-            pref_topic_type,
-            pref_urgency,
-            pref_notif_type,
-            pref_region_old,
-            pref_forum,
-        ) = raw_data
-
-        list_of_settings = [pref_notif_type, pref_region_old, pref_coords, pref_radius, pref_age, pref_forum]
-        user_score = int(round(sum(list_of_settings) / len(list_of_settings) * 100, 0))
-
-        logging.info(f'List of user settings activation: {list_of_settings=}')
-        logging.info(f'User settings completeness score is {user_score}')
-
-        if user_score == 100:
-            return None
-
-        user_score_emoji = (
-            f'{user_score // 10}\U0000fe0f\U000020e3{user_score - (user_score // 10) * 10}\U0000fe0f\U000020e3'
-        )
-        message_text = (
-            f'Вы настроили бот на {user_score_emoji}%.\n\nЧтобы сделать бот максимально эффективным '
-            f'именно для вас, рекомендуем настроить следующие параметры:\n'
-        )
-        if not pref_notif_type:
-            message_text += ' - Тип уведомлений,\n'
-        if not pref_region_old:
-            message_text += ' - Регион,\n'
-        if not pref_coords:
-            message_text += ' - Домашние координаты,\n'
-        if not pref_radius:
-            message_text += ' - Максимальный радиус,\n'
-        if not pref_age:
-            message_text += ' - Возрастные группы БВП,\n'
-        if not pref_forum:
-            message_text += ' - Связать бот с форумом ЛА,\n'
-        message_text = message_text[:-2]
-
-        return message_text
-
-    except Exception as e:
-        logging.info('Exception in "compose_msg_on_user_setting_fullness" function')
-        logging.exception(e)
-        return None
 
 
 def set_search_follow_mode(cur: cursor, user_id: int, new_value: bool) -> None:
