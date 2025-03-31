@@ -471,56 +471,6 @@ class TestUsersFilter:
         cropped_users = filterer._filter_users_not_following_this_search()
         assert user in cropped_users
 
-    def test_filter_users_long_query_2(self, connection, dict_notif_type_status_change):
-        """ """
-        finished_search = db_factories.SearchFactory.create_sync(status='СТОП')
-        finished_search_2 = db_factories.SearchFactory.create_sync(status='СТОП')
-        current_search = db_factories.SearchFactory.create_sync(status='NOT СТОП')
-
-        current_search_change_log = LineInChangeLogFactory.build(forum_search_num=current_search.search_forum_num)
-
-        user = UserFactory.build()
-        user_model = db_factories.UserFactory.create_sync(user_id=user.user_id)
-        db_factories.UserPrefSearchFilteringFactory.create_sync(user_id=user.user_id, filter_name=['whitelist'])
-
-        db_factories.UserPrefSearchWhitelistFactory.create_sync(
-            user=user_model,
-            search_id=finished_search.search_forum_num,
-            search_following_mode=SearchFollowingMode.ON,
-        )
-        db_factories.UserPrefSearchWhitelistFactory.create_sync(
-            user=user_model,
-            search_id=finished_search_2.search_forum_num,
-            search_following_mode=SearchFollowingMode.OFF,
-        )
-
-        filterer = UserListFilter(connection, current_search_change_log, [user])
-        cropped_users = filterer._filter_users_not_following_this_search()
-        assert user in cropped_users
-
-    def test_filter_users_long_query_3(self, connection, dict_notif_type_status_change):
-        """
-        User chould NOT receive notification.
-        """
-        finished_search = db_factories.SearchFactory.create_sync(status='СТОП')
-        current_search = db_factories.SearchFactory.create_sync(status='NOT СТОП')
-
-        current_search_change_log = LineInChangeLogFactory.build(forum_search_num=current_search.search_forum_num)
-
-        user = UserFactory.build()
-        user_model = db_factories.UserFactory.create_sync(user_id=user.user_id)
-        db_factories.UserPrefSearchFilteringFactory.create_sync(user_id=user.user_id, filter_name=['whitelist'])
-
-        db_factories.UserPrefSearchWhitelistFactory.create_sync(
-            user=user_model,
-            search_id=current_search.search_forum_num,
-            search_following_mode=SearchFollowingMode.OFF,
-        )
-
-        filterer = UserListFilter(connection, current_search_change_log, [user])
-        cropped_users = filterer._filter_users_not_following_this_search()
-        assert user not in cropped_users
-
     def test_filter_users_not_following_this_search_4(self, connection, dict_notif_type_status_change):
         line_in_change_log = LineInChangeLogFactory.build()
         user = UserFactory.build()

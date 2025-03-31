@@ -358,11 +358,13 @@ class UserListFilter:
         return temp_user_list
 
     def _filter_users_not_following_this_search(self) -> list[User]:
-        # 5. FOLLOW SEARCH. crop the list of users accordingly to the rules of search following
+        """6. FOLLOW SEARCH. crop the list of users accordingly to the rules of search following.
+        If user not using whitelist, he should receive this notification.
+        If user using whitelist, and there is no one active search in whitelist, he shouild receive notification.
+            (else user will not receive notifications at all)
+        If user is using whitelist, and there is at least one active search, he shouild receive only for selected searches.
+        """
 
-        """
-        TODO decompose. blacklist to separate step; reformat conditions in query.
-        """
         users_list_outcome = self.users
         record = self.new_record
 
@@ -399,61 +401,42 @@ class UserListFilter:
 
         temp_user_list: list[User] = []
         sql_text_ = sqlalchemy.text("""
-            SELECT u.user_id FROM users u
+            WITH users_following_at_least_one_active_search AS (
+                SELECT distinct(user_id) AS user_id
+                FROM user_pref_search_whitelist AS upswls 
+                INNER JOIN searches AS s
+                    ON upswls.search_id = s.search_forum_num
+                    AND upswls.search_following_mode = :following_mode_on
+                    AND s.status NOT IN ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
+            ),
+            users_following_this_search AS (
+                SELECT distinct(user_id) AS user_id
+                FROM user_pref_search_whitelist AS upswls 
+                    where upswls.search_id = :forum_search_num
+                    AND upswls.search_following_mode = :following_mode_on
+            )
+            ----
+            SELECT distinct(u.user_id)
+            FROM users u 
+            LEFT JOIN users_following_at_least_one_active_search as ufalos
+                ON u.user_id = ufalos.user_id
+            LEFT JOIN users_following_this_search as ufts
+                ON u.user_id = ufts.user_id
             LEFT JOIN user_pref_search_filtering upsf 
-                ON upsf.user_id=u.user_id and 'whitelist' = ANY(upsf.filter_name)
-            WHERE 
-                (   upsf.filter_name is not null /* user has activated following mode */
-                    AND NOT /* condition to suppress notifications */
-                        (   /* the user is not following this search */
-                            NOT exists
-                                (
-                                    select 1 from user_pref_search_whitelist upswls 
-                                    WHERE 
-                                        upswls.user_id=u.user_id 
-                                        and upswls.search_id = :forum_search_num 
-                                        and upswls.search_following_mode=:following_mode_on
-                                        AND (
-												:search_new_status 
-												not in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
-												OR
-													(
-														:search_new_status 
-														in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
-														AND :change_type != 1 
-														/* 1 means status_change which we should not suppress */
-													)
-											)
-                                )
-                            AND exists /*another followed search*/
-                                (
-                                    select 1 from user_pref_search_whitelist upswls
-                                    join searches s on s.search_forum_num=upswls.search_id and s.search_forum_num != :forum_search_num
-                                    WHERE 
-                                        upswls.user_id=u.user_id 
-                                        and upswls.search_following_mode=:following_mode_on
-										and s.status not in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
-                                )
-                        )
-                    AND NOT exists -- 2nd suppressing condition: the search is in blacklist for this user 
-                        (
-                            select 1 from user_pref_search_whitelist upswls 
-                            WHERE 
-                                upswls.user_id=u.user_id 
-                                and upswls.search_id = :forum_search_num 
-                                and upswls.search_following_mode=:following_mode_off
-                        )
-                )
-                OR upsf.filter_name is null
-            ;
+                ON upsf.user_id=u.user_id
+                AND 'whitelist' = ANY(upsf.filter_name)
+            where 
+                (upsf.user_id is null )
+                OR (upsf.user_id is not null AND ufalos.user_id is null)
+	            OR (upsf.user_id is not null AND ufts.user_id is not null)
+                    ;
         """)
         rows = self.conn.execute(
             sql_text_,
             forum_search_num=record.forum_search_num,
-            search_new_status=record.new_status,
-            change_type=record.change_type,
+            # search_new_status=record.new_status,
+            # change_type=record.change_type,
             following_mode_on=SearchFollowingMode.ON,
-            following_mode_off=SearchFollowingMode.OFF,
         ).fetchall()
         logging.info(f'Crop user list due to whitelisting: len(rows)=={len(rows)}')
 
