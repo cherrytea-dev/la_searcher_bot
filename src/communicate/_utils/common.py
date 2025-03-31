@@ -1,10 +1,21 @@
 import datetime
 import hashlib
 import math
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Union
 
 from _dependencies.commons import Topics, publish_to_pubsub
+
+
+@dataclass
+class AgePeriod:
+    description: str = None
+    name: str = None
+    current: bool = None
+    min_age: int = None
+    max_age: int = None
+    order: int = None
 
 
 class Button:
@@ -243,6 +254,7 @@ def if_user_enables(callback: Dict) -> Union[None, bool]:
 
 def save_onboarding_step(user_id: str, username: str, step: str) -> None:
     """save the certain step in onboarding"""
+    # TODO replace with direct db functions
 
     # to avoid eval errors in recipient script
     if not username:
@@ -255,4 +267,3 @@ def save_onboarding_step(user_id: str, username: str, step: str) -> None:
         'step': step,
     }
     publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
-    # TODO replace with direct db functions

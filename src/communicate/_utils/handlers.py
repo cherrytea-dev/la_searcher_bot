@@ -1,17 +1,28 @@
-import datetime
 import logging
 import re
-from typing import Any, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 from psycopg2.extensions import cursor
 from telegram import CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove
 
 from _dependencies.commons import Topics, publish_to_pubsub
-from communicate._utils.common import AllButtons, SearchFollowingMode, if_user_enables, save_onboarding_step
+from communicate._utils.common import AgePeriod, AllButtons, SearchFollowingMode, if_user_enables, save_onboarding_step
 from communicate._utils.database import (
+    add_folder_to_user_regional_preference,
+    add_region_to_user_settings,
     check_if_user_has_no_regions,
+    check_saved_radius,
+    check_saved_topic_types,
+    delete_user_age_pref,
+    delete_user_saved_radius,
+    delete_user_saved_topic_type,
+    get_age_prefs,
     get_user_forum_attributes_db,
+    record_search_whiteness,
+    record_topic_type,
+    save_user_age_prefs,
     save_user_pref_topic_type,
+    save_user_radius,
     set_search_follow_mode,
     write_user_forum_attributes_db,
 )
@@ -20,23 +31,6 @@ from communicate._utils.message_sending import make_api_call, send_callback_answ
 
 def manage_age(cur: cursor, user_id: int, user_input: Optional[str]) -> None:
     """Save user Age preference and generate the list of updated Are preferences"""
-
-    class AgePeriod:
-        def __init__(
-            self,
-            description: str = None,
-            name: str = None,
-            current=None,
-            min_age: int = None,
-            max_age: int = None,
-            order: int = None,
-        ):
-            self.desc = description
-            self.name = name
-            self.now = current
-            self.min = min_age
-            self.max = max_age
-            self.order = order
 
     age_list = [
         AgePeriod(description='Маленькие Дети 0-6 лет', name='0-6', min_age=0, max_age=6, order=0),
@@ -53,50 +47,38 @@ def manage_age(cur: cursor, user_id: int, user_input: Optional[str]) -> None:
 
         chosen_setting = None
         for line in age_list:
-            if user_new_setting == line.desc:
+            if user_new_setting == line.description:
                 chosen_setting = line
                 break
 
         if user_want_activate:
-            cur.execute(
-                """INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
-                        values (%s, %s, %s, %s, %s) ON CONFLICT (user_id, period_min, period_max) DO NOTHING;""",
-                (user_id, chosen_setting.name, datetime.datetime.now(), chosen_setting.min, chosen_setting.max),
-            )
+            save_user_age_prefs(cur, user_id, chosen_setting)
         else:
-            cur.execute(
-                """DELETE FROM user_pref_age WHERE user_id=%s AND period_min=%s AND period_max=%s;""",
-                (user_id, chosen_setting.min, chosen_setting.max),
-            )
+            delete_user_age_pref(cur, user_id, chosen_setting)
 
     # Block for Generating a list of Buttons
-    cur.execute("""SELECT period_min, period_max FROM user_pref_age WHERE user_id=%s;""", (user_id,))
-    raw_list_of_periods = cur.fetchall()
+    raw_list_of_periods = get_age_prefs(cur, user_id)
     first_visit = False
 
     if raw_list_of_periods and str(raw_list_of_periods) != 'None':
         for line_raw in raw_list_of_periods:
             got_min, got_max = int(list(line_raw)[0]), int(list(line_raw)[1])
             for line_a in age_list:
-                if int(line_a.min) == got_min and int(line_a.max) == got_max:
-                    line_a.now = True
+                if int(line_a.min_age) == got_min and int(line_a.max_age) == got_max:
+                    line_a.current = True
     else:
         first_visit = True
         for line_a in age_list:
-            line_a.now = True
+            line_a.current = True
         for line in age_list:
-            cur.execute(
-                """INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
-                        values (%s, %s, %s, %s, %s) ON CONFLICT (user_id, period_min, period_max) DO NOTHING;""",
-                (user_id, line.name, datetime.datetime.now(), line.min, line.max),
-            )
+            save_user_age_prefs(cur, user_id, line)
 
     list_of_buttons = []
     for line in age_list:
-        if line.now:
-            list_of_buttons.append([f'отключить: {line.desc}'])
+        if line.current:
+            list_of_buttons.append([f'отключить: {line.description}'])
         else:
-            list_of_buttons.append([f'включить: {line.desc}'])
+            list_of_buttons.append([f'включить: {line.description}'])
 
     return list_of_buttons, first_visit
 
@@ -115,16 +97,6 @@ def manage_radius(
 ) -> Tuple[str, ReplyKeyboardMarkup, None]:
     """Save user Radius preference and generate the actual radius preference"""
 
-    def check_saved_radius(user: int) -> Optional[Any]:
-        """check if user already has a radius preference"""
-
-        saved_rad = None
-        cur.execute("""SELECT radius FROM user_pref_radius WHERE user_id=%s;""", (user,))
-        raw_radius = cur.fetchone()
-        if raw_radius and str(raw_radius) != 'None':
-            saved_rad = int(raw_radius[0])
-        return saved_rad
-
     list_of_buttons = []
     expect_after = None
     bot_message = None
@@ -132,7 +104,7 @@ def manage_radius(
 
     if user_input:
         if user_input.lower() == b_menu:
-            saved_radius = check_saved_radius(user_id)
+            saved_radius = check_saved_radius(cur, user_id)
             if saved_radius:
                 list_of_buttons = [[b_change], [b_deact], [b_home_coord], [b_back]]
                 bot_message = (
@@ -162,7 +134,7 @@ def manage_radius(
         elif user_input in {b_act, b_change}:
             expect_after = 'radius_input'
             reply_markup_needed = False
-            saved_radius = check_saved_radius(user_id)
+            saved_radius = check_saved_radius(cur, user_id)
             if saved_radius:
                 bot_message = (
                     f'У вас установлено максимальное расстояние до поиска {saved_radius}.'
@@ -177,7 +149,7 @@ def manage_radius(
 
         elif user_input == b_deact:
             list_of_buttons = [[b_act], [b_menu], [b_back]]
-            cur.execute("""DELETE FROM user_pref_radius WHERE user_id=%s;""", (user_id,))
+            delete_user_saved_radius(cur, user_id)
             bot_message = 'Ограничение на расстояние по поискам снято!'
 
         elif expect_before == 'radius_input':
@@ -185,13 +157,8 @@ def manage_radius(
             if number:
                 number = int(number.group())
             if number and number > 0:
-                cur.execute(
-                    """INSERT INTO user_pref_radius (user_id, radius) 
-                               VALUES (%s, %s) ON CONFLICT (user_id) DO
-                               UPDATE SET radius=%s;""",
-                    (user_id, number, number),
-                )
-                saved_radius = check_saved_radius(user_id)
+                save_user_radius(cur, user_id, number)
+                saved_radius = check_saved_radius(cur, user_id)
                 bot_message = (
                     f'Сохранили! Теперь поиски, у которых расстояние до штаба, '
                     f'либо до ближайшего населенного пункта (топонима) превосходит '
@@ -223,38 +190,10 @@ def manage_topic_type(
 ) -> Union[tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
     """Save user Topic Type preference and generate the actual topic type preference message"""
 
-    def check_saved_topic_types(user: int) -> list:
-        """check if user already has any preference"""
-
-        saved_pref = []
-        cur.execute("""SELECT topic_type_id FROM user_pref_topic_type WHERE user_id=%s ORDER BY 1;""", (user,))
-        raw_data = cur.fetchall()
-        if raw_data and str(raw_data) != 'None':
-            for line in raw_data:
-                saved_pref.append(line[0])
-
-        logging.info(f'{saved_pref=}')
-
-        return saved_pref
-
-    def delete_topic_type(user: int, type_id: int) -> None:
-        """Delete a certain topic_type for a certain user_id from the DB"""
-
-        cur.execute("""DELETE FROM user_pref_topic_type WHERE user_id=%s AND topic_type_id=%s;""", (user, type_id))
-
-    def record_topic_type(user: int, type_id: int) -> None:
-        """Insert a certain topic_type for a certain user_id into the DB"""
-
-        cur.execute(
-            """INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp) 
-                        VALUES (%s, %s, %s) ON CONFLICT (user_id, topic_type_id) DO NOTHING;""",
-            (user, type_id, datetime.datetime.now()),
-        )
-
     if not user_input:
         return None, None
 
-    list_of_current_setting_ids = check_saved_topic_types(user_id)
+    list_of_current_setting_ids = check_saved_topic_types(cur, user_id)
 
     welcome_message = (
         'Вы можете выбрать и в любой момент поменять, по каким типам поисков или '
@@ -311,7 +250,7 @@ def manage_topic_type(
         elif user_wants_to_enable is True:  # not a poor design – function can be: None, True, False   # noqa
             bot_message = 'Супер, мы включили эти уведомления'
             send_callback_answer_to_api(bot_token, callback_id, bot_message)
-            record_topic_type(user_id, topic_id)
+            record_topic_type(cur, user_id, topic_id)
         else:  # user_wants_to_enable == False:  # not a poor design – function can be: None, True, False # noqa
             if len(list_of_current_setting_ids) == 1:
                 bot_message = '❌ Необходима как минимум одна настройка'
@@ -320,7 +259,7 @@ def manage_topic_type(
             else:
                 bot_message = 'Хорошо, мы изменили список настроек'
                 send_callback_answer_to_api(bot_token, callback_id, bot_message)
-                delete_topic_type(user_id, topic_id)
+                delete_user_saved_topic_type(cur, user_id, topic_id)
 
     keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -343,20 +282,6 @@ def manage_search_whiteness(
 
     # issue#425 inspired by manage_topic_type
     ################# ToDo further: modify select in compose_notifications
-
-    def record_search_whiteness(user: int, search_id: int, new_mark_value) -> None:
-        """Save a certain user_pref_search_whitelist for a certain user_id into the DB"""
-        if new_mark_value in [SearchFollowingMode.ON, SearchFollowingMode.OFF]:
-            cur.execute(
-                """INSERT INTO user_pref_search_whitelist (user_id, search_id, timestamp, search_following_mode) 
-                            VALUES (%s, %s, %s, %s) ON CONFLICT (user_id, search_id) DO UPDATE SET timestamp=%s, search_following_mode=%s;""",
-                (user, search_id, datetime.datetime.now(), new_mark_value, datetime.datetime.now(), new_mark_value),
-            )
-        else:
-            cur.execute(
-                """DELETE FROM user_pref_search_whitelist WHERE user_id=%(user)s and search_id=%(search_id)s;""",
-                {'user': user, 'search_id': search_id},
-            )
 
     logging.info('callback_query=' + str(callback_query))
     logging.info(f'{user_id=}')
@@ -395,7 +320,7 @@ def manage_search_whiteness(
         logging.info(f'before assign new_mark_value: {pushed_row_index=}, {old_mark_value=}, {new_mark_value=}')
         new_ikb[pushed_row_index][0]['text'] = new_mark_value + new_ikb[pushed_row_index][0]['text'][2:]
         # Update the search 'whiteness' (tracking state)
-        record_search_whiteness(user_id, int(user_callback['hash']), new_mark_value)
+        record_search_whiteness(cur, user_id, int(user_callback['hash']), new_mark_value)
         logging.info(f'before send_callback_answer_to_api: {new_ikb=}')
         send_callback_answer_to_api(bot_token, callback_id, bot_message)
         reply_markup = InlineKeyboardMarkup(new_ikb)
@@ -450,21 +375,9 @@ def manage_if_moscow(
         if check_if_user_has_no_regions(cur, user_id):
             # add the New User into table user_regional_preferences
             # region is Moscow for Active Searches & InfoPod
-            cur.execute(
-                """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
-                (%s, %s);""",
-                (user_id, 276),
-            )
-            cur.execute(
-                """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values
-                (%s, %s);""",
-                (user_id, 41),
-            )
-            cur.execute(
-                """INSERT INTO user_pref_region (user_id, region_id) values
-                (%s, %s);""",
-                (user_id, 1),
-            )
+            add_folder_to_user_regional_preference(cur, user_id, 276)
+            add_folder_to_user_regional_preference(cur, user_id, 41)
+            add_region_to_user_settings(cur, user_id, 1)
 
     # if region is NOT Moscow
     elif got_message == b_reg_not_moscow:

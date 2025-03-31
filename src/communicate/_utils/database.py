@@ -1,11 +1,11 @@
 import datetime
 import logging
-from typing import List, Tuple
+from typing import Any, List, Optional, Tuple
 
 from psycopg2.extensions import cursor
 
 from _dependencies.commons import sql_connect_by_psycopg2
-from communicate._utils.common import SearchFollowingMode
+from communicate._utils.common import AgePeriod, SearchFollowingMode
 
 
 class DBClient:
@@ -584,3 +584,102 @@ def get_user_regions(cur, user_id):
     user_curr_regs = cur.fetchall()
     user_curr_regs_list = [reg[0] for reg in user_curr_regs]
     return user_curr_regs_list
+
+
+def check_saved_radius(cur, user: int) -> Optional[Any]:
+    """check if user already has a radius preference"""
+
+    saved_rad = None
+    cur.execute("""SELECT radius FROM user_pref_radius WHERE user_id=%s;""", (user,))
+    raw_radius = cur.fetchone()
+    if raw_radius and str(raw_radius) != 'None':
+        saved_rad = int(raw_radius[0])
+    return saved_rad
+
+
+def delete_user_saved_radius(cur, user_id):
+    cur.execute("""DELETE FROM user_pref_radius WHERE user_id=%s;""", (user_id,))
+
+
+def save_user_radius(cur, user_id, number):
+    cur.execute(
+        """INSERT INTO user_pref_radius (user_id, radius) 
+                               VALUES (%s, %s) ON CONFLICT (user_id) DO
+                               UPDATE SET radius=%s;""",
+        (user_id, number, number),
+    )
+
+
+def delete_user_saved_topic_type(cur, user: int, type_id: int) -> None:
+    """Delete a certain topic_type for a certain user_id from the DB"""
+
+    cur.execute("""DELETE FROM user_pref_topic_type WHERE user_id=%s AND topic_type_id=%s;""", (user, type_id))
+
+
+def record_topic_type(cur, user: int, type_id: int) -> None:
+    """Insert a certain topic_type for a certain user_id into the DB"""
+
+    cur.execute(
+        """INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp) 
+                    VALUES (%s, %s, %s) ON CONFLICT (user_id, topic_type_id) DO NOTHING;""",
+        (user, type_id, datetime.datetime.now()),
+    )
+
+
+def check_saved_topic_types(cur, user: int) -> list:
+    """check if user already has any preference"""
+
+    saved_pref = []
+    cur.execute("""SELECT topic_type_id FROM user_pref_topic_type WHERE user_id=%s ORDER BY 1;""", (user,))
+    raw_data = cur.fetchall()
+    if raw_data and str(raw_data) != 'None':
+        for line in raw_data:
+            saved_pref.append(line[0])
+
+    logging.info(f'{saved_pref=}')
+
+    return saved_pref
+
+
+def record_search_whiteness(cur, user: int, search_id: int, new_mark_value) -> None:
+    """Save a certain user_pref_search_whitelist for a certain user_id into the DB"""
+    if new_mark_value in [SearchFollowingMode.ON, SearchFollowingMode.OFF]:
+        cur.execute(
+            """INSERT INTO user_pref_search_whitelist (user_id, search_id, timestamp, search_following_mode) 
+                        VALUES (%s, %s, %s, %s) ON CONFLICT (user_id, search_id) DO UPDATE SET timestamp=%s, search_following_mode=%s;""",
+            (user, search_id, datetime.datetime.now(), new_mark_value, datetime.datetime.now(), new_mark_value),
+        )
+    else:
+        cur.execute(
+            """DELETE FROM user_pref_search_whitelist WHERE user_id=%(user)s and search_id=%(search_id)s;""",
+            {'user': user, 'search_id': search_id},
+        )
+
+
+def add_region_to_user_settings(cur, user_id, region_id):
+    cur.execute(
+        """INSERT INTO user_pref_region (user_id, region_id) values
+                (%s, %s);""",
+        (user_id, region_id),
+    )
+
+
+def save_user_age_prefs(cur, user_id, chosen_setting: AgePeriod):
+    cur.execute(
+        """INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
+                        values (%s, %s, %s, %s, %s) ON CONFLICT (user_id, period_min, period_max) DO NOTHING;""",
+        (user_id, chosen_setting.name, datetime.datetime.now(), chosen_setting.min_age, chosen_setting.max_age),
+    )
+
+
+def delete_user_age_pref(cur, user_id, chosen_setting: AgePeriod) -> None:
+    cur.execute(
+        """DELETE FROM user_pref_age WHERE user_id=%s AND period_min=%s AND period_max=%s;""",
+        (user_id, chosen_setting.min_age, chosen_setting.max_age),
+    )
+
+
+def get_age_prefs(cur, user_id):
+    cur.execute("""SELECT period_min, period_max FROM user_pref_age WHERE user_id=%s;""", (user_id,))
+    raw_list_of_periods = cur.fetchall()
+    return raw_list_of_periods
