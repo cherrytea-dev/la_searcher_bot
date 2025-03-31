@@ -202,7 +202,8 @@ class FolderUpdater:
 
         curr_snapshot_list = self.db.get_current_snapshots_list(self.folder_num)
         # TODO maybe we dont need snapshots at all. new_folder_summary is enough.
-        prev_searches_list = self.db.get_searches()
+        search_ids = [x.topic_id for x in new_folder_summary]
+        prev_searches_list = self.db.get_searches_by_ids(search_ids)
 
         logging.debug(f'TEMP – len of prev_searches_list = {len(prev_searches_list)}')
         if len(prev_searches_list) > 5000:

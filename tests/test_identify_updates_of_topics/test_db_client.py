@@ -46,7 +46,7 @@ class TestDBClient:
     def test_get_searches(self, db_client: DBClient):
         search = db_factories.SearchFactory.create_sync()
 
-        searches = db_client.get_searches()
+        searches = db_client.get_searches_by_ids([search.search_forum_num])
 
         assert search.search_forum_num in [x.topic_id for x in searches]
 
