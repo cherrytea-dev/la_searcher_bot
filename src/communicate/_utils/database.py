@@ -5,6 +5,7 @@ from typing import List, Tuple
 from psycopg2.extensions import cursor
 
 from _dependencies.commons import sql_connect_by_psycopg2
+from communicate._utils.common import SearchFollowingMode
 
 
 class DBClient:
@@ -554,12 +555,13 @@ def save_bot_reply_to_user(cur: cursor, user_id: int, bot_message: str) -> None:
     return None
 
 
-def save_last_user_message_in_db(cur, user_id, bot_request_aft_usr_msg):
+def save_last_user_message_in_db(cur, user_id, message_type):
+    # TODO the same in connect_to_forum
     cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
 
     cur.execute(
         """INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);""",
-        (user_id, datetime.datetime.now(), bot_request_aft_usr_msg),
+        (user_id, datetime.datetime.now(), message_type),
     )
 
 
@@ -572,3 +574,40 @@ def set_search_follow_mode(cur: cursor, user_id: int, new_value: bool) -> None:
         (user_id, filter_name_value, filter_name_value),
     )
     return None
+
+
+def delete_folder_from_user_regional_preference(cur, user_id, region):
+    cur.execute(
+        """DELETE FROM user_regional_preferences WHERE user_id=%s and forum_folder_num=%s;""",
+        (user_id, region),
+    )
+
+
+def get_folders_with_followed_searches(cur, user_id):
+    cur.execute(
+        """SELECT DISTINCT s.forum_folder_id 
+                            FROM searches s 
+                            INNER JOIN user_pref_search_whitelist upswl 
+                                ON upswl.search_id=s.search_forum_num
+                                AND upswl.user_id=%(user_id)s
+                                AND upswl.search_following_mode=%(search_follow_on)s
+                        ;""",
+        {'user_id': user_id, 'search_follow_on': SearchFollowingMode.ON},
+    )
+    lines = cur.fetchall()
+    return lines
+
+
+def add_folder_to_user_regional_preference(cur, user_id, region):
+    cur.execute(
+        """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values (%s, %s);""",
+        (user_id, region),
+    )
+
+
+def get_user_regions(cur, user_id):
+    cur.execute("""SELECT forum_folder_num from user_regional_preferences WHERE user_id=%s;""", (user_id,))
+
+    user_curr_regs = cur.fetchall()
+    user_curr_regs_list = [reg[0] for reg in user_curr_regs]
+    return user_curr_regs_list

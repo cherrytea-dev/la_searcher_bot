@@ -30,7 +30,7 @@ from _dependencies.misc import (
     notify_admin,
     process_sending_message_async,
 )
-from communicate._utils.common import AllButtons, SearchFollowingMode, save_onboarding_step
+from communicate._utils.common import AllButtons, save_onboarding_step
 from communicate._utils.compose_messages import (
     compose_full_message_on_list_of_searches,
     compose_full_message_on_list_of_searches_ikb,
@@ -38,17 +38,21 @@ from communicate._utils.compose_messages import (
     compose_user_preferences_message,
 )
 from communicate._utils.database import (
+    add_folder_to_user_regional_preference,
     add_user_sys_role,
     check_if_new_user,
     check_onboarding_step,
+    delete_folder_from_user_regional_preference,
     delete_last_user_inline_dialogue,
     delete_user_coordinates,
     delete_user_sys_role,
+    get_folders_with_followed_searches,
     get_geo_folders_db,
     get_last_bot_msg,
     get_last_user_inline_dialogue,
     get_search_follow_mode,
     get_user_reg_folders_preferences,
+    get_user_regions,
     get_user_regions_from_db,
     get_user_role,
     get_user_sys_roles,
@@ -246,10 +250,7 @@ def update_and_download_list_of_regions(
             # Scenario: this setting WAS in place, and now we need to DELETE it
             if region_was_in_db == 'yes' and not region_is_the_only:
                 for region in list_of_regs_to_upload:
-                    cur.execute(
-                        """DELETE FROM user_regional_preferences WHERE user_id=%s and forum_folder_num=%s;""",
-                        (user_id, region),
-                    )
+                    delete_folder_from_user_regional_preference(cur, user_id, region)
 
             # Scenario: this setting WAS in place, but now it's the last one - we cannot delete it
             elif region_was_in_db == 'yes' and region_is_the_only:
@@ -258,20 +259,14 @@ def update_and_download_list_of_regions(
             # Scenario: it's a NEW setting, we need to ADD it
             else:
                 for region in list_of_regs_to_upload:
-                    cur.execute(
-                        """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values (%s, %s);""",
-                        (user_id, region),
-                    )
+                    add_folder_to_user_regional_preference(cur, user_id, region)
 
         except Exception as e:
             logging.info("failed to upload & download the list of user's regions")
             logging.exception(e)
 
     # Get the list of resulting regions
-    cur.execute("""SELECT forum_folder_num from user_regional_preferences WHERE user_id=%s;""", (user_id,))
-
-    user_curr_regs = cur.fetchall()
-    user_curr_regs_list = [reg[0] for reg in user_curr_regs]
+    user_curr_regs_list = get_user_regions(cur, user_id)
 
     for reg in user_curr_regs_list:
         if reg in rev_reg_dict:
@@ -1459,17 +1454,7 @@ def process_update(update: Update) -> str:
                     keyboard = []  # to combine monolit ikb for all user's regions
                     ikb_searches_count = 0
 
-                    cur.execute(
-                        """SELECT DISTINCT s.forum_folder_id 
-                            FROM searches s 
-                            INNER JOIN user_pref_search_whitelist upswl 
-                                ON upswl.search_id=s.search_forum_num
-                                AND upswl.user_id=%(user_id)s
-                                AND upswl.search_following_mode=%(search_follow_on)s
-                        ;""",
-                        {'user_id': user_id, 'search_follow_on': SearchFollowingMode.ON},
-                    )
-                    lines = cur.fetchall()
+                    lines = get_folders_with_followed_searches(cur, user_id)
 
                     user_regions_plus_followed = user_regions
                     followed_regions_not_in_preffs = []
@@ -1575,14 +1560,9 @@ def process_update(update: Update) -> str:
 
                     # saving the last message from bot
                     try:
-                        cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
-                        cur.execute(
-                            'INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);',
-                            (user_id, datetime.datetime.now(), 'report'),
-                        )
+                        save_last_user_message_in_db(cur, user_id, 'report')
                     except Exception as e:
-                        logging.info('failed to save the last message from bot')
-                        logging.exception(e)
+                        logging.exception('failed to save the last message from bot')
 
                 else:
                     region_name = ''
@@ -1608,14 +1588,9 @@ def process_update(update: Update) -> str:
 
                             # saving the last message from bot
                             try:
-                                cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
-                                cur.execute(
-                                    'INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);',
-                                    (user_id, datetime.datetime.now(), 'report'),
-                                )
+                                save_last_user_message_in_db(cur, user_id, 'report')
                             except Exception as e:
-                                logging.info('failed to save the last message from bot')
-                                logging.exception(e)
+                                logging.exception('failed to save the last message from bot')
 
                     # issue425 Button for turn on search following mode
                     if 'tester' in get_user_sys_roles(cur, user_id):
@@ -2302,18 +2277,9 @@ def process_update(update: Update) -> str:
                 bot_request_aft_usr_msg = 'not_defined'
 
             try:
-                cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
-
-                cur.execute(
-                    """
-                    INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
-                    """,
-                    (user_id, datetime.datetime.now(), bot_request_aft_usr_msg),
-                )
-
+                save_last_user_message_in_db(cur, user_id, bot_request_aft_usr_msg)
             except Exception as e:
-                logging.info(f'failed updates of table msg_from_bot for user={user_id}')
-                logging.exception(e)
+                logging.exception(f'failed updates of table msg_from_bot for user={user_id}')
 
         # all other cases when bot was not able to understand the message from user
         else:
