@@ -159,7 +159,7 @@ files = [
     "src/archive_to_bigquery/",
     "src/check_first_posts_for_changes/",
     "src/check_topics_by_upd_time/",
-    # "src/communicate/",
+    "src/communicate/",
     "src/compose_notifications/",
     "src/connect_to_forum/",                # TODO refact
     "src/identify_updates_of_first_posts/",
