@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, Mock
 import pytest
 from psycopg2.extensions import cursor
 
+import communicate._utils.handlers
 from _dependencies.commons import get_app_config, sql_connect_by_psycopg2
 from communicate import main
 from tests.factories.telegram import get_callback_query, get_reply_markup
@@ -69,7 +70,7 @@ def test_api_callback_edit_inline_keyboard(cur):
 
 def test_manage_age(cur):
     # NO SMOKE TEST communicate.main.manage_age
-    res = main.manage_age(cur, 1, 'включить: Маленькие Дети 0-6 лет')
+    res = communicate._utils.handlers.manage_age(cur, 1, 'включить: Маленькие Дети 0-6 лет')
 
     assert res[0][0] == ['отключить: Маленькие Дети 0-6 лет']
 
