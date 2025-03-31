@@ -31,7 +31,6 @@ def delete_last_user_inline_dialogue(cur, user_id: int) -> None:
     """Delete form DB the user's last interaction via inline buttons"""
 
     cur.execute("""DELETE FROM communications_last_inline_msg WHERE user_id=%s;""", (user_id,))
-    return None
 
 
 def get_last_user_inline_dialogue(cur, user_id: int) -> list:
@@ -58,7 +57,6 @@ def save_last_user_inline_dialogue(cur, user_id: int, message_id: int) -> None:
                     UPDATE SET timestamp=CURRENT_TIMESTAMP AT TIME ZONE 'UTC';""",
         (user_id, message_id),
     )
-    return None
 
 
 def get_search_follow_mode(cur, user_id: int):
@@ -75,8 +73,6 @@ def save_user_message_to_bot(cur: cursor, user_id: int, got_message: str) -> Non
         """INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);""",
         (user_id, 'user', datetime.datetime.now(), got_message),
     )
-
-    return None
 
 
 def get_user_sys_roles(cur, user_id):
@@ -128,10 +124,7 @@ def add_user_sys_role(cur, user_id, sys_role_name):
         )
 
     except Exception as e:
-        logging.info(f'failed to insert into user_roles for user {user_id}')
-        logging.exception(e)
-
-    return None
+        logging.exception(f'failed to insert into user_roles for user {user_id}')
 
 
 def delete_user_sys_role(cur, user_id, sys_role_name):
@@ -145,18 +138,13 @@ def delete_user_sys_role(cur, user_id, sys_role_name):
         )
 
     except Exception as e:
-        logging.info(f'failed to delete from user_roles for user {user_id}')
-        logging.exception(e)
-
-    return None
+        logging.exception(f'failed to delete from user_roles for user {user_id}')
 
 
 def delete_user_coordinates(cur: cursor, user_id: int) -> None:
     """Delete the saved user "home" coordinates"""
 
     cur.execute('DELETE FROM user_coordinates WHERE user_id=%s;', (user_id,))
-
-    return None
 
 
 def show_user_coordinates(cur: cursor, user_id: int) -> Tuple[str, str]:
@@ -183,8 +171,6 @@ def save_user_coordinates(cur: cursor, user_id: int, input_latitude: float, inpu
         """INSERT INTO user_coordinates (user_id, latitude, longitude, upd_time) values (%s, %s, %s, %s);""",
         (user_id, input_latitude, input_longitude, now),
     )
-
-    return None
 
 
 def check_if_user_has_no_regions(cur, user_id):
@@ -225,17 +211,17 @@ def save_user_pref_role(cur, user_id, role_desc):
     return role
 
 
-def save_user_pref_topic_type(cur, user_id, pref_id, user_role):
+def save_user_pref_topic_type(cur, user_id, pref_id, user_role) -> None:
     def save(pref_type_id):
         cur.execute(
             """INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp) 
                                             values (%s, %s, %s) ON CONFLICT (user_id, topic_type_id) DO NOTHING;""",
             (user_id, pref_type_id, datetime.datetime.now()),
         )
-        return None
+        return
 
     if not (cur and user_id and pref_id):
-        return None
+        return
 
     if pref_id == 'default':
         if user_role in {'member', 'new_member'}:
@@ -248,8 +234,6 @@ def save_user_pref_topic_type(cur, user_id, pref_id, user_role):
 
     else:
         save(pref_id)
-
-    return None
 
 
 def get_user_regions_from_db(cur, user_id):
@@ -312,8 +296,6 @@ def save_user_pref_urgency(
     )
 
     logging.info(f'urgency set as {pref_name} for user_id {user_id}')
-
-    return None
 
 
 def get_user_reg_folders_preferences(cur: cursor, user_id: int) -> List[int]:
@@ -380,8 +362,6 @@ def save_preference(cur: cursor, user_id: int, preference: str):
             (user, preference_name, preference_id),
         )
 
-        return None
-
     def execute_delete(user: int, list_of_prefs: List[str]):
         """execute SQL DELETE command"""
 
@@ -391,8 +371,6 @@ def save_preference(cur: cursor, user_id: int, preference: str):
                 cur.execute("""DELETE FROM user_preferences WHERE user_id=%s AND pref_id=%s;""", (user, line_id))
         else:
             cur.execute("""DELETE FROM user_preferences WHERE user_id=%s;""", (user,))
-
-        return None
 
     def execute_check(user, pref_list):
         """execute SQL SELECT command and returns TRUE / FALSE if something found"""
@@ -463,8 +441,6 @@ def save_preference(cur: cursor, user_id: int, preference: str):
 
         preference = preference[1:]
         execute_delete(user_id, [preference])
-
-    return None
 
 
 def get_last_bot_msg(cur: cursor, user_id: int) -> str:
@@ -552,8 +528,6 @@ def save_bot_reply_to_user(cur: cursor, user_id: int, bot_message: str) -> None:
         (user_id, 'bot', datetime.datetime.now(), bot_message),
     )
 
-    return None
-
 
 def save_last_user_message_in_db(cur, user_id, message_type):
     # TODO the same in connect_to_forum
@@ -573,7 +547,6 @@ def set_search_follow_mode(cur: cursor, user_id: int, new_value: bool) -> None:
                     ON CONFLICT (user_id) DO UPDATE SET filter_name=%s;""",
         (user_id, filter_name_value, filter_name_value),
     )
-    return None
 
 
 def delete_folder_from_user_regional_preference(cur, user_id, region):

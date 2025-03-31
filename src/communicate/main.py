@@ -262,8 +262,7 @@ def update_and_download_list_of_regions(
                     add_folder_to_user_regional_preference(cur, user_id, region)
 
         except Exception as e:
-            logging.info("failed to upload & download the list of user's regions")
-            logging.exception(e)
+            logging.exception("failed to upload & download the list of user's regions")
 
     # Get the list of resulting regions
     user_curr_regs_list = get_user_regions(cur, user_id)
@@ -470,8 +469,6 @@ def save_new_user(user_id: int, username: str) -> None:
     }
     publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
 
-    return None
-
 
 def process_unneeded_messages(
     update, user_id, timer_changed, photo, document, voice, sticker, channel_type, contact, inline_query
@@ -503,8 +500,7 @@ def process_unneeded_messages(
             notify_admin(f'[comm]: INFO: we have left the CHANNEL {user_id}')
 
         except Exception as e:
-            logging.info(f'[comm]: Leaving channel was not successful: {user_id}')
-            logging.exception(e)
+            logging.exception(f'[comm]: Leaving channel was not successful: {user_id}')
             notify_admin(f'[comm]: Leaving channel was not successful: {user_id}')
 
     # CASE 5 – when user sends Contact
@@ -520,8 +516,6 @@ def process_unneeded_messages(
     elif inline_query:
         notify_admin('[comm]: User mentioned bot in some chats')
         logging.info(f'bot was mentioned in other chats: {update}')
-
-    return None
 
 
 def process_block_unblock_user(user_id, user_new_status):
@@ -556,10 +550,7 @@ def process_block_unblock_user(user_id, user_new_status):
             process_sending_message_async(user_id=user_id, data=data)
 
     except Exception as e:
-        logging.info('Error in finding basic data for block/unblock user in Communicate script')
-        logging.exception(e)
-
-    return None
+        logging.exception('Error in finding basic data for block/unblock user in Communicate script')
 
 
 def get_coordinates_from_string(got_message: str, lat_placeholder, lon_placeholder) -> Tuple[float, float]:
@@ -592,7 +583,7 @@ def process_user_coordinates(
     b_coords_del: str,
     b_back_to_start: str,
     bot_request_aft_usr_msg: str,
-) -> Optional[Any]:
+) -> None:
     """process coordinates which user sent to bot"""
 
     save_user_coordinates(cur, user_id, user_latitude, user_longitude)
@@ -620,12 +611,9 @@ def process_user_coordinates(
         save_last_user_message_in_db(cur, user_id, bot_request_aft_usr_msg)
 
     except Exception as e:
-        logging.info('failed to update the last saved message from bot')
-        logging.exception(e)
+        logging.exception('failed to update the last saved message from bot')
 
     save_bot_reply_to_user(cur, user_id, bot_message)
-
-    return None
 
 
 def run_onboarding(user_id: int, username: str, onboarding_step_id: int, got_message: str) -> int:
@@ -1624,8 +1612,7 @@ def process_update(update: Update) -> str:
                             logging.info(f'{result=}; {user_id=}; context_step=a03')
                             inline_processing(cur, response, params)
                         except Exception as e:
-                            logging.info('failed to show button for turn on search following mode')
-                            logging.exception(e)
+                            logging.exception('failed to show button for turn on search following mode')
 
             # Perform individual replies
 
@@ -2294,8 +2281,7 @@ def process_update(update: Update) -> str:
             notify_admin(text_for_admin)
 
     except Exception as e:
-        logging.info('GENERAL COMM CRASH:')
-        logging.exception(e)
+        logging.exception('GENERAL COMM CRASH:')
         notify_admin('[comm] general script fail')
 
     if bot_message:

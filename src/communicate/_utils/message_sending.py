@@ -16,8 +16,6 @@ from _dependencies.misc import notify_admin
 async def leave_chat_async(context: ContextTypes.DEFAULT_TYPE):
     await context.bot.leave_chat(chat_id=context.job.chat_id)
 
-    return None
-
 
 async def prepare_message_for_leave_chat_async(user_id):
     # TODO DOUBLE
@@ -48,8 +46,7 @@ def process_response_of_api_call(user_id: int, response: Response, call_context:
             return 'completed'
 
         elif response.status_code == 400:  # Bad Request
-            logging.info(f'Bad Request: message to {user_id} was not sent, {response.json()=}')
-            logging.exception('BAD REQUEST')
+            logging.exception(f'Bad Request: message to {user_id} was not sent, {response.json()=}')
             return 'cancelled_bad_request'
 
         elif response.status_code == 403:  # FORBIDDEN
@@ -66,8 +63,7 @@ def process_response_of_api_call(user_id: int, response: Response, call_context:
             return 'cancelled'
 
         elif 420 <= response.status_code <= 429:  # 'Flood Control':
-            logging.info(f'Flood Control: message to {user_id} was not sent, {response.reason=}')
-            logging.exception('FLOOD CONTROL')
+            logging.exception(f'Flood Control: message to {user_id} was not sent, {response.reason=}')
             return 'failed_flood_control'
 
         # issue425 if not response moved here from the 1st place because it reacted even on response 400
@@ -76,21 +72,16 @@ def process_response_of_api_call(user_id: int, response: Response, call_context:
             return 'failed'
 
         else:
-            logging.info(f'UNKNOWN ERROR: message to {user_id} was not sent, {response.reason=}')
-            logging.exception('UNKNOWN ERROR')
+            logging.exception(f'UNKNOWN ERROR: message to {user_id} was not sent, {response.reason=}')
             return 'cancelled'
 
     except Exception as e:
-        logging.info('Response is corrupted')
-        logging.exception(e)
-        logging.info(f'{response.json()=}')
+        logging.exception(f'Response is corrupted. {response.json()=}')
         return 'failed'
 
 
 def process_leaving_chat_async(user_id) -> None:
     asyncio.run(prepare_message_for_leave_chat_async(user_id))
-
-    return None
 
 
 def send_message_to_api(bot_token, user_id, message, params):
@@ -120,8 +111,7 @@ def send_message_to_api(bot_token, user_id, message, params):
             logging.info(str(response))
 
     except Exception as e:
-        logging.exception(e)
-        logging.info('Error in getting response from Telegram')
+        logging.exception('Error in getting response from Telegram')
         response = None
 
     result = process_response_of_api_call(user_id, response)
@@ -147,8 +137,7 @@ def send_callback_answer_to_api(bot_token: str, callback_query_id: str, message:
             logging.info(f'send_callback_answer_to_api..{response.json()=}')
 
     except Exception as e:
-        logging.exception(e)
-        logging.info('Error in getting response from Telegram')
+        logging.exception('Error in getting response from Telegram')
         response = None
 
     result = process_response_of_api_call(callback_query_id, response)
@@ -183,8 +172,7 @@ def make_api_call(method: str, bot_api_token: str, params: dict, call_context=''
             logging.info(f'After session.post: {response=}; {call_context=}')
         except Exception as e:
             response = None
-            logging.info('Error in getting response from Telegram')
-            logging.exception(e)
+            logging.exception('Error in getting response from Telegram')
 
     logging.info(f'Before return: {response=}; {call_context=}')
     return response

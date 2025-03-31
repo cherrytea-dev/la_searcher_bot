@@ -140,8 +140,7 @@ def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
         return message_text
 
     except Exception as e:
-        logging.info('Exception in "compose_msg_on_user_setting_fullness" function')
-        logging.exception(e)
+        logging.exception('Exception in "compose_msg_on_user_setting_fullness" function')
         return None
 
 

@@ -256,5 +256,3 @@ def save_onboarding_step(user_id: str, username: str, step: str) -> None:
     }
     publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
     # TODO replace with direct db functions
-
-    return None

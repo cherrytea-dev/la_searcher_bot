@@ -241,7 +241,6 @@ def manage_topic_type(
         """Delete a certain topic_type for a certain user_id from the DB"""
 
         cur.execute("""DELETE FROM user_pref_topic_type WHERE user_id=%s AND topic_type_id=%s;""", (user, type_id))
-        return None
 
     def record_topic_type(user: int, type_id: int) -> None:
         """Insert a certain topic_type for a certain user_id into the DB"""
@@ -251,7 +250,6 @@ def manage_topic_type(
                         VALUES (%s, %s, %s) ON CONFLICT (user_id, topic_type_id) DO NOTHING;""",
             (user, type_id, datetime.datetime.now()),
         )
-        return None
 
     if not user_input:
         return None, None
@@ -359,7 +357,6 @@ def manage_search_whiteness(
                 """DELETE FROM user_pref_search_whitelist WHERE user_id=%(user)s and search_id=%(search_id)s;""",
                 {'user': user, 'search_id': search_id},
             )
-        return None
 
     logging.info('callback_query=' + str(callback_query))
     logging.info(f'{user_id=}')
