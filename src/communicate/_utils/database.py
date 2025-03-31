@@ -1,7 +1,29 @@
 import datetime
+import logging
 from typing import Tuple
 
 from psycopg2.extensions import cursor
+
+from _dependencies.commons import sql_connect_by_psycopg2
+
+
+class DBClient:
+    def __init__(self):
+        self._connection = sql_connect_by_psycopg2()
+
+    def connect(self) -> cursor:
+        # TODO rename to 'cursor'?
+        return self._connection.cursor()
+
+    def save_user_message_to_bot(self, user_id: int, got_message: str) -> None:
+        # TODO example method! Just for testing now.
+        """save user's message to bot in psql"""
+
+        with self.connect() as cur:
+            cur.execute(
+                """INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);""",
+                (user_id, 'user', datetime.datetime.now(), got_message),
+            )
 
 
 def delete_last_user_inline_dialogue(cur, user_id: int) -> None:
