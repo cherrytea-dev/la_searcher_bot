@@ -44,25 +44,33 @@ class DBClient:
                 (user_id, 'user', datetime.datetime.now(), got_message),
             )
 
+    def delete_last_user_inline_dialogue(self, user_id: int) -> None:
+        """Delete form DB the user's last interaction via inline buttons"""
 
-def delete_last_user_inline_dialogue(cur: cursor, user_id: int) -> None:
-    """Delete form DB the user's last interaction via inline buttons"""
+        with self.cursor() as cur:
+            cur.execute("""DELETE FROM communications_last_inline_msg WHERE user_id=%s;""", (user_id,))
 
+    def get_last_user_inline_dialogue(self, user_id: int) -> list[int]:
+        """Get from DB the user's last interaction via inline buttons"""
+
+        with self.cursor() as cur:
+            cur.execute("""SELECT message_id FROM communications_last_inline_msg WHERE user_id=%s;""", (user_id,))
+            message_id_lines = cur.fetchall()
+
+            message_id_list = []
+            if message_id_lines and len(message_id_lines) > 0:
+                for message_id_line in message_id_lines:
+                    message_id_list.append(message_id_line[0])
+
+            return message_id_list
+
+    def example_method(self, user_id: int) -> None:
+        with self.cursor() as cur:
+            cur.execute("""DELETE FROM communications_last_inline_msg WHERE user_id=%s;""", (user_id,))
+
+
+def example_method(cur: cursor, user_id: int) -> None:
     cur.execute("""DELETE FROM communications_last_inline_msg WHERE user_id=%s;""", (user_id,))
-
-
-def get_last_user_inline_dialogue(cur: cursor, user_id: int) -> list[int]:
-    """Get from DB the user's last interaction via inline buttons"""
-
-    cur.execute("""SELECT message_id FROM communications_last_inline_msg WHERE user_id=%s;""", (user_id,))
-    message_id_lines = cur.fetchall()
-
-    message_id_list = []
-    if message_id_lines and len(message_id_lines) > 0:
-        for message_id_line in message_id_lines:
-            message_id_list.append(message_id_line[0])
-
-    return message_id_list
 
 
 def save_last_user_inline_dialogue(cur: cursor, user_id: int, message_id: int) -> None:

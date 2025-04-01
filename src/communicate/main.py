@@ -44,13 +44,11 @@ from communicate._utils.database import (
     check_onboarding_step,
     db,
     delete_folder_from_user_regional_preference,
-    delete_last_user_inline_dialogue,
     delete_user_coordinates,
     delete_user_sys_role,
     get_folders_with_followed_searches,
     get_geo_folders_db,
     get_last_bot_msg,
-    get_last_user_inline_dialogue,
     get_search_follow_mode,
     get_user_reg_folders_preferences,
     get_user_regions,
@@ -352,7 +350,7 @@ def inline_processing(cur, response, params) -> None:
     sent_message_id = get_last_bot_message_id(response)
 
     if 'reply_markup' in params.keys() and 'inline_keyboard' in params['reply_markup'].keys():
-        prev_message_id = get_last_user_inline_dialogue(cur, chat_id)
+        prev_message_id = db().get_last_user_inline_dialogue(chat_id)
         logging.info(f'{prev_message_id=}')
         save_last_user_inline_dialogue(cur, chat_id, sent_message_id)
 
@@ -1077,12 +1075,12 @@ def process_update(update: Update) -> str:
     logging.info(f'Before if got_message and not got_callback: {got_message=}')
 
     if got_message and not got_callback:
-        last_inline_message_ids = get_last_user_inline_dialogue(cur, user_id)
+        last_inline_message_ids = db().get_last_user_inline_dialogue(user_id)
         if last_inline_message_ids:
             for last_inline_message_id in last_inline_message_ids:
                 params = {'chat_id': user_id, 'message_id': last_inline_message_id}
                 make_api_call('editMessageReplyMarkup', bot_token, params, 'main() if got_message and not got_callback')
-            delete_last_user_inline_dialogue(cur, user_id)
+            db().delete_last_user_inline_dialogue(user_id)
 
     if got_message:
         db().save_user_message_to_bot(user_id, got_message)
