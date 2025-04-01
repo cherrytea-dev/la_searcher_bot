@@ -1,6 +1,7 @@
 import datetime
 import logging
-from typing import Any, List, Optional, Tuple
+from contextlib import contextmanager, suppress
+from typing import Any, Generator, List, Optional, Tuple
 
 from psycopg2.extensions import cursor
 
@@ -16,6 +17,9 @@ class DBClient:
         # TODO rename to 'cursor'?
         return self._connection.cursor()
 
+    def close_connection(self) -> None:
+        self._connection.close()
+
     def save_user_message_to_bot(self, user_id: int, got_message: str) -> None:
         # TODO example method! Just for testing now.
         """save user's message to bot in psql"""
@@ -25,6 +29,16 @@ class DBClient:
                 """INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);""",
                 (user_id, 'user', datetime.datetime.now(), got_message),
             )
+
+
+@contextmanager
+def db() -> Generator[DBClient]:
+    client = DBClient()
+    try:
+        yield client
+    finally:
+        with suppress(Exception):
+            client.close_connection()
 
 
 def delete_last_user_inline_dialogue(cur: cursor, user_id: int) -> None:
