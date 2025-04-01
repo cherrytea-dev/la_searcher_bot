@@ -5,11 +5,10 @@
 import datetime
 import logging
 import re
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Tuple, Union
 
 import requests
 from flask import Request
-from psycopg2.extensions import cursor
 from telegram import (
     Bot,
     InlineKeyboardMarkup,
@@ -37,35 +36,7 @@ from communicate._utils.compose_messages import (
     compose_msg_on_user_setting_fullness,
     compose_user_preferences_message,
 )
-from communicate._utils.database import (
-    add_folder_to_user_regional_preference,
-    add_user_sys_role,
-    check_if_new_user,
-    check_onboarding_step,
-    db,
-    delete_folder_from_user_regional_preference,
-    delete_user_coordinates,
-    delete_user_sys_role,
-    get_folders_with_followed_searches,
-    get_geo_folders_db,
-    get_last_bot_msg,
-    get_search_follow_mode,
-    get_user_reg_folders_preferences,
-    get_user_regions,
-    get_user_regions_from_db,
-    get_user_role,
-    get_user_sys_roles,
-    save_bot_reply_to_user,
-    save_last_user_inline_dialogue,
-    save_last_user_message_in_db,
-    save_preference,
-    save_user_coordinates,
-    save_user_pref_role,
-    save_user_pref_topic_type,
-    save_user_pref_urgency,
-    set_search_follow_mode,
-    show_user_coordinates,
-)
+from communicate._utils.database import db
 from communicate._utils.handlers import (
     manage_age,
     manage_if_moscow,
@@ -74,6 +45,7 @@ from communicate._utils.handlers import (
     manage_search_follow_mode,
     manage_search_whiteness,
     manage_topic_type,
+    save_preference,
 )
 from communicate._utils.message_sending import (
     make_api_call,
@@ -117,7 +89,7 @@ full_buttons_dict = {
 
 # issue#425
 def update_and_download_list_of_regions(
-    cur: cursor, user_id: int, got_message: str, b_menu_set_region: str, b_fed_dist_pick_other: str
+    user_id: int, got_message: str, b_menu_set_region: str, b_fed_dist_pick_other: str
 ) -> str:
     """Upload, download and compose a message on the list of user's regions"""
 
@@ -235,7 +207,7 @@ def update_and_download_list_of_regions(
             list_of_regs_to_upload = folder_dict[got_message]
 
             # any region
-            user_curr_regs = get_user_regions_from_db(cur, user_id)
+            user_curr_regs = db().get_user_regions_from_db(user_id)
 
             for user_reg in user_curr_regs:
                 if list_of_regs_to_upload[0] == user_reg:
@@ -248,7 +220,7 @@ def update_and_download_list_of_regions(
             # Scenario: this setting WAS in place, and now we need to DELETE it
             if region_was_in_db == 'yes' and not region_is_the_only:
                 for region in list_of_regs_to_upload:
-                    delete_folder_from_user_regional_preference(cur, user_id, region)
+                    db().delete_folder_from_user_regional_preference(user_id, region)
 
             # Scenario: this setting WAS in place, but now it's the last one - we cannot delete it
             elif region_was_in_db == 'yes' and region_is_the_only:
@@ -257,13 +229,13 @@ def update_and_download_list_of_regions(
             # Scenario: it's a NEW setting, we need to ADD it
             else:
                 for region in list_of_regs_to_upload:
-                    add_folder_to_user_regional_preference(cur, user_id, region)
+                    db().add_folder_to_user_regional_preference(user_id, region)
 
         except Exception as e:
             logging.exception("failed to upload & download the list of user's regions")
 
     # Get the list of resulting regions
-    user_curr_regs_list = get_user_regions(cur, user_id)
+    user_curr_regs_list = db().get_user_regions(user_id)
 
     for reg in user_curr_regs_list:
         if reg in rev_reg_dict:
@@ -340,7 +312,7 @@ def get_last_bot_message_id(response: requests.Response) -> int:
     return message_id
 
 
-def inline_processing(cur, response, params) -> None:
+def inline_processing(response, params) -> None:
     """process the response got from inline buttons interactions"""
 
     if not response or 'chat_id' not in params.keys():
@@ -352,7 +324,7 @@ def inline_processing(cur, response, params) -> None:
     if 'reply_markup' in params.keys() and 'inline_keyboard' in params['reply_markup'].keys():
         prev_message_id = db().get_last_user_inline_dialogue(chat_id)
         logging.info(f'{prev_message_id=}')
-        save_last_user_inline_dialogue(cur, chat_id, sent_message_id)
+        db().save_last_user_inline_dialogue(chat_id, sent_message_id)
 
     return None
 
@@ -573,7 +545,6 @@ def get_coordinates_from_string(got_message: str, lat_placeholder, lon_placehold
 
 
 def process_user_coordinates(
-    cur: cursor,
     user_id: int,
     user_latitude: float,
     user_longitude: float,
@@ -584,7 +555,7 @@ def process_user_coordinates(
 ) -> None:
     """process coordinates which user sent to bot"""
 
-    save_user_coordinates(cur, user_id, user_latitude, user_longitude)
+    db().save_user_coordinates(user_id, user_latitude, user_longitude)
 
     bot_message = 'Ваши "домашние координаты" сохранены:\n'
     bot_message += generate_yandex_maps_place_link(user_latitude, user_longitude, 'coords')
@@ -606,12 +577,12 @@ def process_user_coordinates(
         bot_request_aft_usr_msg = 'not_defined'
 
     try:
-        save_last_user_message_in_db(cur, user_id, bot_request_aft_usr_msg)
+        db().save_last_user_message_in_db(user_id, bot_request_aft_usr_msg)
 
     except Exception as e:
         logging.exception('failed to update the last saved message from bot')
 
-    save_bot_reply_to_user(cur, user_id, bot_message)
+    db().save_bot_reply_to_user(user_id, bot_message)
 
 
 def run_onboarding(user_id: int, username: str, onboarding_step_id: int, got_message: str) -> int:
@@ -1069,9 +1040,6 @@ def process_update(update: Update) -> str:
     # basic markup which will be substituted for all specific cases
     reply_markup = reply_markup_main
 
-    conn_psy = sql_connect_by_psycopg2()
-    cur = conn_psy.cursor()
-
     logging.info(f'Before if got_message and not got_callback: {got_message=}')
 
     if got_message and not got_callback:
@@ -1088,17 +1056,17 @@ def process_update(update: Update) -> str:
     bot_request_aft_usr_msg = ''
     msg_sent_by_specific_code = False
 
-    user_is_new = check_if_new_user(cur, user_id)
+    user_is_new = db().check_if_new_user(user_id)
     logging.info(f'After check_if_new_user: {user_is_new=}')
     if user_is_new:
         save_new_user(user_id, username)
 
-    onboarding_step_id, onboarding_step_name = check_onboarding_step(cur, user_id, user_is_new)
-    user_regions = get_user_reg_folders_preferences(cur, user_id)
-    user_role = get_user_role(cur, user_id)
+    onboarding_step_id, onboarding_step_name = db().check_onboarding_step(user_id, user_is_new)
+    user_regions = db().get_user_reg_folders_preferences(user_id)
+    user_role = db().get_user_role(user_id)
 
     # Check what was last request from bot and if bot is expecting user's input
-    bot_request_bfr_usr_msg = get_last_bot_msg(cur, user_id)
+    bot_request_bfr_usr_msg = db().get_last_bot_msg(user_id)
 
     # placeholder for the New message from bot as reply to "update". Placed here – to avoid errors of GCF
     bot_message = ''
@@ -1114,7 +1082,6 @@ def process_update(update: Update) -> str:
     # if there is any coordinates from user
     if user_latitude and user_longitude:
         process_user_coordinates(
-            cur,
             user_id,
             user_latitude,
             user_longitude,
@@ -1123,8 +1090,6 @@ def process_update(update: Update) -> str:
             b_back_to_start,
             bot_request_aft_usr_msg,
         )
-        cur.close()
-        conn_psy.close()
 
         return 'finished successfully. in was a message with user coordinates'
 
@@ -1215,7 +1180,6 @@ def process_update(update: Update) -> str:
 
                 if got_message == b_reg_moscow:
                     bot_message, reply_markup = manage_if_moscow(
-                        cur,
                         user_id,
                         username,
                         got_message,
@@ -1228,9 +1192,9 @@ def process_update(update: Update) -> str:
                     )
                 else:
                     save_onboarding_step(user_id, username, 'region_set')
-                    save_user_pref_topic_type(cur, user_id, 'default', user_role)
+                    db().save_user_pref_topic_type(user_id, 'default', user_role)
                     updated_regions = update_and_download_list_of_regions(
-                        cur, user_id, got_message, b_menu_set_region, b_fed_dist_pick_other
+                        user_id, got_message, b_menu_set_region, b_fed_dist_pick_other
                     )
 
             elif got_message in {
@@ -1250,7 +1214,7 @@ def process_update(update: Update) -> str:
                     b_role_other,
                     b_role_secret,
                 }:
-                    user_role = save_user_pref_role(cur, user_id, got_message)
+                    user_role = db().save_user_pref_role(user_id, got_message)
                     save_onboarding_step(user_id, username, 'role_set')
 
                 # get user role = relatives looking for a person
@@ -1324,7 +1288,6 @@ def process_update(update: Update) -> str:
 
             elif got_message in {b_reg_not_moscow}:
                 bot_message, reply_markup = manage_if_moscow(
-                    cur,
                     user_id,
                     username,
                     got_message,
@@ -1374,8 +1337,7 @@ def process_update(update: Update) -> str:
                 b_pref_urgency_medium,
                 b_pref_urgency_low,
             }:
-                save_user_pref_urgency(
-                    cur,
+                db().save_user_pref_urgency(
                     user_id,
                     got_message,
                     b_pref_urgency_highest,
@@ -1406,7 +1368,7 @@ def process_update(update: Update) -> str:
 
             elif got_callback and got_callback['action'] == 'search_follow_mode':  # issue#425
                 bot_message, reply_markup = manage_search_whiteness(
-                    cur, user_id, got_callback, callback_query_id, callback_query, bot_token
+                    user_id, got_callback, callback_query_id, callback_query, bot_token
                 )
 
             elif got_callback and got_callback['action'] in [
@@ -1414,7 +1376,7 @@ def process_update(update: Update) -> str:
                 'search_follow_mode_off',
             ]:  # issue#425
                 bot_message = manage_search_follow_mode(
-                    cur, user_id, got_callback, callback_query_id, callback_query, bot_token
+                    user_id, got_callback, callback_query_id, callback_query, bot_token
                 )
                 reply_markup = reply_markup_main
 
@@ -1434,14 +1396,14 @@ def process_update(update: Update) -> str:
                     c_view_act_searches: 'active',
                 }
 
-                folders_list = get_geo_folders_db(cur)
+                folders_list = db().get_geo_folders_db()
 
-                if get_search_follow_mode(cur, user_id) and 'tester' in get_user_sys_roles(cur, user_id):
+                if db().get_search_follow_mode(user_id) and 'tester' in db().get_user_sys_roles(user_id):
                     # issue#425 make inline keyboard - list of searches
                     keyboard = []  # to combine monolit ikb for all user's regions
                     ikb_searches_count = 0
 
-                    lines = get_folders_with_followed_searches(cur, user_id)
+                    lines = db().get_folders_with_followed_searches(user_id)
 
                     user_regions_plus_followed = user_regions
                     followed_regions_not_in_preffs = []
@@ -1461,7 +1423,6 @@ def process_update(update: Update) -> str:
                         # check if region – is an archive folder: if so – it can be sent only to 'all'
                         if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
                             new_region_ikb_list = compose_full_message_on_list_of_searches_ikb(
-                                cur,
                                 temp_dict[got_message],
                                 user_id,
                                 region,
@@ -1487,7 +1448,7 @@ def process_update(update: Update) -> str:
                         logging.info(f'{response=}; {user_id=}; context_step=b2')
                         result = process_response_of_api_call(user_id, response)
                         logging.info(f'{result=}; {user_id=}; context_step=b3')
-                        inline_processing(cur, response, params)
+                        inline_processing(response, params)
                     else:
                         # issue#425 show the inline keyboard
 
@@ -1542,12 +1503,12 @@ def process_update(update: Update) -> str:
                             logging.info(f'{response=}; {user_id=}; context_step=b04')
                             result = process_response_of_api_call(user_id, response)
                             logging.info(f'{result=}; {user_id=}; context_step=b05')
-                            inline_processing(cur, response, params)
+                            inline_processing(response, params)
                     ##msg_sent_by_specific_code for combined ikb end
 
                     # saving the last message from bot
                     try:
-                        save_last_user_message_in_db(cur, user_id, 'report')
+                        db().save_last_user_message_in_db(user_id, 'report')
                     except Exception as e:
                         logging.exception('failed to save the last message from bot')
 
@@ -1562,7 +1523,7 @@ def process_update(update: Update) -> str:
                         # check if region – is an archive folder: if so – it can be sent only to 'all'
                         if region_name.find('аверш') == -1 or temp_dict[got_message] == 'all':
                             bot_message = compose_full_message_on_list_of_searches(
-                                cur, temp_dict[got_message], user_id, region, region_name
+                                temp_dict[got_message], user_id, region, region_name
                             )
                             reply_markup = reply_markup_main
                             data = {
@@ -1575,12 +1536,12 @@ def process_update(update: Update) -> str:
 
                             # saving the last message from bot
                             try:
-                                save_last_user_message_in_db(cur, user_id, 'report')
+                                db().save_last_user_message_in_db(user_id, 'report')
                             except Exception as e:
                                 logging.exception('failed to save the last message from bot')
 
                     # issue425 Button for turn on search following mode
-                    if 'tester' in get_user_sys_roles(cur, user_id):
+                    if 'tester' in db().get_user_sys_roles(user_id):
                         try:
                             search_follow_mode_ikb = [
                                 [
@@ -1609,7 +1570,7 @@ def process_update(update: Update) -> str:
                             logging.info(f'{response=}; {user_id=}; context_step=a02')
                             result = process_response_of_api_call(user_id, response)
                             logging.info(f'{result=}; {user_id=}; context_step=a03')
-                            inline_processing(cur, response, params)
+                            inline_processing(response, params)
                         except Exception as e:
                             logging.exception('failed to show button for turn on search following mode')
 
@@ -1625,7 +1586,7 @@ def process_update(update: Update) -> str:
 
             # FIXME - WIP
             elif got_message.lower() == b_test_menu:
-                add_user_sys_role(cur, user_id, 'tester')
+                db().add_user_sys_role(user_id, 'tester')
                 bot_message = (
                     'Вы в секретном тестовом разделе, где всё может работать не так :) '
                     'Если что – пишите, пожалуйста, в телеграм-чат '
@@ -1642,17 +1603,17 @@ def process_update(update: Update) -> str:
             # FIXME ^^^
 
             elif got_message.lower() == 'notest':
-                delete_user_sys_role(cur, user_id, 'tester')
+                db().delete_user_sys_role(user_id, 'tester')
                 bot_message = 'Роль tester удалена. Приходите еще! :-) Возвращаемся в главное меню.'
                 reply_markup = reply_markup_main
 
             elif got_message.lower() == b_test_search_follow_mode_on:  # issue425
-                set_search_follow_mode(cur, user_id, True)
+                db().set_search_follow_mode(user_id, True)
                 bot_message = 'Возможность отслеживания поисков включена. Возвращаемся в главное меню.'
                 reply_markup = reply_markup_main
 
             elif got_message.lower() == b_test_search_follow_mode_off:  ##remains for some time for emrgency case
-                set_search_follow_mode(cur, user_id, False)
+                db().set_search_follow_mode(user_id, False)
                 bot_message = 'Возможность отслеживания поисков вЫключена. Возвращаемся в главное меню.'
                 reply_markup = reply_markup_main
 
@@ -1680,7 +1641,7 @@ def process_update(update: Update) -> str:
             ):  # noqa
                 callback_query_message_id = callback_query.message.id if callback_query else None
                 bot_message, reply_markup = manage_topic_type(
-                    cur, user_id, got_message, b, got_callback, callback_query_id, bot_token, callback_query_message_id
+                    user_id, got_message, b, got_callback, callback_query_id, bot_token, callback_query_message_id
                 )
 
             elif got_message in {
@@ -1699,7 +1660,7 @@ def process_update(update: Update) -> str:
                 b_pref_age_81_on_deact,
             }:
                 input_data = None if got_message == b_set_pref_age else got_message
-                keyboard, first_visit = manage_age(cur, user_id, input_data)
+                keyboard, first_visit = manage_age(user_id, input_data)
                 keyboard.append([b_back_to_start])
                 reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
@@ -1725,7 +1686,6 @@ def process_update(update: Update) -> str:
                 or bot_request_bfr_usr_msg == 'radius_input'
             ):
                 bot_message, reply_markup, bot_request_aft_usr_msg = manage_radius(
-                    cur,
                     user_id,
                     got_message,
                     b_set_pref_radius,
@@ -1742,7 +1702,6 @@ def process_update(update: Update) -> str:
                 or bot_request_bfr_usr_msg == 'input_of_forum_username'
             ):
                 bot_message, reply_markup, bot_request_aft_usr_msg = manage_linking_to_forum(
-                    cur,
                     got_message,
                     user_id,
                     b_set_forum_nick,
@@ -1791,20 +1750,20 @@ def process_update(update: Update) -> str:
 
             elif got_message in {b_menu_set_region, b_fed_dist_pick_other}:
                 bot_message = update_and_download_list_of_regions(
-                    cur, user_id, got_message, b_menu_set_region, b_fed_dist_pick_other
+                    user_id, got_message, b_menu_set_region, b_fed_dist_pick_other
                 )
                 reply_markup = ReplyKeyboardMarkup(keyboard_fed_dist_set, resize_keyboard=True)
 
             elif got_message in dict_of_fed_dist:
                 updated_regions = update_and_download_list_of_regions(
-                    cur, user_id, got_message, b_menu_set_region, b_fed_dist_pick_other
+                    user_id, got_message, b_menu_set_region, b_fed_dist_pick_other
                 )
                 bot_message = updated_regions
                 reply_markup = ReplyKeyboardMarkup(dict_of_fed_dist[got_message], resize_keyboard=True)
 
             elif got_message in full_dict_of_regions:
                 updated_regions = update_and_download_list_of_regions(
-                    cur, user_id, got_message, b_menu_set_region, b_fed_dist_pick_other
+                    user_id, got_message, b_menu_set_region, b_fed_dist_pick_other
                 )
                 bot_message = updated_regions
                 keyboard = keyboard_fed_dist_set
@@ -1820,7 +1779,7 @@ def process_update(update: Update) -> str:
 
                 if onboarding_step_id == 20:  # "moscow_replied"
                     save_onboarding_step(user_id, username, 'region_set')
-                    save_user_pref_topic_type(cur, user_id, 'default', user_role)
+                    db().save_user_pref_topic_type(user_id, 'default', user_role)
 
             elif got_message in {b_settings, c_settings}:
                 bot_message = (
@@ -1830,7 +1789,7 @@ def process_update(update: Update) -> str:
                     'момент сможете изменить эти настройки.'
                 )
 
-                message_prefix = compose_msg_on_user_setting_fullness(cur, user_id)
+                message_prefix = compose_msg_on_user_setting_fullness(user_id)
                 if message_prefix:
                     bot_message = f'{bot_message}\n\n{message_prefix}'
 
@@ -1867,7 +1826,7 @@ def process_update(update: Update) -> str:
                 reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
 
             elif got_message == b_coords_del:
-                delete_user_coordinates(cur, user_id)
+                db().delete_user_coordinates(user_id)
                 bot_message = (
                     'Ваши "домашние координаты" удалены. Теперь расстояние и направление '
                     'до поисков не будет отображаться.\n'
@@ -1890,7 +1849,7 @@ def process_update(update: Update) -> str:
                 reply_markup = ReplyKeyboardRemove()
 
             elif got_message == b_coords_check:
-                lat, lon = show_user_coordinates(cur, user_id)
+                lat, lon = db().show_user_coordinates(user_id)
                 if lat and lon:
                     bot_message = 'Ваши "домашние координаты" '
                     bot_message += generate_yandex_maps_place_link(lat, lon, 'coords')
@@ -1984,12 +1943,12 @@ def process_update(update: Update) -> str:
                         'появление новых комментариев по всем поискам. Вы в любой момент '
                         'можете изменить список уведомлений'
                     )
-                    save_preference(cur, user_id, 'all')
+                    save_preference(user_id, 'all')
 
                 # save preference for -ALL
                 elif got_message == b_deact_all:
                     bot_message = 'Вы можете настроить типы получаемых уведомлений более гибко'
-                    save_preference(cur, user_id, '-all')
+                    save_preference(user_id, '-all')
 
                 # save preference for +NEW SEARCHES
                 elif got_message == b_act_new_search:
@@ -1998,12 +1957,12 @@ def process_update(update: Update) -> str:
                         'появлении нового поиска. Вы в любой момент можете изменить '
                         'список уведомлений'
                     )
-                    save_preference(cur, user_id, 'new_searches')
+                    save_preference(user_id, 'new_searches')
 
                 # save preference for -NEW SEARCHES
                 elif got_message == b_deact_new_search:
                     bot_message = 'Записали'
-                    save_preference(cur, user_id, '-new_searches')
+                    save_preference(user_id, '-new_searches')
 
                 # save preference for +STATUS UPDATES
                 elif got_message == b_act_stat_change:
@@ -2012,17 +1971,17 @@ def process_update(update: Update) -> str:
                         'изменении статуса поисков (НЖ, НП, СТОП и т.п.). Вы в любой момент '
                         'можете изменить список уведомлений'
                     )
-                    save_preference(cur, user_id, 'status_changes')
+                    save_preference(user_id, 'status_changes')
 
                 # save preference for -STATUS UPDATES
                 elif got_message == b_deact_stat_change:
                     bot_message = 'Записали'
-                    save_preference(cur, user_id, '-status_changes')
+                    save_preference(user_id, '-status_changes')
 
                 # save preference for TITLE UPDATES
                 elif got_message == b_act_titles:
                     bot_message = 'Отлично!'
-                    save_preference(cur, user_id, 'title_changes')
+                    save_preference(user_id, 'title_changes')
 
                 # save preference for +COMMENTS
                 elif got_message == b_act_all_comments:
@@ -2030,7 +1989,7 @@ def process_update(update: Update) -> str:
                         'Отлично! Теперь все новые комментарии будут у вас! Вы в любой момент '
                         'можете изменить список уведомлений'
                     )
-                    save_preference(cur, user_id, 'comments_changes')
+                    save_preference(user_id, 'comments_changes')
 
                 # save preference for -COMMENTS
                 elif got_message == b_deact_all_comments:
@@ -2038,7 +1997,7 @@ def process_update(update: Update) -> str:
                         'Записали. Мы только оставили вам включенными уведомления о '
                         'комментариях Инфорга. Их тоже можно отключить'
                     )
-                    save_preference(cur, user_id, '-comments_changes')
+                    save_preference(user_id, '-comments_changes')
 
                 # save preference for +InforgComments
                 elif got_message == b_act_inforg_com:
@@ -2048,12 +2007,12 @@ def process_update(update: Update) -> str:
                         'уже подписаны на все комментарии – то всё остаётся без изменений: бот '
                         'уведомит вас по всем комментариям, включая от Инфорга'
                     )
-                    save_preference(cur, user_id, 'inforg_comments')
+                    save_preference(user_id, 'inforg_comments')
 
                 # save preference for -InforgComments
                 elif got_message == b_deact_inforg_com:
                     bot_message = 'Вы отписались от уведомлений по новым комментариям от Инфорга'
-                    save_preference(cur, user_id, '-inforg_comments')
+                    save_preference(user_id, '-inforg_comments')
 
                 # save preference for +FieldTripsNew
                 elif got_message == b_act_field_trips_new:
@@ -2063,12 +2022,12 @@ def process_update(update: Update) -> str:
                         'форуме, а именно о том, что в существующей теме в ПЕРВОМ посте '
                         'появилась информация о новом выезде'
                     )
-                    save_preference(cur, user_id, 'field_trips_new')
+                    save_preference(user_id, 'field_trips_new')
 
                 # save preference for -FieldTripsNew
                 elif got_message == b_deact_field_trips_new:
                     bot_message = 'Вы отписались от уведомлений по новым выездам'
-                    save_preference(cur, user_id, '-field_trips_new')
+                    save_preference(user_id, '-field_trips_new')
 
                 # save preference for +FieldTripsChange
                 elif got_message == b_act_field_trips_change:
@@ -2077,12 +2036,12 @@ def process_update(update: Update) -> str:
                         'выездах, в т.ч. изменение или завершение выезда. Обратите внимание, '
                         'что эта рассылка отражает изменения только в ПЕРВОМ посте поиска.'
                     )
-                    save_preference(cur, user_id, 'field_trips_change')
+                    save_preference(user_id, 'field_trips_change')
 
                 # save preference for -FieldTripsChange
                 elif got_message == b_deact_field_trips_change:
                     bot_message = 'Вы отписались от уведомлений по изменениям выездов'
-                    save_preference(cur, user_id, '-field_trips_change')
+                    save_preference(user_id, '-field_trips_change')
 
                 # save preference for +CoordsChange
                 elif got_message == b_act_coords_change:
@@ -2090,12 +2049,12 @@ def process_update(update: Update) -> str:
                         'Если у штаба поменяются координаты (и об этом будет написано в первом '
                         'посте на форуме) – бот уведомит вас об этом'
                     )
-                    save_preference(cur, user_id, 'coords_change')
+                    save_preference(user_id, 'coords_change')
 
                 # save preference for -CoordsChange
                 elif got_message == b_deact_coords_change:
                     bot_message = 'Вы отписались от уведомлений о смене места (координат) штаба'
-                    save_preference(cur, user_id, '-coords_change')
+                    save_preference(user_id, '-coords_change')
 
                 # save preference for +FirstPostChanges
                 elif got_message == b_act_first_post_change:
@@ -2103,7 +2062,7 @@ def process_update(update: Update) -> str:
                         'Теперь вы будете получать уведомления о важных изменениях в Первом Посте'
                         ' Инфорга, где обозначено описание каждого поиска'
                     )
-                    save_preference(cur, user_id, 'first_post_changes')
+                    save_preference(user_id, 'first_post_changes')
 
                 # save preference for -FirstPostChanges
                 elif got_message == b_deact_first_post_change:
@@ -2111,21 +2070,21 @@ def process_update(update: Update) -> str:
                         'Вы отписались от уведомлений о важных изменениях в Первом Посте'
                         ' Инфорга c описанием каждого поиска'
                     )
-                    save_preference(cur, user_id, '-first_post_changes')
+                    save_preference(user_id, '-first_post_changes')
 
                 # save preference for +all_in_followed_search
                 elif got_message == b_act_all_in_followed_search:
                     bot_message = 'Теперь во время отслеживания поиска будут все уведомления по нему.'
-                    save_preference(cur, user_id, 'all_in_followed_search')
+                    save_preference(user_id, 'all_in_followed_search')
 
                 # save preference for -all_in_followed_search
                 elif got_message == b_deact_all_in_followed_search:
                     bot_message = 'Теперь по отслеживаемым поискам будут уведомления как обычно (только настроенные).'
-                    save_preference(cur, user_id, '-all_in_followed_search')
+                    save_preference(user_id, '-all_in_followed_search')
 
                 # GET what are preferences
                 elif got_message == b_set_pref_notif_type:
-                    prefs = compose_user_preferences_message(cur, user_id)
+                    prefs = compose_user_preferences_message(user_id)
                     if prefs[0] == 'пока нет включенных уведомлений' or prefs[0] == 'неизвестная настройка':
                         bot_message = 'Выберите, какие уведомления вы бы хотели получать'
                     else:
@@ -2150,7 +2109,7 @@ def process_update(update: Update) -> str:
                     ]
                 else:
                     # getting the list of user notification preferences
-                    prefs = compose_user_preferences_message(cur, user_id)
+                    prefs = compose_user_preferences_message(user_id)
                     keyboard_notifications_flexible = [
                         [b_act_all],
                         [b_act_new_search],
@@ -2215,7 +2174,7 @@ def process_update(update: Update) -> str:
                 if user_used_inline_button:
                     # call editMessageText to edit inline keyboard
                     # in the message where inline button was pushed
-                    last_user_message_id = callback_query.message.id  ##was get_last_user_inline_dialogue(cur, user_id)
+                    last_user_message_id = callback_query.message.id  ##was get_last_user_inline_dialogue( user_id)
                     logging.info(f'{last_user_message_id=}')
                     # params['message_id'] = last_user_message_id
                     params = {
@@ -2252,7 +2211,7 @@ def process_update(update: Update) -> str:
                 context_step = '3'
                 context = f'main() after if user_used_inline_button: {user_id=}, {context_step=}'
                 result = process_response_of_api_call(user_id, response)
-                inline_processing(cur, response, params)
+                inline_processing(response, params)
 
                 logging.info(f'RESPONSE {response}')
                 logging.info(f'RESULT {result}')
@@ -2263,7 +2222,7 @@ def process_update(update: Update) -> str:
                 bot_request_aft_usr_msg = 'not_defined'
 
             try:
-                save_last_user_message_in_db(cur, user_id, bot_request_aft_usr_msg)
+                db().save_last_user_message_in_db(user_id, bot_request_aft_usr_msg)
             except Exception as e:
                 logging.exception(f'failed updates of table msg_from_bot for user={user_id}')
 
@@ -2284,9 +2243,6 @@ def process_update(update: Update) -> str:
         notify_admin('[comm] general script fail')
 
     if bot_message:
-        save_bot_reply_to_user(cur, user_id, bot_message)
-
-    cur.close()
-    conn_psy.close()
+        db().save_bot_reply_to_user(user_id, bot_message)
 
     return 'finished successfully. in was a regular conversational message'

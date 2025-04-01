@@ -2,34 +2,21 @@ import logging
 import re
 from typing import Optional, Tuple, Union
 
-from psycopg2.extensions import cursor
 from telegram import CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove
 
 from _dependencies.commons import Topics, publish_to_pubsub
-from communicate._utils.common import AgePeriod, AllButtons, SearchFollowingMode, if_user_enables, save_onboarding_step
-from communicate._utils.database import (
-    add_folder_to_user_regional_preference,
-    add_region_to_user_settings,
-    check_if_user_has_no_regions,
-    check_saved_radius,
-    check_saved_topic_types,
-    delete_user_age_pref,
-    delete_user_saved_radius,
-    delete_user_saved_topic_type,
-    get_age_prefs,
-    get_user_forum_attributes_db,
-    record_search_whiteness,
-    record_topic_type,
-    save_user_age_prefs,
-    save_user_pref_topic_type,
-    save_user_radius,
-    set_search_follow_mode,
-    write_user_forum_attributes_db,
+from communicate._utils.common import (
+    AgePeriod,
+    AllButtons,
+    SearchFollowingMode,
+    if_user_enables,
+    save_onboarding_step,
 )
+from communicate._utils.database import db
 from communicate._utils.message_sending import make_api_call, send_callback_answer_to_api
 
 
-def manage_age(cur: cursor, user_id: int, user_input: Optional[str]) -> None:
+def manage_age(user_id: int, user_input: Optional[str]) -> None:
     """Save user Age preference and generate the list of updated Are preferences"""
 
     age_list = [
@@ -52,12 +39,12 @@ def manage_age(cur: cursor, user_id: int, user_input: Optional[str]) -> None:
                 break
 
         if user_want_activate:
-            save_user_age_prefs(cur, user_id, chosen_setting)
+            db().save_user_age_prefs(user_id, chosen_setting)
         else:
-            delete_user_age_pref(cur, user_id, chosen_setting)
+            db().delete_user_age_pref(user_id, chosen_setting)
 
     # Block for Generating a list of Buttons
-    raw_list_of_periods = get_age_prefs(cur, user_id)
+    raw_list_of_periods = db().get_age_prefs(user_id)
     first_visit = False
 
     if raw_list_of_periods and str(raw_list_of_periods) != 'None':
@@ -71,7 +58,7 @@ def manage_age(cur: cursor, user_id: int, user_input: Optional[str]) -> None:
         for line_a in age_list:
             line_a.current = True
         for line in age_list:
-            save_user_age_prefs(cur, user_id, line)
+            db().save_user_age_prefs(user_id, line)
 
     list_of_buttons = []
     for line in age_list:
@@ -84,7 +71,6 @@ def manage_age(cur: cursor, user_id: int, user_input: Optional[str]) -> None:
 
 
 def manage_radius(
-    cur: cursor,
     user_id: int,
     user_input: str,
     b_menu: str,
@@ -104,7 +90,7 @@ def manage_radius(
 
     if user_input:
         if user_input.lower() == b_menu:
-            saved_radius = check_saved_radius(cur, user_id)
+            saved_radius = db().check_saved_radius(user_id)
             if saved_radius:
                 list_of_buttons = [[b_change], [b_deact], [b_home_coord], [b_back]]
                 bot_message = (
@@ -134,7 +120,7 @@ def manage_radius(
         elif user_input in {b_act, b_change}:
             expect_after = 'radius_input'
             reply_markup_needed = False
-            saved_radius = check_saved_radius(cur, user_id)
+            saved_radius = db().check_saved_radius(user_id)
             if saved_radius:
                 bot_message = (
                     f'У вас установлено максимальное расстояние до поиска {saved_radius}.'
@@ -149,7 +135,7 @@ def manage_radius(
 
         elif user_input == b_deact:
             list_of_buttons = [[b_act], [b_menu], [b_back]]
-            delete_user_saved_radius(cur, user_id)
+            db().delete_user_saved_radius(user_id)
             bot_message = 'Ограничение на расстояние по поискам снято!'
 
         elif expect_before == 'radius_input':
@@ -157,8 +143,8 @@ def manage_radius(
             if number:
                 number = int(number.group())
             if number and number > 0:
-                save_user_radius(cur, user_id, number)
-                saved_radius = check_saved_radius(cur, user_id)
+                db().save_user_radius(user_id, number)
+                saved_radius = db().check_saved_radius(user_id)
                 bot_message = (
                     f'Сохранили! Теперь поиски, у которых расстояние до штаба, '
                     f'либо до ближайшего населенного пункта (топонима) превосходит '
@@ -179,7 +165,6 @@ def manage_radius(
 
 
 def manage_topic_type(
-    cur: cursor,
     user_id: int,
     user_input: str,
     b: AllButtons,
@@ -193,7 +178,7 @@ def manage_topic_type(
     if not user_input:
         return None, None
 
-    list_of_current_setting_ids = check_saved_topic_types(cur, user_id)
+    list_of_current_setting_ids = db().check_saved_topic_types(user_id)
 
     welcome_message = (
         'Вы можете выбрать и в любой момент поменять, по каким типам поисков или '
@@ -227,7 +212,7 @@ def manage_topic_type(
         )
         about_params = {'chat_id': user_id, 'text': about_text, 'parse_mode': 'HTML'}
         make_api_call('sendMessage', bot_token, about_params, "main() if ... user_callback['action'] == 'about'")
-        del_message_id = callback_query_msg_id  ###was get_last_user_inline_dialogue(cur, user_id)
+        del_message_id = callback_query_msg_id  ###was get_last_user_inline_dialogue( user_id)
         if del_message_id:
             del_params = {'chat_id': user_id, 'message_id': del_message_id}
             make_api_call('deleteMessage', bot_token, del_params)
@@ -250,7 +235,7 @@ def manage_topic_type(
         elif user_wants_to_enable is True:  # not a poor design – function can be: None, True, False   # noqa
             bot_message = 'Супер, мы включили эти уведомления'
             send_callback_answer_to_api(bot_token, callback_id, bot_message)
-            record_topic_type(cur, user_id, topic_id)
+            db().record_topic_type(user_id, topic_id)
         else:  # user_wants_to_enable == False:  # not a poor design – function can be: None, True, False # noqa
             if len(list_of_current_setting_ids) == 1:
                 bot_message = '❌ Необходима как минимум одна настройка'
@@ -259,7 +244,7 @@ def manage_topic_type(
             else:
                 bot_message = 'Хорошо, мы изменили список настроек'
                 send_callback_answer_to_api(bot_token, callback_id, bot_message)
-                delete_user_saved_topic_type(cur, user_id, topic_id)
+                db().delete_user_saved_topic_type(user_id, topic_id)
 
     keyboard = b.topic_types.keyboard(act_list=list_of_current_setting_ids, change_list=list_of_ids_to_change_now)
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -276,7 +261,7 @@ def manage_topic_type(
 
 
 def manage_search_whiteness(
-    cur: cursor, user_id: int, user_callback: dict, callback_id: str, callback_query: CallbackQuery, bot_token: str
+    user_id: int, user_callback: dict, callback_id: str, callback_query: CallbackQuery, bot_token: str
 ) -> Union[tuple[None, None], tuple[str, ReplyKeyboardMarkup]]:
     """Saves search_whiteness (accordingly to user's choice of search to follow) and regenerates the search list keyboard"""
 
@@ -320,7 +305,7 @@ def manage_search_whiteness(
         logging.info(f'before assign new_mark_value: {pushed_row_index=}, {old_mark_value=}, {new_mark_value=}')
         new_ikb[pushed_row_index][0]['text'] = new_mark_value + new_ikb[pushed_row_index][0]['text'][2:]
         # Update the search 'whiteness' (tracking state)
-        record_search_whiteness(cur, user_id, int(user_callback['hash']), new_mark_value)
+        db().record_search_whiteness(user_id, int(user_callback['hash']), new_mark_value)
         logging.info(f'before send_callback_answer_to_api: {new_ikb=}')
         send_callback_answer_to_api(bot_token, callback_id, bot_message)
         reply_markup = InlineKeyboardMarkup(new_ikb)
@@ -333,18 +318,18 @@ def manage_search_whiteness(
 
 
 def manage_search_follow_mode(
-    cur: cursor, user_id: int, user_callback: dict, callback_id: str, callback_query, bot_token: str
+    user_id: int, user_callback: dict, callback_id: str, callback_query, bot_token: str
 ) -> str | None:
     """Switches search following mode on/off"""
 
     logging.info(f'{callback_query=}, {user_id=}')
     # when user pushed INLINE BUTTON for topic following
     if user_callback and user_callback['action'] == 'search_follow_mode_on':
-        set_search_follow_mode(cur, user_id, True)
+        db().set_search_follow_mode(user_id, True)
         bot_message = 'Режим выбора поисков для отслеживания включен.'
 
     elif user_callback and user_callback['action'] == 'search_follow_mode_off':
-        set_search_follow_mode(cur, user_id, False)
+        db().set_search_follow_mode(user_id, False)
         bot_message = 'Режим выбора поисков для отслеживания отключен.'
 
     send_callback_answer_to_api(bot_token, callback_id, bot_message)
@@ -353,7 +338,6 @@ def manage_search_follow_mode(
 
 
 def manage_if_moscow(
-    cur,
     user_id,
     username,
     got_message,
@@ -370,14 +354,14 @@ def manage_if_moscow(
     if got_message == b_reg_moscow:
         save_onboarding_step(user_id, username, 'moscow_replied')
         save_onboarding_step(user_id, username, 'region_set')
-        save_user_pref_topic_type(cur, user_id, 'default', user_role)
+        db().save_user_pref_topic_type(user_id, 'default', user_role)
 
-        if check_if_user_has_no_regions(cur, user_id):
+        if db().check_if_user_has_no_regions(user_id):
             # add the New User into table user_regional_preferences
             # region is Moscow for Active Searches & InfoPod
-            add_folder_to_user_regional_preference(cur, user_id, 276)
-            add_folder_to_user_regional_preference(cur, user_id, 41)
-            add_region_to_user_settings(cur, user_id, 1)
+            db().add_folder_to_user_regional_preference(user_id, 276)
+            db().add_folder_to_user_regional_preference(user_id, 41)
+            db().add_region_to_user_settings(user_id, 1)
 
     # if region is NOT Moscow
     elif got_message == b_reg_not_moscow:
@@ -400,7 +384,6 @@ def manage_if_moscow(
 
 
 def manage_linking_to_forum(
-    cur: cursor,
     got_message: str,
     user_id: int,
     b_set_forum_nick: str,
@@ -419,7 +402,7 @@ def manage_linking_to_forum(
 
     if got_message == b_set_forum_nick:
         # TODO: if user_is linked to forum so
-        saved_forum_user = get_user_forum_attributes_db(cur, user_id)
+        saved_forum_user = db().get_user_forum_attributes_db(user_id)
 
         if not saved_forum_user:
             bot_message = (
@@ -458,7 +441,7 @@ def manage_linking_to_forum(
 
     elif got_message in {b_yes_its_me}:
         # Write "verified" for user
-        write_user_forum_attributes_db(cur, user_id)
+        db().write_user_forum_attributes_db(user_id)
 
         bot_message = (
             'Отлично, мы записали: теперь бот будет понимать, кто вы на форуме.\nЭто поможет '
@@ -482,3 +465,65 @@ def manage_linking_to_forum(
         reply_markup = reply_markup_main
 
     return bot_message, reply_markup, bot_request_aft_usr_msg
+
+
+def save_preference(user_id: int, preference: str):
+    """Save user preference on types of notifications to be sent by bot"""
+
+    # the master-table is dict_notif_types:
+
+    if preference == 'all':
+        db().user_preference_delete(user_id, [])
+        db().user_preference_save(user_id, preference)
+
+    elif preference in {
+        'new_searches',
+        'status_changes',
+        'title_changes',
+        'comments_changes',
+        'first_post_changes',
+        'all_in_followed_search',
+    }:
+        if db().user_preference_is_exists(user_id, ['all']):
+            db().user_preference_save(user_id, 'bot_news')
+        db().user_preference_delete(user_id, ['all'])
+
+        db().user_preference_save(user_id, preference)
+
+        if preference == 'comments_changes':
+            db().user_preference_delete(user_id, ['inforg_comments'])
+
+    elif preference == 'inforg_comments':
+        if not db().user_preference_is_exists(user_id, ['all', 'comments_changes']):
+            db().user_preference_save(user_id, preference)
+
+    elif preference in {'field_trips_new', 'field_trips_change', 'coords_change'}:
+        # FIXME – temp deactivation unlit feature will be ready for prod
+        # FIXME – to be added to "new_searches" etc group
+        # if not execute_check(user_id, ['all']):
+        db().user_preference_save(user_id, preference)
+
+    elif preference in {
+        '-new_searches',
+        '-status_changes',
+        '-comments_changes',
+        '-inforg_comments',
+        '-title_changes',
+        '-all',
+        '-field_trips_new',
+        '-field_trips_change',
+        '-coords_change',
+        '-first_post_changes',
+        '-all_in_followed_search',
+    }:
+        if preference == '-all':
+            db().user_preference_save(user_id, 'bot_news')
+            db().user_preference_save(user_id, 'new_searches')
+            db().user_preference_save(user_id, 'status_changes')
+            db().user_preference_save(user_id, 'inforg_comments')
+            db().user_preference_save(user_id, 'first_post_changes')
+        elif preference == '-comments_changes':
+            db().user_preference_save(user_id, 'inforg_comments')
+
+        preference = preference[1:]
+        db().user_preference_delete(user_id, [preference])

@@ -254,3 +254,31 @@ def save_onboarding_step(user_id: str, username: str, step: str) -> None:
         'step': step,
     }
     publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
+
+
+pref_dict = {
+    # TODO enum
+    'topic_new': 0,
+    'topic_status_change': 1,
+    'topic_title_change': 2,
+    'topic_comment_new': 3,
+    'topic_inforg_comment_new': 4,
+    'topic_field_trip_new': 5,
+    'topic_field_trip_change': 6,
+    'topic_coords_change': 7,
+    'topic_first_post_change': 8,
+    'topic_all_in_followed_search': 9,
+    'bot_news': 20,
+    'all': 30,
+    'not_defined': 99,
+    'new_searches': 0,
+    'status_changes': 1,
+    'title_changes': 2,
+    'comments_changes': 3,
+    'inforg_comments': 4,
+    'field_trips_new': 5,
+    'field_trips_change': 6,
+    'coords_change': 7,
+    'first_post_changes': 8,
+    'all_in_followed_search': 9,
+}

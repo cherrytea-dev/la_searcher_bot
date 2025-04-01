@@ -2,19 +2,10 @@ import logging
 from dataclasses import dataclass
 from typing import Any, List, Tuple, Union
 
-from psycopg2.extensions import cursor
 
 from _dependencies.misc import age_writer, time_counter_since_search_start
 from communicate._utils.common import define_dist_and_dir_to_search
-from communicate._utils.database import (
-    get_active_searches_in_one_region,
-    get_all_active_searches_in_one_region_2,
-    get_all_last_searches_in_region,
-    get_all_searches_in_one_region,
-    get_all_user_preferences,
-    get_existing_user_settings,
-    get_saved_user_coordinates,
-)
+from communicate._utils.database import db
 
 
 @dataclass
@@ -49,15 +40,15 @@ class SearchSummary:
         )
 
 
-def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
+def compose_msg_on_user_setting_fullness(user_id: int) -> Union[str, None]:
     """Create a text of message, which describes the degree on how complete user's profile is.
     More settings set – more complete profile it. It's done to motivate users to set the most tailored settings."""
 
-    if not cur or not user_id:
+    if not user_id:
         return None
 
     try:
-        raw_data = get_existing_user_settings(cur, user_id)
+        raw_data = db().get_existing_user_settings(user_id)
 
         if not raw_data:
             return None
@@ -113,10 +104,10 @@ def compose_msg_on_user_setting_fullness(cur, user_id: int) -> Union[str, None]:
         return None
 
 
-def compose_user_preferences_message(cur: cursor, user_id: int) -> List[Union[List[str], str]]:
+def compose_user_preferences_message(user_id: int) -> List[Union[List[str], str]]:
     """Compose a text for user on which types of notifications are enabled for zir"""
 
-    user_prefs = get_all_user_preferences(cur, user_id)
+    user_prefs = db().get_all_user_preferences(user_id)
 
     prefs_wording = ''
     prefs_list = []
@@ -151,14 +142,14 @@ def compose_user_preferences_message(cur: cursor, user_id: int) -> List[Union[Li
     return prefs_wording_and_list
 
 
-def compose_msg_on_all_last_searches(cur: cursor, region: int) -> str:
+def compose_msg_on_all_last_searches(region: int) -> str:
     """Compose a part of message on the list of recent searches"""
 
     pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='
     text = ''
 
     # download the list from SEARCHES sql table
-    database = get_all_searches_in_one_region(cur, region)
+    database = db().get_all_searches_in_one_region(region)
 
     for line in database:
         search = SearchSummary()
@@ -187,7 +178,7 @@ def compose_msg_on_all_last_searches(cur: cursor, region: int) -> str:
     return text
 
 
-def compose_msg_on_all_last_searches_ikb(cur: cursor, region: int, user_id: int, only_followed: bool) -> List:
+def compose_msg_on_all_last_searches_ikb(region: int, user_id: int, only_followed: bool) -> List:
     """Compose a part of message on the list of recent searches"""
     # issue#425 it is ikb variant of the above function, returns data formated for inline keyboard
     # 1st element of returned list is general info and should be popped
@@ -197,7 +188,7 @@ def compose_msg_on_all_last_searches_ikb(cur: cursor, region: int, user_id: int,
     pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='
     ikb = []
 
-    database = get_all_last_searches_in_region(cur, region, user_id, only_followed)
+    database = db().get_all_last_searches_in_region(region, user_id, only_followed)
 
     for line in database:
         search = SearchSummary()
@@ -232,13 +223,13 @@ def compose_msg_on_all_last_searches_ikb(cur: cursor, region: int, user_id: int,
     return ikb
 
 
-def compose_msg_on_active_searches_in_one_reg(cur: cursor, region: int, user_data) -> str:
+def compose_msg_on_active_searches_in_one_reg(region: int, user_data) -> str:
     """Compose a part of message on the list of active searches in the given region with relation to user's coords"""
 
     pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='
     text = ''
 
-    searches_list = get_active_searches_in_one_region(cur, region)
+    searches_list = db().get_active_searches_in_one_region(region)
 
     user_lat = None
     user_lon = None
@@ -280,9 +271,7 @@ def compose_msg_on_active_searches_in_one_reg(cur: cursor, region: int, user_dat
     return text
 
 
-def compose_msg_on_active_searches_in_one_reg_ikb(
-    cur: cursor, region: int, user_data: Tuple[str, str], user_id: int
-) -> List:
+def compose_msg_on_active_searches_in_one_reg_ikb(region: int, user_data: Tuple[str, str], user_id: int) -> List:
     """Compose a part of message on the list of active searches in the given region with relation to user's coords"""
     # issue#425 it is ikb variant of the above function, returns data formated for inline keyboard
     # 1st element of returned list is general info and should be popped
@@ -292,7 +281,7 @@ def compose_msg_on_active_searches_in_one_reg_ikb(
     pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='
     ikb = []
 
-    searches_list = get_all_active_searches_in_one_region_2(cur, region, user_id)
+    searches_list = db().get_all_active_searches_in_one_region_2(region, user_id)
 
     user_lat = None
     user_lon = None
@@ -340,18 +329,16 @@ def compose_msg_on_active_searches_in_one_reg_ikb(
     return ikb
 
 
-def compose_full_message_on_list_of_searches(
-    cur: cursor, list_type: str, user_id: int, region: int, region_name: str
-) -> str:
+def compose_full_message_on_list_of_searches(list_type: str, user_id: int, region: int, region_name: str) -> str:
     """Compose a Final message on the list of searches in the given region"""
 
     msg = ''
 
-    user_data = get_saved_user_coordinates(cur, user_id)
+    user_data = db().get_saved_user_coordinates(user_id)
 
     # combine the list of last 20 searches
     if list_type == 'all':
-        msg += compose_msg_on_all_last_searches(cur, region)
+        msg += compose_msg_on_all_last_searches(region)
 
         if msg:
             msg = (
@@ -377,7 +364,7 @@ def compose_full_message_on_list_of_searches(
 
     # Combine the list of the latest active searches
     else:
-        msg += compose_msg_on_active_searches_in_one_reg(cur, region, user_data)
+        msg += compose_msg_on_active_searches_in_one_reg(region, user_data)
 
         if msg:
             msg = (
@@ -402,7 +389,7 @@ def compose_full_message_on_list_of_searches(
 
 
 def compose_full_message_on_list_of_searches_ikb(
-    cur: cursor, list_type: str, user_id: int, region: int, region_name: str, only_followed: bool
+    list_type: str, user_id: int, region: int, region_name: str, only_followed: bool
 ):  # issue#425
     """Compose a Final message on the list of searches in the given region"""
     # issue#425 This variant of the above function returns data in format used to compose inline keyboard
@@ -411,12 +398,12 @@ def compose_full_message_on_list_of_searches_ikb(
 
     ikb = []
 
-    user_data = get_saved_user_coordinates(cur, user_id)
+    user_data = db().get_saved_user_coordinates(user_id)
 
     url = f'https://lizaalert.org/forum/viewforum.php?f={region}'
     # combine the list of last 20 searches
     if list_type == 'all':
-        ikb += compose_msg_on_all_last_searches_ikb(cur, region, user_id, only_followed)
+        ikb += compose_msg_on_all_last_searches_ikb(region, user_id, only_followed)
         logging.info('ikb += compose_msg_on_all_last_searches_ikb == ' + str(ikb))
 
         if len(ikb) > 0:
@@ -437,7 +424,7 @@ def compose_full_message_on_list_of_searches_ikb(
 
     # Combine the list of the latest active searches
     else:
-        ikb += compose_msg_on_active_searches_in_one_reg_ikb(cur, region, user_data, user_id)
+        ikb += compose_msg_on_active_searches_in_one_reg_ikb(region, user_data, user_id)
         logging.info(f'ikb += compose_msg_on_active_searches_in_one_reg_ikb == {ikb}; ({region=})')
 
         if len(ikb) > 0:
