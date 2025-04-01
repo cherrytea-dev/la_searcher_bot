@@ -2,7 +2,6 @@ import logging
 from dataclasses import dataclass
 from typing import Any, List, Tuple, Union
 
-
 from _dependencies.misc import age_writer, time_counter_since_search_start
 from communicate._utils.common import define_dist_and_dir_to_search
 from communicate._utils.database import db
