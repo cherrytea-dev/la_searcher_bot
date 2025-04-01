@@ -5,7 +5,7 @@ from typing import Any, List, Tuple, Union
 from psycopg2.extensions import cursor
 
 from _dependencies.misc import age_writer, time_counter_since_search_start
-from communicate._utils.common import distance_to_search
+from communicate._utils.common import define_dist_and_dir_to_search
 from communicate._utils.database import (
     get_active_searches_in_one_region,
     get_all_active_searches_in_one_region_2,
@@ -266,7 +266,7 @@ def compose_msg_on_active_searches_in_one_reg(cur: cursor, region: int, user_dat
         time_since_start = time_counter_since_search_start(search.start_time)[0]
 
         if user_lat and search_lat:
-            dist = distance_to_search(search_lat, search_lon, user_lat, user_lon)
+            dist = define_dist_and_dir_to_search(search_lat, search_lon, user_lat, user_lon)
             dist_and_dir = f' {dist[1]} {dist[0]} км'
         else:
             dist_and_dir = ''
@@ -321,7 +321,7 @@ def compose_msg_on_active_searches_in_one_reg_ikb(
         time_since_start = time_counter_since_search_start(search.start_time)[0]
 
         if user_lat and search_lat:
-            dist = distance_to_search(search_lat, search_lon, user_lat, user_lon, False)
+            dist = define_dist_and_dir_to_search(search_lat, search_lon, user_lat, user_lon, False)
             dist_and_dir = f' {dist[1]} {dist[0]} км'
         else:
             dist_and_dir = ''

@@ -6,22 +6,23 @@ from enum import Enum
 from typing import Any, Dict, Union
 
 from _dependencies.commons import Topics, publish_to_pubsub
+from compose_notifications._utils.commons import calc_bearing  # TODO common code
 
 
 @dataclass
 class AgePeriod:
-    description: str = None
-    name: str = None
-    current: bool = None
-    min_age: int = None
-    max_age: int = None
-    order: int = None
+    description: str
+    name: str
+    min_age: int
+    max_age: int
+    order: int
+    current: bool = False  # TODO don't need
 
 
 class Button:
     """Contains one unique button and all the associated attributes"""
 
-    def __init__(self, data: Dict[str, Any] = None, modifier=None):
+    def __init__(self, data: Dict[str, Any], modifier=None):
         if modifier is None:
             modifier = {'on': '✅ ', 'off': '☐ '}  # standard modifier
 
@@ -43,17 +44,14 @@ class Button:
     def __str__(self) -> str:
         return self.text
 
-    def temp_all_keys(self):
-        return [k for k, v in self.__dict__.items()]
-
 
 class GroupOfButtons:
     """Contains the set of unique buttons of the similar nature (to be shown together as alternatives)"""
 
     def __init__(
         self,
-        button_dict,
-        modifier_dict=None,
+        button_dict: dict,
+        modifier_dict: Any = None,
     ):
         self.modifier_dict = modifier_dict
 
@@ -66,7 +64,7 @@ class GroupOfButtons:
         self.any_text = all_button_texts
         self.any_hash = all_button_hashes
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.any_text
 
     def contains(self, check: str) -> bool:
@@ -79,9 +77,6 @@ class GroupOfButtons:
             return True
 
         return False
-
-    def temp_all_keys(self):
-        return [k for k, v in self.__dict__.items()]
 
     def id(self, given_id):
         """Return a Button which correspond to the given id"""
@@ -140,7 +135,7 @@ class GroupOfButtons:
 
         return keyboard
 
-    def button_by_text(self, given_text):
+    def button_by_text(self, given_text: str) -> Button | None:
         """Return a Button which correspond to the given text"""
         for key, value in self.__dict__.items():
             if not value:
@@ -149,7 +144,7 @@ class GroupOfButtons:
                 return value
         return None
 
-    def button_by_hash(self, given_hash):
+    def button_by_hash(self, given_hash: str) -> Button | None:
         """Return a Button which correspond to the given hash"""
         for key, value in self.__dict__.items():
             if not value:
@@ -160,12 +155,9 @@ class GroupOfButtons:
 
 
 class AllButtons:
-    def __init__(self, initial_dict):
+    def __init__(self, initial_dict: dict) -> None:
         for key, value in initial_dict.items():
             setattr(self, key, GroupOfButtons(value))
-
-    def temp_all_keys(self):
-        return [k for k, v in self.__dict__.items()]
 
 
 class SearchFollowingMode(str, Enum):
@@ -175,7 +167,37 @@ class SearchFollowingMode(str, Enum):
     OFF = '❌ '
 
 
-def distance_to_search(search_lat, search_lon, user_let, user_lon, coded_style=True):
+def calc_direction(lat_1: float, lon_1: float, lat_2: float, lon_2: float, coded_style: bool = True) -> str:
+    # indicators of the direction, like ↖︎
+    # TODO merge with `calc_direction`
+
+    if coded_style:
+        points = [
+            '&#8593;&#xFE0E;',
+            '&#8599;&#xFE0F;',
+            '&#8594;&#xFE0E;',
+            '&#8600;&#xFE0E;',
+            '&#8595;&#xFE0E;',
+            '&#8601;&#xFE0E;',
+            '&#8592;&#xFE0E;',
+            '&#8598;&#xFE0E;',
+        ]
+    else:
+        points = ['⬆️', '↗️', '➡️', '↘️', '⬇️', '↙️', '⬅️', '↖️']
+
+    bearing = calc_bearing(lat_1, lon_1, lat_2, lon_2)
+    bearing += 22.5
+    bearing = bearing % 360
+    bearing = int(bearing / 45)  # values 0 to 7
+    nsew = points[bearing]
+
+    return nsew
+
+
+def define_dist_and_dir_to_search(
+    search_lat: str, search_lon: str, user_let: str, user_lon: str, coded_style: bool = True
+) -> tuple[float, str]:
+    # TODO merge with `define_dist_and_dir_to_search`
     """Return the distance and direction from user "home" coordinates to the search coordinates"""
 
     r = 6373.0  # radius of the Earth
@@ -200,44 +222,9 @@ def distance_to_search(search_lat, search_lon, user_let, user_lon, coded_style=T
 
     # define direction
 
-    def calc_bearing(lat_2, lon_2, lat_1, lon_1):
-        d_lon_ = lon_2 - lon_1
-        x = math.cos(math.radians(lat_2)) * math.sin(math.radians(d_lon_))
-        y = math.cos(math.radians(lat_1)) * math.sin(math.radians(lat_2)) - math.sin(math.radians(lat_1)) * math.cos(
-            math.radians(lat_2)
-        ) * math.cos(math.radians(d_lon_))
-        bearing = math.atan2(x, y)
-        bearing = math.degrees(bearing)
+    direction = calc_direction(lat1, lon1, lat2, lon2, coded_style)
 
-        return bearing
-
-    def calc_nsew(lat_1, lon_1, lat_2, lon_2, coded_style=True):
-        # indicators of the direction, like ↖︎
-        if coded_style:
-            points = [
-                '&#8593;&#xFE0E;',
-                '&#8599;&#xFE0F;',
-                '&#8594;&#xFE0E;',
-                '&#8600;&#xFE0E;',
-                '&#8595;&#xFE0E;',
-                '&#8601;&#xFE0E;',
-                '&#8592;&#xFE0E;',
-                '&#8598;&#xFE0E;',
-            ]
-        else:
-            points = ['⬆️', '↗️', '➡️', '↘️', '⬇️', '↙️', '⬅️', '↖️']
-
-        bearing = calc_bearing(lat_1, lon_1, lat_2, lon_2)
-        bearing += 22.5
-        bearing = bearing % 360
-        bearing = int(bearing / 45)  # values 0 to 7
-        nsew = points[bearing]
-
-        return nsew
-
-    direction = calc_nsew(lat1, lon1, lat2, lon2, coded_style)
-
-    return [dist, direction]
+    return (dist, direction)
 
 
 def if_user_enables(callback: Dict) -> Union[None, bool]:
