@@ -27,13 +27,13 @@ class DBClient:
             )
 
 
-def delete_last_user_inline_dialogue(cur, user_id: int) -> None:
+def delete_last_user_inline_dialogue(cur: cursor, user_id: int) -> None:
     """Delete form DB the user's last interaction via inline buttons"""
 
     cur.execute("""DELETE FROM communications_last_inline_msg WHERE user_id=%s;""", (user_id,))
 
 
-def get_last_user_inline_dialogue(cur, user_id: int) -> list:
+def get_last_user_inline_dialogue(cur: cursor, user_id: int) -> list[int]:
     """Get from DB the user's last interaction via inline buttons"""
 
     cur.execute("""SELECT message_id FROM communications_last_inline_msg WHERE user_id=%s;""", (user_id,))
@@ -47,7 +47,7 @@ def get_last_user_inline_dialogue(cur, user_id: int) -> list:
     return message_id_list
 
 
-def save_last_user_inline_dialogue(cur, user_id: int, message_id: int) -> None:
+def save_last_user_inline_dialogue(cur: cursor, user_id: int, message_id: int) -> None:
     """Save to DB the user's last interaction via inline buttons"""
 
     cur.execute(
@@ -59,7 +59,7 @@ def save_last_user_inline_dialogue(cur, user_id: int, message_id: int) -> None:
     )
 
 
-def get_search_follow_mode(cur, user_id: int):
+def get_search_follow_mode(cur: cursor, user_id: int) -> bool:
     cur.execute("""SELECT filter_name FROM user_pref_search_filtering WHERE user_id=%s LIMIT 1;""", (user_id,))
     result_fetched = cur.fetchone()
     result = result_fetched and 'whitelist' in result_fetched[0]
@@ -75,7 +75,7 @@ def save_user_message_to_bot(cur: cursor, user_id: int, got_message: str) -> Non
     )
 
 
-def get_user_sys_roles(cur, user_id):
+def get_user_sys_roles(cur: cursor, user_id) -> list[str]:
     """Return user's roles in system"""
 
     user_roles = ['']
@@ -93,7 +93,7 @@ def get_user_sys_roles(cur, user_id):
     return user_roles
 
 
-def get_user_role(cur: cursor, user_id: int):
+def get_user_role(cur: cursor, user_id: int) -> str:
     """Return user's role"""
 
     user_role = None
@@ -113,32 +113,24 @@ def get_user_role(cur: cursor, user_id: int):
     return user_role
 
 
-def add_user_sys_role(cur, user_id, sys_role_name):
+def add_user_sys_role(cur: cursor, user_id: int, sys_role_name: str) -> None:
     """Saves user's role in system"""
 
-    try:
-        cur.execute(
-            """INSERT INTO user_roles (user_id, role) 
-                    VALUES (%s, %s) ON CONFLICT DO NOTHING;""",
-            (user_id, sys_role_name),
-        )
-
-    except Exception as e:
-        logging.exception(f'failed to insert into user_roles for user {user_id}')
+    cur.execute(
+        """INSERT INTO user_roles (user_id, role) 
+                VALUES (%s, %s) ON CONFLICT DO NOTHING;""",
+        (user_id, sys_role_name),
+    )
 
 
-def delete_user_sys_role(cur, user_id, sys_role_name):
+def delete_user_sys_role(cur: cursor, user_id: int, sys_role_name) -> None:
     """Deletes user's role in system"""
 
-    try:
-        cur.execute(
-            """DELETE FROM user_roles 
-                    WHERE user_id=%s and role=%s;""",
-            (user_id, sys_role_name),
-        )
-
-    except Exception as e:
-        logging.exception(f'failed to delete from user_roles for user {user_id}')
+    cur.execute(
+        """DELETE FROM user_roles 
+                WHERE user_id=%s and role=%s;""",
+        (user_id, sys_role_name),
+    )
 
 
 def delete_user_coordinates(cur: cursor, user_id: int) -> None:
@@ -161,7 +153,7 @@ def show_user_coordinates(cur: cursor, user_id: int) -> Tuple[str, str]:
     return lat, lon
 
 
-def get_saved_user_coordinates(cur, user_id):
+def get_saved_user_coordinates(cur: cursor, user_id: int) -> tuple[float, float] | None:
     cur.execute('SELECT latitude, longitude FROM user_coordinates WHERE user_id=%s LIMIT 1;', (user_id,))
 
     user_data = cur.fetchone()
@@ -180,22 +172,17 @@ def save_user_coordinates(cur: cursor, user_id: int, input_latitude: float, inpu
     )
 
 
-def check_if_user_has_no_regions(cur, user_id):
+def check_if_user_has_no_regions(cur: cursor, user_id: int) -> bool:
     """check if the user has at least one region"""
 
     cur.execute("""SELECT user_id FROM user_regional_preferences WHERE user_id=%s LIMIT 1;""", (user_id,))
 
     info_on_user_from_users = str(cur.fetchone())
 
-    if info_on_user_from_users == 'None':
-        no_regions = True
-    else:
-        no_regions = False
-
-    return no_regions
+    return info_on_user_from_users == 'None'
 
 
-def save_user_pref_role(cur, user_id, role_desc):
+def save_user_pref_role(cur: cursor, user_id: int, role_desc: str) -> str:
     """save user role"""
 
     role_dict = {
@@ -218,7 +205,7 @@ def save_user_pref_role(cur, user_id, role_desc):
     return role
 
 
-def save_user_pref_topic_type(cur, user_id, pref_id, user_role) -> None:
+def save_user_pref_topic_type(cur: cursor, user_id: int, pref_id, user_role) -> None:
     def save(pref_type_id):
         cur.execute(
             """INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp) 
@@ -243,15 +230,14 @@ def save_user_pref_topic_type(cur, user_id, pref_id, user_role) -> None:
         save(pref_id)
 
 
-def get_user_regions_from_db(cur, user_id):
+def get_user_regions_from_db(cur: cursor, user_id: int) -> list[int]:
     cur.execute("""SELECT forum_folder_num from user_regional_preferences WHERE user_id=%s;""", (user_id,))
 
     user_curr_regs_temp = cur.fetchall()
-    user_curr_regs = [reg[0] for reg in user_curr_regs_temp]
-    return user_curr_regs
+    return [reg[0] for reg in user_curr_regs_temp]
 
 
-def get_geo_folders_db(cur):
+def get_geo_folders_db(cur: cursor) -> list[tuple]:
     cur.execute(
         """
                     SELECT folder_id, folder_display_name FROM geo_folders_view WHERE folder_type='searches';
@@ -278,7 +264,13 @@ def check_if_new_user(cur: cursor, user_id: int) -> bool:
 
 
 def save_user_pref_urgency(
-    cur, user_id, urgency_value, b_pref_urgency_highest, b_pref_urgency_high, b_pref_urgency_medium, b_pref_urgency_low
+    cur: cursor,
+    user_id,
+    urgency_value,
+    b_pref_urgency_highest,
+    b_pref_urgency_high,
+    b_pref_urgency_medium,
+    b_pref_urgency_low,
 ):
     """save user urgency"""
 
@@ -305,7 +297,7 @@ def save_user_pref_urgency(
     logging.info(f'urgency set as {pref_name} for user_id {user_id}')
 
 
-def get_user_reg_folders_preferences(cur: cursor, user_id: int) -> List[int]:
+def get_user_reg_folders_preferences(cur: cursor, user_id: int) -> list[int]:
     """Return user's regional preferences"""
 
     user_prefs_list = []
@@ -477,7 +469,7 @@ def get_last_bot_msg(cur: cursor, user_id: int) -> str:
     return msg_type
 
 
-def get_user_forum_attributes_db(cur, user_id):
+def get_user_forum_attributes_db(cur: cursor, user_id: int) -> tuple[str, str] | None:
     cur.execute(
         """SELECT forum_username, forum_user_id 
                        FROM user_forum_attributes 
@@ -490,7 +482,7 @@ def get_user_forum_attributes_db(cur, user_id):
     return saved_forum_user
 
 
-def write_user_forum_attributes_db(cur, user_id):
+def write_user_forum_attributes_db(cur: cursor, user_id: int) -> None:
     cur.execute(
         """UPDATE user_forum_attributes SET status='verified'
                 WHERE user_id=%s and timestamp =
@@ -499,7 +491,7 @@ def write_user_forum_attributes_db(cur, user_id):
     )
 
 
-def check_onboarding_step(cur: cursor, user_id: int, user_is_new: bool) -> Tuple[int, str]:
+def check_onboarding_step(cur: cursor, user_id: int, user_is_new: bool) -> tuple[int, str]:
     """checks the latest step of onboarding"""
 
     if user_is_new:
@@ -536,7 +528,7 @@ def save_bot_reply_to_user(cur: cursor, user_id: int, bot_message: str) -> None:
     )
 
 
-def save_last_user_message_in_db(cur, user_id, message_type):
+def save_last_user_message_in_db(cur: cursor, user_id, message_type) -> None:
     # TODO the same in connect_to_forum
     cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
 
@@ -556,14 +548,14 @@ def set_search_follow_mode(cur: cursor, user_id: int, new_value: bool) -> None:
     )
 
 
-def delete_folder_from_user_regional_preference(cur, user_id, region):
+def delete_folder_from_user_regional_preference(cur: cursor, user_id: int, region: int) -> None:
     cur.execute(
         """DELETE FROM user_regional_preferences WHERE user_id=%s and forum_folder_num=%s;""",
         (user_id, region),
     )
 
 
-def get_folders_with_followed_searches(cur, user_id):
+def get_folders_with_followed_searches(cur: cursor, user_id):
     cur.execute(
         """SELECT DISTINCT s.forum_folder_id 
                             FROM searches s 
@@ -578,37 +570,35 @@ def get_folders_with_followed_searches(cur, user_id):
     return lines
 
 
-def add_folder_to_user_regional_preference(cur, user_id, region):
+def add_folder_to_user_regional_preference(cur: cursor, user_id: int, region: int) -> None:
     cur.execute(
         """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values (%s, %s);""",
         (user_id, region),
     )
 
 
-def get_user_regions(cur, user_id):
+def get_user_regions(cur: cursor, user_id) -> list[int]:
     cur.execute("""SELECT forum_folder_num from user_regional_preferences WHERE user_id=%s;""", (user_id,))
 
     user_curr_regs = cur.fetchall()
-    user_curr_regs_list = [reg[0] for reg in user_curr_regs]
-    return user_curr_regs_list
+    return [reg[0] for reg in user_curr_regs]
 
 
-def check_saved_radius(cur, user: int) -> Optional[Any]:
+def check_saved_radius(cur: cursor, user: int) -> int | None:
     """check if user already has a radius preference"""
 
-    saved_rad = None
     cur.execute("""SELECT radius FROM user_pref_radius WHERE user_id=%s;""", (user,))
     raw_radius = cur.fetchone()
     if raw_radius and str(raw_radius) != 'None':
-        saved_rad = int(raw_radius[0])
-    return saved_rad
+        return int(raw_radius[0])
+    return None
 
 
-def delete_user_saved_radius(cur, user_id):
+def delete_user_saved_radius(cur: cursor, user_id: int) -> None:
     cur.execute("""DELETE FROM user_pref_radius WHERE user_id=%s;""", (user_id,))
 
 
-def save_user_radius(cur, user_id, number):
+def save_user_radius(cur: cursor, user_id: int, number: int) -> None:
     cur.execute(
         """INSERT INTO user_pref_radius (user_id, radius) 
                                VALUES (%s, %s) ON CONFLICT (user_id) DO
@@ -617,13 +607,13 @@ def save_user_radius(cur, user_id, number):
     )
 
 
-def delete_user_saved_topic_type(cur, user: int, type_id: int) -> None:
+def delete_user_saved_topic_type(cur: cursor, user: int, type_id: int) -> None:
     """Delete a certain topic_type for a certain user_id from the DB"""
 
     cur.execute("""DELETE FROM user_pref_topic_type WHERE user_id=%s AND topic_type_id=%s;""", (user, type_id))
 
 
-def record_topic_type(cur, user: int, type_id: int) -> None:
+def record_topic_type(cur: cursor, user: int, type_id: int) -> None:
     """Insert a certain topic_type for a certain user_id into the DB"""
 
     cur.execute(
@@ -633,22 +623,15 @@ def record_topic_type(cur, user: int, type_id: int) -> None:
     )
 
 
-def check_saved_topic_types(cur, user: int) -> list:
+def check_saved_topic_types(cur: cursor, user: int) -> list[int]:
     """check if user already has any preference"""
 
-    saved_pref = []
     cur.execute("""SELECT topic_type_id FROM user_pref_topic_type WHERE user_id=%s ORDER BY 1;""", (user,))
     raw_data = cur.fetchall()
-    if raw_data and str(raw_data) != 'None':
-        for line in raw_data:
-            saved_pref.append(line[0])
-
-    logging.info(f'{saved_pref=}')
-
-    return saved_pref
+    return [line[0] for line in raw_data]
 
 
-def record_search_whiteness(cur, user: int, search_id: int, new_mark_value) -> None:
+def record_search_whiteness(cur: cursor, user: int, search_id: int, new_mark_value: SearchFollowingMode) -> None:
     """Save a certain user_pref_search_whitelist for a certain user_id into the DB"""
     if new_mark_value in [SearchFollowingMode.ON, SearchFollowingMode.OFF]:
         cur.execute(
@@ -663,7 +646,7 @@ def record_search_whiteness(cur, user: int, search_id: int, new_mark_value) -> N
         )
 
 
-def add_region_to_user_settings(cur, user_id, region_id):
+def add_region_to_user_settings(cur: cursor, user_id: int, region_id: int) -> None:
     cur.execute(
         """INSERT INTO user_pref_region (user_id, region_id) values
                 (%s, %s);""",
@@ -671,7 +654,7 @@ def add_region_to_user_settings(cur, user_id, region_id):
     )
 
 
-def save_user_age_prefs(cur, user_id, chosen_setting: AgePeriod):
+def save_user_age_prefs(cur: cursor, user_id, chosen_setting: AgePeriod) -> None:
     cur.execute(
         """INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
                         values (%s, %s, %s, %s, %s) ON CONFLICT (user_id, period_min, period_max) DO NOTHING;""",
@@ -679,20 +662,20 @@ def save_user_age_prefs(cur, user_id, chosen_setting: AgePeriod):
     )
 
 
-def delete_user_age_pref(cur, user_id, chosen_setting: AgePeriod) -> None:
+def delete_user_age_pref(cur: cursor, user_id: int, chosen_setting: AgePeriod) -> None:
     cur.execute(
         """DELETE FROM user_pref_age WHERE user_id=%s AND period_min=%s AND period_max=%s;""",
         (user_id, chosen_setting.min_age, chosen_setting.max_age),
     )
 
 
-def get_age_prefs(cur, user_id):
+def get_age_prefs(cur: cursor, user_id: int) -> list[tuple]:
     cur.execute("""SELECT period_min, period_max FROM user_pref_age WHERE user_id=%s;""", (user_id,))
     raw_list_of_periods = cur.fetchall()
     return raw_list_of_periods
 
 
-def get_existing_user_settings(cur, user_id):
+def get_existing_user_settings(cur: cursor, user_id: int) -> tuple[bool] | None:
     cur.execute(
         """SELECT
                             user_id 
@@ -737,13 +720,13 @@ def get_existing_user_settings(cur, user_id):
     return raw_data
 
 
-def get_all_user_preferences(cur, user_id):
+def get_all_user_preferences(cur: cursor, user_id: int) -> list[tuple]:
     cur.execute("""SELECT preference FROM user_preferences WHERE user_id=%s ORDER BY preference;""", (user_id,))
     user_prefs = cur.fetchall()
     return user_prefs
 
 
-def get_all_active_searches_in_one_region_2(cur, region, user_id):
+def get_all_active_searches_in_one_region_2(cur: cursor, region: int, user_id: int) -> list[tuple]:
     sql_text = """
         SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
         s.topic_type, s.family_name, s.age, upswl.search_following_mode
@@ -775,7 +758,7 @@ def get_all_active_searches_in_one_region_2(cur, region, user_id):
     return searches_list
 
 
-def get_all_searches_in_one_region(cur, region):
+def get_all_searches_in_one_region(cur: cursor, region: int) -> list[tuple]:
     cur.execute(
         """SELECT s2.* FROM 
             (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
@@ -794,7 +777,7 @@ def get_all_searches_in_one_region(cur, region):
     return database
 
 
-def get_all_last_searches_in_region(cur, region, user_id, only_followed):
+def get_all_last_searches_in_region(cur: cursor, region: int, user_id: int, only_followed: bool) -> list[tuple]:
     sql_text = """
         SELECT DISTINCT search_forum_num, search_start_time, display_name, status, status, family_name, age, search_following_mode
         FROM(   -- q
@@ -835,7 +818,7 @@ def get_all_last_searches_in_region(cur, region, user_id, only_followed):
     return database
 
 
-def get_active_searches_in_one_region(cur, region):
+def get_active_searches_in_one_region(cur: cursor, region: int) -> list[tuple]:
     cur.execute(
         """SELECT s2.* FROM 
             (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 

@@ -161,9 +161,9 @@ files = [
     "src/check_topics_by_upd_time/",
 
 #    "src/communicate/",
-    "src/communicate/_utils/common.py",
+    # "src/communicate/_utils/common.py",
 #    "src/communicate/_utils/compose_messages.py",
-#    "src/communicate/_utils/database.py",
+   "src/communicate/_utils/database.py",
 #    "src/communicate/_utils/message_sending.py",
 #    "src/communicate/_utils/handlers.py",
 
