@@ -40,7 +40,7 @@ class Button:
 
         self.all = [v for k, v in self.__dict__.items() if v != modifier]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.text
 
     def temp_all_keys(self):
