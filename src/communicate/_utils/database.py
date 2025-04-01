@@ -2,7 +2,7 @@ import datetime
 import logging
 from contextlib import contextmanager, suppress
 from functools import lru_cache
-from typing import Any, Generator, List, Optional, Tuple
+from typing import Any, Generator, List, Tuple
 
 from psycopg2.extensions import connection, cursor
 
@@ -28,14 +28,9 @@ class DBClient:
                 self._connection.close()
 
     def cursor(self) -> cursor:
-        # TODO rename to 'cursor'?
         return self._connection.cursor()
 
-    def close_connection(self) -> None:
-        self._connection.close()
-
     def save_user_message_to_bot(self, user_id: int, got_message: str) -> None:
-        # TODO example method! Just for testing now.
         """save user's message to bot in psql"""
 
         with self.cursor() as cur:
@@ -79,10 +74,10 @@ class DBClient:
         with self.cursor() as cur:
             cur.execute("""SELECT filter_name FROM user_pref_search_filtering WHERE user_id=%s LIMIT 1;""", (user_id,))
             result_fetched = cur.fetchone()
-            result = result_fetched and 'whitelist' in result_fetched[0]
+            result = result_fetched is not None and ('whitelist' in result_fetched[0])
             return result
 
-    def get_user_sys_roles(self, user_id) -> list[str]:
+    def get_user_sys_roles(self, user_id: int) -> list[str]:
         """Return user's roles in system"""
         with self.cursor() as cur:
             user_roles = ['']
@@ -97,20 +92,19 @@ class DBClient:
                 logging.exception(e)
             return user_roles
 
-    def get_user_role(self, user_id: int) -> str:
+    def get_user_role(self, user_id: int) -> str | None:
         """Return user's role"""
         with self.cursor() as cur:
-            user_role = None
             try:
                 cur.execute('SELECT role FROM users WHERE user_id=%s LIMIT 1;', (user_id,))
-                user_role = cur.fetchone()
-                if user_role:
-                    user_role = user_role[0]
+                rows = cur.fetchone()
+                if rows:
+                    user_role = rows[0]
                 logging.info(f'user {user_id} role is {user_role}')
+                return user_role
             except Exception as e:
-                logging.info(f'failed to get user role for user {user_id}')
-                logging.exception(e)
-            return user_role
+                logging.exception(f'failed to get user role for user {user_id}')
+            return None
 
     def add_user_sys_role(self, user_id: int, sys_role_name: str) -> None:
         """Saves user's role in system"""
@@ -121,7 +115,7 @@ class DBClient:
                 (user_id, sys_role_name),
             )
 
-    def delete_user_sys_role(self, user_id: int, sys_role_name) -> None:
+    def delete_user_sys_role(self, user_id: int, sys_role_name: str) -> None:
         """Deletes user's role in system"""
         with self.cursor() as cur:
             cur.execute(
@@ -135,18 +129,12 @@ class DBClient:
         with self.cursor() as cur:
             cur.execute('DELETE FROM user_coordinates WHERE user_id=%s;', (user_id,))
 
-    def show_user_coordinates(self, user_id: int) -> Tuple[str, str]:
+    def show_user_coordinates(self, user_id: int) -> tuple[str, str] | tuple[None, None]:
         """Return the saved user "home" coordinates"""
-        with self.cursor() as cur:
-            cur.execute("""SELECT latitude, longitude FROM user_coordinates WHERE user_id=%s LIMIT 1;""", (user_id,))
-            try:
-                lat, lon = list(cur.fetchone())
-            except:  # noqa
-                lat = None
-                lon = None
-            return lat, lon
+        saved_coords = self.get_saved_user_coordinates(user_id)
+        return saved_coords or (None, None)
 
-    def get_saved_user_coordinates(self, user_id: int) -> tuple[float, float] | None:
+    def get_saved_user_coordinates(self, user_id: int) -> tuple[str, str] | None:
         with self.cursor() as cur:
             cur.execute('SELECT latitude, longitude FROM user_coordinates WHERE user_id=%s LIMIT 1;', (user_id,))
 
@@ -198,7 +186,7 @@ class DBClient:
 
             return role
 
-    def _save_user_pref_topic_type(self, user_id: int, pref_type_id) -> None:
+    def _save_user_pref_topic_type(self, user_id: int, pref_type_id: int) -> None:
         with self.cursor() as cur:
             cur.execute(
                 """INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp) 
@@ -207,7 +195,7 @@ class DBClient:
             )
             return
 
-    def save_user_pref_topic_type(self, user_id: int, pref_id, user_role) -> None:
+    def save_user_pref_topic_type(self, user_id: int, pref_id: int, user_role: str) -> None:
         if not (user_id and pref_id):
             return
 
@@ -257,13 +245,13 @@ class DBClient:
 
     def save_user_pref_urgency(
         self,
-        user_id,
-        urgency_value,
-        b_pref_urgency_highest,
-        b_pref_urgency_high,
-        b_pref_urgency_medium,
-        b_pref_urgency_low,
-    ):
+        user_id: int,
+        urgency_value: str,
+        b_pref_urgency_highest: str,
+        b_pref_urgency_high: str,
+        b_pref_urgency_medium: str,
+        b_pref_urgency_low: str,
+    ) -> None:
         """save user urgency"""
 
         urgency_dict = {
@@ -329,7 +317,7 @@ class DBClient:
             else:
                 cur.execute("""DELETE FROM user_preferences WHERE user_id=%s;""", (user,))
 
-    def user_preference_is_exists(self, user_id, pref_list) -> bool:
+    def user_preference_is_exists(self, user_id: int, pref_list: list[str]) -> bool:
         """execute SQL SELECT command and returns TRUE / FALSE if something found"""
 
         result = False
@@ -432,7 +420,7 @@ class DBClient:
                 (user_id, 'bot', datetime.datetime.now(), bot_message),
             )
 
-    def save_last_user_message_in_db(self, user_id, message_type) -> None:
+    def save_last_user_message_in_db(self, user_id: int, message_type: str) -> None:
         # TODO the same in connect_to_forum
         with self.cursor() as cur:
             cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (user_id,))
@@ -459,7 +447,7 @@ class DBClient:
                 (user_id, region),
             )
 
-    def get_folders_with_followed_searches(self, user_id):
+    def get_folders_with_followed_searches(self, user_id: int) -> list[tuple]:
         with self.cursor() as cur:
             cur.execute(
                 """SELECT DISTINCT s.forum_folder_id 
@@ -481,7 +469,7 @@ class DBClient:
                 (user_id, region),
             )
 
-    def get_user_regions(self, user_id) -> list[int]:
+    def get_user_regions(self, user_id: int) -> list[int]:
         with self.cursor() as cur:
             cur.execute("""SELECT forum_folder_num from user_regional_preferences WHERE user_id=%s;""", (user_id,))
 
@@ -555,7 +543,7 @@ class DBClient:
                 (user_id, region_id),
             )
 
-    def save_user_age_prefs(self, user_id, chosen_setting: AgePeriod) -> None:
+    def save_user_age_prefs(self, user_id: int, chosen_setting: AgePeriod) -> None:
         with self.cursor() as cur:
             cur.execute(
                 """INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 

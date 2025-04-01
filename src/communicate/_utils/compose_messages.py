@@ -222,7 +222,7 @@ def compose_msg_on_all_last_searches_ikb(region: int, user_id: int, only_followe
     return ikb
 
 
-def compose_msg_on_active_searches_in_one_reg(region: int, user_data) -> str:
+def compose_msg_on_active_searches_in_one_reg(region: int, user_data: tuple[str, str]) -> str:
     """Compose a part of message on the list of active searches in the given region with relation to user's coords"""
 
     pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='

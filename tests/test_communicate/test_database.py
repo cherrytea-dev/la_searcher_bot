@@ -21,9 +21,22 @@ def db_client() -> DBClient:
         yield db
 
 
-def test_save_user_message_to_bot(session, db_client: DBClient):
-    user_id, message = fake.pyint(), fake.text()
+@pytest.fixture
+def user_id() -> int:
+    return fake.pyint()
+
+
+def test_save_user_message_to_bot(session, db_client: DBClient, user_id: int):
+    message = fake.text()
 
     db_client.save_user_message_to_bot(user_id, message)
 
     assert find_model(session, db_models.Dialog, user_id=user_id, author='user', message_text=message)
+
+
+def test_add_user_sys_role(session, db_client: DBClient, user_id: int):
+    role = fake.pystr(1, 5)
+
+    db_client.add_user_sys_role(user_id, role)
+
+    assert find_model(session, db_models.UserRole, user_id=user_id, role=role)
