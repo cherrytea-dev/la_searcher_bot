@@ -42,6 +42,7 @@ from communicate._utils.database import (
     add_user_sys_role,
     check_if_new_user,
     check_onboarding_step,
+    db,
     delete_folder_from_user_regional_preference,
     delete_last_user_inline_dialogue,
     delete_user_coordinates,
@@ -61,7 +62,6 @@ from communicate._utils.database import (
     save_last_user_message_in_db,
     save_preference,
     save_user_coordinates,
-    save_user_message_to_bot,
     save_user_pref_role,
     save_user_pref_topic_type,
     save_user_pref_urgency,
@@ -638,7 +638,8 @@ def main(request: Request) -> str:
     bot_token = get_app_config().bot_api_token__prod
     bot = Bot(token=bot_token)
     update = get_the_update(bot, request)
-    return process_update(update)
+    with db().connect():
+        return process_update(update)
 
 
 def process_update(update: Update) -> str:
@@ -1084,7 +1085,7 @@ def process_update(update: Update) -> str:
             delete_last_user_inline_dialogue(cur, user_id)
 
     if got_message:
-        save_user_message_to_bot(cur, user_id, got_message)
+        db().save_user_message_to_bot(user_id, got_message)
 
     bot_request_aft_usr_msg = ''
     msg_sent_by_specific_code = False

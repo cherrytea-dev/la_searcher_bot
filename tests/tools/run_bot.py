@@ -10,6 +10,7 @@ from telegram import Bot
 from telegram.ext import Updater
 
 from _dependencies.commons import AppConfig, Topics
+from communicate._utils.database import db
 from communicate.main import process_update
 from tests.common import topic_to_receiver_function
 
@@ -21,11 +22,12 @@ async def main_bot() -> None:
     update_queue = asyncio.Queue()
     updater = Updater(bot, update_queue)
     async with updater:
-        queue = await updater.start_polling(timeout=60)
-        while True:
-            update = await queue.get()
-            print(update)
-            process_update(update)
+        with db().connect():
+            queue = await updater.start_polling(timeout=60)
+            while True:
+                update = await queue.get()
+                print(update)
+                process_update(update)
 
 
 @lru_cache
