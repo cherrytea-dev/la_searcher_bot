@@ -1,16 +1,10 @@
-from unittest.mock import MagicMock, Mock
-
 import pytest
 from faker import Faker
-from psycopg2.extensions import cursor
 
-from _dependencies.commons import get_app_config, sql_connect_by_psycopg2
-from communicate._utils import handlers
 from communicate._utils.common import AgePeriod, SearchFollowingMode
 from communicate._utils.database import DBClient
 from tests.common import find_model
 from tests.factories import db_factories, db_models
-from tests.factories.telegram import get_callback_query, get_reply_markup
 
 fake = Faker()
 
@@ -119,7 +113,7 @@ def test_save_user_pref_role(session, db_client: DBClient, user_id: int):
     assert user.role == 'member'
 
 
-def test_save_user_pref_topic_type(session, db_client: DBClient, user_id: int):
+def test__save_user_pref_topic_type(session, db_client: DBClient, user_id: int):
     # Define a topic type ID
     topic_type_id = 3
 
@@ -130,6 +124,21 @@ def test_save_user_pref_topic_type(session, db_client: DBClient, user_id: int):
     saved_topic_type = find_model(session, db_models.UserPrefTopicType, user_id=user_id, topic_type_id=topic_type_id)
 
     # Assert that the saved topic type matches the input
+    assert saved_topic_type is not None
+    assert saved_topic_type.topic_type_id == topic_type_id
+
+
+def test_save_user_pref_topic_type_root(session, db_client: DBClient, user_id: int):
+    # Define a topic type ID
+    topic_type_id = 0
+
+    # Call the method to save the user topic type preference
+    db_client.save_user_pref_topic_type(user_id, 'default', user_role='member')
+
+    # Retrieve the saved topic type
+    saved_topic_type = find_model(session, db_models.UserPrefTopicType, user_id=user_id, topic_type_id=topic_type_id)
+
+    # Assert that the topic type was saved successfully
     assert saved_topic_type is not None
     assert saved_topic_type.topic_type_id == topic_type_id
 
@@ -637,14 +646,84 @@ def test_get_active_searches_in_one_region(session, db_client: DBClient):
         assert any(search.search_forum_num == active[0] for active in active_searches)
 
 
-"""TODO tests for
-write_user_forum_attributes_db
-get_geo_folders_db
-save_user_pref_topic_type
-get_user_role
-get_user_sys_roles
-get_search_follow_mode
-save_last_user_inline_dialogue
-get_last_user_inline_dialogue
-delete_last_user_inline_dialogue
-"""
+def test_write_user_forum_attributes_db(session, db_client: DBClient, user_id: int):
+    # Add forum attributes for the user
+    db_factories.UserForumAttributeFactory.create_sync(user_id=user_id, status='pending')
+
+    # Call the method to write user forum attributes
+    db_client.write_user_forum_attributes_db(user_id)
+
+    # Retrieve the updated forum attributes
+    updated_attributes = find_model(session, db_models.UserForumAttribute, user_id=user_id)
+
+    # Assert that the status was updated to 'verified'
+    assert updated_attributes is not None
+    assert updated_attributes.status == 'verified'
+
+
+def test_get_user_role(session, db_client: DBClient, user_id: int, user_model: db_models.User):
+    # Call the method to get the user role
+    retrieved_role = db_client.get_user_role(user_id)
+
+    # Assert that the retrieved role matches the created one
+    assert retrieved_role == user_model.role
+
+
+def test_get_user_sys_roles(session, db_client: DBClient, user_id: int, user_model: db_models.User):
+    # Add system roles for the user
+    roles = ['admin', 'moderator']
+    for role in roles:
+        db_factories.UserRoleFactory.create_sync(user_id=user_id, role=role)
+
+    # Call the method to get user system roles
+    retrieved_roles = db_client.get_user_sys_roles(user_id)
+
+    # Assert that the retrieved roles match the created ones
+    roles.append('')
+    assert set(retrieved_roles) == set(roles)
+
+
+def test_get_search_follow_mode(session, db_client: DBClient, user_id: int):
+    # Set the search follow mode for the user
+    db_factories.UserPrefSearchFilteringFactory.create_sync(user_id=user_id, filter_name=['whitelist'])
+
+    # Call the method to get the search follow mode
+    follow_mode = db_client.get_search_follow_mode(user_id)
+
+    # Assert that the follow mode is correctly retrieved
+    assert follow_mode is True
+
+
+def test_save_last_user_inline_dialogue(session, db_client: DBClient, user_id: int):
+    # Define a message ID
+    message_id = fake.pyint()
+
+    # Call the method to save the last user inline dialogue
+    db_client.save_last_user_inline_dialogue(user_id, message_id)
+
+    # Retrieve the saved inline dialogue
+    assert find_model(session, db_factories.CommunicationsLastInlineMsg, user_id=user_id, message_id=message_id)
+
+
+def test_get_last_user_inline_dialogue(session, db_client: DBClient, user_id: int):
+    # Add a last inline dialogue for the user
+    message_id = fake.pyint()
+    db_factories.CommunicationsLastInlineMsgFactory.create_sync(user_id=user_id, message_id=message_id)
+
+    # Call the method to get the last user inline dialogue
+    last_dialogue = db_client.get_last_user_inline_dialogue(user_id)
+
+    # Assert that the retrieved dialogue matches the created one
+    assert last_dialogue == [message_id]
+
+
+def test_delete_last_user_inline_dialogue(session, db_client: DBClient, user_id: int):
+    # Add a last inline dialogue for the user
+    message_id = fake.pyint()
+    db_factories.CommunicationsLastInlineMsgFactory.create_sync(user_id=user_id, message_id=message_id)
+
+    # Call the method to delete the last user inline dialogue
+    db_client.delete_last_user_inline_dialogue(user_id)
+
+    # Assert that the dialogue no longer exists
+    assert not find_model(session, db_factories.CommunicationsLastInlineMsg, user_id=user_id)

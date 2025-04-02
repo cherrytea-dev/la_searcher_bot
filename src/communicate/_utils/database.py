@@ -195,7 +195,7 @@ class DBClient:
             )
             return
 
-    def save_user_pref_topic_type(self, user_id: int, pref_id: int, user_role: str) -> None:
+    def save_user_pref_topic_type(self, user_id: int, pref_id: str, user_role: str) -> None:
         if not (user_id and pref_id):
             return
 
@@ -209,6 +209,7 @@ class DBClient:
                 self._save_user_pref_topic_type(user_id, type_id)
 
         else:
+            # this branch not used, remove it
             self._save_user_pref_topic_type(user_id, pref_id)
 
     def get_user_regions_from_db(self, user_id: int) -> list[int]:
