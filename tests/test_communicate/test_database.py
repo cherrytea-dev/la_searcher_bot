@@ -40,3 +40,19 @@ def test_add_user_sys_role(session, db_client: DBClient, user_id: int):
     db_client.add_user_sys_role(user_id, role)
 
     assert find_model(session, db_models.UserRole, user_id=user_id, role=role)
+
+
+def test_delete_user_sys_role(session, db_client: DBClient, user_id: int):
+    role_model = db_factories.UserRoleFactory.create_sync(user_id=user_id)
+
+    db_client.delete_user_sys_role(user_id, role_model.role)
+
+    assert not find_model(session, db_models.UserRole, user_id=user_id, role=role_model.role)
+
+
+def test_delete_user_coordinates(session, db_client: DBClient, user_id):
+    db_factories.UserCoordinateFactory.create_sync(user_id=user_id)
+
+    db_client.delete_user_coordinates(user_id)
+
+    assert not find_model(session, db_models.UserCoordinate, user_id=user_id)

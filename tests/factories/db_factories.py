@@ -153,3 +153,7 @@ class GeocodingFactory(BaseFactory[db_models.Geocoding]):
 
 class ForumSummarySnapshotFactory(BaseFactory[db_models.ForumSummarySnapshot]):
     pass
+
+
+class UserRoleFactory(BaseFactory[db_models.UserRole]):
+    pass
