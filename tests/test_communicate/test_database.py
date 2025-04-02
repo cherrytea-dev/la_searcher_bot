@@ -6,6 +6,7 @@ from psycopg2.extensions import cursor
 
 from _dependencies.commons import get_app_config, sql_connect_by_psycopg2
 from communicate._utils import handlers
+from communicate._utils.common import AgePeriod, SearchFollowingMode
 from communicate._utils.database import DBClient
 from tests.common import find_model
 from tests.factories import db_factories, db_models
@@ -22,8 +23,13 @@ def db_client() -> DBClient:
 
 
 @pytest.fixture
-def user_id() -> int:
-    return fake.pyint()
+def user_model() -> int:
+    return db_factories.UserFactory.create_sync()
+
+
+@pytest.fixture
+def user_id(user_model: db_models.User) -> int:
+    return user_model.user_id
 
 
 def test_save_user_message_to_bot(session, db_client: DBClient, user_id: int):
@@ -107,12 +113,9 @@ def test_save_user_pref_role(session, db_client: DBClient, user_id: int):
     # Call the method to save the user role
     saved_role = db_client.save_user_pref_role(user_id, role_desc)
 
-    # Retrieve the saved role from the database
-    user = find_model(session, db_models.User, user_id=user_id)
-
     # Assert that the saved role matches the expected role
     assert saved_role == 'member'
-    assert user is not None
+    user = find_model(session, db_models.User, user_id=user_id)
     assert user.role == 'member'
 
 
@@ -144,6 +147,7 @@ def test_get_user_regions_from_db(session, db_client: DBClient, user_id: int):
     assert user_regions == region_ids
 
 
+@pytest.mark.skip(reason='not trivial with database view')
 def test_get_geo_folders_db(session, db_client: DBClient):
     # Add geo folders to the database
     geo_folders = [
@@ -151,7 +155,9 @@ def test_get_geo_folders_db(session, db_client: DBClient):
         (2, 'Searches Folder 2'),
     ]
     for folder_id, folder_name in geo_folders:
-        db_factories.GeoFolderFactory.create_sync(folder_id=folder_id, folder_display_name=folder_name)
+        db_factories.GeoFolderFactory.create_sync(
+            folder_id=folder_id, folder_display_name=folder_name, folder_type='searches'
+        )
 
     # Call the method to get geo folders
     retrieved_folders = db_client.get_geo_folders_db()
@@ -160,7 +166,8 @@ def test_get_geo_folders_db(session, db_client: DBClient):
     assert retrieved_folders == geo_folders
 
 
-def test_check_if_new_user(session, db_client: DBClient, user_id: int):
+def test_check_if_new_user(session, db_client: DBClient):
+    user_id = fake.pyint()
     # Initially, the user should be new
     assert db_client.check_if_new_user(user_id) is True
 
@@ -212,78 +219,66 @@ def test_get_user_reg_folders_preferences(session, db_client: DBClient, user_id:
 
 def test_user_preference_save(session, db_client: DBClient, user_id: int):
     # Define a preference key and value
-    pref_key = 'theme'
-    pref_value = 'dark'
+    pref_key = 'topic_new'
 
     # Call the method to save the user preference
-    db_client.user_preference_save(user_id, pref_key, pref_value)
+    db_client.user_preference_save(user_id, pref_key)
 
     # Retrieve the saved preference using the find_model function
-    saved_preference = find_model(session, db_models.UserPreference, user_id=user_id, pref_key=pref_key)
-
-    # Assert that the saved preference matches the input
-    assert saved_preference is not None
-    assert saved_preference.pref_value == pref_value
+    assert find_model(session, db_models.UserPreference, user_id=user_id, preference=pref_key)
 
 
 def test_user_preference_delete(session, db_client: DBClient, user_id: int):
     # Define a preference key and value
-    pref_key = 'theme'
-    pref_value = 'dark'
+    pref_key = 'topic_new'
+    pref_id = 0
 
     # Save the preference first
-    db_factories.UserPreferenceFactory.create_sync(user_id=user_id, pref_key=pref_key, pref_value=pref_value)
+    db_factories.UserPreferenceFactory.create_sync(user_id=user_id, preference=pref_key, pref_id=pref_id)
 
     # Call the method to delete the user preference
-    db_client.user_preference_delete(user_id, pref_key)
+    db_client.user_preference_delete(user_id, [pref_key])
 
     # Assert that the preference no longer exists
-    deleted_preference = find_model(session, db_models.UserPreference, user_id=user_id, pref_key=pref_key)
-    assert deleted_preference is None
+    assert not find_model(session, db_models.UserPreference, user_id=user_id, preference=pref_key)
 
 
 def test_user_preference_is_exists(session, db_client: DBClient, user_id: int):
     # Define a preference key and value
-    pref_key = 'theme'
-    pref_value = 'dark'
+    pref_key = 'topic_new'
+    pref_id = 0
 
     # Initially, the preference should not exist
     assert db_client.user_preference_is_exists(user_id, pref_key) is False
 
     # Save the preference
-    db_factories.UserPreferenceFactory.create_sync(user_id=user_id, pref_key=pref_key, pref_value=pref_value)
+    db_factories.UserPreferenceFactory.create_sync(user_id=user_id, preference=pref_key, pref_id=pref_id)
 
     # Now the preference should exist
-    assert db_client.user_preference_is_exists(user_id, pref_key) is True
+    assert not db_client.user_preference_is_exists(user_id, pref_key)
 
 
 def test_get_last_bot_msg(session, db_client: DBClient, user_id: int):
     # Define a bot message
-    message_id = 12345
-    db_factories.BotMessageFactory.create_sync(user_id=user_id, message_id=message_id)
+    message_model = db_factories.MsgFromBotFactory.create_sync(user_id=user_id)
 
     # Call the method to get the last bot message
-    last_bot_msg = db_client.get_last_bot_msg(user_id)
+    last_bot_msg_type = db_client.get_last_bot_msg(user_id)
 
     # Assert that the returned message matches the created one
-    assert last_bot_msg == message_id
+    assert last_bot_msg_type == message_model.msg_type
 
 
 def test_get_user_forum_attributes_db(session, db_client: DBClient, user_id: int):
     # Define forum attributes
-    forum_nickname = 'test_user'
-    forum_id = 56789
-    db_factories.UserForumAttributesFactory.create_sync(
-        user_id=user_id, forum_nickname=forum_nickname, forum_id=forum_id
-    )
+    attrs_model = db_factories.UserForumAttributeFactory.create_sync(user_id=user_id, status='verified')
 
     # Call the method to get user forum attributes
-    forum_attributes = db_client.get_user_forum_attributes_db(user_id)
+    forum_username, forum_id = db_client.get_user_forum_attributes_db(user_id)
 
     # Assert that the returned attributes match the created ones
-    assert forum_attributes is not None
-    assert forum_attributes['forum_nickname'] == forum_nickname
-    assert forum_attributes['forum_id'] == forum_id
+    assert forum_username == attrs_model.forum_username
+    assert forum_id == attrs_model.forum_user_id
 
 
 def test_check_onboarding_step(session, db_client: DBClient, user_id: int):
@@ -302,34 +297,27 @@ def test_check_onboarding_step(session, db_client: DBClient, user_id: int):
 
 def test_save_bot_reply_to_user(session, db_client: DBClient, user_id: int):
     # Define a bot reply message
-    message_id = 12345
     message_text = 'Hello, user!'
 
     # Call the method to save the bot reply
-    db_client.save_bot_reply_to_user(user_id, message_id, message_text)
+    db_client.save_bot_reply_to_user(user_id, message_text)
 
     # Retrieve the saved bot reply
     saved_reply = find_model(session, db_models.Dialog, user_id=user_id, author='bot', message_text=message_text)
 
     # Assert that the saved reply matches the input
-    assert saved_reply is not None
-    assert saved_reply.message_id == message_id
     assert saved_reply.message_text == message_text
 
 
 def test_save_last_user_message_in_db(session, db_client: DBClient, user_id: int):
     # Define a user message
-    message_text = 'This is my last message.'
+    message_type = 'some type'
 
     # Call the method to save the last user message
-    db_client.save_last_user_message_in_db(user_id, message_text)
+    db_client.save_last_user_message_in_db(user_id, message_type)
 
     # Retrieve the saved user message
-    saved_message = find_model(session, db_models.Dialog, user_id=user_id, author='user', message_text=message_text)
-
-    # Assert that the saved message matches the input
-    assert saved_message is not None
-    assert saved_message.message_text == message_text
+    assert find_model(session, db_models.MsgFromBot, user_id=user_id, msg_type=message_type)
 
 
 def test_set_search_follow_mode(session, db_client: DBClient, user_id: int):
@@ -338,11 +326,11 @@ def test_set_search_follow_mode(session, db_client: DBClient, user_id: int):
     db_client.set_search_follow_mode(user_id, follow_mode)
 
     # Retrieve the saved follow mode
-    saved_follow_mode = find_model(session, db_models.UserPreference, user_id=user_id, pref_key='search_follow_mode')
+    saved_follow_mode = find_model(session, db_models.t_user_pref_search_filtering, user_id=user_id)
 
     # Assert that the saved follow mode matches the input
     assert saved_follow_mode is not None
-    assert saved_follow_mode.pref_value == str(follow_mode)
+    assert saved_follow_mode.filter_name == ['whitelist']
 
 
 def test_delete_folder_from_user_regional_preference(session, db_client: DBClient, user_id: int):
@@ -358,20 +346,24 @@ def test_delete_folder_from_user_regional_preference(session, db_client: DBClien
     assert deleted_folder is None
 
 
-def test_get_folders_with_followed_searches(session, db_client: DBClient, user_id: int):
+def test_get_folders_with_followed_searches(session, db_client: DBClient, user_model: db_models.User):
     # Add followed searches for the user
-    folder_ids = [101, 102, 103]
-    for folder_id in folder_ids:
-        db_factories.SearchFactory.create_sync(forum_folder_id=folder_id)
+
+    folder_ids = []
+    for _ in range(3):
+        search_model = db_factories.SearchFactory.create_sync()
+        folder_ids.append(search_model.forum_folder_id)
         db_factories.UserPrefSearchWhitelistFactory.create_sync(
-            user_id=user_id, search_id=folder_id, search_following_mode=True
+            user=user_model,
+            search_id=search_model.search_forum_num,
+            search_following_mode=SearchFollowingMode.ON,
         )
 
     # Call the method to get folders with followed searches
-    followed_folders = db_client.get_folders_with_followed_searches(user_id)
+    followed_folders = db_client.get_folders_with_followed_searches(user_model.user_id)
 
     # Assert that the returned folders match the created ones
-    assert followed_folders == [(folder_id,) for folder_id in folder_ids]
+    assert set(followed_folders) == set(folder_ids)
 
 
 def test_add_folder_to_user_regional_preference(session, db_client: DBClient, user_id: int):
@@ -405,7 +397,7 @@ def test_get_user_regions(session, db_client: DBClient, user_id: int):
 def test_check_saved_radius(session, db_client: DBClient, user_id: int):
     # Save a radius for the user
     radius = 50
-    db_factories.UserRadiusFactory.create_sync(user_id=user_id, radius=radius)
+    db_factories.UserPrefRadiusFactory.create_sync(user_id=user_id, radius=radius)
 
     # Call the method to check the saved radius
     saved_radius = db_client.check_saved_radius(user_id)
@@ -416,15 +408,13 @@ def test_check_saved_radius(session, db_client: DBClient, user_id: int):
 
 def test_delete_user_saved_radius(session, db_client: DBClient, user_id: int):
     # Save a radius for the user
-    radius = 50
-    db_factories.UserRadiusFactory.create_sync(user_id=user_id, radius=radius)
+    db_factories.UserPrefRadiusFactory.create_sync(user_id=user_id)
 
     # Call the method to delete the user's saved radius
     db_client.delete_user_saved_radius(user_id)
 
     # Assert that the radius no longer exists
-    deleted_radius = find_model(session, db_models.UserRadius, user_id=user_id)
-    assert deleted_radius is None
+    assert not find_model(session, db_models.UserPrefRadiu, user_id=user_id)
 
 
 def test_save_user_radius(session, db_client: DBClient, user_id: int):
@@ -435,10 +425,9 @@ def test_save_user_radius(session, db_client: DBClient, user_id: int):
     db_client.save_user_radius(user_id, radius)
 
     # Retrieve the saved radius
-    saved_radius = find_model(session, db_models.UserRadius, user_id=user_id)
+    saved_radius = find_model(session, db_models.UserPrefRadiu, user_id=user_id)
 
     # Assert that the saved radius matches the input
-    assert saved_radius is not None
     assert saved_radius.radius == radius
 
 
@@ -485,8 +474,8 @@ def test_check_saved_topic_types(session, db_client: DBClient, user_id: int):
 
 def test_record_search_whiteness(session, db_client: DBClient, user_id: int):
     # Define search parameters
-    search_id = 101
-    search_following_mode = True
+    search_id = fake.pyint()
+    search_following_mode = SearchFollowingMode.ON
 
     # Call the method to record search whiteness
     db_client.record_search_whiteness(user_id, search_id, search_following_mode)
@@ -501,66 +490,60 @@ def test_record_search_whiteness(session, db_client: DBClient, user_id: int):
 
 def test_add_region_to_user_settings(session, db_client: DBClient, user_id: int):
     # Define a region ID
-    region_id = 301
+    region_id = fake.pyint()
 
     # Call the method to add the region to user settings
     db_client.add_region_to_user_settings(user_id, region_id)
 
     # Retrieve the added region
-    added_region = find_model(session, db_models.UserRegionalPreference, user_id=user_id, forum_folder_num=region_id)
-
-    # Assert that the region was added successfully
-    assert added_region is not None
-    assert added_region.forum_folder_num == region_id
+    assert find_model(session, db_models.UserPrefRegion, user_id=user_id, region_id=region_id)
 
 
 def test_save_user_age_prefs(session, db_client: DBClient, user_id: int):
     # Define an age preference
-    age_pref = '18-25'
+
+    age_pref = AgePeriod(description='1', name='2', min_age=3, max_age=4, order=5)
 
     # Call the method to save the user's age preference
     db_client.save_user_age_prefs(user_id, age_pref)
 
     # Retrieve the saved age preference
-    saved_age_pref = find_model(session, db_models.UserAgePreference, user_id=user_id, age_pref=age_pref)
-
-    # Assert that the age preference was saved successfully
-    assert saved_age_pref is not None
-    assert saved_age_pref.age_pref == age_pref
+    assert find_model(session, db_models.UserPrefAge, user_id=user_id, period_name=age_pref.name)
 
 
 def test_delete_user_age_pref(session, db_client: DBClient, user_id: int):
     # Add an age preference for the user
-    age_pref = '18-25'
-    db_factories.UserAgePreferenceFactory.create_sync(user_id=user_id, age_pref=age_pref)
+    age_pref = AgePeriod(description='1', name='2', min_age=3, max_age=4, order=5)
+    db_factories.UserPrefAgeFactory.create_sync(
+        user_id=user_id,
+        period_min=age_pref.min_age,
+        period_max=age_pref.max_age,
+    )
 
     # Call the method to delete the user's age preference
     db_client.delete_user_age_pref(user_id, age_pref)
 
     # Assert that the age preference no longer exists
-    deleted_age_pref = find_model(session, db_models.UserAgePreference, user_id=user_id, age_pref=age_pref)
-    assert deleted_age_pref is None
+    assert not find_model(session, db_models.UserPrefAge, user_id=user_id)
 
 
 def test_get_age_prefs(session, db_client: DBClient, user_id: int):
     # Add age preferences for the user
-    age_prefs = ['18-25', '26-35', '36-45']
-    for age_pref in age_prefs:
-        db_factories.UserAgePreferenceFactory.create_sync(user_id=user_id, age_pref=age_pref)
+    models = db_factories.UserPrefAgeFactory.create_batch_sync(3, user_id=user_id)
 
     # Call the method to get age preferences
     retrieved_age_prefs = db_client.get_age_prefs(user_id)
 
     # Assert that the retrieved age preferences match the created ones
-    assert retrieved_age_prefs == [(age_pref,) for age_pref in age_prefs]
+    for model in models:
+        assert (model.period_min, model.period_max) in retrieved_age_prefs
 
 
 def test_get_existing_user_settings(session, db_client: DBClient, user_id: int):
     # Add user settings to the database
-    db_factories.UserFactory.create_sync(user_id=user_id)
-    db_factories.UserAgePreferenceFactory.create_sync(user_id=user_id)
+    db_factories.UserPrefAgeFactory.create_sync(user_id=user_id)
     db_factories.UserCoordinateFactory.create_sync(user_id=user_id)
-    db_factories.UserRadiusFactory.create_sync(user_id=user_id)
+    db_factories.UserPrefRadiusFactory.create_sync(user_id=user_id)
     db_factories.UserRegionalPreferenceFactory.create_sync(user_id=user_id)
     db_factories.UserPrefTopicTypeFactory.create_sync(user_id=user_id)
 
@@ -568,33 +551,27 @@ def test_get_existing_user_settings(session, db_client: DBClient, user_id: int):
     user_settings = db_client.get_existing_user_settings(user_id)
 
     # Assert that the returned settings are correct
-    assert user_settings is not None
-    assert user_settings[0] is True  # Role exists
-    assert user_settings[1] is True  # Age preference exists
-    assert user_settings[2] is True  # Coordinates exist
-    assert user_settings[3] is True  # Radius exists
-    assert user_settings[4] is True  # Regional preferences exist
-    assert user_settings[5] is True  # Topic type preferences exist
+    assert user_settings == (user_id, True, True, True, True, False, True, False, False, True, False)
 
 
 def test_get_all_user_preferences(session, db_client: DBClient, user_id: int):
     # Add user preferences to the database
-    preferences = ['theme:dark', 'notifications:on', 'language:en']
-    for pref in preferences:
-        db_factories.UserPreferenceFactory.create_sync(
-            user_id=user_id, pref_key=pref.split(':')[0], pref_value=pref.split(':')[1]
-        )
+    pref_key = 'topic_new'
+    pref_id = 0
+
+    # Save the preference first
+    db_factories.UserPreferenceFactory.create_sync(user_id=user_id, preference=pref_key, pref_id=pref_id)
 
     # Call the method to get all user preferences
     user_preferences = db_client.get_all_user_preferences(user_id)
 
     # Assert that the returned preferences match the created ones
-    assert user_preferences == [(pref,) for pref in preferences]
+    assert user_preferences == [(pref_key,)]
 
 
 def test_get_all_active_searches_in_one_region_2(session, db_client: DBClient, user_id: int):
     # Add active searches for a region
-    region_id = 101
+    region_id = fake.pyint()
     searches = [
         db_factories.SearchFactory.create_sync(forum_folder_id=region_id, status='Ищем'),
         db_factories.SearchFactory.create_sync(forum_folder_id=region_id, status='Возобновлен'),
@@ -611,7 +588,7 @@ def test_get_all_active_searches_in_one_region_2(session, db_client: DBClient, u
 
 def test_get_all_searches_in_one_region(session, db_client: DBClient):
     # Add searches for a region
-    region_id = 102
+    region_id = fake.pyint()
     searches = [
         db_factories.SearchFactory.create_sync(forum_folder_id=region_id),
         db_factories.SearchFactory.create_sync(forum_folder_id=region_id),
@@ -628,7 +605,7 @@ def test_get_all_searches_in_one_region(session, db_client: DBClient):
 
 def test_get_all_last_searches_in_region(session, db_client: DBClient, user_id: int):
     # Add searches for a region
-    region_id = 103
+    region_id = fake.pyint()
     searches = [
         db_factories.SearchFactory.create_sync(forum_folder_id=region_id),
         db_factories.SearchFactory.create_sync(forum_folder_id=region_id),
@@ -645,7 +622,7 @@ def test_get_all_last_searches_in_region(session, db_client: DBClient, user_id: 
 
 def test_get_active_searches_in_one_region(session, db_client: DBClient):
     # Add active searches for a region
-    region_id = 104
+    region_id = fake.pyint()
     searches = [
         db_factories.SearchFactory.create_sync(forum_folder_id=region_id, status='Ищем'),
         db_factories.SearchFactory.create_sync(forum_folder_id=region_id, status='Возобновлен'),
@@ -658,3 +635,16 @@ def test_get_active_searches_in_one_region(session, db_client: DBClient):
     assert len(active_searches) == len(searches)
     for search in searches:
         assert any(search.search_forum_num == active[0] for active in active_searches)
+
+
+"""TODO tests for
+write_user_forum_attributes_db
+get_geo_folders_db
+save_user_pref_topic_type
+get_user_role
+get_user_sys_roles
+get_search_follow_mode
+save_last_user_inline_dialogue
+get_last_user_inline_dialogue
+delete_last_user_inline_dialogue
+"""

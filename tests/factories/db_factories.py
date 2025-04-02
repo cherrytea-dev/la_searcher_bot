@@ -157,3 +157,11 @@ class ForumSummarySnapshotFactory(BaseFactory[db_models.ForumSummarySnapshot]):
 
 class UserRoleFactory(BaseFactory[db_models.UserRole]):
     pass
+
+
+class MsgFromBotFactory(BaseFactory[db_models.MsgFromBot]):
+    pass
+
+
+class UserForumAttributeFactory(BaseFactory[db_models.UserForumAttribute]):
+    pass

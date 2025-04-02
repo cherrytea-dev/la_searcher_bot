@@ -447,7 +447,7 @@ class DBClient:
                 (user_id, region),
             )
 
-    def get_folders_with_followed_searches(self, user_id: int) -> list[tuple]:
+    def get_folders_with_followed_searches(self, user_id: int) -> list[int]:
         with self.cursor() as cur:
             cur.execute(
                 """SELECT DISTINCT s.forum_folder_id 
@@ -460,7 +460,7 @@ class DBClient:
                 {'user_id': user_id, 'search_follow_on': SearchFollowingMode.ON},
             )
             lines = cur.fetchall()
-            return lines
+            return [int(x[0]) for x in lines]
 
     def add_folder_to_user_regional_preference(self, user_id: int, region: int) -> None:
         with self.cursor() as cur:

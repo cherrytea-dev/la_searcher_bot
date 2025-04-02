@@ -64,7 +64,7 @@ def compose_msg_on_user_setting_fullness(user_id: int) -> Union[str, None]:
             pref_notif_type,
             pref_region_old,
             pref_forum,
-        ) = raw_data
+        ) = raw_data  # TODO dataclass
 
         list_of_settings = [pref_notif_type, pref_region_old, pref_coords, pref_radius, pref_age, pref_forum]
         user_score = int(round(sum(list_of_settings) / len(list_of_settings) * 100, 0))

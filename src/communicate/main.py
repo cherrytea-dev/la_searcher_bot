@@ -1029,6 +1029,7 @@ def process_update(update: Update) -> str:
     b_pref_age_51_80_deact = 'включить: Старшее Поколение 51-80 лет'
     b_pref_age_81_on_act = 'отключить: Старцы более 80 лет'
     b_pref_age_81_on_deact = 'включить: Старцы более 80 лет'
+    # TODO values from AgePeriod list
 
     b_pref_radius_act = 'включить ограничение по расстоянию'
     b_pref_radius_deact = 'отключить ограничение по расстоянию'
@@ -1403,14 +1404,14 @@ def process_update(update: Update) -> str:
                     keyboard = []  # to combine monolit ikb for all user's regions
                     ikb_searches_count = 0
 
-                    lines = db().get_folders_with_followed_searches(user_id)
+                    folder_ids = db().get_folders_with_followed_searches(user_id)
 
                     user_regions_plus_followed = user_regions
                     followed_regions_not_in_preffs = []
-                    for line in lines:
-                        if int(list(line)[0]) not in user_regions:
-                            followed_regions_not_in_preffs.append(int(list(line)[0]))
-                            user_regions_plus_followed.append(int(list(line)[0]))
+                    for folder_id in folder_ids:
+                        if folder_id not in user_regions:
+                            followed_regions_not_in_preffs.append(folder_id)
+                            user_regions_plus_followed.append(folder_id)
 
                     region_name = ''
                     for region in user_regions_plus_followed:
