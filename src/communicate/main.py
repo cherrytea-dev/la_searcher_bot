@@ -38,7 +38,6 @@ from communicate._utils.buttons import (
     b_act_inforg_com,
     b_act_new_search,
     b_act_stat_change,
-    b_act_titles,
     b_back_to_start,
     b_coords_auto_def,
     b_coords_check,
@@ -70,11 +69,7 @@ from communicate._utils.buttons import (
     b_pref_urgency_medium,
     b_reg_moscow,
     b_reg_not_moscow,
-    b_role_iam_la,
-    b_role_looking_for_person,
-    b_role_other,
-    b_role_secret,
-    b_role_want_to_be_la,
+    RoleChoice,
     b_set_forum_nick,
     b_set_pref_age,
     b_set_pref_coords,
@@ -86,19 +81,14 @@ from communicate._utils.buttons import (
     b_view_act_searches,
     b_view_latest_searches,
     b_yes_its_me,
-    c_map,
-    c_other,
-    c_settings,
     c_start,
-    c_view_act_searches,
-    c_view_latest_searches,
     dict_of_fed_dist,
     fed_okr_dict,
     folder_dict,
     full_dict_of_regions,
     keyboard_fed_dist_set,
-    keyboard_other,
     reply_markup_main,
+    Commands,
 )
 from communicate._utils.common import AllButtons, save_onboarding_step
 from communicate._utils.compose_messages import (
@@ -741,13 +731,7 @@ def process_update(update: Update) -> str:
                         '\n\nДавайте настроим бот индивидуально под вас. Пожалуйста, '
                         'укажите вашу роль сейчас?'
                     )
-                    keyboard_role = [
-                        [b_role_iam_la],
-                        [b_role_want_to_be_la],
-                        [b_role_looking_for_person],
-                        [b_role_other],
-                        [b_role_secret],
-                    ]
+                    keyboard_role = [[role] for role in RoleChoice.list()]
                     reply_markup = ReplyKeyboardMarkup(keyboard_role, resize_keyboard=True)
 
                 else:
@@ -819,27 +803,17 @@ def process_update(update: Update) -> str:
                     )
 
             elif got_message in {
-                b_role_looking_for_person,
-                b_role_want_to_be_la,
-                b_role_iam_la,
-                b_role_secret,
-                b_role_other,
+                *RoleChoice.list(),
                 b_orders_done,
                 b_orders_tbd,
             }:
                 # save user role & onboarding stage
-                if got_message in {
-                    b_role_want_to_be_la,
-                    b_role_iam_la,
-                    b_role_looking_for_person,
-                    b_role_other,
-                    b_role_secret,
-                }:
+                if got_message in RoleChoice.list():
                     user_role = db().save_user_pref_role(user_id, got_message)
                     save_onboarding_step(user_id, username, 'role_set')
 
                 # get user role = relatives looking for a person
-                if got_message == b_role_looking_for_person:
+                if got_message == RoleChoice.b_role_looking_for_person:
                     bot_message = (
                         'Тогда вам следует:\n\n'
                         '1. Подайте заявку на поиск в ЛизаАлерт ОДНИМ ИЗ ДВУХ способов:\n'
@@ -875,7 +849,7 @@ def process_update(update: Update) -> str:
                     reply_markup = ReplyKeyboardMarkup(keyboard_orders, resize_keyboard=True)
 
                 # get user role = potential LA volunteer
-                elif got_message == b_role_want_to_be_la:
+                elif got_message == RoleChoice.b_role_want_to_be_la:
                     bot_message = (
                         'Супер! \n'
                         'Знаете ли вы, как можно помогать ЛизаАлерт? Определились ли вы, как '
@@ -899,7 +873,13 @@ def process_update(update: Update) -> str:
                     reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
 
                 # get user role = all others
-                elif got_message in {b_role_iam_la, b_role_other, b_role_secret, b_orders_done, b_orders_tbd}:
+                elif got_message in {
+                    RoleChoice.b_role_iam_la,
+                    RoleChoice.b_role_other,
+                    RoleChoice.b_role_secret,
+                    b_orders_done,
+                    b_orders_tbd,
+                }:
                     bot_message = (
                         'Спасибо. Теперь уточните, пожалуйста, ваш основной регион – это '
                         'Москва и Московская Область?'
@@ -972,7 +952,7 @@ def process_update(update: Update) -> str:
             elif not user_regions and not (
                 got_message in full_dict_of_regions
                 or got_message in dict_of_fed_dist
-                or got_message in {b_menu_set_region, c_start, b_settings, c_settings}
+                or got_message in {b_menu_set_region, c_start, b_settings, Commands.c_settings}
             ):
                 bot_message = (
                     'Для корректной работы бота, пожалуйста, задайте свой регион. Для этого '
@@ -1005,16 +985,16 @@ def process_update(update: Update) -> str:
             elif got_message in {
                 b_view_latest_searches,
                 b_view_act_searches,
-                c_view_latest_searches,
-                c_view_act_searches,
+                Commands.c_view_latest_searches,
+                Commands.c_view_act_searches,
             }:
                 msg_sent_by_specific_code = True
 
                 temp_dict = {
                     b_view_latest_searches: 'all',
                     b_view_act_searches: 'active',
-                    c_view_latest_searches: 'all',
-                    c_view_act_searches: 'active',
+                    Commands.c_view_latest_searches: 'all',
+                    Commands.c_view_act_searches: 'active',
                 }
 
                 folders_list = db().get_geo_folders_db()
@@ -1238,7 +1218,7 @@ def process_update(update: Update) -> str:
                 bot_message = 'Возможность отслеживания поисков вЫключена. Возвращаемся в главное меню.'
                 reply_markup = reply_markup_main
 
-            elif got_message in {b_map, c_map}:
+            elif got_message in {b_map, Commands.c_map}:
                 bot_message = (
                     'В Боте Поисковика теперь можно посмотреть 🗺️Карту Поисков📍.\n\n'
                     'На карте вы сможете увидеть все активные поиски, '
@@ -1347,12 +1327,19 @@ def process_update(update: Update) -> str:
             elif got_message.lower() == 'go':
                 publish_to_pubsub(Topics.topic_notify_admin, 'test_admin_check')
 
-            elif got_message in {b_other, c_other}:
+            elif got_message in {b_other, Commands.c_other}:
                 bot_message = (
                     'Здесь можно посмотреть статистику по 20 последним поискам, перейти в '
                     'канал Коммъюнити или Прочитать важную информацию для Новичка и посмотреть '
                     'душевные фото с поисков'
                 )
+                keyboard_other = [
+                    [b_view_latest_searches],
+                    [b_goto_first_search],
+                    [b_goto_community],
+                    [b_goto_photos],
+                    [b_back_to_start],
+                ]
                 reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
 
             elif got_message in {b_menu_set_region, b_fed_dist_pick_other}:
@@ -1388,7 +1375,7 @@ def process_update(update: Update) -> str:
                     save_onboarding_step(user_id, username, 'region_set')
                     db().save_user_pref_topic_type(user_id, 'default', user_role)
 
-            elif got_message in {b_settings, c_settings}:
+            elif got_message in {b_settings, Commands.c_settings}:
                 bot_message = (
                     'Это раздел с настройками. Здесь вы можете выбрать удобные для вас '
                     'уведомления, а также ввести свои "домашние координаты", на основе которых '
@@ -1484,7 +1471,12 @@ def process_update(update: Update) -> str:
                     'в телеграм</a>. Там можно предложить свои идеи, указать на проблемы '
                     'и получить быструю обратную связь от разработчика.'
                 )
-                keyboard_other = [[b_view_latest_searches], [b_goto_first_search], [b_goto_photos], [b_back_to_start]]
+                keyboard_other = [
+                    [b_view_latest_searches],
+                    [b_goto_first_search],
+                    [b_goto_photos],
+                    [b_back_to_start],
+                ]
                 reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
 
             elif got_message == b_goto_first_search:
@@ -1500,7 +1492,12 @@ def process_update(update: Update) -> str:
                     'официальное обучение, а вы уже готовы выехать на поиск – этот ресурс '
                     'для вас.'
                 )
-                keyboard_other = [[b_view_latest_searches], [b_goto_community], [b_goto_photos], [b_back_to_start]]
+                keyboard_other = [
+                    [b_view_latest_searches],
+                    [b_goto_community],
+                    [b_goto_photos],
+                    [b_back_to_start],
+                ]
                 reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
 
             elif got_message == b_goto_photos:

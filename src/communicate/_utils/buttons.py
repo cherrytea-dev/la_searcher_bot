@@ -1,3 +1,4 @@
+from enum import Enum
 from telegram import KeyboardButton, ReplyKeyboardMarkup
 
 fed_okr_dict = {
@@ -93,20 +94,32 @@ folder_dict = {
 }
 
 
+class ExtendedEnum(Enum):
+    @classmethod
+    def list(cls):
+        return list(map(lambda c: c.value, cls))
+
+
 # Buttons & Keyboards
 # Start & Main menu
 c_start = '/start'
-c_view_act_searches = '/view_act_searches'
-c_view_latest_searches = '/view_latest_searches'
-c_settings = '/settings'
-c_other = '/other'
-c_map = '/map'
 
-b_role_iam_la = 'я состою в ЛизаАлерт'
-b_role_want_to_be_la = 'я хочу помогать ЛизаАлерт'
-b_role_looking_for_person = 'я ищу человека'
-b_role_other = 'у меня другая задача'
-b_role_secret = 'не хочу говорить'
+
+class Commands(str, ExtendedEnum):
+    c_view_act_searches = '/view_act_searches'
+    c_view_latest_searches = '/view_latest_searches'
+    c_settings = '/settings'
+    c_other = '/other'
+    c_map = '/map'
+
+
+class RoleChoice(str, ExtendedEnum):
+    b_role_iam_la = 'я состою в ЛизаАлерт'
+    b_role_want_to_be_la = 'я хочу помогать ЛизаАлерт'
+    b_role_looking_for_person = 'я ищу человека'
+    b_role_other = 'у меня другая задача'
+    b_role_secret = 'не хочу говорить'
+
 
 b_orders_done = 'да, заявки поданы'
 b_orders_tbd = 'нет, но я хочу продолжить'
@@ -435,10 +448,3 @@ b_view_latest_searches = 'посмотреть последние поиски'
 b_goto_community = 'написать разработчику бота'
 b_goto_first_search = 'ознакомиться с информацией для новичка'
 b_goto_photos = 'посмотреть красивые фото с поисков'
-keyboard_other = [
-    [b_view_latest_searches],
-    [b_goto_first_search],
-    [b_goto_community],
-    [b_goto_photos],
-    [b_back_to_start],
-]
