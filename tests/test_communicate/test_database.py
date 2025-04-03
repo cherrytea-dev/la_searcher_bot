@@ -1,7 +1,7 @@
 import pytest
 from faker import Faker
 
-from communicate._utils.common import AgePeriod, SearchFollowingMode
+from communicate._utils.common import AgePeriod, SearchFollowingMode, SearchSummary
 from communicate._utils.database import DBClient
 from tests.common import find_model
 from tests.factories import db_factories, db_models
@@ -587,46 +587,47 @@ def test_get_all_active_searches_in_one_region_2(session, db_client: DBClient, u
     ]
 
     # Call the method to get all active searches in the region
-    active_searches = db_client.get_all_active_searches_in_one_region_2(region_id, user_id)
+    active_searches = db_client.get_active_searches_in_region_limit_20(region_id, user_id)
 
     # Assert that the returned searches match the created ones
     assert len(active_searches) == len(searches)
-    for search in searches:
-        assert any(search.search_forum_num == active[0] for active in active_searches)
+    searches.sort(key=lambda x: x.search_forum_num)
+    active_searches.sort(key=lambda x: x.topic_id)
+    for search_model, search_result in zip(searches, active_searches):
+        _assert_search_summary_equals_to_search_model(search_model, search_result)
 
 
 def test_get_all_searches_in_one_region(session, db_client: DBClient):
     # Add searches for a region
     region_id = fake.pyint()
-    searches = [
-        db_factories.SearchFactory.create_sync(forum_folder_id=region_id),
-        db_factories.SearchFactory.create_sync(forum_folder_id=region_id),
-    ]
+    searches = db_factories.SearchFactory.create_batch_sync(2, forum_folder_id=region_id)
 
     # Call the method to get all searches in the region
     all_searches = db_client.get_all_searches_in_one_region(region_id)
 
     # Assert that the returned searches match the created ones
     assert len(all_searches) == len(searches)
-    for search in searches:
-        assert any(search.search_forum_num == all_search[0] for all_search in all_searches)
+
+    searches.sort(key=lambda x: x.search_forum_num)
+    all_searches.sort(key=lambda x: x.topic_id)
+    for search_model, search_result in zip(searches, all_searches):
+        _assert_search_summary_equals_to_search_model(search_model, search_result)
 
 
 def test_get_all_last_searches_in_region(session, db_client: DBClient, user_id: int):
     # Add searches for a region
     region_id = fake.pyint()
-    searches = [
-        db_factories.SearchFactory.create_sync(forum_folder_id=region_id),
-        db_factories.SearchFactory.create_sync(forum_folder_id=region_id),
-    ]
+    searches = db_factories.SearchFactory.create_batch_sync(2, forum_folder_id=region_id)
 
     # Call the method to get all last searches in the region
-    last_searches = db_client.get_all_last_searches_in_region(region_id, user_id, only_followed=False)
+    last_searches = db_client.get_all_last_searches_in_region_limit_20(region_id, user_id, only_followed=False)
 
     # Assert that the returned searches match the created ones
     assert len(last_searches) == len(searches)
-    for search in searches:
-        assert any(search.search_forum_num == last_search[0] for last_search in last_searches)
+    searches.sort(key=lambda x: x.search_forum_num)
+    last_searches.sort(key=lambda x: x.topic_id)
+    for search_model, search_result in zip(searches, last_searches):
+        _assert_search_summary_equals_to_search_model(search_model, search_result)
 
 
 def test_get_active_searches_in_one_region(session, db_client: DBClient):
@@ -642,8 +643,10 @@ def test_get_active_searches_in_one_region(session, db_client: DBClient):
 
     # Assert that the returned searches match the created ones
     assert len(active_searches) == len(searches)
-    for search in searches:
-        assert any(search.search_forum_num == active[0] for active in active_searches)
+    searches.sort(key=lambda x: x.search_forum_num)
+    active_searches.sort(key=lambda x: x.topic_id)
+    for search_model, search_result in zip(searches, active_searches):
+        _assert_search_summary_equals_to_search_model(search_model, search_result)
 
 
 def test_write_user_forum_attributes_db(session, db_client: DBClient, user_id: int):
@@ -727,3 +730,8 @@ def test_delete_last_user_inline_dialogue(session, db_client: DBClient, user_id:
 
     # Assert that the dialogue no longer exists
     assert not find_model(session, db_factories.CommunicationsLastInlineMsg, user_id=user_id)
+
+
+def _assert_search_summary_equals_to_search_model(search_model: db_models.Search, search_summary: SearchSummary):
+    assert search_model.search_forum_num == search_summary.topic_id
+    assert search_model.age == search_summary.age

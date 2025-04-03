@@ -1,42 +1,9 @@
 import logging
-from dataclasses import dataclass
-from typing import Any, List, Tuple, Union
+from typing import List, Tuple, Union
 
 from _dependencies.misc import age_writer, time_counter_since_search_start
-from communicate._utils.common import define_dist_and_dir_to_search
+from communicate._utils.common import SearchSummary, define_dist_and_dir_to_search
 from communicate._utils.database import db
-
-
-@dataclass
-class SearchSummary:
-    # TODO can be replaced with similar classes?
-    topic_type: Any = None
-    topic_id: Any = None
-    parsed_time: Any = None
-    status: Any = None
-    title: Any = None
-    link: Any = None
-    start_time: Any = None
-    num_of_replies: Any = None
-    name: Any = None
-    display_name: Any = None
-    age: Any = None
-    searches_table_id: Any = None
-    folder_id: Any = None
-    age_max: Any = None
-    age_min: Any = None
-    num_of_persons: Any = None
-    city_locations: Any = None  # city / town / place – approximate coordinates
-    hq_locations: Any = None  # shtab –exact coordinates
-    new_status: Any = None
-    full_dict: Any = None
-
-    def __str__(self):
-        return (
-            f'{self.parsed_time} – {self.folder_id} / {self.topic_id} : {self.name} - {self.age} – '
-            f'{self.num_of_replies}. NEW: {self.display_name} – {self.age_min} – {self.age_max} – '
-            f'{self.num_of_persons}'
-        )
 
 
 def compose_msg_on_user_setting_fullness(user_id: int) -> Union[str, None]:
@@ -150,18 +117,7 @@ def compose_msg_on_all_last_searches(region: int) -> str:
     # download the list from SEARCHES sql table
     database = db().get_all_searches_in_one_region(region)
 
-    for line in database:
-        search = SearchSummary()
-        (
-            search.topic_id,
-            search.start_time,
-            search.display_name,
-            search.new_status,
-            search.status,
-            search.name,
-            search.age,
-        ) = list(line)
-
+    for search in database:
         if not search.display_name:
             age_string = f' {age_writer(search.age)}' if search.age and search.age != 0 else ''
             search.display_name = f'{search.name}{age_string}'
@@ -187,21 +143,9 @@ def compose_msg_on_all_last_searches_ikb(region: int, user_id: int, only_followe
     pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='
     ikb = []
 
-    database = db().get_all_last_searches_in_region(region, user_id, only_followed)
+    database = db().get_all_last_searches_in_region_limit_20(region, user_id, only_followed)
 
-    for line in database:
-        search = SearchSummary()
-        (
-            search.topic_id,
-            search.start_time,
-            search.display_name,
-            search.new_status,
-            search.status,
-            search.name,
-            search.age,
-            search_following_mode,
-        ) = list(line)
-
+    for search in database:
         if not search.display_name:
             age_string = f' {age_writer(search.age)}' if search.age and search.age != 0 else ''
             search.display_name = f'{search.name}{age_string}'
@@ -213,7 +157,7 @@ def compose_msg_on_all_last_searches_ikb(region: int, user_id: int, only_followe
             search.new_status = f'Ищем {time_counter_since_search_start(search.start_time)[0]}'
 
         ikb += search_button_row_ikb(
-            search_following_mode,
+            search.following_mode,
             search.new_status,
             search.topic_id,
             search.display_name,
@@ -237,26 +181,14 @@ def compose_msg_on_active_searches_in_one_reg(region: int, user_data: tuple[str,
         user_lat = user_data[0]
         user_lon = user_data[1]
 
-    for line in searches_list:
-        search = SearchSummary()
-        (
-            search.topic_id,
-            search.start_time,
-            search.display_name,
-            search_lat,
-            search_lon,
-            search.topic_type,
-            search.name,
-            search.age,
-        ) = list(line)
-
+    for search in searches_list:
         if time_counter_since_search_start(search.start_time)[1] >= 60:
             continue
 
         time_since_start = time_counter_since_search_start(search.start_time)[0]
 
-        if user_lat and search_lat:
-            dist = define_dist_and_dir_to_search(search_lat, search_lon, user_lat, user_lon)
+        if user_lat and search.search_lat:
+            dist = define_dist_and_dir_to_search(search.search_lat, search.search_lon, user_lat, user_lon)
             dist_and_dir = f' {dist[1]} {dist[0]} км'
         else:
             dist_and_dir = ''
@@ -280,7 +212,7 @@ def compose_msg_on_active_searches_in_one_reg_ikb(region: int, user_data: Tuple[
     pre_url = 'https://lizaalert.org/forum/viewtopic.php?t='
     ikb = []
 
-    searches_list = db().get_all_active_searches_in_one_region_2(region, user_id)
+    searches_list = db().get_active_searches_in_region_limit_20(region, user_id)
 
     user_lat = None
     user_lon = None
@@ -289,27 +221,14 @@ def compose_msg_on_active_searches_in_one_reg_ikb(region: int, user_data: Tuple[
         user_lat = user_data[0]
         user_lon = user_data[1]
 
-    for line in searches_list:
-        search = SearchSummary()
-        (
-            search.topic_id,
-            search.start_time,
-            search.display_name,
-            search_lat,
-            search_lon,
-            search.topic_type,
-            search.name,
-            search.age,
-            search_following_mode,
-        ) = list(line)
-
-        if time_counter_since_search_start(search.start_time)[1] >= 60 and not search_following_mode:
+    for search in searches_list:
+        if time_counter_since_search_start(search.start_time)[1] >= 60 and not search.following_mode:
             continue
 
         time_since_start = time_counter_since_search_start(search.start_time)[0]
 
-        if user_lat and search_lat:
-            dist = define_dist_and_dir_to_search(search_lat, search_lon, user_lat, user_lon, False)
+        if user_lat and search.search_lat:
+            dist = define_dist_and_dir_to_search(search.search_lat, search.search_lon, user_lat, user_lon, False)
             dist_and_dir = f' {dist[1]} {dist[0]} км'
         else:
             dist_and_dir = ''
@@ -319,7 +238,7 @@ def compose_msg_on_active_searches_in_one_reg_ikb(region: int, user_data: Tuple[
             search.display_name = f'{search.name}{age_string}'
 
         ikb += search_button_row_ikb(
-            search_following_mode,
+            search.following_mode,
             f'{time_since_start}{dist_and_dir}',
             search.topic_id,
             search.display_name,

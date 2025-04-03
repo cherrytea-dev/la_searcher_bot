@@ -7,7 +7,7 @@ from typing import Any, Generator, List, Tuple
 from psycopg2.extensions import connection, cursor
 
 from _dependencies.commons import sql_connect_by_psycopg2
-from communicate._utils.common import AgePeriod, SearchFollowingMode, pref_dict
+from communicate._utils.common import AgePeriod, SearchFollowingMode, SearchSummary, pref_dict
 
 
 @lru_cache
@@ -616,7 +616,7 @@ class DBClient:
             user_prefs = cur.fetchall()
             return user_prefs
 
-    def get_all_active_searches_in_one_region_2(self, region: int, user_id: int) -> list[tuple]:
+    def get_active_searches_in_region_limit_20(self, region: int, user_id: int) -> list[SearchSummary]:
         with self.cursor() as cur:
             sql_text = """
                 SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
@@ -646,28 +646,24 @@ class DBClient:
                 },
             )
             searches_list = cur.fetchall()
-            return searches_list
+            return [
+                SearchSummary(
+                    topic_id=row[0],
+                    start_time=row[1],
+                    display_name=row[2],
+                    search_lat=row[3],
+                    search_lon=row[4],
+                    topic_type=row[5],
+                    name=row[6],
+                    age=row[7],
+                    following_mode=row[8],
+                )
+                for row in searches_list
+            ]
 
-    def get_all_searches_in_one_region(self, region: int) -> list[tuple]:
-        with self.cursor() as cur:
-            cur.execute(
-                """SELECT s2.* FROM 
-                    (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
-                    FROM searches 
-                    WHERE forum_folder_id=%s 
-                    ORDER BY search_start_time DESC 
-                    LIMIT 20) s2 
-                LEFT JOIN search_health_check shc 
-                ON s2.search_forum_num=shc.search_forum_num 
-                WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
-                ORDER BY s2.search_start_time DESC;""",
-                (region,),
-            )
-
-            database = cur.fetchall()
-            return database
-
-    def get_all_last_searches_in_region(self, region: int, user_id: int, only_followed: bool) -> list[tuple]:
+    def get_all_last_searches_in_region_limit_20(
+        self, region: int, user_id: int, only_followed: bool
+    ) -> list[SearchSummary]:
         with self.cursor() as cur:
             sql_text = """
                 SELECT DISTINCT search_forum_num, search_start_time, display_name, status, status, family_name, age, search_following_mode
@@ -706,9 +702,23 @@ class DBClient:
             )
 
             database = cur.fetchall()
-            return database
+            return [
+                (
+                    SearchSummary(
+                        topic_id=row[0],
+                        start_time=row[1],
+                        display_name=row[2],
+                        new_status=row[3],
+                        status=row[4],
+                        name=row[5],
+                        age=row[6],
+                        following_mode=row[7],
+                    )
+                )
+                for row in database
+            ]
 
-    def get_active_searches_in_one_region(self, region: int) -> list[tuple]:
+    def get_active_searches_in_one_region(self, region: int) -> list[SearchSummary]:
         with self.cursor() as cur:
             cur.execute(
                 """SELECT s2.* FROM 
@@ -724,4 +734,49 @@ class DBClient:
                 (region,),
             )
             searches_list = cur.fetchall()
-            return searches_list
+
+            return [
+                (
+                    SearchSummary(
+                        topic_id=row[0],
+                        start_time=row[1],
+                        display_name=row[2],
+                        search_lat=row[3],
+                        search_lon=row[4],
+                        topic_type=row[5],
+                        name=row[6],
+                        age=row[7],
+                    )
+                )
+                for row in searches_list
+            ]
+
+    def get_all_searches_in_one_region(self, region: int) -> list[SearchSummary]:
+        with self.cursor() as cur:
+            cur.execute(
+                """SELECT s2.* FROM 
+                    (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
+                    FROM searches 
+                    WHERE forum_folder_id=%s 
+                    ORDER BY search_start_time DESC 
+                    LIMIT 20) s2 
+                LEFT JOIN search_health_check shc 
+                ON s2.search_forum_num=shc.search_forum_num 
+                WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
+                ORDER BY s2.search_start_time DESC;""",
+                (region,),
+            )
+
+            rows = cur.fetchall()
+            return [
+                SearchSummary(
+                    topic_id=row[0],
+                    start_time=row[1],
+                    display_name=row[2],
+                    new_status=row[3],
+                    status=row[4],
+                    name=row[5],
+                    age=row[6],
+                )
+                for row in rows
+            ]
