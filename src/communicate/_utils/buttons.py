@@ -452,3 +452,4 @@ b_view_latest_searches = 'посмотреть последние поиски'
 b_goto_community = 'написать разработчику бота'
 b_goto_first_search = 'ознакомиться с информацией для новичка'
 b_goto_photos = 'посмотреть красивые фото с поисков'
+b_act_titles = 'названия'  # these are "Title update notification" button
