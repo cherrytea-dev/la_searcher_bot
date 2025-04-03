@@ -7,7 +7,7 @@ from typing import Any, Generator, List, Tuple
 from psycopg2.extensions import connection, cursor
 
 from _dependencies.commons import sql_connect_by_psycopg2
-from communicate._utils.common import AgePeriod, SearchFollowingMode, SearchSummary, PREF_DICT
+from communicate._utils.common import PREF_DICT, AgePeriod, SearchFollowingMode, SearchSummary
 
 
 @lru_cache

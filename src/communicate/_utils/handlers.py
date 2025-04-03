@@ -19,14 +19,7 @@ from communicate._utils.message_sending import make_api_call, send_callback_answ
 def manage_age(user_id: int, user_input: Optional[str]) -> None:
     """Save user Age preference and generate the list of updated Are preferences"""
 
-    age_list = [
-        AgePeriod(description='Маленькие Дети 0-6 лет', name='0-6', min_age=0, max_age=6, order=0),
-        AgePeriod(description='Подростки 7-13 лет', name='7-13', min_age=7, max_age=13, order=1),
-        AgePeriod(description='Молодежь 14-20 лет', name='14-20', min_age=14, max_age=20, order=2),
-        AgePeriod(description='Взрослые 21-50 лет', name='21-50', min_age=21, max_age=50, order=3),
-        AgePeriod(description='Старшее Поколение 51-80 лет', name='51-80', min_age=51, max_age=80, order=4),
-        AgePeriod(description='Старцы более 80 лет', name='80-on', min_age=80, max_age=120, order=5),
-    ]
+    age_list = get_default_age_period_list()
 
     if user_input:
         user_want_activate = True if re.search(r'(?i)включить', user_input) else False
@@ -68,6 +61,17 @@ def manage_age(user_id: int, user_input: Optional[str]) -> None:
             list_of_buttons.append([f'включить: {line.description}'])
 
     return list_of_buttons, first_visit
+
+
+def get_default_age_period_list() -> list[AgePeriod]:
+    return [
+        AgePeriod(description='Маленькие Дети 0-6 лет', name='0-6', min_age=0, max_age=6, order=0),
+        AgePeriod(description='Подростки 7-13 лет', name='7-13', min_age=7, max_age=13, order=1),
+        AgePeriod(description='Молодежь 14-20 лет', name='14-20', min_age=14, max_age=20, order=2),
+        AgePeriod(description='Взрослые 21-50 лет', name='21-50', min_age=21, max_age=50, order=3),
+        AgePeriod(description='Старшее Поколение 51-80 лет', name='51-80', min_age=51, max_age=80, order=4),
+        AgePeriod(description='Старцы более 80 лет', name='80-on', min_age=80, max_age=120, order=5),
+    ]
 
 
 def manage_radius(

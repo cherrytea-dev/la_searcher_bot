@@ -23,7 +23,6 @@ from _dependencies.commons import (
     get_app_config,
     publish_to_pubsub,
     setup_google_logging,
-    sql_connect_by_psycopg2,
 )
 from _dependencies.misc import (
     notify_admin,
@@ -38,6 +37,7 @@ from communicate._utils.compose_messages import (
 )
 from communicate._utils.database import db
 from communicate._utils.handlers import (
+    get_default_age_period_list,
     manage_age,
     manage_if_moscow,
     manage_linking_to_forum,
@@ -1017,19 +1017,10 @@ def process_update(update: Update) -> str:
     b_test_search_follow_mode_on = 'test search follow mode on'  # noqa
     b_test_search_follow_mode_off = 'test search follow mode off'
 
-    b_pref_age_0_6_act = 'отключить: Маленькие Дети 0-6 лет'
-    b_pref_age_0_6_deact = 'включить: Маленькие Дети 0-6 лет'
-    b_pref_age_7_13_act = 'отключить: Подростки 7-13 лет'
-    b_pref_age_7_13_deact = 'включить: Подростки 7-13 лет'
-    b_pref_age_14_20_act = 'отключить: Молодежь 14-20 лет'
-    b_pref_age_14_20_deact = 'включить: Молодежь 14-20 лет'
-    b_pref_age_21_50_act = 'отключить: Взрослые 21-50 лет'
-    b_pref_age_21_50_deact = 'включить: Взрослые 21-50 лет'
-    b_pref_age_51_80_act = 'отключить: Старшее Поколение 51-80 лет'
-    b_pref_age_51_80_deact = 'включить: Старшее Поколение 51-80 лет'
-    b_pref_age_81_on_act = 'отключить: Старцы более 80 лет'
-    b_pref_age_81_on_deact = 'включить: Старцы более 80 лет'
-    # TODO values from AgePeriod list
+    age_buttons = []
+    for period in get_default_age_period_list():
+        age_buttons.append(f'отключить: {period.description}')
+        age_buttons.append(f'включить: {period.description}')
 
     b_pref_radius_act = 'включить ограничение по расстоянию'
     b_pref_radius_deact = 'отключить ограничение по расстоянию'
@@ -1645,21 +1636,7 @@ def process_update(update: Update) -> str:
                     user_id, got_message, b, got_callback, callback_query_id, bot_token, callback_query_message_id
                 )
 
-            elif got_message in {
-                b_set_pref_age,
-                b_pref_age_0_6_act,
-                b_pref_age_0_6_deact,
-                b_pref_age_7_13_act,
-                b_pref_age_7_13_deact,
-                b_pref_age_14_20_act,
-                b_pref_age_14_20_deact,
-                b_pref_age_21_50_act,
-                b_pref_age_21_50_deact,
-                b_pref_age_51_80_act,
-                b_pref_age_51_80_deact,
-                b_pref_age_81_on_act,
-                b_pref_age_81_on_deact,
-            }:
+            elif got_message in {b_set_pref_age, *age_buttons}:
                 input_data = None if got_message == b_set_pref_age else got_message
                 keyboard, first_visit = manage_age(user_id, input_data)
                 keyboard.append([b_back_to_start])
