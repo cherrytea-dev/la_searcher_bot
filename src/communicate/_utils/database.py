@@ -7,7 +7,7 @@ from typing import Any, Generator, List, Tuple
 from psycopg2.extensions import connection, cursor
 
 from _dependencies.commons import sql_connect_by_psycopg2
-from communicate._utils.common import AgePeriod, SearchFollowingMode, SearchSummary, pref_dict
+from communicate._utils.common import AgePeriod, SearchFollowingMode, SearchSummary, PREF_DICT
 
 
 @lru_cache
@@ -297,7 +297,7 @@ class DBClient:
     def user_preference_save(self, user: int, preference_name: str) -> None:
         """execute SQL INSERT command"""
 
-        preference_id = pref_dict[preference_name]
+        preference_id = PREF_DICT[preference_name]
         with self.cursor() as cur:
             cur.execute(
                 """INSERT INTO user_preferences 
@@ -313,7 +313,7 @@ class DBClient:
         with self.cursor() as cur:
             if list_of_prefs:
                 for line in list_of_prefs:
-                    line_id = pref_dict[line]
+                    line_id = PREF_DICT[line]
                     cur.execute("""DELETE FROM user_preferences WHERE user_id=%s AND pref_id=%s;""", (user, line_id))
             else:
                 cur.execute("""DELETE FROM user_preferences WHERE user_id=%s;""", (user,))
