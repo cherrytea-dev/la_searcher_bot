@@ -1,4 +1,5 @@
 from enum import Enum
+
 from telegram import KeyboardButton, ReplyKeyboardMarkup
 
 fed_okr_dict = {
@@ -158,27 +159,30 @@ b_set_topic_type = 'настроить вид поисков'
 
 b_back_to_start = 'в начало'
 
-# Settings - notifications
-b_act_all = 'включить: все уведомления'
-b_act_new_search = 'включить: о новых поисках'
-b_act_stat_change = 'включить: об изменениях статусов'
-b_act_all_comments = 'включить: о всех новых комментариях'
-b_act_inforg_com = 'включить: о комментариях Инфорга'
-b_act_field_trips_new = 'включить: о новых выездах'
-b_act_field_trips_change = 'включить: об изменениях в выездах'
-b_act_coords_change = 'включить: о смене места штаба'
-b_act_first_post_change = 'включить: об изменениях в первом посте'
-b_act_all_in_followed_search = 'включить: в отслеживаемых поисках - все уведомления'
-b_deact_all = 'настроить более гибко'
-b_deact_new_search = 'отключить: о новых поисках'
-b_deact_stat_change = 'отключить: об изменениях статусов'
-b_deact_all_comments = 'отключить: о всех новых комментариях'
-b_deact_inforg_com = 'отключить: о комментариях Инфорга'
-b_deact_field_trips_new = 'отключить: о новых выездах'
-b_deact_field_trips_change = 'отключить: об изменениях в выездах'
-b_deact_coords_change = 'отключить: о смене места штаба'
-b_deact_first_post_change = 'отключить: об изменениях в первом посте'
-b_deact_all_in_followed_search = 'отключить: в отслеживаемых поисках - все уведомления'
+
+class NotificationSettingsMenu(str, ExtendedEnum):
+    # Settings - notifications
+    b_act_all = 'включить: все уведомления'
+    b_act_new_search = 'включить: о новых поисках'
+    b_act_stat_change = 'включить: об изменениях статусов'
+    b_act_all_comments = 'включить: о всех новых комментариях'
+    b_act_inforg_com = 'включить: о комментариях Инфорга'
+    b_act_field_trips_new = 'включить: о новых выездах'
+    b_act_field_trips_change = 'включить: об изменениях в выездах'
+    b_act_coords_change = 'включить: о смене места штаба'
+    b_act_first_post_change = 'включить: об изменениях в первом посте'
+    b_act_all_in_followed_search = 'включить: в отслеживаемых поисках - все уведомления'
+    b_deact_all = 'настроить более гибко'
+    b_deact_new_search = 'отключить: о новых поисках'
+    b_deact_stat_change = 'отключить: об изменениях статусов'
+    b_deact_all_comments = 'отключить: о всех новых комментариях'
+    b_deact_inforg_com = 'отключить: о комментариях Инфорга'
+    b_deact_field_trips_new = 'отключить: о новых выездах'
+    b_deact_field_trips_change = 'отключить: об изменениях в выездах'
+    b_deact_coords_change = 'отключить: о смене места штаба'
+    b_deact_first_post_change = 'отключить: об изменениях в первом посте'
+    b_deact_all_in_followed_search = 'отключить: в отслеживаемых поисках - все уведомления'
+
 
 # Settings - coordinates
 b_coords_auto_def = KeyboardButton(text='автоматически определить "домашние координаты"', request_location=True)
