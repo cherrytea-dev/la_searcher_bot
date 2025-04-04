@@ -54,7 +54,7 @@ def get_search_raw_content(search_num: int) -> str:
 
     # response.raise_for_status()
     str_content = response.content.decode('utf-8')
-    if '502 Bad Gateway' in str_content or 'Too many connections' in str_content:
+    if '502 Bad Gateway' in str_content or 'Too many connections' in str_content or '403 Forbidden' in str_content:
         raise ForumUnavailable()
 
     return str_content
