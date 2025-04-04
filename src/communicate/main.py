@@ -13,7 +13,6 @@ from telegram import (
     Bot,
     InlineKeyboardMarkup,
     ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
     Update,
 )
 
@@ -29,16 +28,13 @@ from _dependencies.misc import (
 )
 from communicate._utils.buttons import (
     Commands,
+    CoordinateSettingsMenu,
     MainSettingsMenu,
     NotificationSettingsMenu,
     RoleChoice,
     UrgencySettings,
     b_act_titles,
     b_back_to_start,
-    b_coords_auto_def,
-    b_coords_check,
-    b_coords_del,
-    b_coords_man_def,
     b_fed_dist_pick_other,
     b_goto_community,
     b_goto_first_search,
@@ -72,6 +68,10 @@ from communicate._utils.compose_messages import (
 from communicate._utils.database import db
 from communicate._utils.handlers import (
     get_default_age_period_list,
+    handle_coordinates,
+    handle_goto_community,
+    handle_goto_first_search,
+    handle_goto_photos,
     handle_notification_settings,
     manage_age,
     manage_if_moscow,
@@ -597,8 +597,8 @@ def process_update(update: Update) -> str:
             user_id,
             user_latitude,
             user_longitude,
-            b_coords_check,
-            b_coords_del,
+            CoordinateSettingsMenu.b_coords_check,
+            CoordinateSettingsMenu.b_coords_del,
             b_back_to_start,
             bot_request_aft_usr_msg,
         )
@@ -1297,120 +1297,26 @@ def process_update(update: Update) -> str:
                 ]  # #AK added b_set_forum_nick for issue #6
                 reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
 
-            elif got_message == MainSettingsMenu.b_set_pref_coords:
-                bot_message = (
-                    'АВТОМАТИЧЕСКОЕ ОПРЕДЕЛЕНИЕ координат работает только для носимых устройств'
-                    ' (для настольных компьютеров – НЕ работает: используйте, пожалуйста, '
-                    'кнопку ручного ввода координат). '
-                    'При автоматическом определении координат – нажмите на кнопку и '
-                    'разрешите определить вашу текущую геопозицию. '
-                    'Координаты, загруженные вручную или автоматически, будут считаться '
-                    'вашим "домом", откуда будут рассчитаны расстояние и '
-                    'направление до поисков.'
-                )
-                keyboard_coordinates_1 = [
-                    [b_coords_auto_def],
-                    [b_coords_man_def],
-                    [b_coords_check],
-                    [b_coords_del],
-                    [b_back_to_start],
-                ]
-                reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
-
-            elif got_message == b_coords_del:
-                db().delete_user_coordinates(user_id)
-                bot_message = (
-                    'Ваши "домашние координаты" удалены. Теперь расстояние и направление '
-                    'до поисков не будет отображаться.\n'
-                    'Вы в любой момент можете заново ввести новые "домашние координаты". '
-                    'Функция Автоматического определения координат работает только для '
-                    'носимых устройств, для настольного компьютера – воспользуйтесь '
-                    'ручным вводом.'
-                )
-                keyboard_coordinates_1 = [[b_coords_auto_def], [b_coords_man_def], [b_coords_check], [b_back_to_start]]
-                reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
-
-            elif got_message == b_coords_man_def:
-                bot_message = (
-                    'Введите координаты вашего дома вручную в теле сообщения и просто '
-                    'отправьте. Формат: XX.XXXХХ, XX.XXXХХ, где количество цифр после точки '
-                    'может быть различным. Широта (первое число) должна быть между 30 '
-                    'и 80, Долгота (второе число) – между 10 и 190.'
-                )
-                bot_request_aft_usr_msg = 'input_of_coords_man'
-                reply_markup = ReplyKeyboardRemove()
-
-            elif got_message == b_coords_check:
-                lat, lon = db().show_user_coordinates(user_id)
-                if lat and lon:
-                    bot_message = 'Ваши "домашние координаты" '
-                    bot_message += generate_yandex_maps_place_link(lat, lon, 'coords')
-
-                else:
-                    bot_message = 'Ваши координаты пока не сохранены. Введите их автоматически или вручную.'
-
-                keyboard_coordinates_1 = [
-                    [b_coords_auto_def],
-                    [b_coords_man_def],
-                    [b_coords_check],
-                    [b_coords_del],
-                    [b_back_to_start],
-                ]
-                reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
+            elif got_message in {
+                MainSettingsMenu.b_set_pref_coords,
+                CoordinateSettingsMenu.b_coords_del,
+                CoordinateSettingsMenu.b_coords_man_def,
+                CoordinateSettingsMenu.b_coords_check,
+            }:
+                bot_message, reply_markup, bot_request_aft_usr_msg = handle_coordinates(user_id, got_message)
 
             elif got_message == b_back_to_start:
                 bot_message = 'возвращаемся в главное меню'
                 reply_markup = reply_markup_main
 
             elif got_message == b_goto_community:
-                bot_message = (
-                    'Бот можно обсудить с соотрядниками в '
-                    '<a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">Специальном Чате '
-                    'в телеграм</a>. Там можно предложить свои идеи, указать на проблемы '
-                    'и получить быструю обратную связь от разработчика.'
-                )
-                keyboard_other = [
-                    [b_view_latest_searches],
-                    [b_goto_first_search],
-                    [b_goto_photos],
-                    [b_back_to_start],
-                ]
-                reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
+                bot_message, reply_markup = handle_goto_community()
 
             elif got_message == b_goto_first_search:
-                bot_message = (
-                    'Если вы хотите стать добровольцем ДПСО «ЛизаАлерт», пожалуйста, '
-                    '<a href="https://lizaalert.org/forum/viewtopic.php?t=56934">'
-                    'посетите страницу форума</a>, там можно ознакомиться с базовой информацией '
-                    'для новичков и задать свои вопросы.'
-                    'Если вы готовитесь к своему первому поиску – приглашаем '
-                    '<a href="https://lizaalert.org/dvizhenie/novichkam/">ознакомиться с основами '
-                    'работы ЛА</a>. Всю теорию работы ЛА необходимо получать от специально '
-                    'обученных волонтеров ЛА. Но если у вас еще не было возможности пройти '
-                    'официальное обучение, а вы уже готовы выехать на поиск – этот ресурс '
-                    'для вас.'
-                )
-                keyboard_other = [
-                    [b_view_latest_searches],
-                    [b_goto_community],
-                    [b_goto_photos],
-                    [b_back_to_start],
-                ]
-                reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
+                bot_message, reply_markup = handle_goto_first_search()
 
             elif got_message == b_goto_photos:
-                bot_message = (
-                    'Если вам хочется окунуться в атмосферу ПСР, приглашаем в замечательный '
-                    '<a href="https://t.me/+6LYNNEy8BeI1NGUy">телеграм-канал с красивыми фото с '
-                    'поисков</a>. Все фото – сделаны поисковиками во время настоящих ПСР.'
-                )
-                keyboard_other = [
-                    [b_view_latest_searches],
-                    [b_goto_community],
-                    [b_goto_first_search],
-                    [b_back_to_start],
-                ]
-                reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
+                bot_message, reply_markup = handle_goto_photos()
 
             # special block for flexible menu on notification preferences
             elif got_message in {

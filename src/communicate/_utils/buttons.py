@@ -192,9 +192,13 @@ class NotificationSettingsMenu(str, ExtendedEnum):
 
 # Settings - coordinates
 b_coords_auto_def = KeyboardButton(text='автоматически определить "домашние координаты"', request_location=True)
-b_coords_man_def = 'ввести "домашние координаты" вручную'
-b_coords_check = 'посмотреть сохраненные "домашние координаты"'
-b_coords_del = 'удалить "домашние координаты"'
+
+
+class CoordinateSettingsMenu(str, ExtendedEnum):
+    b_coords_man_def = 'ввести "домашние координаты" вручную'
+    b_coords_check = 'посмотреть сохраненные "домашние координаты"'
+    b_coords_del = 'удалить "домашние координаты"'
+
 
 # Dialogue if Region – is Moscow
 b_reg_moscow = 'да, Москва – мой регион'

@@ -6,7 +6,18 @@ from telegram import CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardMarkup, R
 
 from _dependencies.commons import Topics, publish_to_pubsub
 from _dependencies.misc import notify_admin, process_sending_message_async
-from communicate._utils.buttons import MainSettingsMenu, NotificationSettingsMenu, b_act_titles, b_back_to_start
+from communicate._utils.buttons import (
+    CoordinateSettingsMenu,
+    MainSettingsMenu,
+    NotificationSettingsMenu,
+    b_act_titles,
+    b_back_to_start,
+    b_coords_auto_def,
+    b_goto_community,
+    b_goto_first_search,
+    b_goto_photos,
+    b_view_latest_searches,
+)
 from communicate._utils.common import (
     AgePeriod,
     AllButtons,
@@ -18,6 +29,7 @@ from communicate._utils.common import (
 from communicate._utils.compose_messages import compose_user_preferences_message
 from communicate._utils.database import db
 from communicate._utils.message_sending import make_api_call, process_leaving_chat_async, send_callback_answer_to_api
+from communicate.main import generate_yandex_maps_place_link
 
 
 def manage_age(user_id: int, user_input: Optional[str]) -> None:
@@ -795,3 +807,129 @@ def process_unneeded_messages(update, update_params: UpdateBasicParams) -> bool:
         logging.info(f'bot was mentioned in other chats: {update}')
 
     return False
+
+
+def handle_goto_photos():
+    bot_message = (
+        'Если вам хочется окунуться в атмосферу ПСР, приглашаем в замечательный '
+        '<a href="https://t.me/+6LYNNEy8BeI1NGUy">телеграм-канал с красивыми фото с '
+        'поисков</a>. Все фото – сделаны поисковиками во время настоящих ПСР.'
+    )
+    keyboard_other = [
+        [b_view_latest_searches],
+        [b_goto_community],
+        [b_goto_first_search],
+        [b_back_to_start],
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
+    return bot_message, reply_markup
+
+
+def handle_goto_first_search():
+    bot_message = (
+        'Если вы хотите стать добровольцем ДПСО «ЛизаАлерт», пожалуйста, '
+        '<a href="https://lizaalert.org/forum/viewtopic.php?t=56934">'
+        'посетите страницу форума</a>, там можно ознакомиться с базовой информацией '
+        'для новичков и задать свои вопросы.'
+        'Если вы готовитесь к своему первому поиску – приглашаем '
+        '<a href="https://lizaalert.org/dvizhenie/novichkam/">ознакомиться с основами '
+        'работы ЛА</a>. Всю теорию работы ЛА необходимо получать от специально '
+        'обученных волонтеров ЛА. Но если у вас еще не было возможности пройти '
+        'официальное обучение, а вы уже готовы выехать на поиск – этот ресурс '
+        'для вас.'
+    )
+    keyboard_other = [
+        [b_view_latest_searches],
+        [b_goto_community],
+        [b_goto_photos],
+        [b_back_to_start],
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
+    return bot_message, reply_markup
+
+
+def handle_goto_community():
+    bot_message = (
+        'Бот можно обсудить с соотрядниками в '
+        '<a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">Специальном Чате '
+        'в телеграм</a>. Там можно предложить свои идеи, указать на проблемы '
+        'и получить быструю обратную связь от разработчика.'
+    )
+    keyboard_other = [
+        [b_view_latest_searches],
+        [b_goto_first_search],
+        [b_goto_photos],
+        [b_back_to_start],
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard_other, resize_keyboard=True)
+    return bot_message, reply_markup
+
+
+def handle_coordinates(user_id: int, got_message: str):
+    if got_message == MainSettingsMenu.b_set_pref_coords:
+        bot_message = (
+            'АВТОМАТИЧЕСКОЕ ОПРЕДЕЛЕНИЕ координат работает только для носимых устройств'
+            ' (для настольных компьютеров – НЕ работает: используйте, пожалуйста, '
+            'кнопку ручного ввода координат). '
+            'При автоматическом определении координат – нажмите на кнопку и '
+            'разрешите определить вашу текущую геопозицию. '
+            'Координаты, загруженные вручную или автоматически, будут считаться '
+            'вашим "домом", откуда будут рассчитаны расстояние и '
+            'направление до поисков.'
+        )
+        keyboard_coordinates_1 = [
+            [b_coords_auto_def],
+            [CoordinateSettingsMenu.b_coords_man_def],
+            [CoordinateSettingsMenu.b_coords_check],
+            [CoordinateSettingsMenu.b_coords_del],
+            [b_back_to_start],
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
+
+    elif got_message == CoordinateSettingsMenu.b_coords_del:
+        db().delete_user_coordinates(user_id)
+        bot_message = (
+            'Ваши "домашние координаты" удалены. Теперь расстояние и направление '
+            'до поисков не будет отображаться.\n'
+            'Вы в любой момент можете заново ввести новые "домашние координаты". '
+            'Функция Автоматического определения координат работает только для '
+            'носимых устройств, для настольного компьютера – воспользуйтесь '
+            'ручным вводом.'
+        )
+        keyboard_coordinates_1 = [
+            [b_coords_auto_def],
+            [CoordinateSettingsMenu.b_coords_man_def],
+            [CoordinateSettingsMenu.b_coords_check],
+            [b_back_to_start],
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
+
+    elif got_message == CoordinateSettingsMenu.b_coords_man_def:
+        bot_message = (
+            'Введите координаты вашего дома вручную в теле сообщения и просто '
+            'отправьте. Формат: XX.XXXХХ, XX.XXXХХ, где количество цифр после точки '
+            'может быть различным. Широта (первое число) должна быть между 30 '
+            'и 80, Долгота (второе число) – между 10 и 190.'
+        )
+        bot_request_aft_usr_msg = 'input_of_coords_man'
+        reply_markup = ReplyKeyboardRemove()
+
+    elif got_message == CoordinateSettingsMenu.b_coords_check:
+        lat, lon = db().show_user_coordinates(user_id)
+        if lat and lon:
+            bot_message = 'Ваши "домашние координаты" '
+            bot_message += generate_yandex_maps_place_link(lat, lon, 'coords')
+
+        else:
+            bot_message = 'Ваши координаты пока не сохранены. Введите их автоматически или вручную.'
+
+        keyboard_coordinates_1 = [
+            [b_coords_auto_def],
+            [CoordinateSettingsMenu.b_coords_man_def],
+            [CoordinateSettingsMenu.b_coords_check],
+            [CoordinateSettingsMenu.b_coords_del],
+            [b_back_to_start],
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
+
+    return bot_message, reply_markup, bot_request_aft_usr_msg
