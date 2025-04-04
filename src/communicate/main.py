@@ -4,8 +4,7 @@
 
 import datetime
 import logging
-import re
-from typing import Tuple, Union
+from typing import Union
 
 import requests
 from flask import Request
@@ -36,6 +35,7 @@ from communicate._utils.buttons import (
     RoleChoice,
     UrgencySettings,
     b_act_titles,
+    b_admin_menu,
     b_back_to_start,
     b_fed_dist_pick_other,
     b_goto_community,
@@ -50,6 +50,9 @@ from communicate._utils.buttons import (
     b_reg_moscow,
     b_reg_not_moscow,
     b_settings,
+    b_test_menu,
+    b_test_search_follow_mode_off,
+    b_test_search_follow_mode_on,
     b_view_act_searches,
     b_view_latest_searches,
     b_yes_its_me,
@@ -57,6 +60,7 @@ from communicate._utils.buttons import (
     dict_of_fed_dist,
     fed_okr_dict,
     folder_dict,
+    full_buttons_dict,
     full_dict_of_regions,
     keyboard_fed_dist_set,
     reply_markup_main,
@@ -64,7 +68,7 @@ from communicate._utils.buttons import (
 from communicate._utils.common import (
     AllButtons,
     UpdateBasicParams,
-    generate_yandex_maps_place_link,
+    get_coordinates_from_string,
     get_default_age_period_list,
     save_onboarding_step,
 )
@@ -74,6 +78,8 @@ from communicate._utils.compose_messages import (
 )
 from communicate._utils.database import db
 from communicate._utils.handlers import (
+    handle_admin_experimental_settings,
+    handle_age_settings,
     handle_coordinates,
     handle_goto_community,
     handle_goto_first_search,
@@ -81,8 +87,9 @@ from communicate._utils.handlers import (
     handle_help_needed,
     handle_main_settings,
     handle_notification_settings,
+    handle_show_map,
+    handle_user_coordinates,
     handle_user_role,
-    manage_age,
     manage_if_moscow,
     manage_linking_to_forum,
     manage_radius,
@@ -102,32 +109,6 @@ setup_google_logging()
 # Important – these are not errors, but jest informational warnings that there were retries, that's why we exclude them
 logging.getLogger('telegram.vendor.ptb_urllib3.urllib3').setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
-
-
-standard_modifier = {'on': '✅ ', 'off': '☐ '}
-full_buttons_dict = {
-    'topic_types': {
-        'regular': {'text': 'стандартные активные поиски', 'id': 0},
-        'resonance': {'text': 'резонансные поиски', 'id': 5, 'hide': False},
-        'info_support': {'text': 'информационная поддержка', 'id': 4, 'hide': False},
-        'reverse': {'text': 'обратные поиски', 'id': 1},
-        'training': {'text': 'учебные поиски', 'id': 3},
-        'patrol': {'text': 'ночной патруль', 'id': 2, 'hide': False},
-        'event': {'text': 'мероприятия', 'id': 10},
-        'info': {'text': 'полезная информация', 'id': 20, 'hide': True},
-        'about': {'text': '💡 справка по типам поисков 💡', 'id': None},
-    },
-    'roles': {
-        'member': {'text': 'я состою в ЛизаАлерт', 'id': 'member'},
-        'new_member': {'text': 'я хочу помогать ЛизаАлерт', 'id': 'new_member'},
-        'relative': {'text': 'я ищу человека', 'id': 'relative'},
-        'other': {'text': 'у меня другая задача', 'id': 'other'},
-        'no_answer': {'text': 'не хочу говорить', 'id': 'no_answer'},
-        'about': {'text': '💡 справка по ролям 💡', 'id': None},
-    },
-    'set': {'topic_type': {'text': 'настроить вид поисков', 'id': 'topic_type'}},
-    'core': {'to_start': {'text': 'в начало', 'id': 'to_start'}},
-}
 
 
 # issue#425
@@ -410,68 +391,6 @@ def process_block_unblock_user(user_id, user_new_status):
         logging.exception('Error in finding basic data for block/unblock user in Communicate script')
 
 
-def get_coordinates_from_string(got_message: str, lat_placeholder, lon_placeholder) -> Tuple[float, float]:
-    """gets coordinates from string"""
-
-    user_latitude, user_longitude = None, None
-    # Check if user input is in format of coordinates
-    # noinspection PyBroadException
-    try:
-        numbers = [float(s) for s in re.findall(r'-?\d+\.?\d*', got_message)]
-        if numbers and len(numbers) > 1 and 30 < numbers[0] < 80 and 10 < numbers[1] < 190:
-            user_latitude = numbers[0]
-            user_longitude = numbers[1]
-    except Exception:
-        logging.info(f'manual coordinates were not identified from string {got_message}')
-
-    if not (user_latitude and user_longitude):
-        user_latitude = lat_placeholder
-        user_longitude = lon_placeholder
-
-    return user_latitude, user_longitude
-
-
-def process_user_coordinates(
-    user_id: int,
-    user_latitude: float,
-    user_longitude: float,
-    b_coords_check: str,
-    b_coords_del: str,
-    b_back_to_start: str,
-    bot_request_aft_usr_msg: str,
-) -> None:
-    """process coordinates which user sent to bot"""
-
-    db().save_user_coordinates(user_id, user_latitude, user_longitude)
-
-    bot_message = 'Ваши "домашние координаты" сохранены:\n'
-    bot_message += generate_yandex_maps_place_link(user_latitude, user_longitude, 'coords')
-    bot_message += (
-        '\nТеперь для всех поисков, где удастся распознать координаты штаба или '
-        'населенного пункта, будет указываться направление и расстояние по '
-        'прямой от ваших "домашних координат".'
-    )
-
-    keyboard_settings = [[b_coords_check], [b_coords_del], [b_back_to_start]]
-    reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
-
-    data = {'text': bot_message, 'reply_markup': reply_markup, 'parse_mode': 'HTML', 'disable_web_page_preview': True}
-    process_sending_message_async(user_id=user_id, data=data)
-    # msg_sent_by_specific_code = True
-
-    # saving the last message from bot
-    if not bot_request_aft_usr_msg:
-        bot_request_aft_usr_msg = 'not_defined'
-
-    try:
-        db().save_last_user_message_in_db(user_id, bot_request_aft_usr_msg)
-
-    except Exception as e:
-        logging.exception('failed to update the last saved message from bot')
-
-    db().save_bot_reply_to_user(user_id, bot_message)
-
-
 def run_onboarding(user_id: int, username: str, onboarding_step_id: int, got_message: str) -> int:
     """part of the script responsible for orchestration of activities for non-finally-onboarded users"""
 
@@ -482,6 +401,66 @@ def run_onboarding(user_id: int, username: str, onboarding_step_id: int, got_mes
             onboarding_step_id = 80
 
     return onboarding_step_id
+
+
+def _reply_to_user(
+    bot_token: str, user_id: int, got_callback, callback_query, got_hash, reply_markup, bot_message: str
+):
+    context_step = '01a1'
+    context = f'if reply_markup and not isinstance(reply_markup, dict): {reply_markup=}, {context_step=}'
+    logging.info(f'{context=}: {reply_markup=}')
+    if reply_markup and not isinstance(reply_markup, dict):
+        reply_markup = reply_markup.to_dict()
+        context_step = '02a1'
+        context = f'After reply_markup.to_dict(): {reply_markup=}, {context_step=}'
+        logging.info(f'{context=}: {reply_markup=}')
+
+    user_used_inline_button = got_hash and got_callback and got_callback['action'] != 'about'
+
+    if user_used_inline_button:
+        # call editMessageText to edit inline keyboard
+        # in the message where inline button was pushed
+        last_user_message_id = callback_query.message.id  ##was get_last_user_inline_dialogue( user_id)
+        logging.info(f'{last_user_message_id=}')
+        # params['message_id'] = last_user_message_id
+        params = {
+            'chat_id': user_id,
+            'text': bot_message,
+            'message_id': last_user_message_id,
+            'reply_markup': reply_markup,
+        }
+        context_step = '1a1'
+        context = f'main() if user_used_inline_button: {user_id=}, {context_step=}'
+        response = make_api_call('editMessageText', bot_token, params, context)
+        context_step = '1a2'
+        context = f'main() if user_used_inline_button: {user_id=}, {context_step=}'
+        logging.info(f'{response=}; {context=}')
+
+    else:
+        params = {
+            'parse_mode': 'HTML',
+            'disable_web_page_preview': True,
+            'reply_markup': reply_markup,
+            'chat_id': user_id,
+            'text': bot_message,
+        }
+        context_step = '1b1'
+        context = f'main() if user_used_inline_button: else: {user_id=}, {context_step=}'
+        response = make_api_call('sendMessage', bot_token, params, context)
+        context_step = '1b2'
+        context = f'main() if user_used_inline_button: else: {user_id=}, {context_step=}'
+        logging.info(f'{response=}; {context=}')
+
+    context_step = '2'
+    context = f'main() after if user_used_inline_button: {user_id=}, {context_step=}'
+    logging.info(f'{response=}; {context=}')
+    context_step = '3'
+    context = f'main() after if user_used_inline_button: {user_id=}, {context_step=}'
+    result = process_response_of_api_call(user_id, response)
+    inline_processing(response, params)
+
+    logging.info(f'RESPONSE {response}')
+    logging.info(f'RESULT {result}')
 
 
 def main(request: Request) -> str:
@@ -525,11 +504,6 @@ def process_update(update: Update) -> str:
     b = AllButtons(full_buttons_dict)
 
     # Admin - specially keep it for Admin, regular users unlikely will be interested in it
-
-    b_admin_menu = 'admin'
-    b_test_menu = 'test'
-    b_test_search_follow_mode_on = 'test search follow mode on'  # noqa
-    b_test_search_follow_mode_off = 'test search follow mode off'
 
     age_buttons = []
     for period in get_default_age_period_list():
@@ -580,13 +554,12 @@ def process_update(update: Update) -> str:
 
     # if there is any coordinates from user
     if user_latitude and user_longitude:
-        process_user_coordinates(
+        handle_user_coordinates(
             user_id,
             user_latitude,
             user_longitude,
             CoordinateSettingsMenu.b_coords_check,
             CoordinateSettingsMenu.b_coords_del,
-            b_back_to_start,
             bot_request_aft_usr_msg,
         )
 
@@ -954,63 +927,20 @@ def process_update(update: Update) -> str:
 
             # Perform individual replies
 
-            # Admin mode
-            elif got_message.lower() == b_admin_menu:
-                bot_message = 'Вы вошли в специальный тестовый админ-раздел'
-
-                # keyboard for Home Coordinates sharing
-                keyboard_coordinates_admin = [[b_back_to_start], [b_back_to_start]]
-                reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
-
             # FIXME - WIP
-            elif got_message.lower() == b_test_menu:
-                db().add_user_sys_role(user_id, 'tester')
-                bot_message = (
-                    'Вы в секретном тестовом разделе, где всё может работать не так :) '
-                    'Если что – пишите, пожалуйста, в телеграм-чат '
-                    'https://t.me/joinchat/2J-kV0GaCgwxY2Ni'
-                    '\n💡 А еще Вам добавлена роль tester - некоторые тестовые функции включены автоматически.'
-                    '\nДля отказа от роли tester нужно отправить команду notest'
+            elif got_message.lower() in {
+                b_admin_menu,
+                b_test_menu,
+                'notest',
+                b_test_search_follow_mode_on,
+                b_test_search_follow_mode_off,
+            }:
+                bot_message, reply_markup = handle_admin_experimental_settings(
+                    user_id, got_message, b_test_menu, b_test_search_follow_mode_on, b_test_search_follow_mode_off
                 )
-                # keyboard_coordinates_admin = [[b_set_topic_type], [b_back_to_start]]
-                # [b_set_pref_urgency], [b_set_forum_nick]
-
-                map_button = {'text': 'Открыть карту поисков', 'web_app': {'url': get_app_config().web_app_url_test}}
-                keyboard = [[map_button]]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-            # FIXME ^^^
-
-            elif got_message.lower() == 'notest':
-                db().delete_user_sys_role(user_id, 'tester')
-                bot_message = 'Роль tester удалена. Приходите еще! :-) Возвращаемся в главное меню.'
-                reply_markup = reply_markup_main
-
-            elif got_message.lower() == b_test_search_follow_mode_on:  # issue425
-                db().set_search_follow_mode(user_id, True)
-                bot_message = 'Возможность отслеживания поисков включена. Возвращаемся в главное меню.'
-                reply_markup = reply_markup_main
-
-            elif got_message.lower() == b_test_search_follow_mode_off:  ##remains for some time for emrgency case
-                db().set_search_follow_mode(user_id, False)
-                bot_message = 'Возможность отслеживания поисков вЫключена. Возвращаемся в главное меню.'
-                reply_markup = reply_markup_main
 
             elif got_message in {b_map, Commands.c_map}:
-                bot_message = (
-                    'В Боте Поисковика теперь можно посмотреть 🗺️Карту Поисков📍.\n\n'
-                    'На карте вы сможете увидеть все активные поиски, '
-                    'построить к каждому из них маршрут с учетом пробок, '
-                    'а также открыть этот маршрут в сервисах Яндекс.\n\n'
-                    'Карта работает в тестовом режиме.\n'
-                    'Если карта будет работать некорректно, или вы видите, как ее необходимо '
-                    'доработать – напишите в '
-                    '<a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">чат разработчиков</a>.'
-                    ''
-                )
-
-                map_button = {'text': 'Открыть карту поисков', 'web_app': {'url': get_app_config().web_app_url}}
-                keyboard = [[map_button]]
-                reply_markup = InlineKeyboardMarkup(keyboard)
+                bot_message, reply_markup = handle_show_map()
 
             elif (
                 got_message == b.set.topic_type.text
@@ -1023,28 +953,7 @@ def process_update(update: Update) -> str:
                 )
 
             elif got_message in {MainSettingsMenu.b_set_pref_age, *age_buttons}:
-                input_data = None if got_message == MainSettingsMenu.b_set_pref_age else got_message
-                keyboard, first_visit = manage_age(user_id, input_data)
-                keyboard.append([b_back_to_start])
-                reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-                if got_message.lower() == MainSettingsMenu.b_set_pref_age:
-                    # TODO never True
-                    bot_message = (
-                        'Чтобы включить или отключить уведомления по определенной возрастной '
-                        'группе, нажмите на неё. Настройку можно изменить в любой момент.'
-                    )
-                    if first_visit:
-                        bot_message = (
-                            'Данное меню позволяет выбрать возрастные категории БВП '
-                            '(без вести пропавших), по которым вы хотели бы получать уведомления. '
-                            'Важно, что если бот не сможет распознать возраст БВП, тогда вы '
-                            'всё равно получите уведомление.\nТакже данная настройка не влияет на '
-                            'разделы Актуальные Поиски и Последние Поиски – в них вы всё также '
-                            'сможете увидеть полный список поисков.\n\n' + bot_message
-                        )
-                else:
-                    bot_message = 'Спасибо, записали.'
+                bot_message, reply_markup = handle_age_settings(user_id, got_message)
 
             elif (
                 got_message in {MainSettingsMenu.b_set_pref_radius, *DistanceSettings.list()}
@@ -1079,27 +988,6 @@ def process_update(update: Update) -> str:
                     b_settings,
                     reply_markup_main,
                 )
-
-            elif got_message == MainSettingsMenu.b_set_pref_urgency:
-                bot_message = (
-                    'Очень многие поисковики пользуются этим Ботом. При любой рассылке нотификаций'
-                    ' Бот ставит все сообщения в очередь, и они обрабатываются '
-                    'со скоростью, ограниченной технологиями Телеграма. Иногда, в случае нескольких'
-                    ' больших поисков, очередь вырастает и кто-то получает сообщения практически '
-                    'сразу, а кому-то они приходят с задержкой.\n'
-                    'Вы можете помочь сделать рассылки уведомлений более "нацеленными", обозначив '
-                    'с какой срочностью вы бы хотели получать уведомления от Бота. В скобках '
-                    'указаны примерные сроки задержки относительно появления информации на форуме. '
-                    'Выберите наиболее подходящий Вам вариант'
-                )
-                keyboard = [
-                    [UrgencySettings.b_pref_urgency_highest],
-                    [UrgencySettings.b_pref_urgency_high],
-                    [UrgencySettings.b_pref_urgency_medium],
-                    [UrgencySettings.b_pref_urgency_low],
-                    [b_back_to_start],
-                ]
-                reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
             # DEBUG: for debugging purposes only
             elif got_message.lower() == 'go':
@@ -1234,63 +1122,3 @@ def process_update(update: Update) -> str:
         db().save_bot_reply_to_user(user_id, bot_message)
 
     return 'finished successfully. in was a regular conversational message'
-
-
-def _reply_to_user(
-    bot_token: str, user_id: int, got_callback, callback_query, got_hash, reply_markup, bot_message: str
-):
-    context_step = '01a1'
-    context = f'if reply_markup and not isinstance(reply_markup, dict): {reply_markup=}, {context_step=}'
-    logging.info(f'{context=}: {reply_markup=}')
-    if reply_markup and not isinstance(reply_markup, dict):
-        reply_markup = reply_markup.to_dict()
-        context_step = '02a1'
-        context = f'After reply_markup.to_dict(): {reply_markup=}, {context_step=}'
-        logging.info(f'{context=}: {reply_markup=}')
-
-    user_used_inline_button = got_hash and got_callback and got_callback['action'] != 'about'
-
-    if user_used_inline_button:
-        # call editMessageText to edit inline keyboard
-        # in the message where inline button was pushed
-        last_user_message_id = callback_query.message.id  ##was get_last_user_inline_dialogue( user_id)
-        logging.info(f'{last_user_message_id=}')
-        # params['message_id'] = last_user_message_id
-        params = {
-            'chat_id': user_id,
-            'text': bot_message,
-            'message_id': last_user_message_id,
-            'reply_markup': reply_markup,
-        }
-        context_step = '1a1'
-        context = f'main() if user_used_inline_button: {user_id=}, {context_step=}'
-        response = make_api_call('editMessageText', bot_token, params, context)
-        context_step = '1a2'
-        context = f'main() if user_used_inline_button: {user_id=}, {context_step=}'
-        logging.info(f'{response=}; {context=}')
-
-    else:
-        params = {
-            'parse_mode': 'HTML',
-            'disable_web_page_preview': True,
-            'reply_markup': reply_markup,
-            'chat_id': user_id,
-            'text': bot_message,
-        }
-        context_step = '1b1'
-        context = f'main() if user_used_inline_button: else: {user_id=}, {context_step=}'
-        response = make_api_call('sendMessage', bot_token, params, context)
-        context_step = '1b2'
-        context = f'main() if user_used_inline_button: else: {user_id=}, {context_step=}'
-        logging.info(f'{response=}; {context=}')
-
-    context_step = '2'
-    context = f'main() after if user_used_inline_button: {user_id=}, {context_step=}'
-    logging.info(f'{response=}; {context=}')
-    context_step = '3'
-    context = f'main() after if user_used_inline_button: {user_id=}, {context_step=}'
-    result = process_response_of_api_call(user_id, response)
-    inline_processing(response, params)
-
-    logging.info(f'RESPONSE {response}')
-    logging.info(f'RESULT {result}')

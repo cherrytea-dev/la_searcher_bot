@@ -167,8 +167,6 @@ class MainSettingsMenu(str, ExtendedEnum):
     b_set_pref_coords = 'настроить "домашние координаты"'
     b_set_pref_radius = 'настроить максимальный радиус'
     b_set_pref_age = 'настроить возрастные группы БВП'
-    b_set_pref_urgency = 'настроить скорость уведомлений'  # <-- TODO: likely to be removed as redundant
-    b_set_pref_role = 'настроить вашу роль'  # <-- TODO # noqa
     b_set_forum_nick = 'связать аккаунты бота и форума'
     b_change_forum_nick = 'изменить аккаунт форума'  # noqa
     b_set_topic_type = 'настроить вид поисков'
@@ -474,3 +472,32 @@ b_goto_community = 'написать разработчику бота'
 b_goto_first_search = 'ознакомиться с информацией для новичка'
 b_goto_photos = 'посмотреть красивые фото с поисков'
 b_act_titles = 'названия'  # these are "Title update notification" button
+
+# admin and experimental options
+b_admin_menu = 'admin'
+b_test_menu = 'test'
+b_test_search_follow_mode_on = 'test search follow mode on'  # noqa
+b_test_search_follow_mode_off = 'test search follow mode off'
+full_buttons_dict = {
+    'topic_types': {
+        'regular': {'text': 'стандартные активные поиски', 'id': 0},
+        'resonance': {'text': 'резонансные поиски', 'id': 5, 'hide': False},
+        'info_support': {'text': 'информационная поддержка', 'id': 4, 'hide': False},
+        'reverse': {'text': 'обратные поиски', 'id': 1},
+        'training': {'text': 'учебные поиски', 'id': 3},
+        'patrol': {'text': 'ночной патруль', 'id': 2, 'hide': False},
+        'event': {'text': 'мероприятия', 'id': 10},
+        'info': {'text': 'полезная информация', 'id': 20, 'hide': True},
+        'about': {'text': '💡 справка по типам поисков 💡', 'id': None},
+    },
+    'roles': {
+        'member': {'text': 'я состою в ЛизаАлерт', 'id': 'member'},
+        'new_member': {'text': 'я хочу помогать ЛизаАлерт', 'id': 'new_member'},
+        'relative': {'text': 'я ищу человека', 'id': 'relative'},
+        'other': {'text': 'у меня другая задача', 'id': 'other'},
+        'no_answer': {'text': 'не хочу говорить', 'id': 'no_answer'},
+        'about': {'text': '💡 справка по ролям 💡', 'id': None},
+    },
+    'set': {'topic_type': {'text': 'настроить вид поисков', 'id': 'topic_type'}},
+    'core': {'to_start': {'text': 'в начало', 'id': 'to_start'}},
+}

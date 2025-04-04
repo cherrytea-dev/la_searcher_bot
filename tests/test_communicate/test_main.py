@@ -7,7 +7,7 @@ import communicate._utils.common
 import communicate._utils.handlers
 import communicate._utils.message_sending
 from _dependencies.commons import get_app_config
-from communicate import main
+from communicate._utils import buttons
 from communicate._utils.database import DBClient, db
 from tests.factories.telegram import get_callback_query, get_reply_markup
 
@@ -43,7 +43,7 @@ def test_manage_topic_type(db_client):
     res = communicate._utils.handlers.manage_topic_type(
         1,
         'foo',
-        communicate._utils.common.AllButtons(main.full_buttons_dict),
+        communicate._utils.common.AllButtons(buttons.full_buttons_dict),
         user_callback,
         1,
         'token',

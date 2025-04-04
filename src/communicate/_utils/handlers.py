@@ -4,7 +4,7 @@ from typing import Optional, Tuple, Union
 
 from telegram import CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove
 
-from _dependencies.commons import Topics, publish_to_pubsub
+from _dependencies.commons import Topics, get_app_config, publish_to_pubsub
 from _dependencies.misc import notify_admin, process_sending_message_async
 from communicate._utils.buttons import (
     CoordinateSettingsMenu,
@@ -13,6 +13,7 @@ from communicate._utils.buttons import (
     NotificationSettingsMenu,
     RoleChoice,
     b_act_titles,
+    b_admin_menu,
     b_back_to_start,
     b_coords_auto_def,
     b_goto_community,
@@ -1071,3 +1072,137 @@ def handle_help_needed(got_message):
         )
         reply_markup = reply_markup_main
     return bot_message, reply_markup
+
+
+def handle_age_settings(user_id, got_message):
+    input_data = None if got_message == MainSettingsMenu.b_set_pref_age else got_message
+    keyboard, first_visit = manage_age(user_id, input_data)
+    keyboard.append([b_back_to_start])
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+    if got_message.lower() == MainSettingsMenu.b_set_pref_age:
+        # TODO never True
+        bot_message = (
+            'Чтобы включить или отключить уведомления по определенной возрастной '
+            'группе, нажмите на неё. Настройку можно изменить в любой момент.'
+        )
+        if first_visit:
+            bot_message = (
+                'Данное меню позволяет выбрать возрастные категории БВП '
+                '(без вести пропавших), по которым вы хотели бы получать уведомления. '
+                'Важно, что если бот не сможет распознать возраст БВП, тогда вы '
+                'всё равно получите уведомление.\nТакже данная настройка не влияет на '
+                'разделы Актуальные Поиски и Последние Поиски – в них вы всё также '
+                'сможете увидеть полный список поисков.\n\n' + bot_message
+            )
+    else:
+        bot_message = 'Спасибо, записали.'
+    return bot_message, reply_markup
+
+
+def handle_show_map():
+    bot_message = (
+        'В Боте Поисковика теперь можно посмотреть 🗺️Карту Поисков📍.\n\n'
+        'На карте вы сможете увидеть все активные поиски, '
+        'построить к каждому из них маршрут с учетом пробок, '
+        'а также открыть этот маршрут в сервисах Яндекс.\n\n'
+        'Карта работает в тестовом режиме.\n'
+        'Если карта будет работать некорректно, или вы видите, как ее необходимо '
+        'доработать – напишите в '
+        '<a href="https://t.me/joinchat/2J-kV0GaCgwxY2Ni">чат разработчиков</a>.'
+        ''
+    )
+
+    map_button = {'text': 'Открыть карту поисков', 'web_app': {'url': get_app_config().web_app_url}}
+    keyboard = [[map_button]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    return bot_message, reply_markup
+
+
+def handle_admin_experimental_settings(
+    user_id, got_message, b_test_menu, b_test_search_follow_mode_on, b_test_search_follow_mode_off
+):
+    # Admin mode
+    if got_message.lower() == b_admin_menu:
+        bot_message = 'Вы вошли в специальный тестовый админ-раздел'
+
+        # keyboard for Home Coordinates sharing
+        keyboard_coordinates_admin = [[b_back_to_start], [b_back_to_start]]
+        reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+
+    elif got_message.lower() == b_test_menu:
+        db().add_user_sys_role(user_id, 'tester')
+        bot_message = (
+            'Вы в секретном тестовом разделе, где всё может работать не так :) '
+            'Если что – пишите, пожалуйста, в телеграм-чат '
+            'https://t.me/joinchat/2J-kV0GaCgwxY2Ni'
+            '\n💡 А еще Вам добавлена роль tester - некоторые тестовые функции включены автоматически.'
+            '\nДля отказа от роли tester нужно отправить команду notest'
+        )
+        # keyboard_coordinates_admin = [[b_set_topic_type], [b_back_to_start]]
+        # [b_set_pref_urgency], [b_set_forum_nick]
+
+        map_button = {
+            'text': 'Открыть карту поисков',
+            'web_app': {'url': get_app_config().web_app_url_test},
+        }
+        keyboard = [[map_button]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+    # FIXME ^^^
+
+    elif got_message.lower() == 'notest':
+        db().delete_user_sys_role(user_id, 'tester')
+        bot_message = 'Роль tester удалена. Приходите еще! :-) Возвращаемся в главное меню.'
+        reply_markup = reply_markup_main
+
+    elif got_message.lower() == b_test_search_follow_mode_on:  # issue425
+        db().set_search_follow_mode(user_id, True)
+        bot_message = 'Возможность отслеживания поисков включена. Возвращаемся в главное меню.'
+        reply_markup = reply_markup_main
+
+    elif got_message.lower() == b_test_search_follow_mode_off:  ##remains for some time for emrgency case
+        db().set_search_follow_mode(user_id, False)
+        bot_message = 'Возможность отслеживания поисков вЫключена. Возвращаемся в главное меню.'
+        reply_markup = reply_markup_main
+    return bot_message, reply_markup
+
+
+def handle_user_coordinates(
+    user_id: int,
+    user_latitude: float,
+    user_longitude: float,
+    bot_request_aft_usr_msg: str,
+) -> None:
+    """process coordinates which user sent to bot"""
+
+    db().save_user_coordinates(user_id, user_latitude, user_longitude)
+
+    bot_message = 'Ваши "домашние координаты" сохранены:\n'
+    bot_message += generate_yandex_maps_place_link(user_latitude, user_longitude, 'coords')
+    bot_message += (
+        '\nТеперь для всех поисков, где удастся распознать координаты штаба или '
+        'населенного пункта, будет указываться направление и расстояние по '
+        'прямой от ваших "домашних координат".'
+    )
+    keyboard_settings = [
+        [CoordinateSettingsMenu.b_coords_check],
+        [CoordinateSettingsMenu.b_coords_del],
+        [b_back_to_start],
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
+
+    data = {'text': bot_message, 'reply_markup': reply_markup, 'parse_mode': 'HTML', 'disable_web_page_preview': True}
+    process_sending_message_async(user_id=user_id, data=data)
+    # msg_sent_by_specific_code = True
+
+    # saving the last message from bot
+    if not bot_request_aft_usr_msg:
+        bot_request_aft_usr_msg = 'not_defined'
+
+    try:
+        db().save_last_user_message_in_db(user_id, bot_request_aft_usr_msg)
+
+    except Exception as e:
+        logging.exception('failed to update the last saved message from bot')
+
+    db().save_bot_reply_to_user(user_id, bot_message)

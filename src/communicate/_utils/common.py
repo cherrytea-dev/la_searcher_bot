@@ -3,7 +3,7 @@ import hashlib
 import math
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Union
+from typing import Any, Dict, Tuple, Union
 
 from _dependencies.commons import Topics, publish_to_pubsub
 from compose_notifications._utils.commons import calc_bearing  # TODO common code
@@ -345,3 +345,24 @@ def generate_yandex_maps_place_link(lat: Union[float, str], lon: Union[float, st
     msg = f'<a href="https://yandex.ru/maps/?pt={lon},{lat}&z=11&l=map">{display}</a>'
 
     return msg
+
+
+def get_coordinates_from_string(got_message: str, lat_placeholder, lon_placeholder) -> Tuple[float, float]:
+    """gets coordinates from string"""
+
+    user_latitude, user_longitude = None, None
+    # Check if user input is in format of coordinates
+    # noinspection PyBroadException
+    try:
+        numbers = [float(s) for s in re.findall(r'-?\d+\.?\d*', got_message)]
+        if numbers and len(numbers) > 1 and 30 < numbers[0] < 80 and 10 < numbers[1] < 190:
+            user_latitude = numbers[0]
+            user_longitude = numbers[1]
+    except Exception:
+        logging.info(f'manual coordinates were not identified from string {got_message}')
+
+    if not (user_latitude and user_longitude):
+        user_latitude = lat_placeholder
+        user_longitude = lon_placeholder
+
+    return user_latitude, user_longitude
