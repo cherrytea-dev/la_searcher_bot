@@ -28,7 +28,7 @@ def is_content_visible(content: bytes, topic_id: int) -> bool:
     """check topic's visibility: if hidden or deleted"""
 
     check_content = content.decode('utf-8')
-    site_unavailable = '502 Bad Gateway' in check_content
+    site_unavailable = '502 Bad Gateway' in check_content or 'Too many connections' in check_content
     if site_unavailable:
         return False
 
