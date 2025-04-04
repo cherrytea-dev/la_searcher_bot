@@ -29,9 +29,10 @@ from _dependencies.misc import (
 )
 from communicate._utils.buttons import (
     Commands,
+    MainSettingsMenu,
     NotificationSettingsMenu,
     RoleChoice,
-    MainSettingsMenu,
+    UrgencySettings,
     b_act_titles,
     b_back_to_start,
     b_coords_auto_def,
@@ -48,10 +49,6 @@ from communicate._utils.buttons import (
     b_orders_done,
     b_orders_tbd,
     b_other,
-    b_pref_urgency_high,
-    b_pref_urgency_highest,
-    b_pref_urgency_low,
-    b_pref_urgency_medium,
     b_reg_moscow,
     b_reg_not_moscow,
     b_settings,
@@ -905,19 +902,14 @@ def process_update(update: Update) -> str:
                 )
 
             # set user pref: urgency
-            elif got_message in {
-                b_pref_urgency_highest,
-                b_pref_urgency_high,
-                b_pref_urgency_medium,
-                b_pref_urgency_low,
-            }:
+            elif got_message in UrgencySettings.list():
                 db().save_user_pref_urgency(
                     user_id,
                     got_message,
-                    b_pref_urgency_highest,
-                    b_pref_urgency_high,
-                    b_pref_urgency_medium,
-                    b_pref_urgency_low,
+                    UrgencySettings.b_pref_urgency_highest,
+                    UrgencySettings.b_pref_urgency_high,
+                    UrgencySettings.b_pref_urgency_medium,
+                    UrgencySettings.b_pref_urgency_low,
                 )
                 bot_message = 'Хорошо, спасибо. Бот запомнил ваш выбор.'
 
@@ -1290,10 +1282,10 @@ def process_update(update: Update) -> str:
                     'Выберите наиболее подходящий Вам вариант'
                 )
                 keyboard = [
-                    [b_pref_urgency_highest],
-                    [b_pref_urgency_high],
-                    [b_pref_urgency_medium],
-                    [b_pref_urgency_low],
+                    [UrgencySettings.b_pref_urgency_highest],
+                    [UrgencySettings.b_pref_urgency_high],
+                    [UrgencySettings.b_pref_urgency_medium],
+                    [UrgencySettings.b_pref_urgency_low],
                     [b_back_to_start],
                 ]
                 reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)

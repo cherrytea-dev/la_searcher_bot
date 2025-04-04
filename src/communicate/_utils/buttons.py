@@ -131,10 +131,13 @@ b_forum_dont_have = 'у меня нет аккаунта на форуме ЛА'
 b_forum_dont_want = 'пропустить / не хочу говорить'  # noqa
 # TODO ^^^
 
-b_pref_urgency_highest = 'самым первым (<2 минуты)'
-b_pref_urgency_high = 'пораньше (<5 минут)'
-b_pref_urgency_medium = 'могу ждать (<10 минут)'
-b_pref_urgency_low = 'не сильно важно (>10 минут)'
+
+class UrgencySettings(str, ExtendedEnum):
+    b_pref_urgency_highest = 'самым первым (<2 минуты)'
+    b_pref_urgency_high = 'пораньше (<5 минут)'
+    b_pref_urgency_medium = 'могу ждать (<10 минут)'
+    b_pref_urgency_low = 'не сильно важно (>10 минут)'
+
 
 b_yes_its_me = 'да, это я'
 b_no_its_not_me = 'нет, это не я'
