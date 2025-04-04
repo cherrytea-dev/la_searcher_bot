@@ -297,3 +297,25 @@ class SearchSummary:
     search_lat: str = ''
     search_lon: str = ''
     following_mode: SearchFollowingMode | None = None
+
+
+@dataclass
+class UpdateBasicParams:
+    user_new_status: str
+    timer_changed: str
+    photo: str
+    document: str
+    voice: str
+    contact: str
+    inline_query: str
+    sticker: str
+    user_latitude: str
+    user_longitude: str
+    got_message: str
+    channel_type: str
+    username: str
+    user_id: int
+    got_hash: str
+    got_callback: str
+    callback_query_id: str
+    callback_query: str

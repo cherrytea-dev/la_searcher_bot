@@ -5,17 +5,19 @@ from typing import Optional, Tuple, Union
 from telegram import CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove
 
 from _dependencies.commons import Topics, publish_to_pubsub
-from communicate._utils.buttons import NotificationSettingsMenu, b_act_titles, b_back_to_start, b_set_pref_notif_type
+from _dependencies.misc import notify_admin, process_sending_message_async
+from communicate._utils.buttons import MainSettingsMenu, NotificationSettingsMenu, b_act_titles, b_back_to_start
 from communicate._utils.common import (
     AgePeriod,
     AllButtons,
     SearchFollowingMode,
+    UpdateBasicParams,
     if_user_enables,
     save_onboarding_step,
 )
 from communicate._utils.compose_messages import compose_user_preferences_message
 from communicate._utils.database import db
-from communicate._utils.message_sending import make_api_call, send_callback_answer_to_api
+from communicate._utils.message_sending import make_api_call, process_leaving_chat_async, send_callback_answer_to_api
 
 
 def manage_age(user_id: int, user_input: Optional[str]) -> None:
@@ -681,7 +683,7 @@ def handle_notification_settings(got_message: str, user_id: int) -> tuple[str, R
         save_preference(user_id, '-all_in_followed_search')
 
         # GET what are preferences
-    elif got_message == b_set_pref_notif_type:
+    elif got_message == MainSettingsMenu.b_set_pref_notif_type:
         prefs = compose_user_preferences_message(user_id)
         if prefs[0] == 'пока нет включенных уведомлений' or prefs[0] == 'неизвестная настройка':
             bot_message = 'Выберите, какие уведомления вы бы хотели получать'
@@ -740,3 +742,56 @@ def handle_notification_settings(got_message: str, user_id: int) -> tuple[str, R
 
     reply_markup = ReplyKeyboardMarkup(keyboard_notifications_flexible, resize_keyboard=True)
     return bot_message, reply_markup
+
+
+def process_unneeded_messages(update, update_params: UpdateBasicParams) -> bool:
+    """process messages which are not a part of designed dialogue"""
+
+    user_id = update_params.user_id
+    # CASE 2 – when user changed auto-delete setting in the bot
+    if update_params.timer_changed:
+        logging.info('user changed auto-delete timer settings')
+        return True
+
+    # CASE 3 – when user sends a PHOTO or attached DOCUMENT or VOICE message
+    if update_params.photo or update_params.document or update_params.voice or update_params.sticker:
+        logging.debug('user sends photos to bot')
+
+        bot_message = (
+            'Спасибо, интересное! Однако, бот работает только с текстовыми командами. '
+            'Пожалуйста, воспользуйтесь текстовыми кнопками бота, находящимися на '
+            'месте обычной клавиатуры телеграм.'
+        )
+        data = {'text': bot_message}
+        process_sending_message_async(user_id=user_id, data=data)
+        return True
+
+    # CASE 4 – when some Channel writes to bot
+    if update_params.channel_type and user_id < 0:
+        notify_admin('[comm]: INFO: CHANNEL sends messages to bot!')
+
+        try:
+            process_leaving_chat_async(user_id)
+            notify_admin(f'[comm]: INFO: we have left the CHANNEL {user_id}')
+
+        except Exception as e:
+            logging.exception(f'[comm]: Leaving channel was not successful: {user_id}')
+            notify_admin(f'[comm]: Leaving channel was not successful: {user_id}')
+        return True
+
+    # CASE 5 – when user sends Contact
+    if update_params.contact:
+        bot_message = (
+            'Спасибо, буду знать. Вот только бот не работает с контактами и отвечает '
+            'только на определенные текстовые команды.'
+        )
+        data = {'text': bot_message}
+        process_sending_message_async(user_id=user_id, data=data)
+        return True
+
+    # CASE 6 – when user mentions bot as @LizaAlert_Searcher_Bot in another telegram chat. Bot should do nothing
+    if update_params.inline_query:
+        notify_admin('[comm]: User mentioned bot in some chats')
+        logging.info(f'bot was mentioned in other chats: {update}')
+
+    return False

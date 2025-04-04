@@ -63,7 +63,7 @@ from communicate._utils.buttons import (
     keyboard_fed_dist_set,
     reply_markup_main,
 )
-from communicate._utils.common import AllButtons, save_onboarding_step
+from communicate._utils.common import AllButtons, UpdateBasicParams, save_onboarding_step
 from communicate._utils.compose_messages import (
     compose_full_message_on_list_of_searches,
     compose_full_message_on_list_of_searches_ikb,
@@ -80,10 +80,10 @@ from communicate._utils.handlers import (
     manage_search_follow_mode,
     manage_search_whiteness,
     manage_topic_type,
+    process_unneeded_messages,
 )
 from communicate._utils.message_sending import (
     make_api_call,
-    process_leaving_chat_async,
     process_response_of_api_call,
 )
 
@@ -285,7 +285,7 @@ def get_the_update(bot: Bot, request: Request) -> Update | None:
     return update
 
 
-def get_basic_update_parameters(update: Update):
+def get_basic_update_parameters(update: Update) -> UpdateBasicParams:
     """decompose the incoming update into the key parameters"""
 
     user_new_status = get_param_if_exists(update, 'update.my_chat_member.new_chat_member.status')
@@ -346,25 +346,25 @@ def get_basic_update_parameters(update: Update):
         logging.info(f'get_basic_update_parameters..{got_callback=}, {got_hash=} from {callback_data_text=}')
     # FIXME ^^^
 
-    return (
-        user_new_status,
-        timer_changed,
-        photo,
-        document,
-        voice,
-        contact,
-        inline_query,
-        sticker,
-        user_latitude,
-        user_longitude,
-        got_message,
-        channel_type,
-        username,
-        user_id,
-        got_hash,
-        got_callback,
-        callback_query_id,
-        callback_query,
+    return UpdateBasicParams(
+        user_new_status=user_new_status,
+        timer_changed=timer_changed,
+        photo=photo,
+        document=document,
+        voice=voice,
+        contact=contact,
+        inline_query=inline_query,
+        sticker=sticker,
+        user_latitude=user_latitude,
+        user_longitude=user_longitude,
+        got_message=got_message,
+        channel_type=channel_type,
+        username=username,
+        user_id=user_id,
+        got_hash=got_hash,
+        got_callback=got_callback,
+        callback_query_id=callback_query_id,
+        callback_query=callback_query,
     )
 
 
@@ -379,54 +379,6 @@ def save_new_user(user_id: int, username: str) -> None:
         'time': str(datetime.datetime.now()),
     }
     publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
-
-
-def process_unneeded_messages(
-    update, user_id, timer_changed, photo, document, voice, sticker, channel_type, contact, inline_query
-):
-    """process messages which are not a part of designed dialogue"""
-
-    # CASE 2 – when user changed auto-delete setting in the bot
-    if timer_changed:
-        logging.info('user changed auto-delete timer settings')
-
-    # CASE 3 – when user sends a PHOTO or attached DOCUMENT or VOICE message
-    elif photo or document or voice or sticker:
-        logging.debug('user sends photos to bot')
-
-        bot_message = (
-            'Спасибо, интересное! Однако, бот работает только с текстовыми командами. '
-            'Пожалуйста, воспользуйтесь текстовыми кнопками бота, находящимися на '
-            'месте обычной клавиатуры телеграм.'
-        )
-        data = {'text': bot_message}
-        process_sending_message_async(user_id=user_id, data=data)
-
-    # CASE 4 – when some Channel writes to bot
-    elif channel_type and user_id < 0:
-        notify_admin('[comm]: INFO: CHANNEL sends messages to bot!')
-
-        try:
-            process_leaving_chat_async(user_id)
-            notify_admin(f'[comm]: INFO: we have left the CHANNEL {user_id}')
-
-        except Exception as e:
-            logging.exception(f'[comm]: Leaving channel was not successful: {user_id}')
-            notify_admin(f'[comm]: Leaving channel was not successful: {user_id}')
-
-    # CASE 5 – when user sends Contact
-    elif contact:
-        bot_message = (
-            'Спасибо, буду знать. Вот только бот не работает с контактами и отвечает '
-            'только на определенные текстовые команды.'
-        )
-        data = {'text': bot_message}
-        process_sending_message_async(user_id=user_id, data=data)
-
-    # CASE 6 – when user mentions bot as @LizaAlert_Searcher_Bot in another telegram chat. Bot should do nothing
-    elif inline_query:
-        notify_admin('[comm]: User mentioned bot in some chats')
-        logging.info(f'bot was mentioned in other chats: {update}')
 
 
 def process_block_unblock_user(user_id, user_new_status):
@@ -555,46 +507,25 @@ def main(request: Request) -> str:
 def process_update(update: Update) -> str:
     bot_token = get_app_config().bot_api_token__prod
 
-    (
-        user_new_status,
-        timer_changed,
-        photo,
-        document,
-        voice,
-        contact,
-        inline_query,
-        sticker,
-        user_latitude,
-        user_longitude,
-        got_message,
-        channel_type,
-        username,
-        user_id,
-        got_hash,
-        got_callback,
-        callback_query_id,
-        callback_query,
-    ) = get_basic_update_parameters(update)
+    update_params = get_basic_update_parameters(update)
 
-    logging.info(f'after get_basic_update_parameters:  {got_callback=}')
+    logging.info(f'after get_basic_update_parameters:  {update_params.got_callback=}')
 
-    if (
-        timer_changed
-        or photo
-        or document
-        or voice
-        or sticker
-        or (channel_type and user_id < 0)
-        or contact
-        or inline_query
-    ):
-        process_unneeded_messages(
-            update, user_id, timer_changed, photo, document, voice, sticker, channel_type, contact, inline_query
-        )
+    if process_unneeded_messages(update, update_params):
         return 'finished successfully. it was useless message for bot'
 
-    if user_new_status in {'kicked', 'member'}:
-        process_block_unblock_user(user_id, user_new_status)
+    user_id = update_params.user_id
+    got_message = update_params.got_message
+    got_callback = update_params.got_callback
+    username = update_params.username
+    callback_query = update_params.callback_query
+    callback_query_id = update_params.callback_query_id
+    got_hash = update_params.got_hash
+    user_latitude = update_params.user_latitude
+    user_longitude = update_params.user_longitude
+
+    if update_params.user_new_status in {'kicked', 'member'}:
+        process_block_unblock_user(update_params.user_id, update_params.user_new_status)
         return 'finished successfully. it was a system message on bot block/unblock'
 
     b = AllButtons(full_buttons_dict)
