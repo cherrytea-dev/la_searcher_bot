@@ -139,6 +139,12 @@ class UrgencySettings(str, ExtendedEnum):
     b_pref_urgency_low = 'не сильно важно (>10 минут)'
 
 
+class DistanceSettings(str, ExtendedEnum):
+    b_pref_radius_act = 'включить ограничение по расстоянию'
+    b_pref_radius_deact = 'отключить ограничение по расстоянию'
+    b_pref_radius_change = 'изменить ограничение по расстоянию'
+
+
 b_yes_its_me = 'да, это я'
 b_no_its_not_me = 'нет, это не я'
 

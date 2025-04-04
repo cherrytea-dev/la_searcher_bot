@@ -33,6 +33,7 @@ from communicate._utils.buttons import (
     NotificationSettingsMenu,
     RoleChoice,
     UrgencySettings,
+    DistanceSettings,
     b_act_titles,
     b_back_to_start,
     b_fed_dist_pick_other,
@@ -541,10 +542,6 @@ def process_update(update: Update) -> str:
     for period in get_default_age_period_list():
         age_buttons.append(f'отключить: {period.description}')
         age_buttons.append(f'включить: {period.description}')
-
-    b_pref_radius_act = 'включить ограничение по расстоянию'
-    b_pref_radius_deact = 'отключить ограничение по расстоянию'
-    b_pref_radius_change = 'изменить ограничение по расстоянию'
 
     b_help_yes = 'да, помогите мне настроить бот'
     b_help_no = 'нет, помощь не требуется'
@@ -1166,17 +1163,16 @@ def process_update(update: Update) -> str:
                     bot_message = 'Спасибо, записали.'
 
             elif (
-                got_message
-                in {MainSettingsMenu.b_set_pref_radius, b_pref_radius_act, b_pref_radius_deact, b_pref_radius_change}
+                got_message in {MainSettingsMenu.b_set_pref_radius, *DistanceSettings.list()}
                 or bot_request_bfr_usr_msg == 'radius_input'
             ):
                 bot_message, reply_markup, bot_request_aft_usr_msg = manage_radius(
                     user_id,
                     got_message,
                     MainSettingsMenu.b_set_pref_radius,
-                    b_pref_radius_act,
-                    b_pref_radius_deact,
-                    b_pref_radius_change,
+                    DistanceSettings.b_pref_radius_act,
+                    DistanceSettings.b_pref_radius_deact,
+                    DistanceSettings.b_pref_radius_change,
                     b_back_to_start,
                     MainSettingsMenu.b_set_pref_coords,
                     bot_request_bfr_usr_msg,
@@ -1354,10 +1350,7 @@ def process_update(update: Update) -> str:
                     context = f'After reply_markup.to_dict(): {reply_markup=}, {context_step=}'
                     logging.info(f'{context=}: {reply_markup=}')
 
-                if got_hash and got_callback and got_callback['action'] != 'about':
-                    user_used_inline_button = True
-                else:
-                    user_used_inline_button = False
+                user_used_inline_button = got_hash and got_callback and got_callback['action'] != 'about'
 
                 if user_used_inline_button:
                     # call editMessageText to edit inline keyboard
