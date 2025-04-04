@@ -31,6 +31,7 @@ from communicate._utils.buttons import (
     Commands,
     NotificationSettingsMenu,
     RoleChoice,
+    MainSettingsMenu,
     b_act_titles,
     b_back_to_start,
     b_coords_auto_def,
@@ -53,13 +54,6 @@ from communicate._utils.buttons import (
     b_pref_urgency_medium,
     b_reg_moscow,
     b_reg_not_moscow,
-    b_set_forum_nick,
-    b_set_pref_age,
-    b_set_pref_coords,
-    b_set_pref_notif_type,
-    b_set_pref_radius,
-    b_set_pref_urgency,
-    b_set_topic_type,
     b_settings,
     b_view_act_searches,
     b_view_latest_searches,
@@ -751,11 +745,11 @@ def process_update(update: Update) -> str:
                 )
 
                 keyboard_role = [
-                    [b_set_pref_notif_type],
-                    [b_set_pref_coords],
-                    [b_set_pref_radius],
-                    [b_set_pref_age],
-                    [b_set_forum_nick],
+                    [MainSettingsMenu.b_set_pref_notif_type],
+                    [MainSettingsMenu.b_set_pref_coords],
+                    [MainSettingsMenu.b_set_pref_radius],
+                    [MainSettingsMenu.b_set_pref_age],
+                    [MainSettingsMenu.b_set_forum_nick],
                     [b_view_latest_searches],
                     [b_view_act_searches],
                     [b_back_to_start],
@@ -1224,13 +1218,14 @@ def process_update(update: Update) -> str:
                     user_id, got_message, b, got_callback, callback_query_id, bot_token, callback_query_message_id
                 )
 
-            elif got_message in {b_set_pref_age, *age_buttons}:
-                input_data = None if got_message == b_set_pref_age else got_message
+            elif got_message in {MainSettingsMenu.b_set_pref_age, *age_buttons}:
+                input_data = None if got_message == MainSettingsMenu.b_set_pref_age else got_message
                 keyboard, first_visit = manage_age(user_id, input_data)
                 keyboard.append([b_back_to_start])
                 reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-                if got_message.lower() == b_set_pref_age:
+                if got_message.lower() == MainSettingsMenu.b_set_pref_age:
+                    # TODO never True
                     bot_message = (
                         'Чтобы включить или отключить уведомления по определенной возрастной '
                         'группе, нажмите на неё. Настройку можно изменить в любой момент.'
@@ -1248,29 +1243,30 @@ def process_update(update: Update) -> str:
                     bot_message = 'Спасибо, записали.'
 
             elif (
-                got_message in {b_set_pref_radius, b_pref_radius_act, b_pref_radius_deact, b_pref_radius_change}
+                got_message
+                in {MainSettingsMenu.b_set_pref_radius, b_pref_radius_act, b_pref_radius_deact, b_pref_radius_change}
                 or bot_request_bfr_usr_msg == 'radius_input'
             ):
                 bot_message, reply_markup, bot_request_aft_usr_msg = manage_radius(
                     user_id,
                     got_message,
-                    b_set_pref_radius,
+                    MainSettingsMenu.b_set_pref_radius,
                     b_pref_radius_act,
                     b_pref_radius_deact,
                     b_pref_radius_change,
                     b_back_to_start,
-                    b_set_pref_coords,
+                    MainSettingsMenu.b_set_pref_coords,
                     bot_request_bfr_usr_msg,
                 )
 
             elif (
-                got_message in {b_set_forum_nick, b_yes_its_me, b_no_its_not_me}
+                got_message in {MainSettingsMenu.b_set_forum_nick, b_yes_its_me, b_no_its_not_me}
                 or bot_request_bfr_usr_msg == 'input_of_forum_username'
             ):
                 bot_message, reply_markup, bot_request_aft_usr_msg = manage_linking_to_forum(
                     got_message,
                     user_id,
-                    b_set_forum_nick,
+                    MainSettingsMenu.b_set_forum_nick,
                     b_back_to_start,
                     bot_request_bfr_usr_msg,
                     b_admin_menu,
@@ -1281,7 +1277,7 @@ def process_update(update: Update) -> str:
                     reply_markup_main,
                 )
 
-            elif got_message == b_set_pref_urgency:
+            elif got_message == MainSettingsMenu.b_set_pref_urgency:
                 bot_message = (
                     'Очень многие поисковики пользуются этим Ботом. При любой рассылке нотификаций'
                     ' Бот ставит все сообщения в очередь, и они обрабатываются '
@@ -1367,18 +1363,18 @@ def process_update(update: Update) -> str:
                     bot_message = f'{bot_message}\n\n{message_prefix}'
 
                 keyboard_settings = [
-                    [b_set_pref_notif_type],
+                    [MainSettingsMenu.b_set_pref_notif_type],
                     [b_menu_set_region],
-                    [b_set_topic_type],
-                    [b_set_pref_coords],
-                    [b_set_pref_radius],
-                    [b_set_pref_age],
-                    [b_set_forum_nick],
+                    [MainSettingsMenu.b_set_topic_type],
+                    [MainSettingsMenu.b_set_pref_coords],
+                    [MainSettingsMenu.b_set_pref_radius],
+                    [MainSettingsMenu.b_set_pref_age],
+                    [MainSettingsMenu.b_set_forum_nick],
                     [b_back_to_start],
                 ]  # #AK added b_set_forum_nick for issue #6
                 reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
 
-            elif got_message == b_set_pref_coords:
+            elif got_message == MainSettingsMenu.b_set_pref_coords:
                 bot_message = (
                     'АВТОМАТИЧЕСКОЕ ОПРЕДЕЛЕНИЕ координат работает только для носимых устройств'
                     ' (для настольных компьютеров – НЕ работает: используйте, пожалуйста, '
@@ -1496,7 +1492,7 @@ def process_update(update: Update) -> str:
             # special block for flexible menu on notification preferences
             elif got_message in {
                 b_act_titles,
-                b_set_pref_notif_type,
+                MainSettingsMenu.b_set_pref_notif_type,
                 *NotificationSettingsMenu.list(),
             }:
                 # save preference for +ALL

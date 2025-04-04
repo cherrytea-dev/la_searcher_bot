@@ -146,16 +146,19 @@ b_map = '🔥Карта Поисков 🔥'
 keyboard_main = [[b_map], [b_view_act_searches], [b_settings], [b_other]]
 reply_markup_main = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
 
-# Settings menu
-b_set_pref_notif_type = 'настроить виды уведомлений'
-b_set_pref_coords = 'настроить "домашние координаты"'
-b_set_pref_radius = 'настроить максимальный радиус'
-b_set_pref_age = 'настроить возрастные группы БВП'
-b_set_pref_urgency = 'настроить скорость уведомлений'  # <-- TODO: likely to be removed as redundant
-b_set_pref_role = 'настроить вашу роль'  # <-- TODO # noqa
-b_set_forum_nick = 'связать аккаунты бота и форума'
-b_change_forum_nick = 'изменить аккаунт форума'  # noqa
-b_set_topic_type = 'настроить вид поисков'
+
+class MainSettingsMenu(str, ExtendedEnum):
+    # Settings menu
+    b_set_pref_notif_type = 'настроить виды уведомлений'
+    b_set_pref_coords = 'настроить "домашние координаты"'
+    b_set_pref_radius = 'настроить максимальный радиус'
+    b_set_pref_age = 'настроить возрастные группы БВП'
+    b_set_pref_urgency = 'настроить скорость уведомлений'  # <-- TODO: likely to be removed as redundant
+    b_set_pref_role = 'настроить вашу роль'  # <-- TODO # noqa
+    b_set_forum_nick = 'связать аккаунты бота и форума'
+    b_change_forum_nick = 'изменить аккаунт форума'  # noqa
+    b_set_topic_type = 'настроить вид поисков'
+
 
 b_back_to_start = 'в начало'
 
