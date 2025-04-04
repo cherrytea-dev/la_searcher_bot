@@ -8,28 +8,36 @@ from _dependencies.commons import Topics, publish_to_pubsub
 from _dependencies.misc import notify_admin, process_sending_message_async
 from communicate._utils.buttons import (
     CoordinateSettingsMenu,
+    HelpNeeded,
     MainSettingsMenu,
     NotificationSettingsMenu,
+    RoleChoice,
     b_act_titles,
     b_back_to_start,
     b_coords_auto_def,
     b_goto_community,
     b_goto_first_search,
     b_goto_photos,
+    b_menu_set_region,
+    b_orders_done,
+    b_orders_tbd,
+    b_reg_moscow,
+    b_reg_not_moscow,
     b_view_latest_searches,
+    reply_markup_main,
 )
 from communicate._utils.common import (
-    AgePeriod,
     AllButtons,
     SearchFollowingMode,
     UpdateBasicParams,
+    generate_yandex_maps_place_link,
+    get_default_age_period_list,
     if_user_enables,
     save_onboarding_step,
 )
-from communicate._utils.compose_messages import compose_user_preferences_message
+from communicate._utils.compose_messages import compose_msg_on_user_setting_fullness, compose_user_preferences_message
 from communicate._utils.database import db
 from communicate._utils.message_sending import make_api_call, process_leaving_chat_async, send_callback_answer_to_api
-from communicate.main import generate_yandex_maps_place_link
 
 
 def manage_age(user_id: int, user_input: Optional[str]) -> None:
@@ -77,17 +85,6 @@ def manage_age(user_id: int, user_input: Optional[str]) -> None:
             list_of_buttons.append([f'включить: {line.description}'])
 
     return list_of_buttons, first_visit
-
-
-def get_default_age_period_list() -> list[AgePeriod]:
-    return [
-        AgePeriod(description='Маленькие Дети 0-6 лет', name='0-6', min_age=0, max_age=6, order=0),
-        AgePeriod(description='Подростки 7-13 лет', name='7-13', min_age=7, max_age=13, order=1),
-        AgePeriod(description='Молодежь 14-20 лет', name='14-20', min_age=14, max_age=20, order=2),
-        AgePeriod(description='Взрослые 21-50 лет', name='21-50', min_age=21, max_age=50, order=3),
-        AgePeriod(description='Старшее Поколение 51-80 лет', name='51-80', min_age=51, max_age=80, order=4),
-        AgePeriod(description='Старцы более 80 лет', name='80-on', min_age=80, max_age=120, order=5),
-    ]
 
 
 def manage_radius(
@@ -933,3 +930,144 @@ def handle_coordinates(user_id: int, got_message: str):
         reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_1, resize_keyboard=True)
 
     return bot_message, reply_markup, bot_request_aft_usr_msg
+
+
+def handle_main_settings(user_id: int):
+    bot_message = (
+        'Это раздел с настройками. Здесь вы можете выбрать удобные для вас '
+        'уведомления, а также ввести свои "домашние координаты", на основе которых '
+        'будет рассчитываться расстояние и направление до места поиска. Вы в любой '
+        'момент сможете изменить эти настройки.'
+    )
+
+    message_prefix = compose_msg_on_user_setting_fullness(user_id)
+    if message_prefix:
+        bot_message = f'{bot_message}\n\n{message_prefix}'
+
+    keyboard_settings = [
+        [MainSettingsMenu.b_set_pref_notif_type],
+        [b_menu_set_region],
+        [MainSettingsMenu.b_set_topic_type],
+        [MainSettingsMenu.b_set_pref_coords],
+        [MainSettingsMenu.b_set_pref_radius],
+        [MainSettingsMenu.b_set_pref_age],
+        [MainSettingsMenu.b_set_forum_nick],
+        [b_back_to_start],
+    ]  # #AK added b_set_forum_nick for issue #6
+    reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
+    return bot_message, reply_markup
+
+
+def handle_user_role(user_id: int, got_message: str, username: str):
+    if got_message in RoleChoice.list():
+        user_role = db().save_user_pref_role(user_id, got_message)
+        save_onboarding_step(user_id, username, 'role_set')
+
+        # get user role = relatives looking for a person
+    if got_message == RoleChoice.b_role_looking_for_person:
+        bot_message = (
+            'Тогда вам следует:\n\n'
+            '1. Подайте заявку на поиск в ЛизаАлерт ОДНИМ ИЗ ДВУХ способов:\n'
+            '  1.1. САМОЕ БЫСТРОЕ – звоните на 88007005452 (бесплатная горячая '
+            'линия ЛизаАлерт). Вам зададут ряд вопросов, который максимально '
+            'ускорит поиск, и посоветуют дальнейшие действия. \n'
+            '  1.2. Заполните форму поиска https://lizaalert.org/zayavka-na-poisk/ \n'
+            'После заполнения формы на сайте нужно ожидать звонка от ЛизаАлерт. На '
+            'обработку может потребоваться более часа. Если нет возможности ждать, '
+            'после заполнения заявки следует позвонить на горячую линию отряда '
+            '88007005452, сообщив, что вы уже оформили заявку на сайте.\n\n'
+            '2. Подать заявление в Полицию. Если иное не посоветовали на горячей линии,'
+            'заявка в Полицию – поможет ускорить и упростить поиск. Самый быстрый '
+            'способ – позвонить на 102.\n\n'
+            '3. Отслеживайте ход поиска.\n'
+            'Когда заявки в ЛизаАлерт и Полицию сделаны, отряд начнет первые '
+            'мероприятия для поиска человека: уточнение деталей, прозвоны '
+            'в госучреждения, формирование плана и команды поиска и т.п. Весь этот'
+            'процесс вам не будет виден, но часто люди находятся именно на этой стадии'
+            'поиска. Если первые меры не помогут и отряд примет решение проводить'
+            'выезд "на место поиска" – тогда вы сможете отслеживать ход поиска '
+            'через данный Бот, для этого продолжите настройку бота: вам нужно будет'
+            'указать ваш регион и выбрать, какие уведомления от бота вы будете '
+            'получать. '
+            'Как альтернатива, вы можете зайти на форум https://lizaalert.org/forum/, '
+            'и отслеживать статус поиска там.\n'
+            'Отряд сделает всё возможное, чтобы найти вашего близкого как можно '
+            'скорее.\n\n'
+            'Сообщите, подали ли вы заявки в ЛизаАлерт и Полицию?'
+        )
+
+        keyboard_orders = [[b_orders_done], [b_orders_tbd]]
+        reply_markup = ReplyKeyboardMarkup(keyboard_orders, resize_keyboard=True)
+
+    # get user role = potential LA volunteer
+    elif got_message == RoleChoice.b_role_want_to_be_la:
+        bot_message = (
+            'Супер! \n'
+            'Знаете ли вы, как можно помогать ЛизаАлерт? Определились ли вы, как '
+            'вы готовы помочь? Если еще нет – не беда – рекомендуем '
+            'ознакомиться со статьёй: '
+            'https://takiedela.ru/news/2019/05/25/instrukciya-liza-alert/\n\n'
+            'Задачи, которые можно выполнять даже без специальной подготовки, '
+            'выполняют Поисковики "на месте поиска". Этот Бот как раз старается '
+            'помогать именно Поисковикам. '
+            'Есть хороший сайт, рассказывающий, как начать участвовать в поиске: '
+            'https://lizaalert.org/dvizhenie/novichkam/\n\n'
+            'В случае любых вопросов – не стесняйтесь, обращайтесь на общий телефон, '
+            '8 800 700-54-52, где вам помогут с любыми вопросами при вступлении в отряд.\n\n'
+            'А если вы "из мира IT" и готовы помогать развитию этого Бота,'
+            'пишите нам в специальный чат https://t.me/+2J-kV0GaCgwxY2Ni\n\n'
+            'Надеемся, эта информацию оказалась полезной. '
+            'Если вы готовы продолжить настройку Бота, уточните, пожалуйста: '
+            'ваш основной регион – это Москва и Московская Область?'
+        )
+        keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
+        reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+
+        # get user role = all others
+    elif got_message in {
+        RoleChoice.b_role_iam_la,
+        RoleChoice.b_role_other,
+        RoleChoice.b_role_secret,
+        b_orders_done,
+        b_orders_tbd,
+    }:
+        bot_message = 'Спасибо. Теперь уточните, пожалуйста, ваш основной регион – это ' 'Москва и Московская Область?'
+        keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
+        reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+
+    return bot_message, reply_markup
+
+
+def handle_help_needed(got_message):
+    if got_message == HelpNeeded.b_help_no:
+        bot_message = (
+            'Спасибо, понятно. Мы записали. Тогда бот более не будет вас беспокоить, '
+            'пока вы сами не напишите в бот.\n\n'
+            'На прощание, бот хотел бы посоветовать следующие вещи, делающие мир лучше:\n\n'
+            '1. Посмотреть <a href="https://t.me/+6LYNNEy8BeI1NGUy">позитивные фото '
+            'с поисков ЛизаАлерт</a>.\n\n'
+            '2. <a href="https://lizaalert.org/otryadnye-nuzhdy/">Помочь '
+            'отряду ЛизаАлерт, пожертвовав оборудование для поисков людей</a>.\n\n'
+            '3. Помочь создателям данного бота, присоединившись к группе разработчиков'
+            'или оплатив облачную инфраструктуру для бесперебойной работы бота. Для этого'
+            '<a href="https://t.me/MikeMikeT">просто напишите разработчику бота</a>.\n\n'
+            'Бот еще раз хотел подчеркнуть, что как только вы напишите что-то в бот – он'
+            'сразу же "забудет", что вы ранее просили вас не беспокоить:)\n\n'
+            'Обнимаем:)'
+        )
+        keyboard = [[b_back_to_start]]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+    elif got_message == HelpNeeded.b_help_yes:
+        bot_message = (
+            'Супер! Тогда давайте посмотрим, что у вас не настроено.\n\n'
+            'У вас не настроен Регион поисков – без него Бот не может определить, '
+            'какие поиски вас интересуют. Вы можете настроить регион двумя способами:\n'
+            '1. Либо автоматически на основании ваших координат – нужно будет отправить '
+            'вашу геолокацию (работает только с мобильных устройств),\n'
+            '2. Либо выбрав регион вручную: для этого нужно сначала выбрать ФО = '
+            'Федеральный Округ, где находится ваш регион, а потом кликнуть на сам регион. '
+            '\n\n'
+        )
+        reply_markup = reply_markup_main
+    return bot_message, reply_markup

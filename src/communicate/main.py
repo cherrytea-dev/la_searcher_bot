@@ -29,11 +29,12 @@ from _dependencies.misc import (
 from communicate._utils.buttons import (
     Commands,
     CoordinateSettingsMenu,
+    DistanceSettings,
+    HelpNeeded,
     MainSettingsMenu,
     NotificationSettingsMenu,
     RoleChoice,
     UrgencySettings,
-    DistanceSettings,
     b_act_titles,
     b_back_to_start,
     b_fed_dist_pick_other,
@@ -60,20 +61,27 @@ from communicate._utils.buttons import (
     keyboard_fed_dist_set,
     reply_markup_main,
 )
-from communicate._utils.common import AllButtons, UpdateBasicParams, save_onboarding_step
+from communicate._utils.common import (
+    AllButtons,
+    UpdateBasicParams,
+    generate_yandex_maps_place_link,
+    get_default_age_period_list,
+    save_onboarding_step,
+)
 from communicate._utils.compose_messages import (
     compose_full_message_on_list_of_searches,
     compose_full_message_on_list_of_searches_ikb,
-    compose_msg_on_user_setting_fullness,
 )
 from communicate._utils.database import db
 from communicate._utils.handlers import (
-    get_default_age_period_list,
     handle_coordinates,
     handle_goto_community,
     handle_goto_first_search,
     handle_goto_photos,
+    handle_help_needed,
+    handle_main_settings,
     handle_notification_settings,
+    handle_user_role,
     manage_age,
     manage_if_moscow,
     manage_linking_to_forum,
@@ -209,21 +217,6 @@ def update_and_download_list_of_regions(
             'либо нажмите кнопку "в начало", чтобы '
             'продолжить работу с ботом.'
         )
-
-    return msg
-
-
-def generate_yandex_maps_place_link(lat: Union[float, str], lon: Union[float, str], param: str) -> str:
-    """Compose a link to yandex map with the given coordinates"""
-
-    coordinates_format = '{0:.5f}'
-
-    if param == 'coords':
-        display = str(coordinates_format.format(float(lat))) + ', ' + str(coordinates_format.format(float(lon)))
-    else:
-        display = 'Карта'
-
-    msg = f'<a href="https://yandex.ru/maps/?pt={lon},{lat}&z=11&l=map">{display}</a>'
 
     return msg
 
@@ -543,9 +536,6 @@ def process_update(update: Update) -> str:
         age_buttons.append(f'отключить: {period.description}')
         age_buttons.append(f'включить: {period.description}')
 
-    b_help_yes = 'да, помогите мне настроить бот'
-    b_help_no = 'нет, помощь не требуется'
-
     # basic markup which will be substituted for all specific cases
     reply_markup = reply_markup_main
 
@@ -706,84 +696,7 @@ def process_update(update: Update) -> str:
                 b_orders_tbd,
             }:
                 # save user role & onboarding stage
-                if got_message in RoleChoice.list():
-                    user_role = db().save_user_pref_role(user_id, got_message)
-                    save_onboarding_step(user_id, username, 'role_set')
-
-                # get user role = relatives looking for a person
-                if got_message == RoleChoice.b_role_looking_for_person:
-                    bot_message = (
-                        'Тогда вам следует:\n\n'
-                        '1. Подайте заявку на поиск в ЛизаАлерт ОДНИМ ИЗ ДВУХ способов:\n'
-                        '  1.1. САМОЕ БЫСТРОЕ – звоните на 88007005452 (бесплатная горячая '
-                        'линия ЛизаАлерт). Вам зададут ряд вопросов, который максимально '
-                        'ускорит поиск, и посоветуют дальнейшие действия. \n'
-                        '  1.2. Заполните форму поиска https://lizaalert.org/zayavka-na-poisk/ \n'
-                        'После заполнения формы на сайте нужно ожидать звонка от ЛизаАлерт. На '
-                        'обработку может потребоваться более часа. Если нет возможности ждать, '
-                        'после заполнения заявки следует позвонить на горячую линию отряда '
-                        '88007005452, сообщив, что вы уже оформили заявку на сайте.\n\n'
-                        '2. Подать заявление в Полицию. Если иное не посоветовали на горячей линии,'
-                        'заявка в Полицию – поможет ускорить и упростить поиск. Самый быстрый '
-                        'способ – позвонить на 102.\n\n'
-                        '3. Отслеживайте ход поиска.\n'
-                        'Когда заявки в ЛизаАлерт и Полицию сделаны, отряд начнет первые '
-                        'мероприятия для поиска человека: уточнение деталей, прозвоны '
-                        'в госучреждения, формирование плана и команды поиска и т.п. Весь этот'
-                        'процесс вам не будет виден, но часто люди находятся именно на этой стадии'
-                        'поиска. Если первые меры не помогут и отряд примет решение проводить'
-                        'выезд "на место поиска" – тогда вы сможете отслеживать ход поиска '
-                        'через данный Бот, для этого продолжите настройку бота: вам нужно будет'
-                        'указать ваш регион и выбрать, какие уведомления от бота вы будете '
-                        'получать. '
-                        'Как альтернатива, вы можете зайти на форум https://lizaalert.org/forum/, '
-                        'и отслеживать статус поиска там.\n'
-                        'Отряд сделает всё возможное, чтобы найти вашего близкого как можно '
-                        'скорее.\n\n'
-                        'Сообщите, подали ли вы заявки в ЛизаАлерт и Полицию?'
-                    )
-
-                    keyboard_orders = [[b_orders_done], [b_orders_tbd]]
-                    reply_markup = ReplyKeyboardMarkup(keyboard_orders, resize_keyboard=True)
-
-                # get user role = potential LA volunteer
-                elif got_message == RoleChoice.b_role_want_to_be_la:
-                    bot_message = (
-                        'Супер! \n'
-                        'Знаете ли вы, как можно помогать ЛизаАлерт? Определились ли вы, как '
-                        'вы готовы помочь? Если еще нет – не беда – рекомендуем '
-                        'ознакомиться со статьёй: '
-                        'https://takiedela.ru/news/2019/05/25/instrukciya-liza-alert/\n\n'
-                        'Задачи, которые можно выполнять даже без специальной подготовки, '
-                        'выполняют Поисковики "на месте поиска". Этот Бот как раз старается '
-                        'помогать именно Поисковикам. '
-                        'Есть хороший сайт, рассказывающий, как начать участвовать в поиске: '
-                        'https://lizaalert.org/dvizhenie/novichkam/\n\n'
-                        'В случае любых вопросов – не стесняйтесь, обращайтесь на общий телефон, '
-                        '8 800 700-54-52, где вам помогут с любыми вопросами при вступлении в отряд.\n\n'
-                        'А если вы "из мира IT" и готовы помогать развитию этого Бота,'
-                        'пишите нам в специальный чат https://t.me/+2J-kV0GaCgwxY2Ni\n\n'
-                        'Надеемся, эта информацию оказалась полезной. '
-                        'Если вы готовы продолжить настройку Бота, уточните, пожалуйста: '
-                        'ваш основной регион – это Москва и Московская Область?'
-                    )
-                    keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
-                    reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
-
-                # get user role = all others
-                elif got_message in {
-                    RoleChoice.b_role_iam_la,
-                    RoleChoice.b_role_other,
-                    RoleChoice.b_role_secret,
-                    b_orders_done,
-                    b_orders_tbd,
-                }:
-                    bot_message = (
-                        'Спасибо. Теперь уточните, пожалуйста, ваш основной регион – это '
-                        'Москва и Московская Область?'
-                    )
-                    keyboard_coordinates_admin = [[b_reg_moscow], [b_reg_not_moscow]]
-                    reply_markup = ReplyKeyboardMarkup(keyboard_coordinates_admin, resize_keyboard=True)
+                bot_message, reply_markup = handle_user_role(user_id, got_message, username)
 
             elif got_message in {b_reg_not_moscow}:
                 bot_message, reply_markup = manage_if_moscow(
@@ -797,37 +710,8 @@ def process_update(update: Update) -> str:
                     None,
                     user_role,
                 )
-
-            elif got_message == b_help_no:
-                bot_message = (
-                    'Спасибо, понятно. Мы записали. Тогда бот более не будет вас беспокоить, '
-                    'пока вы сами не напишите в бот.\n\n'
-                    'На прощание, бот хотел бы посоветовать следующие вещи, делающие мир лучше:\n\n'
-                    '1. Посмотреть <a href="https://t.me/+6LYNNEy8BeI1NGUy">позитивные фото '
-                    'с поисков ЛизаАлерт</a>.\n\n'
-                    '2. <a href="https://lizaalert.org/otryadnye-nuzhdy/">Помочь '
-                    'отряду ЛизаАлерт, пожертвовав оборудование для поисков людей</a>.\n\n'
-                    '3. Помочь создателям данного бота, присоединившись к группе разработчиков'
-                    'или оплатив облачную инфраструктуру для бесперебойной работы бота. Для этого'
-                    '<a href="https://t.me/MikeMikeT">просто напишите разработчику бота</a>.\n\n'
-                    'Бот еще раз хотел подчеркнуть, что как только вы напишите что-то в бот – он'
-                    'сразу же "забудет", что вы ранее просили вас не беспокоить:)\n\n'
-                    'Обнимаем:)'
-                )
-                keyboard = [[b_back_to_start]]
-                reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-            elif got_message == b_help_yes:
-                bot_message = (
-                    'Супер! Тогда давайте посмотрим, что у вас не настроено.\n\n'
-                    'У вас не настроен Регион поисков – без него Бот не может определить, '
-                    'какие поиски вас интересуют. Вы можете настроить регион двумя способами:\n'
-                    '1. Либо автоматически на основании ваших координат – нужно будет отправить '
-                    'вашу геолокацию (работает только с мобильных устройств),\n'
-                    '2. Либо выбрав регион вручную: для этого нужно сначала выбрать ФО = '
-                    'Федеральный Округ, где находится ваш регион, а потом кликнуть на сам регион. '
-                    '\n\n'
-                )
+            elif got_message in HelpNeeded.list():
+                bot_message, reply_markup = handle_help_needed(got_message)
 
             # set user pref: urgency
             elif got_message in UrgencySettings.list():
@@ -1270,28 +1154,7 @@ def process_update(update: Update) -> str:
                     db().save_user_pref_topic_type(user_id, 'default', user_role)
 
             elif got_message in {b_settings, Commands.c_settings}:
-                bot_message = (
-                    'Это раздел с настройками. Здесь вы можете выбрать удобные для вас '
-                    'уведомления, а также ввести свои "домашние координаты", на основе которых '
-                    'будет рассчитываться расстояние и направление до места поиска. Вы в любой '
-                    'момент сможете изменить эти настройки.'
-                )
-
-                message_prefix = compose_msg_on_user_setting_fullness(user_id)
-                if message_prefix:
-                    bot_message = f'{bot_message}\n\n{message_prefix}'
-
-                keyboard_settings = [
-                    [MainSettingsMenu.b_set_pref_notif_type],
-                    [b_menu_set_region],
-                    [MainSettingsMenu.b_set_topic_type],
-                    [MainSettingsMenu.b_set_pref_coords],
-                    [MainSettingsMenu.b_set_pref_radius],
-                    [MainSettingsMenu.b_set_pref_age],
-                    [MainSettingsMenu.b_set_forum_nick],
-                    [b_back_to_start],
-                ]  # #AK added b_set_forum_nick for issue #6
-                reply_markup = ReplyKeyboardMarkup(keyboard_settings, resize_keyboard=True)
+                bot_message, reply_markup = handle_main_settings(user_id)
 
             elif got_message in {
                 MainSettingsMenu.b_set_pref_coords,
@@ -1326,9 +1189,7 @@ def process_update(update: Update) -> str:
             # in case of other user messages:
             else:
                 # If command in unknown
-                bot_message = (
-                    'не понимаю такой команды, пожалуйста, используйте кнопки со стандартными ' 'командами ниже'
-                )
+                bot_message = 'не понимаю такой команды, пожалуйста, используйте кнопки со стандартными командами ниже'
                 reply_markup = reply_markup_main
 
             if not msg_sent_by_specific_code:
@@ -1341,61 +1202,7 @@ def process_update(update: Update) -> str:
                     process_sending_message_async(user_id=user_id, data=data)
                 else:"""
 
-                context_step = '01a1'
-                context = f'if reply_markup and not isinstance(reply_markup, dict): {reply_markup=}, {context_step=}'
-                logging.info(f'{context=}: {reply_markup=}')
-                if reply_markup and not isinstance(reply_markup, dict):
-                    reply_markup = reply_markup.to_dict()
-                    context_step = '02a1'
-                    context = f'After reply_markup.to_dict(): {reply_markup=}, {context_step=}'
-                    logging.info(f'{context=}: {reply_markup=}')
-
-                user_used_inline_button = got_hash and got_callback and got_callback['action'] != 'about'
-
-                if user_used_inline_button:
-                    # call editMessageText to edit inline keyboard
-                    # in the message where inline button was pushed
-                    last_user_message_id = callback_query.message.id  ##was get_last_user_inline_dialogue( user_id)
-                    logging.info(f'{last_user_message_id=}')
-                    # params['message_id'] = last_user_message_id
-                    params = {
-                        'chat_id': user_id,
-                        'text': bot_message,
-                        'message_id': last_user_message_id,
-                        'reply_markup': reply_markup,
-                    }
-                    context_step = '1a1'
-                    context = f'main() if user_used_inline_button: {user_id=}, {context_step=}'
-                    response = make_api_call('editMessageText', bot_token, params, context)
-                    context_step = '1a2'
-                    context = f'main() if user_used_inline_button: {user_id=}, {context_step=}'
-                    logging.info(f'{response=}; {context=}')
-
-                else:
-                    params = {
-                        'parse_mode': 'HTML',
-                        'disable_web_page_preview': True,
-                        'reply_markup': reply_markup,
-                        'chat_id': user_id,
-                        'text': bot_message,
-                    }
-                    context_step = '1b1'
-                    context = f'main() if user_used_inline_button: else: {user_id=}, {context_step=}'
-                    response = make_api_call('sendMessage', bot_token, params, context)
-                    context_step = '1b2'
-                    context = f'main() if user_used_inline_button: else: {user_id=}, {context_step=}'
-                    logging.info(f'{response=}; {context=}')
-
-                context_step = '2'
-                context = f'main() after if user_used_inline_button: {user_id=}, {context_step=}'
-                logging.info(f'{response=}; {context=}')
-                context_step = '3'
-                context = f'main() after if user_used_inline_button: {user_id=}, {context_step=}'
-                result = process_response_of_api_call(user_id, response)
-                inline_processing(response, params)
-
-                logging.info(f'RESPONSE {response}')
-                logging.info(f'RESULT {result}')
+                _reply_to_user(bot_token, user_id, got_callback, callback_query, got_hash, reply_markup, bot_message)
                 # FIXME ^^^
 
             # saving the last message from bot
@@ -1427,3 +1234,63 @@ def process_update(update: Update) -> str:
         db().save_bot_reply_to_user(user_id, bot_message)
 
     return 'finished successfully. in was a regular conversational message'
+
+
+def _reply_to_user(
+    bot_token: str, user_id: int, got_callback, callback_query, got_hash, reply_markup, bot_message: str
+):
+    context_step = '01a1'
+    context = f'if reply_markup and not isinstance(reply_markup, dict): {reply_markup=}, {context_step=}'
+    logging.info(f'{context=}: {reply_markup=}')
+    if reply_markup and not isinstance(reply_markup, dict):
+        reply_markup = reply_markup.to_dict()
+        context_step = '02a1'
+        context = f'After reply_markup.to_dict(): {reply_markup=}, {context_step=}'
+        logging.info(f'{context=}: {reply_markup=}')
+
+    user_used_inline_button = got_hash and got_callback and got_callback['action'] != 'about'
+
+    if user_used_inline_button:
+        # call editMessageText to edit inline keyboard
+        # in the message where inline button was pushed
+        last_user_message_id = callback_query.message.id  ##was get_last_user_inline_dialogue( user_id)
+        logging.info(f'{last_user_message_id=}')
+        # params['message_id'] = last_user_message_id
+        params = {
+            'chat_id': user_id,
+            'text': bot_message,
+            'message_id': last_user_message_id,
+            'reply_markup': reply_markup,
+        }
+        context_step = '1a1'
+        context = f'main() if user_used_inline_button: {user_id=}, {context_step=}'
+        response = make_api_call('editMessageText', bot_token, params, context)
+        context_step = '1a2'
+        context = f'main() if user_used_inline_button: {user_id=}, {context_step=}'
+        logging.info(f'{response=}; {context=}')
+
+    else:
+        params = {
+            'parse_mode': 'HTML',
+            'disable_web_page_preview': True,
+            'reply_markup': reply_markup,
+            'chat_id': user_id,
+            'text': bot_message,
+        }
+        context_step = '1b1'
+        context = f'main() if user_used_inline_button: else: {user_id=}, {context_step=}'
+        response = make_api_call('sendMessage', bot_token, params, context)
+        context_step = '1b2'
+        context = f'main() if user_used_inline_button: else: {user_id=}, {context_step=}'
+        logging.info(f'{response=}; {context=}')
+
+    context_step = '2'
+    context = f'main() after if user_used_inline_button: {user_id=}, {context_step=}'
+    logging.info(f'{response=}; {context=}')
+    context_step = '3'
+    context = f'main() after if user_used_inline_button: {user_id=}, {context_step=}'
+    result = process_response_of_api_call(user_id, response)
+    inline_processing(response, params)
+
+    logging.info(f'RESPONSE {response}')
+    logging.info(f'RESULT {result}')

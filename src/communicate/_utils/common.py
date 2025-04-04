@@ -319,3 +319,29 @@ class UpdateBasicParams:
     got_callback: str
     callback_query_id: str
     callback_query: str
+
+
+def get_default_age_period_list() -> list[AgePeriod]:
+    return [
+        AgePeriod(description='Маленькие Дети 0-6 лет', name='0-6', min_age=0, max_age=6, order=0),
+        AgePeriod(description='Подростки 7-13 лет', name='7-13', min_age=7, max_age=13, order=1),
+        AgePeriod(description='Молодежь 14-20 лет', name='14-20', min_age=14, max_age=20, order=2),
+        AgePeriod(description='Взрослые 21-50 лет', name='21-50', min_age=21, max_age=50, order=3),
+        AgePeriod(description='Старшее Поколение 51-80 лет', name='51-80', min_age=51, max_age=80, order=4),
+        AgePeriod(description='Старцы более 80 лет', name='80-on', min_age=80, max_age=120, order=5),
+    ]
+
+
+def generate_yandex_maps_place_link(lat: Union[float, str], lon: Union[float, str], param: str) -> str:
+    """Compose a link to yandex map with the given coordinates"""
+
+    coordinates_format = '{0:.5f}'
+
+    if param == 'coords':
+        display = str(coordinates_format.format(float(lat))) + ', ' + str(coordinates_format.format(float(lon)))
+    else:
+        display = 'Карта'
+
+    msg = f'<a href="https://yandex.ru/maps/?pt={lon},{lat}&z=11&l=map">{display}</a>'
+
+    return msg

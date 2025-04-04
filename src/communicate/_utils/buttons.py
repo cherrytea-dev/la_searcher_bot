@@ -156,6 +156,11 @@ keyboard_main = [[b_map], [b_view_act_searches], [b_settings], [b_other]]
 reply_markup_main = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
 
 
+class HelpNeeded(str, ExtendedEnum):
+    b_help_yes = 'да, помогите мне настроить бот'
+    b_help_no = 'нет, помощь не требуется'
+
+
 class MainSettingsMenu(str, ExtendedEnum):
     # Settings menu
     b_set_pref_notif_type = 'настроить виды уведомлений'
