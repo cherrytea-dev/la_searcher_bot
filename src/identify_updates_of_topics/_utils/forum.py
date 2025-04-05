@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup, SoupStrainer
 from requests import Session
 from yarl import URL
 
-from _dependencies.commons import Topics, publish_to_pubsub
+from _dependencies.commons import Topics, get_app_config, get_forum_proxies, publish_to_pubsub
 
 from .topics_commons import CoordType, ForumCommentItem, ForumSearchItem
 
@@ -50,7 +50,9 @@ def is_content_visible(content: bytes, topic_id: int) -> bool:
 
 @lru_cache
 def get_requests_session() -> Session:
-    return Session()
+    session = Session()
+    session.proxies.update(get_forum_proxies())
+    return session
 
 
 class ForumClient:

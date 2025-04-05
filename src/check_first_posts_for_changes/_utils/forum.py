@@ -7,7 +7,7 @@ from functools import lru_cache
 import requests
 from retry import retry
 
-from _dependencies.commons import Topics, publish_to_pubsub
+from _dependencies.commons import Topics, get_forum_proxies, publish_to_pubsub
 from _dependencies.misc import make_api_call
 from _dependencies.recognition_schema import RecognitionResult
 
@@ -27,7 +27,9 @@ class FirstPostData:
 
 @lru_cache
 def get_requests_session() -> requests.Session:
-    return requests.Session()
+    session = requests.Session()
+    session.proxies.update(get_forum_proxies())
+    return session
 
 
 def define_topic_visibility_by_content(content: str) -> str:
