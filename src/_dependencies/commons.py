@@ -112,11 +112,24 @@ class AppConfig(BaseSettings):
     osm_identifier: str = ''
     forum_bot_login: str = ''
     forum_bot_password: str = ''
+    forum_proxy: str = ''
 
 
 @lru_cache
 def get_app_config() -> AppConfig:
     return _get_config()
+
+
+@lru_cache
+def get_forum_proxies() -> dict:
+    proxy = get_app_config().forum_proxy
+    if proxy:
+        return {
+            'http': f'{proxy}',
+            'https': f'{proxy}',
+        }
+    else:
+        return {}
 
 
 def _get_config():
@@ -137,6 +150,7 @@ def _get_config():
         osm_identifier=get_secrets('osm_identifier'),
         forum_bot_login=get_secrets('forum_bot_login'),
         forum_bot_password=get_secrets('forum_bot_password'),
+        forum_proxy=get_secrets('forum_proxy'),
     )
 
 

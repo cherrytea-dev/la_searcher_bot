@@ -20,6 +20,7 @@ from _dependencies.commons import (
     ChangeLogSavedValue,
     ChangeType,
     Topics,
+    get_forum_proxies,
     publish_to_pubsub,
     setup_google_logging,
     sqlalchemy_get_pool,
@@ -32,7 +33,9 @@ setup_google_logging()
 
 @lru_cache
 def get_requests_session() -> requests.Session:
-    return requests.Session()
+    session = requests.Session()
+    session.proxies.update(get_forum_proxies())
+    return session
 
 
 def sql_connect() -> sqlalchemy.engine.Engine:

@@ -16,7 +16,7 @@ from bs4 import BeautifulSoup, NavigableString, Tag
 from google.cloud.functions.context import Context
 from telegram import Bot, ReplyKeyboardMarkup
 
-from _dependencies.commons import get_app_config, setup_google_logging, sql_connect_by_psycopg2
+from _dependencies.commons import get_app_config, get_forum_proxies, setup_google_logging, sql_connect_by_psycopg2
 from _dependencies.misc import process_sending_message_async
 
 COOKIE_FILE_NAME = 'session_cookies.pkl'
@@ -42,7 +42,14 @@ class ForumUser:
 @lru_cache
 def get_session() -> requests.Session:
     session = requests.Session()
+    session.proxies.update(get_forum_proxies())
     load_cookies(session)
+    return session
+
+
+@lru_cache
+def get_requests_session() -> requests.Session:
+    session = requests.Session()
     return session
 
 

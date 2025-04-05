@@ -16,7 +16,7 @@ from google.cloud.functions.context import Context
 from google.cloud.storage.blob import Blob
 from retry.api import retry_call
 
-from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging
+from _dependencies.commons import Topics, get_forum_proxies, publish_to_pubsub, setup_google_logging
 
 setup_google_logging()
 
@@ -59,7 +59,9 @@ class DecomposedFolder:
 
 @lru_cache
 def get_session() -> requests.Session:
-    return requests.Session()
+    session = requests.Session()
+    session.proxies.update(get_forum_proxies())
+    return session
 
 
 class CloudStorage:
