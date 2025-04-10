@@ -262,7 +262,7 @@ def _process_message_sending(
     message_to_send: MessageToSend,
 ) -> None:
     logging.debug('time: -------------- loop start -------------')
-    logging.info(f'{message_to_send}')
+    logging.debug(f'{message_to_send}')
     analytics_sm_start = datetime.datetime.now()
 
     with conn.cursor() as cur:

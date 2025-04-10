@@ -130,7 +130,7 @@ class MessageComposer:
                     '<i>Совет: Чтобы Бот показывал Направление и Расстояние до поиска – просто укажите ваши '
                     '"Домашние координаты" в Настройках Бота.</i>'
                 )
-        logging.info(f'OLD - FINAL NEW MESSAGE FOR NEW SEARCH: {message}')
+        logging.debug(f'OLD - FINAL NEW MESSAGE FOR NEW SEARCH: {message}')
 
         return message
 
@@ -289,7 +289,7 @@ class MessageComposer:
 
         managers_str = _get_managers_from_text(line.managers)
 
-        logging.info(
+        logging.debug(
             'msg 2 + msg 1 + msg 3: ' + str(person_str) + ' // ' + str(activities_str) + ' // ' + str(managers_str)
         )
         return person_str, activities_str, managers_str
