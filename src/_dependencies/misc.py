@@ -3,6 +3,7 @@ import base64
 import datetime
 import json
 import logging
+import math
 import random
 import time
 import urllib.parse
@@ -429,3 +430,15 @@ def process_response(user_id: int, response: requests.Response | None) -> str:
         logging.info('Response is corrupted')
         logging.exception(e)
         return 'failed'
+
+
+def calc_bearing(lat_2: float, lon_2: float, lat_1: float, lon_1: float) -> float:
+    d_lon_ = lon_2 - lon_1
+    x = math.cos(math.radians(lat_2)) * math.sin(math.radians(d_lon_))
+    y = math.cos(math.radians(lat_1)) * math.sin(math.radians(lat_2)) - math.sin(math.radians(lat_1)) * math.cos(
+        math.radians(lat_2)
+    ) * math.cos(math.radians(d_lon_))
+    bearing = math.atan2(x, y)  # used to determine the quadrant
+    bearing = math.degrees(bearing)
+
+    return bearing

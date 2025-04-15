@@ -1,14 +1,14 @@
 from enum import Enum
 
-from communicate._utils.buttons import MainSettingsMenu, NotificationSettingsMenu, b_act_titles, b_back_to_start
-from communicate._utils.common import (
+from ..buttons import MainSettingsMenu, NotificationSettingsMenu, b_act_titles, b_back_to_start
+from ..common import (
     HandlerResult,
     UpdateBasicParams,
     UpdateExtraParams,
     create_one_column_reply_markup,
 )
-from communicate._utils.database import db
-from communicate._utils.decorators import button_handler
+from ..database import db
+from ..decorators import button_handler
 
 
 class NotificationSettingsMenuOptions(str, Enum):

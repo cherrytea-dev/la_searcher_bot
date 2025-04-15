@@ -3,10 +3,10 @@ import logging
 import math
 import re
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any
 
 from _dependencies.commons import ChangeType, TopicType
+from _dependencies.misc import calc_bearing
 
 WINDOW_FOR_NOTIFICATIONS_DAYS = 60
 COORD_FORMAT = '{0:.5f}'
@@ -22,13 +22,6 @@ SEARCH_TOPIC_TYPES = {
     TopicType.search_info_support,
     TopicType.search_resonance,
 }
-
-
-class SearchFollowingMode(str, Enum):
-    # in table 'user_pref_search_whitelist'
-    # TODO replace values in 'communicate' to this enum later
-    ON = '👀 '
-    OFF = '❌ '
 
 
 @dataclass
@@ -142,18 +135,6 @@ def calc_direction(lat_1: float, lon_1: float, lat_2: float, lon_2: float) -> st
     nsew = points[bearing]
 
     return nsew
-
-
-def calc_bearing(lat_2: float, lon_2: float, lat_1: float, lon_1: float) -> float:
-    d_lon_ = lon_2 - lon_1
-    x = math.cos(math.radians(lat_2)) * math.sin(math.radians(d_lon_))
-    y = math.cos(math.radians(lat_1)) * math.sin(math.radians(lat_2)) - math.sin(math.radians(lat_1)) * math.cos(
-        math.radians(lat_2)
-    ) * math.cos(math.radians(d_lon_))
-    bearing = math.atan2(x, y)  # used to determine the quadrant
-    bearing = math.degrees(bearing)
-
-    return bearing
 
 
 def define_dist_and_dir_to_search(search_lat: str, search_lon: str, user_let: str, user_lon: str) -> tuple[float, str]:

@@ -3,16 +3,17 @@ import logging
 from telegram import Update
 
 from _dependencies.misc import notify_admin
-from communicate._utils.buttons import CoordinateSettingsMenu, b_back_to_start, b_menu_set_region
-from communicate._utils.common import (
+
+from ..buttons import CoordinateSettingsMenu, b_back_to_start, b_menu_set_region
+from ..common import (
     HandlerResult,
     UpdateBasicParams,
     UpdateExtraParams,
     create_one_column_reply_markup,
     generate_yandex_maps_place_link,
 )
-from communicate._utils.database import db
-from communicate._utils.message_sending import tg_api
+from ..database import db
+from ..message_sending import tg_api
 
 
 def handle_user_geolocation(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:

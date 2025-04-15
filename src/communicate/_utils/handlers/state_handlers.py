@@ -1,10 +1,9 @@
 import logging
 import re
 
-from telegram import ReplyKeyboardMarkup
-
 from _dependencies.commons import Topics, publish_to_pubsub
-from communicate._utils.buttons import (
+
+from ..buttons import (
     CoordinateSettingsMenu,
     DistanceSettings,
     MainSettingsMenu,
@@ -14,7 +13,7 @@ from communicate._utils.buttons import (
     b_test_menu,
     reply_markup_main,
 )
-from communicate._utils.common import (
+from ..common import (
     HandlerResult,
     UpdateBasicParams,
     UpdateExtraParams,
@@ -22,8 +21,8 @@ from communicate._utils.common import (
     create_one_column_reply_markup,
     generate_yandex_maps_place_link,
 )
-from communicate._utils.database import db
-from communicate._utils.decorators import state_handler
+from ..database import db
+from ..decorators import state_handler
 
 
 @state_handler(UserInputState.radius_input)

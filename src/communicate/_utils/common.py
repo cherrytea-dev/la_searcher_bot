@@ -6,8 +6,8 @@ from typing import Any, Sequence, Union
 
 from telegram import CallbackQuery, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
 
-from _dependencies.commons import Topics, publish_to_pubsub
-from compose_notifications._utils.commons import SearchFollowingMode, calc_bearing  # TODO common code
+from _dependencies.commons import SearchFollowingMode, Topics, publish_to_pubsub
+from _dependencies.misc import calc_bearing
 
 SEARCH_URL_PREFIX = 'https://lizaalert.org/forum/viewtopic.php?t='
 FORUM_FOLDER_PREFIX = 'https://lizaalert.org/forum/viewforum.php?f='

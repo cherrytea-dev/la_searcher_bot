@@ -10,7 +10,8 @@ from telegram import TelegramObject
 
 from _dependencies.commons import Topics, get_app_config, publish_to_pubsub
 from _dependencies.misc import notify_admin
-from communicate._utils.database import db
+
+from .database import db
 
 
 @lru_cache

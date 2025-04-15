@@ -7,10 +7,9 @@ from typing import Generator, List
 
 from psycopg2.extensions import connection, cursor
 
-from _dependencies.commons import sql_connect_by_psycopg2
-from communicate._utils.common import PREF_DICT, AgePeriod, SearchFollowingMode, SearchSummary
+from _dependencies.commons import SearchFollowingMode, sql_connect_by_psycopg2
 
-from .common import UserInputState
+from .common import PREF_DICT, AgePeriod, SearchSummary, UserInputState
 
 
 @dataclass

@@ -1,6 +1,7 @@
 import pytest
 
-from communicate._utils.common import AgePeriod, SearchFollowingMode, SearchSummary, UserInputState
+from _dependencies.commons import SearchFollowingMode
+from communicate._utils.common import AgePeriod, SearchSummary, UserInputState
 from communicate._utils.database import DBClient, UserSettingsSummary
 from tests.common import fake, find_model
 from tests.factories import db_factories, db_models

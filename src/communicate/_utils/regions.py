@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from itertools import chain
 
-from communicate._utils.buttons import b_back_to_start, b_fed_dist_other_r, b_fed_dist_pick_other
+from .buttons import b_back_to_start, b_fed_dist_other_r, b_fed_dist_pick_other
 
 
 @dataclass
@@ -22,7 +22,6 @@ class Federal:
     fed_okrugs: list[FederalDistrict]
 
     def full_regions_list(self) -> list[list[str]]:
-        # regions = [x.get_buttons()[:-1] for x in self.fed_okrugs]# was error?
         regions = [x.get_buttons()[:-2] for x in self.fed_okrugs]
         res = list(chain(*regions))
         res.append([b_fed_dist_other_r])

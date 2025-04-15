@@ -1,7 +1,7 @@
 from functools import wraps
 from typing import Callable
 
-from communicate._utils.common import HandlerResult, UpdateBasicParams, UpdateExtraParams, UserInputState
+from .common import HandlerResult, UpdateBasicParams, UpdateExtraParams, UserInputState
 
 
 def callback_handler(actions: list[str] = [], keyboard_name: str = '') -> Callable:

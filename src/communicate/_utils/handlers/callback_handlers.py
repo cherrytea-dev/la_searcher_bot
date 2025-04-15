@@ -3,11 +3,11 @@ from ast import literal_eval
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
+from _dependencies.commons import SearchFollowingMode
 from communicate._utils.buttons import TopicTypeInlineKeyboardBuilder, reply_markup_main
 from communicate._utils.common import (
     NOT_FOLLOWING_MARK,
     HandlerResult,
-    SearchFollowingMode,
     UpdateBasicParams,
     UpdateExtraParams,
 )

@@ -11,7 +11,8 @@ from telegram import (
 )
 
 from _dependencies.commons import Topics, get_app_config, publish_to_pubsub
-from communicate._utils.buttons import (
+
+from ..buttons import (
     Commands,
     CoordinateSettingsMenu,
     DistanceSettings,
@@ -35,7 +36,7 @@ from communicate._utils.buttons import (
     c_start,
     reply_markup_main,
 )
-from communicate._utils.common import (
+from ..common import (
     LA_BOT_CHAT_URL,
     AgePeriod,
     HandlerResult,
@@ -47,10 +48,10 @@ from communicate._utils.common import (
     generate_yandex_maps_place_link,
     save_onboarding_step,
 )
-from communicate._utils.database import db
-from communicate._utils.decorators import button_handler
-from communicate._utils.message_sending import tg_api
-from communicate._utils.regions import (
+from ..database import db
+from ..decorators import button_handler
+from ..message_sending import tg_api
+from ..regions import (
     dict_of_fed_dist,
     fed_okr_dict,
     folder_dict,

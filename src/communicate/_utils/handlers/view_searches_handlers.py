@@ -5,8 +5,9 @@ from enum import Enum
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from _dependencies.misc import age_writer, time_counter_since_search_start
-from communicate._utils.buttons import Commands, MainMenu, OtherOptionsMenu, reply_markup_main
-from communicate._utils.common import (
+
+from ..buttons import Commands, MainMenu, OtherOptionsMenu, reply_markup_main
+from ..common import (
     FORUM_FOLDER_PREFIX,
     LA_BOT_CHAT_URL,
     NOT_FOLLOWING_MARK,
@@ -17,9 +18,9 @@ from communicate._utils.common import (
     UpdateExtraParams,
     define_dist_and_dir_to_search,
 )
-from communicate._utils.database import db
-from communicate._utils.decorators import button_handler
-from communicate._utils.message_sending import tg_api
+from ..database import db
+from ..decorators import button_handler
+from ..message_sending import tg_api
 
 InlineKeyboardRow = list[InlineKeyboardButton]  # type alias
 
