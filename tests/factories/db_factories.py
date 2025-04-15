@@ -139,6 +139,15 @@ class UserPrefSearchFilteringFactory(BaseFactory[UserPrefSearchFiltering]):
     pass
 
 
+class CommunicationsLastInlineMsg(db_models.Base):
+    __table__ = db_models.t_communications_last_inline_msg
+    __mapper_args__ = {'primary_key': [db_models.t_communications_last_inline_msg.c.id]}
+
+
+class CommunicationsLastInlineMsgFactory(BaseFactory[CommunicationsLastInlineMsg]):
+    pass
+
+
 class UserOnboardingFactory(BaseFactory[db_models.UserOnboarding]):
     pass
 
@@ -152,4 +161,16 @@ class GeocodingFactory(BaseFactory[db_models.Geocoding]):
 
 
 class ForumSummarySnapshotFactory(BaseFactory[db_models.ForumSummarySnapshot]):
+    pass
+
+
+class UserRoleFactory(BaseFactory[db_models.UserRole]):
+    pass
+
+
+class MsgFromBotFactory(BaseFactory[db_models.MsgFromBot]):
+    pass
+
+
+class UserForumAttributeFactory(BaseFactory[db_models.UserForumAttribute]):
     pass

@@ -61,6 +61,7 @@ class TestMain:
 
         assert res
 
+    @pytest.mark.freeze_time('2025-02-13 14:27:00')
     def test_get_topics_to_check(self):
         cnt = 10
         geofolder = db_factories.GeoFolderFactory.create_sync(
@@ -75,6 +76,7 @@ class TestMain:
                 search_forum_num=search.search_forum_num,
             )
 
+        assert main.get_db_client().get_list_of_topics()
         topics_to_check = main.get_topics_to_check()
 
         assert topics_to_check
