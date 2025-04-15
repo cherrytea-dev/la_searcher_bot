@@ -150,9 +150,10 @@ class TopicTypeInlineKeyboardBuilder:
     ]
 
     @classmethod
-    def its_my_callback(cls, cb_data: dict[str, Any]) -> bool:
+    def manual_callback_handling(cls, cb_data: dict[str, Any]) -> bool:
         with suppress(Exception):
-            return cb_data['keyboard'] == cls.keyboard_code
+            if cb_data['keyboard'] == cls.keyboard_code and cb_data['action'] == 'about':
+                return True
         return False
 
     @classmethod

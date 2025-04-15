@@ -238,11 +238,7 @@ def _reply_to_user(
     context = f'if reply_markup and not isinstance(reply_markup, dict): {reply_markup=}, {context_step=}'
     logging.info(f'{context=}: {reply_markup=}')
 
-    user_used_inline_button = (
-        got_callback
-        and TopicTypeInlineKeyboardBuilder.its_my_callback(got_callback)
-        and got_callback['action'] != 'about'
-    )
+    user_used_inline_button = got_callback and not TopicTypeInlineKeyboardBuilder.manual_callback_handling(got_callback)
 
     if user_used_inline_button:
         # call editMessageText to edit inline keyboard

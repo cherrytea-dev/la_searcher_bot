@@ -23,7 +23,6 @@ def handle_topic_type_user_changed(
     """Save user Topic Type preference and generate the actual topic type preference message"""
 
     user_callback = update_params.got_callback
-    callback_query = update_params.callback_query
     callback_id = update_params.callback_query_id
     user_id = update_params.user_id
 
@@ -32,69 +31,85 @@ def handle_topic_type_user_changed(
         'мероприятий бот должен присылать уведомления.'
     )
     bot_message = welcome_message
-    list_of_ids_to_change_now = []
-    list_of_current_setting_ids = db().check_saved_topic_types(user_id)
 
-    # when user push "ABOUT" button
     if user_callback and user_callback['action'] == 'about':
-        # this scenario assumes three steps: 1. send the "ABOUT" message, 2. delete prev MENU message 3. send NEW MENU
-        about_text = (
-            'ЛизаАлерт проводит несколько типов поисковых мероприятий. В Боте доступны следующие из '
-            'них:\n\n'
-            '• <b>Стандартные активные поиски</b> – это самые частые поиски: потерялся человек, нужно его '
-            'найти, чаще всего на местности. 90% всех поисков попадают в эту категорию.\n'
-            '• <b>Резонансные поиски</b> (или "Резонансы") – это срочные поиски федерального масштаба. '
-            'На такие поиски призываются поисковики из разных регионов.\n'
-            '• <b>Информационная поддержка</b> – это поиски, когда не требуется выезд на поисковые '
-            'мероприятия, а лишь требуют помощи в распространении информации о пропавшем в в соц сетях.\n'
-            '• <b>Обратные поиски</b> (поиски родных) – бывает, что находят людей, которые не могут '
-            'сообщить, кто они, где они живут (потеря памяти). В таких случаях требуется поиск '
-            'родственников.\n'
-            '• <b>Учебные поиски</b> – это важные поиски, которые созданы ЛизаАлерт, максимально приближены'
-            'по условиям к реальным поискам на местности и призваны отрабатывать навыки поиска и спасения'
-            'людей в реальных условиях. Создатели бота очень рекомендуют участвовать в '
-            'Учебных поисках, чтобы повышать свои навыки как поисковика.\n'
-            '• <b>Ночной патруль</b> – в некоторых регионах проводятся ночные патрули в парках и других '
-            'общественных зонах.\n'
-            '• <b>Мероприятия</b> – это различные встречи, проводимые отрядами ЛизаАлерт. Тематика и '
-            'календарь проведения сильно варьируются от региона к региону. Рекомендуем подписаться, '
-            'чтобы быть в курсе всех событий в отряде вашего региона. 💡'
-        )
-        about_params = {'chat_id': user_id, 'text': about_text, 'parse_mode': 'HTML'}
-        tg_api().send_message(about_params, "main() if ... user_callback['action'] == 'about'")
-        del_message_id = callback_query.message.id if callback_query and callback_query.message else None
-        if del_message_id:  ###was get_last_user_inline_dialogue( user_id)
-            tg_api().delete_message(user_id, del_message_id)
-            bot_message = f'⬆️ Справка приведена выше. \n\n{welcome_message}'
+        # when user push "ABOUT" button
+        return _handle_topic_type_pressed_about(update_params, welcome_message)
 
     # when user pushed INLINE BUTTON for topic type
-    else:
-        topic_id = TopicTypeInlineKeyboardBuilder.get_topic_id_by_button(user_callback)
-        assert topic_id is not None  # would be None only if "about" pushed
+    list_of_ids_to_change_now = []
+    list_of_current_setting_ids = db().check_saved_topic_types(user_id)
+    topic_id = TopicTypeInlineKeyboardBuilder.get_topic_id_by_button(user_callback)
+    assert topic_id is not None  # would be None only if "about" pushed
 
-        list_of_ids_to_change_now = [topic_id]
-        user_wants_to_enable = TopicTypeInlineKeyboardBuilder.if_user_enables(user_callback)
-        if user_wants_to_enable is None:
-            flash_message = ''
-            pass
-        elif user_wants_to_enable is True:  # not a poor design – function can be: None, True, False   # noqa
-            flash_message = 'Супер, мы включили эти уведомления'
+    list_of_ids_to_change_now = [topic_id]
+    user_wants_to_enable = TopicTypeInlineKeyboardBuilder.if_user_enables(user_callback)
+    if user_wants_to_enable is None:
+        flash_message = ''
+        pass
+    elif user_wants_to_enable is True:  # not a poor design – function can be: None, True, False   # noqa
+        flash_message = 'Супер, мы включили эти уведомления'
+        tg_api().send_callback_answer_to_api(update_params.user_id, callback_id, flash_message)
+        db().record_topic_type(user_id, topic_id)
+    else:  # user_wants_to_enable == False:  # not a poor design – function can be: None, True, False # noqa
+        if len(list_of_current_setting_ids) == 1:
+            flash_message = '❌ Необходима как минимум одна настройка'
+            list_of_ids_to_change_now = []
             tg_api().send_callback_answer_to_api(update_params.user_id, callback_id, flash_message)
-            db().record_topic_type(user_id, topic_id)
-        else:  # user_wants_to_enable == False:  # not a poor design – function can be: None, True, False # noqa
-            if len(list_of_current_setting_ids) == 1:
-                flash_message = '❌ Необходима как минимум одна настройка'
-                list_of_ids_to_change_now = []
-                tg_api().send_callback_answer_to_api(update_params.user_id, callback_id, flash_message)
-            else:
-                flash_message = 'Хорошо, мы изменили список настроек'
-                tg_api().send_callback_answer_to_api(update_params.user_id, callback_id, flash_message)
-                db().delete_user_saved_topic_type(user_id, topic_id)
+        else:
+            flash_message = 'Хорошо, мы изменили список настроек'
+            tg_api().send_callback_answer_to_api(update_params.user_id, callback_id, flash_message)
+            db().delete_user_saved_topic_type(user_id, topic_id)
 
     keyboard = TopicTypeInlineKeyboardBuilder.get_keyboard(list_of_current_setting_ids, list_of_ids_to_change_now)
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     return bot_message, reply_markup
+
+
+def _handle_topic_type_pressed_about(
+    update_params: UpdateBasicParams, welcome_message: str
+) -> tuple[str, InlineKeyboardMarkup]:
+    """This scenario assumes three steps:
+    1. send the "ABOUT" message,
+    2. delete prev MENU message
+    3. send NEW MENU"""
+
+    callback_query = update_params.callback_query
+    user_id = update_params.user_id
+
+    about_text = (
+        'ЛизаАлерт проводит несколько типов поисковых мероприятий. В Боте доступны следующие из '
+        'них:\n\n'
+        '• <b>Стандартные активные поиски</b> – это самые частые поиски: потерялся человек, нужно его '
+        'найти, чаще всего на местности. 90% всех поисков попадают в эту категорию.\n'
+        '• <b>Резонансные поиски</b> (или "Резонансы") – это срочные поиски федерального масштаба. '
+        'На такие поиски призываются поисковики из разных регионов.\n'
+        '• <b>Информационная поддержка</b> – это поиски, когда не требуется выезд на поисковые '
+        'мероприятия, а лишь требуют помощи в распространении информации о пропавшем в в соц сетях.\n'
+        '• <b>Обратные поиски</b> (поиски родных) – бывает, что находят людей, которые не могут '
+        'сообщить, кто они, где они живут (потеря памяти). В таких случаях требуется поиск '
+        'родственников.\n'
+        '• <b>Учебные поиски</b> – это важные поиски, которые созданы ЛизаАлерт, максимально приближены'
+        'по условиям к реальным поискам на местности и призваны отрабатывать навыки поиска и спасения'
+        'людей в реальных условиях. Создатели бота очень рекомендуют участвовать в '
+        'Учебных поисках, чтобы повышать свои навыки как поисковика.\n'
+        '• <b>Ночной патруль</b> – в некоторых регионах проводятся ночные патрули в парках и других '
+        'общественных зонах.\n'
+        '• <b>Мероприятия</b> – это различные встречи, проводимые отрядами ЛизаАлерт. Тематика и '
+        'календарь проведения сильно варьируются от региона к региону. Рекомендуем подписаться, '
+        'чтобы быть в курсе всех событий в отряде вашего региона. 💡'
+    )
+    about_params = {'chat_id': user_id, 'text': about_text, 'parse_mode': 'HTML'}
+    tg_api().send_message(about_params, "main() if ... user_callback['action'] == 'about'")
+    del_message_id = callback_query.message.id if callback_query and callback_query.message else None
+    if del_message_id:  ###was get_last_user_inline_dialogue( user_id)
+        tg_api().delete_message(user_id, del_message_id)
+        bot_message = f'⬆️ Справка приведена выше. \n\n{welcome_message}'
+
+    list_of_current_setting_ids = db().check_saved_topic_types(user_id)
+    keyboard = TopicTypeInlineKeyboardBuilder.get_keyboard(list_of_current_setting_ids, [])
+    return bot_message, InlineKeyboardMarkup(keyboard)
 
 
 @callback_handler(actions=['search_follow_mode_on', 'search_follow_mode_off'])
