@@ -15,7 +15,6 @@ from communicate._utils.common import (
     SearchSummary,
     UpdateBasicParams,
     UpdateExtraParams,
-    UserInputState,
     define_dist_and_dir_to_search,
 )
 from communicate._utils.database import db
@@ -241,9 +240,6 @@ def _handle_view_searches_usual_view(user_id: int, search_list_type: SearchListT
     if 'tester' in db().get_user_sys_roles(user_id):
         _show_button_to_turn_on_following_searches(user_id)
 
-    # TODO why we need it??
-    db().set_user_input_state(user_id, UserInputState.report)
-
     return '', None
 
 
@@ -353,7 +349,6 @@ def _handle_view_searches_experimental_view(user_id: int, search_list_type: Sear
         context = f'{user_id=}, context_step=b03'
         tg_api().send_message(data, context)
 
-    db().set_user_input_state(user_id, UserInputState.report)
     return '', None
 
 

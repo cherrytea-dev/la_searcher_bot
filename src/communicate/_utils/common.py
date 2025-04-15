@@ -30,7 +30,6 @@ class UserInputState(str, Enum):
     input_of_coords_man = 'input_of_coords_man'
     input_of_forum_username = 'input_of_forum_username'
     not_defined = 'not_defined'
-    report = 'report'  # TODO missing handler to work with it
 
 
 PREF_DICT = {
