@@ -241,6 +241,12 @@ def _reply_to_user(
     logging.info(f'{context=}: {reply_markup=}')
 
     user_used_inline_button = got_callback and not TopicTypeInlineKeyboardBuilder.manual_callback_handling(got_callback)
+    try:
+        # temporary hack to return old behavior
+        if got_callback['action'] in ('search_follow_mode_on', 'search_follow_mode_off'):  # type:ignore[index]
+            user_used_inline_button = False
+    except Exception:
+        pass
 
     if user_used_inline_button:
         # call editMessageText to edit inline keyboard
