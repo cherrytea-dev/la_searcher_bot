@@ -12,6 +12,7 @@ from _dependencies.commons import sqlalchemy_get_pool
 from tests.factories import db_models
 
 faker = Faker('ru_RU')
+faker.seed_instance()
 
 
 @lru_cache
@@ -79,6 +80,7 @@ class SearchHealthCheckFactory(BaseFactory[db_models.SearchHealthCheck]):
 class UserFactory(BaseFactory[db_models.User]):
     status = None
     role = 'new_member'
+    user_id = Use(BaseFactory.__random__.randint, 1000000000, 9000000000)
 
 
 class UserPreferenceFactory(BaseFactory[db_models.UserPreference]):

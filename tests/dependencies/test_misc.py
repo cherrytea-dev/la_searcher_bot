@@ -17,10 +17,10 @@ def test_make_api_call():
 @pytest.mark.parametrize(
     'minutes_ago,hours_ago,days_ago,result',
     [
-        (0, 0, 0, ['Начинаем искать', 0]),
-        (0, 1, 0, ['1 час', 0]),
-        (0, 10, 0, ['10 часов', 0]),
-        (0, 0, 2, ['2 дня', 2]),
+        (0, 0, 0, ('Начинаем искать', 0)),
+        (0, 1, 0, ('1 час', 0)),
+        (0, 10, 0, ('10 часов', 0)),
+        (0, 0, 2, ('2 дня', 2)),
     ],
 )
 def test_time_counter_since_search_start(minutes_ago: int, hours_ago: int, days_ago: int, result: str):

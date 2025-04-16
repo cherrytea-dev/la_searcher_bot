@@ -3,7 +3,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from faker import Faker
 from requests_mock.mocker import Mocker
 from sqlalchemy.orm import Session
 
@@ -11,10 +10,8 @@ from _dependencies.commons import sqlalchemy_get_pool
 from check_first_posts_for_changes import main
 from check_first_posts_for_changes._utils import forum
 from check_first_posts_for_changes._utils.database import DBClient
-from tests.common import find_model
+from tests.common import fake, find_model
 from tests.factories import db_factories, db_models
-
-fake = Faker()
 
 
 @pytest.fixture(autouse=True)

@@ -67,7 +67,7 @@ def get_publisher() -> pubsub_v1.PublisherClient:
     return pubsub_v1.PublisherClient()
 
 
-def publish_to_pubsub(topic_name: Topics | str, message) -> None:
+def publish_to_pubsub(topic_name: Topics, message: str | dict | list) -> None:
     """publish a new message to pub/sub"""
 
     topic_name_str = topic_name.value if isinstance(topic_name, Topics) else topic_name
@@ -91,7 +91,7 @@ def publish_to_pubsub(topic_name: Topics | str, message) -> None:
     return None
 
 
-def _send_topic(topic_name: Topics, topic_path, message_bytes) -> None:
+def _send_topic(topic_name: Topics, topic_path: str, message_bytes: bytes) -> None:
     publish_future = get_publisher().publish(topic_path, data=message_bytes)
     publish_future.result()  # Verify the publishing succeeded
 
@@ -132,7 +132,7 @@ def get_forum_proxies() -> dict:
         return {}
 
 
-def _get_config():
+def _get_config() -> AppConfig:
     """for patching in tests"""
     return AppConfig(
         postgres_user=get_secrets('cloud-postgres-username'),

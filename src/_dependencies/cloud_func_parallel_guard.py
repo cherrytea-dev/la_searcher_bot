@@ -87,10 +87,7 @@ def check_and_save_event_id(
     if not context or not event:
         return False
 
-    try:
-        event_id = context.event_id
-    except Exception as e:  # noqa
-        return False
+    event_id = context.event_id
 
     # if this functions is triggered in the very beginning of the Google Cloud Function execution
     if event == 'start':
@@ -105,3 +102,4 @@ def check_and_save_event_id(
     elif event == 'finish':
         record_finish_of_function(event_id, list_of_change_log_ids or [])
         return False
+    return False

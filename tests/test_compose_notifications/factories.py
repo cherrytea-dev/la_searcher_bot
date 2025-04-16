@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from polyfactory import Use
 from polyfactory.factories import DataclassFactory
 
 from _dependencies.commons import TopicType
@@ -18,3 +19,4 @@ class LineInChangeLogFactory(DataclassFactory[LineInChangeLog]):
 class UserFactory(DataclassFactory[User]):
     user_latitude = '60.0000'
     user_longitude = '60.0000'
+    user_id = Use(DataclassFactory.__random__.randint, 1000000000, 9000000000)

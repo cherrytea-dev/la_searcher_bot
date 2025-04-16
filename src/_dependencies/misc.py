@@ -7,7 +7,8 @@ import math
 import random
 import time
 import urllib.parse
-from typing import Dict
+from ast import literal_eval
+from typing import Any
 
 import google.auth.transport.requests
 import google.cloud.logging
@@ -21,7 +22,7 @@ from telegram.ext import Application, ContextTypes
 from _dependencies.commons import Topics, get_app_config, publish_to_pubsub
 
 
-def notify_admin(message) -> None:
+def notify_admin(message: str) -> None:
     """send the pub/sub message to Debug to Admin"""
 
     publish_to_pubsub(Topics.topic_notify_admin, message)
@@ -91,11 +92,11 @@ def process_pubsub_message_v3(event: dict) -> str:
         received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
         logging.info('received_message_from_pubsub: ' + str(received_message_from_pubsub))
     elif 'message' in event:
-        received_message_from_pubsub = base64.b64decode(event).decode('utf-8')
+        received_message_from_pubsub = base64.b64decode(event['message']).decode('utf-8')
     else:
         received_message_from_pubsub = 'I cannot read message from pub/sub'
         logging.info(received_message_from_pubsub)
-    encoded_to_ascii = eval(received_message_from_pubsub)
+    encoded_to_ascii = literal_eval(received_message_from_pubsub)
     logging.info('encoded_to_ascii: ' + str(encoded_to_ascii))
     try:
         data_in_ascii = encoded_to_ascii['data']
@@ -150,7 +151,7 @@ def time_counter_since_search_start(start_time: datetime.datetime) -> tuple[str,
         else:
             phrase += ' дней'
 
-    return [phrase, diff.days]
+    return phrase, diff.days
 
 
 def age_writer(age: int) -> str:
@@ -172,16 +173,14 @@ def age_writer(age: int) -> str:
     return wording
 
 
-async def send_message_async(context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)
-
-    return None
+async def send_message_async(context: ContextTypes.DEFAULT_TYPE) -> None:
+    await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)  # type:ignore[arg-type,union-attr]
 
 
-async def prepare_message_for_async(user_id, data: Dict[str, str], bot_token: str) -> str:
+async def prepare_message_for_async(user_id: int, data: dict[str, str], bot_token: str) -> str:
     application = Application.builder().token(bot_token).build()
     job_queue = application.job_queue
-    job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)
+    job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)  # type:ignore[union-attr]
 
     async with application:
         await application.initialize()
@@ -192,12 +191,12 @@ async def prepare_message_for_async(user_id, data: Dict[str, str], bot_token: st
     return 'ok'
 
 
-def process_sending_message_async_other_bot(user_id, data) -> None:
+def process_sending_message_async_other_bot(user_id: int, data: dict) -> None:
     # TODO same tokens or different?
     asyncio.run(prepare_message_for_async(user_id, data, bot_token=get_app_config().bot_api_token))
 
 
-def process_sending_message_async(user_id: int, data) -> None:
+def process_sending_message_async(user_id: int, data: dict) -> None:
     asyncio.run(prepare_message_for_async(user_id, data, bot_token=get_app_config().bot_api_token__prod))
 
     return None
@@ -224,14 +223,12 @@ def get_change_log_update_time(cur: cursor, change_log_id: int) -> datetime.date
                     WHERE id = %s;
                     /*action='getting_change_log_parsing_time' */;"""
     cur.execute(sql_text_psy, (change_log_id,))
-    parsed_time = cur.fetchone()
+    record = cur.fetchone()
 
-    if not parsed_time:
+    if not record:
         return None
 
-    parsed_time = parsed_time[0]
-
-    return parsed_time
+    return record[0]
 
 
 def send_location_to_api(
@@ -285,7 +282,7 @@ def save_sending_status_to_notif_by_user(cur: cursor, message_id: int, result: s
     cur.execute(sql_text_psy, (datetime.datetime.now(), message_id))
 
 
-def evaluate_city_locations(city_locations):
+def evaluate_city_locations(city_locations: str) -> list[list[Any]] | None:
     if not city_locations:
         logging.info('no city_locations')
         return None
@@ -338,7 +335,7 @@ def get_triggering_function(message_from_pubsub: dict) -> int:
 
 
 def send_message_to_api(
-    session: requests.Session, bot_token: str, user_id: int, message, params
+    session: requests.Session, bot_token: str, user_id: int, message: str, params: dict
 ) -> requests.Response | None:
     """send message directly to Telegram API w/o any wrappers ar libraries"""
 
@@ -413,8 +410,8 @@ def process_response(user_id: int, response: requests.Response | None) -> str:
             logging.exception('FLOOD CONTROL')
             # fixme - try to get retry_after
             try:
-                retry_after = response.parameters.retry_after
-                print(f'ho-ho, we did it! 429 worked! {retry_after}')
+                retry_after = response.headers['Retry-After']
+                logging.warning(f'ho-ho, we did it! 429 worked! {retry_after}')
             except:  # noqa
                 pass
             # fixme ^^^
