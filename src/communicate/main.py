@@ -219,6 +219,7 @@ def _process_block_unblock_user(user_id: int, user_new_status: str) -> None:
 def _run_onboarding(user_id: int, username: str, onboarding_step_id: int, got_message: str) -> int:
     """part of the script responsible for orchestration of activities for non-finally-onboarded users"""
 
+    logging.info('running onboarding')
     if onboarding_step_id == 21:  # region_set
         # mark that onboarding is finished
         if got_message:
@@ -285,6 +286,7 @@ def process_update(update: Update) -> str:
     username = update_params.username
 
     if update_params.user_new_status in {'kicked', 'member'}:
+        logging.info(f'triggered handler: {_process_block_unblock_user.__name__}')
         _process_block_unblock_user(update_params.user_id, update_params.user_new_status)
         return 'finished successfully. it was a system message on bot block/unblock'
 
@@ -366,11 +368,13 @@ def _process_handler_result(
 
 def _run_handlers(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> None:
     ### COMMON HANDLERS ###
+    logging.info(f'start checking handlers with {update_params=}, {extra_params=}')
     for handler in COMMON_HANDLERS:
         result = handler(update_params, extra_params)
         if not result:
             continue
 
+        logging.info(f'triggered handler: {handler.__name__}')
         bot_message, reply_markup = result[0], result[1]
         new_user_input_state = result[2] if len(result) >= 3 else None
 
