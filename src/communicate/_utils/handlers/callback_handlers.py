@@ -1,17 +1,17 @@
 import logging
 from ast import literal_eval
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from _dependencies.commons import SearchFollowingMode
-from communicate._utils.common import (
+
+from ..buttons import TopicTypeInlineKeyboardBuilder, reply_markup_main
+from ..common import (
     NOT_FOLLOWING_MARK,
     HandlerResult,
     UpdateBasicParams,
     UpdateExtraParams,
 )
-
-from ..buttons import TopicTypeInlineKeyboardBuilder, reply_markup_main
 from ..database import db
 from ..decorators import callback_handler
 from ..message_sending import tg_api
