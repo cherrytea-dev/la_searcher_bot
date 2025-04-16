@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 import psycopg2
 import sqlalchemy
 from dotenv import load_dotenv
+from faker import Faker
 from polyfactory.factories import dataclass_factory
 from pydantic_settings import SettingsConfigDict
 from sqlalchemy.orm import Session
@@ -159,3 +160,6 @@ def find_model(session: Session, model: type[T], **kwargs: Any) -> T | None:
     for key, value in kwargs.items():
         query = query.filter_by(**{key: value})
     return query.first()
+
+
+fake = Faker()

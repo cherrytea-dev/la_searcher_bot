@@ -4,9 +4,9 @@ import logging
 import sqlalchemy
 from sqlalchemy.engine.base import Connection
 
-from _dependencies.commons import ChangeType
+from _dependencies.commons import ChangeType, SearchFollowingMode
 
-from .commons import LineInChangeLog, SearchFollowingMode, User, define_dist_and_dir_to_search
+from .commons import LineInChangeLog, User, define_dist_and_dir_to_search
 
 
 class UsersListComposer:

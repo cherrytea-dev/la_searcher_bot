@@ -2,8 +2,8 @@ import pytest
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
-from _dependencies.commons import ChangeType, TopicType
-from compose_notifications._utils.commons import LineInChangeLog, SearchFollowingMode, User
+from _dependencies.commons import ChangeType, SearchFollowingMode, TopicType
+from compose_notifications._utils.commons import LineInChangeLog, User
 from compose_notifications._utils.message_composer import MessageComposer
 from compose_notifications._utils.notifications_maker import (
     NotificationMaker,

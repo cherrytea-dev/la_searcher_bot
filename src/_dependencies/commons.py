@@ -269,3 +269,10 @@ class TopicType(IntEnum):
     info = 20
     all = 30
     unrecognized = 99
+
+
+class SearchFollowingMode(str, Enum):
+    # in table 'user_pref_search_whitelist'
+    # TODO replace values in 'communicate' to this enum later
+    ON = '👀 '
+    OFF = '❌ '
