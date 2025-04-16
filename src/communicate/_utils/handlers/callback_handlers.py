@@ -4,16 +4,17 @@ from ast import literal_eval
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
 from _dependencies.commons import SearchFollowingMode
-from communicate._utils.buttons import TopicTypeInlineKeyboardBuilder, reply_markup_main
 from communicate._utils.common import (
     NOT_FOLLOWING_MARK,
     HandlerResult,
     UpdateBasicParams,
     UpdateExtraParams,
 )
-from communicate._utils.database import db
-from communicate._utils.decorators import callback_handler
-from communicate._utils.message_sending import tg_api
+
+from ..buttons import TopicTypeInlineKeyboardBuilder, reply_markup_main
+from ..database import db
+from ..decorators import callback_handler
+from ..message_sending import tg_api
 
 
 @callback_handler(keyboard_name=TopicTypeInlineKeyboardBuilder.keyboard_code)
