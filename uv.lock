@@ -100,11 +100,11 @@ sdist = { url = "https://files.pythonhosted.org/packages/a8/5d/090c9f0312b7988a9
 
 [[package]]
 name = "certifi"
-version = "2023.7.22"
+version = "2024.7.4"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/98/98/c2ff18671db109c9f10ed27f5ef610ae05b73bd876664139cf95bd1429aa/certifi-2023.7.22.tar.gz", hash = "sha256:539cc1d13202e33ca466e88b2807e29f4c13049d6d87031a3c110744495cb082", size = 159517 }
+sdist = { url = "https://files.pythonhosted.org/packages/c2/02/a95f2b11e207f68bc64d7aae9666fed2e2b3f307748d5123dffb72a1bbea/certifi-2024.7.4.tar.gz", hash = "sha256:5a1e7645bc0ec61a09e26c36f6106dd4cf40c6db3a1fb6352b0244e7fb057c7b", size = 164065 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4c/dd/2234eab22353ffc7d94e8d13177aaa050113286e93e7b40eae01fbf7c3d9/certifi-2023.7.22-py3-none-any.whl", hash = "sha256:92d6037539857d8206b8f6ae472e8b77db8058fec5937a1ef3f54304089edbb9", size = 158334 },
+    { url = "https://files.pythonhosted.org/packages/1c/d5/c84e1a17bf61d4df64ca866a1c9a913874b4e9bdc131ec689a0ad013fb36/certifi-2024.7.4-py3-none-any.whl", hash = "sha256:c198e21b1289c2ab85ee4e67bb4b4ef3ead0892059901a8d5b622f24a1101e90", size = 162960 },
 ]
 
 [[package]]
@@ -465,7 +465,7 @@ wheels = [
 
 [[package]]
 name = "functions-framework"
-version = "3.4.0"
+version = "3.8.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -473,10 +473,11 @@ dependencies = [
     { name = "flask" },
     { name = "gunicorn", marker = "sys_platform != 'win32'" },
     { name = "watchdog" },
+    { name = "werkzeug" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d3/f1/9be8f433498f3223985820893d48dbe9ab2cd92d721496120ab98956bdba/functions-framework-3.4.0.tar.gz", hash = "sha256:c05639bcdd19f11a2eef1b6dabde5998f7d67cbddbffdf2f06ca56dc13c54e95", size = 38147 }
+sdist = { url = "https://files.pythonhosted.org/packages/ed/80/b19ccfd7148a487c4583d03a3b9f21680cc19beb2059ec838209caa1d7b2/functions_framework-3.8.2.tar.gz", hash = "sha256:109bcdca01244067052a605536b44d042903b3805d093cd32e343ba5affffc90", size = 44392 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6c/e5/8a50f46e0fe439fc59a27ffced0729d2121a1702b21a18e17eb67414d813/functions_framework-3.4.0-py3-none-any.whl", hash = "sha256:e22f30a66aab7180373f9a81f88114da088915b3622c62dcd6ec972ac908e0c4", size = 32018 },
+    { url = "https://files.pythonhosted.org/packages/3c/79/7e2391feb0fbfa2d1466944c030070fa4c7f5cac74e26680c42f5b622c21/functions_framework-3.8.2-py3-none-any.whl", hash = "sha256:ecbe8e4566efca9ed1718f210ac92d47fc47ec3a448d2bca3b4bb5888bceca08", size = 35963 },
 ]
 
 [[package]]
@@ -843,14 +844,14 @@ wheels = [
 
 [[package]]
 name = "gunicorn"
-version = "20.1.0"
+version = "23.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "setuptools" },
+    { name = "packaging" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/28/5b/0d1f0296485a6af03366604142ea8f19f0833894db3512a40ed07b2a56dd/gunicorn-20.1.0.tar.gz", hash = "sha256:e0a968b5ba15f8a328fdfd7ab1fcb5af4470c28aaf7e55df02a99bc13138e6e8", size = 370601 }
+sdist = { url = "https://files.pythonhosted.org/packages/34/72/9614c465dc206155d93eff0ca20d42e1e35afc533971379482de953521a4/gunicorn-23.0.0.tar.gz", hash = "sha256:f014447a0101dc57e294f6c18ca6b40227a4c90e9bdb586042628030cba004ec", size = 375031 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e4/dd/5b190393e6066286773a67dfcc2f9492058e9b57c4867a95f1ba5caf0a83/gunicorn-20.1.0-py3-none-any.whl", hash = "sha256:9dcc4547dbb1cb284accfb15ab5667a0e5d1881cc443e0677b4882a4067a807e", size = 79531 },
+    { url = "https://files.pythonhosted.org/packages/cb/7d/6dac2a6e1eba33ee43f318edbed4ff29151a49b5d37f080aad1e6469bca4/gunicorn-23.0.0-py3-none-any.whl", hash = "sha256:ec400d38950de4dfd418cff8328b2c8faed0edb0d517d3394e457c317908ca4d", size = 85029 },
 ]
 
 [[package]]
@@ -894,11 +895,11 @@ wheels = [
 
 [[package]]
 name = "idna"
-version = "2.10"
+version = "3.7"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ea/b7/e0e3c1c467636186c39925827be42f16fee389dc404ac29e930e9136be70/idna-2.10.tar.gz", hash = "sha256:b307872f855b18632ce0c21c5e45be78c0ea7ae4c15c828c20788b26921eb3f6", size = 175616 }
+sdist = { url = "https://files.pythonhosted.org/packages/21/ed/f86a79a07470cb07819390452f178b3bef1d375f2ec021ecfc709fc7cf07/idna-3.7.tar.gz", hash = "sha256:028ff3aadf0609c1fd278d8ea3089299412a7a8b9bd005dd08b9f8285bcb5cfc", size = 189575 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a2/38/928ddce2273eaa564f6f50de919327bf3a00f091b5baba8dfa9460f3a8a8/idna-2.10-py2.py3-none-any.whl", hash = "sha256:b97d804b1e9b523befed77c48dacec60e6dcb0b5391d57af6a65a312a90648c0", size = 58811 },
+    { url = "https://files.pythonhosted.org/packages/e5/3e/741d8c82801c347547f8a2a06aa57dbb1992be9e948df2ea0eda2c8b79e8/idna-3.7-py3-none-any.whl", hash = "sha256:82fee1fc78add43492d3a1898bfa6d8a904cc97d8427f683ed8e798d07761aa0", size = 66836 },
 ]
 
 [[package]]
@@ -1100,13 +1101,13 @@ requires-dist = [
     { name = "beautifulsoup4", marker = "extra == 'identify-updates-of-topics'", specifier = "==4.9.3" },
     { name = "beautifulsoup4", marker = "extra == 'user-provide-info'", specifier = "==4.9.3" },
     { name = "cchardet", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.1.7" },
-    { name = "certifi", marker = "extra == 'compose-notifications'", specifier = "==2023.7.22" },
-    { name = "certifi", marker = "extra == 'identify-updates-of-topics'", specifier = "==2023.7.22" },
+    { name = "certifi", marker = "extra == 'compose-notifications'", specifier = "==2024.7.4" },
+    { name = "certifi", marker = "extra == 'identify-updates-of-topics'", specifier = "==2024.7.4" },
     { name = "chardet", marker = "extra == 'compose-notifications'", specifier = "==4.0.0" },
     { name = "chardet", marker = "extra == 'identify-updates-of-topics'", specifier = "==4.0.0" },
-    { name = "functions-framework", marker = "extra == 'api-get-active-searches'", specifier = "==3.*" },
-    { name = "functions-framework", marker = "extra == 'title-recognize'", specifier = "==3.4.0" },
-    { name = "functions-framework", marker = "extra == 'user-provide-info'", specifier = "==3.*" },
+    { name = "functions-framework", marker = "extra == 'api-get-active-searches'", specifier = "==3.8.2" },
+    { name = "functions-framework", marker = "extra == 'title-recognize'", specifier = "==3.8.2" },
+    { name = "functions-framework", marker = "extra == 'user-provide-info'", specifier = "==3.8.2" },
     { name = "geopy", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.2.0" },
     { name = "google-auth", marker = "extra == 'check-first-posts-for-changes'", specifier = "==2.19.1" },
     { name = "google-auth", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.19.1" },
@@ -1120,8 +1121,8 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'connect-to-forum'", specifier = "==0.23.3" },
     { name = "httpx", marker = "extra == 'send-debug-to-admin'", specifier = "==0.23.3" },
     { name = "httpx", marker = "extra == 'send-notifications'", specifier = "==0.23.3" },
-    { name = "idna", marker = "extra == 'compose-notifications'", specifier = "==2.10" },
-    { name = "idna", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.10" },
+    { name = "idna", marker = "extra == 'compose-notifications'", specifier = "==3.7" },
+    { name = "idna", marker = "extra == 'identify-updates-of-topics'", specifier = "==3.7" },
     { name = "lxml", marker = "extra == 'api-get-active-searches'", specifier = "==4.9.1" },
     { name = "lxml", marker = "extra == 'check-topics-by-upd-time'", specifier = "==4.9.1" },
     { name = "lxml", marker = "extra == 'connect-to-forum'", specifier = "==4.9.1" },
@@ -1149,12 +1150,12 @@ requires-dist = [
     { name = "python-telegram-bot", extras = ["rate-limiter", "job-queue"], specifier = "==20.2" },
     { name = "pytz", marker = "extra == 'archive-notifications'" },
     { name = "pytz", marker = "extra == 'compose-notifications'", specifier = "==2021.1" },
-    { name = "requests", marker = "extra == 'check-first-posts-for-changes'", specifier = "==2.31.0" },
-    { name = "requests", marker = "extra == 'check-topics-by-upd-time'", specifier = "==2.31.0" },
-    { name = "requests", marker = "extra == 'compose-notifications'", specifier = "==2.31.0" },
-    { name = "requests", marker = "extra == 'connect-to-forum'", specifier = "==2.31.0" },
-    { name = "requests", marker = "extra == 'identify-updates-of-first-posts'", specifier = "==2.31.0" },
-    { name = "requests", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.31.0" },
+    { name = "requests", marker = "extra == 'check-first-posts-for-changes'", specifier = "==2.32.0" },
+    { name = "requests", marker = "extra == 'check-topics-by-upd-time'", specifier = "==2.32.0" },
+    { name = "requests", marker = "extra == 'compose-notifications'", specifier = "==2.32.0" },
+    { name = "requests", marker = "extra == 'connect-to-forum'", specifier = "==2.32.0" },
+    { name = "requests", marker = "extra == 'identify-updates-of-first-posts'", specifier = "==2.32.0" },
+    { name = "requests", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.32.0" },
     { name = "requests-mock", marker = "extra == 'develop'", specifier = ">=1.12.1" },
     { name = "responses", marker = "extra == 'develop'", specifier = ">=0.25.6" },
     { name = "retry", specifier = "==0.9.2" },
@@ -1173,10 +1174,10 @@ requires-dist = [
     { name = "types-pytz", marker = "extra == 'develop'" },
     { name = "types-pyyaml", marker = "extra == 'develop'" },
     { name = "types-requests", marker = "extra == 'develop'", specifier = ">=2.31.0.6" },
-    { name = "urllib3", marker = "extra == 'compose-notifications'", specifier = "==1.26.18" },
-    { name = "urllib3", marker = "extra == 'connect-to-forum'", specifier = "==1.26.18" },
-    { name = "urllib3", marker = "extra == 'identify-updates-of-topics'", specifier = "==1.26.18" },
-    { name = "urllib3", marker = "extra == 'send-notifications'", specifier = "==1.26.18" },
+    { name = "urllib3", marker = "extra == 'compose-notifications'", specifier = "==1.26.19" },
+    { name = "urllib3", marker = "extra == 'connect-to-forum'", specifier = "==1.26.19" },
+    { name = "urllib3", marker = "extra == 'identify-updates-of-topics'", specifier = "==1.26.19" },
+    { name = "urllib3", marker = "extra == 'send-notifications'", specifier = "==1.26.19" },
     { name = "uv", marker = "extra == 'develop'", specifier = ">=0.5.15" },
     { name = "yandex-geocoder", marker = "extra == 'identify-updates-of-topics'", specifier = "==3.0.1" },
     { name = "yarl", marker = "extra == 'identify-updates-of-topics'", specifier = "==1.18.3" },
@@ -2052,7 +2053,7 @@ wheels = [
 
 [[package]]
 name = "requests"
-version = "2.31.0"
+version = "2.32.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
@@ -2060,9 +2061,9 @@ dependencies = [
     { name = "idna" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9d/be/10918a2eac4ae9f02f6cfe6414b7a155ccd8f7f9d4380d62fd5b955065c3/requests-2.31.0.tar.gz", hash = "sha256:942c5a758f98d790eaed1a29cb6eefc7ffb0d1cf7af05c3d2791656dbd6ad1e1", size = 110794 }
+sdist = { url = "https://files.pythonhosted.org/packages/28/a2/423f4d16d6934ef502f10ad56673719dd4345e656aedbd6687ccc359ffc5/requests-2.32.0.tar.gz", hash = "sha256:fa5490319474c82ef1d2c9bc459d3652e3ae4ef4c4ebdd18a21145a47ca4b6b8", size = 114373 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/70/8e/0e2d847013cb52cd35b38c009bb167a1a26b2ce6cd6965bf26b47bc0bf44/requests-2.31.0-py3-none-any.whl", hash = "sha256:58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f", size = 62574 },
+    { url = "https://files.pythonhosted.org/packages/24/e8/09e8d662a9675a4e4f5dd7a8e6127b463a091d2703ed931a64aa66d00065/requests-2.32.0-py3-none-any.whl", hash = "sha256:f2c3881dddb70d056c5bd7600a4fae312b2a300e39be6a118d30b90bd27262b5", size = 63695 },
 ]
 
 [[package]]
@@ -2165,15 +2166,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/69/d5/69632dfab1806d0dad816311733694768d8f205691cbad2dc7cca4159bb5/scramp-1.4.0.tar.gz", hash = "sha256:d27d768408c6fc025a0e567eed84325b0aaf24364c81ea5974e8334ae3c4fda3", size = 29837 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ae/0f/268354b47d81943a374ed97a186e96cac3a5bb4496c5fcf783d0e78212eb/scramp-1.4.0-py3-none-any.whl", hash = "sha256:27349d6839038fe3b56c641ea2a8703df065c1d605fdee67275857c0a82122b4", size = 8391 },
-]
-
-[[package]]
-name = "setuptools"
-version = "75.8.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/92/ec/089608b791d210aec4e7f97488e67ab0d33add3efccb83a056cbafe3a2a6/setuptools-75.8.0.tar.gz", hash = "sha256:c5afc8f407c626b8313a86e10311dd3f661c6cd9c09d4bf8c15c0e11f9f2b0e6", size = 1343222 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/69/8a/b9dc7678803429e4a3bc9ba462fa3dd9066824d3c607490235c6a796be5a/setuptools-75.8.0-py3-none-any.whl", hash = "sha256:e3982f444617239225d675215d51f6ba05f845d4eec313da4418fdbb56fb27e3", size = 1228782 },
 ]
 
 [[package]]
@@ -2514,11 +2506,11 @@ wheels = [
 
 [[package]]
 name = "urllib3"
-version = "1.26.18"
+version = "1.26.19"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/0c/39/64487bf07df2ed854cc06078c27c0d0abc59bd27b32232876e403c333a08/urllib3-1.26.18.tar.gz", hash = "sha256:f8ecc1bba5667413457c529ab955bf8c67b45db799d159066261719e328580a0", size = 305687 }
+sdist = { url = "https://files.pythonhosted.org/packages/c8/93/65e479b023bbc46dab3e092bda6b0005424ea3217d711964ccdede3f9b1b/urllib3-1.26.19.tar.gz", hash = "sha256:3e3d753a8618b86d7de333b4223005f68720bcd6a7d2bcb9fbd2229ec7c1e429", size = 306068 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b0/53/aa91e163dcfd1e5b82d8a890ecf13314e3e149c05270cc644581f77f17fd/urllib3-1.26.18-py2.py3-none-any.whl", hash = "sha256:34b97092d7e0a3a8cf7cd10e386f401b3737364026c45e622aa02903dffe0f07", size = 143835 },
+    { url = "https://files.pythonhosted.org/packages/ae/6a/99eaaeae8becaa17a29aeb334a18e5d582d873b6f084c11f02581b8d7f7f/urllib3-1.26.19-py2.py3-none-any.whl", hash = "sha256:37a0344459b199fce0e80b0d3569837ec6b6937435c5244e7fd73fa6006830f3", size = 143933 },
 ]
 
 [[package]]
