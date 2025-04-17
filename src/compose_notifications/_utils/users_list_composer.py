@@ -1,5 +1,6 @@
 import datetime
 import logging
+from ast import literal_eval
 
 import sqlalchemy
 from sqlalchemy.engine.base import Connection
@@ -267,8 +268,8 @@ class UserListFilter:
             search_lon = record.search_longitude
             list_of_city_coords = None
             if record.city_locations and record.city_locations != 'None':
-                non_geolocated = [x for x in eval(record.city_locations) if isinstance(x, str)]
-                list_of_city_coords = eval(record.city_locations) if not non_geolocated else None
+                non_geolocated = [x for x in literal_eval(record.city_locations) if isinstance(x, str)]
+                list_of_city_coords = literal_eval(record.city_locations) if not non_geolocated else None
 
             # CASE 3.1. When exact coordinates of Search Headquarters are indicated
             if search_lat and search_lon:

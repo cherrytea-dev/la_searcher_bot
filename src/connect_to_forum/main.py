@@ -4,7 +4,7 @@ import logging
 import pickle
 import re
 import urllib.parse
-import urllib.request
+from ast import literal_eval
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -266,7 +266,7 @@ def main(event: Dict[str, bytes], context: Context) -> None:
 
     pubsub_message = base64.b64decode(event['data']).decode('utf-8')
 
-    encoded_to_ascii = eval(pubsub_message)
+    encoded_to_ascii = literal_eval(pubsub_message)
     data_in_ascii = encoded_to_ascii['data']
     message_in_ascii = data_in_ascii['message']
     tg_user_id, f_username = list(message_in_ascii)
