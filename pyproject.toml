@@ -55,7 +55,7 @@ develop = [
 api_get_active_searches = [
     "beautifulsoup4==4.9.3",    # do we need to update it?
     "lxml==4.9.1",
-    "functions-framework==3.*",
+    "functions-framework==3.8.2",
 ]
 
 archive_notifications = ["pytz"]
@@ -63,12 +63,12 @@ archive_notifications = ["pytz"]
 archive_to_bigquery = ["google-cloud-bigquery==3.27.0"]
 
 check_first_posts_for_changes = [
-    "requests==2.31.0",
+    "requests==2.32.0",
     "google-auth==2.19.1", # for API calls to other Google Cloud Functions
 ]
 
 check_topics_by_upd_time = [
-    "requests==2.31.0",
+    "requests==2.32.0",
     "beautifulsoup4==4.9.3",
     "lxml==4.9.1",
     "google-cloud-storage==2.10.0",
@@ -77,34 +77,34 @@ check_topics_by_upd_time = [
 communicate = ["httpx==0.23.3"]
 
 compose_notifications = [
-    "requests==2.31.0",
-    "urllib3==1.26.18",   # http client
-    "idna==2.10",         # translation of domain names
-    "certifi==2023.7.22", # SSL certificates
+    "requests==2.32.0",
+    "urllib3==1.26.19",
+    "idna==3.7",         # translation of domain names
+    "certifi==2024.7.4", # SSL certificates
     "chardet==4.0.0",     # encoding detector
     "python-dateutil",    # extension to datetime module
     "pytz==2021.1",       # timezone
 ]
 
 connect_to_forum = [
-    "requests==2.31.0",
-    "urllib3==1.26.18",
+    "requests==2.32.0",
+    "urllib3==1.26.19",
     "beautifulsoup4==4.9.3",
     "lxml==4.9.1",
     "httpx==0.23.3",
 ]
 
 identify_updates_of_first_posts = [
-    "requests==2.31.0",
+    "requests==2.32.0",
     "beautifulsoup4==4.9.3", # do we need to update it?
     "lxml==4.9.1",
 ]
 
 identify_updates_of_topics = [
-    "requests==2.31.0",
-    "urllib3==1.26.18",             # http client
-    "idna==2.10",                   # translation of domain names
-    "certifi==2023.7.22",           # SSL certificates
+    "requests==2.32.0",
+    "urllib3==1.26.19",             # http client
+    "idna==3.7",                   # translation of domain names
+    "certifi==2024.7.4",           # SSL certificates
     "beautifulsoup4==4.9.3",        # BS4
     "lxml==4.9.1",                  # for BS4
     "chardet==4.0.0",               # encoding detector
@@ -124,18 +124,18 @@ manage_users = []
 
 send_debug_to_admin = ["httpx==0.23.3"]
 
-send_notifications = ["urllib3==1.26.18", "httpx==0.23.3"]
+send_notifications = ["urllib3==1.26.19", "httpx==0.23.3"]
 
 title_recognize = [
     "python-dateutil==2.8.2",     # extension to datetime module
     "natasha==1.4.0",             # recognition of person and location within text string
-    "functions-framework==3.4.0", # a part of Google Cloud Functions Gen 2 framework
+    "functions-framework==3.8.2", # a part of Google Cloud Functions Gen 2 framework
 ]
 
 user_provide_info = [
     "beautifulsoup4==4.9.3",    # do we need to update it?
     "lxml==4.9.1",
-    "functions-framework==3.*",
+    "functions-framework==3.8.2",
 ]
 
 users_activate = []
