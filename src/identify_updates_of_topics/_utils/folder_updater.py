@@ -361,6 +361,8 @@ class FolderUpdater:
     def _detect_changes(
         self, snapshot_line: SearchSummary, searches_line: SearchSummary, there_are_inforg_comments: bool
     ) -> list[ChangeLogLine]:
+        logging.info(f'Comparing changes between new and old search info. Old: {searches_line}. New: {snapshot_line}')
+
         change_log_updates_list: list[ChangeLogLine] = []
         # there_are_inforg_comments = False
         if snapshot_line.status != searches_line.status:
@@ -410,6 +412,15 @@ class FolderUpdater:
                         change_type=ChangeType.topic_inforg_comment_new,
                     )
                 )
+
+        if snapshot_line.folder_id != searches_line.folder_id:
+            logging.info(
+                (
+                    f'Folder was changed for search {snapshot_line.topic_id}. '
+                    f'Old value: {searches_line.folder_id}, new value: {snapshot_line.folder_id}'
+                )
+            )
+
         return change_log_updates_list
 
     def _get_coordinates_by_address(self, address: str) -> tuple[float, float] | tuple[None, None]:
