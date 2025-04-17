@@ -1,6 +1,6 @@
 import pytest
 
-from tests.factories.db_factories import DictNotifTypeFactory, NotifByUserFactory
+from tests.factories.db_factories import DictNotifTypeFactory, NotifByUserFactory, UserFactory
 
 
 @pytest.mark.skip(reason='helper for factories tuning')
@@ -13,3 +13,7 @@ class TestCreateModel:
         DictNotifTypeFactory.build()
         model = DictNotifTypeFactory.create_sync()
         assert model
+
+    def test_create_user(self):
+        res = UserFactory.create_sync()
+        pass

@@ -38,7 +38,7 @@ def local_patches():
 def test_main_no_message():
     # NO SMOKE TEST send_notifications.main.main
     with patch('send_notifications.main.get_notifs_to_send', MagicMock(return_value=[])):
-        main.main(MagicMock(), 'context')
+        main.main(MagicMock(), MagicMock(event_id=1))
     assert True
 
 

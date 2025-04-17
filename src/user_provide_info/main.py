@@ -326,7 +326,7 @@ def _compose_searches(raw_data: list[tuple]) -> list[Search]:  # TODO contract
         if exact_coords:
             coords = [[ast.literal_eval(lat), ast.literal_eval(lon)]]
         else:
-            coords = evaluate_city_locations(city_locations)
+            coords = evaluate_city_locations(city_locations)  # type:ignore[assignment]
 
             if not coords and lat and lon:
                 coords = [[ast.literal_eval(lat), ast.literal_eval(lon)]]

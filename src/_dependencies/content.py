@@ -1,10 +1,10 @@
 import logging
 import re
 
-from bs4 import BeautifulSoup, NavigableString
+from bs4 import BeautifulSoup, NavigableString, PageElement, Tag
 
 
-def clean_up_content(init_content: str | bytes) -> str | None:
+def clean_up_content(init_content: str) -> str | None:
     if not init_content or re.search(r'Для просмотра этого форума вы должны быть авторизованы', init_content):
         return None
 
@@ -19,7 +19,7 @@ def clean_up_content(init_content: str | bytes) -> str | None:
     return reco_content_text
 
 
-def clean_up_content_2(init_content: str | bytes) -> list[str]:
+def clean_up_content_2(init_content: str) -> list[str]:
     if not init_content or re.search(r'Для просмотра этого форума вы должны быть авторизованы', init_content):
         return []
 
@@ -35,7 +35,7 @@ def clean_up_content_2(init_content: str | bytes) -> list[str]:
     if not re.search(r'\w', reco_content_text):
         return []
 
-    reco_content_text = reco_content_text.split('\n')
+    reco_content_list = reco_content_text.split('\n')
 
     # language=regexp
     patterns = [
@@ -46,20 +46,18 @@ def clean_up_content_2(init_content: str | bytes) -> list[str]:
     ]
 
     for pattern in patterns:
-        reco_content_text = [re.sub(pattern, '', line) for line in reco_content_text]
+        reco_content_list = [re.sub(pattern, '', line) for line in reco_content_list]
 
-    reco_content_text = [re.sub('ё', 'е', line) for line in reco_content_text]
+    reco_content_list = [re.sub('ё', 'е', line) for line in reco_content_list]
 
     translate_table = str.maketrans({'{': r'\{', '}': r'\}'})
-    reco_content_text = [line.translate(translate_table) for line in reco_content_text]
+    reco_content_list = [line.translate(translate_table) for line in reco_content_list]
 
-    return reco_content_text
+    return reco_content_list
 
 
 def _cook_soup(content: str | bytes) -> BeautifulSoup:
-    content = BeautifulSoup(content, 'lxml')
-
-    return content
+    return BeautifulSoup(content, 'lxml')
 
 
 def _remove_irrelevant_content(content: str) -> str:
@@ -98,7 +96,7 @@ def _make_html(content: str) -> str:
     return content
 
 
-def _delete_sorted_out_one_tag(content, tag):
+def _delete_sorted_out_one_tag(content: BeautifulSoup, tag: Tag) -> BeautifulSoup:
     # language=regexp
     patterns = [
         [r'(?i)Всем выезжающим иметь СИЗ', 'sort_out'],
@@ -281,8 +279,8 @@ def _delete_sorted_out_one_tag(content, tag):
 
 def _delete_sorted_out_all_tags(content: BeautifulSoup) -> BeautifulSoup:
     elements = content.body
-    for tag in elements:
-        content = _delete_sorted_out_one_tag(content, tag)
+    for tag in elements:  # type:ignore[union-attr]
+        content = _delete_sorted_out_one_tag(content, tag)  # type:ignore[arg-type]
 
     return content
 

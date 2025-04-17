@@ -4,17 +4,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # from tests.factories.db_models import ChangeLog, User
-from faker import Faker
 from sqlalchemy.engine import Connection
 
 from _dependencies.commons import ChangeType, TopicType
 from compose_notifications import main
 from compose_notifications.main import LineInChangeLog
-from tests.common import get_event_with_data
+from tests.common import fake, get_event_with_data
 from tests.factories import db_factories, db_models
 from tests.test_compose_notifications.factories import LineInChangeLogFactory
-
-faker = Faker('ru_RU')
 
 
 class NotSentChangeLogFactory(db_factories.ChangeLogFactory):
@@ -30,7 +27,7 @@ def line_in_change_log() -> LineInChangeLog:
 
 @pytest.fixture
 def search_record(dict_notif_type_status_change: db_models.DictNotifType) -> db_models.Search:
-    family = faker.last_name()
+    family = fake.last_name()
     return db_factories.SearchFactory.create_sync(
         status='НЖ',
         forum_search_title=f'ЖИВ {family} Иван Иванович, 33 года, г. Уфа, Республика Башкортостан',
@@ -76,7 +73,8 @@ def test_main_entrypoint(
 ):
     # NO SMOKE TEST compose_notifications.main.main
     data = get_event_with_data({'foo': 1, 'triggered_by_func_id': '1'})
-    main.main(data, 'context')
+    context = MagicMock(event_id=1)
+    main.main(data, context)
 
 
 class TestChangeLogExtractor:

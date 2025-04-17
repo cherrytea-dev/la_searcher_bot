@@ -1,7 +1,6 @@
 from datetime import datetime
 
 import pytest
-from faker import Faker
 from polyfactory.factories import DataclassFactory
 
 from _dependencies.commons import ChangeLogSavedValue, ChangeType, TopicType
@@ -9,8 +8,6 @@ from compose_notifications._utils.commons import LineInChangeLog, User
 from compose_notifications._utils.log_record_composer import make_clickable_name, make_emoji
 from compose_notifications._utils.message_composer import MessageComposer
 from tests.test_compose_notifications.factories import UserFactory
-
-faker = Faker('ru_RU')
 
 
 class LineInChageFactory(DataclassFactory[LineInChangeLog]):

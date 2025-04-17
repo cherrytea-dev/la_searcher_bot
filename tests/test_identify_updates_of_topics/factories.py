@@ -1,10 +1,8 @@
-from faker import Faker
 from polyfactory import Use
 from polyfactory.factories import DataclassFactory
 
 from identify_updates_of_topics._utils.topics_commons import ChangeLogLine, ForumCommentItem, SearchSummary
-
-fake = Faker()
+from tests.common import fake
 
 
 class SearchSummaryFactory(DataclassFactory[SearchSummary]):
