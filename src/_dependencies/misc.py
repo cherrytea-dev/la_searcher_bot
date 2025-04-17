@@ -56,7 +56,7 @@ def process_pubsub_message(event: dict) -> str:
         received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
     else:
         received_message_from_pubsub = 'I cannot read message from pub/sub'
-    encoded_to_ascii = eval(received_message_from_pubsub)
+    encoded_to_ascii = literal_eval(received_message_from_pubsub)
     data_in_ascii = encoded_to_ascii['data']
     message_in_ascii = data_in_ascii['message']
 
@@ -70,7 +70,7 @@ def process_pubsub_message_v2(event: dict) -> str:
     try:
         if 'data' in event:
             received_message_from_pubsub = base64.b64decode(event['data']).decode('utf-8')
-            encoded_to_ascii = eval(received_message_from_pubsub)
+            encoded_to_ascii = literal_eval(received_message_from_pubsub)
             data_in_ascii = encoded_to_ascii['data']
             message_in_ascii = data_in_ascii['message']
         else:
@@ -287,7 +287,7 @@ def evaluate_city_locations(city_locations: str) -> list[list[Any]] | None:
         logging.info('no city_locations')
         return None
 
-    cl_eval = eval(city_locations)
+    cl_eval = literal_eval(city_locations)
     if not cl_eval:
         logging.info('no eval of city_locations')
         return None
