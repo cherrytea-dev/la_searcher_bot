@@ -431,12 +431,13 @@ class DBClient:
         with self.cursor() as cur:
             cur.execute(
                 """SELECT DISTINCT s.forum_folder_id 
-                                    FROM searches s 
-                                    INNER JOIN user_pref_search_whitelist upswl 
-                                        ON upswl.search_id=s.search_forum_num
-                                        AND upswl.user_id=%(user_id)s
-                                        AND upswl.search_following_mode=%(search_follow_on)s
-                                ;""",
+                    FROM searches s 
+                    INNER JOIN user_pref_search_whitelist upswl 
+                        ON upswl.search_id=s.search_forum_num
+                        AND upswl.user_id=%(user_id)s
+                        AND upswl.search_following_mode=%(search_follow_on)s
+                        AND s.status not in('НЖ', 'НП', 'СТОП')
+                ;""",
                 {'user_id': user_id, 'search_follow_on': SearchFollowingMode.ON},
             )
             lines = cur.fetchall()
