@@ -72,11 +72,10 @@ def handle_linking_to_forum_user_input(
 ) -> HandlerResult:
     """manage all interactions regarding connection of telegram and forum user accounts"""
 
-    got_message = update_params.got_message
-    if got_message in {b_admin_menu, b_back_to_start, b_test_menu} or len(got_message.split()) < 4:
+    if not update_params.got_message or update_params.got_message in {b_admin_menu, b_back_to_start, b_test_menu}:
         return 'Неправильный логин, попробуйте еще раз', reply_markup_main
 
-    message_for_pubsub = [update_params.user_id, got_message]
+    message_for_pubsub = [update_params.user_id, update_params.got_message]
     publish_to_pubsub(Topics.parse_user_profile_from_forum, message_for_pubsub)
     bot_message = 'Сейчас посмотрю, это может занять до 10 секунд...'
     keyboard = [b_back_to_start]

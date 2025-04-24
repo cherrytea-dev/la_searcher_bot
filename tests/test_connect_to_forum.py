@@ -47,10 +47,6 @@ def patch_http():
 
 @pytest.mark.skip(reason='manual testing')
 def test_get_user_id(patch_http):
-    # NO SMOKE TEST connect_to_forum.main.load_cookies
-    # NO SMOKE TEST connect_to_forum.main.save_cookies
-    # NO SMOKE TEST connect_to_forum.main.get_user_attributes
-    # NO SMOKE TEST connect_to_forum.main.login_into_forum
     login = 'Admin'
 
     main.login_into_forum()

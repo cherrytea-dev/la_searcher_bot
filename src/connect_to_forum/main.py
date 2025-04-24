@@ -14,10 +14,10 @@ from typing import Any, Dict
 import requests
 from bs4 import BeautifulSoup, NavigableString, Tag
 from google.cloud.functions.context import Context
-from telegram import Bot, ReplyKeyboardMarkup
+from telegram import ReplyKeyboardMarkup
 
 from _dependencies.commons import get_app_config, get_forum_proxies, setup_google_logging, sql_connect_by_psycopg2
-from _dependencies.misc import process_sending_message_async
+from _dependencies.telegram_api_wrapper import TGApiBase
 
 COOKIE_FILE_NAME = 'session_cookies.pkl'
 
@@ -271,10 +271,6 @@ def main(event: Dict[str, bytes], context: Context) -> None:
     message_in_ascii = data_in_ascii['message']
     tg_user_id, f_username = list(message_in_ascii)
 
-    # initiate Prod Bot
-    bot_token = get_app_config().bot_api_token__prod
-    bot = Bot(token=bot_token)  # noqa
-
     user = None
     if message_in_ascii:
         f_usr_id = get_user_id(f_username)
@@ -363,12 +359,19 @@ def main(event: Dict[str, bytes], context: Context) -> None:
             conn.commit()
 
         except Exception as e:
-            logging.info('failed to update the last saved message from bot')
-            logging.exception(e)
+            logging.exception('failed to update the last saved message from bot')
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    data = {'text': bot_message, 'reply_markup': reply_markup, 'parse_mode': 'HTML', 'disable_web_page_preview': True}
-    process_sending_message_async(user_id=tg_user_id, data=data)
+    data = {
+        'text': bot_message,
+        'reply_markup': reply_markup,
+        'parse_mode': 'HTML',
+        'disable_web_page_preview': True,
+        'chat_id': tg_user_id,
+    }
+
+    tg_api = TGApiBase(token=get_app_config().bot_api_token__prod)
+    tg_api.send_message(data)
 
     # save bot's reply to incoming request
     if bot_message:

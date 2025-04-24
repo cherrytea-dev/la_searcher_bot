@@ -2,43 +2,29 @@
 To receive notifications one should be marked as Admin in PSQL"""
 
 import base64
-import datetime
 import logging
 
 from google.cloud.functions.context import Context
+from retry import retry
 
 from _dependencies.commons import get_app_config, setup_google_logging
-from _dependencies.misc import process_pubsub_message_v2, process_sending_message_async_other_bot
+from _dependencies.misc import process_pubsub_message_v2, tg_api_service_account
 
 setup_google_logging()
 
-logging.getLogger('telegram.vendor.ptb_urllib3.urllib3').setLevel(logging.ERROR)
-logger = logging.getLogger(__name__)
 
-
+@retry(Exception, tries=3, delay=3)
 def send_message(admin_user_id: int, message: str) -> None:
     """send individual notification message to telegram (debug)"""
 
-    try:
-        # to avoid 4000 symbols restriction for telegram message
-        if len(message) > 3500:
-            message = message[:1500]
+    tg_api = tg_api_service_account()
 
-        data = {'text': message}
-        process_sending_message_async_other_bot(user_id=admin_user_id, data=data)
+    # to avoid 4000 symbols restriction for telegram message
+    if len(message) > 3500:
+        message = message[:1500]
 
-    except Exception as e:
-        logging.exception('[send_debug]: send debug to telegram failed')
-
-        try:
-            debug_message = f'ERROR! {datetime.datetime.now()}: {e}'
-            data = {'text': debug_message}
-            process_sending_message_async_other_bot(user_id=admin_user_id, data=data)
-
-        except Exception as e2:
-            logging.exception(e2)
-
-    return None
+    params = {'chat_id': admin_user_id, 'text': message}
+    tg_api.send_message(params)
 
 
 def main(event: dict[str, bytes], context: Context) -> None:
