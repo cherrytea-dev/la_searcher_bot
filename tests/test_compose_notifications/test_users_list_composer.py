@@ -299,7 +299,8 @@ class TestUsersFilter:
         assert user in cropped_users
 
     def test_filter_users_not_following_this_search_2(self, connection, dict_notif_type_status_change):
-        line_in_change_log = LineInChangeLogFactory.build()
+        ###line_in_change_log = LineInChangeLogFactory.build()
+        line_in_change_log = LineInChangeLogFactory.build(status='Ищем', new_status='Ищем')
         user = UserFactory.build()
         user_model = db_factories.UserFactory.create_sync(user_id=user.user_id)
         db_factories.UserPrefSearchFilteringFactory.create_sync(user_id=user.user_id, filter_name=['whitelist'])
