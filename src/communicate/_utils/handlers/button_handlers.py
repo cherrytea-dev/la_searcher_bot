@@ -10,7 +10,8 @@ from telegram import (
     WebAppInfo,
 )
 
-from _dependencies.commons import Topics, get_app_config, publish_to_pubsub
+from _dependencies.commons import get_app_config
+from _dependencies.misc import notify_admin
 
 from ..buttons import (
     Commands,
@@ -85,7 +86,7 @@ WELCOME_MESSAGE_AFTER_ONBOARDING = (
 @button_handler(buttons=['go'])
 def handle_test_admin_check(update_params: UpdateBasicParams) -> HandlerResult:
     # DEBUG: for debugging purposes only
-    publish_to_pubsub(Topics.topic_notify_admin, 'test_admin_check')
+    notify_admin('test_admin_check')
     return '', reply_markup_main
 
 

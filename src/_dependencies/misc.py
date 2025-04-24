@@ -1,4 +1,3 @@
-import asyncio
 import base64
 import datetime
 import json
@@ -8,6 +7,7 @@ import random
 import time
 import urllib.parse
 from ast import literal_eval
+from functools import lru_cache
 from typing import Any
 
 import google.auth.transport.requests
@@ -17,9 +17,14 @@ import requests
 from psycopg2.extensions import cursor
 from retry import retry
 from retry.api import retry_call
-from telegram.ext import Application, ContextTypes
 
 from _dependencies.commons import Topics, get_app_config, publish_to_pubsub
+from _dependencies.telegram_api_wrapper import TGApiBase
+
+
+@lru_cache
+def tg_api_service_account() -> TGApiBase:
+    return TGApiBase(token=get_app_config().bot_api_token)
 
 
 def notify_admin(message: str) -> None:
@@ -171,35 +176,6 @@ def age_writer(age: int) -> str:
         wording = ''
 
     return wording
-
-
-async def send_message_async(context: ContextTypes.DEFAULT_TYPE) -> None:
-    await context.bot.send_message(chat_id=context.job.chat_id, **context.job.data)  # type:ignore[arg-type,union-attr]
-
-
-async def prepare_message_for_async(user_id: int, data: dict[str, str], bot_token: str) -> str:
-    application = Application.builder().token(bot_token).build()
-    job_queue = application.job_queue
-    job_queue.run_once(send_message_async, 0, data=data, chat_id=user_id)  # type:ignore[union-attr]
-
-    async with application:
-        await application.initialize()
-        await application.start()
-        await application.stop()
-        await application.shutdown()
-
-    return 'ok'
-
-
-def process_sending_message_async_other_bot(user_id: int, data: dict) -> None:
-    # TODO same tokens or different?
-    asyncio.run(prepare_message_for_async(user_id, data, bot_token=get_app_config().bot_api_token))
-
-
-def process_sending_message_async(user_id: int, data: dict) -> None:
-    asyncio.run(prepare_message_for_async(user_id, data, bot_token=get_app_config().bot_api_token__prod))
-
-    return None
 
 
 def generate_random_function_id() -> int:

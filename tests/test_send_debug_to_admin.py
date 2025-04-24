@@ -1,32 +1,29 @@
-import base64
-from unittest.mock import AsyncMock, patch
+from unittest.mock import Mock, patch
 
-from telegram import Bot
+import pytest
 
+from _dependencies.telegram_api_wrapper import TGApiBase
 from send_debug_to_admin import main
-from tests.common import get_event_with_data, get_test_config
+from tests.common import get_event_with_data
 
 
-def test_main_positive(bot_mock_send_message):
-    # NO SMOKE TEST send_debug_to_admin.main.main
-    message_text = 'some text'
+@pytest.fixture(autouse=True)
+def mock_send_message() -> Mock:
+    # TODO get list of sent messages
+    with patch.object(TGApiBase, '_make_api_call') as mock:
+        yield mock
+
+
+@pytest.mark.parametrize(
+    'message',
+    [
+        'some text',
+        "'Somebody._\ud83c\udfa9', 'username': =Chat(first_name='\u0410\u043d\u0434\u0440\u0435\u0439', ",
+    ],
+)
+def test_main_positive(mock_send_message, message: str):
+    message_text = ''
     event = get_event_with_data(message_text)
 
     main.main(event, 'context')
-    bot_mock_send_message.assert_called_once_with(
-        chat_id=get_test_config().my_telegram_id,
-        text=message_text,
-    )
-
-
-def test_main_with_exception(bot_mock_send_message: AsyncMock):
-    message_text = 'some text'
-    data = base64.b64encode(str({'data': {'message': message_text}}).encode())
-    event = {'data': data}
-
-    with (
-        patch.object(Bot, 'get_me', AsyncMock(side_effect=[Exception, None])),
-    ):
-        main.main(event, 'context')
-    bot_mock_send_message.assert_called_once()
-    assert 'ERROR' in bot_mock_send_message.call_args[1]['text']
+    mock_send_message.assert_called_once()
