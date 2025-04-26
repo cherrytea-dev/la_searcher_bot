@@ -106,9 +106,7 @@ def add_tel_link(incoming_text: str) -> str:
             outcome_text = outcome_text.replace(num, ' <a href="tel:' + str(num) + '">' + str(num) + '</a> ')
         except Exception as e:
             logging.exception(f'add_tel_link..{e=} on {num=} in {outcome_text=}')
-            outcome_text = outcome_text.replace(
-                num, '<code>' + str(num) + '</code>'
-            )
+            outcome_text = outcome_text.replace(num, '<code>' + str(num) + '</code>')
 
     phpbb_tags_to_delete = {'[tel]', '[/tel]'}
     for tag in phpbb_tags_to_delete:
