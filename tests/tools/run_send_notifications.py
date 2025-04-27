@@ -20,7 +20,18 @@ def generate_messages(count: int):
         try:
             content = f'test message {i}'
             NotSentNotificationFactory.create_sync(
-                user_id=get_dotenv_config().my_telegram_id, message_content=content, message_text=content
+                user_id=get_dotenv_config().my_telegram_id,
+                message_type='text',
+                message_content=content,
+                message_text=content,
+                message_params='{"parse_mode": "HTML", "reply_markup": {"inline_keyboard": [[{"text": "Смотреть на Карте Поисков", "web_app": {"url": "https://foo"}}]]}, "disable_web_page_preview": "True"}',
+            )
+            NotSentNotificationFactory.create_sync(
+                user_id=get_dotenv_config().my_telegram_id,
+                message_content=None,
+                message_text=None,
+                message_type='coords',
+                message_params='{"latitude": "68.970663", "longitude": "33.074918"}',
             )
         except:
             pass

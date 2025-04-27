@@ -18,7 +18,7 @@ def tg_api() -> 'TGApiCommunicate':
 class TGApiCommunicate(TGApiBase):
     """need to extend base class with `_inline_processing` call"""
 
-    def send_message(self, params: dict, call_context: str = '') -> None:
+    def send_message(self, params: dict, call_context: str = '') -> str:
         response = self._make_api_call('sendMessage', params, call_context)
         user_id = params['chat_id']
         result = self._process_response_of_api_call(user_id, response)
@@ -27,6 +27,7 @@ class TGApiCommunicate(TGApiBase):
         logging.info(f'RESULT {result}')
 
         _inline_processing(response, params)
+        return result
 
     def edit_message_text(self, params: dict, call_context: str = '') -> None:
         response = self._make_api_call('editMessageText', params, call_context)
