@@ -5,8 +5,7 @@ from flask import Flask
 
 from title_recognize import main
 from title_recognize._utils.person import recognize_one_person_group
-from title_recognize._utils.title_commons import Block, PersonGroup, TitleRecognition
-from title_recognize.main_old import recognize_title as recognize_title_old
+from title_recognize._utils.title_commons import Block, PersonGroup
 
 
 @pytest.fixture
@@ -470,88 +469,3 @@ def test_location_1():
     )
     res = main.recognize_title(title, '')
     assert res
-
-
-class TestCompare:
-    @pytest.mark.parametrize(
-        'title',
-        [
-            'ПАРАЛЛЕЛИ НА ВДНХ - закрытие площадки',
-            'Пропала бабушка',
-            'Встреча с новичками в пос. Ульт-Ягун',
-            'Учебный выход',
-            'УЧЕБНАЯ! Живы Тестова Ирина 20 лет и Тестова Татьяна Юрьевна 30 лет, г. Самара, Красноглинский р-н',
-            'ГОРОДСКОЙ УЧЕБНЫЙ ПОИСК',
-            '10 лет',
-            '14.09.2024 Рабочая встреча куратора с добровольцами в Череповце',
-            'Сахалин',
-            '3 апреля 2021 года в 16:00 встреча-знакомство г. Томск',
-        ],
-    )
-    def test_diffs(self, title: str):
-        res_old = recognize_title_old(title, '')
-        res_new = main.recognize_title(title, '')
-        assert res_old == res_new
-
-    @pytest.mark.parametrize(
-        'title',
-        [
-            'Личность установлена. Называет себя Анна Предположительно 75-80 лет, найдена в Московском районе, г. Казань.',
-            'Личность установлена. Найдены, живы Неизвестные мужчина и женщина г. Тюмень,  Нижнетавдинский р-н, Тюменская область.',
-            'Учебная Родные найдены Иванова (Петрова) Анна Викторовна, 24 года, Ленинский АО,  г. Тюмень.',
-        ],
-    )
-    def test_rare_cases(self, title: str):
-        res_old = recognize_title_old(title, '')
-        res_new = main.recognize_title(title, '')
-        assert res_old == res_new
-
-    @pytest.mark.parametrize(
-        'title',
-        [
-            'Живы трое подростков д. Гомыленки, Лежневский р-н, Ивановская обл.',
-            'Живы 2 мужчины и женщина, д. Прислониха, Вичугский р-н, Ивановская обл.',
-            'Живы Мужчина + двое подростков, д. Платково, Заволжский р-он',
-            'Пропали Еремин Роман Владимирович, 41 год +1 мужчина, станица Базковская, Шолоховский р-н, Ростовская обл.',
-            'Живы Ерошкина Александра Александровна +1 человек, п. Островское, Костромская обл.',
-            'Живы трое мужчин, Костромской район, д. Пьяньково',
-            'Живы 2 взрослых + 2 детей, д. Сенино, г. о. Чехов, МО',
-            'Живы Муранов Абги-Рахман+1 человек , д. Панкратцево, Ивановский р-н, Ивановская обл.',
-            'Живы двое мужчин и женщина, д. Зеленый городок, Ивановский р-н, Ивановская обл.',
-            'Найдены. Живы. 2 женщины и ребенок 4',
-            'Живы 2 женщины 80 и 48 лет, д. Лунинка, Рузский г. о., МО',
-        ],
-    )
-    def test_persons(self, title: str):
-        res_old = recognize_title_old(title, '')
-        res_new = main.recognize_title(title, '')
-        assert res_old == res_new
-
-    def test_wrong_age(self):
-        # TODO fix algorythm to recognize age correctly. Now it just describes current algorithm
-
-        text = 'Жив Краснов Алексей Александрович, 43 года, Остановочный пункт 3412 км, Мошковский район, НСО'
-        res_old = recognize_title_old(text, '')
-        res_new = main.recognize_title(text, '')
-        assert res_old == res_new
-        assert res_new == {
-            'topic_type': 'search',
-            'status': 'НЖ',
-            'persons': {
-                'total_persons': 2,
-                'total_name': 'Краснов',
-                'total_display_name': 'Краснов + 1 чел. -1387–43 года',
-                'age_min': -1387,
-                'age_max': 43,
-                'person': [
-                    {'name': 'Краснов', 'age': 43, 'display_name': 'Краснов 43 года', 'number_of_persons': 1},
-                    {
-                        'name': 'Остановочный',
-                        'age': -1387,
-                        'display_name': 'Остановочный -1387 лет',
-                        'number_of_persons': 1,
-                    },
-                ],
-            },
-            'locations': [{'address': 'км, Мошковский район, НСО'}],
-        }
