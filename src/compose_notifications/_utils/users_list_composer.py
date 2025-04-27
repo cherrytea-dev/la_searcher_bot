@@ -355,47 +355,50 @@ class UserListFilter:
 SELECT u.user_id FROM users u
 LEFT JOIN user_pref_search_filtering upsf 
     ON upsf.user_id=u.user_id and 'whitelist' = ANY(upsf.filter_name)
-WHERE 
-    (   upsf.filter_name is not null /* user has activated following mode */
-        AND NOT /* 1st condition to suppress notifications */
-            (   /* the user is not following this search */
-                (   not exists
-                    (
-                        select 1 from user_pref_search_whitelist upswls 
-                        WHERE 
-                            upswls.user_id=u.user_id 
-                            and upswls.search_id = :forum_search_num 
-                            and upswls.search_following_mode=:following_mode_on
+WHERE upsf.filter_name is not null /* user has activated following mode */
+    AND
+    (   
+        (
+            NOT /* 1st condition to suppress notifications */
+                (   /* the user is not following this search */
+                    (   not exists
+                        (
+                            select 1 from user_pref_search_whitelist upswls 
+                            WHERE 
+                                upswls.user_id=u.user_id 
+                                and upswls.search_id = :forum_search_num 
+                                and upswls.search_following_mode=:following_mode_on
+                        )
+                        and exists /*another followed search in active status*/
+                        (
+                            select 1 from user_pref_search_whitelist upswls
+                            join searches s on s.search_forum_num=upswls.search_id and s.search_forum_num != :forum_search_num
+                            WHERE 
+                                upswls.user_id=u.user_id 
+                                and upswls.search_following_mode=:following_mode_on
+                                and s.status not in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
+                        )
                     )
-                    and exists /*another followed search in active status*/
-                    (
-                        select 1 from user_pref_search_whitelist upswls
-                        join searches s on s.search_forum_num=upswls.search_id and s.search_forum_num != :forum_search_num
-                        WHERE 
-                            upswls.user_id=u.user_id 
-                            and upswls.search_following_mode=:following_mode_on
-							and s.status not in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
-                    )
-                )
-            ) /* end of 1st condition to suppress notifications */
+                ) /* end of 1st condition to suppress notifications */
         OR  /* condition to process the message */
-        ( /*this search is followed*/
-            exists
-            (
-                select 1 from user_pref_search_whitelist upswls 
-                WHERE 
-                    upswls.user_id=u.user_id 
-                    and upswls.search_id = :forum_search_num 
-                    and upswls.search_following_mode=:following_mode_on
-            )
-            AND 
-            ( /*and this search is active*/
-                :search_new_status NOT in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
-                or 		/* or not active but the message has change_type=1(status_change) */
-                    (	/* which we should send even for non-active search */
-                        :search_new_status in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
-                        AND :change_type = 1 
-                    )
+            ( /*this search is followed*/
+                exists
+                (
+                    select 1 from user_pref_search_whitelist upswls 
+                    WHERE 
+                        upswls.user_id=u.user_id 
+                        and upswls.search_id = :forum_search_num 
+                        and upswls.search_following_mode=:following_mode_on
+                )
+                AND 
+                ( /*and this search is active*/
+                    :search_new_status NOT in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
+                    or 		/* or not active but the message has change_type=1(status_change) */
+                        (	/* which we should send even for non-active search */
+                            :search_new_status in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
+                            AND :change_type = 1 
+                        )
+                )
             )
         )
         AND NOT exists -- 2nd suppressing condition: the search is in blacklist for this user 
