@@ -145,7 +145,7 @@ line-length = 120
 format.quote-style = 'single'
 
 [tool.coverage.run]
-omit = ["*/tests/*", "src/title_recognize/main_old.py"]
+omit = ["*/tests/*"]
 
 [tool.mypy]
 mypy_path = "src"
@@ -154,7 +154,6 @@ exclude = [
     "tests",
     "env",
     "venv",
-    "src/title_recognize/main_old.py",
     "src/users_activate/",
     "src/_dependencies/cloud_func_parallel_guard.py",
 ]
