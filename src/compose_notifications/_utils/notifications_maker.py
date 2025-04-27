@@ -42,21 +42,17 @@ class NotificationMaker:
             logging.info('Iterations over all Users and Updates are done (record Ignored)')
             return
 
-        try:
-            mailing_id = self.create_new_mailing_id()
+        mailing_id = self.create_new_mailing_id()
 
-            message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'initiate notifs send out'}
-            publish_to_pubsub(Topics.topic_to_send_notifications, message_for_pubsub)
+        message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'initiate notifs send out'}
+        publish_to_pubsub(Topics.topic_to_send_notifications, message_for_pubsub)
 
-            for user in self.list_of_users:
-                self.generate_notification_for_user(mailing_id, user)
+        for user in self.list_of_users:
+            self.generate_notification_for_user(mailing_id, user)
 
-            # mark this line as all-processed
-            new_record.processed = True
-            logging.info('Iterations over all Users and Updates are done')
-
-        except Exception as e1:
-            logging.exception('Not able to Iterate over all Users and Updates')
+        # mark this line as all-processed
+        new_record.processed = True
+        logging.info('Iterations over all Users and Updates are done')
 
     def create_new_mailing_id(self) -> int:
         # record into SQL table notif_mailings
@@ -230,7 +226,7 @@ class NotificationMaker:
             c=message,
             d=message_without_html,
             e=message_type,
-            f=message_params,
+            f=str(message_params),
             g=0,
             h=self.new_record.change_log_id,
             i=datetime.datetime.now(),

@@ -182,32 +182,18 @@ def sqlalchemy_get_pool(pool_size: int, pool_recycle_time_seconds: int) -> sqlal
         'pool_timeout': 0,  # seconds
         'pool_recycle': pool_recycle_time_seconds,  # seconds
     }
-    is_test_db = config.postgres_password == 'postgres'
 
-    if is_test_db:
-        # TODO fix
-        pool = sqlalchemy.create_engine(
-            sqlalchemy.engine.url.URL.create(
-                'postgresql+pg8000',
-                username=config.postgres_user,
-                host=config.postgres_host,
-                port=config.postgres_port,
-                password=config.postgres_password,
-                database=config.postgres_db,
-            ),
-            **db_config,
-        )
-    else:
-        pool = sqlalchemy.create_engine(
-            sqlalchemy.engine.url.URL.create(
-                'postgresql+pg8000',
-                username=config.postgres_user,
-                password=config.postgres_password,
-                database=config.postgres_db,
-                query={'unix_sock': '{}/.s.PGSQL.5432'.format(config.postgres_host)},
-            ),
-            **db_config,
-        )
+    pool = sqlalchemy.create_engine(
+        sqlalchemy.engine.url.URL.create(
+            'postgresql+psycopg2',
+            username=config.postgres_user,
+            host=config.postgres_host,
+            port=config.postgres_port,
+            password=config.postgres_password,
+            database=config.postgres_db,
+        ),
+        **db_config,
+    )
 
     pool.dialect.description_encoding = None
 

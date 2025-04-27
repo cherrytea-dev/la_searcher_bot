@@ -10,7 +10,6 @@ dependencies = [
     "google-cloud-logging==3.5.0",
     "pydantic-settings==2.*",
     "psycopg2-binary==2.9.5",
-    "pg8000==1.19.4",
     "SQLAlchemy==1.4.54",
     "python-telegram-bot[rate-limiter, job-queue]==20.2",
     "nest_asyncio",
@@ -53,7 +52,7 @@ develop = [
 ]
 
 api_get_active_searches = [
-    "beautifulsoup4==4.9.3",    # do we need to update it?
+    "beautifulsoup4==4.9.3",      # do we need to update it?
     "lxml==4.9.1",
     "functions-framework==3.8.2",
 ]
@@ -81,9 +80,9 @@ compose_notifications = [
     "urllib3==1.26.19",
     "idna==3.7",         # translation of domain names
     "certifi==2024.7.4", # SSL certificates
-    "chardet==4.0.0",     # encoding detector
-    "python-dateutil",    # extension to datetime module
-    "pytz==2021.1",       # timezone
+    "chardet==4.0.0",    # encoding detector
+    "python-dateutil",   # extension to datetime module
+    "pytz==2021.1",      # timezone
 ]
 
 connect_to_forum = [
@@ -103,8 +102,8 @@ identify_updates_of_first_posts = [
 identify_updates_of_topics = [
     "requests==2.32.0",
     "urllib3==1.26.19",             # http client
-    "idna==3.7",                   # translation of domain names
-    "certifi==2024.7.4",           # SSL certificates
+    "idna==3.7",                    # translation of domain names
+    "certifi==2024.7.4",            # SSL certificates
     "beautifulsoup4==4.9.3",        # BS4
     "lxml==4.9.1",                  # for BS4
     "chardet==4.0.0",               # encoding detector
@@ -133,7 +132,7 @@ title_recognize = [
 ]
 
 user_provide_info = [
-    "beautifulsoup4==4.9.3",    # do we need to update it?
+    "beautifulsoup4==4.9.3",      # do we need to update it?
     "lxml==4.9.1",
     "functions-framework==3.8.2",
 ]
