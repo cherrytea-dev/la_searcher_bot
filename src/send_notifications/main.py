@@ -26,11 +26,10 @@ from _dependencies.misc import (
     get_triggering_function,
     notify_admin,
     process_pubsub_message_v2,
-    process_response,
     save_sending_status_to_notif_by_user,
-    send_location_to_api,
-    send_message_to_api,
+    tg_api_main_account,
 )
+from _dependencies.telegram_api_wrapper import TGApiBase
 
 setup_google_logging()
 
@@ -156,7 +155,7 @@ def check_for_number_of_notifs_to_send(cur: cursor) -> int:
     return num_of_notifs
 
 
-def send_single_message(bot_token: str, message_to_send: MessageToSend, session: requests.Session) -> str | None:
+def send_single_message(tg_api: TGApiBase, message_to_send: MessageToSend) -> str | None:
     """send one message to telegram"""
 
     message_content = message_to_send.message_content
@@ -173,15 +172,15 @@ def send_single_message(bot_token: str, message_to_send: MessageToSend, session:
         if 'disable_web_page_preview' in message_params:
             message_params['disable_web_page_preview'] = message_params['disable_web_page_preview'] == 'True'
 
-    response = None
     if message_to_send.message_type == 'text':
-        response = send_message_to_api(session, bot_token, user_id, message_content, message_params)
+        message_params['chat_id'] = user_id
+        message_params['text'] = message_content
+        return tg_api.send_message(message_params)
 
     elif message_to_send.message_type == 'coords':
-        response = send_location_to_api(session, bot_token, user_id, message_params)
+        return tg_api.send_location(user_id, message_params['latitude'], message_params['longitude'])
     else:
         raise ValueError(f'unknown message_type: {message_to_send.message_type}')
-    return process_response(user_id, response)
 
 
 def seconds_between(datetime1: datetime.datetime, datetime2: datetime.datetime | None = None) -> float:
@@ -208,6 +207,7 @@ def iterate_over_notifications(
 
     set_of_change_ids: set[int] = set()
 
+    tg_api = tg_api_main_account()
     with (
         sql_connect_by_psycopg2() as conn_psy,
         conn_psy.cursor() as cur,
@@ -235,7 +235,7 @@ def iterate_over_notifications(
             futures = [
                 executor.submit(
                     _process_message_sending,
-                    session,
+                    tg_api,
                     time_analytics,
                     set_of_change_ids,
                     conn_psy,
@@ -255,7 +255,7 @@ def iterate_over_notifications(
 
 
 def _process_message_sending(
-    session: requests.Session,
+    tg_api: TGApiBase,
     time_analytics: TimeAnalytics,
     set_of_change_ids: set[int],
     conn: connection,
@@ -270,7 +270,7 @@ def _process_message_sending(
 
     analytics_pre_sending_msg = datetime.datetime.now()
 
-    result = send_single_message(get_app_config().bot_api_token__prod, message_to_send, session)
+    result = send_single_message(tg_api, message_to_send)
 
     analytics_send_start_finish = seconds_between_round_2(analytics_pre_sending_msg)
     logging.debug(f'time: {analytics_send_start_finish:.2f} – sending msg')

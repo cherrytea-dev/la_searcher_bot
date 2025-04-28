@@ -7,6 +7,7 @@ import pytest
 from polyfactory.factories import DataclassFactory
 
 from _dependencies.commons import sql_connect_by_psycopg2
+from _dependencies.telegram_api_wrapper import TGApiBase
 from send_notifications import main
 from tests.factories.db_factories import NotifByUserFactory, get_session
 from tests.factories.db_models import NotifByUser
@@ -36,7 +37,6 @@ def local_patches():
 
 
 def test_main_no_message():
-    # NO SMOKE TEST send_notifications.main.main
     with patch('send_notifications.main.get_notifs_to_send', MagicMock(return_value=[])):
         main.main(MagicMock(), MagicMock(event_id=1))
     assert True
@@ -44,7 +44,6 @@ def test_main_no_message():
 
 @pytest.mark.xdist_group(name='send_notifications')
 def test_iterate_over_notifications():
-    # NO SMOKE TEST send_notifications.main.iterate_over_notifications
     time_analytics = TimeAnalyticsFactory.build()
 
     session = get_session()
@@ -56,7 +55,7 @@ def test_iterate_over_notifications():
     unique_notification = NotSentNotificationFactory.create_sync()
     # TODO don't know why, but if move creation of unique_notification upper, then test started to fail
 
-    with patch('send_notifications.main.process_response', MagicMock(return_value='completed')):
+    with patch.object(TGApiBase, '_process_response_of_api_call', MagicMock(return_value='completed')):
         main.iterate_over_notifications(MagicMock(), 1, time_analytics)
 
     session.flush()
@@ -97,8 +96,6 @@ def test_check_for_notifs_to_send():
 
 
 def test_finish_time_analytics():
-    # NO SMOKE TEST send_notifications.main.finish_time_analytics
-
     time_analytics = main.TimeAnalytics(
         delays=[1],
         notif_times=[1, 2],
@@ -109,7 +106,6 @@ def test_finish_time_analytics():
 
 
 def test__process_message_sending():
-    # NO SMOKE TEST send_notifications.main._process_message_sending
     changed_ids = set()
     with sql_connect_by_psycopg2() as conn:
         res = main._process_message_sending(
@@ -119,9 +115,10 @@ def test__process_message_sending():
 
 
 def test_send_single_message():
-    # NO SMOKE TEST send_notifications.main.send_single_message
     msg = MessageFactory.build()
-    res = main.send_single_message('foo', msg, MagicMock())
+    tg_api = TGApiBase('token')
+    with patch.object(TGApiBase, 'send_message', MagicMock(return_value='completed')):
+        res = main.send_single_message(tg_api, msg)
     assert res == 'completed'
 
 

@@ -27,6 +27,11 @@ def tg_api_service_account() -> TGApiBase:
     return TGApiBase(token=get_app_config().bot_api_token)
 
 
+@lru_cache
+def tg_api_main_account() -> TGApiBase:
+    return TGApiBase(token=get_app_config().bot_api_token__prod)
+
+
 def notify_admin(message: str) -> None:
     """send the pub/sub message to Debug to Admin"""
 
@@ -207,34 +212,6 @@ def get_change_log_update_time(cur: cursor, change_log_id: int) -> datetime.date
     return record[0]
 
 
-def send_location_to_api(
-    session: requests.Session, bot_token: str, user_id: int, params: dict
-) -> requests.Response | None:
-    """send location directly to Telegram API w/o any wrappers ar libraries"""
-
-    latitude = ''
-    longitude = ''
-    try:
-        if params:
-            if 'latitude' in params.keys():
-                latitude = f'&latitude={params["latitude"]}'
-            if 'longitude' in params.keys():
-                longitude = f'&longitude={params["longitude"]}'
-
-        logging.debug(latitude)
-        logging.debug(longitude)
-
-        request_text = f'https://api.telegram.org/bot{bot_token}/sendLocation?chat_id={user_id}{latitude}{longitude}'
-
-        response = retry_call(session.get, fargs=[request_text], tries=3)
-
-    except Exception as e:
-        logging.exception('Error in getting response from Telegram')
-        response = None
-
-    return response
-
-
 def save_sending_status_to_notif_by_user(cur: cursor, message_id: int, result: str | None) -> None:
     """save the telegram sending status to sql table notif_by_user"""
     if not result:
@@ -308,101 +285,6 @@ def get_triggering_function(message_from_pubsub: dict) -> int:
         logging.info('triggering func_id was not determined')
 
     return triggered_by_func_id
-
-
-def send_message_to_api(
-    session: requests.Session, bot_token: str, user_id: int, message: str, params: dict
-) -> requests.Response | None:
-    """send message directly to Telegram API w/o any wrappers ar libraries"""
-
-    parse_mode = ''
-    disable_web_page_preview = ''
-    reply_markup = ''
-    try:
-        if params:
-            if 'parse_mode' in params.keys():
-                parse_mode = f'&parse_mode={params["parse_mode"]}'
-            if 'disable_web_page_preview' in params.keys():
-                disable_web_page_preview = f'&disable_web_page_preview={params["disable_web_page_preview"]}'
-            if 'reply_markup' in params.keys():
-                reply_markup_temp = params['reply_markup']
-                reply_markup_json = json.dumps(reply_markup_temp)
-                reply_markup_string = str(reply_markup_json)
-                reply_markup_encoded = urllib.parse.quote(reply_markup_string)
-                reply_markup = f'&reply_markup={reply_markup_encoded}'
-
-                logging.debug(f'{reply_markup_temp=}')
-                logging.debug(f'{reply_markup_json=}')
-                logging.debug(f'{reply_markup_string=}')
-                logging.debug(f'{reply_markup_encoded=}')
-                logging.debug(f'{reply_markup=}')
-
-        message_encoded = urllib.parse.quote(message)
-
-        request_text = (
-            f'https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={user_id}'
-            f'{parse_mode}{disable_web_page_preview}{reply_markup}&text={message_encoded}'
-        )
-
-        response = retry_call(session.get, fargs=[request_text], tries=3)
-
-    except Exception as e:
-        logging.exception('Error in getting response from Telegram')
-        response = None
-
-    return response
-
-
-def process_response(user_id: int, response: requests.Response | None) -> str:
-    """process response received as a result of Telegram API call while sending message/location"""
-
-    if not response:
-        return 'failed'
-    try:
-        if response.ok:
-            logging.info(f'message to {user_id} was successfully sent')
-            return 'completed'
-
-        elif response.status_code == 400:  # Bad Request
-            logging.info(f'Bad Request: message to {user_id} was not sent, {response.reason=}')
-            logging.exception('BAD REQUEST')
-            return 'cancelled_bad_request'
-
-        elif response.status_code == 403:  # FORBIDDEN
-            logging.info(f'Forbidden: message to {user_id} was not sent, {response.reason=}')
-            action = None
-            if response.text.find('bot was blocked by the user') != -1:
-                action = 'block_user'
-            if response.text.find('user is deactivated') != -1:
-                action = 'delete_user'
-            if action:
-                message_for_pubsub = {'action': action, 'info': {'user': user_id}}
-                publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
-                logging.info(f'Identified user id {user_id} to do {action}')
-            return 'cancelled'
-
-        elif 420 <= response.status_code <= 429:  # 'Flood Control':
-            logging.info(f'Flood Control: message to {user_id} was not sent, {response.reason=}')
-            logging.exception('FLOOD CONTROL')
-            # fixme - try to get retry_after
-            try:
-                retry_after = response.headers['Retry-After']
-                logging.warning(f'ho-ho, we did it! 429 worked! {retry_after}')
-            except:  # noqa
-                pass
-            # fixme ^^^
-            time.sleep(5)  # to mitigate flood control
-            return 'failed_flood_control'
-
-        else:
-            logging.info(f'UNKNOWN ERROR: message to {user_id} was not sent, {response.reason=}')
-            logging.exception('UNKNOWN ERROR')
-            return 'cancelled'
-
-    except Exception as e:
-        logging.info('Response is corrupted')
-        logging.exception(e)
-        return 'failed'
 
 
 def calc_bearing(lat_2: float, lon_2: float, lat_1: float, lon_1: float) -> float:

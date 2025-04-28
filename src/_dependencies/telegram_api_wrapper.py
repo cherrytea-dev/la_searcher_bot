@@ -35,10 +35,17 @@ class TGApiBase:
         except Exception:
             logging.exception('Error in getting response from Telegram')
 
-    def send_message(self, params: dict, call_context: str = '') -> None:
+    def send_message(self, params: dict, call_context: str = '') -> str:
         response = self._make_api_call('sendMessage', params, call_context)
         user_id = params['chat_id']
-        self._process_response_of_api_call(user_id, response)
+        return self._process_response_of_api_call(user_id, response)
+
+    def send_location(self, user_id: int, latitude: str, longitude: str) -> str:
+        # request_text = f'https://api.telegram.org/bot{bot_token}/sendLocation?chat_id={user_id}{latitude}{longitude}'
+
+        params = {'chat_id': user_id, 'latitude': latitude, 'longitude': longitude}
+        response = self._make_api_call('sendLocation', params)
+        return self._process_response_of_api_call(user_id, response)
 
     def edit_message_text(self, params: dict, call_context: str = '') -> None:
         response = self._make_api_call('editMessageText', params, call_context)
