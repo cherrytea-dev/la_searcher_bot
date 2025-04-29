@@ -13,7 +13,7 @@ from _dependencies.misc import (
     generate_random_function_id,
     get_triggering_function,
 )
-from _dependencies.pubsub import process_pubsub_message_v2, publish_to_pubsub
+from _dependencies.pubsub import process_pubsub_message, publish_to_pubsub
 
 from ._utils.commons import LineInChangeLog, User
 from ._utils.log_record_composer import LogRecordComposer
@@ -130,7 +130,7 @@ def main(event: dict, context: Context) -> None:
     analytics_start_of_func = datetime.datetime.now()
 
     function_id = generate_random_function_id()
-    message_from_pubsub = process_pubsub_message_v2(event)
+    message_from_pubsub = process_pubsub_message(event)
     triggered_by_func_id = get_triggering_function(message_from_pubsub)  # type:ignore[arg-type]
 
     there_is_function_working_in_parallel = check_and_save_event_id(

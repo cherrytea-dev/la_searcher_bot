@@ -6,7 +6,7 @@ from retry import retry
 
 from _dependencies.commons import get_app_config, setup_google_logging
 from _dependencies.misc import tg_api_service_account
-from _dependencies.pubsub import process_pubsub_message_v2
+from _dependencies.pubsub import process_pubsub_message
 
 setup_google_logging()
 
@@ -28,7 +28,7 @@ def send_message(admin_user_id: int, message: str) -> None:
 def main(event: dict[str, bytes], context: Context) -> None:
     """main function, envoked by pub/sub, which sends the notification to Admin"""
 
-    message_from_pubsub = process_pubsub_message_v2(event)
+    message_from_pubsub = process_pubsub_message(event)
 
     admin_user_id = get_app_config().my_telegram_id
 

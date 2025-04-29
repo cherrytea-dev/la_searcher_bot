@@ -24,7 +24,7 @@ from _dependencies.misc import (
     get_triggering_function,
     tg_api_main_account,
 )
-from _dependencies.pubsub import notify_admin, process_pubsub_message_v2, publish_to_pubsub
+from _dependencies.pubsub import notify_admin, process_pubsub_message, publish_to_pubsub
 from _dependencies.telegram_api_wrapper import TGApiBase
 
 setup_google_logging()
@@ -430,7 +430,7 @@ def main(event: dict, context: Context) -> str | None:
 
     function_id = generate_random_function_id()
 
-    message_from_pubsub = process_pubsub_message_v2(event)
+    message_from_pubsub = process_pubsub_message(event)
     triggered_by_func_id = get_triggering_function(message_from_pubsub)  # type:ignore[arg-type]
     # TODO maybe it not works
 

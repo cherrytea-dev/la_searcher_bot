@@ -82,13 +82,3 @@ def process_pubsub_message(event: dict) -> str:
     message = json_data['data']['message']
     logging.info(f'received message from pub/sub: {message}')
     return message
-
-
-def process_pubsub_message_v2(event: dict) -> str:
-    """get message from pub/sub notification"""
-    return process_pubsub_message(event)
-
-
-def process_pubsub_message_v3(event: dict) -> str:
-    """convert incoming pub/sub message into regular data"""
-    return process_pubsub_message(event)

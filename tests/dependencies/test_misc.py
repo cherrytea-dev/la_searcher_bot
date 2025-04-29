@@ -60,10 +60,10 @@ def test_process_pubsub_message():
 
 
 def test_process_pubsub_message_2():
-    res = _dependencies.pubsub.process_pubsub_message_v2(get_event_with_data('foo'))
+    res = _dependencies.pubsub.process_pubsub_message(get_event_with_data('foo'))
     assert res == 'foo'
 
 
 def test_process_pubsub_message_3():
-    res = _dependencies.pubsub.process_pubsub_message_v3(get_event_with_data('foo'))
+    res = _dependencies.pubsub.process_pubsub_message(get_event_with_data('foo'))
     assert res == 'foo'
