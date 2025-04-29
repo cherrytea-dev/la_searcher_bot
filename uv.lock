@@ -8,11 +8,11 @@ resolution-markers = [
 
 [[package]]
 name = "aiolimiter"
-version = "1.0.0"
+version = "1.2.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/33/c9/854de19ff2b2a83111e892ef3028504a927f1aa19347de3f62abf38c2c99/aiolimiter-1.0.0.tar.gz", hash = "sha256:9d40767e4476048145dfa9f61948445168d6e63cf42c95785a20b9aaff2e4564", size = 6812 }
+sdist = { url = "https://files.pythonhosted.org/packages/f1/23/b52debf471f7a1e42e362d959a3982bdcb4fe13a5d46e63d28868807a79c/aiolimiter-1.2.1.tar.gz", hash = "sha256:e02a37ea1a855d9e832252a105420ad4d15011505512a1a1d814647451b5cca9", size = 7185 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/89/04/163b1c5241f709c3a2e6f6881691e0896cb46fd29c4d311c4a84d89a9468/aiolimiter-1.0.0-py3-none-any.whl", hash = "sha256:f1c5ba2a2861cd4a126c1294f5282208383e67d5b128a4f32def0c702cae8039", size = 7194 },
+    { url = "https://files.pythonhosted.org/packages/f3/ba/df6e8e1045aebc4778d19b8a3a9bc1808adb1619ba94ca354d9ba17d86c3/aiolimiter-1.2.1-py3-none-any.whl", hash = "sha256:d3f249e9059a20badcb56b61601a83556133655c11d1eb3dd3e04ff069e5f3c7", size = 6711 },
 ]
 
 [[package]]
@@ -41,16 +41,14 @@ wheels = [
 
 [[package]]
 name = "apscheduler"
-version = "3.10.4"
+version = "3.11.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pytz" },
-    { name = "six" },
     { name = "tzlocal" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5e/34/5dcb368cf89f93132d9a31bd3747962a9dc874480e54333b0c09fa7d56ac/APScheduler-3.10.4.tar.gz", hash = "sha256:e6df071b27d9be898e486bc7940a7be50b4af2e9da7c08f0744a96d4bd4cef4a", size = 100832 }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/00/6d6814ddc19be2df62c8c898c4df6b5b1914f3bd024b780028caa392d186/apscheduler-3.11.0.tar.gz", hash = "sha256:4c622d250b0955a65d5d0eb91c33e6d43fd879834bf541e0a18661ae60460133", size = 107347 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/13/b5/7af0cb920a476dccd612fbc9a21a3745fb29b1fcd74636078db8f7ba294c/APScheduler-3.10.4-py3-none-any.whl", hash = "sha256:fb91e8a768632a4756a585f79ec834e0e27aad5860bac7eaa523d9ccefd87661", size = 59303 },
+    { url = "https://files.pythonhosted.org/packages/d0/ae/9a053dd9229c0fde6b1f1f33f609ccff1ee79ddda364c756a924c6d8563b/APScheduler-3.11.0-py3-none-any.whl", hash = "sha256:fc134ca32e50f5eadcc4938e3a4545ab19131435e851abb40b34d63d5141c6da", size = 64004 },
 ]
 
 [[package]]
@@ -847,41 +845,40 @@ wheels = [
 
 [[package]]
 name = "h11"
-version = "0.14.0"
+version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f5/38/3af3d3633a34a3316095b39c8e8fb4853a28a536e55d347bd8d8e9a14b03/h11-0.14.0.tar.gz", hash = "sha256:8f19fbbe99e72420ff35c00b27a34cb9937e902a8b810e2c88300c6f0a3b699d", size = 100418 }
+sdist = { url = "https://files.pythonhosted.org/packages/01/ee/02a2c011bdab74c6fb3c75474d40b3052059d95df7e73351460c8588d963/h11-0.16.0.tar.gz", hash = "sha256:4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1", size = 101250 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/95/04/ff642e65ad6b90db43e668d70ffb6736436c7ce41fcc549f4e9472234127/h11-0.14.0-py3-none-any.whl", hash = "sha256:e3fe4ac4b851c468cc8363d500db52c2ead036020723024a109d37346efaa761", size = 58259 },
+    { url = "https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl", hash = "sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86", size = 37515 },
 ]
 
 [[package]]
 name = "httpcore"
-version = "0.16.3"
+version = "1.0.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "anyio" },
     { name = "certifi" },
     { name = "h11" },
-    { name = "sniffio" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/61/42/5c456b02816845d163fab0f32936b6a5b649f3f915beff6f819f4f6c90b2/httpcore-0.16.3.tar.gz", hash = "sha256:c5d6f04e2fc530f39e0c077e6a30caa53f1451096120f1f38b954afd0b17c0cb", size = 54929 }
+sdist = { url = "https://files.pythonhosted.org/packages/06/94/82699a10bca87a5556c9c59b5963f2d039dbd239f25bc2a63907a05a14cb/httpcore-1.0.9.tar.gz", hash = "sha256:6e34463af53fd2ab5d807f399a9b45ea31c3dfa2276f15a2c3f00afff6e176e8", size = 85484 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/04/7e/ef97af4623024e8159993b3114ce208de4f677098ae058ec5882a1bf7605/httpcore-0.16.3-py3-none-any.whl", hash = "sha256:da1fb708784a938aa084bde4feb8317056c55037247c787bd7e19eb2c2949dc0", size = 69561 },
+    { url = "https://files.pythonhosted.org/packages/7e/f5/f66802a942d491edb555dd61e3a9961140fd64c90bce1eafd741609d334d/httpcore-1.0.9-py3-none-any.whl", hash = "sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55", size = 78784 },
 ]
 
 [[package]]
 name = "httpx"
-version = "0.23.3"
+version = "0.27.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "anyio" },
     { name = "certifi" },
     { name = "httpcore" },
-    { name = "rfc3986", extra = ["idna2008"] },
+    { name = "idna" },
     { name = "sniffio" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f5/50/04d5e8ee398a10c767a341a25f59ff8711ae3adf0143c7f8b45fc560d72d/httpx-0.23.3.tar.gz", hash = "sha256:9818458eb565bb54898ccb9b8b251a28785dd4a55afbc23d0eb410754fe7d0f9", size = 77527 }
+sdist = { url = "https://files.pythonhosted.org/packages/78/82/08f8c936781f67d9e6b9eeb8a0c8b4e406136ea4c3d1f89a5db71d42e0e6/httpx-0.27.2.tar.gz", hash = "sha256:f7c2be1d2f3c3c3160d441802406b206c2b76f5947b11115e6df10c6c65e66c2", size = 144189 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ac/a2/0260c0f5d73bdf06e8d3fc1013a82b9f0633dc21750c9e3f3cb1dba7bb8c/httpx-0.23.3-py3-none-any.whl", hash = "sha256:a211fcce9b1254ea24f0cd6af9869b3d29aba40154e947d2a07bb499b3e310d6", size = 71472 },
+    { url = "https://files.pythonhosted.org/packages/56/95/9377bcb415797e44274b51d46e3249eba641711cf3348050f76ee7b15ffc/httpx-0.27.2-py3-none-any.whl", hash = "sha256:7bb2708e112d8fdd7829cd4243970f0c223274051cb35ee80c03301ee29a3df0", size = 76395 },
 ]
 
 [[package]]
@@ -965,10 +962,12 @@ dependencies = [
     { name = "google-cloud-logging" },
     { name = "google-cloud-pubsub" },
     { name = "google-cloud-secret-manager" },
+    { name = "httpx" },
     { name = "nest-asyncio" },
     { name = "psycopg2-binary" },
     { name = "pydantic-settings" },
     { name = "python-telegram-bot", extra = ["job-queue", "rate-limiter"] },
+    { name = "requests" },
     { name = "retry2" },
     { name = "sqlalchemy" },
 ]
@@ -987,16 +986,11 @@ archive-to-bigquery = [
 ]
 check-first-posts-for-changes = [
     { name = "google-auth" },
-    { name = "requests" },
 ]
 check-topics-by-upd-time = [
     { name = "beautifulsoup4" },
     { name = "google-cloud-storage" },
     { name = "lxml" },
-    { name = "requests" },
-]
-communicate = [
-    { name = "httpx" },
 ]
 compose-notifications = [
     { name = "certifi" },
@@ -1004,14 +998,11 @@ compose-notifications = [
     { name = "idna" },
     { name = "python-dateutil" },
     { name = "pytz" },
-    { name = "requests" },
     { name = "urllib3" },
 ]
 connect-to-forum = [
     { name = "beautifulsoup4" },
-    { name = "httpx" },
     { name = "lxml" },
-    { name = "requests" },
     { name = "urllib3" },
 ]
 develop = [
@@ -1045,7 +1036,6 @@ develop = [
 identify-updates-of-first-posts = [
     { name = "beautifulsoup4" },
     { name = "lxml" },
-    { name = "requests" },
 ]
 identify-updates-of-topics = [
     { name = "beautifulsoup4" },
@@ -1059,16 +1049,11 @@ identify-updates-of-topics = [
     { name = "lxml" },
     { name = "natasha" },
     { name = "python-dateutil" },
-    { name = "requests" },
     { name = "urllib3" },
     { name = "yandex-geocoder" },
     { name = "yarl" },
 ]
-send-debug-to-admin = [
-    { name = "httpx" },
-]
 send-notifications = [
-    { name = "httpx" },
     { name = "urllib3" },
 ]
 title-recognize = [
@@ -1107,10 +1092,7 @@ requires-dist = [
     { name = "google-cloud-secret-manager", specifier = "==2.16.0" },
     { name = "google-cloud-storage", marker = "extra == 'check-topics-by-upd-time'", specifier = "==2.10.0" },
     { name = "google-cloud-storage", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.10.0" },
-    { name = "httpx", marker = "extra == 'communicate'", specifier = "==0.23.3" },
-    { name = "httpx", marker = "extra == 'connect-to-forum'", specifier = "==0.23.3" },
-    { name = "httpx", marker = "extra == 'send-debug-to-admin'", specifier = "==0.23.3" },
-    { name = "httpx", marker = "extra == 'send-notifications'", specifier = "==0.23.3" },
+    { name = "httpx", specifier = "==0.27.*" },
     { name = "idna", marker = "extra == 'compose-notifications'", specifier = "==3.7" },
     { name = "idna", marker = "extra == 'identify-updates-of-topics'", specifier = "==3.7" },
     { name = "lxml", marker = "extra == 'api-get-active-searches'", specifier = "==4.9.1" },
@@ -1136,15 +1118,10 @@ requires-dist = [
     { name = "python-dateutil", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.8.2" },
     { name = "python-dateutil", marker = "extra == 'title-recognize'", specifier = "==2.8.2" },
     { name = "python-dotenv", marker = "extra == 'develop'", specifier = "==1.*" },
-    { name = "python-telegram-bot", extras = ["rate-limiter", "job-queue"], specifier = "==20.2" },
+    { name = "python-telegram-bot", extras = ["rate-limiter", "job-queue"], specifier = "==21.*" },
     { name = "pytz", marker = "extra == 'archive-notifications'" },
     { name = "pytz", marker = "extra == 'compose-notifications'", specifier = "==2021.1" },
-    { name = "requests", marker = "extra == 'check-first-posts-for-changes'", specifier = "==2.32.0" },
-    { name = "requests", marker = "extra == 'check-topics-by-upd-time'", specifier = "==2.32.0" },
-    { name = "requests", marker = "extra == 'compose-notifications'", specifier = "==2.32.0" },
-    { name = "requests", marker = "extra == 'connect-to-forum'", specifier = "==2.32.0" },
-    { name = "requests", marker = "extra == 'identify-updates-of-first-posts'", specifier = "==2.32.0" },
-    { name = "requests", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.32.0" },
+    { name = "requests", specifier = "==2.32.3" },
     { name = "requests-mock", marker = "extra == 'develop'", specifier = ">=1.12.1" },
     { name = "responses", marker = "extra == 'develop'", specifier = ">=0.25.6" },
     { name = "retry2", specifier = "==0.9.5" },
@@ -1938,20 +1915,19 @@ wheels = [
 
 [[package]]
 name = "python-telegram-bot"
-version = "20.2"
+version = "21.11.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/28/77/6854aeac9df1b17800f1d95d901cd79404a07af92112acf6599dbff900b7/python-telegram-bot-20.2.tar.gz", hash = "sha256:d0aa53e1f06d7cb7919cc0e2d6c81a02d968fc29921aeaa962edd1efb816a9bd", size = 440276 }
+sdist = { url = "https://files.pythonhosted.org/packages/4c/74/3ebdc3ee2c323b4577fcc57542f71aa064ac9dac154af0c2f5805e1b9fbd/python_telegram_bot-21.11.1.tar.gz", hash = "sha256:2abda5202f27a838f35e8140e5292af0f4f8fad6c2e5123b2defadd5f4e8ca02", size = 442624 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/35/7d/7ab8adc983d89893b3385294c50747050cecf122c486bab986fe30cec16b/python_telegram_bot-20.2-py3-none-any.whl", hash = "sha256:4d1d4b643ce158aa17a0987b84005eaf25fe0ce8b38fd234099594985611c198", size = 535849 },
+    { url = "https://files.pythonhosted.org/packages/27/3b/8f6372e580ba4514335873f64924eb80b80c3d3f8359c2bb2e07bb6d01b9/python_telegram_bot-21.11.1-py3-none-any.whl", hash = "sha256:17f933a7a0569f519d9b672e06d71c29ab3688f1ec575ba59a3ca37922481113", size = 676058 },
 ]
 
 [package.optional-dependencies]
 job-queue = [
     { name = "apscheduler" },
-    { name = "pytz" },
 ]
 rate-limiter = [
     { name = "aiolimiter" },
@@ -2021,7 +1997,7 @@ wheels = [
 
 [[package]]
 name = "requests"
-version = "2.32.0"
+version = "2.32.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
@@ -2029,9 +2005,9 @@ dependencies = [
     { name = "idna" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/28/a2/423f4d16d6934ef502f10ad56673719dd4345e656aedbd6687ccc359ffc5/requests-2.32.0.tar.gz", hash = "sha256:fa5490319474c82ef1d2c9bc459d3652e3ae4ef4c4ebdd18a21145a47ca4b6b8", size = 114373 }
+sdist = { url = "https://files.pythonhosted.org/packages/63/70/2bf7780ad2d390a8d301ad0b550f1581eadbd9a20f896afe06353c2a2913/requests-2.32.3.tar.gz", hash = "sha256:55365417734eb18255590a9ff9eb97e9e1da868d4ccd6402399eaf68af20a760", size = 131218 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/24/e8/09e8d662a9675a4e4f5dd7a8e6127b463a091d2703ed931a64aa66d00065/requests-2.32.0-py3-none-any.whl", hash = "sha256:f2c3881dddb70d056c5bd7600a4fae312b2a300e39be6a118d30b90bd27262b5", size = 63695 },
+    { url = "https://files.pythonhosted.org/packages/f9/9b/335f9764261e915ed497fcdeb11df5dfd6f7bf257d4a6a2a686d80da4d54/requests-2.32.3-py3-none-any.whl", hash = "sha256:70761cfe03c773ceb22aa2f671b4757976145175cdfca038c02654d061d6dcc6", size = 64928 },
 ]
 
 [[package]]
@@ -2069,20 +2045,6 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/97/49/1cae6d9b932378cc75f902fa70648945b7ea7190cb0d09ff83b47de3e60a/retry2-0.9.5-py2.py3-none-any.whl", hash = "sha256:f7fee13b1e15d0611c462910a6aa72a8919823988dd0412152bc3719c89a4e55", size = 6013 },
-]
-
-[[package]]
-name = "rfc3986"
-version = "1.5.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/79/30/5b1b6c28c105629cc12b33bdcbb0b11b5bb1880c6cfbd955f9e792921aa8/rfc3986-1.5.0.tar.gz", hash = "sha256:270aaf10d87d0d4e095063c65bf3ddbc6ee3d0b226328ce21e036f946e421835", size = 49378 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c4/e5/63ca2c4edf4e00657584608bee1001302bbf8c5f569340b78304f2f446cb/rfc3986-1.5.0-py2.py3-none-any.whl", hash = "sha256:a86d6e1f5b1dc238b218b012df0aa79409667bb209e58da56d0b94704e712a97", size = 31976 },
-]
-
-[package.optional-dependencies]
-idna2008 = [
-    { name = "idna" },
 ]
 
 [[package]]

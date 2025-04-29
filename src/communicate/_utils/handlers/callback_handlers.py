@@ -103,7 +103,7 @@ def _handle_topic_type_pressed_about(
     )
     about_params = {'chat_id': user_id, 'text': about_text, 'parse_mode': 'HTML'}
     tg_api().send_message(about_params, "main() if ... user_callback['action'] == 'about'")
-    del_message_id = callback_query.message.id if callback_query and callback_query.message else None
+    del_message_id = callback_query.message.message_id if callback_query and callback_query.message else None
     if del_message_id:  ###was get_last_user_inline_dialogue( user_id)
         tg_api().delete_message(user_id, del_message_id)
         bot_message = f'⬆️ Справка приведена выше. \n\n{welcome_message}'

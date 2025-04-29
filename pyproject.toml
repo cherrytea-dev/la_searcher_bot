@@ -11,9 +11,11 @@ dependencies = [
     "pydantic-settings==2.*",
     "psycopg2-binary==2.9.5",
     "SQLAlchemy==1.4.54",
-    "python-telegram-bot[rate-limiter, job-queue]==20.2",
+    "python-telegram-bot[rate-limiter, job-queue]==21.*",
     "nest_asyncio",
     "retry2==0.9.5",
+    "requests==2.32.3",
+    "httpx==0.27.*",
 ]
 
 
@@ -62,21 +64,18 @@ archive_notifications = ["pytz"]
 archive_to_bigquery = ["google-cloud-bigquery==3.27.0"]
 
 check_first_posts_for_changes = [
-    "requests==2.32.0",
     "google-auth==2.19.1", # for API calls to other Google Cloud Functions
 ]
 
 check_topics_by_upd_time = [
-    "requests==2.32.0",
     "beautifulsoup4==4.9.3",
     "lxml==4.9.1",
     "google-cloud-storage==2.10.0",
 ]
 
-communicate = ["httpx==0.23.3"]
+communicate = []
 
 compose_notifications = [
-    "requests==2.32.0",
     "urllib3==1.26.19",
     "idna==3.7",         # translation of domain names
     "certifi==2024.7.4", # SSL certificates
@@ -85,22 +84,14 @@ compose_notifications = [
     "pytz==2021.1",      # timezone
 ]
 
-connect_to_forum = [
-    "requests==2.32.0",
-    "urllib3==1.26.19",
-    "beautifulsoup4==4.9.3",
-    "lxml==4.9.1",
-    "httpx==0.23.3",
-]
+connect_to_forum = ["urllib3==1.26.19", "beautifulsoup4==4.9.3", "lxml==4.9.1"]
 
 identify_updates_of_first_posts = [
-    "requests==2.32.0",
     "beautifulsoup4==4.9.3", # do we need to update it?
     "lxml==4.9.1",
 ]
 
 identify_updates_of_topics = [
-    "requests==2.32.0",
     "urllib3==1.26.19",             # http client
     "idna==3.7",                    # translation of domain names
     "certifi==2024.7.4",            # SSL certificates
@@ -121,9 +112,9 @@ manage_topics = []
 
 manage_users = []
 
-send_debug_to_admin = ["httpx==0.23.3"]
+send_debug_to_admin = []
 
-send_notifications = ["urllib3==1.26.19", "httpx==0.23.3"]
+send_notifications = ["urllib3==1.26.19"]
 
 title_recognize = [
     "python-dateutil==2.8.2",     # extension to datetime module
