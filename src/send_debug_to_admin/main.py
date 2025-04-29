@@ -8,7 +8,8 @@ from google.cloud.functions.context import Context
 from retry import retry
 
 from _dependencies.commons import get_app_config, setup_google_logging
-from _dependencies.misc import process_pubsub_message_v2, tg_api_service_account
+from _dependencies.misc import tg_api_service_account
+from _dependencies.pubsub import process_pubsub_message_v2
 
 setup_google_logging()
 

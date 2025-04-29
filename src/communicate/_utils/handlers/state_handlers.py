@@ -1,7 +1,8 @@
 import logging
 import re
 
-from _dependencies.commons import Topics, publish_to_pubsub
+from _dependencies.commons import Topics
+from _dependencies.pubsub import publish_to_pubsub
 
 from ..buttons import (
     CoordinateSettingsMenu,

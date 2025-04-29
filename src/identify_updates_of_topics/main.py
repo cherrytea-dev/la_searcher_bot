@@ -10,11 +10,11 @@ from google.cloud.functions.context import Context
 
 from _dependencies.commons import (
     Topics,
-    publish_to_pubsub,
     setup_google_logging,
     sqlalchemy_get_pool,
 )
-from _dependencies.misc import generate_random_function_id, notify_admin, process_pubsub_message_v3
+from _dependencies.misc import generate_random_function_id
+from _dependencies.pubsub import notify_admin, process_pubsub_message_v3, publish_to_pubsub
 
 from ._utils.database import DBClient
 from ._utils.folder_updater import FolderUpdater

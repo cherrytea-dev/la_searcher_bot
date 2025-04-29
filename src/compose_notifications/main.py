@@ -9,12 +9,12 @@ from google.cloud.functions.context import Context
 from sqlalchemy.engine.base import Connection
 
 from _dependencies.cloud_func_parallel_guard import check_and_save_event_id
-from _dependencies.commons import ChangeType, Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
+from _dependencies.commons import ChangeType, Topics, setup_google_logging, sqlalchemy_get_pool
 from _dependencies.misc import (
     generate_random_function_id,
     get_triggering_function,
-    process_pubsub_message_v2,
 )
+from _dependencies.pubsub import process_pubsub_message_v2, publish_to_pubsub
 
 from ._utils.commons import LineInChangeLog, User
 from ._utils.log_record_composer import LogRecordComposer

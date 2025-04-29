@@ -7,7 +7,8 @@ from requests.models import Response
 from retry.api import retry_call
 from telegram import TelegramObject
 
-from _dependencies.commons import Topics, publish_to_pubsub
+from _dependencies.commons import Topics
+from _dependencies.pubsub import publish_to_pubsub
 
 
 class TGApiBase:

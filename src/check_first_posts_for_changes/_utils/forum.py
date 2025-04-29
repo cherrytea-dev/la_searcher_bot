@@ -1,5 +1,4 @@
 import hashlib
-import logging
 import re
 from dataclasses import dataclass
 from functools import lru_cache
@@ -7,8 +6,8 @@ from functools import lru_cache
 import requests
 from retry import retry
 
-from _dependencies.commons import Topics, get_forum_proxies, publish_to_pubsub
-from _dependencies.misc import make_api_call
+from _dependencies.commons import Topics, get_forum_proxies
+from _dependencies.pubsub import make_api_call, publish_to_pubsub
 from _dependencies.recognition_schema import RecognitionResult
 
 

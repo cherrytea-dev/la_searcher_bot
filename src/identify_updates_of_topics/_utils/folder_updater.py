@@ -7,7 +7,7 @@ from google.cloud import storage
 from google.cloud.storage.blob import Blob
 
 from _dependencies.commons import ChangeType, TopicType
-from _dependencies.misc import make_api_call, notify_admin
+from _dependencies.pubsub import make_api_call, notify_admin
 from _dependencies.recognition_schema import RecognitionResult, RecognitionTopicType
 
 from .database import DBClient
