@@ -4,6 +4,7 @@ import urllib.parse
 
 import requests
 from requests.models import Response
+from retry.api import retry_call
 from telegram import TelegramObject
 
 from _dependencies.commons import Topics, publish_to_pubsub
@@ -94,7 +95,12 @@ class TGApiBase:
         logging.info(f'({method=}, {call_context=})..after json.dumps(params): {json_params=}; {type(json_params)=}')
 
         try:
-            response = self._session.post(url=url, data=json_params, headers=headers)
+            response = retry_call(
+                self._session.post,
+                fargs=[url],
+                fkwargs=dict(data=json_params, headers=headers),
+                tries=3,
+            )
             logging.info(f'After session.post: {response=}; {call_context=}')
         except Exception as e:
             response = None
