@@ -11,7 +11,7 @@ from telegram import (
 )
 
 from _dependencies.commons import get_app_config
-from _dependencies.misc import notify_admin
+from _dependencies.pubsub import notify_admin
 
 from ..buttons import (
     Commands,

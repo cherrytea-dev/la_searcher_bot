@@ -10,7 +10,8 @@ from functools import lru_cache
 
 from google.cloud.functions.context import Context
 
-from _dependencies.commons import Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
+from _dependencies.commons import Topics, setup_google_logging, sqlalchemy_get_pool
+from _dependencies.pubsub import publish_to_pubsub
 
 from ._utils.commons import PercentGroup, Search
 from ._utils.database import DBClient

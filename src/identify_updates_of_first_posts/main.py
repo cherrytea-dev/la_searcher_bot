@@ -21,12 +21,12 @@ from _dependencies.commons import (
     ChangeType,
     Topics,
     get_forum_proxies,
-    publish_to_pubsub,
     setup_google_logging,
     sqlalchemy_get_pool,
 )
 from _dependencies.content import clean_up_content_2
-from _dependencies.misc import generate_random_function_id, notify_admin, process_pubsub_message
+from _dependencies.misc import generate_random_function_id
+from _dependencies.pubsub import notify_admin, process_pubsub_message, publish_to_pubsub
 
 setup_google_logging()
 

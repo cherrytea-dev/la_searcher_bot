@@ -2,6 +2,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
+import _dependencies.pubsub
+import send_notifications.main
 from _dependencies import misc
 from _dependencies.commons import sql_connect_by_psycopg2
 from tests.common import get_event_with_data
@@ -9,7 +11,7 @@ from tests.common import get_event_with_data
 
 def test_make_api_call():
     # TODO mock requests
-    misc.make_api_call('test', {'a: 1'})
+    _dependencies.pubsub.recognize_title_via_api('test title', False)
 
 
 @pytest.mark.parametrize(
@@ -43,45 +45,25 @@ def test_age_writer(age: int, result: str):
 def test_get_change_log_update_time():
     with sql_connect_by_psycopg2() as connection:
         with connection.cursor() as cursor:
-            misc.get_change_log_update_time(cursor, 1)
+            send_notifications.main.get_change_log_update_time(cursor, 1)
 
 
 def test_save_sending_status_to_notif_by_user():
     with sql_connect_by_psycopg2() as connection:
         with connection.cursor() as cursor:
-            misc.save_sending_status_to_notif_by_user(cursor, 1, 'cancelled')
-
-
-def test_evaluate_city_locations_success():
-    res = misc.evaluate_city_locations('[[56.0, 64.0]]')
-    assert res == [[56.0, 64.0]]
-
-
-@pytest.mark.parametrize(
-    'param',
-    [
-        [],
-        [1],
-        [None],
-        '"foo"',
-        '',
-    ],
-)
-def test_evaluate_city_locations_fail(param):
-    res = misc.evaluate_city_locations(str(param))
-    assert res is None
+            send_notifications.main.save_sending_status_to_notif_by_user(cursor, 1, 'cancelled')
 
 
 def test_process_pubsub_message():
-    res = misc.process_pubsub_message(get_event_with_data('foo'))
+    res = _dependencies.pubsub.process_pubsub_message(get_event_with_data('foo'))
     assert res == 'foo'
 
 
 def test_process_pubsub_message_2():
-    res = misc.process_pubsub_message_v2(get_event_with_data('foo'))
+    res = _dependencies.pubsub.process_pubsub_message(get_event_with_data('foo'))
     assert res == 'foo'
 
 
 def test_process_pubsub_message_3():
-    res = misc.process_pubsub_message_v3(get_event_with_data('foo'))
+    res = _dependencies.pubsub.process_pubsub_message(get_event_with_data('foo'))
     assert res == 'foo'

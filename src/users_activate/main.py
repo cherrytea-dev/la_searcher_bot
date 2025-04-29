@@ -2,7 +2,7 @@ import base64
 import logging
 
 from _dependencies.commons import setup_google_logging, sql_connect_by_psycopg2
-from _dependencies.misc import process_pubsub_message_v2
+from _dependencies.pubsub import process_pubsub_message
 
 setup_google_logging()
 

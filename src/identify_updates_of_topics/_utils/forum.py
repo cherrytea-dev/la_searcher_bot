@@ -9,7 +9,8 @@ from bs4 import BeautifulSoup, SoupStrainer
 from requests import Session
 from yarl import URL
 
-from _dependencies.commons import Topics, get_app_config, get_forum_proxies, publish_to_pubsub
+from _dependencies.commons import Topics, get_app_config, get_forum_proxies
+from _dependencies.pubsub import publish_to_pubsub
 
 from .topics_commons import CoordType, ForumCommentItem, ForumSearchItem
 

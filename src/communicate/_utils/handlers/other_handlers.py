@@ -2,7 +2,7 @@ import logging
 
 from telegram import Update
 
-from _dependencies.misc import notify_admin
+from _dependencies.pubsub import notify_admin
 
 from ..buttons import CoordinateSettingsMenu, b_back_to_start, b_menu_set_region
 from ..common import (

@@ -1,16 +1,13 @@
 import ast
-import json
-import logging
 import os
 import urllib.request
 from enum import Enum, IntEnum
 from functools import lru_cache
-from typing import Any
 
 import google.cloud.logging
 import psycopg2
 import sqlalchemy
-from google.cloud import pubsub_v1, secretmanager
+from google.cloud import secretmanager
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings
 
@@ -60,40 +57,6 @@ def setup_google_logging() -> None:
 
     log_client = google.cloud.logging.Client()
     log_client.setup_logging()
-
-
-@lru_cache
-def get_publisher() -> pubsub_v1.PublisherClient:
-    return pubsub_v1.PublisherClient()
-
-
-def publish_to_pubsub(topic_name: Topics, message: str | dict | list) -> None:
-    """publish a new message to pub/sub"""
-
-    topic_name_str = topic_name.value if isinstance(topic_name, Topics) else topic_name
-    #  TODO find out where topic_name.value comes from as str
-
-    topic_path = get_publisher().topic_path(get_project_id(), topic_name_str)
-    data = {
-        'data': {'message': message},
-    }
-    message_json = json.dumps(data)
-    message_bytes = message_json.encode('utf-8')
-
-    try:
-        _send_topic(topic_name, topic_path, message_bytes)
-        logging.info(f'Sent pub/sub message: {str(message)}')
-
-    except Exception as e:
-        logging.error('Not able to send pub/sub message: ' + repr(e))
-        logging.exception(e)
-
-    return None
-
-
-def _send_topic(topic_name: Topics, topic_path: str, message_bytes: bytes) -> None:
-    publish_future = get_publisher().publish(topic_path, data=message_bytes)
-    publish_future.result()  # Verify the publishing succeeded
 
 
 class AppConfig(BaseSettings):

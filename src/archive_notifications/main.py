@@ -1,11 +1,11 @@
 import logging
-from typing import Any, Optional
 
 import sqlalchemy
 from google.cloud.functions.context import Context
 from sqlalchemy.engine.base import Connection
 
-from _dependencies.commons import Topics, publish_to_pubsub, sqlalchemy_get_pool
+from _dependencies.commons import Topics, sqlalchemy_get_pool
+from _dependencies.pubsub import publish_to_pubsub
 
 # setup_google_logging()
 # do we need google cloud logging here?

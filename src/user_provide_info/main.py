@@ -7,17 +7,18 @@ import hmac
 import json
 import logging
 import re
+from ast import literal_eval
 from typing import Any
 from urllib.parse import unquote
 
 import functions_framework
 from flask import Request
 from psycopg2.extensions import connection
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel
 
 from _dependencies.commons import TopicType, get_app_config, setup_google_logging, sql_connect_by_psycopg2
 from _dependencies.content import clean_up_content
-from _dependencies.misc import evaluate_city_locations, time_counter_since_search_start
+from _dependencies.misc import time_counter_since_search_start
 
 setup_google_logging()
 
@@ -280,6 +281,35 @@ def _compose_basic_user_params(user_id: int, conn_psy: connection) -> dict[str, 
             'radius': raw_data[3],
         }
     return user_params
+
+
+def evaluate_city_locations(city_locations: str) -> list[list[Any]] | None:
+    if not city_locations:
+        logging.info('no city_locations')
+        return None
+
+    cl_eval = literal_eval(city_locations)
+    if not cl_eval:
+        logging.info('no eval of city_locations')
+        return None
+
+    if not isinstance(cl_eval, list):
+        logging.info('eval of city_locations is not list')
+        return None
+
+    first_coords = cl_eval[0]
+
+    if not first_coords:
+        logging.info('no first coords in city_locations')
+        return None
+
+    if not isinstance(first_coords, list):
+        logging.info('fist coords in city_locations is not list')
+        return None
+
+    logging.info(f'city_locations has coords {first_coords}')
+
+    return [first_coords]
 
 
 def _compose_searches(raw_data: list[tuple]) -> list[Search]:  # TODO contract

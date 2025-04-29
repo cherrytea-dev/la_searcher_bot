@@ -12,10 +12,9 @@ from telegram import Bot, CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardMark
 from _dependencies.commons import (
     Topics,
     get_app_config,
-    publish_to_pubsub,
     setup_google_logging,
 )
-from _dependencies.misc import notify_admin
+from _dependencies.pubsub import notify_admin, publish_to_pubsub
 
 from ._utils.buttons import TopicTypeInlineKeyboardBuilder, reply_markup_main
 from ._utils.common import (
