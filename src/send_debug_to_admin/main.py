@@ -1,9 +1,6 @@
 """Script send the Debug messages to Admin via special Debug Bot in telegram https://t.me/la_test_1_bot
 To receive notifications one should be marked as Admin in PSQL"""
 
-import base64
-import logging
-
 from google.cloud.functions.context import Context
 from retry import retry
 

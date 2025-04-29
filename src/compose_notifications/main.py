@@ -2,7 +2,6 @@
 
 import datetime
 import logging
-from typing import Any
 
 import sqlalchemy
 from google.cloud.functions.context import Context
@@ -54,7 +53,7 @@ def get_list_of_admins_and_testers(conn: Connection) -> tuple[list[int], list[in
 
         logging.info('Got the Lists of Admins & Testers')
 
-    except Exception as e:
+    except Exception:
         logging.exception('Not able to get the lists of Admins & Testers')
 
     return list_of_admins, list_of_testers

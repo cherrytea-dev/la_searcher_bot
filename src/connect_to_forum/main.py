@@ -145,7 +145,7 @@ def get_user_id(u_name: str) -> str:
         else:
             logging.info('User not found')
 
-    except Exception as e:
+    except Exception:
         logging.exception('User not found')
 
     return user_id
@@ -352,7 +352,7 @@ def main(event: Dict[str, bytes], context: Context) -> None:
             )
             conn.commit()
 
-        except Exception as e:
+        except Exception:
             logging.exception('failed to update the last saved message from bot')
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)

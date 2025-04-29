@@ -1,11 +1,10 @@
 import datetime
 import json
 import logging
-from typing import Any, Dict, Optional
 
 import sqlalchemy
 from google.cloud.functions.context import Context
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from _dependencies.commons import Topics, setup_google_logging, sqlalchemy_get_pool
 from _dependencies.misc import generate_random_function_id

@@ -109,7 +109,7 @@ def test_finish_time_analytics():
 def test__process_message_sending():
     changed_ids = set()
     with sql_connect_by_psycopg2() as conn:
-        res = main._process_message_sending(
+        main._process_message_sending(
             MagicMock(), TimeAnalyticsFactory.build(), set(), conn, NotSentNotificationFactory.create_sync()
         )
     assert not changed_ids

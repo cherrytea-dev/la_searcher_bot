@@ -1,8 +1,7 @@
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
-import identify_updates_of_topics._utils.external_api
 import identify_updates_of_topics._utils.forum
 from _dependencies.commons import sqlalchemy_get_pool
 from identify_updates_of_topics._utils import folder_updater

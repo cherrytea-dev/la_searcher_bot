@@ -120,7 +120,7 @@ class FolderUpdater:
             try:
                 self._parse_one_search(current_datetime, folder_summary, forum_search_item)
 
-            except Exception as e:
+            except Exception:
                 logging.exception(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
                 notify_admin(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
 
@@ -346,7 +346,7 @@ class FolderUpdater:
                         coord_type = CoordType.type_4_from_title
                 else:
                     logging.info(f'No address was found for search {search_num}, title {title}')
-            except Exception as e5:
+            except Exception:
                 logging.exception('DBG.P.42.EXC')
 
         # DEBUG - function execution time counter
@@ -458,7 +458,7 @@ class FolderUpdater:
 
             return lat, lon
 
-        except Exception as e:
+        except Exception:
             logging.exception('TEMP - LOC - New getting coordinates from title failed')
             notify_admin('ERROR: major geocoding script failed')
 
