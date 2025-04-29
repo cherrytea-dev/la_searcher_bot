@@ -4,7 +4,6 @@ import urllib.request
 from enum import Enum, IntEnum
 from functools import lru_cache
 
-
 import google.cloud.logging
 import psycopg2
 import sqlalchemy

@@ -22,8 +22,7 @@ def mock_send_message() -> Mock:
     ],
 )
 def test_main_positive(mock_send_message, message: str):
-    message_text = ''
-    event = get_event_with_data(message_text)
+    event = get_event_with_data(message)
 
     main.main(event, 'context')
     mock_send_message.assert_called_once()

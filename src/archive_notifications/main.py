@@ -1,6 +1,5 @@
 import logging
 
-
 import sqlalchemy
 from google.cloud.functions.context import Context
 from sqlalchemy.engine.base import Connection

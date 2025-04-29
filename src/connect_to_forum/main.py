@@ -17,6 +17,7 @@ from google.cloud.functions.context import Context
 from telegram import ReplyKeyboardMarkup
 
 from _dependencies.commons import get_app_config, get_forum_proxies, setup_google_logging, sql_connect_by_psycopg2
+from _dependencies.pubsub import process_pubsub_message
 from _dependencies.telegram_api_wrapper import TGApiBase
 
 COOKIE_FILE_NAME = 'session_cookies.pkl'
@@ -264,11 +265,7 @@ def main(event: Dict[str, bytes], context: Context) -> None:
     conn = sql_connect_by_psycopg2()
     cur = conn.cursor()
 
-    pubsub_message = base64.b64decode(event['data']).decode('utf-8')
-
-    encoded_to_ascii = literal_eval(pubsub_message)
-    data_in_ascii = encoded_to_ascii['data']
-    message_in_ascii = data_in_ascii['message']
+    message_in_ascii = process_pubsub_message(event)
     tg_user_id, f_username = list(message_in_ascii)
 
     user = None
