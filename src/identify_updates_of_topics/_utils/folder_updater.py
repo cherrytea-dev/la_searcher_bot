@@ -7,7 +7,7 @@ from google.cloud import storage
 from google.cloud.storage.blob import Blob
 
 from _dependencies.commons import ChangeType, TopicType
-from _dependencies.pubsub import make_api_call, notify_admin
+from _dependencies.pubsub import notify_admin, recognize_title_via_api
 from _dependencies.recognition_schema import RecognitionResult, RecognitionTopicType
 
 from .database import DBClient
@@ -143,8 +143,7 @@ class FolderUpdater:
             # TODO move mapping near enum definition
         }
 
-        data = {'title': forum_search_item.title}
-        title_reco_response = make_api_call('title_recognize', data)
+        title_reco_response = recognize_title_via_api(forum_search_item.title, False)
 
         if title_reco_response and 'status' in title_reco_response.keys() and title_reco_response['status'] == 'ok':
             title_reco_dict = RecognitionResult.model_validate(title_reco_response['recognition'])

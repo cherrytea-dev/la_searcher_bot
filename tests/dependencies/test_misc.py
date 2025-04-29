@@ -4,7 +4,6 @@ import pytest
 
 import _dependencies.pubsub
 import send_notifications.main
-import tests.test_user_provide_info
 from _dependencies import misc
 from _dependencies.commons import sql_connect_by_psycopg2
 from tests.common import get_event_with_data
@@ -12,7 +11,7 @@ from tests.common import get_event_with_data
 
 def test_make_api_call():
     # TODO mock requests
-    _dependencies.pubsub.make_api_call('test', {'a: 1'})
+    _dependencies.pubsub.recognize_title_via_api('test title', False)
 
 
 @pytest.mark.parametrize(

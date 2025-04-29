@@ -7,7 +7,7 @@ import requests
 from retry import retry
 
 from _dependencies.commons import Topics, get_forum_proxies
-from _dependencies.pubsub import make_api_call, publish_to_pubsub
+from _dependencies.pubsub import publish_to_pubsub, recognize_title_via_api
 from _dependencies.recognition_schema import RecognitionResult
 
 
@@ -62,8 +62,7 @@ def get_search_raw_content(search_num: int) -> str:
 
 
 def _recognize_status_with_title_recognize(title: str) -> str | None:
-    data = {'title': title, 'reco_type': 'status_only'}
-    title_reco_response = make_api_call('title_recognize', data)
+    title_reco_response = recognize_title_via_api(title, status_only=True)
 
     if title_reco_response and 'status' in title_reco_response.keys() and title_reco_response['status'] == 'ok':
         title_reco_dict = RecognitionResult.model_validate(title_reco_response['recognition'])

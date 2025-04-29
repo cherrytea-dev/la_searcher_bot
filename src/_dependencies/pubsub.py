@@ -48,11 +48,18 @@ def notify_admin(message: str) -> None:
     publish_to_pubsub(Topics.topic_notify_admin, message)
 
 
-@retry(Exception, tries=3, delay=3)
-def make_api_call(function: str, data: dict) -> dict:
+def recognize_title_via_api(title: str, status_only: bool) -> dict:
     """makes an API call to another Google Cloud Function"""
+    data = {'title': title}
+    if status_only:
+        data['reco_type'] = 'status_only'
 
     # function we're turing to "title_recognize"
+    return _make_api_call('title_recognize', data)
+
+
+@retry(Exception, tries=3, delay=3)
+def _make_api_call(function: str, data: dict) -> dict:
     endpoint = f'https://europe-west3-lizaalert-bot-01.cloudfunctions.net/{function}'
 
     # required magic for Google Cloud Functions Gen2 to invoke each other
@@ -63,9 +70,7 @@ def make_api_call(function: str, data: dict) -> dict:
 
     response = requests.post(endpoint, json=data, headers=headers, timeout=30)
     response.raise_for_status()
-    content = response.json()
-
-    return content
+    return response.json()
 
 
 def process_pubsub_message(event: dict) -> str:
