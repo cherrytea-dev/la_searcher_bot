@@ -1,12 +1,12 @@
-import base64
 from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
-from _dependencies.commons import Topics, sql_connect_by_psycopg2, sqlalchemy_get_pool
-from tests.common import get_test_config, topic_to_receiver_function
+from _dependencies import pubsub
+from _dependencies.commons import sql_connect_by_psycopg2, sqlalchemy_get_pool
+from tests.common import get_test_config
 from tests.factories import db_factories
 
 
@@ -18,13 +18,9 @@ def patch_app_config():
         yield
 
 
-@pytest.fixture()
+@pytest.fixture(autouse=True)
 def patch_publish_topic():
-    def patched_send_topic(topic_name: Topics, topic_path, data: dict) -> None:
-        receiver = topic_to_receiver_function(topic_name)
-        receiver({'data': base64.encodebytes(data)}, 'context')
-
-    with patch('_dependencies.pubsub._send_topic', patched_send_topic):
+    with patch.object(pubsub, 'publish_to_pubsub'):
         yield
 
 

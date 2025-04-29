@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from dotenv import load_dotenv
 
+from _dependencies import pubsub
 from _dependencies.commons import AppConfig
 from identify_updates_of_topics import main
 from identify_updates_of_topics._utils import folder_updater
@@ -43,9 +44,7 @@ def fake_recognize_title_via_api(title: str, status_only: bool):
 if __name__ == '__main__':
     with (
         patch('_dependencies.commons._get_config', get_dotenv_config),
-        patch('_dependencies.misc.publish_to_pubsub', fake_publish_to_pubsub),
-        patch('identify_updates_of_topics._utils.forum.publish_to_pubsub', fake_publish_to_pubsub),
-        patch.object(main, 'publish_to_pubsub', fake_publish_to_pubsub),
+        patch.object(pubsub, 'publish_to_pubsub', fake_publish_to_pubsub),
         patch.object(folder_updater, 'CloudStorage', LocalFileStorage),
         patch.object(folder_updater, 'recognize_title_via_api', fake_recognize_title_via_api),
         # patch.object(main, 'notify_admin', lambda x: print(f'Admin notification: {x}')),

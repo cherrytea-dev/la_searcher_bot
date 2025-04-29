@@ -1,7 +1,9 @@
 import base64
 import json
 import logging
+from datetime import datetime
 from functools import lru_cache
+from typing import Any
 
 import google.auth.transport.requests
 import google.oauth2.id_token
@@ -40,6 +42,62 @@ def publish_to_pubsub(topic_name: Topics, message: str | dict | list) -> None:
 
     except Exception:
         logging.exception('Not able to send pub/sub message')
+
+
+def pubsub_parse_user_profile(user_id: int, got_message: str) -> None:
+    message_for_pubsub = [user_id, got_message]
+    publish_to_pubsub(Topics.parse_user_profile_from_forum, message_for_pubsub)
+
+
+def pubsub_parse_folders(folders_list: list) -> None:
+    publish_to_pubsub(Topics.topic_to_run_parsing_script, str(folders_list))
+
+
+def pubsub_compose_notifications(function_id: int, text: str) -> None:
+    message_for_pubsub = {'triggered_by_func_id': function_id, 'text': text}
+    publish_to_pubsub(Topics.topic_for_notification, message_for_pubsub)
+
+
+def pubsub_check_first_posts(topics_with_updated_first_posts: list[int]) -> None:
+    publish_to_pubsub(Topics.topic_for_first_post_processing, topics_with_updated_first_posts)
+
+
+def pubsub_send_notifications(function_id: int, text: str) -> None:
+    message_for_pubsub = {'triggered_by_func_id': function_id, 'text': text}
+    publish_to_pubsub(Topics.topic_to_send_notifications, message_for_pubsub)
+
+
+def pubsub_topic_management(topic_id: int, status: str | None = None, visibility: str | None = None) -> None:
+    # TODO change status right here
+
+    pubsub_message: dict[str, Any] = {'topic_id': topic_id}
+    if status:
+        pubsub_message['status'] = status
+    if visibility:
+        pubsub_message['visibility'] = visibility
+
+    publish_to_pubsub(Topics.topic_for_topic_management, pubsub_message)
+
+
+def pubsub_user_management(
+    user_id: int,
+    action: str,
+    username: str | None = None,
+    time: datetime | None = None,
+    step: str | None = None,
+) -> None:
+    logging.info(f'Identified user id {user_id} to do {action}')
+    message_for_pubsub: dict[str, Any] = {'action': action, 'info': {'user': user_id}}
+    if username is not None:
+        message_for_pubsub['info']['username'] = username
+
+    if time:
+        message_for_pubsub['time'] = str(time)
+
+    if step:
+        message_for_pubsub['step'] = step
+
+    publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
 
 
 def notify_admin(message: str) -> None:

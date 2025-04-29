@@ -1,16 +1,14 @@
 import datetime
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 import requests
-from bs4 import BeautifulSoup
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
 from _dependencies.commons import sqlalchemy_get_pool
 from identify_updates_of_first_posts import main
 from src.identify_updates_of_first_posts.main import (
-    parse_search_folder_num,
     process_first_page_comparison,
     split_text_to_deleted_and_regular_parts,
 )
@@ -22,13 +20,6 @@ from tests.factories import db_factories
 def patch_http():
     # disable http patching
     pass
-
-
-@pytest.fixture(autouse=True)
-def patch_publish_topic():
-    # disable http patching
-    with patch.object(main, 'publish_to_pubsub'):
-        yield
 
 
 def test_main():
@@ -146,7 +137,6 @@ def test_multiple_updated_searches():
         patch('identify_updates_of_first_posts.main.save_new_record_into_change_log'),
         patch('identify_updates_of_first_posts.main.parse_search_folder_num'),
         patch('identify_updates_of_first_posts.main.save_function_into_register'),
-        patch('identify_updates_of_first_posts.main.publish_to_pubsub'),
     ):
         assert main.main(get_event_with_data('[1,2]'), {}) == 'ok'
 
@@ -235,15 +225,13 @@ def test__process_folders_with_updated_searches(connection):
 
 
 def test__get_actual_and_previous_page_content(connection):
-    # NO SMOKE TEST identify_updates_of_first_posts.main._get_actual_and_previous_page_content
-
     prev_search_first_post = db_factories.SearchFirstPostFactory.create_sync(
         actual=False, timestamp=datetime.datetime.now()
     )
     search_first_post = db_factories.SearchFirstPostFactory.create_sync(
         actual=True, timestamp=datetime.datetime.now(), search_id=prev_search_first_post.search_id
     )
-    search = db_factories.SearchFactory.create_sync(search_forum_num=prev_search_first_post.search_id, status='Ищем')
+    db_factories.SearchFactory.create_sync(search_forum_num=prev_search_first_post.search_id, status='Ищем')
 
     actual, prev = main._get_actual_and_previous_page_content(
         search_id=prev_search_first_post.search_id,

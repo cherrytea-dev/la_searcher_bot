@@ -8,13 +8,9 @@ from datetime import datetime
 import sqlalchemy
 from google.cloud.functions.context import Context
 
-from _dependencies.commons import (
-    Topics,
-    setup_google_logging,
-    sqlalchemy_get_pool,
-)
+from _dependencies.commons import setup_google_logging, sqlalchemy_get_pool
 from _dependencies.misc import generate_random_function_id
-from _dependencies.pubsub import notify_admin, process_pubsub_message, publish_to_pubsub
+from _dependencies.pubsub import notify_admin, process_pubsub_message, pubsub_compose_notifications
 
 from ._utils.database import DBClient
 from ._utils.folder_updater import FolderUpdater
@@ -69,8 +65,6 @@ def main(event: dict[str, bytes], context: Context) -> None:  # noqa
 
     if list_of_folders_with_updates:
         db_client.save_function_into_register(context, analytics_func_start, function_id, change_log_ids)
-
-        message_for_pubsub = {'triggered_by_func_id': function_id, 'text': "let's compose notifications"}
-        publish_to_pubsub(Topics.topic_for_notification, message_for_pubsub)
+        pubsub_compose_notifications(function_id, "let's compose notifications")
 
     db_conn_pool.dispose()

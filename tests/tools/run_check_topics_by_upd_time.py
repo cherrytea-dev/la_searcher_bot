@@ -1,15 +1,13 @@
-import datetime
 from functools import lru_cache
 from pathlib import Path
-from random import randint
 from typing import Any
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 from dotenv import load_dotenv
 
+from _dependencies import pubsub
 from _dependencies.commons import AppConfig
 from check_topics_by_upd_time import main
-from tests.common import get_event_with_data
 
 
 @lru_cache
@@ -39,7 +37,7 @@ if __name__ == '__main__':
     with (
         patch('_dependencies.commons._get_config', get_dotenv_config),
         patch.object(main, 'CloudStorage', LocalFileStorage),
-        patch.object(main, 'publish_to_pubsub', fake_publish_to_pubsub),
+        patch.object(pubsub, 'publish_to_pubsub', fake_publish_to_pubsub),
     ):
         # main.main(get_event_with_data(str(generate_random_param())), '')
         main.main('', '')

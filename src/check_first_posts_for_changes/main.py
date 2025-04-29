@@ -10,8 +10,8 @@ from functools import lru_cache
 
 from google.cloud.functions.context import Context
 
-from _dependencies.commons import Topics, setup_google_logging, sqlalchemy_get_pool
-from _dependencies.pubsub import publish_to_pubsub
+from _dependencies.commons import setup_google_logging, sqlalchemy_get_pool
+from _dependencies.pubsub import pubsub_check_first_posts
 
 from ._utils.commons import PercentGroup, Search
 from ._utils.database import DBClient
@@ -178,7 +178,7 @@ def update_first_posts_and_statuses() -> None:
     if not topics_with_updated_first_posts:
         return
 
-    publish_to_pubsub(Topics.topic_for_first_post_processing, topics_with_updated_first_posts)
+    pubsub_check_first_posts(topics_with_updated_first_posts)
 
 
 def main(event: dict, context: Context) -> None:

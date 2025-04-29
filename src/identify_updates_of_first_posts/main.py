@@ -19,14 +19,18 @@ from google.cloud.functions.context import Context
 from _dependencies.commons import (
     ChangeLogSavedValue,
     ChangeType,
-    Topics,
     get_forum_proxies,
     setup_google_logging,
     sqlalchemy_get_pool,
 )
 from _dependencies.content import clean_up_content_2
 from _dependencies.misc import generate_random_function_id
-from _dependencies.pubsub import notify_admin, process_pubsub_message, publish_to_pubsub
+from _dependencies.pubsub import (
+    notify_admin,
+    process_pubsub_message,
+    pubsub_compose_notifications,
+    pubsub_parse_folders,
+)
 
 setup_google_logging()
 
@@ -276,21 +280,15 @@ def _process_folders_with_updated_searches(
     # save folder number for the search that has an update
     list_of_folders_with_upd_searches = [parse_search_folder_num(search_id) for search_id in list_of_updated_searches]
     updated_searches = set((folder_num for folder_num in list_of_folders_with_upd_searches if folder_num))
-    updated_searches_to_pubsub = str([[folder_num, None] for folder_num in updated_searches])
+    updated_searches_to_pubsub = [[folder_num, None] for folder_num in updated_searches]
     if not list_of_folders_with_upd_searches:
         return
 
     # evoke 'parsing script' to check if the folders with updated searches have any update
     save_function_into_register(conn, context, analytics_func_start, function_id, change_log_ids)
 
-    publish_to_pubsub(Topics.topic_to_run_parsing_script, updated_searches_to_pubsub)
-    message_for_pubsub = {
-        'triggered_by_func_id': function_id,
-        'text': str(list_of_folders_with_upd_searches),
-    }
-
-    # call 'compose_notifications'
-    publish_to_pubsub(Topics.topic_for_notification, message_for_pubsub)
+    pubsub_parse_folders(updated_searches_to_pubsub)
+    pubsub_compose_notifications(function_id, str(list_of_folders_with_upd_searches))
 
 
 def _process_one_update(

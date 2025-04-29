@@ -22,8 +22,6 @@ def patch_http():
 @pytest.fixture
 def mock_topic_management():
     with (
-        patch.object(forum, 'publish_to_pubsub'),
-        patch.object(main, 'publish_to_pubsub'),
         patch.object(forum, '_recognize_status_with_title_recognize', Mock(return_value='Ищем')),
     ):
         yield
