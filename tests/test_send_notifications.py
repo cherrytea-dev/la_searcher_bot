@@ -9,6 +9,7 @@ from polyfactory.factories import DataclassFactory
 from _dependencies.commons import sql_connect_by_psycopg2
 from _dependencies.telegram_api_wrapper import TGApiBase
 from send_notifications import main
+from tests.common import get_event_with_data
 from tests.factories.db_factories import NotifByUserFactory, get_session
 from tests.factories.db_models import NotifByUser
 from tests.factories.schemas import MessageFactory
@@ -38,7 +39,7 @@ def local_patches():
 
 def test_main_no_message():
     with patch('send_notifications.main.get_notifs_to_send', MagicMock(return_value=[])):
-        main.main(MagicMock(), MagicMock(event_id=1))
+        main.main(get_event_with_data('123'), MagicMock(event_id=1))
     assert True
 
 

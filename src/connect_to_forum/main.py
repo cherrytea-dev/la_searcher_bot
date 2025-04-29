@@ -1,10 +1,8 @@
-import base64
 import datetime
 import logging
 import pickle
 import re
 import urllib.parse
-from ast import literal_eval
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -124,8 +122,7 @@ def get_user_id(u_name: str) -> str:
     """get user_id from forum"""
 
     user_id = ''
-    forum_prefix = 'https://lizaalert.org/forum/memberlist.php?username='
-    user_search_page = forum_prefix + u_name
+    user_search_page = f'https://lizaalert.org/forum/memberlist.php?username={u_name}'
 
     r2 = get_session().get(user_search_page)
     if not is_logged_in(r2.text):

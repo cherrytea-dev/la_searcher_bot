@@ -6,15 +6,15 @@ from functools import lru_cache
 import google.auth.transport.requests
 import google.oauth2.id_token
 import requests
-from google.cloud.pubsub_v1 import PublisherClient
+from google.cloud import pubsub_v1
 from retry import retry
 
 from _dependencies.commons import Topics, get_project_id
 
 
 @lru_cache
-def _get_publisher() -> PublisherClient:
-    return PublisherClient()
+def _get_publisher() -> pubsub_v1.PublisherClient:
+    return pubsub_v1.PublisherClient()
 
 
 def _send_topic(topic_name: Topics, topic_path: str, message_bytes: bytes) -> None:
