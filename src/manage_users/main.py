@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field
 
 from _dependencies.commons import sql_connect_by_psycopg2
-from _dependencies.misc import process_pubsub_message
+from _dependencies.pubsub import process_pubsub_message
 
 
 class Action(str, Enum):

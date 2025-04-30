@@ -16,19 +16,15 @@ from _dependencies.cloud_func_parallel_guard import check_and_save_event_id
 from _dependencies.commons import (
     Topics,
     get_app_config,
-    publish_to_pubsub,
     setup_google_logging,
     sql_connect_by_psycopg2,
 )
 from _dependencies.misc import (
     generate_random_function_id,
-    get_change_log_update_time,
     get_triggering_function,
-    notify_admin,
-    process_pubsub_message_v2,
-    save_sending_status_to_notif_by_user,
     tg_api_main_account,
 )
+from _dependencies.pubsub import notify_admin, process_pubsub_message, publish_to_pubsub
 from _dependencies.telegram_api_wrapper import TGApiBase
 
 setup_google_logging()
@@ -254,6 +250,50 @@ def iterate_over_notifications(
     return list(set_of_change_ids)
 
 
+def save_sending_status_to_notif_by_user(cur: cursor, message_id: int, result: str | None) -> None:
+    """save the telegram sending status to sql table notif_by_user"""
+    if not result:
+        result = 'failed'
+
+    if result.startswith('cancelled'):
+        result = 'cancelled'
+    elif result.startswith('failed'):
+        result = 'failed'
+
+    if result not in {'completed', 'cancelled', 'failed'}:
+        return
+
+    sql_text_psy = f"""
+                UPDATE notif_by_user
+                SET {result} = %s
+                WHERE message_id = %s;
+                /*action='save_sending_status_to_notif_by_user_{result}' */
+                ;"""
+
+    cur.execute(sql_text_psy, (datetime.datetime.now(), message_id))
+
+
+def get_change_log_update_time(cur: cursor, change_log_id: int) -> datetime.datetime | None:
+    """get he time of parsing of the change, saved in PSQL"""
+    # TODO optimize/cache
+
+    if not change_log_id:
+        return None
+
+    sql_text_psy = """
+                    SELECT parsed_time 
+                    FROM change_log 
+                    WHERE id = %s;
+                    /*action='getting_change_log_parsing_time' */;"""
+    cur.execute(sql_text_psy, (change_log_id,))
+    record = cur.fetchone()
+
+    if not record:
+        return None
+
+    return record[0]
+
+
 def _process_message_sending(
     tg_api: TGApiBase,
     time_analytics: TimeAnalytics,
@@ -390,7 +430,7 @@ def main(event: dict, context: Context) -> str | None:
 
     function_id = generate_random_function_id()
 
-    message_from_pubsub = process_pubsub_message_v2(event)
+    message_from_pubsub = process_pubsub_message(event)
     triggered_by_func_id = get_triggering_function(message_from_pubsub)  # type:ignore[arg-type]
     # TODO maybe it not works
 

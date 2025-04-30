@@ -2,19 +2,18 @@
 
 import datetime
 import logging
-from typing import Any
 
 import sqlalchemy
 from google.cloud.functions.context import Context
 from sqlalchemy.engine.base import Connection
 
 from _dependencies.cloud_func_parallel_guard import check_and_save_event_id
-from _dependencies.commons import ChangeType, Topics, publish_to_pubsub, setup_google_logging, sqlalchemy_get_pool
+from _dependencies.commons import ChangeType, Topics, setup_google_logging, sqlalchemy_get_pool
 from _dependencies.misc import (
     generate_random_function_id,
     get_triggering_function,
-    process_pubsub_message_v2,
 )
+from _dependencies.pubsub import process_pubsub_message, publish_to_pubsub
 
 from ._utils.commons import LineInChangeLog, User
 from ._utils.log_record_composer import LogRecordComposer
@@ -54,7 +53,7 @@ def get_list_of_admins_and_testers(conn: Connection) -> tuple[list[int], list[in
 
         logging.info('Got the Lists of Admins & Testers')
 
-    except Exception as e:
+    except Exception:
         logging.exception('Not able to get the lists of Admins & Testers')
 
     return list_of_admins, list_of_testers
@@ -131,7 +130,7 @@ def main(event: dict, context: Context) -> None:
     analytics_start_of_func = datetime.datetime.now()
 
     function_id = generate_random_function_id()
-    message_from_pubsub = process_pubsub_message_v2(event)
+    message_from_pubsub = process_pubsub_message(event)
     triggered_by_func_id = get_triggering_function(message_from_pubsub)  # type:ignore[arg-type]
 
     there_is_function_working_in_parallel = check_and_save_event_id(

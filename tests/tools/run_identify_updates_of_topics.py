@@ -1,9 +1,7 @@
-import datetime
 from functools import lru_cache
 from pathlib import Path
-from random import randint
 from typing import Any
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 from dotenv import load_dotenv
 
@@ -37,8 +35,8 @@ def fake_publish_to_pubsub(topic, message):
     print(f'Publishing to Pub/Sub topic: {topic}, message: {message}')
 
 
-def fake_api_call(function: str, data: dict):
-    reco_data = recognize_title(data['title'], None)
+def fake_recognize_title_via_api(title: str, status_only: bool):
+    reco_data = recognize_title(title, False)
     return {'status': 'ok', 'recognition': reco_data}
 
 
@@ -49,7 +47,7 @@ if __name__ == '__main__':
         patch('identify_updates_of_topics._utils.forum.publish_to_pubsub', fake_publish_to_pubsub),
         patch.object(main, 'publish_to_pubsub', fake_publish_to_pubsub),
         patch.object(folder_updater, 'CloudStorage', LocalFileStorage),
-        patch.object(folder_updater, 'make_api_call', fake_api_call),
+        patch.object(folder_updater, 'recognize_title_via_api', fake_recognize_title_via_api),
         # patch.object(main, 'notify_admin', lambda x: print(f'Admin notification: {x}')),
     ):
         folders = [(276, None)]

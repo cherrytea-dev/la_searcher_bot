@@ -7,7 +7,6 @@ import pytest
 from flask import Flask
 
 from _dependencies.commons import TopicType
-from src.user_provide_info.main import _get_searches_from_db, get_user_data_from_db
 from tests.factories.db_factories import (
     ChangeLogFactory,
     GeoFolderFactory,
@@ -136,7 +135,7 @@ class TestGetUserDataFromDb:
             patch.object(main, 'time_counter_since_search_start', side_effect=[('1 day ago', 1), ('2 days ago', 2)]),
             patch.object(main, 'clean_up_content', return_value='Cleaned content'),
         ):
-            result = get_user_data_from_db(user.user_id)
+            result = main.get_user_data_from_db(user.user_id)
 
         assert result.model_dump() == {
             'curr_user': True,
@@ -167,7 +166,7 @@ class TestGetUserDataFromDb:
         SearchHealthCheckFactory.create_sync(search_forum_num=search.search_forum_num, status='ok')
         ChangeLogFactory.create_sync(search_forum_num=search.search_forum_num)
 
-        result = _get_searches_from_db(user_id, connection_psy, True)
+        result = main._get_searches_from_db(user_id, connection_psy, True)
 
         assert len(result) == 1
         first_item = result[0].model_dump()
@@ -201,7 +200,7 @@ class TestGetUserDataFromDb:
             patch.object(main, 'time_counter_since_search_start', side_effect=[('1 day ago', 1), ('2 days ago', 2)]),
             patch.object(main, 'clean_up_content', return_value='Cleaned content'),
         ):
-            result = get_user_data_from_db(user.user_id)
+            result = main.get_user_data_from_db(user.user_id)
 
         assert result.model_dump() == {
             'curr_user': True,
@@ -212,3 +211,23 @@ class TestGetUserDataFromDb:
             'regions': [geo_region.polygon_id],
             'searches': [],
         }
+
+
+def test_evaluate_city_locations_success():
+    res = main.evaluate_city_locations('[[56.0, 64.0]]')
+    assert res == [[56.0, 64.0]]
+
+
+@pytest.mark.parametrize(
+    'param',
+    [
+        [],
+        [1],
+        [None],
+        '"foo"',
+        '',
+    ],
+)
+def test_evaluate_city_locations_fail(param):
+    res = main.evaluate_city_locations(str(param))
+    assert res is None

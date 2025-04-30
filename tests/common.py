@@ -1,5 +1,6 @@
 import base64
 import inspect
+import json
 from dataclasses import is_dataclass
 from datetime import date, datetime
 from functools import lru_cache
@@ -29,8 +30,8 @@ def get_test_config() -> AppTestConfig:
     return AppTestConfig()
 
 
-def get_event_with_data(data) -> dict:
-    encoded_data = base64.b64encode(str({'data': {'message': data}}).encode())
+def get_event_with_data(message) -> dict:
+    encoded_data = base64.b64encode(json.dumps({'data': {'message': message}}).encode())
     event = {'data': encoded_data}
     return event
 

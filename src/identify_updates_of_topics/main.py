@@ -10,11 +10,11 @@ from google.cloud.functions.context import Context
 
 from _dependencies.commons import (
     Topics,
-    publish_to_pubsub,
     setup_google_logging,
     sqlalchemy_get_pool,
 )
-from _dependencies.misc import generate_random_function_id, notify_admin, process_pubsub_message_v3
+from _dependencies.misc import generate_random_function_id
+from _dependencies.pubsub import notify_admin, process_pubsub_message, publish_to_pubsub
 
 from ._utils.database import DBClient
 from ._utils.folder_updater import FolderUpdater
@@ -35,7 +35,7 @@ def main(event: dict[str, bytes], context: Context) -> None:  # noqa
 
     analytics_func_start = datetime.now()
 
-    message_from_pubsub = process_pubsub_message_v3(event)
+    message_from_pubsub = process_pubsub_message(event)
     list_from_pubsub = ast.literal_eval(message_from_pubsub) if message_from_pubsub else None
     logging.info(f'received message from pub/sub: {message_from_pubsub}')
 

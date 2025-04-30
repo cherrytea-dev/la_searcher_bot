@@ -1,8 +1,7 @@
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
-import identify_updates_of_topics._utils.external_api
 import identify_updates_of_topics._utils.forum
 from _dependencies.commons import sqlalchemy_get_pool
 from identify_updates_of_topics._utils import folder_updater
@@ -12,12 +11,12 @@ from title_recognize.main import recognize_title
 
 @pytest.fixture(autouse=True)
 def common_patches():
-    def fake_api_call(function: str, data: dict):
-        reco_data = recognize_title(data['title'], None)
+    def fake_recognize_title_via_api(title: str, status_only: bool):
+        reco_data = recognize_title(title, False)
         return {'status': 'ok', 'recognition': reco_data}
 
     with (
-        patch.object(folder_updater, 'make_api_call', fake_api_call),
+        patch.object(folder_updater, 'recognize_title_via_api', fake_recognize_title_via_api),
     ):
         yield
 

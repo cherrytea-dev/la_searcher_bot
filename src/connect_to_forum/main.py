@@ -1,10 +1,8 @@
-import base64
 import datetime
 import logging
 import pickle
 import re
 import urllib.parse
-from ast import literal_eval
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -17,6 +15,7 @@ from google.cloud.functions.context import Context
 from telegram import ReplyKeyboardMarkup
 
 from _dependencies.commons import get_app_config, get_forum_proxies, setup_google_logging, sql_connect_by_psycopg2
+from _dependencies.pubsub import process_pubsub_message
 from _dependencies.telegram_api_wrapper import TGApiBase
 
 COOKIE_FILE_NAME = 'session_cookies.pkl'
@@ -123,8 +122,7 @@ def get_user_id(u_name: str) -> str:
     """get user_id from forum"""
 
     user_id = ''
-    forum_prefix = 'https://lizaalert.org/forum/memberlist.php?username='
-    user_search_page = forum_prefix + u_name
+    user_search_page = f'https://lizaalert.org/forum/memberlist.php?username={u_name}'
 
     r2 = get_session().get(user_search_page)
     if not is_logged_in(r2.text):
@@ -147,7 +145,7 @@ def get_user_id(u_name: str) -> str:
         else:
             logging.info('User not found')
 
-    except Exception as e:
+    except Exception:
         logging.exception('User not found')
 
     return user_id
@@ -264,11 +262,7 @@ def main(event: Dict[str, bytes], context: Context) -> None:
     conn = sql_connect_by_psycopg2()
     cur = conn.cursor()
 
-    pubsub_message = base64.b64decode(event['data']).decode('utf-8')
-
-    encoded_to_ascii = literal_eval(pubsub_message)
-    data_in_ascii = encoded_to_ascii['data']
-    message_in_ascii = data_in_ascii['message']
+    message_in_ascii = process_pubsub_message(event)
     tg_user_id, f_username = list(message_in_ascii)
 
     user = None
@@ -358,7 +352,7 @@ def main(event: Dict[str, bytes], context: Context) -> None:
             )
             conn.commit()
 
-        except Exception as e:
+        except Exception:
             logging.exception('failed to update the last saved message from bot')
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)

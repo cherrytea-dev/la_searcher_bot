@@ -7,7 +7,7 @@ from google.cloud import storage
 from google.cloud.storage.blob import Blob
 
 from _dependencies.commons import ChangeType, TopicType
-from _dependencies.misc import make_api_call, notify_admin
+from _dependencies.pubsub import notify_admin, recognize_title_via_api
 from _dependencies.recognition_schema import RecognitionResult, RecognitionTopicType
 
 from .database import DBClient
@@ -120,7 +120,7 @@ class FolderUpdater:
             try:
                 self._parse_one_search(current_datetime, folder_summary, forum_search_item)
 
-            except Exception as e:
+            except Exception:
                 logging.exception(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
                 notify_admin(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
 
@@ -143,8 +143,7 @@ class FolderUpdater:
             # TODO move mapping near enum definition
         }
 
-        data = {'title': forum_search_item.title}
-        title_reco_response = make_api_call('title_recognize', data)
+        title_reco_response = recognize_title_via_api(forum_search_item.title, False)
 
         if title_reco_response and 'status' in title_reco_response.keys() and title_reco_response['status'] == 'ok':
             title_reco_dict = RecognitionResult.model_validate(title_reco_response['recognition'])
@@ -347,7 +346,7 @@ class FolderUpdater:
                         coord_type = CoordType.type_4_from_title
                 else:
                     logging.info(f'No address was found for search {search_num}, title {title}')
-            except Exception as e5:
+            except Exception:
                 logging.exception('DBG.P.42.EXC')
 
         # DEBUG - function execution time counter
@@ -459,7 +458,7 @@ class FolderUpdater:
 
             return lat, lon
 
-        except Exception as e:
+        except Exception:
             logging.exception('TEMP - LOC - New getting coordinates from title failed')
             notify_admin('ERROR: major geocoding script failed')
 

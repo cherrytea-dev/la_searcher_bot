@@ -7,7 +7,7 @@ from google.cloud.functions.context import Context
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.base import Engine
 
-from _dependencies.misc import notify_admin
+from _dependencies.pubsub import notify_admin
 
 from .topics_commons import (
     ChangeLogLine,
