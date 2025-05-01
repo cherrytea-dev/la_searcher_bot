@@ -12,6 +12,7 @@ from telegram import (
 
 from _dependencies.commons import get_app_config
 from _dependencies.misc import notify_admin
+from compose_notifications._utils.commons import add_tel_link
 
 from ..buttons import (
     Commands,
@@ -328,7 +329,8 @@ def handle_admin_experimental_settings(
         return bot_message, reply_markup_main
 
     if got_message == 'test msg 1':
-        bot_message = """Новый поиск в регионе Питер и ЛО – Активные поиски!\n\n<a href="https://lizaalert.org/forum/viewtopic.php?t=92866">Айсин 39 лет</a><a href="https://yandex.ru/maps/?pt=30.5027784,59.7456289&z=11&l=map">\n\nОт вас ~35 км &#8600;&#xFE0E;</a>\n<code>59.74563, 30.50278</code>\n\nОтветственные:\n &#8226; Инфорг: Аста (Екатерина)  <a href="tel:+79215544854">+79215544854</a> \n\n"""
+        bot_message = """Ответственные:\n &#8226; Инфорг: Аста (Аста) 89215544854 \n\n"""
+        bot_message = add_tel_link(bot_message)
         return bot_message, reply_markup_main
 
     if got_message.lower() == b_test_search_follow_mode_on:  # issue425
