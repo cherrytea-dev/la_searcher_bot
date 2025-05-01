@@ -6,8 +6,10 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
-from _dependencies.commons import sql_connect_by_psycopg2
+from _dependencies.commons import setup_google_logging, sql_connect_by_psycopg2
 from _dependencies.pubsub import process_pubsub_message
+
+setup_google_logging()
 
 
 class Action(str, Enum):
