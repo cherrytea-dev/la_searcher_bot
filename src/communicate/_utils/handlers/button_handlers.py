@@ -12,6 +12,7 @@ from telegram import (
 
 from _dependencies.commons import get_app_config
 from _dependencies.pubsub import notify_admin
+from compose_notifications._utils.commons import add_tel_link
 
 from ..buttons import (
     Commands,
@@ -281,7 +282,14 @@ def handle_message_is_federal_region(
 
 
 @button_handler(
-    buttons=[b_admin_menu, b_test_menu, 'notest', b_test_search_follow_mode_on, b_test_search_follow_mode_off]
+    buttons=[
+        b_admin_menu,
+        b_test_menu,
+        'notest',
+        b_test_search_follow_mode_on,
+        b_test_search_follow_mode_off,
+        'test msg 1',
+    ]
 )
 def handle_admin_experimental_settings(
     update_params: UpdateBasicParams, extra_params: UpdateExtraParams
@@ -318,6 +326,11 @@ def handle_admin_experimental_settings(
     if got_message.lower() == 'notest':
         db().delete_user_sys_role(user_id, 'tester')
         bot_message = 'Роль tester удалена. Приходите еще! :-) Возвращаемся в главное меню.'
+        return bot_message, reply_markup_main
+
+    if got_message == 'test msg 1':
+        bot_message = """Ответственные:\n &#8226; Инфорг: Аста (Аста) 89215544854 \n\n"""
+        bot_message = add_tel_link(bot_message)
         return bot_message, reply_markup_main
 
     if got_message.lower() == b_test_search_follow_mode_on:  # issue425
