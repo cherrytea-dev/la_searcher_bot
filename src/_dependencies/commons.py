@@ -1,5 +1,6 @@
 import ast
 import os
+import re
 import urllib.request
 from enum import Enum, IntEnum
 from functools import lru_cache
@@ -10,6 +11,9 @@ import sqlalchemy
 from google.cloud import secretmanager
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings
+
+
+PHONE_RE = re.compile(r'(?:\+7|7|8)\s?[\s\-(]?\s?\d{3}[\s\-)]?\s?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}')
 
 
 class Topics(Enum):
@@ -225,3 +229,25 @@ class SearchFollowingMode(str, Enum):
     # TODO replace values in 'communicate' to this enum later
     ON = '👀 '
     OFF = '❌ '
+
+def add_tel_link(incoming_text: str) -> str:
+    """check is text contains phone number and replaces it with clickable version, also removes [tel] tags"""
+
+    # Modifier for all users
+
+    outcome_text = incoming_text
+    nums = re.findall(PHONE_RE, incoming_text)
+    for num in nums:
+        num_link = str('+7' + num[1:] if num[0] == '8' else num)
+        try:
+            outcome_text = outcome_text.replace(num, ' <a href="tel:' + num_link + '">' + num_link + '</a> ')
+        except Exception as e:
+            ### logging here is not needed untill we have strange behaviour 
+            ## logging.exception(f'add_tel_link..{e=} on {num=} in {outcome_text=}')
+            outcome_text = outcome_text.replace(num, '<code>' + str(num) + '</code>')
+
+    phpbb_tags_to_delete = {'[tel]', '[/tel]'}
+    for tag in phpbb_tags_to_delete:
+        outcome_text = outcome_text.replace(tag, '', 5)
+
+    return outcome_text

@@ -11,7 +11,6 @@ from _dependencies.misc import calc_bearing
 WINDOW_FOR_NOTIFICATIONS_DAYS = 60
 COORD_FORMAT = '{0:.5f}'
 COORD_PATTERN = re.compile(r'0?[3-8]\d\.\d{1,10}[\s\w,]{0,10}[01]?[2-9]\d\.\d{1,10}')
-PHONE_RE = re.compile(r'(?:\+7|7|8)\s?[\s\-(]?\s?\d{3}[\s\-)]?\s?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}')
 
 
 SEARCH_TOPIC_TYPES = {
@@ -92,28 +91,6 @@ class User:
     user_role: str = ''  # not used
     age_periods: list = field(default_factory=list)
     radius: int = 0
-
-
-def add_tel_link(incoming_text: str) -> str:
-    """check is text contains phone number and replaces it with clickable version, also removes [tel] tags"""
-
-    # Modifier for all users
-
-    outcome_text = incoming_text
-    nums = re.findall(PHONE_RE, incoming_text)
-    for num in nums:
-        num_link = str('+7' + num[1:] if num[0] == '8' else num)
-        try:
-            outcome_text = outcome_text.replace(num, ' <a href="tel:' + num_link + '">' + num_link + '</a> ')
-        except Exception as e:
-            logging.exception(f'add_tel_link..{e=} on {num=} in {outcome_text=}')
-            outcome_text = outcome_text.replace(num, '<code>' + str(num) + '</code>')
-
-    phpbb_tags_to_delete = {'[tel]', '[/tel]'}
-    for tag in phpbb_tags_to_delete:
-        outcome_text = outcome_text.replace(tag, '', 5)
-
-    return outcome_text
 
 
 def calc_direction(lat_1: float, lon_1: float, lat_2: float, lon_2: float) -> str:
