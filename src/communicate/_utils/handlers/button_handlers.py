@@ -10,7 +10,7 @@ from telegram import (
     WebAppInfo,
 )
 
-from _dependencies.commons import get_app_config, add_tel_link
+from _dependencies.commons import add_tel_link, get_app_config
 from _dependencies.pubsub import notify_admin
 
 from ..buttons import (

@@ -12,7 +12,6 @@ from google.cloud import secretmanager
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings
 
-
 PHONE_RE = re.compile(r'(?:\+7|7|8)\s?[\s\-(]?\s?\d{3}[\s\-)]?\s?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}')
 
 
@@ -230,6 +229,7 @@ class SearchFollowingMode(str, Enum):
     ON = '👀 '
     OFF = '❌ '
 
+
 def add_tel_link(incoming_text: str) -> str:
     """check is text contains phone number and replaces it with clickable version, also removes [tel] tags"""
 
@@ -242,7 +242,7 @@ def add_tel_link(incoming_text: str) -> str:
         try:
             outcome_text = outcome_text.replace(num, ' <a href="tel:' + num_link + '">' + num_link + '</a> ')
         except Exception as e:
-            ### logging here is not needed untill we have strange behaviour 
+            ### logging here is not needed untill we have strange behaviour
             ## logging.exception(f'add_tel_link..{e=} on {num=} in {outcome_text=}')
             outcome_text = outcome_text.replace(num, '<code>' + str(num) + '</code>')
 
