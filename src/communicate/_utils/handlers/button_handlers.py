@@ -324,6 +324,8 @@ def handle_admin_experimental_settings(
 
     if got_message.lower() == 'notest':
         db().delete_user_sys_role(user_id, 'tester')
+        db().delete_search_whiteness(user_id)
+        db().delete_search_follow_mode(user_id)
         bot_message = 'Роль tester удалена. Приходите еще! :-) Возвращаемся в главное меню.'
         return bot_message, reply_markup_main
 

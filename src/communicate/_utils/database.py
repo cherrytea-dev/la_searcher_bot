@@ -420,6 +420,13 @@ class DBClient:
                 (user_id, filter_name_value, filter_name_value),
             )
 
+    def delete_search_follow_mode(self, user_id: int) -> None:
+        with self.cursor() as cur:
+            cur.execute(
+                """DELETE FROM user_pref_search_filtering WHERE user_id=%s;""",
+                (user_id),
+            )
+
     def delete_folder_from_user_regional_preference(self, user_id: int, region: int) -> None:
         with self.cursor() as cur:
             cur.execute(
@@ -515,6 +522,14 @@ class DBClient:
                     """DELETE FROM user_pref_search_whitelist WHERE user_id=%(user)s and search_id=%(search_id)s;""",
                     {'user': user, 'search_id': search_id},
                 )
+
+    def delete_search_whiteness(self, user: int) -> None:
+        """Delete user_pref_search_whitelist for a certain user_id"""
+        with self.cursor() as cur:
+            cur.execute(
+                """DELETE FROM user_pref_search_whitelist WHERE user_id=%(user)s;""",
+                {'user': user},
+            )
 
     def add_region_to_user_settings(self, user_id: int, region_id: int) -> None:
         with self.cursor() as cur:
