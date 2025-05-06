@@ -426,7 +426,7 @@ class DBClient:
                 """DELETE FROM user_pref_search_filtering 
                 WHERE user_id=%s
                 and 'whitelist' = ANY(filter_name);""",
-                (user_id),
+                (user_id,),
             )
 
     def delete_folder_from_user_regional_preference(self, user_id: int, region: int) -> None:
