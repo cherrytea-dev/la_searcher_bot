@@ -334,7 +334,7 @@ def handle_admin_experimental_settings(
         bot_message = add_tel_link(bot_message)
         return bot_message, reply_markup_main
 
-    if got_message == 'test msg 1':
+    if got_message == 'test msg 2':
         bot_message = """🔀Изменения в первом посте по <a href="https://lizaalert.org/forum/viewtopic.php?t=94862">Филиппов 73 года</a> (Москва и МО – Активные поиски):
 
 ➖Удалено:
