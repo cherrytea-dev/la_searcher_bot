@@ -8,6 +8,7 @@ from functools import lru_cache
 import google.cloud.logging
 import psycopg2
 import sqlalchemy
+from bs4 import BeautifulSoup
 from google.cloud import secretmanager
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings
@@ -241,6 +242,20 @@ def add_tel_link(incoming_text: str) -> str:
         num_link = str('+7' + num[1:] if num[0] == '8' else num)
         try:
             outcome_text = outcome_text.replace(num, ' <a href="tel:' + num_link + '">' + num_link + '</a> ')
+
+            ## move tel-tags outside of other a-tags
+            soup = BeautifulSoup(outcome_text, 'html.parser')
+            for outer_a in soup.find_all('a'):
+                inner_a = outer_a.find('a')
+                if inner_a and inner_a['href'].startswith('tel:'):
+                    inner_a_text = inner_a.decode_contents()
+                    inner_a_href = inner_a['href']
+                    inner_a.decompose()
+                    new_inner_a = soup.new_tag('a', href=inner_a_href)
+                    new_inner_a.string = inner_a_text
+                    outer_a.insert_after(new_inner_a)
+            outcome_text = str(soup)
+
         except Exception as e:
             ### logging here is not needed untill we have strange behaviour
             ## logging.exception(f'add_tel_link..{e=} on {num=} in {outcome_text=}')
@@ -250,4 +265,4 @@ def add_tel_link(incoming_text: str) -> str:
     for tag in phpbb_tags_to_delete:
         outcome_text = outcome_text.replace(tag, '', 5)
 
-    return outcome_text
+        return outcome_text
