@@ -78,6 +78,7 @@ class FolderUpdater:
         self.folder_num = folder_num
         self.forum = forum_client
         self.db = db_client
+        self.folders_with_events = set(self.db.get_folders_with_events_only())
 
     def run(self) -> tuple[bool, list[int]]:
         """process one forum folder: check for updates, upload them into cloud sql"""
@@ -159,6 +160,10 @@ class FolderUpdater:
         else:
             person_fam_name = title_reco_dict.persons.total_name if title_reco_dict.persons else 'БВП'
 
+        topic_type = title_reco_dict.topic_type
+        if self.folder_num in self.folders_with_events:
+            topic_type = RecognitionTopicType.event
+
         search_summary_object = SearchSummary(
             parsed_time=current_datetime,
             topic_id=forum_search_item.search_id,
@@ -167,7 +172,7 @@ class FolderUpdater:
             num_of_replies=forum_search_item.replies_count,
             name=person_fam_name,
             folder_id=self.folder_num,
-            topic_type=title_reco_dict.topic_type,
+            topic_type=topic_type,
             topic_type_id=topic_type_dict[title_reco_dict.topic_type],
             new_status=title_reco_dict.status,
             status=title_reco_dict.status,
