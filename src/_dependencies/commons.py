@@ -265,4 +265,4 @@ def add_tel_link(incoming_text: str) -> str:
     for tag in phpbb_tags_to_delete:
         outcome_text = outcome_text.replace(tag, '', 5)
 
-        return outcome_text
+    return outcome_text
