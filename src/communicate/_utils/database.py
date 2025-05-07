@@ -421,13 +421,12 @@ class DBClient:
             )
 
     def delete_search_follow_mode(self, user_id: int) -> None:
-        filter_name_value = ['whitelist']
         with self.cursor() as cur:
             cur.execute(
                 """DELETE FROM user_pref_search_filtering 
                 WHERE user_id=%s
-                and filter_name=%s;""",
-                (user_id, filter_name_value),
+                and 'whitelist' = ANY(filter_name);""",
+                (user_id,),
             )
 
     def delete_folder_from_user_regional_preference(self, user_id: int, region: int) -> None:
