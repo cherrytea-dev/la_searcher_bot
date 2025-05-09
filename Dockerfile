@@ -1,4 +1,4 @@
-FROM python:3.10-slim as template
+FROM python:3.10-slim AS template
 
 ENV PYTHONPATH=src
 ENV PYTHONUNBUFFERED=1
@@ -12,7 +12,7 @@ RUN pip install uv
 
 WORKDIR /opt/bot
 
-FROM template as vscode_devcontainer
+FROM template AS vscode_devcontainer
 
 COPY pyproject.toml uv.lock ./
 COPY .env.example .env.test
