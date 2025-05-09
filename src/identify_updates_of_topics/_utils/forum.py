@@ -7,6 +7,7 @@ from typing import Any, no_type_check  # no_type_check for BeautifulSoup magic
 
 from bs4 import BeautifulSoup, SoupStrainer
 from requests import Session
+from retry import retry
 from yarl import URL
 
 from _dependencies.commons import Topics, get_app_config, get_forum_proxies
@@ -57,6 +58,8 @@ def get_requests_session() -> Session:
 
 
 class ForumClient:
+    _TIMEOUT = 30
+
     def __init__(self) -> None:
         self.session = get_requests_session()
 
@@ -258,24 +261,27 @@ class ForumClient:
             inforg_comment_present=there_are_inforg_comments,
         )
 
+    @retry(Exception, tries=3, delay=1, backoff=2)
     def _get_folder_content(self, folder_id: int) -> bytes:
         url = f'https://lizaalert.org/forum/viewforum.php?f={folder_id}'
-        resp = self.session.get(url, timeout=10)  # for every folder - req'd daily at night forum update # noqa
+        resp = self.session.get(url, timeout=self._TIMEOUT)
         resp.raise_for_status()
         return resp.content
 
     def _get_comment_url(self, search_num: int, comment_num: int) -> str:
         return f'https://lizaalert.org/forum/viewtopic.php?&t={search_num}&start={comment_num}'
 
+    @retry(Exception, tries=3, delay=1, backoff=2)
     def _get_comment_content(self, search_num: int, comment_num: int) -> bytes:
         url = self._get_comment_url(search_num, comment_num)
-        resp = self.session.get(url, timeout=10)  # for every folder - req'd daily at night forum update # noqa
+        resp = self.session.get(url, timeout=self._TIMEOUT)
         resp.raise_for_status()
         return resp.content
 
+    @retry(Exception, tries=3, delay=1, backoff=2)
     def _get_topic_content(self, search_num: int) -> bytes:
         url = self._get_topic_url(search_num)
-        resp = self.session.get(url, timeout=10)  # for every folder - req'd daily at night forum update # noqa
+        resp = self.session.get(url, timeout=self._TIMEOUT)
         resp.raise_for_status()
         return resp.content
 

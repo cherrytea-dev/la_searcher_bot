@@ -276,6 +276,27 @@ class TestRecognizeTitle:
             },
         }
 
+    def test_recognize_search_training_wrong_result(self):
+        """
+        Just to check current behavior.
+        `10-11.05.2025 курс ПП в Вологде` gives other result.
+        """
+        title1 = '10-11 мая 2025 г. Курс ПП в Вологде'
+        res = main.recognize_title(title1, None)
+        assert res == {
+            'topic_type': 'search',
+            'status': 'Ищем',
+            'persons': {
+                'total_persons': 1,
+                'age_min': 11,
+                'age_max': 11,
+                'total_name': 'Ребёнок',
+                'total_display_name': 'Ребёнок 11 лет',
+                'person': [{'name': 'Ребёнок', 'age': 11, 'display_name': 'Ребёнок 11 лет', 'number_of_persons': 1}],
+            },
+            'locations': [{'address': 'Курс ПП в Вологде'}],
+        }
+
 
 class TestPersonRecognize:
     def test_1(self):

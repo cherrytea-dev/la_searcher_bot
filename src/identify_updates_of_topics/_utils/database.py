@@ -432,3 +432,13 @@ class DBClient:
                 DELETE FROM searches WHERE search_forum_num=:a;
                                    """)
             conn.execute(stmt, a=int(search_num))
+
+    def get_folders_with_events_only(self) -> list[int]:
+        with self.connect() as conn:
+            stmt = sqlalchemy.text("""
+                SELECT folder_id 
+                FROM geo_folders 
+                WHERE folder_type='events';
+                                    """)
+
+            return conn.execute(stmt).fetchall()

@@ -5,9 +5,7 @@ import sys
 from functools import lru_cache
 from unittest.mock import patch
 
-import nest_asyncio
 from dotenv import load_dotenv
-from pyannotate_runtime import collect_types
 from telegram import Bot
 from telegram.ext import Updater
 
@@ -15,8 +13,6 @@ from _dependencies.commons import AppConfig, Topics
 from communicate._utils.database import db
 from communicate.main import process_update
 from tests.common import topic_to_receiver_function
-
-nest_asyncio.apply()
 
 
 async def main_bot() -> None:
@@ -53,15 +49,7 @@ if __name__ == '__main__':
 
     with (
         patch('_dependencies.commons._get_config', get_dotenv_config),
-        patch('_dependencies.commons.get_publisher'),
-        patch('_dependencies.commons.get_project_id'),
-        patch('_dependencies.commons._send_topic', patched_send_topic),
+        patch('_dependencies.pubsub._send_topic', patched_send_topic),
     ):
         # TODO add pub/sub emulation
-        collect_types.init_types_collection()
-        with collect_types.collect():
-            try:
-                asyncio.run(main_bot())
-            except Exception as exc:
-                pass  # let the pyannotate to save collected types
-        collect_types.dump_stats('type_info.json')
+        asyncio.run(main_bot())
