@@ -8,5 +8,6 @@ build/
 .coverage
 .idea/
 venv/
+.venv/
 .sandbox/
 .DS_Store
