@@ -50,6 +50,8 @@ if __name__ == '__main__':
     with (
         patch('_dependencies.commons._get_config', get_dotenv_config),
         patch('_dependencies.pubsub._send_topic', patched_send_topic),
+        patch('_dependencies.pubsub._get_publisher'),
+        patch('_dependencies.pubsub.get_project_id'),
     ):
         # TODO add pub/sub emulation
         asyncio.run(main_bot())

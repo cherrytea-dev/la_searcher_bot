@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.10-slim as vscode_devcontainer
 
 ENV PYTHONPATH=src
 ENV PYTHONUNBUFFERED=1
