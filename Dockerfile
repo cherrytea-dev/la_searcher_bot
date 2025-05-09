@@ -1,4 +1,4 @@
-FROM python:3.10-slim as vscode_devcontainer
+FROM python:3.10-slim as template
 
 ENV PYTHONPATH=src
 ENV PYTHONUNBUFFERED=1
@@ -9,7 +9,10 @@ RUN apt-get update && \
 
 RUN pip install uv
 
+
 WORKDIR /opt/bot
+
+FROM template as vscode_devcontainer
 
 COPY pyproject.toml uv.lock ./
 COPY .env.example .env.test
