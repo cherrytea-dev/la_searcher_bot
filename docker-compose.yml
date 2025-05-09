@@ -6,12 +6,16 @@ services:
       context: .
     working_dir: /opt/bot
     command:
-      - sleep
-      - infinity
+      - uv
+      - run
+      - python
+      - tests/tools/run_bot.py
     depends_on:
       - postgres
     volumes:
       - uv_cache_dir:/root/.cache/uv
+      - ${PWD}/.env:/opt/bot/.env
+
   postgres:
     env_file: *env_file
     image: postgres:15-alpine
