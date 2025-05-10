@@ -119,7 +119,11 @@ manage_users = []
 
 send_debug_to_admin = []
 
-send_notifications = ["urllib3==1.26.19"]
+send_notifications = [
+    "urllib3==1.26.19",
+    "beautifulsoup4==4.9.3", # BS4
+    "lxml==4.9.1",           # for BS4
+]
 
 title_recognize = [
     "python-dateutil==2.8.2",     # extension to datetime module
