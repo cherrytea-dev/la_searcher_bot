@@ -16,6 +16,8 @@ dependencies = [
     "retry2==0.9.5",
     "requests==2.32.3",
     "httpx==0.27.*",
+    "beautifulsoup4==4.9.3",                              # BS4
+    "lxml==4.9.1",                                        # for BS4
 ]
 
 
@@ -53,11 +55,7 @@ develop = [
 
 ]
 
-api_get_active_searches = [
-    "beautifulsoup4==4.9.3",      # do we need to update it?
-    "lxml==4.9.1",
-    "functions-framework==3.8.2",
-]
+api_get_active_searches = ["functions-framework==3.8.2"]
 
 archive_notifications = ["pytz"]
 
@@ -67,41 +65,27 @@ check_first_posts_for_changes = [
     "google-auth==2.19.1", # for API calls to other Google Cloud Functions
 ]
 
-check_topics_by_upd_time = [
-    "beautifulsoup4==4.9.3",
-    "lxml==4.9.1",
-    "google-cloud-storage==2.10.0",
-]
+check_topics_by_upd_time = ["google-cloud-storage==2.10.0"]
 
-communicate = [
-    "beautifulsoup4==4.9.3", # BS4
-    "lxml==4.9.1",           # for BS4
-]
+communicate = []
 
 compose_notifications = [
     "urllib3==1.26.19",
-    "idna==3.7",             # translation of domain names
-    "certifi==2024.7.4",     # SSL certificates
-    "chardet==4.0.0",        # encoding detector
-    "python-dateutil",       # extension to datetime module
-    "pytz==2021.1",          # timezone
-    "beautifulsoup4==4.9.3", # BS4
-    "lxml==4.9.1",           # for BS4
+    "idna==3.7",         # translation of domain names
+    "certifi==2024.7.4", # SSL certificates
+    "chardet==4.0.0",    # encoding detector
+    "python-dateutil",   # extension to datetime module
+    "pytz==2021.1",      # timezone
 ]
 
-connect_to_forum = ["urllib3==1.26.19", "beautifulsoup4==4.9.3", "lxml==4.9.1"]
+connect_to_forum = ["urllib3==1.26.19"]
 
-identify_updates_of_first_posts = [
-    "beautifulsoup4==4.9.3", # do we need to update it?
-    "lxml==4.9.1",
-]
+identify_updates_of_first_posts = []
 
 identify_updates_of_topics = [
     "urllib3==1.26.19",             # http client
     "idna==3.7",                    # translation of domain names
     "certifi==2024.7.4",            # SSL certificates
-    "beautifulsoup4==4.9.3",        # BS4
-    "lxml==4.9.1",                  # for BS4
     "chardet==4.0.0",               # encoding detector
     "cchardet==2.1.7",              # encoding detector
     "python-dateutil==2.8.2",       # extension to datetime module
@@ -119,11 +103,7 @@ manage_users = []
 
 send_debug_to_admin = []
 
-send_notifications = [
-    "urllib3==1.26.19",
-    "beautifulsoup4==4.9.3", # BS4
-    "lxml==4.9.1",           # for BS4
-]
+send_notifications = ["urllib3==1.26.19"]
 
 title_recognize = [
     "python-dateutil==2.8.2",     # extension to datetime module
@@ -131,11 +111,7 @@ title_recognize = [
     "functions-framework==3.8.2", # a part of Google Cloud Functions Gen 2 framework
 ]
 
-user_provide_info = [
-    "beautifulsoup4==4.9.3",      # do we need to update it?
-    "lxml==4.9.1",
-    "functions-framework==3.8.2",
-]
+user_provide_info = ["functions-framework==3.8.2"]
 
 users_activate = []
 
