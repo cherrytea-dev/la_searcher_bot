@@ -8,7 +8,7 @@ test:
 	uv run pytest . -v -n 4 --dist loadgroup
 
 initdb:
-	uv run python tests/tools/init_testing_db.py
+	uv run python tests/tools/init_testing_db.py --db=TEST
 
 lint:
 	uv run ruff format src tests
@@ -43,3 +43,24 @@ sqlalchemy-models:
 		postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} \
 		--outfile=tests/factories/db_models.py
 	# then fix "_old_search_event_stages"
+
+
+prepare-environment:
+	
+	# Apply initial settings (.env, VSCode):
+	cp -n .vscode/launch.template.json .vscode/launch.json
+	cp -n .vscode/settings.template.json .vscode/settings.json
+
+	# create .env files for running tests and for local debug
+	cp -n .env.example .env
+	cp -n .env.example .env.test
+	
+	# create venv
+	pip install uv
+	make venv
+	
+	# prepare test database
+	docker compose run --build --rm bot make initdb
+
+recreate-local-db:
+	docker compose run --build --rm bot uv run python tests/tools/init_testing_db.py --db=PROD

@@ -165,3 +165,9 @@ def find_model(session: Session, model: type[T], **kwargs: Any) -> T | None:
 
 fake = Faker()
 Faker.seed()
+
+
+@lru_cache
+def get_dotenv_config() -> AppConfig:
+    assert load_dotenv('.env', override=True)
+    return AppConfig()

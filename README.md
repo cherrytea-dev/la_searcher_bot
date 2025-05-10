@@ -72,31 +72,32 @@ TL;DR:
 
 ## Environment 
 
-First, install [UV](https://docs.astral.sh/uv) package/project manager and create venv:
+First, prepare your environment:
 
 ``` bash
-pip install uv
-make venv
+make prepare-environment
 ```
+It will:
+- install [UV](https://docs.astral.sh/uv) package/project manager
+- create virtual environment
+- apply initial settings for VSCode (if not present)
+- create container with postgres
+- create database for tests
 
-Apply initial settings (.env, VSCode):
-``` bash
-cp .vscode/launch.template.json .vscode/launch.json
-cp .vscode/settings.template.json .vscode/settings.json
-cp .env.example .env
-cp .env.example .env.test
-```
 
-Initialize schema for test db: `make initdb` (it will take values from `.env.test` file)
+Update values in `.env` and `.env.test` files: replace `POSTGRES_HOST=postgres` with `POSTGRES_HOST=localhost`, if you using automatically created postgres instance in docker. 
 
-Run tests: `make test`
+## Before commit: 
 
-Format code: `make lint`
+1. Run tests: `make test`
+2. Run type checker: `make mypy`
+3. Format code: `make lint`
+4. Update nested "requirements.txt" files, if you changed "pyproject.toml": `make requirements`
 
-Update nested "requirements.txt" files: `make requirements`
-
-After changing `pyproject.toml` run `uv lock` to update lockfile.
+## Execution: 
 
 Run tests with postgres database in docker container: `make ci-test`
 
 Run bot locally: `uv run python tests/tools/run_bot.py` (example is in [launch.template.json](.vscode/launch.template.json) )
+
+Or run bot in container: `docker compose up -d`
