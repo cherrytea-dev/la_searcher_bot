@@ -1060,6 +1060,8 @@ identify-updates-of-topics = [
     { name = "yarl" },
 ]
 send-notifications = [
+    { name = "beautifulsoup4" },
+    { name = "lxml" },
     { name = "urllib3" },
 ]
 title-recognize = [
@@ -1082,6 +1084,7 @@ requires-dist = [
     { name = "beautifulsoup4", marker = "extra == 'connect-to-forum'", specifier = "==4.9.3" },
     { name = "beautifulsoup4", marker = "extra == 'identify-updates-of-first-posts'", specifier = "==4.9.3" },
     { name = "beautifulsoup4", marker = "extra == 'identify-updates-of-topics'", specifier = "==4.9.3" },
+    { name = "beautifulsoup4", marker = "extra == 'send-notifications'", specifier = "==4.9.3" },
     { name = "beautifulsoup4", marker = "extra == 'user-provide-info'", specifier = "==4.9.3" },
     { name = "cchardet", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.1.7" },
     { name = "certifi", marker = "extra == 'compose-notifications'", specifier = "==2024.7.4" },
@@ -1110,6 +1113,7 @@ requires-dist = [
     { name = "lxml", marker = "extra == 'connect-to-forum'", specifier = "==4.9.1" },
     { name = "lxml", marker = "extra == 'identify-updates-of-first-posts'", specifier = "==4.9.1" },
     { name = "lxml", marker = "extra == 'identify-updates-of-topics'", specifier = "==4.9.1" },
+    { name = "lxml", marker = "extra == 'send-notifications'", specifier = "==4.9.1" },
     { name = "lxml", marker = "extra == 'user-provide-info'", specifier = "==4.9.1" },
     { name = "mypy", marker = "extra == 'develop'", specifier = ">=1.14.1" },
     { name = "natasha", marker = "extra == 'identify-updates-of-topics'", specifier = "==1.4.0" },
