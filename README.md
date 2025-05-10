@@ -85,17 +85,19 @@ It will:
 - create database for tests
 
 
-Run tests: `make test`
+Update values in `.env` and `.env.test` files: replace `POSTGRES_HOST=postgres` with `POSTGRES_HOST=localhost`, if you using automatically created postgres instance in docker. 
 
-Format code: `make lint`
+## Before commit: 
 
-Update nested "requirements.txt" files: `make requirements`
+1. Run tests: `make test`
+2. Run type checker: `make mypy`
+3. Format code: `make lint`
+4. Update nested "requirements.txt" files, if you changed "pyproject.toml": `make requirements`
 
-After changing `pyproject.toml` run `uv lock` to update lockfile.
+## Execution: 
 
 Run tests with postgres database in docker container: `make ci-test`
 
-Initialize schema for production/local db: `make initdb --db=PROD` (it will take values from `.env` file)
-
 Run bot locally: `uv run python tests/tools/run_bot.py` (example is in [launch.template.json](.vscode/launch.template.json) )
 
+Or run bot in container: `docker compose up -d`
