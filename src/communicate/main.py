@@ -15,10 +15,10 @@ from _dependencies.commons import (
     setup_google_logging,
 )
 from _dependencies.pubsub import notify_admin, publish_to_pubsub
-from communicate._utils.handlers import region_select_handlers
 
 from ._utils.buttons import TopicTypeInlineKeyboardBuilder, reply_markup_main
 from ._utils.common import (
+    ACTION_KEY,
     LA_BOT_CHAT_URL,
     UpdateBasicParams,
     UpdateExtraParams,
@@ -31,6 +31,7 @@ from ._utils.handlers import (
     callback_handlers,
     notification_settings_handlers,
     other_handlers,
+    region_select_handlers,
     state_handlers,
     view_searches_handlers,
 )
@@ -247,7 +248,7 @@ def _reply_to_user(
     user_used_inline_button = got_callback and not TopicTypeInlineKeyboardBuilder.manual_callback_handling(got_callback)
     try:
         # temporary hack to return old behavior
-        if got_callback['action'] in ('search_follow_mode_on', 'search_follow_mode_off'):  # type:ignore[index]
+        if got_callback[ACTION_KEY] in ('search_follow_mode_on', 'search_follow_mode_off'):  # type:ignore[index]
             user_used_inline_button = False
     except Exception:
         pass

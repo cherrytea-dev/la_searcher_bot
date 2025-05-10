@@ -16,6 +16,10 @@ LA_BOT_CHAT_URL = 'https://t.me/joinchat/2J-kV0GaCgwxY2Ni'
 NOT_FOLLOWING_MARK = '  '  # 'third state' of SearchFollowingMode
 
 
+KEYBOARD_NAME_KEY = 'kb'
+ACTION_KEY = 'act'
+
+
 @dataclass
 class AgePeriod:
     description: str

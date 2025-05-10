@@ -8,6 +8,7 @@ from _dependencies.misc import age_writer, time_counter_since_search_start
 
 from ..buttons import Commands, MainMenu, OtherOptionsMenu, reply_markup_main
 from ..common import (
+    ACTION_KEY,
     FORUM_FOLDER_PREFIX,
     LA_BOT_CHAT_URL,
     NOT_FOLLOWING_MARK,
@@ -41,7 +42,7 @@ def _search_button_row_ikb(search: SearchSummary, search_status: str) -> list[In
     search_following_mark = search.following_mode if search.following_mode else NOT_FOLLOWING_MARK
     url = f'{SEARCH_URL_PREFIX}{search.topic_id}'
 
-    callback_data = {'action': 'search_follow_mode', 'hash': search.topic_id}
+    callback_data = {ACTION_KEY: 'search_follow_mode', 'hash': search.topic_id}
     ikb_row = [
         [
             InlineKeyboardButton(text=f'{search_following_mark} {search_status}', callback_data=str(callback_data)),

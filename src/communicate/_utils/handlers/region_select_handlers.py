@@ -12,6 +12,7 @@ from ..buttons import (
     reply_markup_main,
 )
 from ..common import (
+    ACTION_KEY,
     HandlerResult,
     UpdateBasicParams,
     UpdateExtraParams,
@@ -78,10 +79,19 @@ def handle_set_region_select_start_2(
     update_params: UpdateBasicParams, extra_params: UpdateExtraParams
 ) -> HandlerResult:
     # reply_keyboard = create_one_column_reply_markup([*geography.starting_buttons(), b_back_to_start])
-    reply_keyboard = ReplyKeyboardMarkup([*geography.starting_buttons(), [b_back_to_start]], resize_keyboard=True)
+    reply_keyboard = geography.get_inline_keyboard_by_first_letter(update_params.got_callback[ACTION_KEY])
 
-    bot_message = 'Выберите первую букву Вашего региона'
-    return bot_message, geography.get_inline_keyboard_first_letters()
+    bot_message = 'Выберите регион'
+    # return bot_message, reply_keyboard
+    # data = {
+    #     'parse_mode': 'HTML',
+    #     'disable_web_page_preview': True,
+    #     'reply_markup': reply_keyboard,
+    #     'chat_id': update_params.user_id,
+    #     'text': bot_message,
+    # }
+    # tg_api().send_message(data)
+    return bot_message, reply_keyboard
 
 
 @button_handler(buttons=geography.starting_buttons_flat())
@@ -90,15 +100,8 @@ def handle_set_region_v2(update_params: UpdateBasicParams, extra_params: UpdateE
     filtered_regions = geography.filter_regions(update_params.got_message)
     buttons = [[InlineKeyboardButton(text=x, callback_data=x)] for x in filtered_regions]
 
-    # return 'Выберите регион', create_one_column_reply_markup([*filtered_regions, b_region_select_var_2])
     reply_markup = InlineKeyboardMarkup(buttons)
 
-    # map_button = InlineKeyboardButton(
-    #     text='Открыть карту поисков', web_app=WebAppInfo(url=get_app_config().web_app_url)
-    # )
-
-    # keyboard = [[map_button]]
-    # reply_markup = InlineKeyboardMarkup(keyboard)
     return bot_message, reply_markup
 
 

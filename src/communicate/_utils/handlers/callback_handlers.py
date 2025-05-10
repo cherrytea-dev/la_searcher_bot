@@ -7,6 +7,7 @@ from _dependencies.commons import SearchFollowingMode
 
 from ..buttons import TopicTypeInlineKeyboardBuilder, reply_markup_main
 from ..common import (
+    ACTION_KEY,
     NOT_FOLLOWING_MARK,
     HandlerResult,
     UpdateBasicParams,
@@ -33,7 +34,7 @@ def handle_topic_type_user_changed(
     )
     bot_message = welcome_message
 
-    if user_callback and user_callback['action'] == 'about':
+    if user_callback and user_callback[ACTION_KEY] == 'about':
         # when user push "ABOUT" button
         return _handle_topic_type_pressed_about(update_params, welcome_message)
 
@@ -102,7 +103,7 @@ def _handle_topic_type_pressed_about(
         'чтобы быть в курсе всех событий в отряде вашего региона. 💡'
     )
     about_params = {'chat_id': user_id, 'text': about_text, 'parse_mode': 'HTML'}
-    tg_api().send_message(about_params, "main() if ... user_callback['action'] == 'about'")
+    tg_api().send_message(about_params)
     del_message_id = callback_query.message.message_id if callback_query and callback_query.message else None
     if del_message_id:  ###was get_last_user_inline_dialogue( user_id)
         tg_api().delete_message(user_id, del_message_id)
@@ -124,11 +125,11 @@ def handle_search_follow_mode(update_params: UpdateBasicParams, extra_params: Up
 
     logging.info(f'{callback_query=}, {user_id=}')
     # when user pushed INLINE BUTTON for topic following
-    if user_callback and user_callback['action'] == 'search_follow_mode_on':
+    if user_callback and user_callback[ACTION_KEY] == 'search_follow_mode_on':
         db().set_search_follow_mode(user_id, True)
         bot_message = 'Режим выбора поисков для отслеживания включен.'
 
-    elif user_callback and user_callback['action'] == 'search_follow_mode_off':
+    elif user_callback and user_callback[ACTION_KEY] == 'search_follow_mode_off':
         db().set_search_follow_mode(user_id, False)
         bot_message = 'Режим выбора поисков для отслеживания отключен.'
 
@@ -151,7 +152,7 @@ def manage_search_whiteness(
     ################# ToDo further: modify select in compose_notifications
 
     # when user pushed INLINE BUTTON for topic following
-    if not user_callback or user_callback['action'] != 'search_follow_mode':
+    if not user_callback or user_callback[ACTION_KEY] != 'search_follow_mode':
         return 'Не удалось обработать смену пометки', InlineKeyboardMarkup([])
 
     # get inline keyboard from previous message to update it

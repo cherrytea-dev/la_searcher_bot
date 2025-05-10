@@ -6,6 +6,8 @@ from telegram import InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
 
 from _dependencies.commons import TopicType
 
+from .common import ACTION_KEY, KEYBOARD_NAME_KEY
+
 
 class ExtendedEnum(Enum):
     @classmethod
@@ -153,13 +155,13 @@ class TopicTypeInlineKeyboardBuilder:
     @classmethod
     def manual_callback_handling(cls, cb_data: dict[str, Any]) -> bool:
         with suppress(Exception):
-            if cb_data['keyboard'] == cls.keyboard_code and cb_data['action'] == 'about':
+            if cb_data[KEYBOARD_NAME_KEY] == cls.keyboard_code and cb_data[ACTION_KEY] == 'about':
                 return True
         return False
 
     @classmethod
     def get_topic_id_by_button(cls, callback_data: dict) -> TopicType | None:
-        topic_id = callback_data['action'].split()[0]
+        topic_id = callback_data[ACTION_KEY].split()[0]
         return None if topic_id == 'None' else TopicType(int(topic_id))
 
     @classmethod
@@ -188,8 +190,8 @@ class TopicTypeInlineKeyboardBuilder:
             action = f'{topic_type} {"off" if option_selected else "on"}'
 
         cb_data = {
-            'keyboard': cls.keyboard_code,
-            'action': action,
+            KEYBOARD_NAME_KEY: cls.keyboard_code,
+            ACTION_KEY: action,
         }
 
         button_text = cls.modifier[option_selected] + name
@@ -201,9 +203,9 @@ class TopicTypeInlineKeyboardBuilder:
     def if_user_enables(cls, callback: Dict) -> bool | None:
         """check if user wants to enable or disable a feature"""
 
-        if callback['action'].endswith('on'):
+        if callback[ACTION_KEY].endswith('on'):
             return True
-        if callback['action'].endswith('off'):
+        if callback[ACTION_KEY].endswith('off'):
             return False
         return None
 

@@ -1,10 +1,11 @@
 from functools import cache
 from itertools import chain
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from .buttons import b_back_to_start, b_fed_dist_other_r, b_fed_dist_pick_other
+from .common import ACTION_KEY, KEYBOARD_NAME_KEY
 
 
 class FederalDistrict(BaseModel):
@@ -21,7 +22,18 @@ class FederalDistrict(BaseModel):
         return buttons
 
 
-GEO_KEYBOARD_NAME = 'regions'
+class InlineButtonCallbackData(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    keyboard_name: str | None = Field(default=None, alias=KEYBOARD_NAME_KEY)
+    action: str | int | None = Field(default=None, alias=ACTION_KEY)
+
+    def as_str(self) -> str:
+        return str(self.model_dump(by_alias=True))
+        # return self.model_dump_json(ensure_ascii=False, by_alias=True)
+
+
+GEO_KEYBOARD_NAME = 'reg'
 
 
 class Geography(BaseModel):
@@ -81,7 +93,9 @@ class Geography(BaseModel):
 
     @cache
     def all_region_names(self) -> list[str]:
-        return [word[0] for word in self.full_regions_list()]
+        names = [word[0] for word in self.full_regions_list()]
+        names.sort()
+        return names
 
     @cache
     def region_to_district_maping(self) -> dict[str, str]:
@@ -104,11 +118,6 @@ class Geography(BaseModel):
         federal_district_keyboards = {x.name: x.get_buttons() for x in self.fed_okrugs}
         return federal_district_keyboards[fed_district_name]
 
-    def get_buttons_by_letter(self, letter: str) -> list[list[str]]:
-        start_and_finish = letter.replace('Регионы ', '')
-        _start = start_and_finish[0]
-        _finish = start_and_finish[2]
-
     def get_inline_keyboard_first_letters(self) -> InlineKeyboardMarkup:
         first_letters: set[str] = set()
         for x in self.all_region_names():
@@ -124,8 +133,28 @@ class Geography(BaseModel):
                 if index < len(sorted_list):
                     current_letter = sorted_list[index]
 
-                    callback_data = {'keyboard': GEO_KEYBOARD_NAME, 'action': 'foo'}
-                    new_row.append(InlineKeyboardButton(text=current_letter, callback_data=str(callback_data)))
+                    # callback_data = {KEYBOARD_NAME_KEY: GEO_KEYBOARD_NAME, ACTION_KEY: current_letter}
+                    # new_row.append(InlineKeyboardButton(text=current_letter, callback_data=str(callback_data)))
+                    callback_data = InlineButtonCallbackData(keyboard_name=GEO_KEYBOARD_NAME, action=current_letter)
+                    new_row.append(InlineKeyboardButton(text=current_letter, callback_data=callback_data.as_str()))
+            rows.append(new_row)
+        return InlineKeyboardMarkup(rows)
+
+    def get_inline_keyboard_by_first_letter(self, letter: str) -> InlineKeyboardMarkup:
+        filtered_regions = [x for x in self.all_region_names() if x.startswith(letter)]
+
+        rows = []
+        for region_name in filtered_regions:
+            new_row = []
+            callback_data = InlineButtonCallbackData(
+                keyboard_name=GEO_KEYBOARD_NAME,
+                # action=region_name,
+                action=self.all_region_names().index(region_name),
+            )
+            new_row.append(InlineKeyboardButton(text=region_name, callback_data=callback_data.as_str()))
+
+            if len(str(callback_data)) >= InlineKeyboardButton.MAX_CALLBACK_DATA:
+                raise ValueError('Too long callback data')
             rows.append(new_row)
         return InlineKeyboardMarkup(rows)
 

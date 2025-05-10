@@ -1,7 +1,7 @@
 from functools import wraps
 from typing import Callable
 
-from .common import HandlerResult, UpdateBasicParams, UpdateExtraParams, UserInputState
+from .common import ACTION_KEY, KEYBOARD_NAME_KEY, HandlerResult, UpdateBasicParams, UpdateExtraParams, UserInputState
 
 
 def callback_handler(actions: list[str] = [], keyboard_name: str = '') -> Callable:
@@ -13,10 +13,10 @@ def callback_handler(actions: list[str] = [], keyboard_name: str = '') -> Callab
             if not update_params.got_callback:
                 return None
 
-            if update_params.got_callback['action'] in actions:
+            if update_params.got_callback[ACTION_KEY] in actions:
                 return func(update_params, extra_params)
 
-            if update_params.got_callback.get('keyboard') == keyboard_name:
+            if update_params.got_callback.get(KEYBOARD_NAME_KEY) == keyboard_name:
                 return func(update_params, extra_params)
 
             return None
