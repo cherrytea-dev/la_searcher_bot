@@ -1,21 +1,11 @@
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-from dotenv import load_dotenv
-
-from _dependencies.commons import AppConfig
 from identify_updates_of_topics import main
 from identify_updates_of_topics._utils import folder_updater
-from tests.common import get_event_with_data
+from tests.common import get_dotenv_config, get_event_with_data
 from title_recognize.main import recognize_title
-
-
-@lru_cache
-def get_dotenv_config() -> AppConfig:
-    assert load_dotenv('.env', override=True)
-    return AppConfig()
 
 
 class LocalFileStorage(folder_updater.CloudStorage):

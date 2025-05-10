@@ -2,17 +2,15 @@ import asyncio
 import base64
 import logging
 import sys
-from functools import lru_cache
 from unittest.mock import patch
 
-from dotenv import load_dotenv
 from telegram import Bot
 from telegram.ext import Updater
 
-from _dependencies.commons import AppConfig, Topics
+from _dependencies.commons import Topics
 from communicate._utils.database import db
 from communicate.main import process_update
-from tests.common import topic_to_receiver_function
+from tests.common import get_dotenv_config, topic_to_receiver_function
 
 
 async def main_bot() -> None:
@@ -26,12 +24,6 @@ async def main_bot() -> None:
                 update = await queue.get()
                 print(update)
                 process_update(update)
-
-
-@lru_cache
-def get_dotenv_config() -> AppConfig:
-    assert load_dotenv('.env', override=True)
-    return AppConfig()
 
 
 if __name__ == '__main__':

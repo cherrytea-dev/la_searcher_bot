@@ -1,18 +1,10 @@
-from functools import lru_cache, wraps
+from functools import wraps
 from time import time
 from unittest.mock import patch
 
-from dotenv import load_dotenv
-
-from _dependencies.commons import AppConfig
 from send_notifications.main import main
+from tests.common import get_dotenv_config
 from tests.test_send_notifications import NotSentNotificationFactory
-
-
-@lru_cache
-def get_dotenv_config() -> AppConfig:
-    assert load_dotenv('.env', override=True)
-    return AppConfig()
 
 
 def generate_messages(count: int):

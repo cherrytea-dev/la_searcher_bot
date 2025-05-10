@@ -1,21 +1,9 @@
-import datetime
-from functools import lru_cache
 from pathlib import Path
-from random import randint
 from typing import Any
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
-from dotenv import load_dotenv
-
-from _dependencies.commons import AppConfig
 from check_topics_by_upd_time import main
-from tests.common import get_event_with_data
-
-
-@lru_cache
-def get_dotenv_config() -> AppConfig:
-    assert load_dotenv('.env', override=True)
-    return AppConfig()
+from tests.common import get_dotenv_config
 
 
 class LocalFileStorage(main.CloudStorage):

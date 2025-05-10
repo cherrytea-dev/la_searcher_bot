@@ -4,7 +4,7 @@ ENV PYTHONPATH=src
 ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && \
-    apt-get install --assume-yes make g++ && \
+    apt-get install --assume-yes make && \
     apt-get clean
 
 RUN pip install uv
