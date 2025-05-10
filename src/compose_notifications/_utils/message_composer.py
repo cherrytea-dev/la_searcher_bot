@@ -172,20 +172,23 @@ class MessageComposer:
         for comment in line.comments:
             if comment.text:
                 comment_text = f'{comment.text[:500]}...' if len(comment.text) > 500 else comment.text
-                comment_text = add_tel_link(comment_text)
-                tel_pos = comment_text.find('<a href="tel')
-                if tel_pos != -1:
-                    logging.info(f'_compose_com_msg_on_new_comments..{tel_pos=} in {comment=}')
-                    text_before_tel_pos = comment_text[:tel_pos]
-                    text_from_tel_pos = comment_text[tel_pos:]
-                else:
-                    text_before_tel_pos = comment_text
-                    text_from_tel_pos = ''
+                # comment_text = add_tel_link(comment_text)
+                # tel_pos = comment_text.find('<a href="tel')
+                # if tel_pos != -1:
+                #     logging.info(f'_compose_com_msg_on_new_comments..{tel_pos=} in {comment=}')
+                #     text_before_tel_pos = comment_text[:tel_pos]
+                #     text_from_tel_pos = comment_text[tel_pos:]
+                # else:
+                #     text_before_tel_pos = comment_text
+                #     text_from_tel_pos = ''
 
                 msg += (
                     f' &#8226; <a href="{url_prefix}{comment.author_link}">{comment.author_nickname}</a>: '
-                    f'<i>«<a href="{comment.url}">{text_before_tel_pos}</a>{text_from_tel_pos}»</i>\n'
+                    # f'<i>«<a href="{comment.url}">{text_before_tel_pos}</a>{text_from_tel_pos}»</i>\n'
+                    f'<i>«<a href="{comment.url}">{comment_text}</a>»</i>\n'
                 )
+
+        msg = add_tel_link(msg)
 
         msg = f'Новые комментарии по {activity} {line.clickable_name}:\n{msg}' if msg else ''
 
@@ -267,6 +270,8 @@ class MessageComposer:
             )
         else:
             resulting_message = ''
+
+        resulting_message = add_tel_link(resulting_message)  # ToDo update tests
 
         return resulting_message
 

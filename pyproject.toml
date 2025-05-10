@@ -73,15 +73,20 @@ check_topics_by_upd_time = [
     "google-cloud-storage==2.10.0",
 ]
 
-communicate = []
+communicate = [
+    "beautifulsoup4==4.9.3", # BS4
+    "lxml==4.9.1",           # for BS4
+]
 
 compose_notifications = [
     "urllib3==1.26.19",
-    "idna==3.7",         # translation of domain names
-    "certifi==2024.7.4", # SSL certificates
-    "chardet==4.0.0",    # encoding detector
-    "python-dateutil",   # extension to datetime module
-    "pytz==2021.1",      # timezone
+    "idna==3.7",             # translation of domain names
+    "certifi==2024.7.4",     # SSL certificates
+    "chardet==4.0.0",        # encoding detector
+    "python-dateutil",       # extension to datetime module
+    "pytz==2021.1",          # timezone
+    "beautifulsoup4==4.9.3", # BS4
+    "lxml==4.9.1",           # for BS4
 ]
 
 connect_to_forum = ["urllib3==1.26.19", "beautifulsoup4==4.9.3", "lxml==4.9.1"]

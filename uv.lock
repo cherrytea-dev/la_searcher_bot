@@ -992,10 +992,16 @@ check-topics-by-upd-time = [
     { name = "google-cloud-storage" },
     { name = "lxml" },
 ]
+communicate = [
+    { name = "beautifulsoup4" },
+    { name = "lxml" },
+]
 compose-notifications = [
+    { name = "beautifulsoup4" },
     { name = "certifi" },
     { name = "chardet" },
     { name = "idna" },
+    { name = "lxml" },
     { name = "python-dateutil" },
     { name = "pytz" },
     { name = "urllib3" },
@@ -1071,6 +1077,8 @@ user-provide-info = [
 requires-dist = [
     { name = "beautifulsoup4", marker = "extra == 'api-get-active-searches'", specifier = "==4.9.3" },
     { name = "beautifulsoup4", marker = "extra == 'check-topics-by-upd-time'", specifier = "==4.9.3" },
+    { name = "beautifulsoup4", marker = "extra == 'communicate'", specifier = "==4.9.3" },
+    { name = "beautifulsoup4", marker = "extra == 'compose-notifications'", specifier = "==4.9.3" },
     { name = "beautifulsoup4", marker = "extra == 'connect-to-forum'", specifier = "==4.9.3" },
     { name = "beautifulsoup4", marker = "extra == 'identify-updates-of-first-posts'", specifier = "==4.9.3" },
     { name = "beautifulsoup4", marker = "extra == 'identify-updates-of-topics'", specifier = "==4.9.3" },
@@ -1097,6 +1105,8 @@ requires-dist = [
     { name = "idna", marker = "extra == 'identify-updates-of-topics'", specifier = "==3.7" },
     { name = "lxml", marker = "extra == 'api-get-active-searches'", specifier = "==4.9.1" },
     { name = "lxml", marker = "extra == 'check-topics-by-upd-time'", specifier = "==4.9.1" },
+    { name = "lxml", marker = "extra == 'communicate'", specifier = "==4.9.1" },
+    { name = "lxml", marker = "extra == 'compose-notifications'", specifier = "==4.9.1" },
     { name = "lxml", marker = "extra == 'connect-to-forum'", specifier = "==4.9.1" },
     { name = "lxml", marker = "extra == 'identify-updates-of-first-posts'", specifier = "==4.9.1" },
     { name = "lxml", marker = "extra == 'identify-updates-of-topics'", specifier = "==4.9.1" },
