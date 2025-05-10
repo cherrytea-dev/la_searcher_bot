@@ -30,6 +30,7 @@ b_test_search_follow_mode_off = 'test search follow mode off'
 
 # Settings - Fed Dist - Regions
 b_menu_set_region = 'настроить регион поисков'
+b_region_select_var_2 = 'Выбор региона: вариант 2'
 
 # Settings - coordinates
 b_coords_auto_def = KeyboardButton(text='автоматически определить "домашние координаты"', request_location=True)

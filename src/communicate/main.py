@@ -66,6 +66,8 @@ COMMON_HANDLERS = [
     button_handlers.handle_test_admin_check,
     button_handlers.handle_command_other,
     button_handlers.handle_set_region,
+    button_handlers.handle_set_region_v2,
+    button_handlers.handle_set_region_select_start,
     button_handlers.handle_message_is_district,
     button_handlers.handle_message_is_federal_region,
     button_handlers.handle_main_settings,

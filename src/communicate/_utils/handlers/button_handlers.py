@@ -21,6 +21,7 @@ from ..buttons import (
     IsMoscow,
     ItsMe,
     MainMenu,
+    b_region_select_var_2,
     MainSettingsMenu,
     OrdersState,
     OtherOptionsMenu,
@@ -181,6 +182,20 @@ def _get_user_selected_regions_text(user_id: int) -> str:
             msg.append(' &#8226; ' + rev_reg_dict[user_region])
 
     return '\n' + ',\n'.join(msg)
+
+
+@button_handler(buttons=[b_region_select_var_2])
+def handle_set_region_select_start(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
+    # reply_keyboard = create_one_column_reply_markup([*geography.starting_buttons(), b_back_to_start])
+    reply_keyboard = ReplyKeyboardMarkup([*geography.starting_buttons(), [b_back_to_start]], resize_keyboard=True)
+
+    return 'Выберите первую букву Вашего региона', reply_keyboard
+
+
+@button_handler(buttons=geography.starting_buttons_flat())
+def handle_set_region_v2(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
+    filtered_regions = geography.filter_regions(update_params.got_message)
+    return 'Выберите регион', create_one_column_reply_markup([*filtered_regions, b_region_select_var_2])
 
 
 @button_handler(buttons=[b_menu_set_region, b_fed_dist_pick_other])
@@ -563,6 +578,7 @@ def handle_main_settings(update_params: UpdateBasicParams, extra_params: UpdateE
 
     keyboard = [
         MainSettingsMenu.b_set_pref_notif_type,
+        b_region_select_var_2,
         b_menu_set_region,
         MainSettingsMenu.b_set_topic_type,
         MainSettingsMenu.b_set_pref_coords,
