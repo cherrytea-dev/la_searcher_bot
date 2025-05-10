@@ -959,10 +959,12 @@ name = "la-searcher-bot"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "beautifulsoup4" },
     { name = "google-cloud-logging" },
     { name = "google-cloud-pubsub" },
     { name = "google-cloud-secret-manager" },
     { name = "httpx" },
+    { name = "lxml" },
     { name = "nest-asyncio" },
     { name = "psycopg2-binary" },
     { name = "pydantic-settings" },
@@ -974,9 +976,7 @@ dependencies = [
 
 [package.optional-dependencies]
 api-get-active-searches = [
-    { name = "beautifulsoup4" },
     { name = "functions-framework" },
-    { name = "lxml" },
 ]
 archive-notifications = [
     { name = "pytz" },
@@ -988,27 +988,17 @@ check-first-posts-for-changes = [
     { name = "google-auth" },
 ]
 check-topics-by-upd-time = [
-    { name = "beautifulsoup4" },
     { name = "google-cloud-storage" },
-    { name = "lxml" },
-]
-communicate = [
-    { name = "beautifulsoup4" },
-    { name = "lxml" },
 ]
 compose-notifications = [
-    { name = "beautifulsoup4" },
     { name = "certifi" },
     { name = "chardet" },
     { name = "idna" },
-    { name = "lxml" },
     { name = "python-dateutil" },
     { name = "pytz" },
     { name = "urllib3" },
 ]
 connect-to-forum = [
-    { name = "beautifulsoup4" },
-    { name = "lxml" },
     { name = "urllib3" },
 ]
 develop = [
@@ -1039,12 +1029,7 @@ develop = [
     { name = "types-requests" },
     { name = "uv" },
 ]
-identify-updates-of-first-posts = [
-    { name = "beautifulsoup4" },
-    { name = "lxml" },
-]
 identify-updates-of-topics = [
-    { name = "beautifulsoup4" },
     { name = "cchardet" },
     { name = "certifi" },
     { name = "chardet" },
@@ -1052,7 +1037,6 @@ identify-updates-of-topics = [
     { name = "google-auth" },
     { name = "google-cloud-storage" },
     { name = "idna" },
-    { name = "lxml" },
     { name = "natasha" },
     { name = "python-dateutil" },
     { name = "urllib3" },
@@ -1060,8 +1044,6 @@ identify-updates-of-topics = [
     { name = "yarl" },
 ]
 send-notifications = [
-    { name = "beautifulsoup4" },
-    { name = "lxml" },
     { name = "urllib3" },
 ]
 title-recognize = [
@@ -1070,22 +1052,12 @@ title-recognize = [
     { name = "python-dateutil" },
 ]
 user-provide-info = [
-    { name = "beautifulsoup4" },
     { name = "functions-framework" },
-    { name = "lxml" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "beautifulsoup4", marker = "extra == 'api-get-active-searches'", specifier = "==4.9.3" },
-    { name = "beautifulsoup4", marker = "extra == 'check-topics-by-upd-time'", specifier = "==4.9.3" },
-    { name = "beautifulsoup4", marker = "extra == 'communicate'", specifier = "==4.9.3" },
-    { name = "beautifulsoup4", marker = "extra == 'compose-notifications'", specifier = "==4.9.3" },
-    { name = "beautifulsoup4", marker = "extra == 'connect-to-forum'", specifier = "==4.9.3" },
-    { name = "beautifulsoup4", marker = "extra == 'identify-updates-of-first-posts'", specifier = "==4.9.3" },
-    { name = "beautifulsoup4", marker = "extra == 'identify-updates-of-topics'", specifier = "==4.9.3" },
-    { name = "beautifulsoup4", marker = "extra == 'send-notifications'", specifier = "==4.9.3" },
-    { name = "beautifulsoup4", marker = "extra == 'user-provide-info'", specifier = "==4.9.3" },
+    { name = "beautifulsoup4", specifier = "==4.9.3" },
     { name = "cchardet", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.1.7" },
     { name = "certifi", marker = "extra == 'compose-notifications'", specifier = "==2024.7.4" },
     { name = "certifi", marker = "extra == 'identify-updates-of-topics'", specifier = "==2024.7.4" },
@@ -1106,15 +1078,7 @@ requires-dist = [
     { name = "httpx", specifier = "==0.27.*" },
     { name = "idna", marker = "extra == 'compose-notifications'", specifier = "==3.7" },
     { name = "idna", marker = "extra == 'identify-updates-of-topics'", specifier = "==3.7" },
-    { name = "lxml", marker = "extra == 'api-get-active-searches'", specifier = "==4.9.1" },
-    { name = "lxml", marker = "extra == 'check-topics-by-upd-time'", specifier = "==4.9.1" },
-    { name = "lxml", marker = "extra == 'communicate'", specifier = "==4.9.1" },
-    { name = "lxml", marker = "extra == 'compose-notifications'", specifier = "==4.9.1" },
-    { name = "lxml", marker = "extra == 'connect-to-forum'", specifier = "==4.9.1" },
-    { name = "lxml", marker = "extra == 'identify-updates-of-first-posts'", specifier = "==4.9.1" },
-    { name = "lxml", marker = "extra == 'identify-updates-of-topics'", specifier = "==4.9.1" },
-    { name = "lxml", marker = "extra == 'send-notifications'", specifier = "==4.9.1" },
-    { name = "lxml", marker = "extra == 'user-provide-info'", specifier = "==4.9.1" },
+    { name = "lxml", specifier = "==4.9.1" },
     { name = "mypy", marker = "extra == 'develop'", specifier = ">=1.14.1" },
     { name = "natasha", marker = "extra == 'identify-updates-of-topics'", specifier = "==1.4.0" },
     { name = "natasha", marker = "extra == 'title-recognize'", specifier = "==1.4.0" },
