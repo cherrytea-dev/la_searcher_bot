@@ -223,7 +223,7 @@ def handle_set_region(update_params: UpdateBasicParams, extra_params: UpdateExtr
     return bot_message, reply_markup
 
 
-@button_handler(buttons=geography.all_federal_district_names())
+@button_handler(buttons=geography.federal_district_names())
 def handle_message_is_district(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
     updated_regions = _update_and_download_list_of_regions(update_params.user_id, update_params.got_message)
     # and there

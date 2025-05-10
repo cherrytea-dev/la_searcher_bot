@@ -61,10 +61,6 @@ class Geography(BaseModel):
         return [word[0] for word in self.full_regions_list()]
 
     @cache
-    def all_federal_district_names(self) -> list[str]:
-        return [x.name for x in self.fed_okrugs]
-
-    @cache
     def region_to_district_maping(self) -> dict[str, str]:
         region_to_district_maping: dict[str, str] = {}
         for fed_dist in self.fed_okrugs:
