@@ -12,7 +12,7 @@ RUN pip install uv
 
 WORKDIR /opt/bot
 
-FROM template AS vscode_devcontainer
+FROM template AS build
 
 COPY pyproject.toml uv.lock ./
 COPY .env.example .env.test
