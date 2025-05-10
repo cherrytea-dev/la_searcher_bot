@@ -288,6 +288,7 @@ def handle_message_is_federal_region(
         b_test_search_follow_mode_on,
         b_test_search_follow_mode_off,
         'test msg 1',
+        'test msg 2',
     ]
 )
 def handle_admin_experimental_settings(
@@ -330,17 +331,17 @@ def handle_admin_experimental_settings(
         return bot_message, reply_markup_main
 
     if got_message == 'test msg 1':
-        bot_message = """Ответственные:\n &#8226; Инфорг: Аста (Аста) 89215544854 \n\n"""
+        bot_message = """Ответственные:\n &#8226; Инфорг: Арина (Арина) 89001234567 \n\n"""
         bot_message = add_tel_link(bot_message)
         return bot_message, reply_markup_main
 
     if got_message == 'test msg 2':
-        bot_message = """🔀Изменения в первом посте по <a href="https://lizaalert.org/forum/viewtopic.php?t=94862">Филиппов 73 года</a> (Москва и МО – Активные поиски):
+        bot_message = """🔀Изменения в первом посте по <a href="https://lizaalert.org/forum/viewtopic.php?t=94862">Иванов 33 года</a> (Москва и МО – Активные поиски):
 
 ➖Удалено:
 <s>Координатор-консультант: Маркиза
 СНМ: Дуглас
-Инфорг: Герда (Ольга) 89206326219 Написать Герда (Ольга) в Telegram
+Инфорг: Герда (Арина) 89001234567 Написать Герда (Арина) в Telegram
 </s>
 ➕Добавлено:
 С 7 мая 2025 года нет данных о его местонахождении. 
@@ -353,7 +354,7 @@ def handle_admin_experimental_settings(
 Форма одежды: город.  
 Маркиза
 Дуглас
-Герда (Ольга) 89206326219 """
+Герда (Арина) 89001234567 """
         bot_message = add_tel_link(bot_message)
         return bot_message, reply_markup_main
 
