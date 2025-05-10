@@ -2,6 +2,7 @@ from functools import cache
 from itertools import chain
 
 from pydantic import BaseModel, ConfigDict
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from .buttons import b_back_to_start, b_fed_dist_other_r, b_fed_dist_pick_other
 
@@ -18,6 +19,9 @@ class FederalDistrict(BaseModel):
         buttons.append([b_back_to_start])
 
         return buttons
+
+
+GEO_KEYBOARD_NAME = 'regions'
 
 
 class Geography(BaseModel):
@@ -99,6 +103,31 @@ class Geography(BaseModel):
     def get_keyboard_by_fed_district(self, fed_district_name: str) -> list[list[str]]:
         federal_district_keyboards = {x.name: x.get_buttons() for x in self.fed_okrugs}
         return federal_district_keyboards[fed_district_name]
+
+    def get_buttons_by_letter(self, letter: str) -> list[list[str]]:
+        start_and_finish = letter.replace('Регионы ', '')
+        _start = start_and_finish[0]
+        _finish = start_and_finish[2]
+
+    def get_inline_keyboard_first_letters(self) -> InlineKeyboardMarkup:
+        first_letters: set[str] = set()
+        for x in self.all_region_names():
+            first_letters.add(x[0])
+        sorted_list = sorted(first_letters)
+
+        rows = []
+        row_length = 5
+        for i in range(len(sorted_list) // row_length + 1):
+            new_row = []
+            for j in range(row_length):
+                index = i * row_length + j
+                if index < len(sorted_list):
+                    current_letter = sorted_list[index]
+
+                    callback_data = {'keyboard': GEO_KEYBOARD_NAME, 'action': 'foo'}
+                    new_row.append(InlineKeyboardButton(text=current_letter, callback_data=str(callback_data)))
+            rows.append(new_row)
+        return InlineKeyboardMarkup(rows)
 
 
 all_fed_okr = [

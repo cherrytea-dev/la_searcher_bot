@@ -15,6 +15,7 @@ from _dependencies.commons import (
     setup_google_logging,
 )
 from _dependencies.pubsub import notify_admin, publish_to_pubsub
+from communicate._utils.handlers import region_select_handlers
 
 from ._utils.buttons import TopicTypeInlineKeyboardBuilder, reply_markup_main
 from ._utils.common import (
@@ -52,7 +53,6 @@ COMMON_HANDLERS = [
     ###
     button_handlers.handle_command_start,
     button_handlers.handle_user_role,
-    button_handlers.handle_if_moscow,
     button_handlers.handle_help_needed,
     button_handlers.handle_admin_experimental_settings,
     button_handlers.handle_show_map,
@@ -65,11 +65,6 @@ COMMON_HANDLERS = [
     button_handlers.handle_linking_to_forum_not_me,
     button_handlers.handle_test_admin_check,
     button_handlers.handle_command_other,
-    button_handlers.handle_set_region,
-    button_handlers.handle_set_region_v2,
-    button_handlers.handle_set_region_select_start,
-    button_handlers.handle_message_is_district,
-    button_handlers.handle_message_is_federal_region,
     button_handlers.handle_main_settings,
     button_handlers.handle_coordinates_show_menu,
     button_handlers.handle_coordinates_show_saved,
@@ -82,6 +77,14 @@ COMMON_HANDLERS = [
     notification_settings_handlers.handle_notification_settings,
     notification_settings_handlers.handle_notification_settings_show_menu,
     view_searches_handlers.handle_view_searches,
+    ###
+    region_select_handlers.handle_if_moscow,
+    region_select_handlers.handle_set_region,
+    region_select_handlers.handle_set_region_v2,
+    region_select_handlers.handle_set_region_select_start,
+    region_select_handlers.handle_set_region_select_start_2,
+    region_select_handlers.handle_message_is_district,
+    region_select_handlers.handle_message_is_federal_region,
 ]
 
 
