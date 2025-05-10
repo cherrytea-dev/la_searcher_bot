@@ -194,8 +194,20 @@ def handle_set_region_select_start(update_params: UpdateBasicParams, extra_param
 
 @button_handler(buttons=geography.starting_buttons_flat())
 def handle_set_region_v2(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
+    bot_message = 'Выберите регион'
     filtered_regions = geography.filter_regions(update_params.got_message)
-    return 'Выберите регион', create_one_column_reply_markup([*filtered_regions, b_region_select_var_2])
+    buttons = [[InlineKeyboardButton(text=x, callback_data=x)] for x in filtered_regions]
+
+    # return 'Выберите регион', create_one_column_reply_markup([*filtered_regions, b_region_select_var_2])
+    reply_markup = InlineKeyboardMarkup(buttons)
+
+    # map_button = InlineKeyboardButton(
+    #     text='Открыть карту поисков', web_app=WebAppInfo(url=get_app_config().web_app_url)
+    # )
+
+    # keyboard = [[map_button]]
+    # reply_markup = InlineKeyboardMarkup(keyboard)
+    return bot_message, reply_markup
 
 
 @button_handler(buttons=[b_menu_set_region, b_fed_dist_pick_other])
