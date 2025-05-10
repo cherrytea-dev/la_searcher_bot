@@ -54,10 +54,7 @@ from ..decorators import button_handler
 from ..message_sending import tg_api
 from ..regions import (
     dict_of_fed_dist,
-    fed_okr_dict,
-    folder_dict,
-    full_dict_of_regions,
-    keyboard_fed_dist_set,
+    geography,
 )
 
 WELCOME_MESSAGE_AFTER_ONBOARDING = (
@@ -156,7 +153,7 @@ def _update_and_download_list_of_regions(user_id: int, got_message: str) -> str:
         msg = _get_user_selected_regions_text(user_id)
         return pre_msg + msg
 
-    if got_message in fed_okr_dict or got_message == b_fed_dist_pick_other:
+    if got_message in geography.federal_district_names() or got_message == b_fed_dist_pick_other:
         msg = _get_user_selected_regions_text(user_id)
         if msg:
             return 'Текущий список ваших регионов:' + msg
@@ -165,7 +162,7 @@ def _update_and_download_list_of_regions(user_id: int, got_message: str) -> str:
 
     region_is_the_only = None
     region_was_in_db = None
-    list_of_regs_to_upload = folder_dict[got_message]
+    list_of_regs_to_upload = geography.folder_dict()[got_message]
 
     # any region
     user_curr_regs = db().get_user_regions_from_db(user_id)
@@ -210,24 +207,22 @@ def _update_and_download_list_of_regions(user_id: int, got_message: str) -> str:
 
 
 def _get_user_selected_regions_text(user_id: int) -> str:
-    # TODO to form_messages?
     user_curr_regs_list = db().get_user_regions(user_id)
 
-    rev_reg_dict = {value[0]: key for (key, value) in folder_dict.items()}
+    rev_reg_dict = geography.reversed_folder_dict()
+    msg: list[str] = []
 
-    msg = ''
-    for reg in user_curr_regs_list:
-        if reg in rev_reg_dict:
-            msg += ',\n &#8226; ' + rev_reg_dict[reg]
+    for user_region in user_curr_regs_list:
+        if user_region in rev_reg_dict:
+            msg.append(' &#8226; ' + rev_reg_dict[user_region])
 
-    msg = msg[1:]
-    return msg
+    return '\n' + ',\n'.join(msg)
 
 
 @button_handler(buttons=[b_menu_set_region, b_fed_dist_pick_other])
 def handle_set_region(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
     bot_message = _update_and_download_list_of_regions(update_params.user_id, update_params.got_message)
-    reply_markup = ReplyKeyboardMarkup(keyboard_fed_dist_set, resize_keyboard=True)
+    reply_markup = ReplyKeyboardMarkup(geography.keyboard_federal_districts(), resize_keyboard=True)
     return bot_message, reply_markup
 
 
@@ -239,7 +234,7 @@ def handle_message_is_district(update_params: UpdateBasicParams, extra_params: U
     return updated_regions, reply_markup
 
 
-@button_handler(buttons=full_dict_of_regions)
+@button_handler(buttons=geography.all_region_names())
 def handle_message_is_federal_region(
     update_params: UpdateBasicParams, extra_params: UpdateExtraParams
 ) -> HandlerResult:
@@ -268,7 +263,7 @@ def handle_message_is_federal_region(
         ]
         return WELCOME_MESSAGE_AFTER_ONBOARDING, create_one_column_reply_markup(keyboard_role)
 
-    keyboard = keyboard_fed_dist_set
+    keyboard = geography.keyboard_federal_districts()
     for fed_dist in dict_of_fed_dist:
         for region in dict_of_fed_dist[fed_dist]:
             if region[0] == got_message:
@@ -655,7 +650,7 @@ def handle_if_moscow(update_params: UpdateBasicParams, extra_params: UpdateExtra
             'Вы в любой момент сможете изменить '
             'список регионов через настройки бота.'
         )
-        reply_markup = ReplyKeyboardMarkup(keyboard_fed_dist_set, resize_keyboard=True)
+        reply_markup = ReplyKeyboardMarkup(geography.keyboard_federal_districts(), resize_keyboard=True)
         return bot_message, reply_markup
 
     return bot_message, reply_markup_main

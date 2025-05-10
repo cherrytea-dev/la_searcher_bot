@@ -1,10 +1,11 @@
+from functools import cache
 from dataclasses import dataclass
 from itertools import chain
 
 from .buttons import b_back_to_start, b_fed_dist_other_r, b_fed_dist_pick_other
 
 
-@dataclass
+@dataclass(frozen=True)
 class FederalDistrict:
     name: str
     provinces: list[tuple[str, list[int]]]
@@ -17,28 +18,44 @@ class FederalDistrict:
         return buttons
 
 
-@dataclass
-class Federal:
+@dataclass(frozen=True)
+class Geography:
     fed_okrugs: list[FederalDistrict]
 
+    # @cache
     def full_regions_list(self) -> list[list[str]]:
         regions = [x.get_buttons()[:-2] for x in self.fed_okrugs]
         res = list(chain(*regions))
         res.append([b_fed_dist_other_r])
         return res
 
-    def get_keyboard_fed_dist_set(self) -> list[list[str]]:
+    # @cache
+    def keyboard_federal_districts(self) -> list[list[str]]:
         res = [[x.name] for x in self.fed_okrugs]
         res.append([b_fed_dist_other_r])
         res.append([b_back_to_start])
         return res
 
-    def get_folder_dict(self) -> dict[str, list[int]]:
+    # @cache
+    def folder_dict(self) -> dict[str, list[int]]:
         all_tuples = [x.provinces for x in self.fed_okrugs]
         all_tuples_joined = list(chain(*all_tuples))
         folders = {province: folders for province, folders in all_tuples_joined}
         folders['Прочие поиски по РФ'] = [116]
         return folders
+
+    def reversed_folder_dict(self) -> dict[list[int], str]:
+        """to get region name by any containing folder id"""
+        return {value[0]: key for (key, value) in self.folder_dict().items()}
+
+    def federal_district_names(self) -> set[str]:
+        return set(x.name for x in self.fed_okrugs)
+
+    def all_region_names(self) -> list[str]:
+        return [word[0] for word in self.full_regions_list()]
+
+    def all_federal_district_names(self) -> list[str]:
+        return [x.name for x in self.fed_okrugs]
 
 
 all_fed_okr = [
@@ -162,11 +179,7 @@ all_fed_okr = [
 ]
 
 
-federal = Federal(fed_okrugs=all_fed_okr)
+geography = Geography(fed_okrugs=all_fed_okr)
 
-_full_list_of_regions = federal.full_regions_list()
-full_dict_of_regions = [word[0] for word in _full_list_of_regions]
-dict_of_fed_dist = {x.name: x.get_buttons() for x in federal.fed_okrugs}
-fed_okr_dict = set(x.name for x in federal.fed_okrugs)
-keyboard_fed_dist_set = federal.get_keyboard_fed_dist_set()
-folder_dict = federal.get_folder_dict()
+full_dict_of_regions = geography.all_region_names()
+dict_of_fed_dist = {x.name: x.get_buttons() for x in geography.fed_okrugs}
