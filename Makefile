@@ -46,10 +46,21 @@ sqlalchemy-models:
 
 
 prepare-environment:
+	
+	# Apply initial settings (.env, VSCode):
+	cp -n .vscode/launch.template.json .vscode/launch.json
+	cp -n .vscode/settings.template.json .vscode/settings.json
+
+	# create .env files for running tests and for local debug
+	cp -n .env.example .env
+	cp -n .env.example .env.test
+	
+	# create venv
 	pip install uv
 	make venv
-	# Apply initial settings (.env, VSCode):
-	cp .vscode/launch.template.json .vscode/launch.json
-	cp .vscode/settings.template.json .vscode/settings.json
-	cp .env.example .env
-	cp .env.example .env.test
+	
+	# prepare test database
+	docker compose run --build --rm bot make initdb
+
+recreate-local-db:
+	docker compose run --build --rm bot uv run python tests/tools/init_testing_db.py --db=PROD
