@@ -52,10 +52,7 @@ from ..common import (
 from ..database import db
 from ..decorators import button_handler
 from ..message_sending import tg_api
-from ..regions import (
-    dict_of_fed_dist,
-    geography,
-)
+from ..regions import geography
 
 WELCOME_MESSAGE_AFTER_ONBOARDING = (
     '🎉 Отлично, вы завершили базовую настройку Бота.\n\n'
@@ -226,11 +223,13 @@ def handle_set_region(update_params: UpdateBasicParams, extra_params: UpdateExtr
     return bot_message, reply_markup
 
 
-@button_handler(buttons=list(dict_of_fed_dist.keys()))
+@button_handler(buttons=geography.all_federal_district_names())
 def handle_message_is_district(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
     updated_regions = _update_and_download_list_of_regions(update_params.user_id, update_params.got_message)
     # and there
-    reply_markup = ReplyKeyboardMarkup(dict_of_fed_dist[update_params.got_message], resize_keyboard=True)
+    reply_markup = ReplyKeyboardMarkup(
+        geography.get_keyboard_by_fed_district(update_params.got_message), resize_keyboard=True
+    )
     return updated_regions, reply_markup
 
 
@@ -263,17 +262,10 @@ def handle_message_is_federal_region(
         ]
         return WELCOME_MESSAGE_AFTER_ONBOARDING, create_one_column_reply_markup(keyboard_role)
 
-    keyboard = geography.keyboard_federal_districts()
-    for fed_dist in dict_of_fed_dist:
-        for region in dict_of_fed_dist[fed_dist]:
-            if region[0] == got_message:
-                keyboard = dict_of_fed_dist[fed_dist]
-                break
-        else:
-            continue
-        break
     updated_regions = _update_and_download_list_of_regions(user_id, got_message)
-    # maybe there?
+
+    keyboard = geography.get_keyboard_by_region(got_message)
+
     return updated_regions, ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 

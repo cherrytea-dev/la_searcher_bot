@@ -1,5 +1,5 @@
-from functools import cache
 from dataclasses import dataclass
+from functools import cache
 from itertools import chain
 
 from .buttons import b_back_to_start, b_fed_dist_other_r, b_fed_dist_pick_other
@@ -44,7 +44,7 @@ class Geography:
         folders['Прочие поиски по РФ'] = [116]
         return folders
 
-    def reversed_folder_dict(self) -> dict[list[int], str]:
+    def reversed_folder_dict(self) -> dict[int, str]:
         """to get region name by any containing folder id"""
         return {value[0]: key for (key, value) in self.folder_dict().items()}
 
@@ -56,6 +56,18 @@ class Geography:
 
     def all_federal_district_names(self) -> list[str]:
         return [x.name for x in self.fed_okrugs]
+
+    def get_keyboard_by_region(self, region_name: str) -> list[list[str]]:
+        fed_dist_keyboards = {x.name: x.get_buttons() for x in geography.fed_okrugs}
+        for fed_dist in fed_dist_keyboards:
+            for region in fed_dist_keyboards[fed_dist]:
+                if region[0] == region_name:
+                    return fed_dist_keyboards[fed_dist]
+        raise ValueError(f'Not found keyboard for region: {region_name}')
+
+    def get_keyboard_by_fed_district(self, fed_district_name: str) -> list[list[str]]:
+        federal_district_keyboards = {x.name: x.get_buttons() for x in self.fed_okrugs}
+        return federal_district_keyboards[fed_district_name]
 
 
 all_fed_okr = [
@@ -180,6 +192,3 @@ all_fed_okr = [
 
 
 geography = Geography(fed_okrugs=all_fed_okr)
-
-full_dict_of_regions = geography.all_region_names()
-dict_of_fed_dist = {x.name: x.get_buttons() for x in geography.fed_okrugs}
