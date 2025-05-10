@@ -119,44 +119,42 @@ class Geography(BaseModel):
         return federal_district_keyboards[fed_district_name]
 
     def get_inline_keyboard_first_letters(self) -> InlineKeyboardMarkup:
+        buttons = self._get_first_letter_buttons()
+        return InlineKeyboardMarkup(arrange_buttons_to_rows(buttons, 5))
+
+    def _get_first_letter_buttons(self) -> list[InlineKeyboardButton]:
         first_letters: set[str] = set()
         for x in self.all_region_names():
             first_letters.add(x[0])
         sorted_list = sorted(first_letters)
 
-        rows = []
-        row_length = 5
-        for i in range(len(sorted_list) // row_length + 1):
-            new_row = []
-            for j in range(row_length):
-                index = i * row_length + j
-                if index < len(sorted_list):
-                    current_letter = sorted_list[index]
-
-                    # callback_data = {KEYBOARD_NAME_KEY: GEO_KEYBOARD_NAME, ACTION_KEY: current_letter}
-                    # new_row.append(InlineKeyboardButton(text=current_letter, callback_data=str(callback_data)))
-                    callback_data = InlineButtonCallbackData(keyboard_name=GEO_KEYBOARD_NAME, action=current_letter)
-                    new_row.append(InlineKeyboardButton(text=current_letter, callback_data=callback_data.as_str()))
-            rows.append(new_row)
-        return InlineKeyboardMarkup(rows)
+        buttons = []
+        for current_letter in sorted_list:
+            callback_data = InlineButtonCallbackData(keyboard_name=GEO_KEYBOARD_NAME, action=current_letter)
+            buttons.append(InlineKeyboardButton(text=current_letter, callback_data=callback_data.as_str()))
+        return buttons
 
     def get_inline_keyboard_by_first_letter(self, letter: str) -> InlineKeyboardMarkup:
+        letters_buttons = self._get_first_letter_buttons()
+        region_buttons = self._get_regions_by_first_letter(letter)
+
+        return InlineKeyboardMarkup(
+            arrange_buttons_to_rows(letters_buttons, 5)
+            + [[InlineKeyboardButton(text='---------', callback_data='foo')]]
+            + arrange_buttons_to_rows(region_buttons, 2),
+        )
+
+    def _get_regions_by_first_letter(self, letter: str) -> list[InlineKeyboardButton]:
         filtered_regions = [x for x in self.all_region_names() if x.startswith(letter)]
 
-        rows = []
+        buttons = []
         for region_name in filtered_regions:
-            new_row = []
             callback_data = InlineButtonCallbackData(
                 keyboard_name=GEO_KEYBOARD_NAME,
-                # action=region_name,
                 action=self.all_region_names().index(region_name),
             )
-            new_row.append(InlineKeyboardButton(text=region_name, callback_data=callback_data.as_str()))
-
-            if len(str(callback_data)) >= InlineKeyboardButton.MAX_CALLBACK_DATA:
-                raise ValueError('Too long callback data')
-            rows.append(new_row)
-        return InlineKeyboardMarkup(rows)
+            buttons.append(InlineKeyboardButton(text=region_name, callback_data=callback_data.as_str()))
+        return buttons
 
 
 all_fed_okr = [
@@ -381,3 +379,11 @@ _all_regs = [
     'Ямало-Ненецкий АО',
     'Ярославская обл.',
 ]
+
+
+def arrange_buttons_to_rows(buttons: list[str], columns_count: int) -> list[list[str]]:
+    # if len(buttons) % columns_count != 0:
+    #     raise ValueError(
+    #         f'buttons length {len(buttons)} must be divisible by columns_count {columns_count}'
+    #     )
+    return [buttons[start_index : start_index + columns_count] for start_index in range(0, len(buttons), columns_count)]
