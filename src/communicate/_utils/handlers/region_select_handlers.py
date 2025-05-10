@@ -60,6 +60,7 @@ def handle_if_moscow(update_params: UpdateBasicParams, extra_params: UpdateExtra
             'список регионов через настройки бота.'
         )
         reply_markup = ReplyKeyboardMarkup(geography.keyboard_federal_districts(), resize_keyboard=True)
+        # TODO replace with inline
         return bot_message, reply_markup
 
     return bot_message, reply_markup_main
@@ -70,8 +71,19 @@ def handle_set_region_select_start(update_params: UpdateBasicParams, extra_param
     # reply_keyboard = create_one_column_reply_markup([*geography.starting_buttons(), b_back_to_start])
     reply_keyboard = ReplyKeyboardMarkup([*geography.starting_buttons(), [b_back_to_start]], resize_keyboard=True)
 
-    bot_message = 'Выберите первую букву Вашего региона'
-    return bot_message, geography.get_inline_keyboard_first_letters()
+    # bot_message = 'Выберите первую букву Вашего региона'
+
+    # _get_user_selected_regions_text()
+
+    user_curr_regs_list = db().get_user_regions(update_params.user_id)
+
+    selected_regions = geography.forum_folders_to_regions_list(user_curr_regs_list)
+
+    reply_keyboard = geography.get_inline_keyboard_by_first_letter('+', selected_regions)  # default
+
+    bot_message = 'Выберите регион'
+
+    return bot_message, reply_keyboard
 
 
 @callback_handler(keyboard_name=GEO_KEYBOARD_NAME)
@@ -79,18 +91,26 @@ def handle_set_region_select_start_2(
     update_params: UpdateBasicParams, extra_params: UpdateExtraParams
 ) -> HandlerResult:
     # reply_keyboard = create_one_column_reply_markup([*geography.starting_buttons(), b_back_to_start])
-    reply_keyboard = geography.get_inline_keyboard_by_first_letter(update_params.got_callback[ACTION_KEY])
+    selected_button = update_params.got_callback[ACTION_KEY]
+    if not selected_button:
+        return None, None
+    try:
+        # user pressed button with region. update value in db and send updated keyboard
+        selected_region_index = int(selected_button)
+        selected_region_text = geography.get_selected_region_name_by_order(selected_region_index)
+        _update_and_download_list_of_regions(update_params.user_id, selected_region_text)
+
+        user_curr_regs = db().get_user_regions_from_db(update_params.user_id)
+        selected_regions = geography.forum_folders_to_regions_list(user_curr_regs)
+        letter_to_show = selected_region_text[0]
+        reply_keyboard = geography.get_inline_keyboard_by_first_letter(letter_to_show, selected_regions)
+    except ValueError:
+        # user pressed button with letter
+        user_curr_regs = db().get_user_regions_from_db(update_params.user_id)
+        selected_regions = geography.forum_folders_to_regions_list(user_curr_regs)
+        reply_keyboard = geography.get_inline_keyboard_by_first_letter(selected_button, selected_regions)
 
     bot_message = 'Выберите регион'
-    # return bot_message, reply_keyboard
-    # data = {
-    #     'parse_mode': 'HTML',
-    #     'disable_web_page_preview': True,
-    #     'reply_markup': reply_keyboard,
-    #     'chat_id': update_params.user_id,
-    #     'text': bot_message,
-    # }
-    # tg_api().send_message(data)
     return bot_message, reply_keyboard
 
 
@@ -215,11 +235,9 @@ def _update_and_download_list_of_regions(user_id: int, got_message: str) -> str:
 def _get_user_selected_regions_text(user_id: int) -> str:
     user_curr_regs_list = db().get_user_regions(user_id)
 
-    rev_reg_dict = geography.reversed_folder_dict()
-    msg: list[str] = []
+    selected_regions = geography.forum_folders_to_regions_list(user_curr_regs_list)
+    message_lines: list[str] = []
 
-    for user_region in user_curr_regs_list:
-        if user_region in rev_reg_dict:
-            msg.append(' &#8226; ' + rev_reg_dict[user_region])
+    message_lines = [' &#8226; ' + user_region for user_region in selected_regions]
 
-    return '\n' + ',\n'.join(msg)
+    return '\n' + ',\n'.join(message_lines)

@@ -82,10 +82,15 @@ class Geography(BaseModel):
         folders['Прочие поиски по РФ'] = (116,)
         return folders
 
-    @cache
-    def reversed_folder_dict(self) -> dict[int, str]:
+    def forum_folders_to_regions_list(self, user_curr_regs_list: list[int]) -> list[str]:
         """to get region name by any containing folder id"""
-        return {value[0]: key for (key, value) in self.folder_dict().items()}
+        rev_reg_dict = {value[0]: key for (key, value) in self.folder_dict().items()}
+        regions: list[str] = []
+
+        for user_region in user_curr_regs_list:
+            if user_region in rev_reg_dict:
+                regions.append(rev_reg_dict[user_region])
+        return regions
 
     @cache
     def federal_district_names(self) -> list[str]:
@@ -122,30 +127,47 @@ class Geography(BaseModel):
         buttons = self._get_first_letter_buttons()
         return InlineKeyboardMarkup(arrange_buttons_to_rows(buttons, 5))
 
-    def _get_first_letter_buttons(self) -> list[InlineKeyboardButton]:
-        first_letters: set[str] = set()
-        for x in self.all_region_names():
-            first_letters.add(x[0])
+    def _get_first_letter_buttons(self, selected_regions: list[str]) -> list[InlineKeyboardButton]:
+        selected_regions_first_letters = set([x[0] for x in selected_regions])
+
+        first_letters = set([x[0] for x in self.all_region_names()])
+
         sorted_list = sorted(first_letters)
+        sorted_list.insert(0, '+')
 
         buttons = []
         for current_letter in sorted_list:
             callback_data = InlineButtonCallbackData(keyboard_name=GEO_KEYBOARD_NAME, action=current_letter)
-            buttons.append(InlineKeyboardButton(text=current_letter, callback_data=callback_data.as_str()))
+            button_text = '' + current_letter
+            if current_letter in selected_regions_first_letters:
+                button_text = '✅' + current_letter
+
+            buttons.append(InlineKeyboardButton(text=button_text, callback_data=callback_data.as_str()))
         return buttons
 
-    def get_inline_keyboard_by_first_letter(self, letter: str) -> InlineKeyboardMarkup:
-        letters_buttons = self._get_first_letter_buttons()
-        region_buttons = self._get_regions_by_first_letter(letter)
+    def get_inline_keyboard_by_first_letter(self, letter: str, selected_regions: list[str]) -> InlineKeyboardMarkup:
+        letters_buttons = self._get_first_letter_buttons(selected_regions)
+        region_buttons = self._get_regions_by_first_letter(letter, selected_regions)
+        empty_callback_data = InlineButtonCallbackData(keyboard_name=GEO_KEYBOARD_NAME, action='')
 
         return InlineKeyboardMarkup(
             arrange_buttons_to_rows(letters_buttons, 5)
-            + [[InlineKeyboardButton(text='---------', callback_data='foo')]]
+            + [[InlineKeyboardButton(text='---------', callback_data=empty_callback_data.as_str())]]
             + arrange_buttons_to_rows(region_buttons, 2),
         )
 
-    def _get_regions_by_first_letter(self, letter: str) -> list[InlineKeyboardButton]:
-        filtered_regions = [x for x in self.all_region_names() if x.startswith(letter)]
+    def get_selected_region_name_by_order(self, index: int) -> str:
+        return self.all_region_names()[index]
+
+    def _get_regions_by_first_letter(self, letter: str, selected_regions: list[str]) -> list[InlineKeyboardButton]:
+        if letter == '+':
+            filtered_regions = [
+                'Ленинградская обл.',
+                'Москва и МО: Активные Поиски',
+                'Самарская обл.',
+            ]
+        else:
+            filtered_regions = [x for x in self.all_region_names() if x.startswith(letter)]
 
         buttons = []
         for region_name in filtered_regions:
@@ -153,7 +175,10 @@ class Geography(BaseModel):
                 keyboard_name=GEO_KEYBOARD_NAME,
                 action=self.all_region_names().index(region_name),
             )
-            buttons.append(InlineKeyboardButton(text=region_name, callback_data=callback_data.as_str()))
+            button_text = region_name
+            if region_name in selected_regions:
+                button_text = '✅' + button_text
+            buttons.append(InlineKeyboardButton(text=button_text, callback_data=callback_data.as_str()))
         return buttons
 
 
