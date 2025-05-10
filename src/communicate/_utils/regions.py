@@ -53,8 +53,8 @@ class Geography(BaseModel):
         return {value[0]: key for (key, value) in self.folder_dict().items()}
 
     @cache
-    def federal_district_names(self) -> set[str]:
-        return set(x.name for x in self.fed_okrugs)
+    def federal_district_names(self) -> list[str]:
+        return [x.name for x in self.fed_okrugs]
 
     @cache
     def all_region_names(self) -> list[str]:

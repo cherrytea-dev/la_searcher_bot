@@ -135,51 +135,25 @@ def handle_command_other(update_params: UpdateBasicParams, extra_params: UpdateE
 def _update_and_download_list_of_regions(user_id: int, got_message: str) -> str:
     """Upload, download and compose a message on the list of user's regions"""
 
-    # TODO - get the list of regions from PSQL
-    # TODO ^^^
-
-    # case for the first entry to the screen of Reg Settings
-    if got_message == b_menu_set_region:
-        pre_msg = (
-            'Бот может показывать поиски в любом регионе работы ЛА.\n'
-            'Вы можете подписаться на несколько регионов – просто кликните на соответствующие кнопки регионов.'
-            '\nЧтобы ОТПИСАТЬСЯ от ненужных регионов – нажмите на соответствующую кнопку региона еще раз.\n\n'
-        )
-        pre_msg += 'Текущий список ваших регионов:'
-        # Get the list of resulting regions
-        msg = _get_user_selected_regions_text(user_id)
-        return pre_msg + msg
-
-    if got_message in geography.federal_district_names() or got_message == b_fed_dist_pick_other:
-        msg = _get_user_selected_regions_text(user_id)
-        if msg:
-            return 'Текущий список ваших регионов:' + msg
-        else:
-            return 'Пока список выбранных регионов пуст. Выберите хотя бы один.'
-
-    region_is_the_only = None
-    region_was_in_db = None
     list_of_regs_to_upload = geography.folder_dict()[got_message]
-
-    # any region
     user_curr_regs = db().get_user_regions_from_db(user_id)
 
-    for user_reg in user_curr_regs:
-        if list_of_regs_to_upload[0] == user_reg:
-            region_was_in_db = 'yes'
-            break
-    if region_was_in_db:
-        if len(user_curr_regs) - len(list_of_regs_to_upload) < 1:
-            region_is_the_only = 'yes'
+    region_was_in_db = any(list_of_regs_to_upload[0] == user_reg for user_reg in user_curr_regs)
+    region_is_the_only = region_was_in_db and len(user_curr_regs) - len(list_of_regs_to_upload) < 1
+
+    if region_is_the_only:
+        # Scenario: this setting WAS in place, but now it's the last one - we cannot delete it
+        msg = _get_user_selected_regions_text(user_id)
+        msg = (
+            'Ваш регион поисков настроен' + msg + '\n\nВы можете продолжить добавлять регионы, либо нажмите '
+            'кнопку "в начало", чтобы продолжить работу с ботом.'
+        )
+        return msg
 
     # Scenario: this setting WAS in place, and now we need to DELETE it
-    if region_was_in_db == 'yes' and not region_is_the_only:
+    if region_was_in_db:
         for region in list_of_regs_to_upload:
             db().delete_folder_from_user_regional_preference(user_id, region)
-
-    # Scenario: this setting WAS in place, but now it's the last one - we cannot delete it
-    elif region_was_in_db == 'yes' and region_is_the_only:
-        pass
 
     # Scenario: it's a NEW setting, we need to ADD it
     else:
@@ -187,18 +161,11 @@ def _update_and_download_list_of_regions(user_id: int, got_message: str) -> str:
             db().add_folder_to_user_regional_preference(user_id, region)
 
     msg = _get_user_selected_regions_text(user_id)
-
-    if region_is_the_only:
-        msg = (
-            'Ваш регион поисков настроен' + msg + '\n\nВы можете продолжить добавлять регионы, либо нажмите '
-            'кнопку "в начало", чтобы продолжить работу с ботом.'
-        )
-    else:
-        msg = (
-            'Записали. Обновленный список ваших регионов:' + msg + '\n\nВы можете продолжить добавлять регионы, '
-            'либо нажмите кнопку "в начало", чтобы '
-            'продолжить работу с ботом.'
-        )
+    msg = (
+        'Записали. Обновленный список ваших регионов:' + msg + '\n\nВы можете продолжить добавлять регионы, '
+        'либо нажмите кнопку "в начало", чтобы '
+        'продолжить работу с ботом.'
+    )
 
     return msg
 
@@ -218,19 +185,36 @@ def _get_user_selected_regions_text(user_id: int) -> str:
 
 @button_handler(buttons=[b_menu_set_region, b_fed_dist_pick_other])
 def handle_set_region(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
-    bot_message = _update_and_download_list_of_regions(update_params.user_id, update_params.got_message)
+    bot_message = _format_user_selected_regions(update_params)
+
+    if update_params.got_message == b_menu_set_region:
+        # case for the first entry to the screen of Reg Settings
+        pre_msg = (
+            'Бот может показывать поиски в любом регионе работы ЛА.\n'
+            'Вы можете подписаться на несколько регионов – просто кликните на соответствующие кнопки регионов.'
+            '\nЧтобы ОТПИСАТЬСЯ от ненужных регионов – нажмите на соответствующую кнопку региона еще раз.\n\n'
+        )
+        bot_message = pre_msg + bot_message
+
     reply_markup = ReplyKeyboardMarkup(geography.keyboard_federal_districts(), resize_keyboard=True)
     return bot_message, reply_markup
 
 
+def _format_user_selected_regions(update_params: UpdateBasicParams) -> str:
+    msg = _get_user_selected_regions_text(update_params.user_id)
+    if msg:
+        return 'Текущий список ваших регионов:' + msg
+    return 'Пока список выбранных регионов пуст. Выберите хотя бы один.'
+
+
 @button_handler(buttons=geography.federal_district_names())
 def handle_message_is_district(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
-    updated_regions = _update_and_download_list_of_regions(update_params.user_id, update_params.got_message)
-    # and there
+    bot_message = _format_user_selected_regions(update_params)
+
     reply_markup = ReplyKeyboardMarkup(
         geography.get_keyboard_by_fed_district(update_params.got_message), resize_keyboard=True
     )
-    return updated_regions, reply_markup
+    return bot_message, reply_markup
 
 
 @button_handler(buttons=geography.all_region_names())
@@ -263,7 +247,6 @@ def handle_message_is_federal_region(
         return WELCOME_MESSAGE_AFTER_ONBOARDING, create_one_column_reply_markup(keyboard_role)
 
     updated_regions = _update_and_download_list_of_regions(user_id, got_message)
-
     keyboard = geography.get_keyboard_by_region(got_message)
 
     return updated_regions, ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
