@@ -1,14 +1,16 @@
-from dataclasses import dataclass
 from functools import cache
 from itertools import chain
+
+from pydantic import BaseModel, ConfigDict
 
 from .buttons import b_back_to_start, b_fed_dist_other_r, b_fed_dist_pick_other
 
 
-@dataclass(frozen=True)
-class FederalDistrict:
+class FederalDistrict(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     name: str
-    provinces: list[tuple[str, list[int]]]
+    provinces: tuple[tuple[str, tuple[int, ...]], ...]
 
     def get_buttons(self) -> list[list[str]]:
         buttons = [[x[0]] for x in self.provinces]
@@ -18,52 +20,66 @@ class FederalDistrict:
         return buttons
 
 
-@dataclass(frozen=True)
-class Geography:
-    fed_okrugs: list[FederalDistrict]
+class Geography(BaseModel):
+    model_config = ConfigDict(frozen=True)
 
-    # @cache
+    fed_okrugs: tuple[FederalDistrict, ...]
+
+    @cache
     def full_regions_list(self) -> list[list[str]]:
         regions = [x.get_buttons()[:-2] for x in self.fed_okrugs]
         res = list(chain(*regions))
         res.append([b_fed_dist_other_r])
         return res
 
-    # @cache
+    @cache
     def keyboard_federal_districts(self) -> list[list[str]]:
         res = [[x.name] for x in self.fed_okrugs]
         res.append([b_fed_dist_other_r])
         res.append([b_back_to_start])
         return res
 
-    # @cache
-    def folder_dict(self) -> dict[str, list[int]]:
+    @cache
+    def folder_dict(self) -> dict[str, tuple[int, ...]]:
         all_tuples = [x.provinces for x in self.fed_okrugs]
-        all_tuples_joined = list(chain(*all_tuples))
+        all_tuples_joined = tuple(chain(*all_tuples))
         folders = {province: folders for province, folders in all_tuples_joined}
-        folders['Прочие поиски по РФ'] = [116]
+        folders['Прочие поиски по РФ'] = (116,)
         return folders
 
+    @cache
     def reversed_folder_dict(self) -> dict[int, str]:
         """to get region name by any containing folder id"""
         return {value[0]: key for (key, value) in self.folder_dict().items()}
 
+    @cache
     def federal_district_names(self) -> set[str]:
         return set(x.name for x in self.fed_okrugs)
 
+    @cache
     def all_region_names(self) -> list[str]:
         return [word[0] for word in self.full_regions_list()]
 
+    @cache
     def all_federal_district_names(self) -> list[str]:
         return [x.name for x in self.fed_okrugs]
 
+    @cache
+    def region_to_district_maping(self) -> dict[str, str]:
+        region_to_district_maping: dict[str, str] = {}
+        for fed_dist in self.fed_okrugs:
+            for region in fed_dist.provinces:
+                region_to_district_maping[region[0]] = fed_dist.name
+        return region_to_district_maping
+
     def get_keyboard_by_region(self, region_name: str) -> list[list[str]]:
-        fed_dist_keyboards = {x.name: x.get_buttons() for x in geography.fed_okrugs}
-        for fed_dist in fed_dist_keyboards:
-            for region in fed_dist_keyboards[fed_dist]:
-                if region[0] == region_name:
-                    return fed_dist_keyboards[fed_dist]
-        raise ValueError(f'Not found keyboard for region: {region_name}')
+        region_to_district_maping = self.region_to_district_maping()
+        try:
+            fed_dist_name = region_to_district_maping[region_name]
+            return self.get_keyboard_by_fed_district(fed_dist_name)
+        except KeyError:
+            # 116 - "Прочие поиски по РФ"
+            return self.keyboard_federal_districts()
 
     def get_keyboard_by_fed_district(self, fed_district_name: str) -> list[list[str]]:
         federal_district_keyboards = {x.name: x.get_buttons() for x in self.fed_okrugs}
