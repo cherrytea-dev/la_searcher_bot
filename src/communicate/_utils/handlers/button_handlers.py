@@ -234,6 +234,7 @@ def handle_set_region(update_params: UpdateBasicParams, extra_params: UpdateExtr
 @button_handler(buttons=list(dict_of_fed_dist.keys()))
 def handle_message_is_district(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
     updated_regions = _update_and_download_list_of_regions(update_params.user_id, update_params.got_message)
+    # and there
     reply_markup = ReplyKeyboardMarkup(dict_of_fed_dist[update_params.got_message], resize_keyboard=True)
     return updated_regions, reply_markup
 
@@ -277,6 +278,7 @@ def handle_message_is_federal_region(
             continue
         break
     updated_regions = _update_and_download_list_of_regions(user_id, got_message)
+    # maybe there?
     return updated_regions, ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 
