@@ -331,6 +331,14 @@ def _handle_view_searches_experimental_view(user_id: int, search_list_type: Sear
             region_data.rows.append(
                 [
                     InlineKeyboardButton(
+                        text='Сбросить все пометки отслеживания поисков',
+                        callback_data='{"action":"search_follow_clear"}',
+                    )
+                ]
+            )
+            region_data.rows.append(
+                [
+                    InlineKeyboardButton(
                         text='Отключить выбор поисков для отслеживания',
                         callback_data='{"action":"search_follow_mode_off"}',
                     )

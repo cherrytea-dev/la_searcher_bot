@@ -429,6 +429,14 @@ class DBClient:
                 (user_id,),
             )
 
+    def delete_search_follow_marks(self, user_id: int) -> None:
+        with self.cursor() as cur:
+            cur.execute(
+                """DELETE FROM user_pref_search_whitelist 
+                WHERE user_id=%s;""",
+                (user_id,),
+            )
+
     def delete_folder_from_user_regional_preference(self, user_id: int, region: int) -> None:
         with self.cursor() as cur:
             cur.execute(
