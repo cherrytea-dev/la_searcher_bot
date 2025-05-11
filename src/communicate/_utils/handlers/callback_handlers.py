@@ -113,9 +113,9 @@ def _handle_topic_type_pressed_about(
     return bot_message, InlineKeyboardMarkup(keyboard)
 
 
-@callback_handler(actions=['search_follow_mode_on', 'search_follow_mode_off'])
+@callback_handler(actions=['search_follow_mode_on', 'search_follow_mode_off', 'search_follow_clear'])
 def handle_search_follow_mode(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
-    """Switches search following mode on/off"""
+    """Switches search following mode on/off, or clears search following marks"""
 
     user_callback = update_params.got_callback
     callback_query = update_params.callback_query
@@ -126,11 +126,15 @@ def handle_search_follow_mode(update_params: UpdateBasicParams, extra_params: Up
     # when user pushed INLINE BUTTON for topic following
     if user_callback and user_callback['action'] == 'search_follow_mode_on':
         db().set_search_follow_mode(user_id, True)
-        bot_message = 'Режим выбора поисков для отслеживания включен.'
+        bot_message = 'Режим выбора поисков для отслеживания включен. Переоткройте список активных поисков.'
 
     elif user_callback and user_callback['action'] == 'search_follow_mode_off':
         db().set_search_follow_mode(user_id, False)
-        bot_message = 'Режим выбора поисков для отслеживания отключен.'
+        bot_message = 'Режим выбора поисков для отслеживания отключен. Переоткройте список активных поисков.'
+
+    elif user_callback and user_callback['action'] == 'search_follow_clear':
+        db().delete_search_follow_marks(user_id)
+        bot_message = 'Все пометки отслеживания поисков сброшшены. Переоткройте список активных поисков.'
 
     tg_api().send_callback_answer_to_api(update_params.user_id, callback_id, bot_message)
 
