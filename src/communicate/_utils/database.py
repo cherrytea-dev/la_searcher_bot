@@ -632,7 +632,8 @@ class DBClient:
                 LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s.search_forum_num and upswl.user_id=%(user_id)s
                 WHERE s.forum_folder_id=%(region)s
                 AND (
-                        (s.status='Ищем' OR s.status='Возобновлен'
+                        (
+                            (s.status='Ищем' OR s.status='Возобновлен')
                         and (shc.status is NULL or shc.status='ok' or shc.status='regular')
                         )
                     or (upswl.search_following_mode=%(search_follow_on)s
