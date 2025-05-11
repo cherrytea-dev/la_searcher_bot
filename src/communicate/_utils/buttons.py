@@ -1,10 +1,11 @@
 from contextlib import suppress
 from enum import Enum
-from typing import Any, Dict
 
 from telegram import InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
 
 from _dependencies.commons import TopicType
+
+from .common import InlineButtonCallbackData
 
 
 class ExtendedEnum(Enum):
@@ -135,7 +136,7 @@ class OtherOptionsMenu(str, ExtendedEnum):
 
 
 class TopicTypeInlineKeyboardBuilder:
-    keyboard_code = 'topic_type_select'
+    keyboard_code = 'TTS'  # TopicTypeSelect
     modifier = {True: '✅ ', False: '☐ ', None: ''}
     _topic_buttons_data = [
         ('regular', 'стандартные активные поиски', TopicType.search_regular, False),
@@ -150,15 +151,16 @@ class TopicTypeInlineKeyboardBuilder:
     ]
 
     @classmethod
-    def manual_callback_handling(cls, cb_data: dict[str, Any]) -> bool:
+    def manual_callback_handling(cls, cb_data: InlineButtonCallbackData | None) -> bool:
         with suppress(Exception):
-            if cb_data['keyboard'] == cls.keyboard_code and cb_data['action'] == 'about':
+            assert cb_data
+            if cb_data.keyboard_name == cls.keyboard_code and cb_data.action == 'about':
                 return True
         return False
 
     @classmethod
-    def get_topic_id_by_button(cls, callback_data: dict) -> TopicType | None:
-        topic_id = callback_data['action'].split()[0]
+    def get_topic_id_by_button(cls, callback_data: InlineButtonCallbackData) -> TopicType | None:
+        topic_id = str(callback_data.action).split()[0]
         return None if topic_id == 'None' else TopicType(int(topic_id))
 
     @classmethod
@@ -186,23 +188,21 @@ class TopicTypeInlineKeyboardBuilder:
         else:
             action = f'{topic_type} {"off" if option_selected else "on"}'
 
-        cb_data = {
-            'keyboard': cls.keyboard_code,
-            'action': action,
-        }
+        cb_data = InlineButtonCallbackData(keyboard_name=cls.keyboard_code, action=action)
 
         button_text = cls.modifier[option_selected] + name
-        button = InlineKeyboardButton(text=button_text, callback_data=str(cb_data))
-        assert len(str(cb_data)) <= InlineKeyboardButton.MAX_CALLBACK_DATA
+        button = InlineKeyboardButton(text=button_text, callback_data=cb_data.as_str())
         return button
 
     @classmethod
-    def if_user_enables(cls, callback: Dict) -> bool | None:
+    def if_user_enables(cls, callback: InlineButtonCallbackData | None) -> bool | None:
         """check if user wants to enable or disable a feature"""
 
-        if callback['action'].endswith('on'):
+        if not callback:
+            return None
+        if str(callback.action).endswith('on'):
             return True
-        if callback['action'].endswith('off'):
+        if str(callback.action).endswith('off'):
             return False
         return None
 

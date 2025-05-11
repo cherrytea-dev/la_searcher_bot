@@ -2,7 +2,6 @@
 
 import datetime
 import logging
-from ast import literal_eval
 from functools import lru_cache
 from typing import Any, Callable
 
@@ -16,9 +15,10 @@ from _dependencies.commons import (
 )
 from _dependencies.pubsub import notify_admin, publish_to_pubsub
 
-from ._utils.buttons import TopicTypeInlineKeyboardBuilder, reply_markup_main
+from ._utils.buttons import reply_markup_main
 from ._utils.common import (
     LA_BOT_CHAT_URL,
+    InlineButtonCallbackData,
     UpdateBasicParams,
     UpdateExtraParams,
     UserInputState,
@@ -30,6 +30,7 @@ from ._utils.handlers import (
     callback_handlers,
     notification_settings_handlers,
     other_handlers,
+    region_select_handlers,
     state_handlers,
     view_searches_handlers,
 )
@@ -52,7 +53,6 @@ COMMON_HANDLERS = [
     ###
     button_handlers.handle_command_start,
     button_handlers.handle_user_role,
-    button_handlers.handle_if_moscow,
     button_handlers.handle_help_needed,
     button_handlers.handle_admin_experimental_settings,
     button_handlers.handle_show_map,
@@ -65,9 +65,6 @@ COMMON_HANDLERS = [
     button_handlers.handle_linking_to_forum_not_me,
     button_handlers.handle_test_admin_check,
     button_handlers.handle_command_other,
-    button_handlers.handle_set_region,
-    button_handlers.handle_message_is_district,
-    button_handlers.handle_message_is_federal_region,
     button_handlers.handle_main_settings,
     button_handlers.handle_coordinates_show_menu,
     button_handlers.handle_coordinates_show_saved,
@@ -80,6 +77,12 @@ COMMON_HANDLERS = [
     notification_settings_handlers.handle_notification_settings,
     notification_settings_handlers.handle_notification_settings_show_menu,
     view_searches_handlers.handle_view_searches,
+    ###
+    region_select_handlers.handle_if_moscow,
+    region_select_handlers.handle_set_region,
+    region_select_handlers.handle_set_region_select_start_2,
+    region_select_handlers.handle_message_is_district,
+    region_select_handlers.handle_message_is_federal_region,
 ]
 
 
@@ -142,7 +145,7 @@ def _get_basic_update_parameters(update: Update) -> UpdateBasicParams:
     if callback_query:
         callback_data_text = callback_query.data
         try:
-            got_callback = literal_eval(callback_data_text)
+            got_callback = InlineButtonCallbackData.model_validate_json(callback_data_text)
         except Exception:
             logging.exception(f'callback dict was not recognized for {callback_data_text=}')
             notify_admin(f'callback dict was not recognized for {callback_data_text=}')
@@ -230,7 +233,7 @@ def _run_onboarding(user_id: int, username: str, onboarding_step_id: int, got_me
 
 def _reply_to_user(
     user_id: int,
-    got_callback: dict[str, Any] | None,
+    got_callback: InlineButtonCallbackData | None,
     callback_query: CallbackQuery | None,
     reply_markup: ReplyKeyboardMarkup | InlineKeyboardMarkup | ReplyKeyboardRemove | None,
     bot_message: str,
@@ -239,15 +242,8 @@ def _reply_to_user(
     context = f'if reply_markup and not isinstance(reply_markup, dict): {reply_markup=}, {context_step=}'
     logging.info(f'{context=}: {reply_markup=}')
 
-    user_used_inline_button = got_callback and not TopicTypeInlineKeyboardBuilder.manual_callback_handling(got_callback)
-    try:
-        # temporary hack to return old behavior
-        if got_callback['action'] in ('search_follow_mode_on', 'search_follow_mode_off', 'search_follow_clear'):  # type:ignore[index]
-            user_used_inline_button = False
-    except Exception:
-        pass
-
-    if user_used_inline_button:
+    replied_with_inline_markup = got_callback and isinstance(reply_markup, InlineKeyboardMarkup)
+    if replied_with_inline_markup:
         # call editMessageText to edit inline keyboard
         # in the message where inline button was pushed
         last_user_message_id = callback_query.message.id  # type: ignore [union-attr]

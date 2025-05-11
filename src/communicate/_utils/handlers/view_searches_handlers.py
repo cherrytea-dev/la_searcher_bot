@@ -13,6 +13,7 @@ from ..common import (
     NOT_FOLLOWING_MARK,
     SEARCH_URL_PREFIX,
     HandlerResult,
+    InlineButtonCallbackData,
     SearchSummary,
     UpdateBasicParams,
     UpdateExtraParams,
@@ -41,7 +42,7 @@ def _search_button_row_ikb(search: SearchSummary, search_status: str) -> list[In
     search_following_mark = search.following_mode if search.following_mode else NOT_FOLLOWING_MARK
     url = f'{SEARCH_URL_PREFIX}{search.topic_id}'
 
-    callback_data = {'action': 'search_follow_mode', 'hash': search.topic_id}
+    callback_data = InlineButtonCallbackData(act='search_follow_mode', hash=search.topic_id).as_str()
     ikb_row = [
         [
             InlineKeyboardButton(text=f'{search_following_mark} {search_status}', callback_data=str(callback_data)),
@@ -238,7 +239,7 @@ def _handle_view_searches_usual_view(user_id: int, search_list_type: SearchListT
         }
         tg_api().send_message(data)
 
-    if 'tester' in db().get_user_sys_roles(user_id):
+    if db().is_user_tester(user_id):
         _show_button_to_turn_on_following_searches(user_id)
 
     return '', None
@@ -250,7 +251,7 @@ def _show_button_to_turn_on_following_searches(user_id: int) -> None:
         [
             InlineKeyboardButton(
                 text='Включить выбор поисков для отслеживания',
-                callback_data='{"action":"search_follow_mode_on"}',
+                callback_data=InlineButtonCallbackData(act='search_follow_mode_on').as_str(),
             )
         ]
     ]
@@ -332,7 +333,7 @@ def _handle_view_searches_experimental_view(user_id: int, search_list_type: Sear
                 [
                     InlineKeyboardButton(
                         text='Сбросить все пометки отслеживания поисков',
-                        callback_data='{"action":"search_follow_clear"}',
+                        callback_data=InlineButtonCallbackData(action='search_follow_clear').as_str(),
                     )
                 ]
             )
@@ -340,7 +341,7 @@ def _handle_view_searches_experimental_view(user_id: int, search_list_type: Sear
                 [
                     InlineKeyboardButton(
                         text='Отключить выбор поисков для отслеживания',
-                        callback_data='{"action":"search_follow_mode_off"}',
+                        callback_data=InlineButtonCallbackData(act='search_follow_mode_off').as_str(),
                     )
                 ]
             )
@@ -381,7 +382,7 @@ def handle_view_searches(update_params: UpdateBasicParams, extra_params: UpdateE
     search_list_type = temp_dict[update_params.got_message]
 
     use_experimental_view = db().get_search_follow_mode(update_params.user_id) and (
-        'tester' in db().get_user_sys_roles(update_params.user_id)
+        db().is_user_tester(update_params.user_id)
     )
     if use_experimental_view:
         return _handle_view_searches_experimental_view(update_params.user_id, search_list_type)

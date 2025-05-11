@@ -98,30 +98,27 @@ class DBClient:
         """Return user's roles in system"""
         with self.cursor() as cur:
             user_roles = ['']
-            try:
-                cur.execute('SELECT role FROM user_roles WHERE user_id=%s;', (user_id,))
-                lines = cur.fetchall()
-                for line in lines:
-                    user_roles.append(line[0])
-                logging.info(f'user {user_id} role has roles {user_roles=}')
-            except Exception as e:
-                logging.info(f'failed to get from user_roles for user {user_id}')
-                logging.exception(e)
+            cur.execute('SELECT role FROM user_roles WHERE user_id=%s;', (user_id,))
+            lines = cur.fetchall()
+            for line in lines:
+                user_roles.append(line[0])
+            logging.info(f'user {user_id} role has roles {user_roles=}')
             return user_roles
 
     def get_user_role(self, user_id: int) -> str | None:
         """Return user's role"""
         with self.cursor() as cur:
-            try:
-                cur.execute('SELECT role FROM users WHERE user_id=%s LIMIT 1;', (user_id,))
-                rows = cur.fetchone()
-                if rows:
-                    user_role = rows[0]
+            cur.execute('SELECT role FROM users WHERE user_id=%s LIMIT 1;', (user_id,))
+            rows = cur.fetchone()
+            if rows:
+                user_role = rows[0]
                 logging.info(f'user {user_id} role is {user_role}')
                 return user_role
-            except Exception:
-                logging.exception(f'failed to get user role for user {user_id}')
+
             return None
+
+    def is_user_tester(self, user_id: int) -> bool:
+        return 'tester' in self.get_user_sys_roles(user_id)
 
     def add_user_sys_role(self, user_id: int, sys_role_name: str) -> None:
         """Saves user's role in system"""

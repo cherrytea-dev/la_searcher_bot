@@ -89,11 +89,8 @@ class TGApiBase:
 
         if 'reply_markup' in params and isinstance(params['reply_markup'], TelegramObject):
             params['reply_markup'] = params['reply_markup'].to_dict()
-        logging.info(
-            f'({method=}, {call_context=})..before json_params = json.dumps(params) {params=}; {type(params)=}'
-        )
+
         json_params = json.dumps(params)
-        logging.info(f'({method=}, {call_context=})..after json.dumps(params): {json_params=}; {type(json_params)=}')
 
         try:
             response = retry_call(
@@ -102,12 +99,12 @@ class TGApiBase:
                 fkwargs=dict(data=json_params, headers=headers),
                 tries=3,
             )
-            logging.info(f'After session.post: {response=}; {call_context=}')
+            logging.debug(f'After session.post: {response=}; {call_context=}')
         except Exception as e:
             response = None
             logging.exception('Error in getting response from Telegram')
 
-        logging.info(f'Before return: {response=}; {call_context=}')
+        logging.debug(f'Before return: {response=}; {call_context=}')
         return response
 
     def _process_response_of_api_call(self, user_id: int, response: Response | None, call_context: str = '') -> str:
