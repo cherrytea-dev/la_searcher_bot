@@ -23,6 +23,7 @@ from ..message_sending import tg_api
 from ..regions import GEO_KEYBOARD_NAME, geography
 from .button_handlers import WELCOME_MESSAGE_AFTER_ONBOARDING
 
+USE_NEW_REGION_SELECTION = True  # temporary switch; remove in future
 REGION_SELECTION_HELP_TEXT = """Выберите регионы, по которым хотите видеть поиски. Можно фильтровать регионы по первой букве.
 Чтобы ОТПИСАТЬСЯ от какого-либо региона – нажмите на его кнопку еще раз."""
 
@@ -53,7 +54,7 @@ def handle_if_moscow(update_params: UpdateBasicParams, extra_params: UpdateExtra
     if got_message == IsMoscow.b_reg_not_moscow:
         save_onboarding_step(user_id, username, 'moscow_replied')
 
-        if db().is_user_tester(update_params.user_id):
+        if USE_NEW_REGION_SELECTION:
             return _handle_region_selection_inline_menu(update_params)
 
         bot_message = (
@@ -70,7 +71,7 @@ def handle_if_moscow(update_params: UpdateBasicParams, extra_params: UpdateExtra
 
 
 @callback_handler(keyboard_name=GEO_KEYBOARD_NAME)
-def handle_set_region_select_start_2(
+def handle_region_selection_callback(
     update_params: UpdateBasicParams, extra_params: UpdateExtraParams
 ) -> HandlerResult:
     assert update_params.got_callback
@@ -100,6 +101,7 @@ def handle_set_region_select_start_2(
         selected_regions = geography.forum_folders_to_regions_list(user_curr_regs)
         letter_to_show = update_params.got_callback.letter_to_show
         reply_keyboard = geography.get_inline_keyboard_by_first_letter(letter_to_show, selected_regions)
+
     except ValueError:
         # user pressed button with letter
         user_curr_regs = db().get_user_regions_from_db(update_params.user_id)
@@ -111,7 +113,7 @@ def handle_set_region_select_start_2(
 
 @button_handler(buttons=[b_menu_set_region, b_fed_dist_pick_other])
 def handle_set_region(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
-    if db().is_user_tester(update_params.user_id):
+    if USE_NEW_REGION_SELECTION:
         return _handle_region_selection_inline_menu(update_params)
 
     bot_message = _format_user_selected_regions(update_params)

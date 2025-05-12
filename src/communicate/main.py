@@ -80,7 +80,7 @@ COMMON_HANDLERS = [
     ###
     region_select_handlers.handle_if_moscow,
     region_select_handlers.handle_set_region,
-    region_select_handlers.handle_set_region_select_start_2,
+    region_select_handlers.handle_region_selection_callback,
     region_select_handlers.handle_message_is_district,
     region_select_handlers.handle_message_is_federal_region,
 ]

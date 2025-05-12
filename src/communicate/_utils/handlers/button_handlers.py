@@ -129,10 +129,6 @@ def handle_command_other(update_params: UpdateBasicParams, extra_params: UpdateE
     ]
     return bot_message, create_one_column_reply_markup(keyboard_other)
 
-    # return bot_message, reply_keyboard
-
-    # return bot_message, reply_keyboard
-
 
 @button_handler(
     buttons=[

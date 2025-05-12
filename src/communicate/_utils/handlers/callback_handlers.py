@@ -135,7 +135,7 @@ def handle_search_follow_mode(update_params: UpdateBasicParams, extra_params: Up
 
     elif user_callback and user_callback.action == 'search_follow_clear':
         db().delete_search_follow_marks(user_id)
-        bot_message = 'Все пометки отслеживания поисков сброшшены. Переоткройте список активных поисков.'
+        bot_message = 'Все пометки отслеживания поисков сброшены. Переоткройте список активных поисков.'
 
     tg_api().send_callback_answer_to_api(update_params.user_id, callback_id, bot_message)
 
