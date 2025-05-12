@@ -4,7 +4,15 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Sequence, Union
 
-from telegram import CallbackQuery, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from pydantic import BaseModel, ConfigDict, Field
+from telegram import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+)
 
 from _dependencies.commons import SearchFollowingMode, Topics
 from _dependencies.misc import calc_bearing
@@ -14,6 +22,20 @@ SEARCH_URL_PREFIX = 'https://lizaalert.org/forum/viewtopic.php?t='
 FORUM_FOLDER_PREFIX = 'https://lizaalert.org/forum/viewforum.php?f='
 LA_BOT_CHAT_URL = 'https://t.me/joinchat/2J-kV0GaCgwxY2Ni'
 NOT_FOLLOWING_MARK = '  '  # 'third state' of SearchFollowingMode
+
+
+class InlineButtonCallbackData(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    keyboard_name: str | None = Field(default=None, alias='kb')
+    action: str | int | None = Field(default=None, alias='act')
+    hash: int | None = Field(default=None)
+    letter_to_show: str = Field(default='', alias='bs')
+
+    def as_str(self) -> str:
+        res = self.model_dump_json(by_alias=True, exclude_none=True, exclude_unset=True)
+        assert len(res) <= InlineKeyboardButton.MAX_CALLBACK_DATA
+        return res
 
 
 @dataclass
@@ -99,7 +121,7 @@ class UpdateBasicParams:
     channel_type: str
     username: str
     user_id: int
-    got_callback: dict[str, Any]
+    got_callback: InlineButtonCallbackData | None
     callback_query_id: str
     callback_query: CallbackQuery | None
 

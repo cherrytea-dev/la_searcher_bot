@@ -33,13 +33,14 @@ def handle_topic_type_user_changed(
     )
     bot_message = welcome_message
 
-    if user_callback and user_callback['action'] == 'about':
+    if user_callback and user_callback.action == 'about':
         # when user push "ABOUT" button
         return _handle_topic_type_pressed_about(update_params, welcome_message)
 
     # when user pushed INLINE BUTTON for topic type
     list_of_ids_to_change_now = []
     list_of_current_setting_ids = db().check_saved_topic_types(user_id)
+    assert user_callback
     topic_id = TopicTypeInlineKeyboardBuilder.get_topic_id_by_button(user_callback)
     assert topic_id is not None  # would be None only if "about" pushed
 
@@ -102,7 +103,7 @@ def _handle_topic_type_pressed_about(
         'чтобы быть в курсе всех событий в отряде вашего региона. 💡'
     )
     about_params = {'chat_id': user_id, 'text': about_text, 'parse_mode': 'HTML'}
-    tg_api().send_message(about_params, "main() if ... user_callback['action'] == 'about'")
+    tg_api().send_message(about_params)
     del_message_id = callback_query.message.message_id if callback_query and callback_query.message else None
     if del_message_id:  ###was get_last_user_inline_dialogue( user_id)
         tg_api().delete_message(user_id, del_message_id)
@@ -124,17 +125,17 @@ def handle_search_follow_mode(update_params: UpdateBasicParams, extra_params: Up
 
     logging.info(f'{callback_query=}, {user_id=}')
     # when user pushed INLINE BUTTON for topic following
-    if user_callback and user_callback['action'] == 'search_follow_mode_on':
+    if user_callback and user_callback.action == 'search_follow_mode_on':
         db().set_search_follow_mode(user_id, True)
         bot_message = 'Режим выбора поисков для отслеживания включен. Переоткройте список активных поисков.'
 
-    elif user_callback and user_callback['action'] == 'search_follow_mode_off':
+    elif user_callback and user_callback.action == 'search_follow_mode_off':
         db().set_search_follow_mode(user_id, False)
         bot_message = 'Режим выбора поисков для отслеживания отключен. Переоткройте список активных поисков.'
 
-    elif user_callback and user_callback['action'] == 'search_follow_clear':
+    elif user_callback and user_callback.action == 'search_follow_clear':
         db().delete_search_follow_marks(user_id)
-        bot_message = 'Все пометки отслеживания поисков сброшшены. Переоткройте список активных поисков.'
+        bot_message = 'Все пометки отслеживания поисков сброшены. Переоткройте список активных поисков.'
 
     tg_api().send_callback_answer_to_api(update_params.user_id, callback_id, bot_message)
 
@@ -155,14 +156,14 @@ def manage_search_whiteness(
     ################# ToDo further: modify select in compose_notifications
 
     # when user pushed INLINE BUTTON for topic following
-    if not user_callback or user_callback['action'] != 'search_follow_mode':
+    if not user_callback or user_callback.action != 'search_follow_mode':
         return 'Не удалось обработать смену пометки', InlineKeyboardMarkup([])
 
     # get inline keyboard from previous message to update it
     source_reply_markup = callback_query.message.reply_markup  # type:ignore [union-attr]
     source_keyboard = source_reply_markup.inline_keyboard  # type:ignore [union-attr]
 
-    search_num = int(user_callback['hash'])
+    search_num = int(user_callback.hash) if user_callback.hash else 0
     pushed_row_index = _get_pressed_button_row_index(source_reply_markup, search_num)  # type:ignore [union-attr, arg-type]
     if pushed_row_index is None:
         logging.error(f'cannot find pressed button. {search_num=} {source_keyboard=}')

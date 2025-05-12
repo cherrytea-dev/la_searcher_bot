@@ -13,10 +13,10 @@ def callback_handler(actions: list[str] = [], keyboard_name: str = '') -> Callab
             if not update_params.got_callback:
                 return None
 
-            if update_params.got_callback['action'] in actions:
+            if update_params.got_callback.action in actions:
                 return func(update_params, extra_params)
 
-            if update_params.got_callback.get('keyboard') == keyboard_name:
+            if update_params.got_callback.keyboard_name == keyboard_name:
                 return func(update_params, extra_params)
 
             return None
