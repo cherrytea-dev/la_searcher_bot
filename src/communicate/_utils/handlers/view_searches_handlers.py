@@ -239,8 +239,7 @@ def _handle_view_searches_usual_view(user_id: int, search_list_type: SearchListT
         }
         tg_api().send_message(data)
 
-    if db().is_user_tester(user_id):
-        _show_button_to_turn_on_following_searches(user_id)
+    _show_button_to_turn_on_following_searches(user_id)
 
     return '', None
 
