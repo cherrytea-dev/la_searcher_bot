@@ -14,9 +14,9 @@ from telegram import (
     ReplyKeyboardRemove,
 )
 
-from _dependencies.commons import SearchFollowingMode, Topics
+from _dependencies.commons import SearchFollowingMode
 from _dependencies.misc import calc_bearing
-from _dependencies.pubsub import publish_to_pubsub
+from _dependencies.pubsub import pubsub_user_management
 
 SEARCH_URL_PREFIX = 'https://lizaalert.org/forum/viewtopic.php?t='
 FORUM_FOLDER_PREFIX = 'https://lizaalert.org/forum/viewforum.php?f='
@@ -209,13 +209,7 @@ def save_onboarding_step(user_id: int, username: str, step: str) -> None:
     if not username:
         username = 'unknown'
 
-    message_for_pubsub = {
-        'action': 'update_onboarding',
-        'info': {'user': user_id, 'username': username},
-        'time': str(datetime.datetime.now()),
-        'step': step,
-    }
-    publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
+    pubsub_user_management(user_id, 'update_onboarding', username=username, time=datetime.datetime.now(), step=step)
 
 
 def create_one_column_reply_markup(buttons: Sequence[str | KeyboardButton]) -> ReplyKeyboardMarkup:

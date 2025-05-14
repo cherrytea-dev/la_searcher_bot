@@ -6,8 +6,8 @@ from typing import Any
 import sqlalchemy
 from sqlalchemy.engine.base import Connection
 
-from _dependencies.commons import ChangeType, Topics, get_app_config
-from _dependencies.pubsub import notify_admin, publish_to_pubsub
+from _dependencies.commons import ChangeType, get_app_config
+from _dependencies.pubsub import notify_admin, pubsub_send_notifications
 
 from .commons import (
     SEARCH_TOPIC_TYPES,
@@ -44,8 +44,7 @@ class NotificationMaker:
 
         mailing_id = self.create_new_mailing_id()
 
-        message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'initiate notifs send out'}
-        publish_to_pubsub(Topics.topic_to_send_notifications, message_for_pubsub)
+        pubsub_send_notifications(function_id, 'initiate notifs send out')
 
         for user in self.list_of_users:
             self.generate_notification_for_user(mailing_id, user)

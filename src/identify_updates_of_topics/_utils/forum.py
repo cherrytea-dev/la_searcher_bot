@@ -3,15 +3,15 @@ import logging
 import re
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, no_type_check  # no_type_check for BeautifulSoup magic
+from typing import no_type_check  # no_type_check for BeautifulSoup magic
 
 from bs4 import BeautifulSoup, SoupStrainer
 from requests import Session
 from retry import retry
 from yarl import URL
 
-from _dependencies.commons import Topics, get_app_config, get_forum_proxies
-from _dependencies.pubsub import publish_to_pubsub
+from _dependencies.commons import get_forum_proxies
+from _dependencies.pubsub import pubsub_topic_management
 
 from .topics_commons import CoordType, ForumCommentItem, ForumSearchItem
 
@@ -43,8 +43,7 @@ def is_content_visible(content: bytes, topic_id: int) -> bool:
 
     if topic_deleted or topic_hidden:
         visibility = 'deleted' if topic_deleted else 'hidden'
-        publish_to_pubsub(Topics.topic_for_topic_management, {'topic_id': topic_id, 'visibility': visibility})
-        # TODO can replace with direct sql query
+        pubsub_topic_management(topic_id, None, visibility)
         return False
 
     return True
