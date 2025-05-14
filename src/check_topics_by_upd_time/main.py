@@ -16,8 +16,8 @@ from google.cloud.functions.context import Context
 from google.cloud.storage.blob import Blob
 from retry.api import retry_call
 
-from _dependencies.commons import Topics, get_forum_proxies, setup_google_logging
-from _dependencies.pubsub import publish_to_pubsub
+from _dependencies.commons import get_forum_proxies, setup_google_logging
+from _dependencies.pubsub import pubsub_parse_folders
 
 setup_google_logging()
 
@@ -454,4 +454,4 @@ def main(event: dict[str, Any], context: Context) -> None:
         updated_folders,
     )
     if updated_folders:
-        publish_to_pubsub(Topics.topic_to_run_parsing_script, str(updated_folders))
+        pubsub_parse_folders(updated_folders)
