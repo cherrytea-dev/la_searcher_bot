@@ -15,8 +15,7 @@ from polyfactory.factories import dataclass_factory
 from pydantic_settings import SettingsConfigDict
 from sqlalchemy.orm import Session
 
-from _dependencies.commons import AppConfig, sql_connect_by_psycopg2, sqlalchemy_get_pool
-from _dependencies.pubsub import Topics
+from _dependencies.commons import AppConfig, Topics, sql_connect_by_psycopg2, sqlalchemy_get_pool
 
 T = TypeVar('T')
 

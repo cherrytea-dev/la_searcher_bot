@@ -16,6 +16,19 @@ from pydantic_settings import BaseSettings
 PHONE_RE = re.compile(r'(?:\+7|7|8)\s?[\s\-(]?\s?\d{3}[\s\-)]?\s?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}')
 
 
+class Topics(Enum):
+    topic_notify_admin = 'topic_notify_admin'
+    topic_for_topic_management = 'topic_for_topic_management'
+    topic_for_first_post_processing = 'topic_for_first_post_processing'
+    topic_for_notification = 'topic_for_notification'
+    topic_to_run_parsing_script = 'topic_to_run_parsing_script'
+    topic_for_user_management = 'topic_for_user_management'
+    parse_user_profile_from_forum = 'parse_user_profile_from_forum'
+    topic_to_send_notifications = 'topic_to_send_notifications'
+    topic_to_archive_notifs = 'topic_to_archive_notifs'
+    topic_to_archive_to_bigquery = 'topic_to_archive_to_bigquery'
+
+
 @lru_cache
 def get_secret_manager_client() -> secretmanager.SecretManagerServiceClient:
     return secretmanager.SecretManagerServiceClient()

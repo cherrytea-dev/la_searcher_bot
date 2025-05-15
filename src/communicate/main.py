@@ -8,8 +8,12 @@ from typing import Any, Callable
 from flask import Request
 from telegram import Bot, CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 
-from _dependencies.commons import get_app_config, setup_google_logging
-from _dependencies.pubsub import notify_admin, pubsub_user_management
+from _dependencies.commons import (
+    Topics,
+    get_app_config,
+    setup_google_logging,
+)
+from _dependencies.pubsub import notify_admin, publish_to_pubsub
 
 from ._utils.buttons import reply_markup_main
 from ._utils.common import (
@@ -173,7 +177,12 @@ def _save_new_user(user_id: int, username: str) -> None:
     # TODO remove pub/sub, create user directly
 
     username = username if username else 'unknown'
-    pubsub_user_management(user_id, 'new', username=username, time=datetime.datetime.now())
+    message_for_pubsub = {
+        'action': 'new',
+        'info': {'user': user_id, 'username': username},
+        'time': str(datetime.datetime.now()),
+    }
+    publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
 
 
 def _process_block_unblock_user(user_id: int, user_new_status: str) -> None:
@@ -182,7 +191,8 @@ def _process_block_unblock_user(user_id: int, user_new_status: str) -> None:
     status_dict = {'kicked': 'block_user', 'member': 'unblock_user'}
 
     # mark user as blocked / unblocked in psql
-    pubsub_user_management(user_id, status_dict[user_new_status])
+    message_for_pubsub = {'action': status_dict[user_new_status], 'info': {'user': user_id}}
+    publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
 
     if user_new_status != 'member':
         return

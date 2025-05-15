@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import _dependencies.pubsub
 from manage_users import main
 from tests.common import get_event_with_data
 from tests.factories.db_factories import UserFactory, UserOnboardingFactory, UserStatusesHistoryFactory, get_session
@@ -100,7 +99,7 @@ class TestSaveUpdatedStatusForUser:
         user = UserFactory.create_sync(user_id=user_id, status='active')
         timestamp = datetime.now()
 
-        main.save_updated_status_for_user(_dependencies.pubsub.ManageUserAction.block_user, user_id, timestamp)
+        main.save_updated_status_for_user(main.Action.block_user, user_id, timestamp)
 
         updated_user: User = get_session().query(User).filter_by(user_id=user_id).first()
         assert updated_user.status == 'blocked'
@@ -116,7 +115,7 @@ class TestSaveUpdatedStatusForUser:
         user = UserFactory.create_sync(user_id=user_id, status='blocked')
         timestamp = datetime.now()
 
-        main.save_updated_status_for_user(_dependencies.pubsub.ManageUserAction.unblock_user, user_id, timestamp)
+        main.save_updated_status_for_user(main.Action.unblock_user, user_id, timestamp)
 
         updated_user: User = get_session().query(User).filter_by(user_id=user_id).first()
         assert updated_user.status == 'unblocked'
@@ -131,7 +130,7 @@ class TestSaveUpdatedStatusForUser:
     def test_new_user(self, user_id: int):
         timestamp = datetime.now()
 
-        main.save_updated_status_for_user(_dependencies.pubsub.ManageUserAction.new, user_id, timestamp)
+        main.save_updated_status_for_user(main.Action.new, user_id, timestamp)
 
         user: User = get_session().query(User).filter_by(user_id=user_id).first()
         assert user is None  # 'new' action doesn't update the users table

@@ -5,10 +5,11 @@ import ast
 import copy
 import datetime
 import difflib
+import json
 import logging
 import re
 from functools import lru_cache
-from typing import Iterator
+from typing import Any, Iterator
 
 import requests
 import sqlalchemy
@@ -18,18 +19,14 @@ from google.cloud.functions.context import Context
 from _dependencies.commons import (
     ChangeLogSavedValue,
     ChangeType,
+    Topics,
     get_forum_proxies,
     setup_google_logging,
     sqlalchemy_get_pool,
 )
 from _dependencies.content import clean_up_content_2
-from _dependencies.misc import generate_random_function_id, save_function_into_register
-from _dependencies.pubsub import (
-    notify_admin,
-    process_pubsub_message,
-    pubsub_compose_notifications,
-    pubsub_parse_folders,
-)
+from _dependencies.misc import generate_random_function_id
+from _dependencies.pubsub import notify_admin, process_pubsub_message, publish_to_pubsub
 
 setup_google_logging()
 
@@ -232,6 +229,42 @@ def split_text_to_deleted_and_regular_parts(text: str) -> tuple[str, str]:
     return deleted_text, non_deleted_text
 
 
+def save_function_into_register(
+    conn: sqlalchemy.engine.Connection,
+    context: Any,
+    start_time: datetime.datetime,
+    function_id: int,
+    change_log_ids: list[int],
+) -> None:
+    """save current function into functions_registry"""
+
+    try:
+        event_id = context.event_id
+        json_of_params = json.dumps({'ch_id': change_log_ids})
+
+        sql_text = sqlalchemy.text("""
+            INSERT INTO functions_registry
+            (event_id, time_start, cloud_function_name, function_id,
+            time_finish, params)
+            VALUES (:a, :b, :c, :d, :e, :f)
+            /*action='save_ide_f_posts_function' */;
+                                   """)
+        conn.execute(
+            sql_text,
+            a=event_id,
+            b=start_time,
+            c='identify_updates_of_f_posts',
+            d=function_id,
+            e=datetime.datetime.now(),
+            f=json_of_params,
+        )
+        logging.info(f'function {function_id} was saved in functions_registry')
+
+    except Exception as e:
+        logging.info(f'function {function_id} was NOT ABLE to be saved in functions_registry')
+        logging.exception(e)
+
+
 def _process_folders_with_updated_searches(
     context: Context,
     function_id: int,
@@ -243,17 +276,21 @@ def _process_folders_with_updated_searches(
     # save folder number for the search that has an update
     list_of_folders_with_upd_searches = [parse_search_folder_num(search_id) for search_id in list_of_updated_searches]
     updated_searches = set((folder_num for folder_num in list_of_folders_with_upd_searches if folder_num))
-    updated_searches_to_pubsub = [[folder_num, None] for folder_num in updated_searches]
+    updated_searches_to_pubsub = str([[folder_num, None] for folder_num in updated_searches])
     if not list_of_folders_with_upd_searches:
         return
 
     # evoke 'parsing script' to check if the folders with updated searches have any update
-    save_function_into_register(
-        conn, context.event_id, analytics_func_start, function_id, change_log_ids, 'identify_updates_of_f_posts'
-    )
+    save_function_into_register(conn, context, analytics_func_start, function_id, change_log_ids)
 
-    pubsub_parse_folders(updated_searches_to_pubsub)
-    pubsub_compose_notifications(function_id, str(list_of_folders_with_upd_searches))
+    publish_to_pubsub(Topics.topic_to_run_parsing_script, updated_searches_to_pubsub)
+    message_for_pubsub = {
+        'triggered_by_func_id': function_id,
+        'text': str(list_of_folders_with_upd_searches),
+    }
+
+    # call 'compose_notifications'
+    publish_to_pubsub(Topics.topic_for_notification, message_for_pubsub)
 
 
 def _process_one_update(

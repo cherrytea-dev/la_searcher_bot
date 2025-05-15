@@ -24,6 +24,32 @@ class DBClient:
     def connect(self) -> Connection:
         return self._db.connect()
 
+    def save_function_into_register(
+        self, context: Context, start_time: datetime, function_id: int, change_log_ids: list[int]
+    ) -> None:
+        """save current function into functions_registry"""
+
+        event_id = context.event_id
+        json_of_params = json.dumps({'ch_id': change_log_ids})
+
+        with self.connect() as conn:
+            sql_text = sqlalchemy.text("""
+                INSERT INTO functions_registry
+                (event_id, time_start, cloud_function_name, function_id, time_finish, params)
+                VALUES (:a, :b, :c, :d, :e, :f)
+                /*action='save_ide_topics_function' */;
+                                        """)
+            conn.execute(
+                sql_text,
+                a=event_id,
+                b=start_time,
+                c='identify_updates_of_topics',
+                d=function_id,
+                e=datetime.now(),
+                f=json_of_params,
+            )
+            logging.debug(f'function {function_id} was saved in functions_registry')
+
     def get_the_list_of_ignored_folders(self) -> list[int]:
         """get the list of folders which does not contain searches – thus should be ignored"""
 

@@ -1,14 +1,22 @@
 import datetime
+import json
 import logging
 
 import sqlalchemy
 from google.cloud.functions.context import Context
+from pydantic import BaseModel
 
-from _dependencies.commons import setup_google_logging, sqlalchemy_get_pool
-from _dependencies.misc import generate_random_function_id, save_function_into_register
-from _dependencies.pubsub import TopicManagementData, notify_admin, process_pubsub_message, pubsub_compose_notifications
+from _dependencies.commons import Topics, setup_google_logging, sqlalchemy_get_pool
+from _dependencies.misc import generate_random_function_id
+from _dependencies.pubsub import notify_admin, process_pubsub_message, publish_to_pubsub
 
 setup_google_logging()
+
+
+class ReceivedDictModel(BaseModel):
+    topic_id: int
+    status: str | None = None
+    visibility: str | None = None
 
 
 def sql_connect() -> sqlalchemy.engine.Engine:
@@ -83,6 +91,38 @@ def save_status_for_topic(topic_id: int, status: str) -> int | None:
     return change_log_id
 
 
+def save_function_into_register(
+    context: Context, start_time: datetime.datetime, function_id: int, change_log_id: int
+) -> None:
+    """save current function into functions_registry"""
+    # TODO merge with similar functions
+
+    event_id = context.event_id
+
+    json_of_params = json.dumps({'ch_id': [change_log_id]})
+
+    pool = sql_connect()
+    with pool.connect() as conn:
+        sql_text = sqlalchemy.text("""
+            INSERT INTO functions_registry
+            (event_id, time_start, cloud_function_name, function_id,
+            time_finish, params)
+            VALUES (:a, :b, :c, :d, :e, :f)
+            /*action='save_manage_topics_function' */;
+                                    """)
+        conn.execute(
+            sql_text,
+            a=event_id,
+            b=start_time,
+            c='manage_topics',
+            d=function_id,
+            e=datetime.datetime.now(),
+            f=json_of_params,
+        )
+
+        logging.info(f'function {function_id} was saved in functions_registry')
+
+
 def main(event: dict[str, bytes], context: Context) -> str:  # noqa
     """main function"""
 
@@ -92,7 +132,7 @@ def main(event: dict[str, bytes], context: Context) -> str:  # noqa
     try:
         received_dict_raw = process_pubsub_message(event)
         logging.info(f'Script received pub/sub message {received_dict_raw} by event_id {event}')
-        received_dict = TopicManagementData.model_validate(received_dict_raw)
+        received_dict = ReceivedDictModel.model_validate(received_dict_raw)
 
         if not received_dict.topic_id:
             return 'no topic id'
@@ -104,13 +144,9 @@ def main(event: dict[str, bytes], context: Context) -> str:  # noqa
             change_log_id = save_status_for_topic(received_dict.topic_id, received_dict.status)
 
             if change_log_id:
-                pool = sql_connect()
-                with pool.connect() as conn:
-                    save_function_into_register(
-                        conn, context.event_id, analytics_func_start, function_id, [change_log_id], 'manage_topics'
-                    )
-
-                    pubsub_compose_notifications(function_id, "let's compose notifications")
+                save_function_into_register(context, analytics_func_start, function_id, change_log_id)
+                message_for_pubsub = {'triggered_by_func_id': function_id, 'text': "let's compose notifications"}
+                publish_to_pubsub(Topics.topic_for_notification, message_for_pubsub)
 
     except Exception as e:
         logging.exception('Topic management script failed')

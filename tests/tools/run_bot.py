@@ -7,7 +7,7 @@ from unittest.mock import patch
 from telegram import Bot
 from telegram.ext import Updater
 
-from _dependencies.pubsub import Topics
+from _dependencies.commons import Topics
 from communicate._utils.database import db
 from communicate.main import process_update
 from tests.common import get_dotenv_config, topic_to_receiver_function

@@ -7,7 +7,8 @@ from requests.models import Response
 from retry.api import retry_call
 from telegram import TelegramObject
 
-from _dependencies.pubsub import pubsub_user_management
+from _dependencies.commons import Topics
+from _dependencies.pubsub import publish_to_pubsub
 
 
 class TGApiBase:
@@ -135,7 +136,9 @@ class TGApiBase:
                     action = 'delete_user'
                 if action:
                     # TODO try to move out
-                    pubsub_user_management(user_id, action)
+                    message_for_pubsub = {'action': action, 'info': {'user': user_id}}
+                    publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub)
+                    logging.info(f'Identified user id {user_id} to do {action}')
                 return 'cancelled'
 
             elif 420 <= response.status_code <= 429:  # 'Flood Control':
