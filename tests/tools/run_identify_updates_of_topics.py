@@ -1,8 +1,7 @@
 from pathlib import Path
 from typing import Any
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
-from _dependencies import pubsub
 from identify_updates_of_topics import main
 from identify_updates_of_topics._utils import folder_updater
 from tests.common import get_dotenv_config, get_event_with_data
@@ -38,13 +37,12 @@ def fake_recognize_title_via_api(title: str, status_only: bool):
 if __name__ == '__main__':
     with (
         patch('_dependencies.commons._get_config', get_dotenv_config),
-        patch.object(pubsub, 'publish_to_pubsub', fake_publish_to_pubsub),
+        patch('_dependencies.pubsub.publish_to_pubsub', fake_publish_to_pubsub),
+        patch('identify_updates_of_topics._utils.forum.publish_to_pubsub', fake_publish_to_pubsub),
+        patch.object(main, 'publish_to_pubsub', fake_publish_to_pubsub),
         patch.object(folder_updater, 'CloudStorage', LocalFileStorage),
         patch.object(folder_updater, 'recognize_title_via_api', fake_recognize_title_via_api),
     ):
         folders = [(276, None)]
         data = get_event_with_data(str(folders))
-        context = Mock()
-        context.event_id = 123
-
-        main.main(data, context)
+        main.main(data, '')

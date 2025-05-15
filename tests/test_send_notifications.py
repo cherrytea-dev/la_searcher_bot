@@ -30,6 +30,7 @@ class NotSentNotificationFactory(NotifByUserFactory):
 @pytest.fixture(autouse=True)
 def local_patches():
     with (
+        patch('send_notifications.main.publish_to_pubsub'),
         patch('send_notifications.main.SCRIPT_SOFT_TIMEOUT_SECONDS', 10),
         patch('send_notifications.main.SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS', 0.1),
     ):

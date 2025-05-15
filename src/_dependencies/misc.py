@@ -1,11 +1,8 @@
 import datetime
-import json
 import logging
 import math
 import random
 from functools import lru_cache
-
-import sqlalchemy
 
 from _dependencies.commons import get_app_config
 from _dependencies.telegram_api_wrapper import TGApiBase
@@ -124,35 +121,3 @@ def calc_bearing(lat_2: float, lon_2: float, lat_1: float, lon_1: float) -> floa
     bearing = math.degrees(bearing)
 
     return bearing
-
-
-def save_function_into_register(
-    conn: sqlalchemy.engine.Connection,
-    event_id: str,
-    start_time: datetime.datetime,
-    function_id: int,
-    change_log_ids: list[int],
-    function_name: str,
-) -> None:
-    """save current function into functions_registry"""
-    # TODO merge with similar functions
-
-    json_of_params = json.dumps({'ch_id': change_log_ids})
-
-    sql_text = sqlalchemy.text("""
-        INSERT INTO functions_registry
-        (event_id, time_start, cloud_function_name, function_id,
-        time_finish, params)
-        VALUES (:a, :b, :c, :d, :e, :f)
-                                """)
-    conn.execute(
-        sql_text,
-        a=event_id,
-        b=start_time,
-        c=function_name,
-        d=function_id,
-        e=datetime.datetime.now(),
-        f=json_of_params,
-    )
-
-    logging.info(f'function {function_id} was saved in functions_registry')

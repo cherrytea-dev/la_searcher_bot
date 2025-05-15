@@ -1,7 +1,8 @@
 import logging
 import re
 
-from _dependencies.pubsub import pubsub_parse_user_profile
+from _dependencies.commons import Topics
+from _dependencies.pubsub import publish_to_pubsub
 
 from ..buttons import (
     CoordinateSettingsMenu,
@@ -75,8 +76,8 @@ def handle_linking_to_forum_user_input(
     if not update_params.got_message or update_params.got_message in {b_admin_menu, b_back_to_start, b_test_menu}:
         return 'Неправильный логин, попробуйте еще раз', reply_markup_main
 
-    pubsub_parse_user_profile(update_params.user_id, update_params.got_message)
-
+    message_for_pubsub = [update_params.user_id, update_params.got_message]
+    publish_to_pubsub(Topics.parse_user_profile_from_forum, message_for_pubsub)
     bot_message = 'Сейчас посмотрю, это может занять до 10 секунд...'
     keyboard = [b_back_to_start]
     reply_markup = create_one_column_reply_markup(keyboard)

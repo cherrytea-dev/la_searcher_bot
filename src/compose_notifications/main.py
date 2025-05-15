@@ -8,12 +8,12 @@ from google.cloud.functions.context import Context
 from sqlalchemy.engine.base import Connection
 
 from _dependencies.cloud_func_parallel_guard import check_and_save_event_id
-from _dependencies.commons import ChangeType, setup_google_logging, sqlalchemy_get_pool
+from _dependencies.commons import ChangeType, Topics, setup_google_logging, sqlalchemy_get_pool
 from _dependencies.misc import (
     generate_random_function_id,
     get_triggering_function,
 )
-from _dependencies.pubsub import process_pubsub_message, pubsub_compose_notifications
+from _dependencies.pubsub import process_pubsub_message, publish_to_pubsub
 
 from ._utils.commons import LineInChangeLog, User
 from ._utils.log_record_composer import LogRecordComposer
@@ -69,7 +69,8 @@ def call_self_if_need_compose_more(conn: Connection, function_id: int) -> None:
                          """).fetchall()
     if check:
         logging.info('we checked – there is still something to compose: re-initiating [compose_notification]')
-        pubsub_compose_notifications(function_id, 're-run from same script')
+        message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 're-run from same script'}
+        publish_to_pubsub(Topics.topic_for_notification, message_for_pubsub)
     else:
         logging.info('we checked – there is nothing to compose: we are not re-initiating [compose_notification]')
 
