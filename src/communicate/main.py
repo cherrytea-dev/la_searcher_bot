@@ -246,6 +246,13 @@ def _reply_to_user(
     if replied_with_inline_markup:
         # call editMessageText to edit inline keyboard
         # in the message where inline button was pushed
+        try:
+            if callback_query.message.reply_markup == reply_markup and callback_query.message.text == bot_message:  # type: ignore [union-attr]
+                tg_api().send_callback_answer_to_api(user_id, callback_query.id, '')  # type: ignore [union-attr]
+                return
+        except AttributeError:
+            logging.warning(f'no reply_markup or text in {callback_query=}')
+
         last_user_message_id = callback_query.message.id  # type: ignore [union-attr]
         # was get_last_user_inline_dialogue( user_id)
         logging.info(f'{last_user_message_id=}')
