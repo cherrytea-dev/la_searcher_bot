@@ -1,20 +1,9 @@
-from unittest.mock import patch
-
 import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from _dependencies.commons import ChangeType, TopicType
+from _dependencies.commons import ChangeType
 from tests.factories import db_factories, db_models
-
-
-@pytest.fixture(autouse=True)
-def local_patches():
-    with (
-        patch('compose_notifications.main.publish_to_pubsub'),
-        patch('compose_notifications._utils.notifications_maker.publish_to_pubsub'),
-    ):
-        yield
 
 
 @pytest.fixture(scope='session')

@@ -13,18 +13,13 @@ from google.cloud.functions.context import Context
 from psycopg2.extensions import connection, cursor
 
 from _dependencies.cloud_func_parallel_guard import check_and_save_event_id
-from _dependencies.commons import (
-    Topics,
-    get_app_config,
-    setup_google_logging,
-    sql_connect_by_psycopg2,
-)
+from _dependencies.commons import setup_google_logging, sql_connect_by_psycopg2
 from _dependencies.misc import (
     generate_random_function_id,
     get_triggering_function,
     tg_api_main_account,
 )
-from _dependencies.pubsub import notify_admin, process_pubsub_message, publish_to_pubsub
+from _dependencies.pubsub import notify_admin, process_pubsub_message, pubsub_send_notifications
 from _dependencies.telegram_api_wrapper import TGApiBase
 
 setup_google_logging()
@@ -243,8 +238,7 @@ def iterate_over_notifications(
 
             if time_is_out(time_analytics.script_start_time):
                 if get_notifs_to_send(cur, select_doubling=False):
-                    message_for_pubsub = {'triggered_by_func_id': function_id, 'text': 'next iteration'}
-                    publish_to_pubsub(Topics.topic_to_send_notifications, message_for_pubsub)
+                    pubsub_send_notifications(function_id, 'next iteration')
                 break
 
     return list(set_of_change_ids)
