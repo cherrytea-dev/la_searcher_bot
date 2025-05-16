@@ -203,11 +203,6 @@ def define_dist_and_dir_to_search(
 
 def save_onboarding_step(user_id: int, username: str, step: str) -> None:
     """save the certain step in onboarding"""
-    # TODO replace with direct db functions
-
-    # to avoid eval errors in recipient script
-    if not username:
-        username = 'unknown'
 
     pubsub_user_management(user_id, 'update_onboarding', username=username, time=datetime.datetime.now(), step=step)
 

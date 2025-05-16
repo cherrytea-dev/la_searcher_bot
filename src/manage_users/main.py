@@ -58,13 +58,11 @@ def save_updated_status_for_user(action: ManageUserAction, user_id: int, timesta
         conn.commit()
 
 
-def save_new_user(user_id: int, username: str, timestamp: datetime) -> None:
+def save_new_user(user_id: int, username: str | None, timestamp: datetime) -> None:
     """if the user is new – save to users table"""
 
     # set PSQL connection & cursor
     with sql_connect_by_psycopg2() as conn, conn.cursor() as cur:
-        username_to_db = None if username == 'unknown' else username
-
         # add the New User into table users
         cur.execute(
             """
@@ -76,7 +74,7 @@ def save_new_user(user_id: int, username: str, timestamp: datetime) -> None:
                 )
                 SELECT count(*) FROM rows;
             """,
-            (user_id, username_to_db, timestamp),
+            (user_id, username, timestamp),
         )
         conn.commit()
         num_of_updates = cur.fetchone()[0]  # type:ignore[index]

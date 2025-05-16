@@ -170,9 +170,7 @@ def _get_basic_update_parameters(update: Update) -> UpdateBasicParams:
 
 def _save_new_user(user_id: int, username: str) -> None:
     """send pubsub message to dedicated script to save new user"""
-    # TODO remove pub/sub, create user directly
 
-    username = username if username else 'unknown'
     pubsub_user_management(user_id, 'new', username=username, time=datetime.datetime.now())
 
 

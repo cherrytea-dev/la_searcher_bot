@@ -206,7 +206,7 @@ class TestSaveNewUser:
         assert onboarding.step_name == 'start'
 
     def test_save_new_user_unknown_username(self, user_id: int):
-        username = 'unknown'
+        username = None
         timestamp = datetime.now()
 
         main.save_new_user(user_id, username, timestamp)

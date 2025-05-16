@@ -36,7 +36,7 @@ class TopicManagementData(BaseModel):
 
 class ManageUsersDataUserInfo(BaseModel):
     user: int  # id
-    username: str = ''
+    username: str | None = None
 
 
 class ManageUserAction(str, Enum):
