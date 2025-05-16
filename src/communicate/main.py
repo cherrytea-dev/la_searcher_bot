@@ -9,7 +9,8 @@ from flask import Request
 from telegram import Bot, CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 
 from _dependencies.commons import get_app_config, setup_google_logging
-from _dependencies.pubsub import ManageUserAction, notify_admin, pubsub_user_management, save_onboarding_step
+from _dependencies.pubsub import ManageUserAction, notify_admin, pubsub_user_management
+from _dependencies.users_management import save_onboarding_step
 
 from ._utils.buttons import reply_markup_main
 from ._utils.common import (
