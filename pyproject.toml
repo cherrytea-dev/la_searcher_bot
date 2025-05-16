@@ -97,9 +97,6 @@ identify_updates_of_topics = [
     "yarl==1.18.3",
 ]
 
-
-manage_users = []
-
 send_debug_to_admin = []
 
 send_notifications = ["urllib3==1.26.19"]

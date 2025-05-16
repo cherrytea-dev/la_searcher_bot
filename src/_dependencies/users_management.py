@@ -1,10 +1,25 @@
 import logging
 from datetime import datetime
+from enum import Enum
 
 import psycopg2
 
 from _dependencies.commons import sql_connect_by_psycopg2
-from _dependencies.pubsub import ManageUserAction
+
+
+class ManageUserAction(str, Enum):
+    block_user = 'block_user'
+    unblock_user = 'unblock_user'
+    new = 'new'
+    delete_user = 'delete_user'
+
+    def action_to_write(self) -> str:
+        return {
+            self.block_user: 'blocked',
+            self.unblock_user: 'unblocked',
+            self.new: 'new',
+            self.delete_user: 'deleted',
+        }[self]
 
 
 def register_new_user(user_id: int, user_name: str | None, timestamp: datetime) -> None:

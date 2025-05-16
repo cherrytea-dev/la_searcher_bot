@@ -7,8 +7,7 @@ from requests.models import Response
 from retry.api import retry_call
 from telegram import TelegramObject
 
-from _dependencies.pubsub import ManageUserAction
-from _dependencies.users_management import update_user_status
+from _dependencies.users_management import ManageUserAction, update_user_status
 
 
 class TGApiBase:
