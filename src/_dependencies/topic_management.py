@@ -3,13 +3,13 @@ import logging
 
 import sqlalchemy
 
-from _dependencies.pubsub import notify_admin
+from _dependencies.misc import generate_random_function_id
+from _dependencies.pubsub import notify_admin, pubsub_compose_notifications
 
 
 def save_status_for_topic(conn: sqlalchemy.engine.Connection, topic_id: int, status: str) -> int | None:
     """save in SQL if topic status was updated: active search, search finished etc."""
 
-    change_log_id = None
     # check if this topic is already marked with the new status:
     stmt = sqlalchemy.text("""
         SELECT id FROM searches WHERE search_forum_num=:a AND status=:b;
@@ -40,6 +40,8 @@ def save_status_for_topic(conn: sqlalchemy.engine.Connection, topic_id: int, sta
     logging.info(f'Status is set={status} for topic_id={topic_id}')
     logging.info(f'status {status} for topic {topic_id} has been saved in change_log and searches tables.')
 
+    function_id = generate_random_function_id()
+    pubsub_compose_notifications(function_id, "let's compose notifications")
     return change_log_id
 
 
