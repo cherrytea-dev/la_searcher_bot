@@ -1,3 +1,4 @@
+from typing import Any
 import base64
 import json
 import logging
@@ -72,7 +73,15 @@ def _send_topic(topic_name: Topics, topic_path: str, message_bytes: bytes) -> No
     publish_future.result()  # Verify the publishing succeeded
 
 
-def publish_to_pubsub(topic_name: Topics, message: str | dict | list) -> None:
+class PubSubMessage(BaseModel):
+    message: Any
+
+
+class PubSubData(BaseModel):
+    data: PubSubMessage
+
+
+def publish_to_pubsub(topic_name: Topics, message: str | dict | list | BaseModel) -> None:
     """publish a new message to pub/sub"""
 
     topic_name_str = topic_name.value if isinstance(topic_name, Topics) else topic_name
@@ -82,7 +91,8 @@ def publish_to_pubsub(topic_name: Topics, message: str | dict | list) -> None:
     data = {
         'data': {'message': message},
     }
-    message_bytes = json.dumps(data).encode('utf-8')
+    data = PubSubData(data=PubSubMessage(message=message))
+    message_bytes = data.model_dump_json().encode('utf-8')
 
     try:
         _send_topic(topic_name, topic_path, message_bytes)
