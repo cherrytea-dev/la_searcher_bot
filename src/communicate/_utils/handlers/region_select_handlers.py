@@ -38,8 +38,8 @@ def handle_if_moscow(update_params: UpdateBasicParams, extra_params: UpdateExtra
     username = update_params.username
 
     if got_message == IsMoscow.b_reg_moscow:
-        save_onboarding_step(user_id, username, 'moscow_replied')
-        save_onboarding_step(user_id, username, 'region_set')
+        save_onboarding_step(user_id, 'moscow_replied')
+        save_onboarding_step(user_id, 'region_set')
         user_role = db().get_user_role(user_id)
         db().save_user_pref_topic_type(user_id, user_role)
 
@@ -53,7 +53,7 @@ def handle_if_moscow(update_params: UpdateBasicParams, extra_params: UpdateExtra
         return WELCOME_MESSAGE_AFTER_ONBOARDING, reply_markup_main
 
     if got_message == IsMoscow.b_reg_not_moscow:
-        save_onboarding_step(user_id, username, 'moscow_replied')
+        save_onboarding_step(user_id, 'moscow_replied')
 
         if USE_NEW_REGION_SELECTION:
             return _handle_region_selection_inline_menu(update_params)
@@ -188,7 +188,7 @@ def _handle_onboarding_step_region_is_set(
 
     user_role = db().get_user_role(user_id)
     tg_api().delete_my_commands(user_id)
-    save_onboarding_step(user_id, username, 'region_set')
+    save_onboarding_step(user_id, 'region_set')
     db().save_user_pref_topic_type(user_id, user_role)
 
     keyboard_role = [

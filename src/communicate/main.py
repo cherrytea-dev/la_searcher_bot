@@ -212,7 +212,7 @@ def _run_onboarding(user_id: int, username: str, onboarding_step_id: int, got_me
     if onboarding_step_id == 21:  # region_set
         # mark that onboarding is finished
         if got_message:
-            save_onboarding_step(user_id, username, 'finished')
+            save_onboarding_step(user_id, 'finished')
             onboarding_step_id = 80
 
     return onboarding_step_id
