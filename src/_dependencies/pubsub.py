@@ -132,11 +132,12 @@ def pubsub_user_management(
     # TODO pydantic
 
     logging.info(f'Identified user id {user_id} to do {action}')
+
     message_for_pubsub = ManageUsersData(
         action=action,
         info=ManageUsersDataUserInfo(user=user_id, username=username),
-        step=step,
-        time=time,
+        step=step or 'unrecognized',
+        time=time or datetime.now(),
     )
 
     publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub.model_dump())
