@@ -1,31 +1,10 @@
-import base64
 import logging
 from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, Optional
-
-from pydantic import BaseModel, Field
 
 from _dependencies.commons import setup_google_logging, sql_connect_by_psycopg2
-from _dependencies.pubsub import process_pubsub_message
+from _dependencies.pubsub import ManageUserAction, ManageUsersData, process_pubsub_message
 
 setup_google_logging()
-
-
-class Action(str, Enum):
-    block_user = 'block_user'
-    unblock_user = 'unblock_user'
-    new = 'new'
-    delete_user = 'delete_user'
-    update_onboarding = 'update_onboarding'
-
-    def action_to_write(self) -> str:
-        return {
-            self.block_user: 'blocked',
-            self.unblock_user: 'unblocked',
-            self.new: 'new',
-            self.delete_user: 'deleted',
-        }[self]
 
 
 def save_onboarding_step(user_id: int, step_name: str, timestamp: datetime) -> None:
@@ -54,7 +33,7 @@ def save_onboarding_step(user_id: int, step_name: str, timestamp: datetime) -> N
         conn.commit()
 
 
-def save_updated_status_for_user(action: Action, user_id: int, timestamp: datetime) -> None:
+def save_updated_status_for_user(action: ManageUserAction, user_id: int, timestamp: datetime) -> None:
     """block, unblock or record as new user"""
 
     action_to_write = action.action_to_write()
@@ -79,13 +58,11 @@ def save_updated_status_for_user(action: Action, user_id: int, timestamp: dateti
         conn.commit()
 
 
-def save_new_user(user_id: int, username: str, timestamp: datetime) -> None:
+def save_new_user(user_id: int, username: str | None, timestamp: datetime) -> None:
     """if the user is new – save to users table"""
 
     # set PSQL connection & cursor
     with sql_connect_by_psycopg2() as conn, conn.cursor() as cur:
-        username_to_db = None if username == 'unknown' else username
-
         # add the New User into table users
         cur.execute(
             """
@@ -97,7 +74,7 @@ def save_new_user(user_id: int, username: str, timestamp: datetime) -> None:
                 )
                 SELECT count(*) FROM rows;
             """,
-            (user_id, username_to_db, timestamp),
+            (user_id, username, timestamp),
         )
         conn.commit()
         num_of_updates = cur.fetchone()[0]  # type:ignore[index]
@@ -153,38 +130,31 @@ def save_default_notif_settings(user_id: int) -> None:
     logging.info(f'New user with id: {user_id}, {num_of_updates} default notif categories were set.')
 
 
-class ReceivedDictInfoModel(BaseModel):
-    user: int  # id
-    username: str = ''
-
-
-class ReceivedDictModel(BaseModel):
-    action: Action
-    time: datetime = Field(default_factory=datetime.now)
-    info: ReceivedDictInfoModel
-    step: str = 'unrecognized'
-
-
-def main(event: Dict[str, bytes], context: str) -> str:  # noqa
+def main(event: dict[str, bytes], context: str) -> str:  # noqa
     """main function"""
 
     try:
         received_dict_raw = process_pubsub_message(event)
-        received_dict = ReceivedDictModel.model_validate(received_dict_raw)
+        received_dict = ManageUsersData.model_validate(received_dict_raw)
         action = received_dict.action
 
-        if action in {Action.block_user, Action.unblock_user, Action.new, Action.delete_user}:
+        if action in {
+            ManageUserAction.block_user,
+            ManageUserAction.unblock_user,
+            ManageUserAction.new,
+            ManageUserAction.delete_user,
+        }:
             curr_user_id = received_dict.info.user
             # save in table user_statuses_history and table users (for non-new users)
             save_updated_status_for_user(action, curr_user_id, received_dict.time)
 
-            if action == Action.new:
+            if action == ManageUserAction.new:
                 # save in table users
                 save_new_user(curr_user_id, received_dict.info.username, received_dict.time)
                 # save in table user_preferences
                 save_default_notif_settings(curr_user_id)
 
-        elif action in {Action.update_onboarding}:
+        elif action in {ManageUserAction.update_onboarding}:
             save_onboarding_step(received_dict.info.user, received_dict.step, received_dict.time)
 
     except Exception as e:

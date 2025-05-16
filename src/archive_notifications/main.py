@@ -4,18 +4,17 @@ import sqlalchemy
 from google.cloud.functions.context import Context
 from sqlalchemy.engine.base import Connection
 
-from _dependencies.commons import Topics, sqlalchemy_get_pool
-from _dependencies.pubsub import publish_to_pubsub
+from _dependencies.commons import setup_google_logging, sqlalchemy_get_pool
+from _dependencies.pubsub import pubsub_archive_notifications, pubsub_archive_to_bigquery
 
-# setup_google_logging()
-# do we need google cloud logging here?
+setup_google_logging()
 
 
 def sql_connect() -> sqlalchemy.engine.Engine:
     return sqlalchemy_get_pool(20, 0)
 
 
-def move_notifications_to_history_in_psql(conn: Connection) -> Topics:
+def move_notifications_to_history_in_psql(conn: Connection) -> None:
     """move all "completed" notifications to psql table __history"""
 
     # checker – gives us a minimal date in notif_by_user, which is at least 2 hours older than current
@@ -57,7 +56,8 @@ def move_notifications_to_history_in_psql(conn: Connection) -> Topics:
             """)
         conn.execute(stmt)
 
-        return Topics.topic_to_archive_notifs
+        pubsub_archive_notifications()
+        return
 
     else:
         logging.info('nothing to migrate in notif_by_user')
@@ -75,7 +75,9 @@ def move_notifications_to_history_in_psql(conn: Connection) -> Topics:
 
         if not oldest_date_nbus[0]:
             logging.info('nothing to migrate in notif_by_user_status')
-            return Topics.topic_to_archive_to_bigquery
+            move_first_posts_to_history_in_psql(conn)
+            pubsub_archive_to_bigquery()
+            return
 
         logging.info('The oldest date in notif_by_user_status: {}'.format(oldest_date_nbus[0]))
 
@@ -105,7 +107,8 @@ def move_notifications_to_history_in_psql(conn: Connection) -> Topics:
                         """)
         conn.execute(stmt)
 
-        return Topics.topic_to_archive_notifs
+        pubsub_archive_notifications()
+        return
 
 
 def move_first_posts_to_history_in_psql(conn: Connection) -> None:
@@ -209,11 +212,6 @@ def main(event: dict[str, bytes], context: Context) -> None:
 
     pool = sql_connect()
     with pool.connect() as conn:
-        next_action = move_notifications_to_history_in_psql(conn)
-
-        if next_action:
-            publish_to_pubsub(next_action, 'go')
-        if next_action == Topics.topic_to_archive_to_bigquery:
-            move_first_posts_to_history_in_psql(conn)
+        move_notifications_to_history_in_psql(conn)
 
     pool.dispose()
