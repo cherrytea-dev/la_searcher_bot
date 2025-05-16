@@ -244,13 +244,16 @@ class TitleRecognizer:
         result = RecognitionResult(
             avia=True if recognition.is_avia else None,
             status=recognition.st,
-            topic_type=self._get_final_topic_type(),
+            topic_type=RecognitionTopicType(self._get_final_topic_type()),
             persons=self._get_result_persons_summary(),
             locations=self._get_final_locations() or None,
         )
 
         # placeholders if no persons
-        if result.topic_type in {'search', 'search training'} and not result.persons:
+        if (
+            result.topic_type in {RecognitionTopicType.search, RecognitionTopicType.search_training}
+            and not result.persons
+        ):
             persons_summary_placeholder = PersonsSummary(
                 total_persons=-1,
                 total_name='Неизвестный',
@@ -265,7 +268,7 @@ class TitleRecognizer:
 
     def _get_final_topic_type(self) -> str:
         if self.recognition.is_training:
-            return 'search training'
+            return RecognitionTopicType.search_training
 
         for block in self.recognition.groups[::-1]:
             if block.type == 'ACT':
@@ -322,7 +325,7 @@ class TitleRecognizer:
         summary = PersonsSummary(
             total_persons=person_group_summary.block_num,
             total_name=person_group_summary.name,
-            total_display_name=person_group_summary.display_name,
+            total_display_name=person_group_summary.display_name or '',
             person=persons,
         )
 

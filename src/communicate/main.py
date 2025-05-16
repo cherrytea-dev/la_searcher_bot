@@ -9,7 +9,7 @@ from flask import Request
 from telegram import Bot, CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 
 from _dependencies.commons import get_app_config, setup_google_logging
-from _dependencies.pubsub import notify_admin, pubsub_user_management
+from _dependencies.pubsub import ManageUserAction, notify_admin, pubsub_user_management, save_onboarding_step
 
 from ._utils.buttons import reply_markup_main
 from ._utils.common import (
@@ -18,7 +18,6 @@ from ._utils.common import (
     UpdateBasicParams,
     UpdateExtraParams,
     UserInputState,
-    save_onboarding_step,
 )
 from ._utils.database import db
 from ._utils.handlers import (
@@ -171,13 +170,13 @@ def _get_basic_update_parameters(update: Update) -> UpdateBasicParams:
 def _save_new_user(user_id: int, username: str) -> None:
     """send pubsub message to dedicated script to save new user"""
 
-    pubsub_user_management(user_id, 'new', username=username, time=datetime.datetime.now())
+    pubsub_user_management(user_id, ManageUserAction.new, username=username, time=datetime.datetime.now())
 
 
 def _process_block_unblock_user(user_id: int, user_new_status: str) -> None:
     """processing of system message on user action to block/unblock the bot"""
 
-    status_dict = {'kicked': 'block_user', 'member': 'unblock_user'}
+    status_dict = {'kicked': ManageUserAction.block_user, 'member': ManageUserAction.unblock_user}
 
     # mark user as blocked / unblocked in psql
     pubsub_user_management(user_id, status_dict[user_new_status])

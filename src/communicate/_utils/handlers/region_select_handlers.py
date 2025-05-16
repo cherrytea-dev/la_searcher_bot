@@ -1,5 +1,7 @@
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 
+from _dependencies.pubsub import save_onboarding_step
+
 from ..buttons import (
     IsMoscow,
     MainMenu,
@@ -15,7 +17,6 @@ from ..common import (
     UpdateBasicParams,
     UpdateExtraParams,
     create_one_column_reply_markup,
-    save_onboarding_step,
 )
 from ..database import db
 from ..decorators import button_handler, callback_handler

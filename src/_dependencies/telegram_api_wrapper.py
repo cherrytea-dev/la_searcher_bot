@@ -7,7 +7,7 @@ from requests.models import Response
 from retry.api import retry_call
 from telegram import TelegramObject
 
-from _dependencies.pubsub import pubsub_user_management
+from _dependencies.pubsub import ManageUserAction, pubsub_user_management
 
 
 class TGApiBase:
@@ -128,14 +128,12 @@ class TGApiBase:
 
             elif response.status_code == 403:  # FORBIDDEN
                 logging.info(f'Forbidden: message to {user_id} was not sent, {response.reason=}')
-                action = None
                 if response.text.find('bot was blocked by the user') != -1:
-                    action = 'block_user'
-                if response.text.find('user is deactivated') != -1:
-                    action = 'delete_user'
-                if action:
                     # TODO try to move out
-                    pubsub_user_management(user_id, action)
+                    pubsub_user_management(user_id, ManageUserAction.block_user)
+                if response.text.find('user is deactivated') != -1:
+                    # TODO try to move out
+                    pubsub_user_management(user_id, ManageUserAction.delete_user)
                 return 'cancelled'
 
             elif 420 <= response.status_code <= 429:  # 'Flood Control':
