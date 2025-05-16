@@ -1,8 +1,11 @@
 import datetime
+from functools import lru_cache
 
 import sqlalchemy
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.base import Engine
+
+from _dependencies.commons import sqlalchemy_get_pool
 
 from .commons import Search
 
@@ -104,3 +107,9 @@ class DBClient:
             if raw_data:
                 return raw_data[0]
         return None
+
+
+@lru_cache
+def get_db_client() -> DBClient:
+    pool = sqlalchemy_get_pool(5, 120)
+    return DBClient(db=pool)

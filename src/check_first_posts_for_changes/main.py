@@ -6,15 +6,14 @@ Updates are either saved in PSQL or send via pub/sub to other scripts"""
 
 import datetime
 import logging
-from functools import lru_cache
 
 from google.cloud.functions.context import Context
 
-from _dependencies.commons import setup_google_logging, sqlalchemy_get_pool
+from _dependencies.commons import setup_google_logging
 from _dependencies.pubsub import pubsub_check_first_posts
 
 from ._utils.commons import PercentGroup, Search
-from ._utils.database import DBClient
+from ._utils.database import DBClient, get_db_client
 from ._utils.forum import (
     ForumUnavailable,
     define_topic_visibility_by_content,
@@ -23,12 +22,6 @@ from ._utils.forum import (
 )
 
 setup_google_logging()
-
-
-@lru_cache
-def get_db_client() -> DBClient:
-    pool = sqlalchemy_get_pool(5, 120)
-    return DBClient(db=pool)
 
 
 def update_one_topic_visibility(search_id: int, visibility: str) -> None:

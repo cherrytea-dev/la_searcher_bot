@@ -7,8 +7,11 @@ import requests
 from retry import retry
 
 from _dependencies.commons import get_forum_proxies
-from _dependencies.pubsub import pubsub_topic_management, recognize_title_via_api
+from _dependencies.pubsub import recognize_title_via_api
 from _dependencies.recognition_schema import RecognitionResult
+from _dependencies.topic_management import save_status_for_topic
+
+from .database import get_db_client
 
 
 class ForumUnavailable(Exception):
@@ -88,7 +91,9 @@ def _change_topic_status(topic_id: int, topic_content: str) -> None:
     if not status or status == 'Ищем':
         return
 
-    pubsub_topic_management(topic_id, status)
+    db = get_db_client()
+    with db.connect() as conn:
+        save_status_for_topic(conn, topic_id, status)
 
 
 def _parse_status_from_title(title: str) -> str | None:

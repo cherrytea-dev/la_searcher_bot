@@ -11,8 +11,9 @@ from retry import retry
 from yarl import URL
 
 from _dependencies.commons import get_forum_proxies
-from _dependencies.pubsub import pubsub_topic_management
+from _dependencies.topic_management import save_visibility_for_topic
 
+from .database import get_db_client
 from .topics_commons import CoordType, ForumCommentItem, ForumSearchItem
 
 
@@ -43,7 +44,9 @@ def is_content_visible(content: bytes, topic_id: int) -> bool:
 
     if topic_deleted or topic_hidden:
         visibility = 'deleted' if topic_deleted else 'hidden'
-        pubsub_topic_management(topic_id, None, visibility)
+
+        with get_db_client().connect() as conn:
+            save_visibility_for_topic(conn, topic_id, visibility)
         return False
 
     return True

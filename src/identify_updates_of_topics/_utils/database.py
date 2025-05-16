@@ -1,12 +1,12 @@
-import json
 import logging
 from datetime import datetime, timezone
+from functools import lru_cache
 
 import sqlalchemy
-from google.cloud.functions.context import Context
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.base import Engine
 
+from _dependencies.commons import sqlalchemy_get_pool
 from _dependencies.pubsub import notify_admin
 
 from .topics_commons import (
@@ -416,3 +416,9 @@ class DBClient:
                                     """)
 
             return conn.execute(stmt).fetchall()
+
+
+@lru_cache
+def get_db_client() -> DBClient:
+    pool = sqlalchemy_get_pool(5, 120)
+    return DBClient(db=pool)
