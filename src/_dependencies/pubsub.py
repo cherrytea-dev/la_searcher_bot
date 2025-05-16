@@ -1,10 +1,10 @@
-from typing import Any
 import base64
 import json
 import logging
 from datetime import datetime
 from enum import Enum
 from functools import lru_cache
+from typing import Any
 
 import google.auth.transport.requests
 import google.oauth2.id_token
@@ -88,9 +88,6 @@ def publish_to_pubsub(topic_name: Topics, message: str | dict | list | BaseModel
     #  TODO find out where topic_name.value comes from as str
 
     topic_path = _get_publisher().topic_path(get_project_id(), topic_name_str)
-    data = {
-        'data': {'message': message},
-    }
     data = PubSubData(data=PubSubMessage(message=message))
     message_bytes = data.model_dump_json().encode('utf-8')
 
