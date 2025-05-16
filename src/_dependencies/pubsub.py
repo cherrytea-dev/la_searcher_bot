@@ -109,6 +109,7 @@ def pubsub_parse_folders(folders_list: list) -> None:
 
 
 def pubsub_compose_notifications(function_id: int, text: str) -> None:
+    # TODO "triggered_by_func_id" - maybe we don't need it already from other functions
     message_for_pubsub = {'triggered_by_func_id': function_id, 'text': text}
     publish_to_pubsub(Topics.topic_for_notification, message_for_pubsub)
 
@@ -136,8 +137,6 @@ def pubsub_user_management(
     time: datetime | None = None,
     step: str | None = None,
 ) -> None:
-    # TODO pydantic
-
     logging.info(f'Identified user id {user_id} to do {action}')
 
     message_for_pubsub = ManageUsersData(
