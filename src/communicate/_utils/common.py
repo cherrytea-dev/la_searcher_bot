@@ -1,4 +1,3 @@
-import datetime
 import math
 from dataclasses import dataclass
 from enum import Enum
@@ -16,7 +15,6 @@ from telegram import (
 
 from _dependencies.commons import SearchFollowingMode
 from _dependencies.misc import calc_bearing
-from _dependencies.pubsub import pubsub_user_management
 
 SEARCH_URL_PREFIX = 'https://lizaalert.org/forum/viewtopic.php?t='
 FORUM_FOLDER_PREFIX = 'https://lizaalert.org/forum/viewforum.php?f='
@@ -199,12 +197,6 @@ def define_dist_and_dir_to_search(
     direction = calc_direction(lat1, lon1, lat2, lon2, coded_style)
 
     return (dist, direction)
-
-
-def save_onboarding_step(user_id: int, username: str, step: str) -> None:
-    """save the certain step in onboarding"""
-
-    pubsub_user_management(user_id, 'update_onboarding', username=username, time=datetime.datetime.now(), step=step)
 
 
 def create_one_column_reply_markup(buttons: Sequence[str | KeyboardButton]) -> ReplyKeyboardMarkup:

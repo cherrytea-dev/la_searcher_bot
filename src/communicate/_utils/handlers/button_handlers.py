@@ -11,7 +11,7 @@ from telegram import (
 )
 
 from _dependencies.commons import add_tel_link, get_app_config
-from _dependencies.pubsub import notify_admin
+from _dependencies.pubsub import notify_admin, save_onboarding_step
 
 from ..buttons import (
     Commands,
@@ -46,7 +46,6 @@ from ..common import (
     UserInputState,
     create_one_column_reply_markup,
     generate_yandex_maps_place_link,
-    save_onboarding_step,
 )
 from ..database import db
 from ..decorators import button_handler

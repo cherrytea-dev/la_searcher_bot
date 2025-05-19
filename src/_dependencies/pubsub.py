@@ -131,7 +131,7 @@ def pubsub_topic_management(topic_id: int, status: str | None = None, visibility
 
 def pubsub_user_management(
     user_id: int,
-    action: str,
+    action: ManageUserAction,
     username: str | None = None,
     time: datetime | None = None,
     step: str | None = None,
@@ -198,3 +198,11 @@ def process_pubsub_message(event: dict) -> str:
     message = json_data['data']['message']
     logging.info(f'received message from pub/sub: {message}')
     return message
+
+
+def save_onboarding_step(user_id: int, username: str, step: str) -> None:
+    """save the certain step in onboarding"""
+
+    pubsub_user_management(
+        user_id, ManageUserAction.update_onboarding, username=username, time=datetime.now(), step=step
+    )

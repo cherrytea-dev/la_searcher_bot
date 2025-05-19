@@ -42,7 +42,7 @@ def _search_button_row_ikb(search: SearchSummary, search_status: str) -> list[In
     search_following_mark = search.following_mode if search.following_mode else NOT_FOLLOWING_MARK
     url = f'{SEARCH_URL_PREFIX}{search.topic_id}'
 
-    callback_data = InlineButtonCallbackData(act='search_follow_mode', hash=search.topic_id).as_str()
+    callback_data = InlineButtonCallbackData(action='search_follow_mode', hash=search.topic_id).as_str()
     ikb_row = [
         [
             InlineKeyboardButton(text=f'{search_following_mark} {search_status}', callback_data=str(callback_data)),
@@ -250,7 +250,7 @@ def _show_button_to_turn_on_following_searches(user_id: int) -> None:
         [
             InlineKeyboardButton(
                 text='Включить выбор поисков для отслеживания',
-                callback_data=InlineButtonCallbackData(act='search_follow_mode_on').as_str(),
+                callback_data=InlineButtonCallbackData(action='search_follow_mode_on').as_str(),
             )
         ]
     ]
@@ -340,7 +340,7 @@ def _handle_view_searches_experimental_view(user_id: int, search_list_type: Sear
                 [
                     InlineKeyboardButton(
                         text='Отключить выбор поисков для отслеживания',
-                        callback_data=InlineButtonCallbackData(act='search_follow_mode_off').as_str(),
+                        callback_data=InlineButtonCallbackData(action='search_follow_mode_off').as_str(),
                     )
                 ]
             )

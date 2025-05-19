@@ -51,7 +51,7 @@ def main(request: Request) -> str:
     reco_title = recognize_title(user_request.title, user_request.reco_type)
 
     if not reco_title or ('topic_type' in reco_title.keys() and reco_title['topic_type'] == 'UNRECOGNIZED'):
-        return FailResponse(fail_reason='not able to recognize', request=str(request.data)).as_response()
+        return FailResponse(fail_reason='not able to recognize').as_response()
 
     logging.info(f'Response: {reco_title}')
 
