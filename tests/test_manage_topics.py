@@ -7,6 +7,7 @@ import pytest
 from telegram import Bot
 from telegram.ext import ExtBot
 
+import _dependencies.topic_management
 from manage_topics import main
 from tests.common import get_event_with_data
 from tests.factories.db_factories import SearchFactory, get_session
@@ -44,7 +45,7 @@ class TestSaveStatusForTopic:
         SearchFactory.create_sync(search_forum_num=topic_id, status='old_status')
         new_status = 'new_status'
 
-        change_log_id = main.save_status_for_topic(topic_id, new_status)
+        change_log_id = _dependencies.topic_management.save_status_for_topic(topic_id, new_status)
 
         updated_search: Search = get_session().query(Search).filter_by(search_forum_num=topic_id).first()
         assert updated_search.status == new_status
@@ -60,7 +61,7 @@ class TestSaveStatusForTopic:
         existing_status = 'existing_status'
         SearchFactory.create_sync(search_forum_num=topic_id, status=existing_status)
 
-        change_log_id = main.save_status_for_topic(topic_id, existing_status)
+        change_log_id = _dependencies.topic_management.save_status_for_topic(topic_id, existing_status)
 
         assert change_log_id is None
 
@@ -74,7 +75,7 @@ class TestSaveStatusForTopic:
         new_status = 'new_status'
         search = SearchFactory.create_sync(search_forum_num=topic_id)
 
-        change_log_id = main.save_status_for_topic(topic_id, new_status)
+        change_log_id = _dependencies.topic_management.save_status_for_topic(topic_id, new_status)
 
         assert change_log_id is not None
 

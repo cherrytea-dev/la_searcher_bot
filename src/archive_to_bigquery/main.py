@@ -213,3 +213,4 @@ def main(event: dict, context: Context) -> None:
     archive_notif_by_user(client)
 
     save_sql_stat_table_sizes(client)
+    # TODO clean function_registry table. And maybe stat_api_usage_actual_searches too
