@@ -39,15 +39,7 @@ def main(event: dict[str, bytes], context: Context) -> str:  # noqa
                 save_visibility_for_topic(conn, received_dict.topic_id, received_dict.visibility)
 
             if received_dict.status:
-                change_log_id = save_status_for_topic(conn, received_dict.topic_id, received_dict.status)
-
-                if change_log_id:
-                    save_function_into_register(
-                        conn, context.event_id, analytics_func_start, function_id, [change_log_id], 'manage_topics'
-                    )
-
-                    # TODO can we send it without function_id?
-                    pubsub_compose_notifications(function_id, "let's compose notifications")
+                save_status_for_topic(conn, received_dict.topic_id, received_dict.status)
 
     except Exception as e:
         logging.exception('Topic management script failed')
