@@ -18,7 +18,6 @@ from _dependencies.commons import get_project_id
 
 class Topics(Enum):
     topic_notify_admin = 'topic_notify_admin'
-    topic_for_topic_management = 'topic_for_topic_management'
     topic_for_first_post_processing = 'topic_for_first_post_processing'
     topic_for_notification = 'topic_for_notification'
     topic_to_run_parsing_script = 'topic_to_run_parsing_script'
@@ -109,6 +108,7 @@ def pubsub_parse_folders(folders_list: list) -> None:
 
 
 def pubsub_compose_notifications(function_id: int, text: str) -> None:
+    # TODO "triggered_by_func_id" - maybe we don't need it already from other functions
     message_for_pubsub = {'triggered_by_func_id': function_id, 'text': text}
     publish_to_pubsub(Topics.topic_for_notification, message_for_pubsub)
 
@@ -122,13 +122,6 @@ def pubsub_send_notifications(function_id: int, text: str) -> None:
     publish_to_pubsub(Topics.topic_to_send_notifications, message_for_pubsub)
 
 
-def pubsub_topic_management(topic_id: int, status: str | None = None, visibility: str | None = None) -> None:
-    # TODO change status right here
-
-    pubsub_message = TopicManagementData(topic_id=topic_id, status=status, visibility=visibility)
-    publish_to_pubsub(Topics.topic_for_topic_management, pubsub_message.model_dump())
-
-
 def pubsub_user_management(
     user_id: int,
     action: ManageUserAction,
@@ -136,8 +129,6 @@ def pubsub_user_management(
     time: datetime | None = None,
     step: str | None = None,
 ) -> None:
-    # TODO pydantic
-
     logging.info(f'Identified user id {user_id} to do {action}')
 
     message_for_pubsub = ManageUsersData(
