@@ -18,7 +18,6 @@ from _dependencies.commons import get_project_id
 
 class Topics(Enum):
     topic_notify_admin = 'topic_notify_admin'
-    topic_for_topic_management = 'topic_for_topic_management'
     topic_for_first_post_processing = 'topic_for_first_post_processing'
     topic_for_notification = 'topic_for_notification'
     topic_to_run_parsing_script = 'topic_to_run_parsing_script'
@@ -121,13 +120,6 @@ def pubsub_check_first_posts(topics_with_updated_first_posts: list[int]) -> None
 def pubsub_send_notifications(function_id: int, text: str) -> None:
     message_for_pubsub = {'triggered_by_func_id': function_id, 'text': text}
     publish_to_pubsub(Topics.topic_to_send_notifications, message_for_pubsub)
-
-
-def pubsub_topic_management(topic_id: int, status: str | None = None, visibility: str | None = None) -> None:
-    # TODO change status right here
-
-    pubsub_message = TopicManagementData(topic_id=topic_id, status=status, visibility=visibility)
-    publish_to_pubsub(Topics.topic_for_topic_management, pubsub_message.model_dump())
 
 
 def pubsub_user_management(
