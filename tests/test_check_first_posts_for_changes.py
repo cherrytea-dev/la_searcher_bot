@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from _dependencies.commons import sqlalchemy_get_pool
 from check_first_posts_for_changes import main
 from check_first_posts_for_changes._utils import forum
-from check_first_posts_for_changes._utils.database import DBClient
+from check_first_posts_for_changes._utils.database import DBClient, get_db_client
 from tests.common import fake, find_model
 from tests.factories import db_factories, db_models
 
@@ -71,7 +71,7 @@ class TestMain:
                 search_forum_num=search.search_forum_num,
             )
 
-        assert main.get_db_client().get_list_of_topics()
+        assert get_db_client().get_list_of_topics()
         topics_to_check = main.get_topics_to_check()
 
         assert topics_to_check
