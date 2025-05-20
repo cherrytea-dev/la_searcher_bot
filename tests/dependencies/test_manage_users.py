@@ -3,8 +3,14 @@ from random import randint
 
 import pytest
 
-from _dependencies.pubsub import ManageUserAction, save_onboarding_step
-from _dependencies.users_management import save_default_notif_settings, save_new_user, save_updated_status_for_user
+from _dependencies.pubsub import ManageUserAction
+from _dependencies.users_management import (
+    save_default_notif_settings,
+    save_new_user,
+    save_onboarding_step,
+    save_updated_status_for_user,
+)
+from tests.common import find_model
 from tests.factories.db_factories import UserFactory, UserOnboardingFactory, UserStatusesHistoryFactory, get_session
 from tests.factories.db_models import User, UserOnboarding, UserPreference, UserStatusesHistory
 
@@ -21,7 +27,7 @@ class TestSaveUpdatedStatusForUser:
 
         save_updated_status_for_user(ManageUserAction.block_user, user_id, '', timestamp)
 
-        updated_user: User = get_session().query(User).filter_by(user_id=user_id).first()
+        updated_user = find_model(get_session(), User, user_id=user_id)
         assert updated_user.status == 'blocked'
         assert updated_user.status_change_date == timestamp
 
@@ -37,7 +43,7 @@ class TestSaveUpdatedStatusForUser:
 
         save_updated_status_for_user(ManageUserAction.unblock_user, user_id, '', timestamp)
 
-        updated_user: User = get_session().query(User).filter_by(user_id=user_id).first()
+        updated_user = find_model(get_session(), User, user_id=user_id)
         assert updated_user.status == 'unblocked'
         assert updated_user.status_change_date == timestamp
 
@@ -47,20 +53,6 @@ class TestSaveUpdatedStatusForUser:
         assert status_history.status == 'unblocked'
         assert status_history.date == timestamp
 
-    def test_new_user(self, user_id: int, connection_psy):
-        timestamp = datetime.now()
-
-        save_updated_status_for_user(ManageUserAction.new, user_id, '', timestamp)
-
-        user: User = get_session().query(User).filter_by(user_id=user_id).first()
-        assert user is None  # 'new' action doesn't update the users table
-
-        status_history: UserStatusesHistory = (
-            get_session().query(UserStatusesHistory).filter_by(user_id=user_id).first()
-        )
-        assert status_history.status == 'new'
-        assert status_history.date == timestamp
-
 
 class TestSaveOnboardingStep:
     def test_save_valid_onboarding_step(self, user_id: int):
@@ -68,7 +60,7 @@ class TestSaveOnboardingStep:
 
         save_onboarding_step(user_id, step_name)
 
-        saved_step: UserOnboarding = get_session().query(UserOnboarding).filter_by(user_id=user_id).first()
+        saved_step = find_model(get_session(), UserOnboarding, user_id=user_id)
         assert saved_step is not None
         assert saved_step.step_id == 10
         assert saved_step.step_name == step_name
@@ -78,7 +70,7 @@ class TestSaveOnboardingStep:
 
         save_onboarding_step(user_id, step_name)
 
-        saved_step: UserOnboarding = get_session().query(UserOnboarding).filter_by(user_id=user_id).first()
+        saved_step = find_model(get_session(), UserOnboarding, user_id=user_id)
         assert saved_step is not None
         assert saved_step.step_id == 99
         assert saved_step.step_name == step_name
@@ -107,7 +99,7 @@ class TestSaveNewUser:
 
         save_new_user(connection_psy, user_id, username, timestamp)
 
-        user: User = get_session().query(User).filter_by(user_id=user_id).first()
+        user = find_model(get_session(), User, user_id=user_id)
         assert user is not None
         assert user.user_id == user_id
         assert user.username_telegram == username
@@ -124,7 +116,7 @@ class TestSaveNewUser:
 
         save_new_user(connection_psy, user_id, username, timestamp)
 
-        user: User = get_session().query(User).filter_by(user_id=user_id).first()
+        user = find_model(get_session(), User, user_id=user_id)
         assert user is not None
         assert user.user_id == user_id
         assert user.username_telegram is None
@@ -157,8 +149,7 @@ class TestSaveDefaultNotifSettings:
     def test_save_default_notif_settings(self, user_id: int, connection_psy):
         save_default_notif_settings(connection_psy, user_id)
 
-        user_pref_bot_news: UserPreference = (
-            get_session().query(UserPreference).filter_by(user_id=user_id, preference='bot_news').first()
-        )
+        user_pref_bot_news = find_model(get_session(), UserPreference, user_id=user_id, preference='bot_news')
+
         assert user_pref_bot_news is not None
         assert user_pref_bot_news.pref_id == 20

@@ -111,3 +111,29 @@ def save_new_user(
             (user_id, 0, 'start', datetime.now()),
         )
         conn.commit()
+
+
+def save_onboarding_step(user_id: int, step: str) -> None:
+    """save the certain step in onboarding"""
+
+    dict_steps = {
+        'start': 0,
+        'role_set': 10,
+        'moscow_replied': 20,
+        'region_set': 21,
+        'urgency_set': 30,
+        'finished': 80,
+        'unrecognized': 99,
+    }
+
+    step_id = dict_steps.get(step, 99)
+
+    # set PSQL connection & cursor
+    with sql_connect_by_psycopg2() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+                INSERT INTO user_onboarding (user_id, step_id, step_name, timestamp) VALUES (%s, %s, %s, %s);
+            """,
+            (user_id, step_id, step, datetime.now()),
+        )
+        conn.commit()

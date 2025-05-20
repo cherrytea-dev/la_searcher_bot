@@ -1,6 +1,6 @@
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 
-from _dependencies.pubsub import save_onboarding_step
+from _dependencies.users_management import save_onboarding_step
 
 from ..buttons import (
     IsMoscow,
