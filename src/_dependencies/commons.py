@@ -225,6 +225,7 @@ def add_tel_link(incoming_text: str) -> str:
 
     outcome_text = incoming_text
     nums = re.findall(PHONE_RE, incoming_text)
+    nums = list(set(nums))  # remove duplicates
     for num in nums:
         num_link = str('+7' + num[1:] if num[0] == '8' else num)
         try:

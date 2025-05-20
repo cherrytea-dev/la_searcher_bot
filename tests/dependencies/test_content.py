@@ -45,7 +45,7 @@ class TestAddLink:
 
         assert_string_equals_without_spaces(res, expected_output)
 
-    def test_link_111(self):
+    def test_link_simple(self):
         input = 'Николай т.: +79001234567'
 
         expected_output = 'Николай т.:  <a href="tel:+79001234567">+79001234567</a> '
@@ -54,7 +54,7 @@ class TestAddLink:
 
         assert_string_equals_without_spaces(res, expected_output)
 
-    def test_link_222(self):
+    def test_link_simple_inside_tag(self):
         input = '<s>Николай т.: +79001234567</s>'
 
         expected_output = '<s>Николай т.:  <a href="tel:+79001234567">+79001234567</a> </s>'
@@ -96,7 +96,7 @@ class TestAddLink:
     def test_link_equal_phones_and_tag(self):
         # search: https://lizaalert.org/forum/viewtopic.php?t=96147
         input = """
-        <s>Николай т.: +79001234567<>/s
+        <s>Николай т.: +79001234567</s>
         Николай т.: +79001234567
         """
 
