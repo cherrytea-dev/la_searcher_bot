@@ -3,8 +3,8 @@ from random import randint
 
 import pytest
 
-from _dependencies.pubsub import ManageUserAction
 from _dependencies.users_management import (
+    ManageUserAction,
     _save_default_notif_settings,
     _save_new_user,
     save_onboarding_step,
@@ -23,35 +23,19 @@ def user_id() -> int:
 class TestSaveUpdatedStatusForUser:
     def test_block_user(self, user_id: int):
         user = UserFactory.create_sync(user_id=user_id, status='active')
-        timestamp = datetime.now()
 
-        update_user_status(ManageUserAction.block_user, user_id, '', timestamp)
+        update_user_status(ManageUserAction.block_user, user_id)
 
-        updated_user = find_model(get_session(), User, user_id=user_id)
-        assert updated_user.status == 'blocked'
-        assert updated_user.status_change_date == timestamp
-
-        status_history: UserStatusesHistory = (
-            get_session().query(UserStatusesHistory).filter_by(user_id=user_id).first()
-        )
-        assert status_history.status == 'blocked'
-        assert status_history.date == timestamp
+        assert find_model(get_session(), User, user_id=user_id, status='blocked')
+        assert find_model(get_session(), UserStatusesHistory, user_id=user_id, status='blocked')
 
     def test_unblock_user(self, user_id: int):
         user = UserFactory.create_sync(user_id=user_id, status='blocked')
-        timestamp = datetime.now()
 
-        update_user_status(ManageUserAction.unblock_user, user_id, '', timestamp)
+        update_user_status(ManageUserAction.unblock_user, user_id)
 
-        updated_user = find_model(get_session(), User, user_id=user_id)
-        assert updated_user.status == 'unblocked'
-        assert updated_user.status_change_date == timestamp
-
-        status_history: UserStatusesHistory = (
-            get_session().query(UserStatusesHistory).filter_by(user_id=user_id).first()
-        )
-        assert status_history.status == 'unblocked'
-        assert status_history.date == timestamp
+        assert find_model(get_session(), User, user_id=user_id, status='unblocked')
+        assert find_model(get_session(), UserStatusesHistory, user_id=user_id, status='unblocked')
 
 
 class TestSaveOnboardingStep:

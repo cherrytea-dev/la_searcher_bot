@@ -140,10 +140,6 @@ def topic_to_receiver_function(topic_name: Topics):
         from identify_updates_of_topics.main import main
 
         return main
-    elif topic_name == Topics.topic_for_user_management:
-        from manage_users.main import main
-
-        return main
     elif topic_name == Topics.topic_to_send_notifications:
         from send_notifications.main import main
 

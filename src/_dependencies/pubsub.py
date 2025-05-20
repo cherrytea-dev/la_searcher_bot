@@ -21,44 +21,18 @@ class Topics(Enum):
     topic_for_first_post_processing = 'topic_for_first_post_processing'
     topic_for_notification = 'topic_for_notification'
     topic_to_run_parsing_script = 'topic_to_run_parsing_script'
-    topic_for_user_management = 'topic_for_user_management'
     parse_user_profile_from_forum = 'parse_user_profile_from_forum'
     topic_to_send_notifications = 'topic_to_send_notifications'
     topic_to_archive_notifs = 'topic_to_archive_notifs'
     topic_to_archive_to_bigquery = 'topic_to_archive_to_bigquery'
 
 
-class TopicManagementData(BaseModel):
-    topic_id: int
-    status: str | None = None
-    visibility: str | None = None
+class PubSubMessage(BaseModel):
+    message: Any
 
 
-class ManageUsersDataUserInfo(BaseModel):
-    user: int  # id
-    username: str | None = None
-
-
-class ManageUserAction(str, Enum):
-    block_user = 'block_user'
-    unblock_user = 'unblock_user'
-    new = 'new'
-    delete_user = 'delete_user'
-
-    def action_to_write(self) -> str:
-        return {
-            self.block_user: 'blocked',
-            self.unblock_user: 'unblocked',
-            self.new: 'new',
-            self.delete_user: 'deleted',
-        }[self]
-
-
-class ManageUsersData(BaseModel):
-    action: ManageUserAction
-    time: datetime = Field(default_factory=datetime.now)
-    info: ManageUsersDataUserInfo
-    step: str = 'unrecognized'
+class PubSubData(BaseModel):
+    data: PubSubMessage
 
 
 @lru_cache
@@ -69,14 +43,6 @@ def _get_publisher() -> pubsub_v1.PublisherClient:
 def _send_topic(topic_name: Topics, topic_path: str, message_bytes: bytes) -> None:
     publish_future = _get_publisher().publish(topic_path, data=message_bytes)
     publish_future.result()  # Verify the publishing succeeded
-
-
-class PubSubMessage(BaseModel):
-    message: Any
-
-
-class PubSubData(BaseModel):
-    data: PubSubMessage
 
 
 def publish_to_pubsub(topic_name: Topics, message: str | dict | list | BaseModel) -> None:
@@ -119,25 +85,6 @@ def pubsub_check_first_posts(topics_with_updated_first_posts: list[int]) -> None
 def pubsub_send_notifications(function_id: int, text: str) -> None:
     message_for_pubsub = {'triggered_by_func_id': function_id, 'text': text}
     publish_to_pubsub(Topics.topic_to_send_notifications, message_for_pubsub)
-
-
-def pubsub_user_management(
-    user_id: int,
-    action: ManageUserAction,
-    username: str | None = None,
-    time: datetime | None = None,
-    step: str | None = None,
-) -> None:
-    logging.info(f'Identified user id {user_id} to do {action}')
-
-    message_for_pubsub = ManageUsersData(
-        action=action,
-        info=ManageUsersDataUserInfo(user=user_id, username=username),
-        step=step or 'unrecognized',
-        time=time or datetime.now(),
-    )
-
-    publish_to_pubsub(Topics.topic_for_user_management, message_for_pubsub.model_dump())
 
 
 def pubsub_archive_notifications() -> None:
