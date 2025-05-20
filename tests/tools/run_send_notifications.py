@@ -1,9 +1,9 @@
 from functools import wraps
 from time import time
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from send_notifications.main import main
-from tests.common import get_dotenv_config
+from tests.common import get_dotenv_config, get_event_with_data
 from tests.test_send_notifications import NotSentNotificationFactory
 
 
@@ -29,19 +29,6 @@ def generate_messages(count: int):
             pass
 
 
-def timing(f):
-    @wraps(f)
-    def wrap(*args, **kw):
-        ts = time()
-        result = f(*args, **kw)
-        te = time()
-        print('func:%r args:[%r, %r] took: %2.4f sec' % (f.__name__, args, kw, te - ts))
-        return result
-
-    return wrap
-
-
-@timing
 def timed_main():
     main('', '')
 
@@ -49,11 +36,14 @@ def timed_main():
 if __name__ == '__main__':
     with (
         patch('_dependencies.commons._get_config', get_dotenv_config),
-        patch('_dependencies.commons.get_publisher'),
-        patch('_dependencies.commons.get_project_id'),
-        patch('_dependencies.commons._send_topic'),
+        patch('_dependencies.pubsub._send_topic'),
+        patch('_dependencies.pubsub._get_publisher'),
+        patch('_dependencies.pubsub.get_project_id'),
         patch('send_notifications.main.SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS', 0),
     ):
         generate_messages(1)
+        context = Mock()
+        context.event_id = 123
 
-        timed_main()
+        event_data = get_event_with_data('foo')
+        main(event_data, context)
