@@ -5,10 +5,10 @@ import pytest
 
 from _dependencies.pubsub import ManageUserAction
 from _dependencies.users_management import (
-    save_default_notif_settings,
-    save_new_user,
+    _save_default_notif_settings,
+    _save_new_user,
     save_onboarding_step,
-    save_updated_status_for_user,
+    update_user_status,
 )
 from tests.common import find_model
 from tests.factories.db_factories import UserFactory, UserOnboardingFactory, UserStatusesHistoryFactory, get_session
@@ -25,7 +25,7 @@ class TestSaveUpdatedStatusForUser:
         user = UserFactory.create_sync(user_id=user_id, status='active')
         timestamp = datetime.now()
 
-        save_updated_status_for_user(ManageUserAction.block_user, user_id, '', timestamp)
+        update_user_status(ManageUserAction.block_user, user_id, '', timestamp)
 
         updated_user = find_model(get_session(), User, user_id=user_id)
         assert updated_user.status == 'blocked'
@@ -41,7 +41,7 @@ class TestSaveUpdatedStatusForUser:
         user = UserFactory.create_sync(user_id=user_id, status='blocked')
         timestamp = datetime.now()
 
-        save_updated_status_for_user(ManageUserAction.unblock_user, user_id, '', timestamp)
+        update_user_status(ManageUserAction.unblock_user, user_id, '', timestamp)
 
         updated_user = find_model(get_session(), User, user_id=user_id)
         assert updated_user.status == 'unblocked'
@@ -97,7 +97,7 @@ class TestSaveNewUser:
         username = 'test_user'
         timestamp = datetime.now()
 
-        save_new_user(connection_psy, user_id, username, timestamp)
+        _save_new_user(connection_psy, user_id, username, timestamp)
 
         user = find_model(get_session(), User, user_id=user_id)
         assert user is not None
@@ -114,7 +114,7 @@ class TestSaveNewUser:
         username = None
         timestamp = datetime.now()
 
-        save_new_user(connection_psy, user_id, username, timestamp)
+        _save_new_user(connection_psy, user_id, username, timestamp)
 
         user = find_model(get_session(), User, user_id=user_id)
         assert user is not None
@@ -130,7 +130,7 @@ class TestSaveNewUser:
         UserFactory.create_sync(user_id=user_id, username_telegram=username, reg_date=timestamp)
 
         # Try to save the same user again
-        save_new_user(connection_psy, user_id, username, timestamp)
+        _save_new_user(connection_psy, user_id, username, timestamp)
 
         # Check that no new user was created
         users: list[User] = list(get_session().query(User).filter_by(user_id=user_id).all())
@@ -147,7 +147,7 @@ class TestSaveNewUser:
 
 class TestSaveDefaultNotifSettings:
     def test_save_default_notif_settings(self, user_id: int, connection_psy):
-        save_default_notif_settings(connection_psy, user_id)
+        _save_default_notif_settings(connection_psy, user_id)
 
         user_pref_bot_news = find_model(get_session(), UserPreference, user_id=user_id, preference='bot_news')
 
