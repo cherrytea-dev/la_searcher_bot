@@ -28,7 +28,7 @@ class TestAddLink:
 
         res = add_tel_link(input)
 
-        assert res.strip() == expected_output.strip()
+        assert_string_equals_without_spaces(res, expected_output)
 
     def test_link_replaced(self):
         input = """
@@ -43,4 +43,72 @@ class TestAddLink:
 
         res = add_tel_link(input)
 
-        assert res.strip() == expected_output.strip()
+        assert_string_equals_without_spaces(res, expected_output)
+
+    def test_link_111(self):
+        input = 'Николай т.: +79001234567'
+
+        expected_output = 'Николай т.:  <a href="tel:+79001234567">+79001234567</a> '
+
+        res = add_tel_link(input)
+
+        assert_string_equals_without_spaces(res, expected_output)
+
+    def test_link_222(self):
+        input = '<s>Николай т.: +79001234567</s>'
+
+        expected_output = '<s>Николай т.:  <a href="tel:+79001234567">+79001234567</a> </s>'
+
+        res = add_tel_link(input)
+
+        assert_string_equals_without_spaces(res, expected_output)
+
+    def test_link_different_phones(self):
+        input = """
+        Николай т.: +79001234567
+        Николай т.: +79001234568
+        """
+
+        expected_output = """
+        Николай т.:  <a href="tel:+79001234567">+79001234567</a>
+        Николай т.:  <a href="tel:+79001234568">+79001234568</a>
+        """
+
+        res = add_tel_link(input)
+
+        assert_string_equals_without_spaces(res, expected_output)
+
+    def test_link_equal_phones(self):
+        input = """
+        Николай т.: +79001234567
+        Николай т.: +79001234567
+        """
+
+        expected_output = """
+        Николай т.:  <a href="tel:+79001234567">+79001234567</a>
+        Николай т.:  <a href="tel:+79001234567">+79001234567</a>
+        """
+
+        res = add_tel_link(input)
+
+        assert_string_equals_without_spaces(res, expected_output)
+
+    def test_link_equal_phones_and_tag(self):
+        # search: https://lizaalert.org/forum/viewtopic.php?t=96147
+        input = """
+        <s>Николай т.: +79001234567<>/s
+        Николай т.: +79001234567
+        """
+
+        expected_output = """
+        <s>Николай т.:  <a href="tel:+79001234567">+79001234567</a></s>
+        Николай т.:  <a href="tel:+79001234567">+79001234567</a>
+        """
+
+        res = add_tel_link(input)
+
+        assert_string_equals_without_spaces(res, expected_output)
+
+
+def assert_string_equals_without_spaces(str1: str, str2: str):
+    assert str1.replace(' ', '').replace('\n', '') == str2.replace(' ', '').replace('\n', '')
