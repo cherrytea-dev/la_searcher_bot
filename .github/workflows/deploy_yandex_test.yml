@@ -15,8 +15,8 @@ jobs:
       # - name: Create zip archive
       #   run: zip -r test_func.zip src/test_func
 
-      - name: goto to folder
-        run: ls && cd ./src/test_func && ls
+      # - name: goto to folder
+      #   run: ls && cd ./src/test_func && ls
 
       # Деплой функции
       - name: Deploy to Yandex Cloud Function
@@ -29,8 +29,8 @@ jobs:
           function-name: 'la-searcher-bot'
           runtime: 'python312'
           memory: '128Mb'
-          entrypoint: 'src.test_func.main.handler'
-          include: src/test_func
+          entrypoint: 'main.handler'
+          source-root: src/test_func
 
       # Вывод информации о развертывании
       - name: Show deployment info
