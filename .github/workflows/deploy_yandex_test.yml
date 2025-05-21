@@ -18,8 +18,6 @@ jobs:
       - name: goto to folder
         run: cd src/test_func
 
-
-
       # Деплой функции
       - name: Deploy to Yandex Cloud Function
         id: sls-func
@@ -31,7 +29,7 @@ jobs:
           function-name: 'la-searcher-bot'
           runtime: 'python312'
           memory: '128Mb'
-          entrypoint: 'main.main'
+          entrypoint: 'src.test_func.main.handler'
 
       # Вывод информации о развертывании
       - name: Show deployment info
