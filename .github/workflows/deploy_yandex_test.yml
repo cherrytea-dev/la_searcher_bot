@@ -1,0 +1,29 @@
+name: Deploy to Yandex Cloud Functions test_func
+
+on:
+  push:
+    branches: [ deploy-yandex ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+
+      - uses: actions/checkout@v3
+
+      - name: Make dependencies
+        run: make dependencies
+
+      - name: Deploy to Yandex Cloud Function
+        id: sls-func
+        uses: yc-actions/yc-sls-function@v2
+        with:
+          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
+          bucket: ${{ secrets.YC_S3_BUCKET_NAME }}
+          folder-id: ${{ secrets.YC_FOLDER_ID }}
+          function-name: 'la-searcher-bot'
+          runtime: 'python312'
+          memory: '128Mb'
+          entrypoint: 'main.handler'
+          source-root: src/test_func
+
