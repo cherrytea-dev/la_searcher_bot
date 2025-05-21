@@ -1,16 +1,17 @@
 import ast
-import os
 import logging
+import os
 import re
 import urllib.request
 from enum import Enum, IntEnum
 from functools import lru_cache
 
-import google.cloud.logging
+# import google.cloud.logging
 import psycopg2
 import sqlalchemy
 from bs4 import BeautifulSoup
-from google.cloud import secretmanager
+
+# from google.cloud import secretmanager
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings
 
