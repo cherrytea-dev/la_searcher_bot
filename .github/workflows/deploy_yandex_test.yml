@@ -1,0 +1,19 @@
+name: Deploy to Yandex Cloud Functions test_func
+
+on:
+  push:
+    branches: [ deploy-yandex ]
+    paths:
+      - 'src/_dependencies/*'
+      - 'src/communicate/**' # UPD HERE!
+      - '.github/workflows/deploy_yandex_test.yml' # UPD HERE!
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy-yc-function.yml
+    secrets: inherit
+    with:
+      function-name: 'la-searcher-bot'
+      memory: '128Mb'
+      entrypoint: 'main.handler'
+      source-root: 'src/communicate'

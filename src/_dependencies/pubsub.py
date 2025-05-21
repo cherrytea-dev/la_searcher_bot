@@ -6,9 +6,9 @@ from enum import Enum
 from functools import lru_cache
 from typing import Any
 
-import google.auth.transport.requests
-import google.oauth2.id_token
-import requests
+# import google.auth.transport.requests
+# import google.oauth2.id_token
+# import requests
 from google.cloud import pubsub_v1
 from pydantic import BaseModel, Field
 from retry import retry
@@ -68,6 +68,8 @@ def _get_publisher() -> pubsub_v1.PublisherClient:
 
 
 def _send_topic(topic_name: Topics, topic_path: str, message_bytes: bytes) -> None:
+    # TODO needed boto3
+    # https://yandex.cloud/ru/docs/message-queue/instruments/python
     publish_future = _get_publisher().publish(topic_path, data=message_bytes)
     publish_future.result()  # Verify the publishing succeeded
 
@@ -82,6 +84,8 @@ class PubSubData(BaseModel):
 
 def publish_to_pubsub(topic_name: Topics, message: str | dict | list | BaseModel) -> None:
     """publish a new message to pub/sub"""
+    return
+    # TODO disable for a while or change to yandex libs
 
     topic_name_str = topic_name.value if isinstance(topic_name, Topics) else topic_name
     #  TODO find out where topic_name.value comes from as str
@@ -157,27 +161,31 @@ def notify_admin(message: str) -> None:
 
 def recognize_title_via_api(title: str, status_only: bool) -> dict:
     """makes an API call to another Google Cloud Function"""
-    data = {'title': title}
-    if status_only:
-        data['reco_type'] = 'status_only'
+    # TODO
+    return {}
+    # data = {'title': title}
+    # if status_only:
+    #     data['reco_type'] = 'status_only'
 
-    # function we're turing to "title_recognize"
-    return _make_api_call('title_recognize', data)
+    # # function we're turing to "title_recognize"
+    # return _make_api_call('title_recognize', data)
 
 
 @retry(Exception, tries=3, delay=3)
 def _make_api_call(function: str, data: dict) -> dict:
-    endpoint = f'https://europe-west3-lizaalert-bot-01.cloudfunctions.net/{function}'
+    # TODO update
+    return {}
+    # endpoint = f'https://europe-west3-lizaalert-bot-01.cloudfunctions.net/{function}'
 
-    # required magic for Google Cloud Functions Gen2 to invoke each other
-    audience = endpoint
-    auth_req = google.auth.transport.requests.Request()
-    id_token = google.oauth2.id_token.fetch_id_token(auth_req, audience)
-    headers = {'Authorization': f'Bearer {id_token}', 'Content-Type': 'application/json'}
+    # # required magic for Google Cloud Functions Gen2 to invoke each other
+    # audience = endpoint
+    # auth_req = google.auth.transport.requests.Request()
+    # id_token = google.oauth2.id_token.fetch_id_token(auth_req, audience)
+    # headers = {'Authorization': f'Bearer {id_token}', 'Content-Type': 'application/json'}
 
-    response = requests.post(endpoint, json=data, headers=headers, timeout=30)
-    response.raise_for_status()
-    return response.json()
+    # response = requests.post(endpoint, json=data, headers=headers, timeout=30)
+    # response.raise_for_status()
+    # return response.json()
 
 
 def process_pubsub_message(event: dict) -> str:

@@ -1,5 +1,6 @@
 """receives telegram messages from users, acts accordingly and sends back the reply"""
 
+import json
 import datetime
 import logging
 from functools import lru_cache
@@ -11,16 +12,16 @@ from telegram import Bot, CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardMark
 from _dependencies.commons import get_app_config, setup_google_logging
 from _dependencies.pubsub import ManageUserAction, notify_admin, pubsub_user_management, save_onboarding_step
 
-from ._utils.buttons import reply_markup_main
-from ._utils.common import (
+from _utils.buttons import reply_markup_main
+from _utils.common import (
     LA_BOT_CHAT_URL,
     InlineButtonCallbackData,
     UpdateBasicParams,
     UpdateExtraParams,
     UserInputState,
 )
-from ._utils.database import db
-from ._utils.handlers import (
+from _utils.database import db
+from _utils.handlers import (
     button_handlers,
     callback_handlers,
     notification_settings_handlers,
@@ -29,7 +30,7 @@ from ._utils.handlers import (
     state_handlers,
     view_searches_handlers,
 )
-from ._utils.message_sending import tg_api
+from _utils.message_sending import tg_api
 
 setup_google_logging()
 
@@ -273,7 +274,7 @@ def process_update(update: Update) -> str:
     logging.info(f'after get_basic_update_parameters:  {update_params.got_callback=}')
 
     if other_handlers.process_unneeded_messages(update, update_params):
-        return 'finished successfully. it was useless message for bot'
+        return
 
     user_id = update_params.user_id
     got_message = update_params.got_message
@@ -283,7 +284,7 @@ def process_update(update: Update) -> str:
     if update_params.user_new_status in {'kicked', 'member'}:
         logging.info(f'triggered handler: {_process_block_unblock_user.__name__}')
         _process_block_unblock_user(update_params.user_id, update_params.user_new_status)
-        return 'finished successfully. it was a system message on bot block/unblock'
+        return
 
     # Admin - specially keep it for Admin, regular users unlikely will be interested in it
 
@@ -328,7 +329,7 @@ def process_update(update: Update) -> str:
         )
         logging.info(text_for_admin)
         notify_admin(text_for_admin)
-        return 'Got empty message. Finished successfully.'
+        return
 
     try:
         _run_handlers(update_params, extra_params)
@@ -336,8 +337,6 @@ def process_update(update: Update) -> str:
     except Exception:
         logging.exception('GENERAL COMM CRASH:')
         notify_admin('[comm] general script fail')
-
-    return 'finished successfully. in was a regular conversational message'
 
 
 def _process_handler_result(
@@ -403,15 +402,23 @@ def _get_bot() -> Bot:
     return Bot(token=get_app_config().bot_api_token__prod)
 
 
-def main(request: Request) -> str:
+def handler(event: dict, foo=None) -> str:
     """Main function to orchestrate the whole script"""
 
-    if request.method != 'POST':
-        logging.error(f'non-post request identified {request}')
-        return 'it was not post request'
+    # if request.method != 'POST':
+    #     logging.error(f'non-post request identified {request}')
+    #     return 'it was not post request'
 
     bot = _get_bot()
-    update = Update.de_json(request.get_json(force=True), bot)
-
-    with db().connect():
-        return process_update(update)  # type: ignore[arg-type]
+    body = event['body']
+    try:
+        update = Update.de_json(json.loads(body), bot)
+        with db().connect():
+            process_update(update)  # type: ignore[arg-type]
+    except Exception:
+        logging.exception('Exception while handling Telegram update')
+    finally:
+        return {
+            'statusCode': 200,
+            'body': 'ok',
+        }

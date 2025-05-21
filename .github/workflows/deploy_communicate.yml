@@ -1,3 +1,6 @@
+# TODO change here
+# https://yandex.cloud/ru/docs/functions/operations/function/version-manage
+# https://github.com/yc-actions/yc-sls-function
 name: Deploy-GCF-Communicate
 env:
   FILE_NAME: communicate # UPD HERE!
