@@ -17,13 +17,14 @@ from pydantic_settings import BaseSettings
 PHONE_RE = re.compile(r'(?:\+7|7|8)\s?[\s\-(]?\s?\d{3}[\s\-)]?\s?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}')
 
 
-@lru_cache
-def get_secret_manager_client() -> secretmanager.SecretManagerServiceClient:
-    return secretmanager.SecretManagerServiceClient()
+# @lru_cache
+# def get_secret_manager_client() -> secretmanager.SecretManagerServiceClient:
+#     return secretmanager.SecretManagerServiceClient()
 
 
 @lru_cache
 def get_project_id() -> str:
+    # TODO remove/replace
     url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
     req = urllib.request.Request(url)
     req.add_header('Metadata-Flavor', 'Google')
@@ -31,15 +32,15 @@ def get_project_id() -> str:
     return project_id
 
 
-@lru_cache
-def _get_secrets(secret_request: str) -> str:
-    """Get GCP secret"""
+# @lru_cache
+# def _get_secrets(secret_request: str) -> str:
+#     """Get GCP secret"""
 
-    # TODO change here
-    name = f'projects/{get_project_id()}/secrets/{secret_request}/versions/latest'
-    response = get_secret_manager_client().access_secret_version(name=name)
+#     # TODO change here
+#     name = f'projects/{get_project_id()}/secrets/{secret_request}/versions/latest'
+#     response = get_secret_manager_client().access_secret_version(name=name)
 
-    return response.payload.data.decode('UTF-8')
+#     return response.payload.data.decode('UTF-8')
 
 
 def setup_google_logging() -> None:
@@ -94,22 +95,22 @@ def get_forum_proxies() -> dict:
 def _get_config() -> AppConfig:
     """for patching in tests"""
     return AppConfig(
-        postgres_user=_get_secrets('cloud-postgres-username'),
-        postgres_password=_get_secrets('cloud-postgres-password'),
-        postgres_db=_get_secrets('cloud-postgres-db-name'),
-        postgres_host='/cloudsql/' + _get_secrets('cloud-postgres-connection-name'),
-        postgres_port=5432,
-        api_clients=_get_secrets('api_clients'),
-        bot_api_token__prod=_get_secrets('bot_api_token__prod'),
-        bot_api_token=_get_secrets('bot_api_token'),
-        my_telegram_id=int(_get_secrets('my_telegram_id')),
-        web_app_url=_get_secrets('web_app_url'),
-        web_app_url_test=_get_secrets('web_app_url_test'),
-        yandex_api_key=_get_secrets('yandex_api_key'),
-        osm_identifier=_get_secrets('osm_identifier'),
-        forum_bot_login=_get_secrets('forum_bot_login'),
-        forum_bot_password=_get_secrets('forum_bot_password'),
-        forum_proxy=_get_secrets('forum_proxy'),
+        # postgres_user=_get_secrets('cloud-postgres-username'),
+        # postgres_password=_get_secrets('cloud-postgres-password'),
+        # postgres_db=_get_secrets('cloud-postgres-db-name'),
+        # postgres_host='/cloudsql/' + _get_secrets('cloud-postgres-connection-name'),
+        # postgres_port=5432,
+        # api_clients=_get_secrets('api_clients'),
+        # bot_api_token__prod=_get_secrets('bot_api_token__prod'),
+        # bot_api_token=_get_secrets('bot_api_token'),
+        # my_telegram_id=int(_get_secrets('my_telegram_id')),
+        # web_app_url=_get_secrets('web_app_url'),
+        # web_app_url_test=_get_secrets('web_app_url_test'),
+        # yandex_api_key=_get_secrets('yandex_api_key'),
+        # osm_identifier=_get_secrets('osm_identifier'),
+        # forum_bot_login=_get_secrets('forum_bot_login'),
+        # forum_bot_password=_get_secrets('forum_bot_password'),
+        # forum_proxy=_get_secrets('forum_proxy'),
     )
 
 

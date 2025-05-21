@@ -68,6 +68,8 @@ def _get_publisher() -> pubsub_v1.PublisherClient:
 
 
 def _send_topic(topic_name: Topics, topic_path: str, message_bytes: bytes) -> None:
+    # TODO needed boto3
+    # https://yandex.cloud/ru/docs/message-queue/instruments/python
     publish_future = _get_publisher().publish(topic_path, data=message_bytes)
     publish_future.result()  # Verify the publishing succeeded
 
