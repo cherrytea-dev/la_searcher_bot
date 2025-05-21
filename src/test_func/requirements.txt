@@ -27,7 +27,8 @@ h11==0.16.0
 httpcore==1.0.9
 httpx==0.27.2
 idna==3.7
-lxml==5.4.0
+# lxml==5.4.0
+./lxml-4.9.4-cp312-cp312-manylinux_2_28_x86_64.whl
 nest-asyncio==1.6.0
 proto-plus==1.25.0
 protobuf==4.25.5
