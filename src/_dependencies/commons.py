@@ -1,5 +1,6 @@
 import ast
 import os
+import logging
 import re
 import urllib.request
 from enum import Enum, IntEnum
@@ -30,10 +31,11 @@ def get_project_id() -> str:
     return project_id
 
 
-@lru_cache  # TODO maybe cachetools/timed_lru_cache?
-def get_secrets(secret_request: str) -> str:
+@lru_cache
+def _get_secrets(secret_request: str) -> str:
     """Get GCP secret"""
 
+    # TODO change here
     name = f'projects/{get_project_id()}/secrets/{secret_request}/versions/latest'
     response = get_secret_manager_client().access_secret_version(name=name)
 
@@ -41,13 +43,16 @@ def get_secrets(secret_request: str) -> str:
 
 
 def setup_google_logging() -> None:
-    logging_disabled = os.getenv('GOOGLE_LOGGING_DISABLED', False)
-    if logging_disabled:
-        # TODO pydantic-settings or improve parsing here.
-        return
+    logging.getLogger().setLevel(logging.INFO)
+    # TODO verify that root handler is StreamHandler
 
-    log_client = google.cloud.logging.Client()
-    log_client.setup_logging()
+    # logging_disabled = os.getenv('GOOGLE_LOGGING_DISABLED', False)
+    # if logging_disabled:
+    #     # TODO pydantic-settings or improve parsing here.
+    #     return
+
+    # log_client = google.cloud.logging.Client()
+    # log_client.setup_logging()
 
 
 class AppConfig(BaseSettings):
@@ -89,22 +94,22 @@ def get_forum_proxies() -> dict:
 def _get_config() -> AppConfig:
     """for patching in tests"""
     return AppConfig(
-        postgres_user=get_secrets('cloud-postgres-username'),
-        postgres_password=get_secrets('cloud-postgres-password'),
-        postgres_db=get_secrets('cloud-postgres-db-name'),
-        postgres_host='/cloudsql/' + get_secrets('cloud-postgres-connection-name'),
+        postgres_user=_get_secrets('cloud-postgres-username'),
+        postgres_password=_get_secrets('cloud-postgres-password'),
+        postgres_db=_get_secrets('cloud-postgres-db-name'),
+        postgres_host='/cloudsql/' + _get_secrets('cloud-postgres-connection-name'),
         postgres_port=5432,
-        api_clients=get_secrets('api_clients'),
-        bot_api_token__prod=get_secrets('bot_api_token__prod'),
-        bot_api_token=get_secrets('bot_api_token'),
-        my_telegram_id=int(get_secrets('my_telegram_id')),
-        web_app_url=get_secrets('web_app_url'),
-        web_app_url_test=get_secrets('web_app_url_test'),
-        yandex_api_key=get_secrets('yandex_api_key'),
-        osm_identifier=get_secrets('osm_identifier'),
-        forum_bot_login=get_secrets('forum_bot_login'),
-        forum_bot_password=get_secrets('forum_bot_password'),
-        forum_proxy=get_secrets('forum_proxy'),
+        api_clients=_get_secrets('api_clients'),
+        bot_api_token__prod=_get_secrets('bot_api_token__prod'),
+        bot_api_token=_get_secrets('bot_api_token'),
+        my_telegram_id=int(_get_secrets('my_telegram_id')),
+        web_app_url=_get_secrets('web_app_url'),
+        web_app_url_test=_get_secrets('web_app_url_test'),
+        yandex_api_key=_get_secrets('yandex_api_key'),
+        osm_identifier=_get_secrets('osm_identifier'),
+        forum_bot_login=_get_secrets('forum_bot_login'),
+        forum_bot_password=_get_secrets('forum_bot_password'),
+        forum_proxy=_get_secrets('forum_proxy'),
     )
 
 

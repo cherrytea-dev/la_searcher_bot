@@ -82,6 +82,7 @@ class PubSubData(BaseModel):
 
 def publish_to_pubsub(topic_name: Topics, message: str | dict | list | BaseModel) -> None:
     """publish a new message to pub/sub"""
+    # TODO disable for a while or change to yandex libs
 
     topic_name_str = topic_name.value if isinstance(topic_name, Topics) else topic_name
     #  TODO find out where topic_name.value comes from as str
