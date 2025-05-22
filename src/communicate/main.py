@@ -9,7 +9,8 @@ from flask import Request
 from telegram import Bot, CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 
 from _dependencies.commons import get_app_config, setup_google_logging
-from _dependencies.pubsub import ManageUserAction, notify_admin, pubsub_user_management, save_onboarding_step
+from _dependencies.pubsub import notify_admin
+from _dependencies.users_management import ManageUserAction, register_new_user, save_onboarding_step, update_user_status
 
 from ._utils.buttons import reply_markup_main
 from ._utils.common import (
@@ -167,19 +168,13 @@ def _get_basic_update_parameters(update: Update) -> UpdateBasicParams:
     )
 
 
-def _save_new_user(user_id: int, username: str) -> None:
-    """send pubsub message to dedicated script to save new user"""
-
-    pubsub_user_management(user_id, ManageUserAction.new, username=username, time=datetime.datetime.now())
-
-
 def _process_block_unblock_user(user_id: int, user_new_status: str) -> None:
     """processing of system message on user action to block/unblock the bot"""
 
     status_dict = {'kicked': ManageUserAction.block_user, 'member': ManageUserAction.unblock_user}
 
     # mark user as blocked / unblocked in psql
-    pubsub_user_management(user_id, status_dict[user_new_status])
+    update_user_status(status_dict[user_new_status], user_id)
 
     if user_new_status != 'member':
         return
@@ -212,7 +207,7 @@ def _run_onboarding(user_id: int, username: str, onboarding_step_id: int, got_me
     if onboarding_step_id == 21:  # region_set
         # mark that onboarding is finished
         if got_message:
-            save_onboarding_step(user_id, username, 'finished')
+            save_onboarding_step(user_id, 'finished')
             onboarding_step_id = 80
 
     return onboarding_step_id
@@ -304,7 +299,7 @@ def process_update(update: Update) -> str:
     user_is_new = db().check_if_new_user(user_id)
     logging.info(f'After check_if_new_user: {user_is_new=}')
     if user_is_new:
-        _save_new_user(user_id, username)
+        register_new_user(user_id, username, datetime.datetime.now())
 
     onboarding_step_id, onboarding_step_name = db().get_onboarding_step(user_id, user_is_new)
 

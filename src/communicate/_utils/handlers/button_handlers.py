@@ -11,7 +11,8 @@ from telegram import (
 )
 
 from _dependencies.commons import add_tel_link, get_app_config
-from _dependencies.pubsub import notify_admin, save_onboarding_step
+from _dependencies.pubsub import notify_admin
+from _dependencies.users_management import save_onboarding_step
 
 from ..buttons import (
     Commands,
@@ -547,11 +548,10 @@ def handle_radius_menu(
 def handle_user_role(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
     got_message = update_params.got_message
     user_id = update_params.user_id
-    username = update_params.username
 
     if got_message in RoleChoice.list():
         db().save_user_pref_role(user_id, got_message)
-        save_onboarding_step(user_id, username, 'role_set')
+        save_onboarding_step(user_id, 'role_set')
 
     if got_message == RoleChoice.b_role_looking_for_person:
         # get user role = relatives looking for a person
