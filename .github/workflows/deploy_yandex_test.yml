@@ -7,6 +7,7 @@ on:
 jobs:
   deploy:
     uses: ./.github/workflows/deploy-yc-function.yml
+    secrets: inherit
     with:
       # yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
       # bucket: ${{ secrets.YC_S3_BUCKET_NAME }}

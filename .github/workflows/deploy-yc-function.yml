@@ -27,7 +27,7 @@ on:
       source-root:
         required: true
         type: string
-    secrets: inherit
+    
 
 jobs:
   deploy:
