@@ -44,3 +44,4 @@ jobs:
             POSTGRES_DB=${{ secrets.YC_POSTGRES_DB }}
             POSTGRES_USER=${{ secrets.YC_POSTGRES_USER }}
             POSTGRES_PASSWORD=${{ secrets.YC_POSTGRES_PASSWORD }}
+            BOT_API_TOKEN__PROD=${{ secrets.YC_BOT_API_TOKEN__PROD }}
