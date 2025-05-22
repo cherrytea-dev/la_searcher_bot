@@ -8,9 +8,9 @@ jobs:
   deploy:
     uses: ./.github/workflows/deploy-yc-function.yml
     with:
-      yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
-      bucket: ${{ secrets.YC_S3_BUCKET_NAME }}
-      folder-id: ${{ secrets.YC_FOLDER_ID }}
+      # yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
+      # bucket: ${{ secrets.YC_S3_BUCKET_NAME }}
+      # folder-id: ${{ secrets.YC_FOLDER_ID }}
       function-name: 'la-searcher-bot'
       runtime: 'python312'
       memory: '128Mb'

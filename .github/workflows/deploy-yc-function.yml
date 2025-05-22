@@ -3,15 +3,15 @@ name: Reusable Yandex Cloud Function Deployment
 on:
   workflow_call:
     inputs:
-      yc-sa-json-credentials:
-        required: true
-        type: string
-      bucket:
-        required: true
-        type: string
-      folder-id:
-        required: true
-        type: string
+      # yc-sa-json-credentials:
+      #   required: true
+      #   type: string
+      # bucket:
+      #   required: true
+      #   type: string
+      # folder-id:
+      #   required: true
+      #   type: string
       function-name:
         required: true
         type: string
@@ -41,9 +41,9 @@ jobs:
       - name: Deploy to Yandex Cloud Function
         uses: yc-actions/yc-sls-function@v2
         with:
-          yc-sa-json-credentials: ${{ inputs.yc-sa-json-credentials }}
-          bucket: ${{ inputs.bucket }}
-          folder-id: ${{ inputs.folder-id }}
+          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
+          bucket: ${{ secrets.YC_S3_BUCKET_NAME }}
+          folder-id: ${{ secrets.YC_FOLDER_ID }}
           function-name: ${{ inputs.function-name }}
           runtime: ${{ inputs.runtime }}
           memory: ${{ inputs.memory }}
