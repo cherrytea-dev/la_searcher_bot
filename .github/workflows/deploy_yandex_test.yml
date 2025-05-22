@@ -27,3 +27,9 @@ jobs:
           entrypoint: 'main.handler'
           source-root: src/test_func
 
+          environment: |
+            POSTGRES_HOST=${{ secrets.YC_POSTGRES_HOST }}
+            POSTGRES_PORT=${{ secrets.YC_POSTGRES_PORT }}
+            POSTGRES_DB=${{ secrets.YC_POSTGRES_DB }}
+            POSTGRES_USER=${{ secrets.YC_POSTGRES_USER }}
+            POSTGRES_PASSWORD=${{ secrets.YC_POSTGRES_PASSWORD }}
