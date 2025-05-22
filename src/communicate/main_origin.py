@@ -403,7 +403,7 @@ def _get_bot() -> Bot:
     return Bot(token=get_app_config().bot_api_token__prod)
 
 
-def main(request: Request) -> str:
+def handler(request: Request) -> str:
     """Main function to orchestrate the whole script"""
 
     if request.method != 'POST':
