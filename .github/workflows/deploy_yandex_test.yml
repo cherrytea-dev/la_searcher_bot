@@ -15,8 +15,7 @@ jobs:
         run: make dependencies
 
       - name: Deploy to Yandex Cloud Function
-        id: sls-func
-        uses: yc-actions/yc-sls-function@v2
+        uses: ./.github/actions/deploy-yc-function
         with:
           yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
           bucket: ${{ secrets.YC_S3_BUCKET_NAME }}
@@ -25,11 +24,4 @@ jobs:
           runtime: 'python312'
           memory: '128Mb'
           entrypoint: 'main.handler'
-          source-root: src/test_func
-
-          environment: |
-            POSTGRES_HOST=${{ secrets.YC_POSTGRES_HOST }}
-            POSTGRES_PORT=${{ secrets.YC_POSTGRES_PORT }}
-            POSTGRES_DB=${{ secrets.YC_POSTGRES_DB }}
-            POSTGRES_USER=${{ secrets.YC_POSTGRES_USER }}
-            POSTGRES_PASSWORD=${{ secrets.YC_POSTGRES_PASSWORD }}
+          source-root: 'src/test_func'
