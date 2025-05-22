@@ -14,6 +14,14 @@ jobs:
       - name: Make dependencies
         run: make dependencies
 
+
+      - name: Fetch secret
+        id: lockbox-secret
+        uses: yc-actions/yc-lockbox@v1
+        with:
+          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
+          # secret-id: e6q************
+          
       - name: Deploy to Yandex Cloud Function
         id: sls-func
         uses: yc-actions/yc-sls-function@v2

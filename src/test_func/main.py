@@ -27,10 +27,10 @@ def recreate_db(config: AppConfig) -> None:
 
 def handler(event, context):
     config = get_app_config()
-    recreate_db(config=config)
+    # recreate_db(config=config)
 
     return {
         'statusCode': 200,
         # 'body': 'func deployed',
-        'body': 'database recreated',
+        'body': 'hello',
     }
