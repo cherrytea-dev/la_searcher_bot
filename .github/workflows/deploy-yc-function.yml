@@ -1,0 +1,47 @@
+name: Reusable Yandex Cloud Function Deployment
+
+on:
+  workflow_call:
+    inputs:
+      function-name:
+        required: true
+        type: string
+      memory:
+        required: true
+        type: string
+      entrypoint:
+        required: true
+        type: string
+      source-root:
+        required: true
+        type: string
+    
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Make dependencies
+        run: make dependencies
+
+      - name: Deploy to Yandex Cloud Function
+        uses: yc-actions/yc-sls-function@v2
+        with:
+          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
+          bucket: ${{ secrets.YC_S3_BUCKET_NAME }}
+          folder-id: ${{ secrets.YC_FOLDER_ID }}
+          runtime: 'python312'
+
+          function-name: ${{ inputs.function-name }}
+          memory: ${{ inputs.memory }}
+          entrypoint: ${{ inputs.entrypoint }}
+          source-root: ${{ inputs.source-root }}
+          environment: |
+            POSTGRES_HOST=${{ secrets.YC_POSTGRES_HOST }}
+            POSTGRES_PORT=${{ secrets.YC_POSTGRES_PORT }}
+            POSTGRES_DB=${{ secrets.YC_POSTGRES_DB }}
+            POSTGRES_USER=${{ secrets.YC_POSTGRES_USER }}
+            POSTGRES_PASSWORD=${{ secrets.YC_POSTGRES_PASSWORD }}
+            BOT_API_TOKEN__PROD=${{ secrets.YC_BOT_API_TOKEN__PROD }}

@@ -5,6 +5,7 @@ description = "Liza Alert searcher bot"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    # TODO change/remove logging and other
     "google-cloud-pubsub==2.16.0",
     "google-cloud-secret-manager==2.16.0",
     "google-cloud-logging==3.5.0",
@@ -17,13 +18,12 @@ dependencies = [
     "requests==2.32.3",
     "httpx==0.27.*",
     "beautifulsoup4==4.9.3",                              # BS4
-    "lxml==4.9.1",                                        # for BS4
+    "lxml==5.4.0",                                        # for BS4
+    "flask>=2.3.3",
 ]
+[dependency-groups]
 
-
-[project.optional-dependencies]
-
-develop = [
+dev = [
     "pytest>=7.0",
     "polyfactory>=2.18",
     "requests-mock>=1.12.1",
@@ -54,6 +54,9 @@ develop = [
     "tqdm",
 
 ]
+
+[project.optional-dependencies]
+
 
 api_get_active_searches = ["functions-framework==3.8.2"]
 
