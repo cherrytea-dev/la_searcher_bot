@@ -15,5 +15,5 @@ jobs:
     with:
       function-name: 'la-searcher-bot'
       memory: '128Mb'
-      entrypoint: 'main.handler'
+      entrypoint: 'main.main'
       source-root: 'src/communicate'

@@ -15,3 +15,14 @@ def handler(event, context):
         # 'body': 'func deployed',
         'body': 'hello 123',
     }
+
+
+def main(event, context):
+    config = get_app_config()
+    # recreate_db(config=config)
+
+    return {
+        'statusCode': 200,
+        # 'body': 'func deployed',
+        'body': 'hello from main',
+    }
