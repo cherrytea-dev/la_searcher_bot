@@ -15,7 +15,7 @@ jobs:
         run: make dependencies
 
       - name: Deploy to Yandex Cloud Function
-        uses: ./.github/workflows/deploy-yc-function.yml@main
+        uses: ./.github/workflows/deploy-yc-function.yml
         with:
           yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
           bucket: ${{ secrets.YC_S3_BUCKET_NAME }}
