@@ -1,44 +1,20 @@
 name: Deploy-GCF-Identify-Updates-Of-Topics
-env:
-  FILE_NAME: identify_updates_of_topics # UPD HERE!
 
 on:
   push:
-    branches : [main]
+    branches : [reusable-workflow]
     paths:
+      - 'src/identify_updates_of_topics/**'
+      - '.github/workflows/deploy_identify_updates_of_topics.yml'
       - 'src/_dependencies/*'
-      - 'src/identify_updates_of_topics/**' # UPD HERE!
-      - '.github/workflows/deploy_identify_updates_of_topics.yml' # UPD HERE!
+      - '.github/workflows/_reusable_wf_v1_trigger.yml'
 
 jobs:
-  deploy_function:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Make dependencies
-        run: make dependencies
-
-      - name: Authenticate in GCP
-        id: auth
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.gcp_credentials }}
-
-      - name: Deploy the CF
-        id: deploy
-        uses: google-github-actions/deploy-cloud-functions@v1
-        with:
-            source_dir: src/${{ env.FILE_NAME }}
-            name: ${{ env.FILE_NAME }}
-            runtime: python310
-            entry_point: main
-            region: europe-west3
-            docker_registry: artifact-registry
-            timeout: 540
-            max_instances: 1
-            memory_mb: 512 # 2048
-            event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
-            event_trigger_resource: projects/lizaalert-bot-01/topics/topic_to_run_parsing_script
-            labels: gcf=${{ env.FILE_NAME }}
+  deploy:
+    uses: ./.github/workflows/_reusable_wf_v1_trigger.yml
+    secrets: inherit
+    with:
+      function_name: identify_updates_of_topics
+      event_trigger_resource: projects/lizaalert-bot-01/topics/topic_to_run_parsing_script
+      timeout: '540'
+      memory: '512'

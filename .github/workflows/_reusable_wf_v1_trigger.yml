@@ -48,6 +48,7 @@ jobs:
         uses: google-github-actions/deploy-cloud-functions@v1
         with:
             source_dir: src/${{ inputs.function_name }} # name of directory
+            labels: gcf=${{ inputs.function_name }}
             name: ${{ inputs.function_name }} # name of deploying function
             runtime: python310
             entry_point: main # UPD HERE! main function
