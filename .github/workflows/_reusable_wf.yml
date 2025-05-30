@@ -7,13 +7,19 @@ on:
         required: true
         type: string
       memory:
-        required: true
+        required: false
         type: string
       event_trigger_type:
         required: true
         type: string
       event_trigger_resource:
         required: true
+        type: string
+      max_instances:
+        required: false
+        type: string
+      timeout:
+        required: false
         type: string
     
 
@@ -42,6 +48,9 @@ jobs:
             entry_point: main # UPD HERE! main function
             region: europe-west3
             docker_registry: artifact-registry
+            timeout: ${{ inputs.timeout }}
+            memory_mb: ${{ inputs.memory }}
+            max_instances: ${{ inputs.max_instances }}
             # timeout: 540 # UPD HERE!
             # max_instances: 1 # UPD HERE!
             # memory_mb: 8192 # UPD HERE!
