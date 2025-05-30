@@ -23,8 +23,9 @@ mypy:
 
 requirements:
 	for d in $$(ls -1 src | grep -E ${SRC_FUNCTIONS_REGEX}); do \
-		uv export --extra $$d --no-hashes > src/$$d/requirements.txt; \
+		uv export --extra $$d --no-hashes --no-dev > src/$$d/requirements.txt; \
 	done
+	# uv export --all-extras --no-hashes --no-dev > src/requirements.txt
 
 ci-test:
 	docker compose run --build --rm bot make initdb
