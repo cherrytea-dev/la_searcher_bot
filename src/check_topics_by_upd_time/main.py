@@ -131,7 +131,7 @@ class KeyValueStorage:
         return times_dict if times_dict else {}
 
     def write_foder_root_modified_times_dict(self, data: dict) -> None:
-        return self._write_snapshot(data, str(self.ROOT_MODIFIED_TIMES_KEY))
+        return self._write_snapshot(data, self.ROOT_MODIFIED_TIMES_KEY)
 
     def _read_snapshot(self, snapshot_name: str) -> Any:
         return self.db.get_key_value_item(snapshot_name)

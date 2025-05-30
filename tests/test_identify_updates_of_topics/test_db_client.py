@@ -206,6 +206,12 @@ class TestDBClient:
 
         assert db_client.get_key_value_item(key) == value
 
+    def test_set_key_value_item_twice(self, db_client: DBClient):
+        key = fake.pystr()
+
+        db_client.set_key_value_item(key, 1)
+        db_client.set_key_value_item(key, 1)
+
     def test_delete_key_value_item(self, db_client: DBClient):
         key = fake.pystr()
 
