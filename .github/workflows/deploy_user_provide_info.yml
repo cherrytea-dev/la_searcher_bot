@@ -4,9 +4,9 @@ on:
   push:
     branches : [ reusable-workflow ]
     paths:
-      - 'src/_dependencies/*'
-      - 'src/user_provide_info/*' # UPD HERE!
+      - 'src/user_provide_info/**' # UPD HERE!
       - '.github/workflows/deploy_user_provide_info.yml' # UPD HERE!
+      - 'src/_dependencies/*'
       - '.github/workflows/_reusable_wf_v2_http.yml'
 
 jobs:

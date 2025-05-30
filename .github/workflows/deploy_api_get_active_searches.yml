@@ -4,9 +4,9 @@ on:
   push:
     branches : [ reusable-workflow ]
     paths:
-      - 'src/_dependencies/*'
-      - 'src/api_get_active_searches/*' # UPD HERE!
+      - 'src/api_get_active_searches/**' # UPD HERE!
       - '.github/workflows/deploy_api_get_active_searches.yml' # UPD HERE!
+      - 'src/_dependencies/*'
       - '.github/workflows/_reusable_wf_v2_http.yml'
 
 jobs:
