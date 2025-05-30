@@ -5,7 +5,7 @@ on:
     branches : [ reusable-workflow ]
     paths:
       - 'src/check_first_posts_for_changes/**' # UPD HERE!
-      - '.github/workflows/check_first_posts_for_changes.yml' # UPD HERE!
+      - '.github/workflows/deploy_check_first_posts_for_changes.yml' # UPD HERE!
       - 'src/_dependencies/*'
       - '.github/workflows/_reusable_wf_v1_trigger.yml'
 
@@ -15,7 +15,5 @@ jobs:
     secrets: inherit
     with:
       function_name: check_first_posts_for_changes
-      # memory: '128'
       timeout: '540'
-      event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
       event_trigger_resource: projects/lizaalert-bot-01/topics/topic_for_update_every_N_minutes # UPD HERE! topic

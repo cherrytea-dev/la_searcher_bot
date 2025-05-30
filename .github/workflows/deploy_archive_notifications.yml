@@ -1,43 +1,19 @@
 name: Deploy-GCF-Archive-Notifications
-env:
-  FILE_NAME: archive_notifications # UPD HERE!
 
 on:
   push:
-    branches : [main]
+    branches : [ reusable-workflow ]
     paths:
-      - 'src/_dependencies/*'
       - 'src/archive_notifications/**' # UPD HERE!
       - '.github/workflows/deploy_archive_notifications.yml' # UPD HERE!
+      - 'src/_dependencies/*'
+      - '.github/workflows/_reusable_wf_v1_trigger.yml'
 
 jobs:
-  deploy_function:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Make dependencies
-        run: make dependencies
-
-      - name: Authenticate in GCP
-        id: auth
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.gcp_credentials }}
-
-      - name: Deploy the CF
-        id: deploy
-        uses: google-github-actions/deploy-cloud-functions@v1
-        with:
-            source_dir: src/${{ env.FILE_NAME }} # name of directory
-            name: ${{ env.FILE_NAME }} # name of deploying function
-            runtime: python310
-            entry_point: main # UPD HERE! main function
-            region: europe-west3
-            docker_registry: artifact-registry
-            timeout: 540 # UPD HERE!
-            max_instances: 1 # UPD HERE!
-            # memory_mb: 8192 # UPD HERE!
-            event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
-            event_trigger_resource: projects/lizaalert-bot-01/topics/topic_to_archive_notifs # UPD HERE! topic
+  deploy:
+    uses: ./.github/workflows/_reusable_wf_v1_trigger.yml
+    secrets: inherit
+    with:
+      function_name: archive_notifications
+      timeout: '540'
+      event_trigger_resource: projects/lizaalert-bot-01/topics/topic_to_archive_notifs # UPD HERE! topic
