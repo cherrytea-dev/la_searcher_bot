@@ -455,6 +455,16 @@ CREATE SEQUENCE users_id_seq
 
 -- Drop table
 
+-- DROP TABLE public.key_value_storage;
+
+CREATE TABLE public.key_value_storage (
+	"key" varchar(100) NOT NULL,
+	value jsonb NULL,
+	CONSTRAINT uniq UNIQUE (key)
+);
+
+-- Drop table
+
 -- DROP TABLE "_old_search_event_stages";
 
 CREATE TABLE "_old_search_event_stages" (
