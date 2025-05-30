@@ -1,7 +1,5 @@
 import asyncio
 import base64
-import logging
-import sys
 from unittest.mock import patch
 
 from telegram import Bot
@@ -10,7 +8,7 @@ from telegram.ext import Updater
 from _dependencies.pubsub import Topics
 from communicate._utils.database import db
 from communicate.main import process_update
-from tests.common import get_dotenv_config, topic_to_receiver_function
+from tests.common import get_dotenv_config, setup_logging, topic_to_receiver_function
 
 
 async def main_bot() -> None:
@@ -27,13 +25,7 @@ async def main_bot() -> None:
 
 
 if __name__ == '__main__':
-    logging.basicConfig(
-        encoding='utf-8',
-        stream=sys.stdout,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        level=logging.INFO,
-        force=True,
-    )
+    setup_logging()
 
     def patched_send_topic(topic_name: Topics, topic_path, data: dict) -> None:
         receiver = topic_to_receiver_function(topic_name)

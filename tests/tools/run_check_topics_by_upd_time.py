@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from _dependencies import pubsub
 from check_topics_by_upd_time import main
-from tests.common import get_dotenv_config
+from tests.common import get_dotenv_config, setup_logging
 
 
 def fake_publish_to_pubsub(topic, message):
@@ -10,6 +10,7 @@ def fake_publish_to_pubsub(topic, message):
 
 
 if __name__ == '__main__':
+    setup_logging()
     with (
         patch('_dependencies.commons._get_config', get_dotenv_config),
         patch.object(pubsub, 'publish_to_pubsub', fake_publish_to_pubsub),

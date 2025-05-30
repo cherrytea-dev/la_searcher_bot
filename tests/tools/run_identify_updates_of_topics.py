@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 from _dependencies import pubsub
 from identify_updates_of_topics import main
 from identify_updates_of_topics._utils import folder_updater
-from tests.common import get_dotenv_config, get_event_with_data
+from tests.common import get_dotenv_config, get_event_with_data, setup_logging
 from title_recognize.main import recognize_title
 
 
@@ -17,6 +17,7 @@ def fake_recognize_title_via_api(title: str, status_only: bool):
 
 
 if __name__ == '__main__':
+    setup_logging()
     with (
         patch('_dependencies.commons._get_config', get_dotenv_config),
         patch.object(pubsub, 'publish_to_pubsub', fake_publish_to_pubsub),

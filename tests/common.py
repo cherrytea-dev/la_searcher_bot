@@ -1,6 +1,8 @@
 import base64
 import inspect
 import json
+import logging
+import sys
 from dataclasses import is_dataclass
 from datetime import date, datetime
 from functools import lru_cache
@@ -164,3 +166,13 @@ Faker.seed()
 def get_dotenv_config() -> AppConfig:
     assert load_dotenv('.env', override=True)
     return AppConfig()
+
+
+def setup_logging() -> None:
+    logging.basicConfig(
+        encoding='utf-8',
+        stream=sys.stdout,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=logging.INFO,
+        force=True,
+    )
