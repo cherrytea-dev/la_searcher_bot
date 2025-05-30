@@ -19,7 +19,7 @@ on:
       memory:
         required: false
         type: string
-        default: 128
+        default: 256
 
       max_instances:
         required: false
