@@ -13,16 +13,16 @@ from _dependencies.commons import get_app_config, setup_google_logging
 from _dependencies.pubsub import notify_admin
 from _dependencies.users_management import ManageUserAction, register_new_user, save_onboarding_step, update_user_status
 
-from _utils.buttons import reply_markup_main
-from _utils.common import (
+from ._utils.buttons import reply_markup_main
+from ._utils.common import (
     LA_BOT_CHAT_URL,
     InlineButtonCallbackData,
     UpdateBasicParams,
     UpdateExtraParams,
     UserInputState,
 )
-from _utils.database import db
-from _utils.handlers import (
+from ._utils.database import db
+from ._utils.handlers import (
     button_handlers,
     callback_handlers,
     notification_settings_handlers,
@@ -31,7 +31,7 @@ from _utils.handlers import (
     state_handlers,
     view_searches_handlers,
 )
-from _utils.message_sending import tg_api
+from ._utils.message_sending import tg_api
 
 setup_google_logging()
 
