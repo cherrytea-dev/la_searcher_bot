@@ -3,9 +3,11 @@ import json
 import logging
 import math
 import random
+from dataclasses import dataclass, field
 from functools import lru_cache
 
 import sqlalchemy
+from flask import Request
 
 from _dependencies.commons import get_app_config
 from _dependencies.telegram_api_wrapper import TGApiBase
@@ -156,3 +158,42 @@ def save_function_into_register(
     )
 
     logging.info(f'function {function_id} was saved in functions_registry')
+
+
+@dataclass
+class RequestWrapper:
+    method: str
+    json_: dict | list | None = None
+    headers: dict[str, str] | None = field(default_factory=dict)
+    content: bytes | None = None
+
+
+def convert_request(request_data: dict) -> RequestWrapper:
+    """Convert Yandex Cloud Functions request format to RequestWrapper object"""
+
+    try:
+        json_ = json.loads(request_data.get('body'))  # type: ignore[arg-type]
+    except:
+        json_ = None
+
+    return RequestWrapper(
+        method=request_data.get('httpMethod'),  # type: ignore[arg-type]
+        json_=json_,
+        headers=request_data.get('headers', {}),
+        content=request_data.get('body'),
+    )
+
+
+def convert_flask_request(request: Request) -> RequestWrapper:
+    """Convert Yandex Cloud Functions request format to RequestWrapper object"""
+    try:
+        json_ = request.get_json()
+    except:
+        json_ = None
+
+    return RequestWrapper(
+        method=request.method,
+        json_=json_,
+        headers=request.headers,  # type: ignore[arg-type]
+        content=request.data,
+    )
