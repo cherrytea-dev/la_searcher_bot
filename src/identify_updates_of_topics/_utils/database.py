@@ -2,6 +2,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from functools import lru_cache
+from typing import Any
 
 import sqlalchemy
 from sqlalchemy.engine import Connection
@@ -418,7 +419,7 @@ class DBClient:
 
             return conn.execute(stmt).fetchall()
 
-    def get_key_value_item(self, key: str) -> dict | list | None:
+    def get_key_value_item(self, key: str) -> Any:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 SELECT value FROM key_value_storage WHERE key=:key;
@@ -426,7 +427,7 @@ class DBClient:
             raw_data = conn.execute(stmt, key=key).fetchone()
             return raw_data[0] if raw_data else None
 
-    def set_key_value_item(self, key: str, value: dict | list) -> None:
+    def set_key_value_item(self, key: str, value: Any) -> None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 INSERT INTO key_value_storage 
