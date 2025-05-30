@@ -3,24 +3,33 @@ name: Reusable Yandex Cloud Function Deployment
 on:
   workflow_call:
     inputs:
+
       function_name:
         required: true
         type: string
-      memory:
-        required: false
-        type: string
+
       event_trigger_type:
         required: true
         type: string
+
       event_trigger_resource:
         required: true
         type: string
+
+      memory:
+        required: false
+        type: string
+        default: 128
+
       max_instances:
         required: false
         type: string
+        default: 1
+
       timeout:
         required: false
         type: string
+        default: 60
     
 
 jobs:
