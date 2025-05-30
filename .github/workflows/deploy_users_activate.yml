@@ -7,11 +7,11 @@ on:
       - 'src/users_activate/**' # UPD HERE!
       - '.github/workflows/deploy_users_activate.yml' # UPD HERE!
       - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf.yml'
+      - '.github/workflows/_reusable_wf_v1_trigger.yml'
 
 jobs:
   deploy:
-    uses: ./.github/workflows/_reusable_wf.yml
+    uses: ./.github/workflows/_reusable_wf_v1_trigger.yml
     secrets: inherit
     with:
       function_name: users_activate

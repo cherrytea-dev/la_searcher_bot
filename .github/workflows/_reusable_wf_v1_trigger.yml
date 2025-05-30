@@ -1,4 +1,4 @@
-name: Reusable Yandex Cloud Function Deployment
+name: Reusable Google Cloud Function Deployment (V1, Trigger)
 
 on:
   workflow_call:
