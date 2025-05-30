@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from _dependencies.commons import get_app_config, setup_google_logging, sql_connect_by_psycopg2
 from _dependencies.content import clean_up_content
+from _dependencies.misc import convert_flask_request
 
 setup_google_logging()
 
@@ -183,16 +184,17 @@ def save_user_statistics_to_db(conn_psy: connection, user_input: Any, response: 
 def main(request: Request) -> tuple[str, int, dict[str, str]]:
     # Set CORS headers for the preflight request
     response: FlaskResponseBase
+    request_data = convert_flask_request(request)
 
-    if request.method == 'OPTIONS':
+    if request_data.method == 'OPTIONS':
         return OptionsResponse().as_response()
 
-    request_json = request.get_json(silent=True)
+    request_json = request_data.json_
     logging.info(request_json)
 
     with sql_connect_by_psycopg2() as conn_psy:
         try:
-            user_request = UserRequest.model_validate_json(request.data)
+            user_request = UserRequest.model_validate_json(request_data.data)
         except ValidationError as ve:
             response = FailResponse(reason=str(ve))
             save_user_statistics_to_db(conn_psy, request_json, response.model_dump())
@@ -206,7 +208,7 @@ def main(request: Request) -> tuple[str, int, dict[str, str]]:
 
         save_user_statistics_to_db(conn_psy, request_json, response.model_dump())
 
-    logging.info(request)
+    logging.info(request_data)
     logging.info(f'the RESULT {response}')
 
     return response.as_response()

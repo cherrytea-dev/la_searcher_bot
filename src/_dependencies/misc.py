@@ -5,6 +5,7 @@ import math
 import random
 from dataclasses import dataclass, field
 from functools import lru_cache
+from typing import Any
 
 import sqlalchemy
 from flask import Request
@@ -163,9 +164,9 @@ def save_function_into_register(
 @dataclass
 class RequestWrapper:
     method: str
-    json_: dict | list | None = None
-    headers: dict[str, str] | None = field(default_factory=dict)
-    content: bytes | None = None
+    data: bytes
+    headers: dict[str, str] = field(default_factory=dict)
+    json_: dict[str, Any] | None = None
 
 
 def convert_request(request_data: dict) -> RequestWrapper:
@@ -180,7 +181,7 @@ def convert_request(request_data: dict) -> RequestWrapper:
         method=request_data.get('httpMethod'),  # type: ignore[arg-type]
         json_=json_,
         headers=request_data.get('headers', {}),
-        content=request_data.get('body'),
+        data=request_data.get('body', b''),
     )
 
 
@@ -195,5 +196,5 @@ def convert_flask_request(request: Request) -> RequestWrapper:
         method=request.method,
         json_=json_,
         headers=request.headers,  # type: ignore[arg-type]
-        content=request.data,
+        data=request.data,
     )

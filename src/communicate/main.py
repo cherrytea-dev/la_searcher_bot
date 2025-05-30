@@ -9,6 +9,7 @@ from flask import Request
 from telegram import Bot, CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 
 from _dependencies.commons import get_app_config, setup_google_logging
+from _dependencies.misc import convert_flask_request
 from _dependencies.pubsub import notify_admin
 from _dependencies.users_management import ManageUserAction, register_new_user, save_onboarding_step, update_user_status
 
@@ -401,12 +402,16 @@ def _get_bot() -> Bot:
 def main(request: Request) -> str:
     """Main function to orchestrate the whole script"""
 
-    if request.method != 'POST':
-        logging.error(f'non-post request identified {request}')
+    request_data = convert_flask_request(request)
+    if request_data.method != 'POST':
+        logging.error(f'non-post request identified {request_data}')
         return 'it was not post request'
 
     bot = _get_bot()
-    update = Update.de_json(request.get_json(force=True), bot)
+    if request_data.json_ is None:
+        return 'no request data'
+
+    update = Update.de_json(request_data.json_, bot)
 
     with db().connect():
         return process_update(update)  # type: ignore[arg-type]
