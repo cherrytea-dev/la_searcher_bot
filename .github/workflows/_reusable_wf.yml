@@ -1,0 +1,49 @@
+name: Reusable Yandex Cloud Function Deployment
+
+on:
+  workflow_call:
+    inputs:
+      function_name:
+        required: true
+        type: string
+      memory:
+        required: true
+        type: string
+      event_trigger_type:
+        required: true
+        type: string
+      event_trigger_resource:
+        required: true
+        type: string
+    
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Make dependencies
+        run: make dependencies
+
+      - name: Authenticate in GCP
+        id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.gcp_credentials }}
+
+      - name: Deploy the CF
+        id: deploy
+        uses: google-github-actions/deploy-cloud-functions@v1
+        with:
+            source_dir: src/${{ inputs.function_name }} # name of directory
+            name: ${{ inputs.function_name }} # name of deploying function
+            runtime: python310
+            entry_point: main # UPD HERE! main function
+            region: europe-west3
+            docker_registry: artifact-registry
+            # timeout: 540 # UPD HERE!
+            # max_instances: 1 # UPD HERE!
+            # memory_mb: 8192 # UPD HERE!
+            event_trigger_type: ${{ inputs.event_trigger_type }}
+            event_trigger_resource: ${{ inputs.event_trigger_resource }}
