@@ -2,7 +2,7 @@ name: Deploy-GCF-Communicate
 
 on:
   push:
-    branches : [ reusable-workflow ]
+    branches : [ main ]
     paths:
       - 'src/communicate/**' # UPD HERE!
       - '.github/workflows/deploy_communicate.yml' # UPD HERE!

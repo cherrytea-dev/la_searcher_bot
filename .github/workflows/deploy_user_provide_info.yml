@@ -2,7 +2,7 @@ name: Deploy-GCF-User-Provide-Info # UPD HERE!
 
 on:
   push:
-    branches : [ reusable-workflow ]
+    branches : [ main ]
     paths:
       - 'src/user_provide_info/**' # UPD HERE!
       - '.github/workflows/deploy_user_provide_info.yml' # UPD HERE!

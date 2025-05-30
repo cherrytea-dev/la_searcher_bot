@@ -2,7 +2,7 @@ name: Deploy-GCF-API-get-active-searches # UPD HERE!
 
 on:
   push:
-    branches : [ reusable-workflow ]
+    branches : [ main ]
     paths:
       - 'src/api_get_active_searches/**' # UPD HERE!
       - '.github/workflows/deploy_api_get_active_searches.yml' # UPD HERE!

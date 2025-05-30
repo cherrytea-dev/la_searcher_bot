@@ -2,7 +2,7 @@ name: Deploy-GCF-Check-Topics-By-Upd-Time
 
 on:
   push:
-    branches : [reusable-workflow]
+    branches : [ main ]
     paths:
       - 'src/check_topics_by_upd_time/**'
       - '.github/workflows/deploy_check_topics_by_upd_time.yml'

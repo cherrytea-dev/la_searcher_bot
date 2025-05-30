@@ -2,7 +2,7 @@ name: Deploy-GCF-Archive-Notifications
 
 on:
   push:
-    branches : [ reusable-workflow ]
+    branches : [ main ]
     paths:
       - 'src/archive_notifications/**' # UPD HERE!
       - '.github/workflows/deploy_archive_notifications.yml' # UPD HERE!

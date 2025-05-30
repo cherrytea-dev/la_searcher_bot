@@ -2,7 +2,7 @@ name: Deploy-GCF-Title-Recognize # UPD HERE!
 
 on:
   push:
-    branches : [ reusable-workflow ]
+    branches : [ main ]
     paths:
       - 'src/title_recognize/**' # UPD HERE!
       - '.github/workflows/deploy_title_recognize.yml' # UPD HERE!

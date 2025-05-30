@@ -2,7 +2,7 @@ name: Deploy-GCF-Connect-To-Forum
 
 on:
   push:
-    branches : [reusable-workflow]
+    branches : [ main ]
     paths:
       - 'src/connect_to_forum/**'
       - '.github/workflows/deploy_connect_to_forum.yml'
