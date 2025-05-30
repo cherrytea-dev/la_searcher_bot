@@ -26,14 +26,16 @@ from .topics_commons import (
 )
 
 
-class CloudStorage:
+class KeyValueStorage:
+    # TODO rename and move to common code
+
+    KEY_PREFIX = 'folder_summary_snapshot'
+
     def __init__(self, db: DBClient):
         self.db = db
 
-    BUCKET_NAME = 'bucket_for_snapshot_storage'
-
     def _get_key(self, folder_num: int) -> str:
-        return f'{self.BUCKET_NAME}-{folder_num}'
+        return f'{self.KEY_PREFIX}-{folder_num}'
 
     def read_folder_hash(self, folder_num: int) -> str | None:
         saved_value = self.db.get_key_value_item(self._get_key(folder_num))
@@ -104,7 +106,7 @@ class FolderUpdater:
     def update_checker(self, current_hash: str, folder_num: int) -> bool:
         """compare prev snapshot and freshly-parsed snapshot, returns NO or YES and Previous hash"""
 
-        folder_hash_storage = CloudStorage(self.db)
+        folder_hash_storage = KeyValueStorage(self.db)
 
         previous_hash = folder_hash_storage.read_folder_hash(folder_num)
         if current_hash == previous_hash:

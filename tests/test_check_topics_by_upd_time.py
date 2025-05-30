@@ -7,11 +7,11 @@ from polyfactory.factories.dataclass_factory import DataclassFactory
 
 from check_topics_by_upd_time import main
 from check_topics_by_upd_time.main import (
-    CloudStorage,
     DecomposedFolder,
     FolderComparator,
     FolderDecomposer,
     FolderForDecompose,
+    KeyValueStorage,
     Search,
     Subfolder,
     process_folder,
@@ -30,7 +30,7 @@ def patch_http():
     pass
 
 
-class FakeCloudStorage(CloudStorage):
+class FakeCloudStorage(KeyValueStorage):
     def __init__(self):
         self.data: dict[str, str] = {}
 
