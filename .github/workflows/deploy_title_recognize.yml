@@ -1,47 +1,18 @@
 name: Deploy-GCF-Title-Recognize # UPD HERE!
-env:
-  FILE_NAME: title_recognize # UPD HERE!
 
 on:
   push:
-    branches : [main]
+    branches : [ reusable-workflow ]
     paths:
       - 'src/_dependencies/*'
-      - 'src/title_recognize/**' # UPD HERE!
+      - 'src/title_recognize/*' # UPD HERE!
       - '.github/workflows/deploy_title_recognize.yml' # UPD HERE!
+      - '.github/workflows/_reusable_wf_v2_http.yml'
 
 jobs:
-  deploy_function:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Make dependencies
-        run: make dependencies
-
-      - name: Authenticate in GCP
-        id: auth
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.gcp_credentials }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v1
-        with:
-          version: '>= 363.0.0'
-
-      - name: 'Use gcloud CLI'
-        run: 'gcloud info'
-      - name: 'Deploy to gen2 cloud function'
-        run: |
-          gcloud functions deploy ${{ env.FILE_NAME }} \
-          --gen2 \
-          --region=europe-west3 \
-          --runtime=python310 \
-          --source=src/${{ env.FILE_NAME }} \
-          --entry-point=main \
-          --trigger-http \
-          --memory 1024MB \
-          --update-labels gcf=${{ env.FILE_NAME }}
-          
+  deploy:
+    uses: ./.github/workflows/_reusable_wf_v2_http.yml
+    secrets: inherit
+    with:
+      function_name: title_recognize
+      memory: '1024MB'
