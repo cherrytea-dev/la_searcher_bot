@@ -1,0 +1,48 @@
+name: Reusable Google Cloud Function Deployment (V2, HTTP)
+
+on:
+  workflow_call:
+    inputs:
+
+      function_name:
+        required: true
+        type: string
+
+      memory:
+        required: false
+        type: string
+        default: 256
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Make dependencies
+        run: make dependencies
+
+      - name: Authenticate in GCP
+        id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.gcp_credentials }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          version: '>= 363.0.0'
+
+      - name: 'Use gcloud CLI'
+        run: 'gcloud info'
+      - name: 'Deploy to gen2 cloud function'
+        run: |
+          gcloud functions deploy ${{ inputs.function_name }} \
+          --gen2 \
+          --region=europe-west3 \
+          --runtime=python310 \
+          --source=src/${{ inputs.function_name }} \
+          --entry-point=main \
+          --trigger-http \
+          --memory ${{ inputs.memory }} \
+          --update-labels gcf=${{ inputs.function_name }}

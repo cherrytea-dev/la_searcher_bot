@@ -1,43 +1,18 @@
 name: Deploy-GCF-Check-Topics-By-Upd-Time
-env:
-  FILE_NAME: check_topics_by_upd_time # UPD HERE!
 
 on:
   push:
-    branches : [main]
+    branches : [ main ]
     paths:
+      - 'src/check_topics_by_upd_time/**'
+      - '.github/workflows/deploy_check_topics_by_upd_time.yml'
       - 'src/_dependencies/*'
-      - 'src/check_topics_by_upd_time/**' # UPD HERE!
-      - '.github/workflows/deploy_check_topics_by_upd_time.yml' # UPD HERE!
+      - '.github/workflows/_reusable_wf_v1_trigger.yml'
 
 jobs:
-  deploy_function:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Make dependencies
-        run: make dependencies
-
-      - name: Authenticate in GCP
-        id: auth
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.gcp_credentials }}
-
-      - name: Deploy the CF
-        id: deploy
-        uses: google-github-actions/deploy-cloud-functions@v1
-        with:
-            source_dir: src/${{ env.FILE_NAME }} # name of directory
-            name: ${{ env.FILE_NAME }} # name of deploying function
-            runtime: python310
-            entry_point: main # UPD HERE! main function
-            region: europe-west3
-            docker_registry: artifact-registry
-            # timeout: 540 # UPD HERE!
-            # max_instances: 1 # UPD HERE!
-            # memory_mb: 512 # UPD HERE!            
-            event_trigger_type: providers/cloud.pubsub/eventTypes/topic.publish
-            event_trigger_resource: projects/lizaalert-bot-01/topics/topic_for_minute_update # UPD HERE! topic
+  deploy:
+    uses: ./.github/workflows/_reusable_wf_v1_trigger.yml
+    secrets: inherit
+    with:
+      function_name: check_topics_by_upd_time
+      event_trigger_resource: projects/lizaalert-bot-01/topics/topic_for_minute_update
