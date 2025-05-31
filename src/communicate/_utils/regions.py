@@ -46,13 +46,6 @@ class Geography(BaseModel):
         return res
 
     @cache
-    def keyboard_federal_districts(self) -> list[list[str]]:
-        res = [[x.name] for x in self.fed_okrugs]
-        res.append([b_fed_dist_other_r])
-        res.append([b_back_to_start])
-        return res
-
-    @cache
     def folder_dict(self) -> dict[str, tuple[int, ...]]:
         all_tuples = [x.provinces for x in self.fed_okrugs]
         all_tuples_joined = tuple(chain(*all_tuples))
@@ -71,35 +64,10 @@ class Geography(BaseModel):
         return regions
 
     @cache
-    def federal_district_names(self) -> list[str]:
-        return [x.name for x in self.fed_okrugs]
-
-    @cache
     def all_region_names(self) -> list[str]:
         names = [word[0] for word in self.full_regions_list()]
         names.sort()
         return names
-
-    @cache
-    def region_to_district_maping(self) -> dict[str, str]:
-        region_to_district_maping: dict[str, str] = {}
-        for fed_dist in self.fed_okrugs:
-            for region in fed_dist.provinces:
-                region_to_district_maping[region[0]] = fed_dist.name
-        return region_to_district_maping
-
-    def get_keyboard_by_region(self, region_name: str) -> list[list[str]]:
-        region_to_district_maping = self.region_to_district_maping()
-        try:
-            fed_dist_name = region_to_district_maping[region_name]
-            return self.get_keyboard_by_fed_district(fed_dist_name)
-        except KeyError:
-            # 116 - "Прочие поиски по РФ"
-            return self.keyboard_federal_districts()
-
-    def get_keyboard_by_fed_district(self, fed_district_name: str) -> list[list[str]]:
-        federal_district_keyboards = {x.name: x.get_buttons() for x in self.fed_okrugs}
-        return federal_district_keyboards[fed_district_name]
 
     def _get_first_letter_buttons(self, selected_regions: list[str]) -> list[InlineKeyboardButton]:
         selected_regions_first_letters = set([x[0] for x in selected_regions])
