@@ -5,7 +5,6 @@ import logging
 from functools import lru_cache
 from typing import Any, Callable
 
-from flask import Request
 from telegram import Bot, CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 
 from _dependencies.commons import get_app_config, setup_google_logging

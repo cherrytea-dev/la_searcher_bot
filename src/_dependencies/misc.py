@@ -5,7 +5,7 @@ import math
 import random
 from dataclasses import dataclass, field
 from functools import lru_cache, wraps
-from typing import Any, Callable
+from typing import Any, Callable, Mapping, Sequence
 
 import sqlalchemy
 from flask import Request, Response
@@ -169,16 +169,26 @@ class RequestWrapper:
     json_: dict[str, Any] | None = None
 
 
-def request_response_converter(func: Callable) -> Callable[..., Response]:
+@dataclass
+class ResponseWrapper:
+    data: str
+    status_code: int = 200
+    # headers: dict[str, str | Sequence[str]] = field(default_factory=dict)
+    headers: Mapping[str, str | Sequence[str]] = field(default_factory=dict)
+
+
+def request_response_converter(func: Callable[..., ResponseWrapper | str]) -> Callable[..., Response]:
     @wraps(func)
     def wrapper(request_data: Request) -> Response:
         request = convert_flask_request(request_data)
 
         response = func(request)
 
-        # return convert_yc_response(response)
         if isinstance(response, Response):
             return response
+
+        if isinstance(response, ResponseWrapper):
+            return Response(response.data, response.status_code, response.headers)
 
         return Response(response)
 

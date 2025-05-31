@@ -7,14 +7,12 @@ import json
 import logging
 from typing import Any
 
-import functions_framework
-from flask import Request, Response
 from psycopg2.extensions import connection
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from _dependencies.commons import get_app_config, setup_google_logging, sql_connect_by_psycopg2
 from _dependencies.content import clean_up_content
-from _dependencies.misc import RequestWrapper, request_response_converter
+from _dependencies.misc import RequestWrapper, ResponseWrapper, request_response_converter
 
 setup_google_logging()
 
@@ -40,9 +38,9 @@ class UserRequest(BaseModel):
 
 
 class FlaskResponseBase(BaseModel):
-    def as_response(self) -> Response:
+    def as_response(self) -> ResponseWrapper:
         headers = {'Access-Control-Allow-Origin': '*'}
-        return Response(self.model_dump_json(), 200, headers)
+        return ResponseWrapper(self.model_dump_json(), 200, headers)
 
 
 class FailResponse(FlaskResponseBase):
@@ -56,7 +54,7 @@ class SuccessfulResponse(FlaskResponseBase):
 
 
 class OptionsResponse(FlaskResponseBase):
-    def as_response(self) -> Response:
+    def as_response(self) -> ResponseWrapper:
         # Allows GET requests from any origin with the Content-Type
         # header and caches preflight response for 3600s
         # For more information about CORS and CORS preflight requests, see:
@@ -71,7 +69,7 @@ class OptionsResponse(FlaskResponseBase):
 
         logging.info(f'{headers=}')
 
-        return Response('', 204, headers)
+        return ResponseWrapper('', 204, headers)
 
 
 def get_list_of_allowed_apps() -> list[str]:
@@ -182,7 +180,7 @@ def save_user_statistics_to_db(conn_psy: connection, user_input: Any, response: 
 
 # @functions_framework.http
 @request_response_converter
-def main(request_data: RequestWrapper) -> Response:
+def main(request_data: RequestWrapper) -> ResponseWrapper:
     # Set CORS headers for the preflight request
     response: FlaskResponseBase
 

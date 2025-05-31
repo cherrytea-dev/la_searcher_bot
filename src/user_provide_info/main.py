@@ -11,25 +11,28 @@ from ast import literal_eval
 from typing import Any
 from urllib.parse import unquote
 
-import functions_framework
-from flask import Request, Response
 from psycopg2.extensions import connection
 from pydantic import BaseModel
 
 from _dependencies.commons import TopicType, get_app_config, setup_google_logging, sql_connect_by_psycopg2
 from _dependencies.content import clean_up_content
-from _dependencies.misc import RequestWrapper, request_response_converter, time_counter_since_search_start
+from _dependencies.misc import (
+    RequestWrapper,
+    ResponseWrapper,
+    request_response_converter,
+    time_counter_since_search_start,
+)
 
 setup_google_logging()
 
 
 class FlaskResponseBase(BaseModel):
-    def as_response(self, origin_to_show: str) -> Response:
+    def as_response(self, origin_to_show: str) -> ResponseWrapper:
         headers = {
             'Access-Control-Allow-Origin': origin_to_show,
             'content-type': 'application/json',
         }
-        return Response(self.model_dump_json(), 200, headers)
+        return ResponseWrapper(self.model_dump_json(), 200, headers)
 
 
 class FailResponse(FlaskResponseBase):
@@ -80,7 +83,7 @@ class OkResponse(FlaskResponseBase):
 
 
 class OptionsResponse(FlaskResponseBase):
-    def as_response(self, origin_to_show: str) -> Response:
+    def as_response(self, origin_to_show: str) -> ResponseWrapper:
         # Allows GET requests from any origin with the Content-Type
         # header and caches preflight response for 3600s
         # For more information about CORS and CORS preflight requests, see:
@@ -94,7 +97,7 @@ class OptionsResponse(FlaskResponseBase):
         }
 
         logging.info(f'{headers=}')
-        return Response('', 204, headers)
+        return ResponseWrapper('', 204, headers)
 
 
 def verify_telegram_data_json(user_input: dict, token: str) -> bool:
@@ -422,7 +425,7 @@ def get_origin_to_show(request: RequestWrapper) -> str:
         origin = request.headers.get('Origin')
         logging.info(f'{origin=}')
 
-    except Exception as e:
+    except Exception:
         logging.exception('No header Origin found')
 
     origin_to_show = origin if origin in allowed_origins else allowed_origins[1]
@@ -461,7 +464,7 @@ def get_user_id(request_data: str | dict) -> int:
 
 
 @request_response_converter
-def main(request: RequestWrapper) -> Response:
+def main(request: RequestWrapper) -> ResponseWrapper:
     origin_to_show = get_origin_to_show(request)
 
     # Set CORS headers for the preflight request
