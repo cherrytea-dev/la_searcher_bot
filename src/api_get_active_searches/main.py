@@ -8,13 +8,13 @@ import logging
 from typing import Any
 
 import functions_framework
-from flask import Request
+from flask import Request, Response
 from psycopg2.extensions import connection
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from _dependencies.commons import get_app_config, setup_google_logging, sql_connect_by_psycopg2
 from _dependencies.content import clean_up_content
-from _dependencies.misc import convert_flask_request
+from _dependencies.misc import RequestWrapper, request_response_converter
 
 setup_google_logging()
 
@@ -40,9 +40,9 @@ class UserRequest(BaseModel):
 
 
 class FlaskResponseBase(BaseModel):
-    def as_response(self) -> tuple[str, int, dict]:
+    def as_response(self) -> Response:
         headers = {'Access-Control-Allow-Origin': '*'}
-        return self.model_dump_json(), 200, headers
+        return Response(self.model_dump_json(), 200, headers)
 
 
 class FailResponse(FlaskResponseBase):
@@ -56,7 +56,7 @@ class SuccessfulResponse(FlaskResponseBase):
 
 
 class OptionsResponse(FlaskResponseBase):
-    def as_response(self) -> tuple[str, int, dict]:
+    def as_response(self) -> Response:
         # Allows GET requests from any origin with the Content-Type
         # header and caches preflight response for 3600s
         # For more information about CORS and CORS preflight requests, see:
@@ -71,7 +71,7 @@ class OptionsResponse(FlaskResponseBase):
 
         logging.info(f'{headers=}')
 
-        return '', 204, headers
+        return Response('', 204, headers)
 
 
 def get_list_of_allowed_apps() -> list[str]:
@@ -180,11 +180,11 @@ def save_user_statistics_to_db(conn_psy: connection, user_input: Any, response: 
             logging.exception('Cannot save statistics to DB')
 
 
-@functions_framework.http
-def main(request: Request) -> tuple[str, int, dict[str, str]]:
+# @functions_framework.http
+@request_response_converter
+def main(request_data: RequestWrapper) -> Response:
     # Set CORS headers for the preflight request
     response: FlaskResponseBase
-    request_data = convert_flask_request(request)
 
     if request_data.method == 'OPTIONS':
         return OptionsResponse().as_response()

@@ -18,7 +18,7 @@ from pydantic import BaseModel
 
 from _dependencies.commons import TopicType, get_app_config, setup_google_logging, sql_connect_by_psycopg2
 from _dependencies.content import clean_up_content
-from _dependencies.misc import RequestWrapper, convert_flask_request, time_counter_since_search_start
+from _dependencies.misc import RequestWrapper, request_response_converter, time_counter_since_search_start
 
 setup_google_logging()
 
@@ -458,30 +458,30 @@ def get_user_id(request_data: str | dict) -> int:
 
 
 @functions_framework.http
-def main(request: Request) -> tuple[str, int, dict]:
-    request_data = convert_flask_request(request)
-    origin_to_show = get_origin_to_show(request_data)
+@request_response_converter
+def main(request: RequestWrapper) -> tuple[str, int, dict]:
+    origin_to_show = get_origin_to_show(request)
 
     # Set CORS headers for the preflight request
-    if request_data.method == 'OPTIONS':
+    if request.method == 'OPTIONS':
         return OptionsResponse().as_response(origin_to_show)
 
     # Set CORS headers for the main request
     headers = {'Access-Control-Allow-Origin': origin_to_show}
     logging.info(f'{headers=}')
 
-    logging.info(request_data)
+    logging.info(request)
 
-    logging.info(f'the incoming json is {request_data.json_}')
+    logging.info(f'the incoming json is {request.json_}')
 
-    fail_response = validate_request(request_data)
+    fail_response = validate_request(request)
     if fail_response:
         # MEMO - below we use "0" only to track number of unsuccessful api calls
         logging.info(f'reason={fail_response.reason}')
         save_user_statistics_to_db(0, False)
         return fail_response.as_response(origin_to_show)
 
-    user_id = get_user_id(request_data.json_)  # type:ignore[arg-type]
+    user_id = get_user_id(request.json_)  # type:ignore[arg-type]
     params = get_user_data_from_db(user_id)
     save_user_statistics_to_db(user_id, True)
 

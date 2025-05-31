@@ -105,7 +105,7 @@ def test_convert_flask_request():
         },
         'url': '',
     }
-    request_wrapper = misc.convert_request(inp)
+    request_wrapper = misc.convert_yc_request(inp)
     assert request_wrapper.json_ == {'hello': 'world'}
     assert request_wrapper.method == 'POST'
     assert request_wrapper.headers['Content-Type'] == 'application/json'

@@ -6,7 +6,7 @@ from flask import Request
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from _dependencies.commons import setup_google_logging
-from _dependencies.misc import convert_flask_request
+from _dependencies.misc import RequestWrapper, request_response_converter
 
 from ._utils.recognizer import recognize_title
 
@@ -39,15 +39,15 @@ class OkResponse(FlaskResponseBase):
 
 
 @functions_framework.http
-def main(request: Request) -> str:
+@request_response_converter
+def main(request: RequestWrapper) -> str:
     """entry point to http-invoked cloud function"""
 
-    request_data = convert_flask_request(request)
     try:
-        user_request = UserRequest.model_validate_json(request_data.data)
+        user_request = UserRequest.model_validate_json(request.data)
         logging.info(f'Received request data: {user_request}')
     except ValidationError as ve:
-        logging.info(f'Incorrect request data: {request_data.data.decode()}')
+        logging.info(f'Incorrect request data: {request.data.decode()}')
         return FailResponse(fail_reason=str(ve)).as_response()
 
     reco_title = recognize_title(user_request.title, user_request.reco_type)

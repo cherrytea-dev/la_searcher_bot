@@ -4,11 +4,11 @@ import logging
 import math
 import random
 from dataclasses import dataclass, field
-from functools import lru_cache
-from typing import Any
+from functools import lru_cache, wraps
+from typing import Any, Callable
 
 import sqlalchemy
-from flask import Request
+from flask import Request, Response
 
 from _dependencies.commons import get_app_config
 from _dependencies.telegram_api_wrapper import TGApiBase
@@ -169,7 +169,23 @@ class RequestWrapper:
     json_: dict[str, Any] | None = None
 
 
-def convert_request(request_data: dict) -> RequestWrapper:
+def request_response_converter(func: Callable) -> Callable[..., Response]:
+    @wraps(func)
+    def wrapper(request_data: Request) -> Response:
+        request = convert_flask_request(request_data)
+
+        response = func(request)
+
+        # return convert_yc_response(response)
+        if isinstance(response, Response):
+            return response
+
+        return Response(response)
+
+    return wrapper
+
+
+def convert_yc_request(request_data: dict) -> RequestWrapper:
     """Convert Yandex Cloud Functions request format to RequestWrapper object"""
 
     try:
