@@ -38,8 +38,8 @@ def test_verify_telegram_data_string():
 
 def test_main_cors(app: Flask):
     with app.test_request_context('/', method='OPTIONS') as app_request:
-        resp, code, _ = main.main(app_request.request)
-    assert code == 204
+        resp = main.main(app_request.request)
+    assert resp.status_code == 204
 
 
 def test_main_query_str(app: Flask):
@@ -63,11 +63,10 @@ def test_main_query_str(app: Flask):
     }
     query = urlencode(query_dict, quote_via=quote)
     with app.test_request_context('/', method='POST', json=query) as app_request:
-        resp, code, headers = main.main(app_request.request)
-    assert code == 200
-    assert headers == {'Access-Control-Allow-Origin': 'https://storage.googleapis.com'}
-    resp_json = json.loads(resp)
-    assert resp_json == {
+        resp = main.main(app_request.request)
+    assert resp.status_code == 200
+    assert resp.headers['Access-Control-Allow-Origin'] == 'https://storage.googleapis.com'
+    assert resp.json == {
         'ok': True,
         'user_id': 1234567890,
         'params': {
@@ -86,11 +85,10 @@ def test_main_validate_no_data(app: Flask):
         app.test_request_context('/', method='POST') as app_request,
         patch.object(main, 'verify_telegram_data', MagicMock(return_value=True)),
     ):
-        resp, code, _ = main.main(app_request.request)
-    assert code == 200
-    resp_json = json.loads(resp)
-    assert resp_json['ok'] is False
-    assert resp_json['reason'] == 'No json/string received'
+        resp = main.main(app_request.request)
+    assert resp.status_code == 200
+    assert resp.json['ok'] is False
+    assert resp.json['reason'] == 'No json/string received'
 
 
 def test_main_validate_incorrect_signature(app: Flask):
@@ -112,11 +110,10 @@ def test_main_validate_incorrect_signature(app: Flask):
         app.test_request_context('/', method='POST', json=query) as app_request,
         patch.object(main, 'verify_telegram_data', MagicMock(return_value=False)),
     ):
-        resp, code, headers = main.main(app_request.request)
-    assert code == 200
-    resp_json = json.loads(resp)
-    assert resp_json['ok'] is False
-    assert resp_json['reason'] == 'Provided json is not validated'
+        resp = main.main(app_request.request)
+    assert resp.status_code == 200
+    assert resp.json['ok'] is False
+    assert resp.json['reason'] == 'Provided json is not validated'
 
 
 class TestGetUserDataFromDb:

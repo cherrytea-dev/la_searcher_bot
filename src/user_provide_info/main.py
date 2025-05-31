@@ -12,7 +12,7 @@ from typing import Any
 from urllib.parse import unquote
 
 import functions_framework
-from flask import Request
+from flask import Request, Response
 from psycopg2.extensions import connection
 from pydantic import BaseModel
 
@@ -24,9 +24,12 @@ setup_google_logging()
 
 
 class FlaskResponseBase(BaseModel):
-    def as_response(self, origin_to_show: str) -> tuple[str, int, dict]:
-        headers = {'Access-Control-Allow-Origin': origin_to_show}
-        return self.model_dump_json(), 200, headers
+    def as_response(self, origin_to_show: str) -> Response:
+        headers = {
+            'Access-Control-Allow-Origin': origin_to_show,
+            'content-type': 'application/json',
+        }
+        return Response(self.model_dump_json(), 200, headers)
 
 
 class FailResponse(FlaskResponseBase):
@@ -77,7 +80,7 @@ class OkResponse(FlaskResponseBase):
 
 
 class OptionsResponse(FlaskResponseBase):
-    def as_response(self, origin_to_show: str) -> tuple[str, int, dict]:
+    def as_response(self, origin_to_show: str) -> Response:
         # Allows GET requests from any origin with the Content-Type
         # header and caches preflight response for 3600s
         # For more information about CORS and CORS preflight requests, see:
@@ -91,7 +94,7 @@ class OptionsResponse(FlaskResponseBase):
         }
 
         logging.info(f'{headers=}')
-        return '', 204, headers
+        return Response('', 204, headers)
 
 
 def verify_telegram_data_json(user_input: dict, token: str) -> bool:
@@ -457,9 +460,8 @@ def get_user_id(request_data: str | dict) -> int:
     return user_id
 
 
-@functions_framework.http
 @request_response_converter
-def main(request: RequestWrapper) -> tuple[str, int, dict]:
+def main(request: RequestWrapper) -> Response:
     origin_to_show = get_origin_to_show(request)
 
     # Set CORS headers for the preflight request

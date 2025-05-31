@@ -2,7 +2,7 @@ import logging
 from typing import Any
 
 import functions_framework
-from flask import Request
+from flask import Request, Response
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from _dependencies.commons import setup_google_logging
@@ -23,8 +23,8 @@ class UserRequest(BaseModel):
 class FlaskResponseBase(BaseModel):
     status: str
 
-    def as_response(self) -> str:
-        return self.model_dump_json()
+    def as_response(self) -> Response:
+        return Response(self.model_dump_json())
 
 
 class FailResponse(FlaskResponseBase):
@@ -38,9 +38,8 @@ class OkResponse(FlaskResponseBase):
     status: str = 'ok'
 
 
-@functions_framework.http
 @request_response_converter
-def main(request: RequestWrapper) -> str:
+def main(request: RequestWrapper) -> Response:
     """entry point to http-invoked cloud function"""
 
     try:
