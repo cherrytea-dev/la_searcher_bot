@@ -17,14 +17,14 @@ def test_main_positive(app: Flask):
     with app.test_request_context('/', json={'title': 'Пропал человек'}) as app_request:
         res = main.main(app_request.request)
 
-    assert 'fail' not in res
+    assert 'fail' not in res.data.decode()
 
 
 def test_main_wrong_request(app: Flask):
     with app.test_request_context('/', json={'foo': 'bar'}) as app_request:
         res = main.main(app_request.request)
 
-    assert 'fail' in res
+    assert 'fail' in res.data.decode()
 
 
 def test_main_unrecognized(app: Flask):
@@ -34,7 +34,7 @@ def test_main_unrecognized(app: Flask):
     ):
         res = main.main(app_request.request)
 
-    assert 'fail' in res
+    assert 'fail' in res.data.decode()
 
 
 class TestRecognizeTitle:

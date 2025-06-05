@@ -7,13 +7,12 @@ import json
 import logging
 from typing import Any
 
-import functions_framework
-from flask import Request
 from psycopg2.extensions import connection
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from _dependencies.commons import get_app_config, setup_google_logging, sql_connect_by_psycopg2
 from _dependencies.content import clean_up_content
+from _dependencies.misc import RequestWrapper, ResponseWrapper, request_response_converter
 
 setup_google_logging()
 
@@ -39,9 +38,9 @@ class UserRequest(BaseModel):
 
 
 class FlaskResponseBase(BaseModel):
-    def as_response(self) -> tuple[str, int, dict]:
+    def as_response(self) -> ResponseWrapper:
         headers = {'Access-Control-Allow-Origin': '*'}
-        return self.model_dump_json(), 200, headers
+        return ResponseWrapper(self.model_dump_json(), 200, headers)
 
 
 class FailResponse(FlaskResponseBase):
@@ -55,7 +54,7 @@ class SuccessfulResponse(FlaskResponseBase):
 
 
 class OptionsResponse(FlaskResponseBase):
-    def as_response(self) -> tuple[str, int, dict]:
+    def as_response(self) -> ResponseWrapper:
         # Allows GET requests from any origin with the Content-Type
         # header and caches preflight response for 3600s
         # For more information about CORS and CORS preflight requests, see:
@@ -70,7 +69,7 @@ class OptionsResponse(FlaskResponseBase):
 
         logging.info(f'{headers=}')
 
-        return '', 204, headers
+        return ResponseWrapper('', 204, headers)
 
 
 def get_list_of_allowed_apps() -> list[str]:
@@ -179,20 +178,21 @@ def save_user_statistics_to_db(conn_psy: connection, user_input: Any, response: 
             logging.exception('Cannot save statistics to DB')
 
 
-@functions_framework.http
-def main(request: Request) -> tuple[str, int, dict[str, str]]:
+# @functions_framework.http
+@request_response_converter
+def main(request_data: RequestWrapper) -> ResponseWrapper:
     # Set CORS headers for the preflight request
     response: FlaskResponseBase
 
-    if request.method == 'OPTIONS':
+    if request_data.method == 'OPTIONS':
         return OptionsResponse().as_response()
 
-    request_json = request.get_json(silent=True)
+    request_json = request_data.json_
     logging.info(request_json)
 
     with sql_connect_by_psycopg2() as conn_psy:
         try:
-            user_request = UserRequest.model_validate_json(request.data)
+            user_request = UserRequest.model_validate_json(request_data.data)
         except ValidationError as ve:
             response = FailResponse(reason=str(ve))
             save_user_statistics_to_db(conn_psy, request_json, response.model_dump())
@@ -206,7 +206,7 @@ def main(request: Request) -> tuple[str, int, dict[str, str]]:
 
         save_user_statistics_to_db(conn_psy, request_json, response.model_dump())
 
-    logging.info(request)
+    logging.info(request_data)
     logging.info(f'the RESULT {response}')
 
     return response.as_response()

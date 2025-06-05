@@ -11,22 +11,28 @@ from ast import literal_eval
 from typing import Any
 from urllib.parse import unquote
 
-import functions_framework
-from flask import Request
 from psycopg2.extensions import connection
 from pydantic import BaseModel
 
 from _dependencies.commons import TopicType, get_app_config, setup_google_logging, sql_connect_by_psycopg2
 from _dependencies.content import clean_up_content
-from _dependencies.misc import time_counter_since_search_start
+from _dependencies.misc import (
+    RequestWrapper,
+    ResponseWrapper,
+    request_response_converter,
+    time_counter_since_search_start,
+)
 
 setup_google_logging()
 
 
 class FlaskResponseBase(BaseModel):
-    def as_response(self, origin_to_show: str) -> tuple[str, int, dict]:
-        headers = {'Access-Control-Allow-Origin': origin_to_show}
-        return self.model_dump_json(), 200, headers
+    def as_response(self, origin_to_show: str) -> ResponseWrapper:
+        headers = {
+            'Access-Control-Allow-Origin': origin_to_show,
+            'content-type': 'application/json',
+        }
+        return ResponseWrapper(self.model_dump_json(), 200, headers)
 
 
 class FailResponse(FlaskResponseBase):
@@ -77,7 +83,7 @@ class OkResponse(FlaskResponseBase):
 
 
 class OptionsResponse(FlaskResponseBase):
-    def as_response(self, origin_to_show: str) -> tuple[str, int, dict]:
+    def as_response(self, origin_to_show: str) -> ResponseWrapper:
         # Allows GET requests from any origin with the Content-Type
         # header and caches preflight response for 3600s
         # For more information about CORS and CORS preflight requests, see:
@@ -91,7 +97,7 @@ class OptionsResponse(FlaskResponseBase):
         }
 
         logging.info(f'{headers=}')
-        return '', 204, headers
+        return ResponseWrapper('', 204, headers)
 
 
 def verify_telegram_data_json(user_input: dict, token: str) -> bool:
@@ -141,7 +147,7 @@ def verify_telegram_data_string(user_input: str, token: str) -> bool:
     return calculated_hash == telegram_hash
 
 
-def verify_telegram_data(user_input: str) -> bool:
+def verify_telegram_data(user_input: str | dict) -> bool:
     """verify the authority of user input with hash"""
     bot_token = get_app_config().bot_api_token__prod
     if isinstance(user_input, str):
@@ -412,14 +418,14 @@ def save_user_statistics_to_db(user_id: int, response: bool) -> None:
     return None
 
 
-def get_origin_to_show(request: Request) -> str:
+def get_origin_to_show(request: RequestWrapper) -> str:
     allowed_origins = ['https://web_app.storage.googleapis.com', 'https://storage.googleapis.com']
     origin = None
     try:
         origin = request.headers.get('Origin')
         logging.info(f'{origin=}')
 
-    except Exception as e:
+    except Exception:
         logging.exception('No header Origin found')
 
     origin_to_show = origin if origin in allowed_origins else allowed_origins[1]
@@ -427,10 +433,10 @@ def get_origin_to_show(request: Request) -> str:
     return origin_to_show
 
 
-def validate_request(request: Request) -> FailResponse | None:
-    request_json = request.get_json(silent=True)
+def validate_request(request: RequestWrapper) -> FailResponse | None:
+    request_json = request.json_
     if not request_json:
-        logging.info(request.args)
+        # logging.info(request.args)
         return FailResponse(reason='No json/string received')
 
     if not verify_telegram_data(request_json):
@@ -457,8 +463,8 @@ def get_user_id(request_data: str | dict) -> int:
     return user_id
 
 
-@functions_framework.http
-def main(request: Request) -> tuple[str, int, dict]:
+@request_response_converter
+def main(request: RequestWrapper) -> ResponseWrapper:
     origin_to_show = get_origin_to_show(request)
 
     # Set CORS headers for the preflight request
@@ -470,8 +476,8 @@ def main(request: Request) -> tuple[str, int, dict]:
     logging.info(f'{headers=}')
 
     logging.info(request)
-    request_data = request.get_json(silent=True)
-    logging.info(f'the incoming json is {request_data}')
+
+    logging.info(f'the incoming json is {request.json_}')
 
     fail_response = validate_request(request)
     if fail_response:
@@ -480,7 +486,7 @@ def main(request: Request) -> tuple[str, int, dict]:
         save_user_statistics_to_db(0, False)
         return fail_response.as_response(origin_to_show)
 
-    user_id = get_user_id(request_data)  # type:ignore[arg-type]
+    user_id = get_user_id(request.json_)  # type:ignore[arg-type]
     params = get_user_data_from_db(user_id)
     save_user_statistics_to_db(user_id, True)
 

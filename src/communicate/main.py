@@ -5,10 +5,10 @@ import logging
 from functools import lru_cache
 from typing import Any, Callable
 
-from flask import Request
 from telegram import Bot, CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 
 from _dependencies.commons import get_app_config, setup_google_logging
+from _dependencies.misc import RequestWrapper, request_response_converter
 from _dependencies.pubsub import notify_admin
 from _dependencies.users_management import ManageUserAction, register_new_user, save_onboarding_step, update_user_status
 
@@ -396,7 +396,8 @@ def _get_bot() -> Bot:
     return Bot(token=get_app_config().bot_api_token__prod)
 
 
-def main(request: Request) -> str:
+@request_response_converter
+def main(request: RequestWrapper) -> str:
     """Main function to orchestrate the whole script"""
 
     if request.method != 'POST':
@@ -404,7 +405,10 @@ def main(request: Request) -> str:
         return 'it was not post request'
 
     bot = _get_bot()
-    update = Update.de_json(request.get_json(force=True), bot)
+    if request.json_ is None:
+        return 'no request data'
+
+    update = Update.de_json(request.json_, bot)
 
     with db().connect():
         return process_update(update)  # type: ignore[arg-type]

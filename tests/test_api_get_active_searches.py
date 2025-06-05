@@ -13,9 +13,6 @@ from tests.factories.db_factories import (
     SearchHealthCheckFactory,
 )
 
-# NO SMOKE TEST api_get_active_searches.main.get_query_results
-# NO SMOKE TEST api_get_active_searches.main.get_list_of_active_searches_from_db
-
 
 @pytest.fixture
 def app() -> Flask:
@@ -35,30 +32,30 @@ def test_main(app: Flask):
 
 def test_main_empty_json(app: Flask):
     with app.test_request_context('/', json={}) as app_request:
-        resp, code, _ = main.main(app_request.request)
-    answer = main.FailResponse.model_validate_json(resp)
+        resp = main.main(app_request.request)
+    answer = main.FailResponse.model_validate_json(resp.data)
     assert 'app_id' in answer.reason
     assert 'validation error' in answer.reason
 
 
 def test_main_no_json(app: Flask):
     with app.test_request_context('/', data='not a json') as app_request:
-        resp, code, _ = main.main(app_request.request)
-    answer = main.FailResponse.model_validate_json(resp)
+        resp = main.main(app_request.request)
+    answer = main.FailResponse.model_validate_json(resp.data)
     assert 'Invalid JSON' in answer.reason
 
 
 def test_main_incorrect_app_id(app: Flask):
     with app.test_request_context('/', json={'app_id': 'unexisting'}) as app_request:
-        resp, code, _ = main.main(app_request.request)
-    answer = main.FailResponse.model_validate_json(resp)
+        resp = main.main(app_request.request)
+    answer = main.FailResponse.model_validate_json(resp.data)
     assert answer.reason == 'Incorrect app_id'
 
 
 def test_main_cors(app: Flask):
     with app.test_request_context('/', method='OPTIONS') as app_request:
-        resp, code, _ = main.main(app_request.request)
-    assert code == 204
+        resp = main.main(app_request.request)
+    assert resp.status_code == 204
 
 
 def test_get_searches_from_db():
