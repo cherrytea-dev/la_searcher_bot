@@ -1,4 +1,4 @@
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import ReplyKeyboardRemove
 
 from _dependencies.users_management import save_onboarding_step
 
@@ -24,7 +24,6 @@ from ..message_sending import tg_api
 from ..regions import GEO_KEYBOARD_NAME, geography
 from .button_handlers import WELCOME_MESSAGE_AFTER_ONBOARDING
 
-USE_NEW_REGION_SELECTION = True  # temporary switch; remove in future
 REGION_SELECTION_HELP_TEXT = """Выберите регионы, по которым хотите видеть поиски. Можно фильтровать регионы по первой букве.
 Чтобы ОТПИСАТЬСЯ от какого-либо региона – нажмите на его кнопку еще раз."""
 
@@ -35,7 +34,6 @@ def handle_if_moscow(update_params: UpdateBasicParams, extra_params: UpdateExtra
 
     got_message = update_params.got_message
     user_id = update_params.user_id
-    username = update_params.username
 
     if got_message == IsMoscow.b_reg_moscow:
         save_onboarding_step(user_id, 'moscow_replied')
@@ -54,21 +52,9 @@ def handle_if_moscow(update_params: UpdateBasicParams, extra_params: UpdateExtra
 
     if got_message == IsMoscow.b_reg_not_moscow:
         save_onboarding_step(user_id, 'moscow_replied')
+        return _handle_region_selection_inline_menu(update_params)
 
-        if USE_NEW_REGION_SELECTION:
-            return _handle_region_selection_inline_menu(update_params)
-
-        bot_message = (
-            'Спасибо, тогда для корректной работы Бота, пожалуйста, выберите свой регион: '
-            'сначала обозначьте Федеральный Округ, '
-            'а затем хотя бы один Регион поисков, чтобы отслеживать поиски в этом регионе. '
-            'Вы в любой момент сможете изменить '
-            'список регионов через настройки бота.'
-        )
-        reply_markup = ReplyKeyboardMarkup(geography.keyboard_federal_districts(), resize_keyboard=True)
-        return bot_message, reply_markup
-
-    return bot_message, reply_markup_main
+    return '', reply_markup_main
 
 
 @callback_handler(keyboard_name=GEO_KEYBOARD_NAME)
@@ -114,22 +100,7 @@ def handle_region_selection_callback(
 
 @button_handler(buttons=[b_menu_set_region, b_fed_dist_pick_other])
 def handle_set_region(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
-    if USE_NEW_REGION_SELECTION:
-        return _handle_region_selection_inline_menu(update_params)
-
-    bot_message = _format_user_selected_regions(update_params)
-
-    if update_params.got_message == b_menu_set_region:
-        # case for the first entry to the screen of Reg Settings
-        pre_msg = (
-            'Бот может показывать поиски в любом регионе работы ЛА.\n'
-            'Вы можете подписаться на несколько регионов – просто кликните на соответствующие кнопки регионов.'
-            '\nЧтобы ОТПИСАТЬСЯ от ненужных регионов – нажмите на соответствующую кнопку региона еще раз.\n\n'
-        )
-        bot_message = pre_msg + bot_message
-
-    reply_markup = ReplyKeyboardMarkup(geography.keyboard_federal_districts(), resize_keyboard=True)
-    return bot_message, reply_markup
+    return _handle_region_selection_inline_menu(update_params)
 
 
 def _handle_region_selection_inline_menu(update_params: UpdateBasicParams) -> HandlerResult:
@@ -151,32 +122,6 @@ def _handle_region_selection_inline_menu(update_params: UpdateBasicParams) -> Ha
     return REGION_SELECTION_HELP_TEXT, reply_keyboard
 
 
-@button_handler(buttons=geography.federal_district_names())
-def handle_message_is_district(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
-    bot_message = _format_user_selected_regions(update_params)
-
-    reply_markup = ReplyKeyboardMarkup(
-        geography.get_keyboard_by_fed_district(update_params.got_message), resize_keyboard=True
-    )
-    return bot_message, reply_markup
-
-
-@button_handler(buttons=geography.all_region_names())
-def handle_message_is_federal_region(
-    update_params: UpdateBasicParams, extra_params: UpdateExtraParams
-) -> HandlerResult:
-    user_id = update_params.user_id
-    got_message = update_params.got_message
-
-    if extra_params.onboarding_step_id == 20:
-        return _handle_onboarding_step_region_is_set(update_params, extra_params)
-
-    updated_regions = _update_and_download_list_of_regions(user_id, got_message)
-    keyboard = geography.get_keyboard_by_region(got_message)
-
-    return updated_regions, ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-
 def _handle_onboarding_step_region_is_set(
     update_params: UpdateBasicParams, extra_params: UpdateExtraParams
 ) -> HandlerResult:
@@ -184,7 +129,6 @@ def _handle_onboarding_step_region_is_set(
     #  (in the future it should be done in manage_user script)
 
     user_id = update_params.user_id
-    username = update_params.username
 
     user_role = db().get_user_role(user_id)
     tg_api().delete_my_commands(user_id)
@@ -203,13 +147,6 @@ def _handle_onboarding_step_region_is_set(
     ]
 
     return WELCOME_MESSAGE_AFTER_ONBOARDING, create_one_column_reply_markup(keyboard_role)
-
-
-def _format_user_selected_regions(update_params: UpdateBasicParams) -> str:
-    msg = _get_user_selected_regions_text(update_params.user_id)
-    if msg:
-        return 'Текущий список ваших регионов:' + msg
-    return 'Пока список выбранных регионов пуст. Выберите хотя бы один.'
 
 
 def _update_list_of_regions(user_id: int, got_message: str) -> bool:
@@ -236,52 +173,3 @@ def _update_list_of_regions(user_id: int, got_message: str) -> bool:
             db().add_folder_to_user_regional_preference(user_id, region)
 
     return True
-
-
-def _update_and_download_list_of_regions(user_id: int, got_message: str) -> str:
-    """Upload, download and compose a message on the list of user's regions"""
-
-    list_of_regs_to_upload = geography.folder_dict()[got_message]
-    user_curr_regs = db().get_user_regions_from_db(user_id)
-
-    region_was_in_db = any(list_of_regs_to_upload[0] == user_reg for user_reg in user_curr_regs)
-    region_is_the_only = region_was_in_db and len(user_curr_regs) - len(list_of_regs_to_upload) < 1
-
-    if region_is_the_only:
-        # Scenario: this setting WAS in place, but now it's the last one - we cannot delete it
-        msg = _get_user_selected_regions_text(user_id)
-        msg = (
-            'Ваш регион поисков настроен' + msg + '\n\nВы можете продолжить добавлять регионы, либо нажмите '
-            'кнопку "в начало", чтобы продолжить работу с ботом.'
-        )
-        return msg
-
-    # Scenario: this setting WAS in place, and now we need to DELETE it
-    if region_was_in_db:
-        for region in list_of_regs_to_upload:
-            db().delete_folder_from_user_regional_preference(user_id, region)
-
-    # Scenario: it's a NEW setting, we need to ADD it
-    else:
-        for region in list_of_regs_to_upload:
-            db().add_folder_to_user_regional_preference(user_id, region)
-
-    msg = _get_user_selected_regions_text(user_id)
-    msg = (
-        'Записали. Обновленный список ваших регионов:' + msg + '\n\nВы можете продолжить добавлять регионы, '
-        'либо нажмите кнопку "в начало", чтобы '
-        'продолжить работу с ботом.'
-    )
-
-    return msg
-
-
-def _get_user_selected_regions_text(user_id: int) -> str:
-    user_curr_regs_list = db().get_user_regions(user_id)
-
-    selected_regions = geography.forum_folders_to_regions_list(user_curr_regs_list)
-    message_lines: list[str] = []
-
-    message_lines = [' &#8226; ' + user_region for user_region in selected_regions]
-
-    return '\n' + ',\n'.join(message_lines)
