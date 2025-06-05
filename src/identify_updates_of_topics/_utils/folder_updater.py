@@ -3,9 +3,6 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from google.cloud import storage
-from google.cloud.storage.blob import Blob
-
 from _dependencies.commons import ChangeType, TopicType
 from _dependencies.pubsub import notify_admin, recognize_title_via_api
 from _dependencies.recognition_schema import RecognitionResult, RecognitionTopicType
@@ -29,47 +26,25 @@ from .topics_commons import (
 )
 
 
-class CloudStorage:
-    BUCKET_NAME = 'bucket_for_snapshot_storage'
+class KeyValueStorage:
+    # TODO rename and move to common code
+
+    KEY_PREFIX = 'folder_summary_snapshot'
+
+    def __init__(self, db: DBClient):
+        self.db = db
+
+    def _get_key(self, folder_num: int) -> str:
+        return f'{self.KEY_PREFIX}-{folder_num}'
 
     def read_folder_hash(self, folder_num: int) -> str | None:
-        try:
-            blob = self._set_cloud_storage(folder_num)
-            contents_as_bytes = blob.download_as_string()
-            contents = str(contents_as_bytes, 'utf-8')
-        except:  # noqa
-            contents = None
+        saved_value = self.db.get_key_value_item(self._get_key(folder_num))
+        if saved_value is None:
+            return None
+        return str(saved_value)
 
-        return contents
-
-    def write_folder_hash(self, data: Any, folder_num: int) -> None:
-        blob = self._set_cloud_storage(folder_num)
-        blob.upload_from_string(data)
-
-    def _set_cloud_storage(self, folder_num: int) -> Blob:
-        """sets the basic parameters for connection to txt file in cloud storage, which stores searches snapshots"""
-
-        storage_client = storage.Client()  # TODO move to class initialization
-        bucket = storage_client.get_bucket(self.BUCKET_NAME)
-
-        blob_name = f'{folder_num}.txt'
-        return bucket.blob(blob_name)
-
-
-def update_checker(current_hash: str, folder_num: int) -> bool:
-    """compare prev snapshot and freshly-parsed snapshot, returns NO or YES and Previous hash"""
-
-    folder_hash_storage = CloudStorage()
-
-    previous_hash = folder_hash_storage.read_folder_hash(folder_num)
-    if current_hash == previous_hash:
-        return False
-
-    # update hash in Storage
-    folder_hash_storage.write_folder_hash(current_hash, folder_num)
-    logging.info(f'folder = {folder_num}, hash is updated, prev snapshot as string = {previous_hash}')
-
-    return True
+    def write_folder_hash(self, data: str, folder_num: int) -> None:
+        self.db.set_key_value_item(self._get_key(folder_num), data)
 
 
 class FolderUpdater:
@@ -98,7 +73,7 @@ class FolderUpdater:
         curr_snapshot_as_string = ','.join(map(str, curr_snapshot_as_one_dimensional_list))
 
         # get the prev snapshot as string from cloud storage & get the trigger if there are updates at all
-        update_trigger = update_checker(curr_snapshot_as_string, self.folder_num)
+        update_trigger = self.update_checker(curr_snapshot_as_string, self.folder_num)
 
         if not update_trigger:
             return False, []
@@ -127,6 +102,21 @@ class FolderUpdater:
 
         titles_and_num_of_replies = [[x.title, x.num_of_replies] for x in folder_summary]
         return titles_and_num_of_replies, folder_summary
+
+    def update_checker(self, current_hash: str, folder_num: int) -> bool:
+        """compare prev snapshot and freshly-parsed snapshot, returns NO or YES and Previous hash"""
+
+        folder_hash_storage = KeyValueStorage(self.db)
+
+        previous_hash = folder_hash_storage.read_folder_hash(folder_num)
+        if current_hash == previous_hash:
+            return False
+
+        # update hash in Storage
+        folder_hash_storage.write_folder_hash(current_hash, folder_num)
+        logging.info(f'folder = {folder_num}, hash is updated, prev snapshot as string = {previous_hash}')
+
+        return True
 
     def _parse_one_search(
         self,

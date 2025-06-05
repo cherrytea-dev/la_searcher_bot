@@ -1,24 +1,8 @@
-from pathlib import Path
-from typing import Any
 from unittest.mock import patch
 
 from _dependencies import pubsub
-from _dependencies.commons import AppConfig
 from check_topics_by_upd_time import main
-from tests.common import get_dotenv_config
-
-
-class LocalFileStorage(main.CloudStorage):
-    path = 'build/storage'
-
-    def _read_snapshot(self, snapshot_name: str) -> str:
-        try:
-            return (Path(self.path) / f'{snapshot_name}.txt').read_text()
-        except FileNotFoundError:
-            return ''
-
-    def _write_snapshot(self, snapshot: Any, snapshot_name: str) -> None:
-        (Path(self.path) / f'{snapshot_name}.txt').write_text(str(snapshot))
+from tests.common import get_dotenv_config, setup_logging
 
 
 def fake_publish_to_pubsub(topic, message):
@@ -26,9 +10,9 @@ def fake_publish_to_pubsub(topic, message):
 
 
 if __name__ == '__main__':
+    setup_logging()
     with (
         patch('_dependencies.commons._get_config', get_dotenv_config),
-        patch.object(main, 'CloudStorage', LocalFileStorage),
         patch.object(pubsub, 'publish_to_pubsub', fake_publish_to_pubsub),
     ):
         # main.main(get_event_with_data(str(generate_random_param())), '')

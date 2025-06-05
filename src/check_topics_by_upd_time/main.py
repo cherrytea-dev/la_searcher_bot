@@ -3,6 +3,7 @@ which contain updates – and makes a pub/sub call for other script to parse con
 
 import ast
 import datetime
+import json
 import logging
 from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass
@@ -10,19 +11,60 @@ from functools import lru_cache
 from typing import Any, Optional, no_type_check
 
 import requests
+import sqlalchemy
 from bs4 import BeautifulSoup, SoupStrainer, Tag
-from google.cloud import storage
 from google.cloud.functions.context import Context
-from google.cloud.storage.blob import Blob
 from retry.api import retry_call
+from sqlalchemy.engine import Connection
+from sqlalchemy.engine.base import Engine
 
-from _dependencies.commons import get_forum_proxies, setup_google_logging
+from _dependencies.commons import get_forum_proxies, setup_google_logging, sqlalchemy_get_pool
 from _dependencies.pubsub import pubsub_parse_folders
 
 setup_google_logging()
 
 DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%S+00:00'
 USELESS_FOLDERS = {84, 113, 112, 270, 86, 87, 88, 165, 365, 89, 172, 91, 90, 316, 234, 230, 319}
+
+
+class DBClient:
+    def __init__(self, db: Engine) -> None:
+        self._db = db
+
+    def connect(self) -> Connection:
+        return self._db.connect()
+
+    def get_key_value_item(self, key: str) -> Any:
+        with self.connect() as conn:
+            stmt = sqlalchemy.text("""
+                SELECT value FROM key_value_storage WHERE key=:key;
+                                   """)
+            raw_data = conn.execute(stmt, key=key).fetchone()
+            return raw_data[0] if raw_data else None
+
+    def set_key_value_item(self, key: str, value: Any) -> None:
+        with self.connect() as conn:
+            stmt = sqlalchemy.text("""
+                INSERT INTO key_value_storage 
+                (key, value) 
+                VALUES (:key, :value) 
+                ON CONFLICT (key) DO UPDATE SET value = :value ; 
+                                   """)
+            conn.execute(stmt, key=key, value=json.dumps(value))
+
+    def delete_key_value_item(self, key: str) -> None:
+        with self.connect() as conn:
+            stmt = sqlalchemy.text("""
+                DELETE FROM key_value_storage 
+                WHERE key=:key; 
+                                   """)
+            conn.execute(stmt, key=key)
+
+
+@lru_cache
+def get_db_client() -> DBClient:
+    pool = sqlalchemy_get_pool(5, 120)
+    return DBClient(db=pool)
 
 
 @dataclass
@@ -65,61 +107,39 @@ def get_session() -> requests.Session:
     return session
 
 
-class CloudStorage:
+class KeyValueStorage:
+    # TODO rename and move to common code
     ROOT_MODIFIED_TIMES_KEY = 'root_modified_times'
 
+    def __init__(self) -> None:
+        self.db = get_db_client()
+
     def read_searches(self, folder_num: str) -> str | None:
-        return self._read_snapshot(f'{folder_num}_searches')
+        return self._read_snapshot(f'searches_{folder_num}')
 
     def read_folders(self, folder_num: str) -> str | None:
-        return self._read_snapshot(f'{folder_num}_folders')
+        return self._read_snapshot(f'folders_{folder_num}')
 
     def write_searches(self, data: Any, folder_num: str) -> None:
-        return self._write_snapshot(data, f'{folder_num}_searches')
+        return self._write_snapshot(data, f'searches_{folder_num}')
 
     def write_folders(self, data: Any, folder_num: str) -> None:
-        return self._write_snapshot(data, f'{folder_num}_folders')
+        return self._write_snapshot(data, f'folders_{folder_num}')
 
     def read_foder_root_modified_times_dict(self) -> dict[str, str]:
-        try:
-            times_dict = self._read_snapshot(self.ROOT_MODIFIED_TIMES_KEY)
-            return ast.literal_eval(times_dict) if times_dict else {}
-        except Exception as e:
-            logging.info(f'Failed to read snapshot from storage: {str(e)}')
-            return {}
+        times_dict: dict | None = self._read_snapshot(self.ROOT_MODIFIED_TIMES_KEY)
+        return times_dict if times_dict else {}
 
-    def write_foder_root_modified_times_dict(self, data: Any) -> None:
-        return self._write_snapshot(data, str(self.ROOT_MODIFIED_TIMES_KEY))
+    def write_foder_root_modified_times_dict(self, data: dict) -> None:
+        return self._write_snapshot(data, self.ROOT_MODIFIED_TIMES_KEY)
 
-    def _read_snapshot(self, snapshot_name: str) -> str | None:
-        """reads previous searches snapshot from txt file in cloud storage"""
+    def _read_snapshot(self, snapshot_name: str) -> Any:
+        return self.db.get_key_value_item(snapshot_name)
 
-        try:
-            blob = self._set_cloud_storage(snapshot_name)
-            contents_as_bytes = blob.download_as_string()
-            contents: str | None = str(contents_as_bytes, 'utf-8')
-            if contents == 'None':
-                contents = None
-        except:  # noqa
-            contents = None
-        return contents
-
-    def _write_snapshot(self, what_to_write: Any, snapshot_name: str) -> None:
+    def _write_snapshot(self, data: Any, snapshot_name: str) -> None:
         """writes current snapshot to txt file in cloud storage"""
 
-        blob = self._set_cloud_storage(snapshot_name)
-        blob.upload_from_string(str(what_to_write), content_type='text/plain')
-
-    def _set_cloud_storage(self, folder_num: str) -> Blob:
-        """sets the basic parameters for connection to txt file in cloud storage, which stores searches snapshots"""
-        bucket_name = 'bucket_for_folders_snapshots'
-        blob_name = str(folder_num) + '.txt'
-
-        storage_client = storage.Client()
-        bucket = storage_client.get_bucket(bucket_name)
-        blob = bucket.blob(blob_name)
-
-        return blob
+        self.db.set_key_value_item(snapshot_name, data)
 
 
 class FolderComparator:
@@ -357,7 +377,7 @@ def time_delta(now: datetime.datetime, time: datetime.datetime) -> int:
 
 def get_the_list_folders_to_update(list_of_folders_and_times: list[list]) -> list:
     """get the list of updated folders that were updated recently"""
-    storage = CloudStorage()
+    storage = KeyValueStorage()
     update_times = storage.read_foder_root_modified_times_dict()
     updated_folders = []
 
@@ -394,7 +414,7 @@ def process_folder(
     folders_to_check: list[FolderForDecompose],
     updated_folders: list,
     folder: FolderForDecompose,
-    storage: CloudStorage,
+    storage: KeyValueStorage,
 ) -> None:
     decomposed_folder = FolderDecomposer().decompose_folder(folder.mother_folder_num)
 
@@ -420,7 +440,7 @@ def process_folder(
 
 
 def get_updates_of_nested_folders(folders_list_to_scan: list[str]) -> list[list]:
-    storage = CloudStorage()
+    storage = KeyValueStorage()
 
     folders_to_check: list[FolderForDecompose] = []
     updated_folders: list = []
