@@ -16,6 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -227,6 +228,14 @@ class Geocoding(Base):
     longitude = Column(Float(53))
     geocoder = Column(String(10))
     timestamp = Column(DateTime(True))
+
+
+t_key_value_storage = Table(
+    'key_value_storage',
+    metadata,
+    Column('key', String(100), nullable=False, unique=True),
+    Column('value', JSONB(astext_type=Text())),
+)
 
 
 class MsgFromBot(Base):

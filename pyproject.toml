@@ -40,6 +40,7 @@ dev = [
     "types-psycopg2",
     "types-python-dateutil",
     "sqlacodegen==2.3.*",
+    "setuptools>=80.9.0",    # for sqlacodegen
 
     "mypy>=1.14.1",
     "types-requests >=2.31.0.6",

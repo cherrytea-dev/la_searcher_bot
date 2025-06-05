@@ -7,11 +7,11 @@ from polyfactory.factories.dataclass_factory import DataclassFactory
 
 from check_topics_by_upd_time import main
 from check_topics_by_upd_time.main import (
-    CloudStorage,
     DecomposedFolder,
     FolderComparator,
     FolderDecomposer,
     FolderForDecompose,
+    KeyValueStorage,
     Search,
     Subfolder,
     process_folder,
@@ -30,7 +30,7 @@ def patch_http():
     pass
 
 
-class FakeCloudStorage(CloudStorage):
+class FakeKeyValueStorage(KeyValueStorage):
     def __init__(self):
         self.data: dict[str, str] = {}
 
@@ -74,10 +74,7 @@ def test_get_updates_of_nested_folders():
 
     folders = FakeFolderDecomposer.folders
     start_folder_num = folders[0].folder_num
-    with (
-        patch.object(main, 'CloudStorage', FakeCloudStorage),
-        patch.object(main, 'FolderDecomposer', FakeFolderDecomposer),
-    ):
+    with patch.object(main, 'FolderDecomposer', FakeFolderDecomposer):
         root_folders_list = [str(start_folder_num)]
         updated_folders = main.get_updates_of_nested_folders(root_folders_list)
 
@@ -303,10 +300,10 @@ class TestProcessFolder:
         folders_to_check: list[FolderForDecompose] = []
         updated_folders = []
         folder = FolderForDecompose(mother_folder_num='179')
-        fake_storage = FakeCloudStorage()
+        fake_storage = FakeKeyValueStorage()
         process_folder(folders_to_check, updated_folders, folder, fake_storage)
-        assert fake_storage.data['179_folders']
-        assert fake_storage.data['179_searches']
+        assert fake_storage.data['folders_179']
+        assert fake_storage.data['searches_179']
 
         assert len(folders_to_check) == 3
         assert folders_to_check[0].mother_folder_num == '236'
@@ -324,8 +321,8 @@ class TestProcessFolder:
         updated_folders = []
         folders_to_check: list[FolderForDecompose] = []
         folder = FolderForDecompose(mother_folder_num='179')
-        fake_storage = FakeCloudStorage()
-        fake_storage.data['179_folders'] = (
+        fake_storage = FakeKeyValueStorage()
+        fake_storage.data['folders_179'] = (
             "[[236, '2025-02-03T21:24:44+00:00'], [138, '2025-02-08T13:52:23+00:00'], [123, '2025-02-09T15:42:45+00:00']]"
         )
         process_folder(folders_to_check, updated_folders, folder, fake_storage)
@@ -341,12 +338,12 @@ class TestProcessFolder:
         updated_folders = []
         folders_to_check: list[FolderForDecompose] = []
         folder = FolderForDecompose(mother_folder_num='179')
-        fake_storage = FakeCloudStorage()
-        fake_storage.data['179_folders'] = "[[138, '2025-02-08T13:52:23+00:00'], [123, '2000-02-09T15:42:45+00:00']]"
+        fake_storage = FakeKeyValueStorage()
+        fake_storage.data['folders_179'] = "[[138, '2025-02-08T13:52:23+00:00'], [123, '2000-02-09T15:42:45+00:00']]"
 
         process_folder(folders_to_check, updated_folders, folder, fake_storage)
-        assert fake_storage.data['179_folders']
-        assert fake_storage.data['179_searches']
+        assert fake_storage.data['folders_179']
+        assert fake_storage.data['searches_179']
 
         assert len(folders_to_check) == 2
         assert folders_to_check[0].mother_folder_num == '123'
@@ -363,10 +360,7 @@ def test_main_no_saved_folders(requests_mock):
         'https://lizaalert.org/forum/index.php',
         text=text,
     )
-    with (
-        patch.object(main, 'CloudStorage', FakeCloudStorage),
-    ):
-        updater_root_folders = main.get_updated_root_folders()
+    updater_root_folders = main.get_updated_root_folders()
 
     expected_folders = [276, 179, 180, 462, 438]
     assert updater_root_folders == expected_folders

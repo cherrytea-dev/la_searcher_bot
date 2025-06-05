@@ -182,3 +182,43 @@ class TestDBClient:
         assert result.search_id == search_num
         assert result.address == address
         assert isinstance(result.timestamp, datetime)
+
+    def test_get_key_value_item_empty(self, db_client: DBClient):
+        key = fake.pystr()
+
+        assert db_client.get_key_value_item(key) is None
+
+    @pytest.mark.parametrize(
+        'value',
+        [
+            None,
+            'foo',
+            {},
+            {'foo': 'bar'},
+            123,
+            '',
+        ],
+    )
+    def test_set_key_value_item(self, db_client: DBClient, value):
+        key = fake.pystr()
+
+        db_client.set_key_value_item(key, value)
+
+        assert db_client.get_key_value_item(key) == value
+
+    def test_set_key_value_item_twice(self, db_client: DBClient):
+        key = fake.pystr()
+
+        db_client.set_key_value_item(key, 1)
+        db_client.set_key_value_item(key, 1)
+
+    def test_delete_key_value_item(self, db_client: DBClient):
+        key = fake.pystr()
+
+        db_client.set_key_value_item(key, 1)
+
+        assert db_client.get_key_value_item(key) == 1
+
+        db_client.delete_key_value_item(key)
+
+        assert db_client.get_key_value_item(key) is None
