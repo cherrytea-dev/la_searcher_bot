@@ -27,7 +27,6 @@ def get_user_attributes_mocked(user_id: str):
 )
 def test_main(user_id: int):
     # TODO check if message to user was sent
-    # NO SMOKE TEST connect_to_forum.main.main
     user_name = 'testuser'
     data = (user_id, user_name)
     with (

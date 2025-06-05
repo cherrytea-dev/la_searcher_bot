@@ -71,7 +71,6 @@ def test_main_entrypoint(
     change_log_db_record_status_change: db_models.ChangeLog,
     search_record: db_models.Search,
 ):
-    # NO SMOKE TEST compose_notifications.main.main
     data = get_event_with_data({'foo': 1, 'triggered_by_func_id': '1'})
     context = MagicMock(event_id=1)
     main.main(data, context)
