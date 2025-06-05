@@ -3,9 +3,12 @@ import json
 import logging
 import math
 import random
-from functools import lru_cache
+from dataclasses import dataclass, field
+from functools import lru_cache, wraps
+from typing import Any, Callable, Mapping, Sequence
 
 import sqlalchemy
+from flask import Request, Response
 
 from _dependencies.commons import get_app_config
 from _dependencies.telegram_api_wrapper import TGApiBase
@@ -156,3 +159,68 @@ def save_function_into_register(
     )
 
     logging.info(f'function {function_id} was saved in functions_registry')
+
+
+@dataclass
+class RequestWrapper:
+    method: str
+    data: bytes
+    headers: dict[str, str] = field(default_factory=dict)
+    json_: dict[str, Any] | None = None
+
+
+@dataclass
+class ResponseWrapper:
+    data: str
+    status_code: int = 200
+    # headers: dict[str, str | Sequence[str]] = field(default_factory=dict)
+    headers: Mapping[str, str | Sequence[str]] = field(default_factory=dict)
+
+
+def request_response_converter(func: Callable[..., ResponseWrapper | str]) -> Callable[..., Response]:
+    @wraps(func)
+    def wrapper(request_data: Request) -> Response:
+        request = convert_flask_request(request_data)
+
+        response = func(request)
+
+        if isinstance(response, Response):
+            return response
+
+        if isinstance(response, ResponseWrapper):
+            return Response(response.data, response.status_code, response.headers)
+
+        return Response(response)
+
+    return wrapper
+
+
+def convert_yc_request(request_data: dict) -> RequestWrapper:
+    """Convert Yandex Cloud Functions request format to RequestWrapper object"""
+
+    try:
+        json_ = json.loads(request_data.get('body'))  # type: ignore[arg-type]
+    except:
+        json_ = None
+
+    return RequestWrapper(
+        method=request_data.get('httpMethod'),  # type: ignore[arg-type]
+        json_=json_,
+        headers=request_data.get('headers', {}),
+        data=request_data.get('body', b''),
+    )
+
+
+def convert_flask_request(request: Request) -> RequestWrapper:
+    """Convert Yandex Cloud Functions request format to RequestWrapper object"""
+    try:
+        json_ = request.get_json()
+    except:
+        json_ = None
+
+    return RequestWrapper(
+        method=request.method,
+        json_=json_,
+        headers=request.headers,  # type: ignore[arg-type]
+        data=request.data,
+    )

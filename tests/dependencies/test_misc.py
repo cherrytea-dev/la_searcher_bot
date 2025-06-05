@@ -14,6 +14,10 @@ def test_make_api_call():
     _dependencies.pubsub.recognize_title_via_api('test title', False)
 
 
+def test_convert_request():
+    pass
+
+
 @pytest.mark.parametrize(
     'minutes_ago,hours_ago,days_ago,result',
     [
@@ -67,3 +71,41 @@ def test_process_pubsub_message_2():
 def test_process_pubsub_message_3():
     res = _dependencies.pubsub.process_pubsub_message(get_event_with_data('foo'))
     assert res == 'foo'
+
+
+def test_convert_flask_request():
+    # example from https://yandex.cloud/ru/docs/functions/lang/python/handler
+    inp = {
+        'body': '{"hello": "world"}',
+        'headers': {
+            'Accept': '*/*',
+            'Content-Length': '18',
+            'Content-Type': 'application/json',
+            'Host': 'functions.yandexcloud.net',
+        },
+        'httpMethod': 'POST',
+        'isBase64Encoded': False,
+        'multiValueHeaders': {
+            'Accept': ['*/*'],
+            'Content-Length': ['18'],
+            'Content-Type': ['application/json'],
+            'Host': ['functions.yandexcloud.net'],
+        },
+        'multiValueParams': {},
+        'multiValueQueryStringParameters': {'param': ['one']},
+        'params': {},
+        'pathParams': {},
+        'queryStringParameters': {'param': 'one'},
+        'requestContext': {
+            'httpMethod': 'POST',
+            'identity': {'sourceIp': '109.252.148.209', 'userAgent': 'curl/7.64.1'},
+            'requestId': '6e8356f9-489b-4c7b-8ba6-c8cd********',
+            'requestTime': '13/Jul/2022:11:58:59 +0000',
+            'requestTimeEpoch': 1657713539,
+        },
+        'url': '',
+    }
+    request_wrapper = misc.convert_yc_request(inp)
+    assert request_wrapper.json_ == {'hello': 'world'}
+    assert request_wrapper.method == 'POST'
+    assert request_wrapper.headers['Content-Type'] == 'application/json'
