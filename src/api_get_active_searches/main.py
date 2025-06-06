@@ -10,11 +10,11 @@ from typing import Any
 from psycopg2.extensions import connection
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from _dependencies.commons import get_app_config, setup_google_logging, sql_connect_by_psycopg2
+from _dependencies.commons import get_app_config, setup_logging, sql_connect_by_psycopg2
 from _dependencies.content import clean_up_content
 from _dependencies.misc import RequestWrapper, ResponseWrapper, request_response_converter
 
-setup_google_logging()
+setup_logging()
 
 
 class Search(BaseModel):
@@ -180,7 +180,7 @@ def save_user_statistics_to_db(conn_psy: connection, user_input: Any, response: 
 
 # @functions_framework.http
 @request_response_converter
-def main(request_data: RequestWrapper) -> ResponseWrapper:
+def main(request_data: RequestWrapper, *args: Any, **kwargs: Any) -> ResponseWrapper:
     # Set CORS headers for the preflight request
     response: FlaskResponseBase
 

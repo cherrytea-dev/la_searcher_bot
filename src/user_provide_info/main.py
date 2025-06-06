@@ -14,7 +14,7 @@ from urllib.parse import unquote
 from psycopg2.extensions import connection
 from pydantic import BaseModel
 
-from _dependencies.commons import TopicType, get_app_config, setup_google_logging, sql_connect_by_psycopg2
+from _dependencies.commons import TopicType, get_app_config, setup_logging, sql_connect_by_psycopg2
 from _dependencies.content import clean_up_content
 from _dependencies.misc import (
     RequestWrapper,
@@ -23,7 +23,7 @@ from _dependencies.misc import (
     time_counter_since_search_start,
 )
 
-setup_google_logging()
+setup_logging()
 
 
 class FlaskResponseBase(BaseModel):
@@ -464,7 +464,7 @@ def get_user_id(request_data: str | dict) -> int:
 
 
 @request_response_converter
-def main(request: RequestWrapper) -> ResponseWrapper:
+def main(request: RequestWrapper, *args: Any, **kwargs: Any) -> ResponseWrapper:
     origin_to_show = get_origin_to_show(request)
 
     # Set CORS headers for the preflight request

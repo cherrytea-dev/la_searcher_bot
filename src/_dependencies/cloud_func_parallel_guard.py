@@ -2,9 +2,8 @@ import datetime
 import json
 import logging
 
-from google.cloud.functions.context import Context
-
 from _dependencies.commons import sql_connect_by_psycopg2
+from _dependencies.pubsub import Ctx
 
 
 def check_if_other_functions_are_working(func_name: str, interval_seconds: int) -> bool:
@@ -28,6 +27,9 @@ def check_if_other_functions_are_working(func_name: str, interval_seconds: int) 
         lines = cur.fetchone()
 
         parallel_functions_are_running = bool(lines)
+
+    if parallel_functions_are_running:
+        logging.warning(f'Parallel functions are running. {func_name=}')
 
     return parallel_functions_are_running
 
@@ -73,7 +75,7 @@ def record_finish_of_function(event_num: int, list_of_changed_ids: list) -> None
 
 
 def check_and_save_event_id(
-    context: Context,
+    context: Ctx,
     event: str,
     function_id: int,
     list_of_change_log_ids: list[int] | None,

@@ -11,16 +11,15 @@ from typing import Any, Dict
 
 import requests
 from bs4 import BeautifulSoup, NavigableString, Tag
-from google.cloud.functions.context import Context
 from telegram import ReplyKeyboardMarkup
 
-from _dependencies.commons import get_app_config, get_forum_proxies, setup_google_logging, sql_connect_by_psycopg2
-from _dependencies.pubsub import process_pubsub_message
+from _dependencies.commons import get_app_config, get_forum_proxies, setup_logging, sql_connect_by_psycopg2
+from _dependencies.pubsub import Ctx, process_pubsub_message
 from _dependencies.telegram_api_wrapper import TGApiBase
 
 COOKIE_FILE_NAME = 'session_cookies.pkl'
 
-setup_google_logging()
+setup_logging()
 
 
 @dataclass
@@ -256,7 +255,7 @@ def match_user_region_from_forum_to_bot(forum_region: str) -> str | None:
 #    return None
 
 
-def main(event: Dict[str, bytes], context: Context) -> None:
+def main(event: Dict[str, bytes], context: Ctx) -> None:
     """main function triggered from communicate script via pyb/sub"""
 
     conn = sql_connect_by_psycopg2()

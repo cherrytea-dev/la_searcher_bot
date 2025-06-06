@@ -3,7 +3,7 @@ from time import time
 from unittest.mock import Mock, patch
 
 from send_notifications.main import main
-from tests.common import get_dotenv_config, get_event_with_data, setup_logging
+from tests.common import get_dotenv_config, get_event_with_data, setup_logging_to_console
 from tests.test_send_notifications import NotSentNotificationFactory
 
 
@@ -34,12 +34,10 @@ def timed_main():
 
 
 if __name__ == '__main__':
-    setup_logging()
+    setup_logging_to_console()
     with (
         patch('_dependencies.commons._get_config', get_dotenv_config),
-        patch('_dependencies.pubsub._send_topic'),
-        patch('_dependencies.pubsub._get_publisher'),
-        patch('_dependencies.pubsub.get_project_id'),
+        patch('_dependencies.pubsub.send_topic_google'),
         patch('send_notifications.main.SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS', 0),
     ):
         generate_messages(1)

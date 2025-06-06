@@ -1,14 +1,12 @@
 import asyncio
-import base64
 from unittest.mock import patch
 
 from telegram import Bot
 from telegram.ext import Updater
 
-from _dependencies.pubsub import Topics
 from communicate._utils.database import db
 from communicate.main import process_update
-from tests.common import get_dotenv_config, setup_logging, topic_to_receiver_function
+from tests.common import get_dotenv_config, patched_send_topic, setup_logging_to_console
 
 
 async def main_bot() -> None:
@@ -25,17 +23,11 @@ async def main_bot() -> None:
 
 
 if __name__ == '__main__':
-    setup_logging()
-
-    def patched_send_topic(topic_name: Topics, topic_path, data: dict) -> None:
-        receiver = topic_to_receiver_function(topic_name)
-        receiver({'data': base64.encodebytes(data)}, 'context')
+    setup_logging_to_console()
 
     with (
         patch('_dependencies.commons._get_config', get_dotenv_config),
-        patch('_dependencies.pubsub._send_topic', patched_send_topic),
-        patch('_dependencies.pubsub._get_publisher'),
-        patch('_dependencies.pubsub.get_project_id'),
+        patch('_dependencies.pubsub.send_topic_google', patched_send_topic),
     ):
         # TODO add pub/sub emulation
         asyncio.run(main_bot())

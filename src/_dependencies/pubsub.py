@@ -1,66 +1,27 @@
-import base64
-import json
-import logging
-from datetime import datetime
 from enum import Enum
-from functools import lru_cache
-from typing import Any
 
-import google.auth.transport.requests
-import google.oauth2.id_token
-import requests
-from google.cloud import pubsub_v1
-from pydantic import BaseModel, Field
-from retry import retry
+from pydantic import BaseModel
 
-from _dependencies.commons import get_project_id
+from _dependencies.google_tools import Ctx, make_api_call, process_pubsub_message_google, send_topic_google
 
 
 class Topics(Enum):
-    topic_notify_admin = 'topic_notify_admin'
-    topic_for_first_post_processing = 'topic_for_first_post_processing'
-    topic_for_notification = 'topic_for_notification'
-    topic_to_run_parsing_script = 'topic_to_run_parsing_script'
-    parse_user_profile_from_forum = 'parse_user_profile_from_forum'
-    topic_to_send_notifications = 'topic_to_send_notifications'
-    topic_to_archive_notifs = 'topic_to_archive_notifs'
-    topic_to_archive_to_bigquery = 'topic_to_archive_to_bigquery'
-
-
-class PubSubMessage(BaseModel):
-    message: Any
-
-
-class PubSubData(BaseModel):
-    data: PubSubMessage
-
-
-@lru_cache
-def _get_publisher() -> pubsub_v1.PublisherClient:
-    return pubsub_v1.PublisherClient()
-
-
-def _send_topic(topic_name: Topics, topic_path: str, message_bytes: bytes) -> None:
-    publish_future = _get_publisher().publish(topic_path, data=message_bytes)
-    publish_future.result()  # Verify the publishing succeeded
+    topic_notify_admin = 'topic_notify_admin'  # send_debug_to_admin
+    topic_for_first_post_processing = 'topic_for_first_post_processing'  # identify_updates_of_first_posts
+    topic_for_notification = 'topic_for_notification'  # compose_notifications
+    topic_to_run_parsing_script = 'topic_to_run_parsing_script'  # identify_updates_of_topics
+    parse_user_profile_from_forum = 'parse_user_profile_from_forum'  # connect_to_forum
+    topic_to_send_notifications = 'topic_to_send_notifications'  # send_notifications
+    topic_to_archive_notifs = 'topic_to_archive_notifs'  # archive_notifications
+    topic_to_archive_to_bigquery = 'topic_to_archive_to_bigquery'  # archive_to_bigquery
 
 
 def publish_to_pubsub(topic_name: Topics, message: str | dict | list | BaseModel) -> None:
     """publish a new message to pub/sub"""
 
     topic_name_str = topic_name.value if isinstance(topic_name, Topics) else topic_name
-    #  TODO find out where topic_name.value comes from as str
 
-    topic_path = _get_publisher().topic_path(get_project_id(), topic_name_str)
-    data = PubSubData(data=PubSubMessage(message=message))
-    message_bytes = data.model_dump_json().encode('utf-8')
-
-    try:
-        _send_topic(topic_name, topic_path, message_bytes)
-        logging.info(f'Sent pub/sub message: {str(message)}')
-
-    except Exception:
-        logging.exception('Not able to send pub/sub message')
+    send_topic_google(topic_name_str, message)
 
 
 def pubsub_parse_user_profile(user_id: int, got_message: str) -> None:
@@ -108,30 +69,10 @@ def recognize_title_via_api(title: str, status_only: bool) -> dict:
         data['reco_type'] = 'status_only'
 
     # function we're turing to "title_recognize"
-    return _make_api_call('title_recognize', data)
-
-
-@retry(Exception, tries=3, delay=3)
-def _make_api_call(function: str, data: dict) -> dict:
-    endpoint = f'https://europe-west3-lizaalert-bot-01.cloudfunctions.net/{function}'
-
-    # required magic for Google Cloud Functions Gen2 to invoke each other
-    audience = endpoint
-    auth_req = google.auth.transport.requests.Request()
-    id_token = google.oauth2.id_token.fetch_id_token(auth_req, audience)
-    headers = {'Authorization': f'Bearer {id_token}', 'Content-Type': 'application/json'}
-
-    response = requests.post(endpoint, json=data, headers=headers, timeout=30)
-    response.raise_for_status()
-    return response.json()
+    return make_api_call('title_recognize', data)
 
 
 def process_pubsub_message(event: dict) -> str:
     """convert incoming pub/sub message into regular data"""
 
-    # receiving message text from pub/sub
-    raw_message = base64.b64decode(event['data']).decode('utf-8')
-    json_data = json.loads(raw_message)
-    message = json_data['data']['message']
-    logging.info(f'received message from pub/sub: {message}')
-    return message
+    return process_pubsub_message_google(event)

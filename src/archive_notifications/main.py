@@ -1,13 +1,12 @@
 import logging
 
 import sqlalchemy
-from google.cloud.functions.context import Context
 from sqlalchemy.engine.base import Connection
 
-from _dependencies.commons import setup_google_logging, sqlalchemy_get_pool
-from _dependencies.pubsub import pubsub_archive_notifications, pubsub_archive_to_bigquery
+from _dependencies.commons import setup_logging, sqlalchemy_get_pool
+from _dependencies.pubsub import Ctx, pubsub_archive_notifications, pubsub_archive_to_bigquery
 
-setup_google_logging()
+setup_logging()
 
 
 def sql_connect() -> sqlalchemy.engine.Engine:
@@ -207,7 +206,7 @@ def move_first_posts_to_history_in_psql(conn: Connection) -> None:
     logging.info('first_posts for elder snapshots are deleted from search_first_posts')
 
 
-def main(event: dict[str, bytes], context: Context) -> None:
+def main(event: dict[str, bytes], context: Ctx) -> None:
     """main function"""
 
     pool = sql_connect()

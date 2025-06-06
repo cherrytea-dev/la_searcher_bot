@@ -7,10 +7,8 @@ Updates are either saved in PSQL or send via pub/sub to other scripts"""
 import datetime
 import logging
 
-from google.cloud.functions.context import Context
-
-from _dependencies.commons import setup_google_logging
-from _dependencies.pubsub import pubsub_check_first_posts
+from _dependencies.commons import setup_logging
+from _dependencies.pubsub import Ctx, pubsub_check_first_posts
 
 from ._utils.commons import PercentGroup, Search
 from ._utils.database import DBClient, get_db_client
@@ -21,7 +19,7 @@ from ._utils.forum import (
     get_search_raw_content,
 )
 
-setup_google_logging()
+setup_logging()
 
 
 def update_one_topic_visibility(search_id: int, visibility: str) -> None:
@@ -174,7 +172,7 @@ def update_first_posts_and_statuses() -> None:
     pubsub_check_first_posts(topics_with_updated_first_posts)
 
 
-def main(event: dict, context: Context) -> None:
+def main(event: dict, context: Ctx) -> None:
     # to avoid function invocation except when it was initiated by scheduler (and pub/sub message was not doubled)
     if datetime.datetime.now().second > 5:
         return

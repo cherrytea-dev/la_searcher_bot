@@ -11,6 +11,7 @@ from pydantic_settings import SettingsConfigDict
 from sqlalchemy.orm import Session
 
 from _dependencies.commons import AppConfig
+from _dependencies.google_tools import _get_message_data
 from _dependencies.pubsub import Topics
 
 T = TypeVar('T')
@@ -77,7 +78,7 @@ def get_dotenv_config() -> AppConfig:
     return AppConfig()
 
 
-def setup_logging() -> None:
+def setup_logging_to_console() -> None:
     logging.basicConfig(
         encoding='utf-8',
         stream=sys.stdout,
@@ -85,6 +86,14 @@ def setup_logging() -> None:
         level=logging.INFO,
         force=True,
     )
+
+
+def patched_send_topic(topic_name_str: str, data: Any) -> None:
+    topic_name = Topics(topic_name_str)
+    data_bytes = _get_message_data(data)
+    receiver = topic_to_receiver_function(topic_name)
+
+    receiver({'data': base64.encodebytes(data_bytes)}, 'context')
 
 
 fake = Faker()

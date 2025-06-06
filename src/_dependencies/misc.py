@@ -173,24 +173,22 @@ class RequestWrapper:
 class ResponseWrapper:
     data: str
     status_code: int = 200
-    # headers: dict[str, str | Sequence[str]] = field(default_factory=dict)
     headers: Mapping[str, str | Sequence[str]] = field(default_factory=dict)
 
 
-def request_response_converter(func: Callable[..., ResponseWrapper | str]) -> Callable[..., Response]:
+def request_response_converter(func: Callable[..., ResponseWrapper]) -> Callable[..., Response]:
     @wraps(func)
-    def wrapper(request_data: Request) -> Response:
-        request = convert_flask_request(request_data)
-
-        response = func(request)
-
-        if isinstance(response, Response):
-            return response
-
-        if isinstance(response, ResponseWrapper):
+    def wrapper(request_data: Request, *args: Any, **kwargs: Any) -> Response:
+        if isinstance(request_data, Request):
+            # google branch
+            request = convert_flask_request(request_data)
+            response = func(request, *args, **kwargs)
             return Response(response.data, response.status_code, response.headers)
-
-        return Response(response)
+        else:
+            # yc branch
+            request = convert_yc_request(request_data)
+            response = func(request, *args, **kwargs)
+            return {'statusCode': response.status_code, 'body': response.data}
 
     return wrapper
 
