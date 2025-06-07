@@ -455,11 +455,11 @@ def get_updates_of_nested_folders(folders_list_to_scan: list[str]) -> list[list]
                 future = pool.submit(process_folder, folders_to_check, updated_folders, folder, storage)
                 futures.append(future)
             wait(futures)
-
+            [f.result() for f in futures]  # check that all tasks are done without exceptions
     return updated_folders
 
 
-def main(event: dict[str, Any], context: Ctx) -> None:
+def main(event: dict[str, Any], context: Ctx | None = None) -> None:
     """main function that starts first"""
     logging.info('START')
 

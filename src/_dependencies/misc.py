@@ -140,6 +140,7 @@ def save_function_into_register(
     """save current function into functions_registry"""
     # TODO merge with similar functions
 
+    return
     json_of_params = json.dumps({'ch_id': change_log_ids})
 
     sql_text = sqlalchemy.text("""
@@ -176,9 +177,9 @@ class ResponseWrapper:
     headers: Mapping[str, str | Sequence[str]] = field(default_factory=dict)
 
 
-def request_response_converter(func: Callable[..., ResponseWrapper]) -> Callable[..., Response]:
+def request_response_converter(func: Callable[..., ResponseWrapper]) -> Callable[..., dict]:
     @wraps(func)
-    def wrapper(request_data: Request, *args: Any, **kwargs: Any) -> Response:
+    def wrapper(request_data: dict, *args: Any, **kwargs: Any) -> dict:
         if isinstance(request_data, Request):
             # google branch
             request = convert_flask_request(request_data)

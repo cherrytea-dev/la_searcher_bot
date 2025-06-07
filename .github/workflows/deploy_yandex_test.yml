@@ -1,0 +1,22 @@
+name: Deploy to Yandex Cloud Functions test_func
+
+on:
+  push:
+    branches: [ yandex-rebased ]
+    paths:
+      - 'src/_dependencies/*'
+      - 'src/communicate/**' # UPD HERE!
+      - '.github/workflows/deploy_yandex_test.yml' # UPD HERE!
+      - '.github/workflows/_reusable_wf_yc.yml' # reusable
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/_reusable_wf_yc.yml
+    secrets: inherit
+    with:
+      function-name: 'la-searcher-bot'
+      local-name: 'communicate'
+      memory: '128Mb'
+      entrypoint: 'communicate.main.handler'
+      source-root: 'src'
+      # TODO generate requirements.txt

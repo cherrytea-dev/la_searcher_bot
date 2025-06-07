@@ -39,12 +39,6 @@ def patch_http():
         yield
 
 
-@pytest.fixture(autouse=True)
-def patch_pubsub_client() -> MagicMock:
-    with patch('google.cloud.pubsub_v1.PublisherClient', MagicMock()) as mock:
-        yield mock
-
-
 @pytest.fixture
 def connection() -> Connection:
     pool = sqlalchemy_get_pool(10, 10)

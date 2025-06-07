@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from unittest.mock import patch
 
 from telegram import Bot
@@ -24,10 +25,11 @@ async def main_bot() -> None:
 
 if __name__ == '__main__':
     setup_logging_to_console()
+    logging.info('hello')
 
     with (
         patch('_dependencies.commons._get_config', get_dotenv_config),
-        patch('_dependencies.pubsub.send_topic_google', patched_send_topic),
+        # patch('_dependencies.pubsub.send_topic_google', patched_send_topic),
     ):
         # TODO add pub/sub emulation
         asyncio.run(main_bot())

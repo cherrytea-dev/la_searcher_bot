@@ -12,3 +12,4 @@ venv/
 .DS_Store
 type_info.json
 *.pkl
+src/requirements.txt

@@ -28,9 +28,27 @@ def get_test_config() -> AppTestConfig:
 
 
 def get_event_with_data(message) -> dict:
-    encoded_data = base64.b64encode(json.dumps({'data': {'message': message}}).encode())
-    event = {'data': encoded_data}
+    encoded_data = json.dumps(message)
+
+    event = {
+        'messages': [
+            {
+                'event_metadata': {},
+                'details': {
+                    'message': {
+                        'body': encoded_data,  # here is the message
+                    },
+                },
+            },
+        ]
+    }
+
     return event
+
+
+def patched_send_topic(topic_name: Topics, topic_path, data: dict) -> None:
+    receiver = topic_to_receiver_function(topic_name)
+    receiver({'data': base64.encodebytes(data)}, 'context')
 
 
 @lru_cache
