@@ -20,7 +20,7 @@ from sqlalchemy.engine.base import Engine
 from _dependencies.commons import get_forum_proxies, setup_logging, sqlalchemy_get_pool
 from _dependencies.pubsub import Ctx, pubsub_parse_folders
 
-setup_logging()
+setup_logging(__package__)
 
 DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%S+00:00'
 USELESS_FOLDERS = {84, 113, 112, 270, 86, 87, 88, 165, 365, 89, 172, 91, 90, 316, 234, 230, 319}

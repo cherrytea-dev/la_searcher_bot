@@ -14,13 +14,14 @@ from retry import retry
 Ctx = dict
 
 
-def setup_logging_cloud() -> None:
+def setup_logging_cloud(package_name: str | None = None) -> None:
     handler = logging.StreamHandler(sys.stdout)
 
     formatter = jsonlogger.JsonFormatter(
         '{levelname}{message}{asctime}{exc_info}',
         style='{',
         rename_fields={'levelname': 'level'},
+        defaults={'stream_name': package_name},
     )
     handler.setFormatter(formatter)
 

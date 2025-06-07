@@ -23,7 +23,7 @@ from _dependencies.misc import (
     time_counter_since_search_start,
 )
 
-setup_logging()
+setup_logging(__package__)
 
 
 class FlaskResponseBase(BaseModel):

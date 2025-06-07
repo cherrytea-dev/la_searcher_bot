@@ -23,7 +23,7 @@ INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 130
 FUNC_NAME = 'compose_notifications'
 
 
-setup_logging()
+setup_logging(__package__)
 
 
 def sql_connect() -> sqlalchemy.engine.Engine:

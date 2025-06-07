@@ -19,7 +19,7 @@ from ._utils.forum import (
     get_search_raw_content,
 )
 
-setup_logging()
+setup_logging(__package__)
 
 
 def update_one_topic_visibility(search_id: int, visibility: str) -> None:

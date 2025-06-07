@@ -14,7 +14,7 @@ from _dependencies.commons import get_app_config, setup_logging, sql_connect_by_
 from _dependencies.content import clean_up_content
 from _dependencies.misc import RequestWrapper, ResponseWrapper, request_response_converter
 
-setup_logging()
+setup_logging(__package__)
 
 
 class Search(BaseModel):
