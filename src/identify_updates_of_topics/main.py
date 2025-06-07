@@ -5,20 +5,18 @@ import ast
 import logging
 from datetime import datetime
 
-from google.cloud.functions.context import Context
-
-from _dependencies.commons import setup_google_logging
+from _dependencies.commons import setup_logging
 from _dependencies.misc import generate_random_function_id, save_function_into_register
-from _dependencies.pubsub import notify_admin, process_pubsub_message, pubsub_compose_notifications
+from _dependencies.pubsub import Ctx, notify_admin, process_pubsub_message, pubsub_compose_notifications
 
 from ._utils.database import get_db_client
 from ._utils.folder_updater import FolderUpdater
 from ._utils.forum import ForumClient
 
-setup_google_logging()
+setup_logging()
 
 
-def main(event: dict[str, bytes], context: Context) -> None:  # noqa
+def main(event: dict[str, bytes], context: Ctx) -> None:  # noqa
     """main function triggered by pub/sub"""
 
     function_id = generate_random_function_id()

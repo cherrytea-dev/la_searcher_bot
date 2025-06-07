@@ -9,7 +9,6 @@ from _dependencies.cloud_func_parallel_guard import (
     record_finish_of_function,
     record_start_of_function,
 )
-from tests.common import run_smoke
 
 
 class Context(NamedTuple):
@@ -19,21 +18,6 @@ class Context(NamedTuple):
 @pytest.fixture
 def func_name() -> str:
     return uuid4().hex[:10]
-
-
-def test_check_if_other_functions_are_working():
-    res = run_smoke(check_if_other_functions_are_working)
-    pass
-
-
-def test_check_record_start_of_function():
-    res = run_smoke(record_start_of_function)
-    pass
-
-
-def test_record_finish_of_function():
-    res = run_smoke(record_finish_of_function)
-    pass
 
 
 def test_check_and_save_event_id(func_name: str):

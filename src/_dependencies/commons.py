@@ -1,53 +1,21 @@
 import ast
-import os
 import re
-import urllib.request
 from enum import Enum, IntEnum
 from functools import lru_cache
 
-import google.cloud.logging
 import psycopg2
 import sqlalchemy
 from bs4 import BeautifulSoup
-from google.cloud import secretmanager
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings
+
+from _dependencies.google_tools import get_secrets, setup_google_logging_internal
 
 PHONE_RE = re.compile(r'(?:\+7|7|8)\s?[\s\-(]?\s?\d{3}[\s\-)]?\s?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}')
 
 
-@lru_cache
-def get_secret_manager_client() -> secretmanager.SecretManagerServiceClient:
-    return secretmanager.SecretManagerServiceClient()
-
-
-@lru_cache
-def get_project_id() -> str:
-    url = 'http://metadata.google.internal/computeMetadata/v1/project/project-id'
-    req = urllib.request.Request(url)
-    req.add_header('Metadata-Flavor', 'Google')
-    project_id = urllib.request.urlopen(req).read().decode()
-    return project_id
-
-
-@lru_cache  # TODO maybe cachetools/timed_lru_cache?
-def get_secrets(secret_request: str) -> str:
-    """Get GCP secret"""
-
-    name = f'projects/{get_project_id()}/secrets/{secret_request}/versions/latest'
-    response = get_secret_manager_client().access_secret_version(name=name)
-
-    return response.payload.data.decode('UTF-8')
-
-
-def setup_google_logging() -> None:
-    logging_disabled = os.getenv('GOOGLE_LOGGING_DISABLED', False)
-    if logging_disabled:
-        # TODO pydantic-settings or improve parsing here.
-        return
-
-    log_client = google.cloud.logging.Client()
-    log_client.setup_logging()
+def setup_logging() -> None:
+    setup_google_logging_internal()
 
 
 class AppConfig(BaseSettings):

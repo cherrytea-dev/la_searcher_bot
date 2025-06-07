@@ -1,10 +1,10 @@
 import base64
 import logging
 
-from _dependencies.commons import setup_google_logging, sql_connect_by_psycopg2
+from _dependencies.commons import setup_logging, sql_connect_by_psycopg2
 from _dependencies.pubsub import process_pubsub_message
 
-setup_google_logging()
+setup_logging()
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)

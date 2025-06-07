@@ -4,16 +4,15 @@ import datetime
 import logging
 
 import sqlalchemy
-from google.cloud.functions.context import Context
 from sqlalchemy.engine.base import Connection
 
 from _dependencies.cloud_func_parallel_guard import check_and_save_event_id
-from _dependencies.commons import ChangeType, setup_google_logging, sqlalchemy_get_pool
+from _dependencies.commons import ChangeType, setup_logging, sqlalchemy_get_pool
 from _dependencies.misc import (
     generate_random_function_id,
     get_triggering_function,
 )
-from _dependencies.pubsub import process_pubsub_message, pubsub_compose_notifications
+from _dependencies.pubsub import Ctx, process_pubsub_message, pubsub_compose_notifications
 
 from ._utils.commons import LineInChangeLog, User
 from ._utils.log_record_composer import LogRecordComposer
@@ -24,7 +23,7 @@ INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 130
 FUNC_NAME = 'compose_notifications'
 
 
-setup_google_logging()
+setup_logging()
 
 
 def sql_connect() -> sqlalchemy.engine.Engine:
@@ -123,7 +122,7 @@ def delete_ended_search_following(conn: Connection, new_record: LineInChangeLog)
     return None
 
 
-def main(event: dict, context: Context) -> None:
+def main(event: dict, context: Ctx) -> None:
     """key function which is initiated by Pub/Sub"""
 
     analytics_start_of_func = datetime.datetime.now()

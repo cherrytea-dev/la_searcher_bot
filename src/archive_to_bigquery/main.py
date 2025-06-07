@@ -1,13 +1,12 @@
 """move data from Cloud SQL to BigQuery for long-term storage & analysis"""
 
 import logging
-from typing import Any, Dict, Optional
 
 import sqlalchemy
 from google.cloud import bigquery
-from google.cloud.functions.context import Context
 
 from _dependencies.commons import sqlalchemy_get_pool
+from _dependencies.pubsub import Ctx
 
 
 def sql_connect() -> sqlalchemy.engine.Engine:
@@ -205,7 +204,7 @@ def save_sql_stat_table_sizes(client: bigquery.Client) -> None:
     logging.info(f'saved psql table sizes stat to bq, number of lines: {lines}')
 
 
-def main(event: dict, context: Context) -> None:
+def main(event: dict, context: Ctx) -> None:
     """main function"""
 
     client = bigquery.Client()

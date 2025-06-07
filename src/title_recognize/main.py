@@ -3,12 +3,12 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from _dependencies.commons import setup_google_logging
+from _dependencies.commons import setup_logging
 from _dependencies.misc import RequestWrapper, ResponseWrapper, request_response_converter
 
 from ._utils.recognizer import recognize_title
 
-setup_google_logging()
+setup_logging()
 
 
 class UserRequest(BaseModel):
@@ -37,7 +37,7 @@ class OkResponse(FlaskResponseBase):
 
 
 @request_response_converter
-def main(request: RequestWrapper) -> ResponseWrapper:
+def main(request: RequestWrapper, *args: Any, **kwargs: Any) -> ResponseWrapper:
     """entry point to http-invoked cloud function"""
 
     try:

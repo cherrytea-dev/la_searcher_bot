@@ -17,12 +17,6 @@ from check_topics_by_upd_time.main import (
     process_folder,
 )
 
-# NO SMOKE TEST check_topics_by_upd_time.main.get_the_list_folders_to_update
-# NO SMOKE TEST check_topics_by_upd_time.main.get_updated_root_folders
-# NO SMOKE TEST check_topics_by_upd_time.main.process_folder
-# NO SMOKE TEST check_topics_by_upd_time.main.check_and_process_updates_of_folders
-# NO SMOKE TEST check_topics_by_upd_time.main.time_delta
-
 
 @pytest.fixture
 def patch_http():
@@ -70,8 +64,6 @@ class FakeFolderDecomposer(FolderDecomposer):
 
 
 def test_get_updates_of_nested_folders():
-    # NO SMOKE TEST check_topics_by_upd_time.main.get_updates_of_nested_folders
-
     folders = FakeFolderDecomposer.folders
     start_folder_num = folders[0].folder_num
     with patch.object(main, 'FolderDecomposer', FakeFolderDecomposer):
@@ -290,7 +282,6 @@ class TestDecomposeFolderToSubfolders:
 
 
 class TestProcessFolder:
-    # NO SMOKE TEST check_topics_by_upd_time.main.process_folder
     def test_process_folder_not_been_in_storage(self, requests_mock):
         text = Path('tests/fixtures/forum_folder_179_with_subfolders.html').read_text()
         requests_mock.get(
@@ -352,8 +343,6 @@ class TestProcessFolder:
 
 @pytest.mark.freeze_time('2025-02-13 14:25:00')
 def test_main_no_saved_folders(requests_mock):
-    # NO SMOKE TEST check_topics_by_upd_time.main.main
-
     text = Path('tests/fixtures/forum_main.html').read_text()
 
     requests_mock.get(

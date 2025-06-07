@@ -7,8 +7,8 @@ from typing import Any, Callable
 
 from telegram import Bot, CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 
-from _dependencies.commons import get_app_config, setup_google_logging
-from _dependencies.misc import RequestWrapper, request_response_converter
+from _dependencies.commons import get_app_config, setup_logging
+from _dependencies.misc import RequestWrapper, ResponseWrapper, request_response_converter
 from _dependencies.pubsub import notify_admin
 from _dependencies.users_management import ManageUserAction, register_new_user, save_onboarding_step, update_user_status
 
@@ -32,7 +32,7 @@ from ._utils.handlers import (
 )
 from ._utils.message_sending import tg_api
 
-setup_google_logging()
+setup_logging()
 
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
 # Important – these are not errors, but jest informational warnings that there were retries, that's why we exclude them
@@ -397,18 +397,19 @@ def _get_bot() -> Bot:
 
 
 @request_response_converter
-def main(request: RequestWrapper) -> str:
+def main(request: RequestWrapper, *args: Any, **kwargs: Any) -> ResponseWrapper:
     """Main function to orchestrate the whole script"""
 
     if request.method != 'POST':
         logging.error(f'non-post request identified {request}')
-        return 'it was not post request'
+        return ResponseWrapper(data='it was not post request', status_code=400)
 
     bot = _get_bot()
     if request.json_ is None:
-        return 'no request data'
+        return ResponseWrapper(data='no request data', status_code=400)
 
     update = Update.de_json(request.json_, bot)
 
     with db().connect():
-        return process_update(update)  # type: ignore[arg-type]
+        result = process_update(update)  # type: ignore[arg-type]
+        return ResponseWrapper(data=result)

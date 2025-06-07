@@ -23,14 +23,12 @@ def patch_http():
 
 
 def test_main():
-    # NO SMOKE TEST identify_updates_of_first_posts.main.main
     # TODO paste some posts in db
     main.main(get_event_with_data('[1,2]'), 'context')
     assert True
 
 
 def test_compose_diff_message():
-    # NO SMOKE TEST identify_updates_of_first_posts.main.compose_diff_message
     current = ['line1', 'line2']
     previous = ['line1', 'line3']
     message = main.compose_diff_message(current, previous)
@@ -142,7 +140,6 @@ def test_multiple_updated_searches():
 
 
 class TestParseSearchFolder:
-    # NO SMOKE TEST identify_updates_of_first_posts.main.parse_search_folder_num
     @pytest.fixture(scope='class')
     def mock_response(self):
         with patch.object(requests.Session, 'get') as mock_get:
@@ -186,7 +183,6 @@ class TestCompressedFirstPost:
 
 
 class TestProcessOneUpdate:
-    # NO SMOKE TEST identify_updates_of_first_posts.main._process_one_update
     def test__process_one_update(self, connection):
         prev_search_first_post = db_factories.SearchFirstPostFactory.create_sync(
             actual=False, timestamp=datetime.datetime.now()
@@ -210,7 +206,6 @@ class TestProcessOneUpdate:
 
 
 def test__process_folders_with_updated_searches(connection):
-    # NO SMOKE TEST identify_updates_of_first_posts.main._process_folders_with_updated_searches
     mocked_context = Mock()
     mocked_context.event_id = 1
     with patch.object(main, 'parse_search_folder_num', Mock(return_value=1)):

@@ -1,23 +1,17 @@
 import base64
-import inspect
 import json
 import logging
 import sys
-from dataclasses import is_dataclass
-from datetime import date, datetime
 from functools import lru_cache
-from typing import Any, Callable, TypeVar
-from unittest.mock import MagicMock
+from typing import Any, TypeVar
 
-import psycopg2
-import sqlalchemy
 from dotenv import load_dotenv
 from faker import Faker
-from polyfactory.factories import dataclass_factory
 from pydantic_settings import SettingsConfigDict
 from sqlalchemy.orm import Session
 
-from _dependencies.commons import AppConfig, sql_connect_by_psycopg2, sqlalchemy_get_pool
+from _dependencies.commons import AppConfig
+from _dependencies.google_tools import _get_message_data
 from _dependencies.pubsub import Topics
 
 T = TypeVar('T')
@@ -37,86 +31,6 @@ def get_event_with_data(message) -> dict:
     encoded_data = base64.b64encode(json.dumps({'data': {'message': message}}).encode())
     event = {'data': encoded_data}
     return event
-
-
-def _get_default_arg_value(param):
-    if param._annotation is str:
-        return 'foo'
-    elif param._annotation is int:
-        return 1
-    elif param._annotation is list:
-        return []
-    elif param._annotation is dict:
-        return {}
-    elif param._annotation is bool:
-        return False
-    elif param._annotation is datetime:
-        return datetime.now()
-    elif param._annotation is date:
-        return date.today()
-    elif param._annotation is float:
-        return 1.1
-
-    # specific
-    elif param._annotation is sqlalchemy.engine.Engine:
-        return sqlalchemy_get_pool(1, 1)
-    elif param._annotation is sqlalchemy.engine.Connection:
-        pool = sqlalchemy_get_pool(1, 1)
-        return pool.connect()
-    elif param._annotation is psycopg2.extensions.connection:
-        return sql_connect_by_psycopg2()
-    elif param._annotation is psycopg2.extensions.cursor:
-        return sql_connect_by_psycopg2().cursor()
-    elif is_dataclass(param._annotation):
-        factory = _get_dataclass_factory(param._annotation)
-        return factory.build()
-
-    # suggestions
-    elif param.name == 'conn':
-        pool = sqlalchemy_get_pool(1, 1)
-        return pool.connect()
-    elif param.name == 'db':
-        return sql_connect_by_psycopg2()
-    # elif param.name == 'cur':
-    #     return sql_connect_by_psycopg2().cursor()
-    # elif param.name == 'change_log_id':
-    #     return 1
-    # elif param.name == 'user_id':
-    #     return 1
-
-    # ok, just mock it
-    else:
-        return MagicMock()
-
-
-@lru_cache
-def _get_dataclass_factory(dataclass_) -> dataclass_factory.DataclassFactory:
-    return dataclass_factory.DataclassFactory.create_factory(model=dataclass_)
-
-
-def generate_args_for_function(func: Callable) -> dict[str, Any]:
-    signature = inspect.signature(func)
-
-    return {param_name: _get_default_arg_value(signature.parameters[param_name]) for param_name in signature.parameters}
-
-
-def run_smoke(func: Callable):
-    """runs fumction with default args"""
-    args = generate_args_for_function(func)
-    try:
-        return func(**args)
-    except Exception as e:
-        raise e
-    finally:
-        for arg in args:
-            if False:
-                pass
-            elif isinstance(args[arg], psycopg2.extensions.cursor):
-                args[arg].close()
-            elif isinstance(args[arg], psycopg2.extensions.connection):
-                args[arg].close()
-            elif isinstance(args[arg], sqlalchemy.engine.Connection):
-                args[arg].close()
 
 
 @lru_cache
@@ -158,17 +72,13 @@ def find_model(session: Session, model: type[T], **kwargs: Any) -> T | None:
     return query.first()
 
 
-fake = Faker()
-Faker.seed()
-
-
 @lru_cache
 def get_dotenv_config() -> AppConfig:
     assert load_dotenv('.env', override=True)
     return AppConfig()
 
 
-def setup_logging() -> None:
+def setup_logging_to_console() -> None:
     logging.basicConfig(
         encoding='utf-8',
         stream=sys.stdout,
@@ -176,3 +86,15 @@ def setup_logging() -> None:
         level=logging.INFO,
         force=True,
     )
+
+
+def patched_send_topic(topic_name_str: str, data: Any) -> None:
+    topic_name = Topics(topic_name_str)
+    data_bytes = _get_message_data(data)
+    receiver = topic_to_receiver_function(topic_name)
+
+    receiver({'data': base64.encodebytes(data_bytes)}, 'context')
+
+
+fake = Faker()
+Faker.seed()

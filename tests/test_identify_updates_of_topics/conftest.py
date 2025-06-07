@@ -37,9 +37,3 @@ def db(patch_app_config):
 @pytest.fixture(scope='session')
 def db_client(db) -> DBClient:
     return DBClient(db)
-
-
-@pytest.fixture(autouse=True)
-def patch_google_cloud_storage():
-    with patch('google.cloud.storage.Client'):
-        yield

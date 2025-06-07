@@ -13,25 +13,25 @@ from typing import Iterator
 import requests
 import sqlalchemy
 from bs4 import BeautifulSoup
-from google.cloud.functions.context import Context
 
 from _dependencies.commons import (
     ChangeLogSavedValue,
     ChangeType,
     get_forum_proxies,
-    setup_google_logging,
+    setup_logging,
     sqlalchemy_get_pool,
 )
 from _dependencies.content import clean_up_content_2
 from _dependencies.misc import generate_random_function_id, save_function_into_register
 from _dependencies.pubsub import (
+    Ctx,
     notify_admin,
     process_pubsub_message,
     pubsub_compose_notifications,
     pubsub_parse_folders,
 )
 
-setup_google_logging()
+setup_logging()
 
 
 @lru_cache
@@ -233,7 +233,7 @@ def split_text_to_deleted_and_regular_parts(text: str) -> tuple[str, str]:
 
 
 def _process_folders_with_updated_searches(
-    context: Context,
+    context: Ctx,
     function_id: int,
     analytics_func_start: datetime.datetime,
     list_of_updated_searches: list[int],
@@ -324,7 +324,7 @@ def _get_actual_and_previous_page_content(conn: sqlalchemy.engine.Connection, se
     return first_page_content_curr, first_page_content_prev
 
 
-def main(event: dict, context: Context) -> str:  # noqa
+def main(event: dict, context: Ctx) -> str:  # noqa
     """key function"""
 
     function_id = generate_random_function_id()

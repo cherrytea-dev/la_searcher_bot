@@ -13,15 +13,14 @@ from typing import Any, Optional, no_type_check
 import requests
 import sqlalchemy
 from bs4 import BeautifulSoup, SoupStrainer, Tag
-from google.cloud.functions.context import Context
 from retry.api import retry_call
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.base import Engine
 
-from _dependencies.commons import get_forum_proxies, setup_google_logging, sqlalchemy_get_pool
-from _dependencies.pubsub import pubsub_parse_folders
+from _dependencies.commons import get_forum_proxies, setup_logging, sqlalchemy_get_pool
+from _dependencies.pubsub import Ctx, pubsub_parse_folders
 
-setup_google_logging()
+setup_logging()
 
 DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%S+00:00'
 USELESS_FOLDERS = {84, 113, 112, 270, 86, 87, 88, 165, 365, 89, 172, 91, 90, 316, 234, 230, 319}
@@ -460,7 +459,7 @@ def get_updates_of_nested_folders(folders_list_to_scan: list[str]) -> list[list]
     return updated_folders
 
 
-def main(event: dict[str, Any], context: Context) -> None:
+def main(event: dict[str, Any], context: Ctx) -> None:
     """main function that starts first"""
     logging.info('START')
 

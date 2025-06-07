@@ -9,20 +9,19 @@ from dataclasses import dataclass, field
 from typing import Any, List
 
 import requests
-from google.cloud.functions.context import Context
 from psycopg2.extensions import connection, cursor
 
 from _dependencies.cloud_func_parallel_guard import check_and_save_event_id
-from _dependencies.commons import setup_google_logging, sql_connect_by_psycopg2
+from _dependencies.commons import setup_logging, sql_connect_by_psycopg2
 from _dependencies.misc import (
     generate_random_function_id,
     get_triggering_function,
     tg_api_main_account,
 )
-from _dependencies.pubsub import notify_admin, process_pubsub_message, pubsub_send_notifications
+from _dependencies.pubsub import Ctx, notify_admin, process_pubsub_message, pubsub_send_notifications
 from _dependencies.telegram_api_wrapper import TGApiBase
 
-setup_google_logging()
+setup_logging()
 
 FUNC_NAME = 'send_notifications'
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
@@ -415,7 +414,7 @@ def finish_time_analytics(
     return None
 
 
-def main(event: dict, context: Context) -> str | None:
+def main(event: dict, context: Ctx) -> str | None:
     """Main function that is triggered by pub/sub"""
 
     time_analytics = TimeAnalytics(script_start_time=datetime.datetime.now())
