@@ -106,7 +106,7 @@ def _handle_topic_type_pressed_about(
     tg_api().send_message(about_params)
     del_message_id = callback_query.message.message_id if callback_query and callback_query.message else None
     if del_message_id:  ###was get_last_user_inline_dialogue( user_id)
-        tg_api().delete_message(user_id, del_message_id)
+        # tg_api().delete_message(user_id, del_message_id)
         bot_message = f'⬆️ Справка приведена выше. \n\n{welcome_message}'
 
     list_of_current_setting_ids = db().check_saved_topic_types(user_id)
