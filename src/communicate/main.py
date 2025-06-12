@@ -294,6 +294,10 @@ def process_update(update: Update) -> str:
     if got_message:
         db().save_user_message_to_bot(user_id, got_message)
 
+    if update_params.callback_query:
+        # mark user update as 'received by bot'
+        tg_api().send_callback_answer_to_api(user_id, update_params.callback_query.id, '')
+
     user_is_new = db().check_if_new_user(user_id)
     logging.info(f'After check_if_new_user: {user_is_new=}')
     if user_is_new:
