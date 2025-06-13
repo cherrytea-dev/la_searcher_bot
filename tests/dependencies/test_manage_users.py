@@ -3,16 +3,16 @@ from random import randint
 
 import pytest
 from sqlalchemy.engine import Connection
+
 from _dependencies.users_management import (
     ManageUserAction,
     _save_default_notif_settings,
     _save_new_user,
     save_onboarding_step,
-    sql_connect,
     update_user_status,
 )
 from tests.common import find_model
-from tests.factories.db_factories import UserFactory, UserOnboardingFactory, UserStatusesHistoryFactory, get_session
+from tests.factories.db_factories import UserFactory, get_session
 from tests.factories.db_models import User, UserOnboarding, UserPreference, UserStatusesHistory
 
 
@@ -90,7 +90,7 @@ class TestSaveNewUser:
         assert user.username_telegram == username
         assert user.reg_date == timestamp
 
-        onboarding: UserOnboarding = get_session().query(UserOnboarding).filter_by(user_id=user_id).first()
+        onboarding = find_model(get_session(), UserOnboarding, user_id=user_id)
         assert onboarding is not None
         assert onboarding.step_id == 0
         assert onboarding.step_name == 'start'
@@ -124,7 +124,7 @@ class TestSaveNewUser:
         assert users[0].reg_date == timestamp
 
         # Check that onboarding entry was still created
-        onboarding: UserOnboarding = get_session().query(UserOnboarding).filter_by(user_id=user_id).first()
+        onboarding = find_model(get_session(), UserOnboarding, user_id=user_id)
         assert onboarding is not None
         assert onboarding.step_id == 0
         assert onboarding.step_name == 'start'

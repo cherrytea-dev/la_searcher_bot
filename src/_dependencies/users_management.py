@@ -114,35 +114,26 @@ def _write_new_user_status(
 def _save_default_notif_settings(conn: sqlalchemy.engine.Connection, user_id: int) -> None:
     """if the user is new – set the default notification categories in user_preferences table"""
 
-    num_of_updates = 0
+    stmt = sqlalchemy.text("""
+                INSERT INTO user_preferences (user_id, preference, pref_id)
+                VALUES (:user_id, :preference, :pref_id)
+                ON CONFLICT (user_id, pref_id) DO NOTHING
+        """)
 
     # default notification settings
     list_of_parameters = [
-        {'user_id': user_id, 'preference': 'new_searches', 'pref_id': 0},
-        {'user_id': user_id, 'preference': 'status_changes', 'pref_id': 1},
-        {'user_id': user_id, 'preference': 'inforg_comments', 'pref_id': 4},
-        {'user_id': user_id, 'preference': 'first_post_changes', 'pref_id': 8},
-        {'user_id': user_id, 'preference': 'bot_news', 'pref_id': 20},
+        (user_id, 'new_searches', 0),
+        (user_id, 'status_changes', 1),
+        (user_id, 'inforg_comments', 4),
+        (user_id, 'first_post_changes', 8),
+        (user_id, 'bot_news', 20),
     ]
-
     # apply default notification settings – write to PSQL in not exist (due to repetitions of pub/sub messages)
     for params in list_of_parameters:
-        result = conn.execute(
-            sqlalchemy.text("""
-                WITH rows AS
-                (
-                    INSERT INTO user_preferences (user_id, preference, pref_id) 
-                    VALUES (:user_id, :preference, :pref_id)
-                    ON CONFLICT (user_id, pref_id) DO NOTHING
-                    RETURNING 1
-                )
-                SELECT count(*) FROM rows;
-            """),
-            params,
-        )
-        num_of_updates += result.scalar()
+        params_dict = {'user_id': params[0], 'preference': params[1], 'pref_id': params[2]}
+        conn.execute(stmt, params_dict)
 
-    logging.info(f'New user with id: {user_id}, {num_of_updates} default notif categories were set.')
+    logging.info(f'New user with id: {user_id}, default notif categories were set.')
 
 
 def _save_new_user(conn: sqlalchemy.engine.Connection, user_id: int, username: str | None, timestamp: datetime) -> None:
