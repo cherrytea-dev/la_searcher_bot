@@ -2,12 +2,13 @@ from datetime import datetime
 from random import randint
 
 import pytest
-
+from sqlalchemy.engine import Connection
 from _dependencies.users_management import (
     ManageUserAction,
     _save_default_notif_settings,
     _save_new_user,
     save_onboarding_step,
+    sql_connect,
     update_user_status,
 )
 from tests.common import find_model
@@ -77,11 +78,11 @@ class TestSaveOnboardingStep:
 
 
 class TestSaveNewUser:
-    def test_save_new_user_success(self, user_id: int, connection_psy):
+    def test_save_new_user_success(self, user_id: int, connection: Connection):
         username = 'test_user'
         timestamp = datetime.now()
 
-        _save_new_user(connection_psy, user_id, username, timestamp)
+        _save_new_user(connection, user_id, username, timestamp)
 
         user = find_model(get_session(), User, user_id=user_id)
         assert user is not None
@@ -94,11 +95,11 @@ class TestSaveNewUser:
         assert onboarding.step_id == 0
         assert onboarding.step_name == 'start'
 
-    def test_save_new_user_unknown_username(self, user_id: int, connection_psy):
+    def test_save_new_user_unknown_username(self, user_id: int, connection: Connection):
         username = None
         timestamp = datetime.now()
 
-        _save_new_user(connection_psy, user_id, username, timestamp)
+        _save_new_user(connection, user_id, username, timestamp)
 
         user = find_model(get_session(), User, user_id=user_id)
         assert user is not None
@@ -106,7 +107,7 @@ class TestSaveNewUser:
         assert user.username_telegram is None
         assert user.reg_date == timestamp
 
-    def test_save_new_user_duplicate(self, user_id: int, connection_psy):
+    def test_save_new_user_duplicate(self, user_id: int, connection: Connection):
         username = 'existing_user'
         timestamp = datetime.now()
 
@@ -114,7 +115,7 @@ class TestSaveNewUser:
         UserFactory.create_sync(user_id=user_id, username_telegram=username, reg_date=timestamp)
 
         # Try to save the same user again
-        _save_new_user(connection_psy, user_id, username, timestamp)
+        _save_new_user(connection, user_id, username, timestamp)
 
         # Check that no new user was created
         users: list[User] = list(get_session().query(User).filter_by(user_id=user_id).all())
@@ -130,8 +131,8 @@ class TestSaveNewUser:
 
 
 class TestSaveDefaultNotifSettings:
-    def test_save_default_notif_settings(self, user_id: int, connection_psy):
-        _save_default_notif_settings(connection_psy, user_id)
+    def test_save_default_notif_settings(self, user_id: int, connection: Connection):
+        _save_default_notif_settings(connection, user_id)
 
         user_pref_bot_news = find_model(get_session(), UserPreference, user_id=user_id, preference='bot_news')
 

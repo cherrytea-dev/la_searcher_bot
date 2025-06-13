@@ -2,9 +2,9 @@ import logging
 from datetime import datetime
 from enum import Enum
 
-import psycopg2
+import sqlalchemy
 
-from _dependencies.commons import sql_connect_by_psycopg2
+from _dependencies.commons import sqlalchemy_get_pool
 
 
 class ManageUserAction(str, Enum):
@@ -22,10 +22,15 @@ class ManageUserAction(str, Enum):
         }[self]
 
 
+def sql_connect() -> sqlalchemy.engine.Engine:
+    return sqlalchemy_get_pool(5, 60)
+
+
 def register_new_user(user_id: int, user_name: str | None, timestamp: datetime) -> None:
     """block, unblock or record as new user"""
 
-    with sql_connect_by_psycopg2() as conn:
+    pool = sql_connect()
+    with pool.connect() as conn:
         # compose & execute the query for USER_STATUSES_HISTORY table
         _write_new_user_status(conn, ManageUserAction.new, user_id, timestamp)
 
@@ -41,8 +46,8 @@ def update_user_status(action: ManageUserAction, user_id: int) -> None:
     timestamp = datetime.now()
     action_to_write = action.action_to_write()
 
-    # set PSQL connection & cursor
-    with sql_connect_by_psycopg2() as conn:
+    pool = sql_connect()
+    with pool.connect() as conn:
         _change_status_in_table_users(conn, user_id, timestamp, action_to_write)
         _write_new_user_status(conn, action, user_id, timestamp)
 
@@ -62,31 +67,32 @@ def save_onboarding_step(user_id: int, step: str) -> None:
 
     step_id = dict_steps.get(step, 99)
 
-    # set PSQL connection & cursor
-    with sql_connect_by_psycopg2() as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-                INSERT INTO user_onboarding (user_id, step_id, step_name, timestamp) VALUES (%s, %s, %s, %s);
-            """,
-            (user_id, step_id, step, datetime.now()),
+    pool = sql_connect()
+    with pool.connect() as conn:
+        conn.execute(
+            sqlalchemy.text("""
+                INSERT INTO user_onboarding (user_id, step_id, step_name, timestamp) 
+                VALUES (:user_id, :step_id, :step_name, :timestamp)
+            """),
+            {'user_id': user_id, 'step_id': step_id, 'step_name': step, 'timestamp': datetime.now()},
         )
-        conn.commit()
 
 
 def _change_status_in_table_users(
-    conn: psycopg2.extensions.connection, user_id: int, timestamp: datetime, action_to_write: str
+    conn: sqlalchemy.engine.Connection, user_id: int, timestamp: datetime, action_to_write: str
 ) -> None:
     # compose & execute the query for USERS table
-    with conn.cursor() as cur:
-        cur.execute(
-            """UPDATE users SET status =%s, status_change_date=%s WHERE user_id=%s;""",
-            (action_to_write, timestamp, user_id),
-        )
-        conn.commit()
+    conn.execute(
+        sqlalchemy.text("""
+            UPDATE users SET status =:status, status_change_date=:change_date 
+            WHERE user_id=:user_id
+        """),
+        {'status': action_to_write, 'change_date': timestamp, 'user_id': user_id},
+    )
 
 
 def _write_new_user_status(
-    conn: psycopg2.extensions.connection,
+    conn: sqlalchemy.engine.Connection,
     action: ManageUserAction,
     user_id: int,
     timestamp: datetime,
@@ -95,84 +101,79 @@ def _write_new_user_status(
 
     action_to_write = action.action_to_write()
 
-    with conn.cursor() as cur:
-        # compose & execute the query for USER_STATUSES_HISTORY table
-        cur.execute(
-            """INSERT INTO user_statuses_history (status, date, user_id) VALUES (%s, %s, %s)
+    conn.execute(
+        sqlalchemy.text("""
+            INSERT INTO user_statuses_history (status, date, user_id) 
+            VALUES (:status, :date, :user_id)
             ON CONFLICT (user_id, date) DO NOTHING
-            ;""",
-            (action_to_write, timestamp, user_id),
-        )
-        conn.commit()
+        """),
+        {'status': action_to_write, 'date': timestamp, 'user_id': user_id},
+    )
 
 
-def _save_default_notif_settings(conn: psycopg2.extensions.connection, user_id: int) -> None:
+def _save_default_notif_settings(conn: sqlalchemy.engine.Connection, user_id: int) -> None:
     """if the user is new – set the default notification categories in user_preferences table"""
 
-    with conn.cursor() as cur:
-        num_of_updates = 0
+    num_of_updates = 0
 
-        # default notification settings
-        list_of_parameters = [
-            (user_id, 'new_searches', 0),
-            (user_id, 'status_changes', 1),
-            (user_id, 'inforg_comments', 4),
-            (user_id, 'first_post_changes', 8),
-            (user_id, 'bot_news', 20),
-        ]
+    # default notification settings
+    list_of_parameters = [
+        {'user_id': user_id, 'preference': 'new_searches', 'pref_id': 0},
+        {'user_id': user_id, 'preference': 'status_changes', 'pref_id': 1},
+        {'user_id': user_id, 'preference': 'inforg_comments', 'pref_id': 4},
+        {'user_id': user_id, 'preference': 'first_post_changes', 'pref_id': 8},
+        {'user_id': user_id, 'preference': 'bot_news', 'pref_id': 20},
+    ]
 
-        # apply default notification settings – write to PSQL in not exist (due to repetitions of pub/sub messages)
-        for parameters in list_of_parameters:
-            cur.execute(
-                """
-                    WITH rows AS
-                    (
-                        INSERT INTO user_preferences (user_id, preference, pref_id) values (%s, %s, %s)
-                        ON CONFLICT (user_id, pref_id) DO NOTHING
-                        RETURNING 1
-                    )
-                    SELECT count(*) FROM rows;
-                """,
-                parameters,
-            )
-            conn.commit()
-            num_of_updates += cur.fetchone()[0]  # type:ignore[index]
+    # apply default notification settings – write to PSQL in not exist (due to repetitions of pub/sub messages)
+    for params in list_of_parameters:
+        result = conn.execute(
+            sqlalchemy.text("""
+                WITH rows AS
+                (
+                    INSERT INTO user_preferences (user_id, preference, pref_id) 
+                    VALUES (:user_id, :preference, :pref_id)
+                    ON CONFLICT (user_id, pref_id) DO NOTHING
+                    RETURNING 1
+                )
+                SELECT count(*) FROM rows;
+            """),
+            params,
+        )
+        num_of_updates += result.scalar()
 
     logging.info(f'New user with id: {user_id}, {num_of_updates} default notif categories were set.')
 
 
-def _save_new_user(
-    conn: psycopg2.extensions.connection, user_id: int, username: str | None, timestamp: datetime
-) -> None:
+def _save_new_user(conn: sqlalchemy.engine.Connection, user_id: int, username: str | None, timestamp: datetime) -> None:
     """if the user is new – save to users table"""
 
-    with conn.cursor() as cur:
-        # add the New User into table users
-        cur.execute(
-            """
-                WITH rows AS
-                (
-                    INSERT INTO users (user_id, username_telegram, reg_date) values (%s, %s, %s)
-                    ON CONFLICT (user_id) DO NOTHING
-                    RETURNING 1
-                )
-                SELECT count(*) FROM rows;
-            """,
-            (user_id, username, timestamp),
-        )
-        conn.commit()
-        num_of_updates = cur.fetchone()[0]  # type:ignore[index]
+    # add the New User into table users
+    result = conn.execute(
+        sqlalchemy.text("""
+            WITH rows AS
+            (
+                INSERT INTO users (user_id, username_telegram, reg_date) 
+                VALUES (:user_id, :username, :reg_date)
+                ON CONFLICT (user_id) DO NOTHING
+                RETURNING 1
+            )
+            SELECT count(*) FROM rows;
+        """),
+        {'user_id': user_id, 'username': username, 'reg_date': timestamp},
+    )
+    num_of_updates = result.scalar()
 
-        if num_of_updates == 0:
-            logging.info(f'New user {user_id}, username {username} HAVE NOT BEEN SAVED ' f'due to duplication')
-        else:
-            logging.info(f'New user with id: {user_id}, username {username} saved.')
+    if num_of_updates == 0:
+        logging.info(f'New user {user_id}, username {username} HAVE NOT BEEN SAVED due to duplication')
+    else:
+        logging.info(f'New user with id: {user_id}, username {username} saved.')
 
-        # save onboarding start
-        cur.execute(
-            """
-            INSERT INTO user_onboarding (user_id, step_id, step_name, timestamp) VALUES (%s, %s, %s, %s);
-            """,
-            (user_id, 0, 'start', datetime.now()),
-        )
-        conn.commit()
+    # save onboarding start
+    conn.execute(
+        sqlalchemy.text("""
+            INSERT INTO user_onboarding (user_id, step_id, step_name, timestamp) 
+            VALUES (:user_id, :step_id, :step_name, :timestamp)
+        """),
+        {'user_id': user_id, 'step_id': 0, 'step_name': 'start', 'timestamp': datetime.now()},
+    )
