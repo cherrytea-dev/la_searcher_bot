@@ -53,10 +53,20 @@ class FakeFolderDecomposer(FolderDecomposer):
 
     forum_pages = {
         folders[0].folder_num: DecomposedFolder(
-            subfolders=[folders[1], folders[2]], searches=[searches[0]], folder_name='f1'
+            subfolders=[folders[1], folders[2]],
+            searches=[searches[0]],
+            folder_name='f1',
         ),
-        folders[1].folder_num: DecomposedFolder(subfolders=[], searches=[], folder_name='f2'),
-        folders[2].folder_num: DecomposedFolder(subfolders=[], searches=[searches[1], searches[2]], folder_name='f3'),
+        folders[1].folder_num: DecomposedFolder(
+            subfolders=[],
+            searches=[],
+            folder_name='f2',
+        ),
+        folders[2].folder_num: DecomposedFolder(
+            subfolders=[],
+            searches=[searches[1], searches[2]],
+            folder_name='f3',
+        ),
     }
 
     def decompose_folder(self, folder_num: str):

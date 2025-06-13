@@ -21,7 +21,7 @@ from _dependencies.misc import (
 from _dependencies.pubsub import Ctx, notify_admin, process_pubsub_message, pubsub_send_notifications
 from _dependencies.telegram_api_wrapper import TGApiBase
 
-setup_logging()
+setup_logging(__package__)
 
 FUNC_NAME = 'send_notifications'
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.

@@ -7,7 +7,7 @@ from _dependencies.commons import get_app_config, setup_logging
 from _dependencies.misc import tg_api_service_account
 from _dependencies.pubsub import Ctx, process_pubsub_message
 
-setup_logging()
+setup_logging(__package__)
 
 
 @retry(Exception, tries=3, delay=3)

@@ -19,7 +19,7 @@ from _dependencies.telegram_api_wrapper import TGApiBase
 
 COOKIE_FILE_NAME = 'session_cookies.pkl'
 
-setup_logging()
+setup_logging(__package__)
 
 
 @dataclass

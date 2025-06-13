@@ -6,6 +6,8 @@ Updates are either saved in PSQL or send via pub/sub to other scripts"""
 
 import datetime
 import logging
+from concurrent.futures import ThreadPoolExecutor
+from itertools import repeat
 
 from _dependencies.commons import setup_logging
 from _dependencies.pubsub import Ctx, pubsub_check_first_posts
@@ -19,7 +21,9 @@ from ._utils.forum import (
     get_search_raw_content,
 )
 
-setup_logging()
+setup_logging(__package__)
+
+MAX_WORKERS = 4
 
 
 def update_one_topic_visibility(search_id: int, visibility: str) -> None:
@@ -109,23 +113,24 @@ def get_topics_to_check() -> list[Search]:
 def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
     """generate a list of topic_ids with updated first posts and record in it PSQL"""
 
-    num_of_searches_counter = 0
     list_of_searches_with_updated_f_posts: list[int] = []
     db_client = get_db_client()
-    try:
-        for line in searches_list:
-            topic_id = line.topic_id
-            hash_updated = _update_one_topic_hash(db_client, topic_id)
-            if hash_updated:
-                list_of_searches_with_updated_f_posts.append(topic_id)
-            num_of_searches_counter += 1
 
-    except ForumUnavailable:
-        logging.warning('forum unavailable')
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        results = executor.map(
+            _update_one_topic_hash,
+            repeat(db_client, len(searches_list)),
+            searches_list,
+        )
+
+        for i, topic_updated in enumerate(results):
+            if topic_updated:
+                topic_id = searches_list[i].topic_id
+                list_of_searches_with_updated_f_posts.append(topic_id)
 
     logging.info(
         (
-            f'first posts checked for {num_of_searches_counter} searches; '
+            f'first posts checked for {len(searches_list)} searches; '
             f'updated hashes of {len(list_of_searches_with_updated_f_posts)} searches'
         )
     )
@@ -133,7 +138,8 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
     return list_of_searches_with_updated_f_posts
 
 
-def _update_one_topic_hash(db_client: DBClient, topic_id: int) -> bool:
+def _update_one_topic_hash(db_client: DBClient, topic: Search) -> bool:
+    topic_id = topic.topic_id
     post_data = get_first_post(topic_id)
 
     if not post_data:
@@ -164,7 +170,11 @@ def update_first_posts_and_statuses() -> None:
     if not topics_to_check:
         return
 
-    topics_with_updated_first_posts = update_first_posts_in_sql(topics_to_check)
+    try:
+        topics_with_updated_first_posts = update_first_posts_in_sql(topics_to_check)
+    except ForumUnavailable:
+        logging.warning('Forum unavailable')
+        return
 
     if not topics_with_updated_first_posts:
         return

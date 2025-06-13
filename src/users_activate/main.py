@@ -4,7 +4,7 @@ import logging
 from _dependencies.commons import setup_logging, sql_connect_by_psycopg2
 from _dependencies.pubsub import process_pubsub_message
 
-setup_logging()
+setup_logging(__package__)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)

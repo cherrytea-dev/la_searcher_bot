@@ -1,8 +1,9 @@
+import logging
 from enum import Enum
 
 from pydantic import BaseModel
 
-from _dependencies.google_tools import Ctx, make_api_call, process_pubsub_message_google, send_topic_google
+from _dependencies.google_tools import Ctx, make_api_call_cloud, process_pubsub_message_cloud, send_topic_cloud
 
 
 class Topics(Enum):
@@ -18,10 +19,8 @@ class Topics(Enum):
 
 def publish_to_pubsub(topic_name: Topics, message: str | dict | list | BaseModel) -> None:
     """publish a new message to pub/sub"""
-
     topic_name_str = topic_name.value if isinstance(topic_name, Topics) else topic_name
-
-    send_topic_google(topic_name_str, message)
+    send_topic_cloud(topic_name_str, message)
 
 
 def pubsub_parse_user_profile(user_id: int, got_message: str) -> None:
@@ -30,7 +29,7 @@ def pubsub_parse_user_profile(user_id: int, got_message: str) -> None:
 
 
 def pubsub_parse_folders(folders_list: list) -> None:
-    publish_to_pubsub(Topics.topic_to_run_parsing_script, str(folders_list))
+    publish_to_pubsub(Topics.topic_to_run_parsing_script, folders_list)
 
 
 def pubsub_compose_notifications(function_id: int, text: str) -> None:
@@ -68,11 +67,10 @@ def recognize_title_via_api(title: str, status_only: bool) -> dict:
     if status_only:
         data['reco_type'] = 'status_only'
 
-    # function we're turing to "title_recognize"
-    return make_api_call('title_recognize', data)
+    logging.info(f'request to title recognition: {data}')
+    return make_api_call_cloud('title_recognize', data)
 
 
 def process_pubsub_message(event: dict) -> str:
     """convert incoming pub/sub message into regular data"""
-
-    return process_pubsub_message_google(event)
+    return process_pubsub_message_cloud(event)

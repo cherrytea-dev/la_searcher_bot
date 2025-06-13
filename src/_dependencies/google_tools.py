@@ -48,7 +48,7 @@ def _get_publisher() -> pubsub_v1.PublisherClient:
 
 
 @retry(Exception, tries=3, delay=3)
-def make_api_call(function: str, data: dict) -> dict:
+def make_api_call_cloud(function: str, data: dict) -> dict:
     endpoint = f'https://europe-west3-lizaalert-bot-01.cloudfunctions.net/{function}'
 
     # required magic for Google Cloud Functions Gen2 to invoke each other
@@ -76,7 +76,7 @@ def _get_message_data(message: Any) -> bytes:
     return message_bytes
 
 
-def send_topic_google(topic_name_str: str, message: Any) -> None:
+def send_topic_cloud(topic_name_str: str, message: Any) -> None:
     topic_path = _get_publisher().topic_path(_get_project_id(), topic_name_str)
     message_bytes = _get_message_data(message)
 
@@ -89,7 +89,7 @@ def send_topic_google(topic_name_str: str, message: Any) -> None:
         logging.exception('Not able to send pub/sub message')
 
 
-def process_pubsub_message_google(event: dict) -> str:
+def process_pubsub_message_cloud(event: dict) -> str:
     """convert incoming pub/sub message into regular data"""
 
     # receiving message text from pub/sub
@@ -100,7 +100,7 @@ def process_pubsub_message_google(event: dict) -> str:
     return message
 
 
-def setup_google_logging_internal() -> None:
+def setup_logging_cloud(package_name: str | None = None) -> None:
     logging_disabled = os.getenv('GOOGLE_LOGGING_DISABLED', False)
     if logging_disabled:
         # TODO pydantic-settings or improve parsing here.

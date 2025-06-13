@@ -33,6 +33,11 @@ def get_event_with_data(message) -> dict:
     return event
 
 
+def patched_send_topic(topic_name: Topics, topic_path, data: dict) -> None:
+    receiver = topic_to_receiver_function(topic_name)
+    receiver({'data': base64.encodebytes(data)}, 'context')
+
+
 @lru_cache
 def topic_to_receiver_function(topic_name: Topics):
     # TODO rewrite to decorator
