@@ -131,32 +131,34 @@ def main(event: dict, context: Ctx) -> None:
     message_from_pubsub = process_pubsub_message(event)
     triggered_by_func_id = get_triggering_function(message_from_pubsub)  # type:ignore[arg-type]
 
-    there_is_function_working_in_parallel = check_and_save_event_id(
-        context,
-        'start',
-        function_id,
-        None,
-        triggered_by_func_id,
-        FUNC_NAME,
-        INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
-    )
-    if there_is_function_working_in_parallel:
-        logging.info('function execution stopped due to parallel run with another function')
-        check_and_save_event_id(
+    pool = sql_connect()
+    with pool.connect() as conn:
+        there_is_function_working_in_parallel = check_and_save_event_id(
+            pool,
             context,
-            'finish',
+            'start',
             function_id,
             None,
             triggered_by_func_id,
             FUNC_NAME,
             INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
         )
-        logging.info('script finished')
-        return
+        if there_is_function_working_in_parallel:
+            logging.info('function execution stopped due to parallel run with another function')
+            check_and_save_event_id(
+                pool,
+                context,
+                'finish',
+                function_id,
+                None,
+                triggered_by_func_id,
+                FUNC_NAME,
+                INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
+            )
+            logging.info('script finished')
+            return
 
-    list_of_change_log_ids = []
-    pool = sql_connect()
-    with pool.connect() as conn:
+        list_of_change_log_ids = []
         # compose New Records List: the delta from Change log
         new_record = LogRecordComposer(conn).get_line()
 
@@ -179,15 +181,16 @@ def main(event: dict, context: Ctx) -> None:
 
         call_self_if_need_compose_more(conn, function_id)
 
-    check_and_save_event_id(
-        context,
-        'finish',
-        function_id,
-        list_of_change_log_ids,
-        triggered_by_func_id,
-        FUNC_NAME,
-        INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
-    )
+        check_and_save_event_id(
+            pool,
+            context,
+            'finish',
+            function_id,
+            list_of_change_log_ids,
+            triggered_by_func_id,
+            FUNC_NAME,
+            INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
+        )
 
     analytics_finish = datetime.datetime.now()
     if new_record:

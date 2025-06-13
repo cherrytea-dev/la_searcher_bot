@@ -1,4 +1,5 @@
 import logging
+
 import sqlalchemy
 
 from _dependencies.commons import setup_logging, sqlalchemy_get_pool

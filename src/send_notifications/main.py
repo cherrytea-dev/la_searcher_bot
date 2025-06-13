@@ -433,7 +433,10 @@ def main(event: dict, context: Ctx) -> str | None:
     # TODO maybe it not works
 
     # TODO remove after speeding up this function
+    pool = sql_connect()
+
     there_is_function_working_in_parallel = check_and_save_event_id(
+        pool,
         context,
         'start',
         function_id,
@@ -445,6 +448,7 @@ def main(event: dict, context: Ctx) -> str | None:
     if there_is_function_working_in_parallel:
         logging.info('function execution stopped due to parallel run with another function')
         check_and_save_event_id(
+            pool,
             context,
             'finish',
             function_id,
@@ -462,6 +466,7 @@ def main(event: dict, context: Ctx) -> str | None:
     finish_time_analytics(time_analytics, changed_ids)
 
     check_and_save_event_id(
+        pool,
         context,
         'finish',
         function_id,
