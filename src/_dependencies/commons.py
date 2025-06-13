@@ -76,23 +76,6 @@ def _get_config() -> AppConfig:
     )
 
 
-def sql_connect_by_psycopg2() -> psycopg2.extensions.connection:
-    """connect to GCP SQL via PsycoPG2"""
-    # TODO pool instead of single connections
-    config = get_app_config()
-
-    conn_psy = psycopg2.connect(
-        host=config.postgres_host,
-        dbname=config.postgres_db,
-        user=config.postgres_user,
-        password=config.postgres_password,
-        port=config.postgres_port,
-    )
-    conn_psy.autocommit = True
-
-    return conn_psy
-
-
 @lru_cache
 def sqlalchemy_get_pool(pool_size: int, pool_recycle_time_seconds: int) -> sqlalchemy.engine.Engine:
     """connect to PSQL in GCP"""
