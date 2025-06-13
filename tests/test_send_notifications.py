@@ -5,8 +5,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from polyfactory.factories import DataclassFactory
+from sqlalchemy.engine import Connection
 
-from _dependencies.commons import sql_connect_by_psycopg2, sqlalchemy_get_pool
+from _dependencies.commons import sql_connect_by_psycopg2
 from _dependencies.telegram_api_wrapper import TGApiBase
 from send_notifications import main
 from tests.common import get_event_with_data
@@ -71,7 +72,7 @@ def test_iterate_over_notifications():
 
 
 @pytest.mark.xdist_group(name='send_notifications')
-def test_check_for_notifs_to_send(connection):
+def test_check_for_notifs_to_send(connection: Connection):
     unique_notification = NotSentNotificationFactory.create_sync()
     doubling_notification_1, doubling_notification_2 = NotSentNotificationFactory.create_batch_sync(
         2,
@@ -104,7 +105,7 @@ def test_finish_time_analytics():
     main.finish_time_analytics(time_analytics, list_of_change_ids=[1])
 
 
-def test__process_message_sending(connection):
+def test__process_message_sending(connection: Connection):
     changed_ids = set()
     main._process_message_sending(
         MagicMock(), TimeAnalyticsFactory.build(), set(), connection, NotSentNotificationFactory.create_sync()
@@ -121,7 +122,7 @@ def test_send_single_message():
 
 
 @pytest.mark.xdist_group(name='send_notifications')
-def test_get_notifications_1(connection):
+def test_get_notifications_1(connection: Connection):
     notif_failed_now = NotSentNotificationFactory.create_sync(
         failed=datetime.datetime.now(),
     )

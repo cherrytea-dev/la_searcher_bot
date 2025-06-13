@@ -7,10 +7,11 @@ import json
 import logging
 from typing import Any
 
-from psycopg2.extensions import connection
+import sqlalchemy
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from sqlalchemy.engine.base import Connection
 
-from _dependencies.commons import get_app_config, setup_logging, sql_connect_by_psycopg2
+from _dependencies.commons import get_app_config, setup_logging, sqlalchemy_get_pool
 from _dependencies.content import clean_up_content
 from _dependencies.misc import RequestWrapper, ResponseWrapper, request_response_converter
 
@@ -88,10 +89,14 @@ def get_list_of_allowed_apps() -> list[str]:
     return approved_app_ids
 
 
-def get_list_of_active_searches_from_db(conn_psy: connection, request: UserRequest) -> list[Search]:
+def sql_connect() -> sqlalchemy.engine.Engine:
+    return sqlalchemy_get_pool(5, 60)
+
+
+def get_list_of_active_searches_from_db(conn: Connection, request: UserRequest) -> list[Search]:
     """retrieves a list of recent searches"""
 
-    searches = get_query_results(conn_psy, request.depth_days, request.forum_folder_id_list)
+    searches = get_query_results(conn, request.depth_days, request.forum_folder_id_list)
 
     for line in searches:
         line.content = str(clean_up_content(line.content))
@@ -99,15 +104,14 @@ def get_list_of_active_searches_from_db(conn_psy: connection, request: UserReque
     return searches
 
 
-def get_query_results(conn_psy: connection, depth_days: int, folders_list: list[int]) -> list[Search]:
-    with conn_psy.cursor() as cur:
-        query = f"""
+def get_query_results(conn: Connection, depth_days: int, folders_list: list[int]) -> list[Search]:
+    query = f"""
             WITH
                 user_regions_filtered AS (
                     SELECT DISTINCT folder_id AS forum_folder_num
                     FROM geo_folders
                     WHERE folder_type='searches' 
-                    {'AND folder_id = ANY(%s)' if folders_list else ''}
+                    {'AND folder_id = ANY(:folders_list)' if folders_list else ''}
                 ),
                 s2 AS (
                     SELECT search_start_time, forum_folder_id, topic_type, search_forum_num,
@@ -117,7 +121,7 @@ def get_query_results(conn_psy: connection, depth_days: int, folders_list: list[
                     WHERE forum_folder_id IN (SELECT forum_folder_num FROM user_regions_filtered)
                     AND status NOT IN ('НЖ', 'НП', 'Завершен', 'Найден')
                     AND topic_type_id != 1
-                    AND search_start_time >= CURRENT_TIMESTAMP - INTERVAL '%s days'
+                    AND search_start_time >= CURRENT_TIMESTAMP - INTERVAL ':depth_days days'
                     ORDER BY search_start_time DESC
                 ),
                 s3 AS (SELECT s2.*
@@ -134,12 +138,13 @@ def get_query_results(conn_psy: connection, depth_days: int, folders_list: list[
                     WHERE sfp.actual = True
                 )
                 SELECT * FROM s4;
-                """
+            """
 
-        args = (folders_list, depth_days) if folders_list else (depth_days,)
-        cur.execute(query, args)
-
-        raw_data = cur.fetchall()
+    stmt = sqlalchemy.text(query)
+    if folders_list:
+        raw_data = conn.execute(stmt, folders_list=folders_list, depth_days=depth_days).fetchall()
+    else:
+        raw_data = conn.execute(stmt, depth_days=depth_days).fetchall()
 
     searches = [
         Search(
@@ -159,23 +164,19 @@ def get_query_results(conn_psy: connection, depth_days: int, folders_list: list[
     return searches
 
 
-def save_user_statistics_to_db(conn_psy: connection, user_input: Any, response: dict[str, Any]) -> None:
+def save_user_statistics_to_db(conn: Connection, user_input: Any, response: dict[str, Any]) -> None:
     """save user's interaction into DB"""
 
-    # TODO accept connection in args
     json_to_save = json.dumps(response, default=str)
-
-    with conn_psy.cursor() as cur:
-        try:
-            cur.execute(
-                """INSERT INTO stat_api_usage_actual_searches
-                        (request, timestamp, response)
-                        VALUES (%s, CURRENT_TIMESTAMP, %s);""",
-                (str(user_input), json_to_save),
-            )
-
-        except Exception as e:
-            logging.exception('Cannot save statistics to DB')
+    try:
+        stmt = sqlalchemy.text("""
+            INSERT INTO stat_api_usage_actual_searches
+            (request, timestamp, response)
+            VALUES (:request, CURRENT_TIMESTAMP, :response)
+        """)
+        conn.execute(stmt, request=str(user_input), response=json_to_save)
+    except Exception as e:
+        logging.exception('Cannot save statistics to DB')
 
 
 # @functions_framework.http
@@ -190,21 +191,22 @@ def main(request_data: RequestWrapper, *args: Any, **kwargs: Any) -> ResponseWra
     request_json = request_data.json_
     logging.info(request_json)
 
-    with sql_connect_by_psycopg2() as conn_psy:
+    pool = sql_connect()
+    with pool.connect() as conn:
         try:
             user_request = UserRequest.model_validate_json(request_data.data)
         except ValidationError as ve:
             response = FailResponse(reason=str(ve))
-            save_user_statistics_to_db(conn_psy, request_json, response.model_dump())
+            save_user_statistics_to_db(conn, request_json, response.model_dump())
             return response.as_response()
 
         if user_request.app_id not in get_list_of_allowed_apps():
             return FailResponse(reason='Incorrect app_id').as_response()
 
-        searches = get_list_of_active_searches_from_db(conn_psy, user_request)
+        searches = get_list_of_active_searches_from_db(conn, user_request)
         response = SuccessfulResponse(searches=searches)
 
-        save_user_statistics_to_db(conn_psy, request_json, response.model_dump())
+        save_user_statistics_to_db(conn, request_json, response.model_dump())
 
     logging.info(request_data)
     logging.info(f'the RESULT {response}')

@@ -1,10 +1,12 @@
 import datetime
 
 import pytest
+import sqlalchemy
 from flask import Flask
 from polyfactory import Use
+from sqlalchemy.engine.base import Connection
 
-from _dependencies.commons import sql_connect_by_psycopg2
+from _dependencies.commons import sqlalchemy_get_pool
 from api_get_active_searches import main
 from tests.factories.db_factories import (
     GeoFolderFactory,
@@ -64,8 +66,9 @@ def test_get_searches_from_db():
     SearchHealthCheckFactory.create_sync(search_forum_num=search1.search_forum_num, status='ok')
     SearchFirstPostFactory.create_sync(search_id=search1.search_forum_num, actual=True)
 
-    with sql_connect_by_psycopg2() as conn_psy:
-        searches = main.get_list_of_active_searches_from_db(conn_psy, main.UserRequest(app_id=1))
+    pool = sqlalchemy_get_pool(5, 60)
+    with pool.connect() as conn:
+        searches = main.get_list_of_active_searches_from_db(conn, main.UserRequest(app_id=1))
     assert searches  # TODO find correct params for db factory
 
 
@@ -83,8 +86,9 @@ def test_get_query_results_with_folders():
 
     depth_days = 30
     folders_list = [folder1.folder_id, folder2.folder_id]
-    with sql_connect_by_psycopg2() as conn_psy:
-        result = main.get_query_results(conn_psy, depth_days, folders_list)
+    pool = sqlalchemy_get_pool(5, 60)
+    with pool.connect() as conn:
+        result = main.get_query_results(conn, depth_days, folders_list)
 
     # Assert that the result is a list of Search objects with the correct data
     assert len(result) == 2
@@ -103,8 +107,9 @@ def test_get_query_results_with_no_folders():
 
     depth_days = 30
     folders_list = []
-    with sql_connect_by_psycopg2() as conn_psy:
-        result = main.get_query_results(conn_psy, depth_days, folders_list)
+    pool = sqlalchemy_get_pool(5, 60)
+    with pool.connect() as conn:
+        result = main.get_query_results(conn, depth_days, folders_list)
 
     assert result
     assert isinstance(result[0], main.Search)
