@@ -46,18 +46,6 @@ def test_age_writer(age: int, result: str):
     assert result == misc.age_writer(age)
 
 
-def test_get_change_log_update_time():
-    with sql_connect_by_psycopg2() as connection:
-        with connection.cursor() as cursor:
-            send_notifications.main.get_change_log_update_time(cursor, 1)
-
-
-def test_save_sending_status_to_notif_by_user():
-    with sql_connect_by_psycopg2() as connection:
-        with connection.cursor() as cursor:
-            send_notifications.main.save_sending_status_to_notif_by_user(cursor, 1, 'cancelled')
-
-
 def test_process_pubsub_message():
     res = _dependencies.pubsub.process_pubsub_message(get_event_with_data('foo'))
     assert res == 'foo'

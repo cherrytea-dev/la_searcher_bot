@@ -136,6 +136,14 @@ def test_get_notifications_1(connection: Connection):
     assert any(x.message_id == notif_failed_six_minutes_ago.message_id for x in messages)
 
 
+def test_get_change_log_update_time(connection: Connection):
+    main.get_change_log_update_time(connection, 1)
+
+
+def test_save_sending_status_to_notif_by_user(connection: Connection):
+    main.save_sending_status_to_notif_by_user(connection, 1, 'cancelled')
+
+
 @pytest.mark.skip(reason='performance test')
 class TestPerformance:
     def test_generate_message_batch(self):
