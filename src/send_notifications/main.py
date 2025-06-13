@@ -9,10 +9,11 @@ from dataclasses import dataclass, field
 from typing import Any, List
 
 import requests
-from psycopg2.extensions import connection, cursor
+import sqlalchemy
+from sqlalchemy.engine.base import Connection
 
 from _dependencies.cloud_func_parallel_guard import check_and_save_event_id
-from _dependencies.commons import setup_logging, sql_connect_by_psycopg2
+from _dependencies.commons import setup_logging, sqlalchemy_get_pool
 from _dependencies.misc import (
     generate_random_function_id,
     get_triggering_function,
@@ -22,6 +23,11 @@ from _dependencies.pubsub import Ctx, notify_admin, process_pubsub_message, pubs
 from _dependencies.telegram_api_wrapper import TGApiBase
 
 setup_logging(__package__)
+
+
+def sql_connect() -> sqlalchemy.engine.Engine:
+    return sqlalchemy_get_pool(5, 60)
+
 
 FUNC_NAME = 'send_notifications'
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
@@ -60,7 +66,7 @@ class MessageToSend:
     failed: datetime.datetime | None
 
 
-def get_notifs_to_send(cur: cursor, select_doubling: bool) -> list[MessageToSend]:
+def get_notifs_to_send(conn: Connection, select_doubling: bool) -> list[MessageToSend]:
     """return a notification which should be sent"""
 
     # TODO: can "doubling" calculation be done not dynamically but as a field of table?
@@ -98,7 +104,7 @@ def get_notifs_to_send(cur: cursor, select_doubling: bool) -> list[MessageToSend
                     WHERE 
                         completed IS NULL AND
                         cancelled IS NULL AND
-                        (failed IS NULL OR failed < %s) AND
+                        (failed IS NULL OR failed < :retry_delay) AND
                         (change_log_id, user_id, message_type) {"IN" if select_doubling else "NOT IN"} (
                             {duplicated_notifications_query}
                         )
@@ -111,12 +117,15 @@ def get_notifs_to_send(cur: cursor, select_doubling: bool) -> list[MessageToSend
                     """
 
     delay_to_retry_send_failed_messages = datetime.timedelta(minutes=5)
-    cur.execute(notifications_query, (datetime.datetime.now() - delay_to_retry_send_failed_messages,))
-    notifications = cur.fetchall()
+    stmt = sqlalchemy.text(notifications_query)
+    notifications = conn.execute(
+        stmt,
+        retry_delay=datetime.datetime.now() - delay_to_retry_send_failed_messages,
+    ).fetchall()
     return [MessageToSend(*notification) for notification in notifications]
 
 
-def check_for_number_of_notifs_to_send(cur: cursor) -> int:
+def check_for_number_of_notifs_to_send(conn: Connection) -> int:
     """return a number of notifications to be sent"""
 
     sql_text_psy = """
@@ -138,8 +147,8 @@ def check_for_number_of_notifs_to_send(cur: cursor) -> int:
                     ;
                     """
 
-    cur.execute(sql_text_psy)
-    res = cur.fetchone()
+    stmt = sqlalchemy.text(sql_text_psy)
+    res = conn.execute(stmt).fetchone()
     num_of_notifs = int(res[0]) if res else 0
 
     return num_of_notifs
@@ -198,20 +207,20 @@ def iterate_over_notifications(
     set_of_change_ids: set[int] = set()
 
     tg_api = tg_api_main_account()
+    pool = sql_connect()
     with (
-        sql_connect_by_psycopg2() as conn_psy,
-        conn_psy.cursor() as cur,
+        pool.connect() as conn,
         ThreadPoolExecutor(max_workers=WORKERS_COUNT) as executor,
     ):
         is_first_wait = True
         while True:
             # analytics on sending speed - start for every user/notification
-            _process_doubling_messages(cur)
+            _process_doubling_messages(conn)
 
             analytics_sql_start = datetime.datetime.now()
 
             # check if there are any non-notified users
-            messages = get_notifs_to_send(cur, select_doubling=False)
+            messages = get_notifs_to_send(conn, select_doubling=False)
             analytics_sql_duration = seconds_between_round_2(analytics_sql_start)
             logging.debug(f'time: {analytics_sql_duration:.2f} – reading sql')
 
@@ -228,7 +237,7 @@ def iterate_over_notifications(
                     tg_api,
                     time_analytics,
                     set_of_change_ids,
-                    conn_psy,
+                    conn,
                     message_to_send,
                 )
                 for message_to_send in messages
@@ -236,14 +245,14 @@ def iterate_over_notifications(
             wait(futures)
 
             if time_is_out(time_analytics.script_start_time):
-                if get_notifs_to_send(cur, select_doubling=False):
+                if get_notifs_to_send(conn, select_doubling=False):
                     pubsub_send_notifications(function_id, 'next iteration')
                 break
 
     return list(set_of_change_ids)
 
 
-def save_sending_status_to_notif_by_user(cur: cursor, message_id: int, result: str | None) -> None:
+def save_sending_status_to_notif_by_user(conn: Connection, message_id: int, result: str | None) -> None:
     """save the telegram sending status to sql table notif_by_user"""
     if not result:
         result = 'failed'
@@ -258,15 +267,16 @@ def save_sending_status_to_notif_by_user(cur: cursor, message_id: int, result: s
 
     sql_text_psy = f"""
                 UPDATE notif_by_user
-                SET {result} = %s
-                WHERE message_id = %s;
+                SET {result} = :now
+                WHERE message_id = :message_id;
                 /*action='save_sending_status_to_notif_by_user_{result}' */
                 ;"""
 
-    cur.execute(sql_text_psy, (datetime.datetime.now(), message_id))
+    stmt = sqlalchemy.text(sql_text_psy)
+    conn.execute(stmt, now=datetime.datetime.now(), message_id=message_id)
 
 
-def get_change_log_update_time(cur: cursor, change_log_id: int) -> datetime.datetime | None:
+def get_change_log_update_time(conn: Connection, change_log_id: int) -> datetime.datetime | None:
     """get he time of parsing of the change, saved in PSQL"""
     # TODO optimize/cache
 
@@ -276,10 +286,10 @@ def get_change_log_update_time(cur: cursor, change_log_id: int) -> datetime.date
     sql_text_psy = """
                     SELECT parsed_time 
                     FROM change_log 
-                    WHERE id = %s;
+                    WHERE id = :change_log_id;
                     /*action='getting_change_log_parsing_time' */;"""
-    cur.execute(sql_text_psy, (change_log_id,))
-    record = cur.fetchone()
+    stmt = sqlalchemy.text(sql_text_psy)
+    record = conn.execute(stmt, change_log_id=change_log_id).fetchone()
 
     if not record:
         return None
@@ -291,15 +301,14 @@ def _process_message_sending(
     tg_api: TGApiBase,
     time_analytics: TimeAnalytics,
     set_of_change_ids: set[int],
-    conn: connection,
+    conn: Connection,
     message_to_send: MessageToSend,
 ) -> None:
     logging.debug('time: -------------- loop start -------------')
     logging.info(f'{message_to_send}')
     analytics_sm_start = datetime.datetime.now()
 
-    with conn.cursor() as cur:
-        change_log_upd_time = get_change_log_update_time(cur, message_to_send.change_log_id)
+    change_log_upd_time = get_change_log_update_time(conn, message_to_send.change_log_id)
 
     analytics_pre_sending_msg = datetime.datetime.now()
 
@@ -309,8 +318,7 @@ def _process_message_sending(
     logging.debug(f'time: {analytics_send_start_finish:.2f} – sending msg')
 
     # save result of sending telegram notification into SQL notif_by_user
-    with conn.cursor() as cur:
-        save_sending_status_to_notif_by_user(cur, message_to_send.message_id, result)
+    save_sending_status_to_notif_by_user(conn, message_to_send.message_id, result)
 
     # save metric: how long does it took from creation to completion
     if result == 'completed':
@@ -322,8 +330,8 @@ def _process_message_sending(
     time_analytics.notif_times.append(analytics_sm_duration)
 
 
-def _process_doubling_messages(cur: cursor) -> None:
-    messages = get_notifs_to_send(cur, select_doubling=True)
+def _process_doubling_messages(conn: Connection) -> None:
+    messages = get_notifs_to_send(conn, select_doubling=True)
     if messages:
         notify_admin(f'cancelled_due_to_doubling! {len(messages)} messages are doubling')
 
@@ -335,7 +343,7 @@ def _process_doubling_messages(cur: cursor) -> None:
             continue
         already_marked.add(key)
         result = 'cancelled_due_to_doubling'
-        save_sending_status_to_notif_by_user(cur, message.message_id, result)
+        save_sending_status_to_notif_by_user(conn, message.message_id, result)
 
 
 def _process_logs_with_completed_sending(
@@ -392,24 +400,21 @@ def finish_time_analytics(
     logging.info(message)
 
     # save to psql the analytics on sending speed
-    conn_psy = sql_connect_by_psycopg2()
-    cur = conn_psy.cursor()
-
-    try:
-        sql_text_psy = """
+    pool = sql_connect()
+    with pool.connect() as conn:
+        try:
+            sql_text = """
                         INSERT INTO notif_stat_sending_speed
                         (timestamp, num_of_msgs, speed, ttl_time)
                         VALUES
-                        (%s, %s, %s, %s);
+                        (:now, :num_msgs, :speed, :ttl_time);
                         /*action='notif_stat_sending_speed' */
                         ;"""
 
-        cur.execute(sql_text_psy, (datetime.datetime.now(), len_n, average, ttl_time))
-    except:  # noqa
-        pass
-
-    cur.close()
-    conn_psy.close()
+            stmt = sqlalchemy.text(sql_text)
+            conn.execute(stmt, now=datetime.datetime.now(), num_msgs=len_n, speed=average, ttl_time=ttl_time)
+        except:  # noqa
+            pass
 
     return None
 

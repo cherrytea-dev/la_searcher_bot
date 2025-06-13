@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from polyfactory.factories import DataclassFactory
 
-from _dependencies.commons import sql_connect_by_psycopg2
+from _dependencies.commons import sql_connect_by_psycopg2, sqlalchemy_get_pool
 from _dependencies.telegram_api_wrapper import TGApiBase
 from send_notifications import main
 from tests.common import get_event_with_data
@@ -71,7 +71,7 @@ def test_iterate_over_notifications():
 
 
 @pytest.mark.xdist_group(name='send_notifications')
-def test_check_for_notifs_to_send():
+def test_check_for_notifs_to_send(connection):
     unique_notification = NotSentNotificationFactory.create_sync()
     doubling_notification_1, doubling_notification_2 = NotSentNotificationFactory.create_batch_sync(
         2,
@@ -79,20 +79,19 @@ def test_check_for_notifs_to_send():
         user_id=randint(0, 1000),
     )
 
-    with sql_connect_by_psycopg2() as conn, conn.cursor() as cur:
-        doubling_messages = main.get_notifs_to_send(cur, True)
-        doubling_message_ids = [x.message_id for x in doubling_messages]
-        unique_messages = main.get_notifs_to_send(cur, False)
-        unique_message_ids = [x.message_id for x in unique_messages]
+    doubling_messages = main.get_notifs_to_send(connection, True)
+    doubling_message_ids = [x.message_id for x in doubling_messages]
+    unique_messages = main.get_notifs_to_send(connection, False)
+    unique_message_ids = [x.message_id for x in unique_messages]
 
-        assert doubling_notification_1.message_id in doubling_message_ids
-        assert doubling_notification_2.message_id in doubling_message_ids
+    assert doubling_notification_1.message_id in doubling_message_ids
+    assert doubling_notification_2.message_id in doubling_message_ids
 
-        assert doubling_notification_1.message_id not in unique_message_ids
-        assert doubling_notification_2.message_id not in unique_message_ids
+    assert doubling_notification_1.message_id not in unique_message_ids
+    assert doubling_notification_2.message_id not in unique_message_ids
 
-        assert unique_notification.message_id in unique_message_ids
-        assert unique_notification.message_id not in doubling_message_ids
+    assert unique_notification.message_id in unique_message_ids
+    assert unique_notification.message_id not in doubling_message_ids
 
 
 def test_finish_time_analytics():
@@ -105,12 +104,11 @@ def test_finish_time_analytics():
     main.finish_time_analytics(time_analytics, list_of_change_ids=[1])
 
 
-def test__process_message_sending():
+def test__process_message_sending(connection):
     changed_ids = set()
-    with sql_connect_by_psycopg2() as conn:
-        main._process_message_sending(
-            MagicMock(), TimeAnalyticsFactory.build(), set(), conn, NotSentNotificationFactory.create_sync()
-        )
+    main._process_message_sending(
+        MagicMock(), TimeAnalyticsFactory.build(), set(), connection, NotSentNotificationFactory.create_sync()
+    )
     assert not changed_ids
 
 
@@ -123,7 +121,7 @@ def test_send_single_message():
 
 
 @pytest.mark.xdist_group(name='send_notifications')
-def test_get_notifications_1():
+def test_get_notifications_1(connection):
     notif_failed_now = NotSentNotificationFactory.create_sync(
         failed=datetime.datetime.now(),
     )
@@ -131,8 +129,7 @@ def test_get_notifications_1():
         failed=datetime.datetime.now() - datetime.timedelta(minutes=6),
     )
 
-    with sql_connect_by_psycopg2() as conn, conn.cursor() as cursor:
-        messages = main.get_notifs_to_send(cursor, select_doubling=False)
+    messages = main.get_notifs_to_send(connection, select_doubling=False)
 
     assert not any(x.message_id == notif_failed_now.message_id for x in messages)
     assert any(x.message_id == notif_failed_six_minutes_ago.message_id for x in messages)
