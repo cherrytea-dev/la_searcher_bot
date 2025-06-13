@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 from urllib.parse import quote, urlencode
@@ -143,7 +142,7 @@ class TestGetUserDataFromDb:
             'searches': [],
         }
 
-    def test_get_searches_from_db_registered_user(self, connection_psy):
+    def test_get_searches_from_db_registered_user(self, connection):
         coords = [[54.1234, 55.1234]]
         user = UserFactory.create_sync()
         user_id = user.user_id
@@ -162,7 +161,7 @@ class TestGetUserDataFromDb:
         SearchHealthCheckFactory.create_sync(search_forum_num=search.search_forum_num, status='ok')
         ChangeLogFactory.create_sync(search_forum_num=search.search_forum_num)
 
-        result = main._get_searches_from_db(user_id, connection_psy, True)
+        result = main._get_searches_from_db(user_id, connection, True)
 
         assert len(result) == 1
         first_item = result[0].model_dump()
