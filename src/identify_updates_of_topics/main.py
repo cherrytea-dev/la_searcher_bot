@@ -24,9 +24,9 @@ def main(event: dict[str, bytes], context: Ctx) -> None:  # noqa
 
     analytics_func_start = datetime.now()
 
-    message_from_pubsub = process_pubsub_message(event)
-    list_from_pubsub = ast.literal_eval(message_from_pubsub) if message_from_pubsub else None
-    logging.info(f'received message from pub/sub: {message_from_pubsub}')
+    list_from_pubsub = process_pubsub_message(event)
+    # list_from_pubsub = ast.literal_eval(message_from_pubsub) if message_from_pubsub else None
+    logging.info(f'received message from pub/sub: {list_from_pubsub}')
 
     db_client = get_db_client()
     forum_client = ForumClient()

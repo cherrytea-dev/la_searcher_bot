@@ -28,6 +28,6 @@ def test_main_full_scenario(mock_http_get, patch_app_config):
             return (False, [1, 2, 3])
 
     with patch.object(main, 'FolderUpdater', FakeUpdater):
-        main.main(get_event_with_data(str(data)), context)
+        main.main(get_event_with_data(data), context)
 
     assert FakeUpdater.walked_folders == [folder_num]
