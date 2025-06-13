@@ -461,14 +461,13 @@ class FolderUpdater:
 
     def _rate_limit_for_api(self, geocoder: str) -> None:
         """sleeps certain time if api calls are too frequent"""
+        if geocoder == 'yandex':
+            return
 
         # check that next request won't be in less a SECOND from previous
         prev_api_call_time = self.db.get_last_api_call_time_from_psql(geocoder)  # TODO
 
         if not prev_api_call_time:
-            return
-
-        if geocoder == 'yandex':
             return
 
         now_utc = datetime.now(timezone.utc)

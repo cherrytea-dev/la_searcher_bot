@@ -31,7 +31,7 @@ from _dependencies.pubsub import (
     pubsub_parse_folders,
 )
 
-setup_logging()
+setup_logging(__package__)
 
 
 @lru_cache

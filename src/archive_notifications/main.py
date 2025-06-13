@@ -6,7 +6,7 @@ from sqlalchemy.engine.base import Connection
 from _dependencies.commons import setup_logging, sqlalchemy_get_pool
 from _dependencies.pubsub import Ctx, pubsub_archive_notifications, pubsub_archive_to_bigquery
 
-setup_logging()
+setup_logging(__package__)
 
 
 def sql_connect() -> sqlalchemy.engine.Engine:

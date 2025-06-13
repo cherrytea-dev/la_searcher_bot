@@ -20,7 +20,7 @@ from sqlalchemy.engine.base import Engine
 from _dependencies.commons import get_forum_proxies, setup_logging, sqlalchemy_get_pool
 from _dependencies.pubsub import Ctx, pubsub_parse_folders
 
-setup_logging()
+setup_logging(__package__)
 
 DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%S+00:00'
 USELESS_FOLDERS = {84, 113, 112, 270, 86, 87, 88, 165, 365, 89, 172, 91, 90, 316, 234, 230, 319}
@@ -455,11 +455,11 @@ def get_updates_of_nested_folders(folders_list_to_scan: list[str]) -> list[list]
                 future = pool.submit(process_folder, folders_to_check, updated_folders, folder, storage)
                 futures.append(future)
             wait(futures)
-
+            [f.result() for f in futures]  # check that all tasks are done without exceptions
     return updated_folders
 
 
-def main(event: dict[str, Any], context: Ctx) -> None:
+def main(event: dict[str, Any], context: Ctx | None = None) -> None:
     """main function that starts first"""
     logging.info('START')
 

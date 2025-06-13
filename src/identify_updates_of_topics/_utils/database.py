@@ -117,19 +117,12 @@ class DBClient:
         """Used to track time of the last api call to geocoders. Gets the last timestamp in UTC saved in psql"""
 
         with self.connect() as conn:
-            try:
-                stmt = sqlalchemy.text("""
-                    SELECT timestamp FROM geocode_last_api_call 
-                    WHERE geocoder=:a LIMIT 1;
-                                       """)
-                last_call = conn.execute(stmt, a=geocoder).fetchone()
-                return last_call[0]
-
-            except Exception as e:
-                logging.exception(f'UNSUCCESSFUL getting last api call time of geocoder {geocoder}')
-                notify_admin(f'UNSUCCESSFUL getting last api call time of geocoder {geocoder}')
-
-        return None
+            stmt = sqlalchemy.text("""
+                SELECT timestamp FROM geocode_last_api_call 
+                WHERE geocoder=:a LIMIT 1;
+                                    """)
+            last_call = conn.execute(stmt, a=geocoder).fetchone()
+            return last_call[0] if last_call else None
 
     def rewrite_snapshot_in_sql(self, folder_num: int, folder_summary: list[SearchSummary]) -> None:
         """rewrite the freshly-parsed snapshot into sql table 'forum_summary_snapshot'"""

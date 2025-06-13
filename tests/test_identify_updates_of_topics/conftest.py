@@ -30,10 +30,5 @@ def mock_http_get():
 
 
 @pytest.fixture(scope='session')
-def db(patch_app_config):
-    return sqlalchemy_get_pool(10, 10)
-
-
-@pytest.fixture(scope='session')
-def db_client(db) -> DBClient:
-    return DBClient(db)
+def db_client(connection_pool) -> DBClient:
+    return DBClient(connection_pool)

@@ -9,13 +9,13 @@ from bs4 import BeautifulSoup
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings
 
-from _dependencies.google_tools import get_secrets, setup_google_logging_internal
+from _dependencies.google_tools import get_secrets, setup_logging_cloud
 
 PHONE_RE = re.compile(r'(?:\+7|7|8)\s?[\s\-(]?\s?\d{3}[\s\-)]?\s?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}')
 
 
-def setup_logging() -> None:
-    setup_google_logging_internal()
+def setup_logging(package_name: str | None = None) -> None:
+    setup_logging_cloud(package_name)
 
 
 class AppConfig(BaseSettings):

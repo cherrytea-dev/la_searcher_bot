@@ -32,7 +32,7 @@ from ._utils.handlers import (
 )
 from ._utils.message_sending import tg_api
 
-setup_logging()
+setup_logging(__package__)
 
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
 # Important – these are not errors, but jest informational warnings that there were retries, that's why we exclude them

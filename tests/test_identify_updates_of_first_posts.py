@@ -61,13 +61,6 @@ class TestSplitText:
 
 
 @pytest.fixture
-def connection() -> Connection:
-    pool = sqlalchemy_get_pool(10, 10)
-    with pool.connect() as conn:
-        yield conn
-
-
-@pytest.fixture
 def session() -> Session:
     with db_factories.get_session() as session:
         yield session

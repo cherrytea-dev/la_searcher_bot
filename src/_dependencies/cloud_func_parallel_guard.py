@@ -94,10 +94,10 @@ def check_and_save_event_id(
     # if this functions is triggered in the very beginning of the Google Cloud Function execution
     if event == 'start':
         if check_if_other_functions_are_working(func_name, interval):
-            record_start_of_function(event_id, function_id, triggered_by_func_id, func_name)
+            record_start_of_function(event_id, function_id, triggered_by_func_id, func_name)  # type: ignore[arg-type]
             return True
 
-        record_start_of_function(event_id, function_id, triggered_by_func_id, func_name)
+        record_start_of_function(event_id, function_id, triggered_by_func_id, func_name)  # type: ignore[arg-type]
         return False
 
     # if this functions is triggered in the very end of the Google Cloud Function execution

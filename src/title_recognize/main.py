@@ -8,7 +8,7 @@ from _dependencies.misc import RequestWrapper, ResponseWrapper, request_response
 
 from ._utils.recognizer import recognize_title
 
-setup_logging()
+setup_logging(__package__)
 
 
 class UserRequest(BaseModel):

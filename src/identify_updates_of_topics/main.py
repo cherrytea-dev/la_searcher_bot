@@ -13,7 +13,7 @@ from ._utils.database import get_db_client
 from ._utils.folder_updater import FolderUpdater
 from ._utils.forum import ForumClient
 
-setup_logging()
+setup_logging(__package__)
 
 
 def main(event: dict[str, bytes], context: Ctx) -> None:  # noqa
