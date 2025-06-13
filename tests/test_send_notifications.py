@@ -7,7 +7,6 @@ import pytest
 from polyfactory.factories import DataclassFactory
 from sqlalchemy.engine import Connection
 
-from _dependencies.commons import sql_connect_by_psycopg2
 from _dependencies.telegram_api_wrapper import TGApiBase
 from send_notifications import main
 from tests.common import get_event_with_data
@@ -153,9 +152,8 @@ class TestPerformance:
                 NotSentNotificationFactory.create_sync()
 
     @pytest.mark.parametrize('batch_size', [1, 10, 100])
-    def test_queries_performance(self, benchmark, batch_size: int):
+    def test_queries_performance(self, benchmark, batch_size: int, connection: Connection):
         # benchmark something
 
         with patch('send_notifications.main.MESSAGES_BATCH_SIZE', batch_size):
-            with sql_connect_by_psycopg2() as conn, conn.cursor() as cur:
-                benchmark(main.get_notifs_to_send, cur, True)
+            benchmark(main.get_notifs_to_send, connection, True)

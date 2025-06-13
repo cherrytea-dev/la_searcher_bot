@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import Pool
 
 from _dependencies import pubsub
-from _dependencies.commons import sql_connect_by_psycopg2, sqlalchemy_get_pool
+from _dependencies.commons import sqlalchemy_get_pool
 from tests.common import get_test_config
 from tests.factories import db_factories
 
@@ -49,11 +49,6 @@ def connection_pool() -> Pool:
 def connection(connection_pool: Pool) -> Connection:
     with connection_pool.connect() as conn:
         yield conn
-
-
-@pytest.fixture
-def connection_psy() -> Connection:
-    return sql_connect_by_psycopg2()
 
 
 @pytest.fixture
