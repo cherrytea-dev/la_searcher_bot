@@ -3,7 +3,8 @@ from enum import Enum
 
 from pydantic import BaseModel
 
-from _dependencies.google_tools import Ctx, make_api_call_cloud, process_pubsub_message_cloud, send_topic_cloud
+# from _dependencies.google_tools import Ctx, make_api_call_cloud, process_pubsub_message_cloud, send_topic_cloud
+from _dependencies.yandex_tools import Ctx, make_api_call_cloud, process_pubsub_message_cloud, send_topic_cloud
 
 
 class Topics(Enum):

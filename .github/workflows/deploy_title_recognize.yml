@@ -1,18 +1,19 @@
-name: Deploy-GCF-Title-Recognize # UPD HERE!
+name: Deploy to Yandex Cloud Functions title_recognize
 
 on:
   push:
-    branches : [ main ]
+    branches: [ yandex-rebased ]
     paths:
+      - 'src/_dependencies/*'
       - 'src/title_recognize/**' # UPD HERE!
       - '.github/workflows/deploy_title_recognize.yml' # UPD HERE!
-      - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_v2_http.yml'
+      - '.github/workflows/_reusable_wf_yc.yml' # reusable
 
 jobs:
   deploy:
-    uses: ./.github/workflows/_reusable_wf_v2_http.yml
+    uses: ./.github/workflows/_reusable_wf_yc.yml
     secrets: inherit
     with:
-      function_name: title_recognize
-      memory: '1024MB'
+      function-name: 'title-recognize'
+      local-name: 'title_recognize'
+      memory: '384Mb'

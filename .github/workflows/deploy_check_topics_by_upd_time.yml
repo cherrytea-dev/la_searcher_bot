@@ -16,3 +16,4 @@ jobs:
     with:
       function_name: check_topics_by_upd_time
       event_trigger_resource: projects/lizaalert-bot-01/topics/topic_for_minute_update
+      memory: '256Mb'
