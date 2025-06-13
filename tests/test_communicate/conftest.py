@@ -5,10 +5,9 @@ from tests.factories import db_factories, db_models
 
 
 @pytest.fixture(scope='session')
-def db_client() -> DBClient:
-    db = DBClient()
-    with db.connect():
-        yield db
+def db_client(connection_pool) -> DBClient:
+    db = DBClient(connection_pool)
+    return db
 
 
 @pytest.fixture
