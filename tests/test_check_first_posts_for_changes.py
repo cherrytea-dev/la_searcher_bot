@@ -28,13 +28,8 @@ def mock_topic_management():
 
 
 @pytest.fixture(scope='session')
-def db_client(db) -> DBClient:
-    return DBClient(db)
-
-
-@pytest.fixture(scope='session')
-def db(patch_app_config):
-    return sqlalchemy_get_pool(10, 10)
+def db_client(connection_pool) -> DBClient:
+    return DBClient(connection_pool)
 
 
 class TestMain:
