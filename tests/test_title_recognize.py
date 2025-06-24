@@ -378,11 +378,11 @@ class TestPersonRecognizeAIGenerated:
         assert result == PersonGroup(
             type_=None,
             num_of_per=-1,
-            display_name='Дети 10–7 лет',  # TODO wrong age, current behavior
+            display_name='Дети 5–10 лет',
             name='Дети',
             age=None,
-            age_min=10,
-            age_max=7,
+            age_min=5,
+            age_max=10,
             age_wording=None,
         )
 
@@ -488,5 +488,12 @@ def test_location_1():
     title = (
         'Личность установлена. Называет себя Анна Предположительно 75-80 лет, найдена в Московском районе, г. Казань.'
     )
+    res = main.recognize_title(title, '')
+    assert res
+
+
+def test_parse_error_case_3():
+    title = 'Живы Женщина + Дети (8 и 12 лет), 40 лет, с. Заречье, Спасский р-н, Рязанская обл.'
+    # title = 'Живы Женщина + Дети 8 и 12 лет, 40 лет, с. Заречье, Спасский р-н, Рязанская обл.'
     res = main.recognize_title(title, '')
     assert res
