@@ -145,13 +145,13 @@ class PersonRecognizer:
     def _handle_case_3(self) -> PersonGroup | None:
         # CASE 3. When the "person" is defined as plural form  and ages like "people age, age"
         case_3_match = re.search(
-            r'(?i)(?<!\d)(подростки|дети|люди|мужчины?|женщины?|мальчики|девочки|бабушки|дедушки)' r'\W{0,4}(?=\d)',
+            r'(?i)(?<!\d)(подростки|дети|люди|мужчины?|женщины?|мальчики|девочки|бабушки|дедушки)\W{0,4}(?=\d)',
             self.name_string,
         )
         if not case_3_match:
             return None
 
-        case_3 = case_3_match.group()
+        case_3 = case_3_match.group().replace('(', '')
 
         match = re.search(case_3, self.name_string)
         if not match:
@@ -162,7 +162,7 @@ class PersonRecognizer:
         age_min, age_max = None, None
         if ages_list:
             # TODO fix and merge with similar code
-            ages_list.sort()
+            ages_list.sort(key=lambda x: int(x))
             age_min = int(ages_list[0])
             age_max = int(ages_list[-1])
 
