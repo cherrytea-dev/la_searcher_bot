@@ -189,29 +189,13 @@ class SearchFollowingMode(str, Enum):
 def add_tel_link(incoming_text: str) -> str:
     """check is text contains phone number and replaces it with clickable version, also removes [tel] tags"""
 
-    # Modifier for all users
-
-    outcome_text = incoming_text
-    nums = re.findall(PHONE_RE, incoming_text)
-    nums = list(set(nums))  # remove duplicates
-    for num in nums:
-        num_link = str('+7' + num[1:] if num[0] == '8' else num)
+    outcome_text = unify_phone_format(incoming_text)
+    phones = re.findall(PHONE_RE, outcome_text)
+    for num in set(phones):
+        normalized_phone = _normalize_phone(num)
         try:
-            outcome_text = outcome_text.replace(num, ' <a href="tel:' + num_link + '">' + num_link + '</a> ')
-
-            ## move tel-tags outside of other a-tags
-            soup = BeautifulSoup(outcome_text, 'html.parser')
-            for outer_a in soup.find_all('a'):
-                inner_a = outer_a.find('a')
-                if inner_a and inner_a['href'].startswith('tel:'):
-                    inner_a_text = inner_a.decode_contents()
-                    inner_a_href = inner_a['href']
-                    inner_a.decompose()
-                    new_inner_a = soup.new_tag('a', href=inner_a_href)
-                    new_inner_a.string = inner_a_text
-                    outer_a.insert_after(new_inner_a)
-            outcome_text = str(soup)
-
+            outcome_text = outcome_text.replace(num, _make_phone_link(normalized_phone))
+            outcome_text = _move_phone_links_outside_href_tags(outcome_text)
         except Exception as e:
             ### logging here is not needed untill we have strange behaviour
             ## logging.exception(f'add_tel_link..{e=} on {num=} in {outcome_text=}')
@@ -222,3 +206,33 @@ def add_tel_link(incoming_text: str) -> str:
         outcome_text = outcome_text.replace(tag, '', 5)
 
     return outcome_text
+
+
+def _make_phone_link(phone: str) -> str:
+    return f' <a href="tel:{phone}">{phone}</a> '
+
+
+def _normalize_phone(phone: str) -> str:
+    return '+7' + phone[1:] if phone[0] == '8' else phone
+
+
+def unify_phone_format(text: str) -> str:
+    phones = re.findall(PHONE_RE, text)
+    for phone in set(phones):
+        text = text.replace(phone, _normalize_phone(phone))
+    return text
+
+
+def _move_phone_links_outside_href_tags(outcome_text: str) -> str:
+    # move tel-tags outside of other a-tags
+    soup = BeautifulSoup(outcome_text, 'html.parser')
+    for outer_a in soup.find_all('a'):
+        inner_a = outer_a.find('a')
+        if inner_a and inner_a['href'].startswith('tel:'):
+            inner_a_text = inner_a.decode_contents()
+            inner_a_href = inner_a['href']
+            inner_a.decompose()
+            new_inner_a = soup.new_tag('a', href=inner_a_href)
+            new_inner_a.string = inner_a_text
+            outer_a.insert_after(new_inner_a)
+    return str(soup)
