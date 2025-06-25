@@ -1,5 +1,5 @@
 from _dependencies import content
-from _dependencies.commons import add_tel_link
+from _dependencies.commons import _move_phone_links_outside_href_tags, add_tel_link, unify_phone_format
 
 
 def test_clean_up_content():
@@ -108,6 +108,33 @@ class TestAddLink:
         res = add_tel_link(input)
 
         assert_string_equals_without_spaces(res, expected_output)
+
+    def test_link_comments_inside_href(self):
+        # search: https://lizaalert.org/forum/viewtopic.php?t=97113
+        # input taken from message_composer
+        # comment text with phone is inside <a href> tags
+        input = """
+<a href="comment1_url">Тест +78001234567 забирает 3, 4, 5 задачи.</a>
+<a href="comment2_url">Тест забираю 3.4.5 88001234567</a>     
+    """
+
+        res = add_tel_link(input)
+
+        assert 'tel:+78001234567"=""' not in res
+        assert '"=""' not in res
+
+    def test_move_links_outside(self):
+        # nested phone links should be extracted
+        input = '<a href="comment1_url">Тест <a href="tel:+78001234567 ">+78001234567</a> едет.</a>'
+        expected = '<a href="comment1_url">Тест  едет.</a><a href="tel:+78001234567 ">+78001234567</a>'
+
+        res = _move_phone_links_outside_href_tags(input)
+        assert res == expected
+
+    def test_unify_phone_format(self):
+        text = ' 88001234567 +78001234567 88002222222'
+        text = unify_phone_format(text)
+        assert text == ' +78001234567 +78001234567 +78002222222'
 
 
 def assert_string_equals_without_spaces(str1: str, str2: str):
