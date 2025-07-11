@@ -9,6 +9,13 @@ def test_clean_up_content():
     assert res == 'some text'
 
 
+def test_clean_up_content_unaccessible():
+    data = '<span>Вы не авторизованы для чтения данного форума<span>'
+
+    res = content.clean_up_content(data)
+    assert res is None
+
+
 def test_clean_up_content_2():
     data = '<span>some text</span>'
 

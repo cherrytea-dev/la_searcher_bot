@@ -4,8 +4,17 @@ import re
 from bs4 import BeautifulSoup, NavigableString, PageElement, Tag
 
 
+def content_is_unaccessible(content: str) -> bool:
+    text_cases = [
+        r'Для просмотра этого форума вы должны быть авторизованы',
+        r'Вы не авторизованы для чтения данного форума',
+    ]
+
+    return any(bool(re.search(x, content)) for x in text_cases)
+
+
 def clean_up_content(init_content: str) -> str | None:
-    if not init_content or re.search(r'Для просмотра этого форума вы должны быть авторизованы', init_content):
+    if not init_content or content_is_unaccessible(init_content):
         return None
 
     reco_content = _cook_soup(init_content)
@@ -20,7 +29,7 @@ def clean_up_content(init_content: str) -> str | None:
 
 
 def clean_up_content_2(init_content: str) -> list[str]:
-    if not init_content or re.search(r'Для просмотра этого форума вы должны быть авторизованы', init_content):
+    if not init_content or content_is_unaccessible(init_content):
         return []
 
     reco_content = _cook_soup(init_content)
