@@ -130,7 +130,7 @@ class FolderUpdater:
             RecognitionTopicType.search_patrol: TopicType.search_patrol,
             RecognitionTopicType.search_training: TopicType.search_training,
             RecognitionTopicType.event: TopicType.event,
-            # TODO RecognitionTopicType.info ?
+            RecognitionTopicType.info: TopicType.info,
             # TODO move mapping near enum definition
         }
 
