@@ -7,6 +7,7 @@ import requests
 from retry import retry
 
 from _dependencies.commons import get_forum_proxies
+from _dependencies.content import content_is_unaccessible
 from _dependencies.pubsub import recognize_title_via_api
 from _dependencies.recognition_schema import RecognitionResult
 from _dependencies.topic_management import save_status_for_topic
@@ -40,7 +41,7 @@ def define_topic_visibility_by_content(content: str) -> str:
     if content.find('Запрошенной темы не существует.') > -1:
         return 'deleted'
 
-    if content.find('Для просмотра этого форума вы должны быть авторизованы') > -1:
+    if content_is_unaccessible(content):
         return 'hidden'
 
     return 'regular'

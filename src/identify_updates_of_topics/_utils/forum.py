@@ -11,6 +11,7 @@ from retry import retry
 from yarl import URL
 
 from _dependencies.commons import get_forum_proxies
+from _dependencies.content import content_is_unaccessible
 from _dependencies.topic_management import save_visibility_for_topic
 
 from .database import get_db_client
@@ -40,7 +41,7 @@ def is_content_visible(content: bytes, topic_id: int) -> bool:
         return False
 
     topic_deleted = 'Запрошенной темы не существует' in check_content
-    topic_hidden = 'Для просмотра этого форума вы должны быть авторизованы' in check_content
+    topic_hidden = content_is_unaccessible(check_content)
 
     if topic_deleted or topic_hidden:
         visibility = 'deleted' if topic_deleted else 'hidden'
