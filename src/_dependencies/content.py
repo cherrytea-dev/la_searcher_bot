@@ -8,6 +8,7 @@ def content_is_unaccessible(content: str) -> bool:
     text_cases = [
         r'Для просмотра этого форума вы должны быть авторизованы',
         r'Вы не авторизованы для чтения данного форума',
+        r'PASSWORDCOLON',
     ]
 
     return any(bool(re.search(x, content)) for x in text_cases)
