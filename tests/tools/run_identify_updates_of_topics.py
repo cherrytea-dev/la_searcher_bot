@@ -23,8 +23,8 @@ if __name__ == '__main__':
         patch.object(pubsub, 'publish_to_pubsub', fake_publish_to_pubsub),
         patch.object(folder_updater, 'recognize_title_via_api', fake_recognize_title_via_api),
     ):
-        folders = [(276, None)]
-        data = get_event_with_data(str(folders))
+        folders = [(276, None), (120, None)]
+        data = get_event_with_data(folders)
         context = Mock()
         context.event_id = 123
 

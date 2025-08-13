@@ -176,7 +176,8 @@ class ForumClient:
             search_title_block = data_block.find('a', 'topictitle')
             # rare case: cleaning [size][b]...[/b][/size] tags
             search_title = re.sub(r'\[/?(b|size.{0,6}|color.{0,10})]', '', search_title_block.next_element)
-            search_id = int(re.search(r'(?<=&t=)\d{2,8}', search_title_block['href']).group())
+            search_url = URL(search_title_block['href'])
+            search_id = int(search_url.query['t'])
             search_replies_num = int(data_block.find('dd', 'posts').next_element)
             start_datetime = define_start_time_of_search(data_block)
 
