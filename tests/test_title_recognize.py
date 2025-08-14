@@ -5,6 +5,7 @@ from flask import Flask
 
 from title_recognize import main
 from title_recognize._utils.person import recognize_one_person_group
+from title_recognize._utils.recognizer import is_spam_message
 from title_recognize._utils.title_commons import Block, PersonGroup
 
 
@@ -497,3 +498,30 @@ def test_parse_error_case_3():
     # title = 'Живы Женщина + Дети 8 и 12 лет, 40 лет, с. Заречье, Спасский р-н, Рязанская обл.'
     res = main.recognize_title(title, '')
     assert res
+
+
+class TestDetectSpam:
+    def test_integration(self):
+        title = 'СпамРассылка. Инструкция найдена. https://foo.top и еще какойто текст'
+        res = main.recognize_title(title, 'status_only')
+        assert res['topic_type'] == 'UNRECOGNIZED'
+
+    @pytest.mark.parametrize(
+        'message',
+        [
+            'СпамРассылка. Инструкция найдена. https://foo.top и еще какойто текст',
+        ],
+    )
+    def test_spam_detected(self, message: str):
+        assert is_spam_message(message)
+
+    @pytest.mark.parametrize(
+        'message',
+        [
+            'Не спам',
+            'Обычный текст с поиском',
+            '',
+        ],
+    )
+    def test_not_spam(self, message: str):
+        assert not is_spam_message(message)

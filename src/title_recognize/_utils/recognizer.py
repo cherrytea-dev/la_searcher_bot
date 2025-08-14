@@ -350,6 +350,12 @@ def recognize_title(line: str, reco_type: str | None) -> Union[Dict, None]:
 
     prettified_line = clean_and_prettify_initial_text(line)
 
+    if is_spam_message(prettified_line):
+        final_recognition = RecognitionResult(
+            topic_type=RecognitionTopicType.unrecognized,
+        )
+        return final_recognition.model_dump(exclude_none=True)
+
     recognition = TitleRecognition(_initial_text=line, _pretty=prettified_line)
     recognition.blocks = Tokenizer(pretty_text=prettified_line).split_text_to_blocks()
     recognition.groups = split_blocks_to_groups(recognition.blocks)
@@ -371,6 +377,16 @@ def recognize_title(line: str, reco_type: str | None) -> Union[Dict, None]:
     _temp_patch_result(final_recognition, final_dict)
 
     return final_dict
+
+
+def is_spam_message(prettified_line: str) -> bool:
+    re_patterns = [
+        re.compile(r'https:\/\/.+\.top'),
+    ]
+
+    spam_detected = any(pattern.search(prettified_line) for pattern in re_patterns)
+
+    return spam_detected
 
 
 def _temp_patch_result(final_recognition: RecognitionResult, final_dict: dict) -> None:
