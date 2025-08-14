@@ -125,7 +125,7 @@ class FolderUpdater:
         folder_summary: list[SearchSummary],
         forum_search_item: ForumSearchItem,
     ) -> None:
-        def add_gender(total_display_name, title) -> str:
+        def add_gender(total_display_name: str, title: str) -> str:
             pattern = re.compile(r'\w+')
             first_word = pattern.search(title).group()
             if first_word.lower() in ['пропала', 'похищена', 'жива', 'погибла']:
@@ -138,9 +138,9 @@ class FolderUpdater:
             res_display_name = total_display_name
             if gender_mark:
                 space_pos = total_display_name.find(' ')
-                res_display_name = (
-                    total_display_name[: space_pos + 1] + gender_mark + total_display_name[space_pos + 1 :]
-                )
+                res_display_name = total_display_name[: space_pos + 1]
+                res_display_name += gender_mark
+                res_display_name += total_display_name[space_pos + 1 :]
 
             return res_display_name
 
