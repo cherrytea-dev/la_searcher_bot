@@ -127,24 +127,24 @@ class FolderUpdater:
     ) -> None:
         def add_gender(total_display_name: str, title: str) -> str:
             pattern = re.compile(r'\w+')
-            try:
-                first_word = pattern.search(title).group()
-                if first_word.lower() in ['пропала', 'похищена', 'жива', 'погибла']:
-                    gender_mark = 'ж'
-                elif first_word.lower() in ['пропал', 'похищен', 'жив', 'погиб']:
-                    gender_mark = 'м'
-                else:
-                    gender_mark = None
+            first_word_re = pattern.search(title)
+            if not first_word_re:
+                return total_display_name
 
-                res_display_name = total_display_name
-                if gender_mark:
-                    space_pos = total_display_name.find(' ')
-                    res_display_name = total_display_name[: space_pos + 1]
-                    res_display_name += gender_mark
-                    res_display_name += total_display_name[space_pos + 1 :]
-            except:
-                res_display_name = total_display_name
-                logging.error(f'Error while parsing gender from total_display_name={total_display_name}')
+            first_word = first_word_re.group()
+            if first_word.lower() in ['пропала', 'похищена', 'жива', 'погибла']:
+                gender_mark = 'ж'
+            elif first_word.lower() in ['пропал', 'похищен', 'жив', 'погиб']:
+                gender_mark = 'м'
+            else:
+                gender_mark = None
+
+            res_display_name = total_display_name
+            if gender_mark:
+                space_pos = total_display_name.find(' ')
+                res_display_name = total_display_name[: space_pos + 1]
+                res_display_name += gender_mark
+                res_display_name += total_display_name[space_pos + 1 :]
 
             return res_display_name
 
