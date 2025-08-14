@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -96,7 +97,7 @@ class FolderUpdater:
             try:
                 self._parse_one_search(current_datetime, folder_summary, forum_search_item)
 
-            except Exception:
+            except Exception as e:
                 logging.exception(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
                 notify_admin(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
 
@@ -117,6 +118,29 @@ class FolderUpdater:
         logging.info(f'folder = {folder_num}, hash is updated, prev snapshot as string = {previous_hash}')
 
         return True
+
+    def _add_gender(self, total_display_name: str, title: str) -> str:
+        pattern = re.compile(r'\w+')
+        first_word_re = pattern.search(title)
+        if not first_word_re:
+            return total_display_name
+
+        first_word = first_word_re.group()
+        if first_word.lower() in ['пропала', 'похищена', 'жива', 'погибла']:
+            gender_mark = 'ж'
+        elif first_word.lower() in ['пропал', 'похищен', 'жив', 'погиб']:
+            gender_mark = 'м'
+        else:
+            gender_mark = None
+
+        res_display_name = total_display_name
+        if gender_mark:
+            space_pos = total_display_name.find(' ')
+            res_display_name = total_display_name[: space_pos + 1]
+            res_display_name += gender_mark
+            res_display_name += total_display_name[space_pos + 1 :]
+
+        return res_display_name
 
     def _parse_one_search(
         self,
@@ -142,7 +166,7 @@ class FolderUpdater:
         else:
             return
 
-        logging.debug(f'{title_reco_dict=}')
+        logging.info(f'{title_reco_dict=}')
 
         # FIXME – 06.11.2023 – work to delete function "define_family_name_from_search_title_new"
         if title_reco_dict.topic_type == RecognitionTopicType.event:
@@ -169,7 +193,9 @@ class FolderUpdater:
         )
 
         if title_reco_dict.persons:
-            search_summary_object.display_name = title_reco_dict.persons.total_display_name
+            search_summary_object.display_name = self._add_gender(
+                title_reco_dict.persons.total_display_name, search_summary_object.title
+            )
             search_summary_object.age = title_reco_dict.persons.age_min
             # Due to the field "age" in searches which is integer, so we cannot indicate a range
             search_summary_object.age_min = title_reco_dict.persons.age_min
@@ -184,6 +210,7 @@ class FolderUpdater:
                     list_of_location_coords.append([city_lat, city_lon])
             search_summary_object.locations = list_of_location_coords
 
+        logging.info(f'search_summary_object={search_summary_object}')
         folder_summary.append(search_summary_object)
 
     def _update_change_log_and_searches(self, new_folder_summary: list[SearchSummary]) -> list[int]:
