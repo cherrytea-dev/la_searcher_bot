@@ -97,7 +97,7 @@ class FolderUpdater:
             try:
                 self._parse_one_search(current_datetime, folder_summary, forum_search_item)
 
-            except Exception:
+            except Exception as e:
                 logging.exception(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
                 notify_admin(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
 
@@ -119,35 +119,35 @@ class FolderUpdater:
 
         return True
 
+    def _add_gender(self, total_display_name: str, title: str) -> str:
+        pattern = re.compile(r'\w+')
+        first_word_re = pattern.search(title)
+        if not first_word_re:
+            return total_display_name
+
+        first_word = first_word_re.group()
+        if first_word.lower() in ['пропала', 'похищена', 'жива', 'погибла']:
+            gender_mark = 'ж'
+        elif first_word.lower() in ['пропал', 'похищен', 'жив', 'погиб']:
+            gender_mark = 'м'
+        else:
+            gender_mark = None
+
+        res_display_name = total_display_name
+        if gender_mark:
+            space_pos = total_display_name.find(' ')
+            res_display_name = total_display_name[: space_pos + 1]
+            res_display_name += gender_mark
+            res_display_name += total_display_name[space_pos + 1 :]
+
+        return res_display_name
+
     def _parse_one_search(
         self,
         current_datetime: datetime,
         folder_summary: list[SearchSummary],
         forum_search_item: ForumSearchItem,
     ) -> None:
-        def add_gender(total_display_name: str, title: str) -> str:
-            pattern = re.compile(r'\w+')
-            first_word_re = pattern.search(title)
-            if not first_word_re:
-                return total_display_name
-
-            first_word = first_word_re.group()
-            if first_word.lower() in ['пропала', 'похищена', 'жива', 'погибла']:
-                gender_mark = 'ж'
-            elif first_word.lower() in ['пропал', 'похищен', 'жив', 'погиб']:
-                gender_mark = 'м'
-            else:
-                gender_mark = None
-
-            res_display_name = total_display_name
-            if gender_mark:
-                space_pos = total_display_name.find(' ')
-                res_display_name = total_display_name[: space_pos + 1]
-                res_display_name += gender_mark
-                res_display_name += total_display_name[space_pos + 1 :]
-
-            return res_display_name
-
         topic_type_dict = {
             RecognitionTopicType.search: TopicType.search_regular,
             RecognitionTopicType.search_reverse: TopicType.search_reverse,
@@ -193,7 +193,7 @@ class FolderUpdater:
         )
 
         if title_reco_dict.persons:
-            search_summary_object.display_name = add_gender(
+            search_summary_object.display_name = self._add_gender(
                 title_reco_dict.persons.total_display_name, search_summary_object.title
             )
             search_summary_object.age = title_reco_dict.persons.age_min
