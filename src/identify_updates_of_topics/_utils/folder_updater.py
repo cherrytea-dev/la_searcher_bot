@@ -125,7 +125,7 @@ class FolderUpdater:
         folder_summary: list[SearchSummary],
         forum_search_item: ForumSearchItem,
     ) -> None:
-        def add_gender(total_display_name, title):
+        def add_gender(total_display_name, title) -> str:
             pattern = re.compile(r'\w+')
             first_word = pattern.search(title).group()
             if first_word.lower() in ['пропала', 'похищена', 'жива', 'погибла']:
