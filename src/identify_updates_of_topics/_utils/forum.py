@@ -11,7 +11,7 @@ from retry import retry
 from yarl import URL
 
 from _dependencies.commons import get_forum_proxies
-from _dependencies.content import content_is_unaccessible
+from _dependencies.content import content_is_unaccessible, is_forum_unavailable
 from _dependencies.topic_management import save_visibility_for_topic
 
 from .database import get_db_client
@@ -32,11 +32,7 @@ def is_content_visible(content: bytes, topic_id: int) -> bool:
     """check topic's visibility: if hidden or deleted"""
 
     check_content = content.decode('utf-8')
-    site_unavailable = (
-        '502 Bad Gateway' in check_content
-        or 'Too many connections' in check_content
-        or '403 Forbidden' in check_content
-    )
+    site_unavailable = is_forum_unavailable(check_content)
     if site_unavailable:
         return False
 

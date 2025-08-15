@@ -7,7 +7,7 @@ import requests
 from retry import retry
 
 from _dependencies.commons import get_forum_proxies
-from _dependencies.content import content_is_unaccessible
+from _dependencies.content import content_is_unaccessible, is_forum_unavailable
 from _dependencies.pubsub import recognize_title_via_api
 from _dependencies.recognition_schema import RecognitionResult
 from _dependencies.topic_management import save_status_for_topic
@@ -59,7 +59,7 @@ def get_search_raw_content(search_num: int) -> str:
 
     # response.raise_for_status()
     str_content = response.content.decode('utf-8')
-    if '502 Bad Gateway' in str_content or 'Too many connections' in str_content or '403 Forbidden' in str_content:
+    if is_forum_unavailable(str_content):
         raise ForumUnavailable()
 
     return str_content
