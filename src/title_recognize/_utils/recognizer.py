@@ -382,6 +382,9 @@ def recognize_title(line: str, reco_type: str | None) -> Union[Dict, None]:
 def is_spam_message(prettified_line: str) -> bool:
     re_patterns = [
         re.compile(r'https:\/\/.+\.top'),
+        re.compile(r'https:\/\/.+\.shop'),
+        re.compile(r'https:\/\/.+\.biz'),
+        re.compile(r'https:\/\/krak.+\.'),
     ]
 
     spam_detected = any(pattern.search(prettified_line) for pattern in re_patterns)
