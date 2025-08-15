@@ -323,3 +323,13 @@ def _prettify_soup(content: BeautifulSoup) -> BeautifulSoup:
         del dd['style']
 
     return content
+
+
+def is_forum_unavailable(check_content: str) -> bool:
+    check_content = check_content.lower()
+    return (
+        '502 bad gateway' in check_content
+        or 'too many connections' in check_content
+        or '403 forbidden' in check_content
+        or ('general error' in check_content and 'return to index page' in check_content)
+    )
