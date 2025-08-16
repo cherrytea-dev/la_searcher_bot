@@ -16,3 +16,4 @@ jobs:
     with:
       function_name: identify_updates_of_first_posts
       event_trigger_resource: projects/lizaalert-bot-01/topics/topic_for_first_post_processing
+      memory: '256Mb'

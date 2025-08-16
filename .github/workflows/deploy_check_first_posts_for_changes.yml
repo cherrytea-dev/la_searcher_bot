@@ -16,4 +16,5 @@ jobs:
     with:
       function_name: check_first_posts_for_changes
       timeout: '540'
+      memory: '256Mb'
       event_trigger_resource: projects/lizaalert-bot-01/topics/topic_for_update_every_N_minutes # UPD HERE! topic

@@ -248,9 +248,9 @@ def _process_folders_with_updated_searches(
         return
 
     # evoke 'parsing script' to check if the folders with updated searches have any update
-    save_function_into_register(
-        conn, context.event_id, analytics_func_start, function_id, change_log_ids, 'identify_updates_of_f_posts'
-    )
+    # save_function_into_register(
+    #     conn, context.event_id, analytics_func_start, function_id, change_log_ids, 'identify_updates_of_f_posts'
+    # )
 
     pubsub_parse_folders(updated_searches_to_pubsub)
     pubsub_compose_notifications(function_id, str(list_of_folders_with_upd_searches))

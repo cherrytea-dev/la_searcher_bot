@@ -9,6 +9,7 @@ from _dependencies.pubsub import Ctx
 def check_if_other_functions_are_working(func_name: str, interval_seconds: int) -> bool:
     """Check in PSQL in there's the same function 'send_notifications' working in parallel"""
 
+    return False
     with sql_connect_by_psycopg2() as conn_psy, conn_psy.cursor() as cur:
         sql_text_psy = f"""
                         SELECT 
@@ -37,6 +38,7 @@ def check_if_other_functions_are_working(func_name: str, interval_seconds: int) 
 def record_start_of_function(event_num: int, function_num: int, triggered_by_func_num: int, function_name: str) -> None:
     """Record into PSQL that this function started working (id = id of the respective pub/sub event)"""
 
+    return
     with sql_connect_by_psycopg2() as conn_psy, conn_psy.cursor() as cur:
         sql_text_psy = """
                         INSERT INTO 
@@ -56,6 +58,7 @@ def record_start_of_function(event_num: int, function_num: int, triggered_by_fun
 
 def record_finish_of_function(event_num: int, list_of_changed_ids: list) -> None:
     """Record into PSQL that this function finished working (id = id of the respective pub/sub event)"""
+    return
     with sql_connect_by_psycopg2() as conn_psy, conn_psy.cursor() as cur:
         json_of_params = json.dumps({'ch_id': list_of_changed_ids})
 
@@ -85,7 +88,8 @@ def check_and_save_event_id(
 ) -> bool:
     """Work with PSQL table functions_registry. Goal of the table & function is to avoid parallel work of
     two compose_notifications functions. Executed in the beginning and in the end of compose_notifications function"""
-    # TODO try decompose
+    return False
+
     if not context or not event:
         return False
 
