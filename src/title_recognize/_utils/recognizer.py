@@ -350,7 +350,7 @@ def recognize_title(line: str, reco_type: str | None) -> Union[Dict, None]:
 
     prettified_line = clean_and_prettify_initial_text(line)
 
-    if is_spam_message(prettified_line):
+    if is_spam_message(prettified_line.lower()):
         final_recognition = RecognitionResult(
             topic_type=RecognitionTopicType.unrecognized,
         )
@@ -381,6 +381,8 @@ def recognize_title(line: str, reco_type: str | None) -> Union[Dict, None]:
 
 def is_spam_message(prettified_line: str) -> bool:
     re_patterns = [
+        re.compile(r'кракен'),
+        re.compile(r'kraken'),
         re.compile(r'https:\/\/.+\.top'),
         re.compile(r'https:\/\/.+\.shop'),
         re.compile(r'https:\/\/.+\.biz'),
