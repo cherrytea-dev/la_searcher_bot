@@ -380,15 +380,19 @@ def recognize_title(line: str, reco_type: str | None) -> Union[Dict, None]:
 
 
 def is_spam_message(prettified_line: str) -> bool:
-    re_patterns = [
-        re.compile(r'кракен'),
-        re.compile(r'kraken'),
-        re.compile(r'https:\/\/.+\.top'),
-        re.compile(r'https:\/\/.+\.shop'),
-        re.compile(r'https:\/\/.+\.biz'),
-        re.compile(r'https:\/\/krak.+\.'),
-    ]
+    cases = (
+        'кракен',
+        'kraken',
+        'KRАKEN'.lower(),
+        'КРAКЕН'.lower(),
+        r'https:\/\/.+\.top',
+        r'https:\/\/.+\.shop',
+        r'https:\/\/.+\.biz',
+        r'https:\/\/krak.+\.',
+    )
+    re_patterns = [re.compile(x) for x in cases]
 
+    prettified_line = prettified_line.lower()
     spam_detected = any(pattern.search(prettified_line) for pattern in re_patterns)
 
     return spam_detected

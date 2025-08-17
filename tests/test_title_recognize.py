@@ -501,15 +501,28 @@ def test_parse_error_case_3():
 
 
 class TestDetectSpam:
-    def test_integration(self):
-        title = 'СпамРассылка. Инструкция найдена. https://foo.top и еще какойто текст'
-        res = main.recognize_title(title, 'status_only')
+    @pytest.mark.parametrize(
+        'message',
+        [
+            'СпамРассылка. Инструкция найдена. https://foo.top и еще какойто текст',
+            'Кракен',
+            'кракен 123',
+            'ссылка KraKen 123',
+            'КРAКЕН 2025@?@ Список всех рабочих ссылок и зеркал KRАKEN',
+        ],
+    )
+    def test_integration(self, message: str):
+        res = main.recognize_title(message, 'status_only')
         assert res['topic_type'] == 'UNRECOGNIZED'
 
     @pytest.mark.parametrize(
         'message',
         [
             'СпамРассылка. Инструкция найдена. https://foo.top и еще какойто текст',
+            'Кракен',
+            'кракен',
+            'КРAКЕН 2025@?@ Список всех рабочих ссылок и зеркал KRАKEN',
+            'КРAКЕН - КРAКЕН ССЫЛКИ на KRАKEN: КРAКЕН *.* ЗЕРКАЛА *.* 2025 Список всех рабочих ссылок и зеркал KRАKEN',
         ],
     )
     def test_spam_detected(self, message: str):
