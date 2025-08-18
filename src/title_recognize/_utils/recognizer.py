@@ -381,10 +381,12 @@ def recognize_title(line: str, reco_type: str | None) -> Union[Dict, None]:
 
 def is_spam_message(prettified_line: str) -> bool:
     cases = (
-        'кракен',
-        'kraken',
-        'KRАKEN'.lower(),
-        'КРAКЕН'.lower(),
+        # 'кракен',
+        # 'kraken',
+        # 'KRАKEN'.lower(),
+        # 'КРAКЕН'.lower(),
+        # 'КРАКEН'.lower(),
+        '(k|k|К)(r|р|p|Р)(а|a|А)()(k|k|К)(е|e|Е)(n|h|н|Н)'.lower(),
         r'https:\/\/.+\.top',
         r'https:\/\/.+\.shop',
         r'https:\/\/.+\.biz',
