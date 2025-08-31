@@ -123,7 +123,7 @@ class FolderUpdater:
         space_pos = total_display_name.find(' ')
         if not total_display_name[space_pos + 1].isdigit():
             return total_display_name
-        
+
         pattern = re.compile(r'\w+')
         first_word_re = pattern.search(title)
         if not first_word_re:
