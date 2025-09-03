@@ -372,22 +372,22 @@ def _compose_searches(raw_data: list[tuple]) -> list[Search]:  # TODO contract
         search_type = 'Обычный поиск' if topic_type_id == TopicType.search_regular else 'Особый поиск'
         # TODO – to be decomposed in greater details
 
-        user_search = Search(
-            name=search_id,
-            coords=coords,
-            exact_coords=exact_coords,
-            content=str(clean_up_content(first_post)),
-            display_name=display_name,
-            freshness=creation_freshness,
-            link=f'https://lizaalert.org/forum/viewtopic.php?t={search_id}',
-            search_status=status,
-            search_type=search_type,
-            search_is_old=search_is_old,
-        )
-
         if coords[0]:
             # not showing searches without coordsinates on map
-            user_searches.append(user_search)
+            user_searches.append(
+                Search(
+                    name=search_id,
+                    coords=coords,
+                    exact_coords=exact_coords,
+                    content=str(clean_up_content(first_post)),
+                    display_name=display_name or '',
+                    freshness=creation_freshness,
+                    link=f'https://lizaalert.org/forum/viewtopic.php?t={search_id}',
+                    search_status=status,
+                    search_type=search_type,
+                    search_is_old=search_is_old,
+                )
+            )
 
     return user_searches
 
