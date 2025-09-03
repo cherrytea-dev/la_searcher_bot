@@ -120,6 +120,10 @@ class FolderUpdater:
         return True
 
     def _add_gender(self, total_display_name: str, title: str) -> str:
+        space_pos = total_display_name.find(' ')
+        if not total_display_name[space_pos + 1].isdigit():
+            return total_display_name
+
         pattern = re.compile(r'\w+')
         first_word_re = pattern.search(title)
         if not first_word_re:
@@ -135,7 +139,6 @@ class FolderUpdater:
 
         res_display_name = total_display_name
         if gender_mark:
-            space_pos = total_display_name.find(' ')
             res_display_name = total_display_name[: space_pos + 1]
             res_display_name += gender_mark
             res_display_name += total_display_name[space_pos + 1 :]
