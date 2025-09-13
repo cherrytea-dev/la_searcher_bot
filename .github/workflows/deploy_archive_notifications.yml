@@ -1,19 +1,19 @@
-name: Deploy-GCF-Archive-Notifications
+name: Deploy to Yandex Cloud Functions Archive-Notifications
 
 on:
   push:
-    branches : [ main ]
+    branches: [ yandex-rebased ]
     paths:
+      - 'src/_dependencies/*'
       - 'src/archive_notifications/**' # UPD HERE!
       - '.github/workflows/deploy_archive_notifications.yml' # UPD HERE!
-      - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_v1_trigger.yml'
+      - '.github/workflows/_reusable_wf_yc.yml' # reusable
 
 jobs:
   deploy:
-    uses: ./.github/workflows/_reusable_wf_v1_trigger.yml
+    uses: ./.github/workflows/_reusable_wf_yc.yml
     secrets: inherit
     with:
       function_name: archive_notifications
-      timeout: '540'
+      timeout: '540'  # TODO
       event_trigger_resource: projects/lizaalert-bot-01/topics/topic_to_archive_notifs # UPD HERE! topic
