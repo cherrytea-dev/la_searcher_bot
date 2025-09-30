@@ -63,7 +63,8 @@ def get_search_raw_content(search_num: int) -> str:
     str_content = response.content.decode('utf-8')
     if is_forum_unavailable(str_content):
         raise ForumUnavailable()
-    logging.info(f'Content of first post of search {search_num} is: \n{str_content}')  # TODO change level to DEBUG
+
+    logging.debug(f'Content of first post of search {search_num} is: \n{str_content}')
 
     return str_content
 
