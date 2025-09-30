@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import re
 from dataclasses import dataclass
 from functools import lru_cache
@@ -51,6 +52,7 @@ def define_topic_visibility_by_content(content: str) -> str:
 def get_search_raw_content(search_num: int) -> str:
     """parse the whole search page"""
 
+    logging.info(f'Fetching changes for first post of search {search_num}')
     url = f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
     try:
         response = get_requests_session().get(url, timeout=10)  # seconds – not sure if it is efficient in this case
@@ -61,6 +63,7 @@ def get_search_raw_content(search_num: int) -> str:
     str_content = response.content.decode('utf-8')
     if is_forum_unavailable(str_content):
         raise ForumUnavailable()
+    logging.info(f'Content of first post of search {search_num} is: \n{str_content}')  # TODO change level to DEBUG
 
     return str_content
 
