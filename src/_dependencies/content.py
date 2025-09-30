@@ -101,9 +101,7 @@ def _remove_irrelevant_content(content: str) -> str:
 
 
 def _make_html(content: str) -> str:
-    content = re.sub(r'\n', '<br>', content)
-
-    return content
+    return re.sub(r'\n', '<br>', content)
 
 
 def _delete_sorted_out_one_tag(content: BeautifulSoup, tag: Tag) -> BeautifulSoup:

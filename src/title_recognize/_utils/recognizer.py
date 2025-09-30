@@ -386,6 +386,7 @@ def is_spam_message(prettified_line: str) -> bool:
         r'https:\/\/.+\.shop',
         r'https:\/\/.+\.biz',
         r'https:\/\/krak.+\.',
+        r'CASINÒ'.lower(),
     )
     re_patterns = [re.compile(x) for x in cases]
 
@@ -394,9 +395,17 @@ def is_spam_message(prettified_line: str) -> bool:
     for replace in replaces:
         prettified_line = prettified_line.replace(replace, '')
 
-    spam_detected = any(pattern.search(prettified_line) for pattern in re_patterns)
+    if any(pattern.search(prettified_line) for pattern in re_patterns):
+        return True
 
-    return spam_detected
+    keywords_combinations = [
+        ['браузер', 'tor', 'vpn'],
+    ]
+    for combination in keywords_combinations:
+        if all((x in prettified_line) for x in combination):
+            return True
+
+    return False
 
 
 def _temp_patch_result(final_recognition: RecognitionResult, final_dict: dict) -> None:
