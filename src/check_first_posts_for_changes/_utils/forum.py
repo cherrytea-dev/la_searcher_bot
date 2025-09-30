@@ -47,7 +47,7 @@ def define_topic_visibility_by_content(content: str) -> str:
     return 'regular'
 
 
-@retry(ForumUnavailable, tries=3, delay=10)
+@retry((ForumUnavailable, requests.HTTPError), tries=3, delay=10, backoff=1.5)
 def get_search_raw_content(search_num: int) -> str:
     """parse the whole search page"""
 
@@ -57,7 +57,7 @@ def get_search_raw_content(search_num: int) -> str:
     except requests.exceptions.RequestException as exc:
         raise ForumUnavailable() from exc
 
-    # response.raise_for_status()
+    response.raise_for_status()
     str_content = response.content.decode('utf-8')
     if is_forum_unavailable(str_content):
         raise ForumUnavailable()
