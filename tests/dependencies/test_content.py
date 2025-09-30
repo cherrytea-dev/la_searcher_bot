@@ -1,3 +1,5 @@
+import pytest
+
 from _dependencies import content
 from _dependencies.commons import _move_phone_links_outside_href_tags, add_tel_link, unify_phone_format
 
@@ -146,3 +148,31 @@ class TestAddLink:
 
 def assert_string_equals_without_spaces(str1: str, str2: str):
     assert str1.replace(' ', '').replace('\n', '') == str2.replace(' ', '').replace('\n', '')
+
+
+@pytest.mark.parametrize(
+    'post_content',
+    [
+        '502 bad gateway',
+        '503 service temporarily unavailable',
+        'sql error [ mysqli ]',
+        '429 too many requests',
+        'too many connections',
+        '403 forbidden',
+        'general error ..... return to index page',
+    ],
+)
+def test_forum_unavailable(post_content):
+    assert content.is_forum_unavailable(post_content)
+
+
+@pytest.mark.parametrize(
+    'post_content',
+    [
+        'foo',
+        '',
+        'sql error',
+    ],
+)
+def test_forum_available(post_content):
+    assert not content.is_forum_unavailable(post_content)
