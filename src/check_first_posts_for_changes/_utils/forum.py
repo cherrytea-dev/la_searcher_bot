@@ -36,7 +36,7 @@ def get_requests_session() -> requests.Session:
     return session
 
 
-def define_topic_visibility_by_content(content: str) -> str:
+def _define_topic_visibility_by_content(content: str) -> str:
     """define visibility for the topic's content: regular, hidden or deleted"""
 
     if content.find('Запрошенной темы не существует.') > -1:
@@ -49,7 +49,7 @@ def define_topic_visibility_by_content(content: str) -> str:
 
 
 @retry((ForumUnavailable, requests.HTTPError), tries=3, delay=10, backoff=1.5)
-def get_search_raw_content(search_num: int) -> str:
+def _get_search_raw_content(search_num: int) -> str:
     """parse the whole search page"""
 
     logging.info(f'Fetching changes for first post of search {search_num}')
@@ -58,6 +58,9 @@ def get_search_raw_content(search_num: int) -> str:
         response = get_requests_session().get(url, timeout=10)  # seconds – not sure if it is efficient in this case
     except requests.exceptions.RequestException as exc:
         raise ForumUnavailable() from exc
+
+    if response.status_code == 400:
+        return response.content.decode('utf-8')  # dummy hack to use `_define_topic_visibility_by_content` later
 
     response.raise_for_status()
     str_content = response.content.decode('utf-8')
@@ -167,8 +170,9 @@ def prettify_content(content: str) -> str:
 def get_first_post(search_num: int) -> FirstPostData | None:
     """parse the first post of search"""
 
-    raw_content = get_search_raw_content(search_num)
+    raw_content = _get_search_raw_content(search_num)
     not_found = True if raw_content and re.search(r'Запрошенной темы не существует', raw_content) else False
+    # the same as status 404
 
     if not_found:
         return None
@@ -176,7 +180,7 @@ def get_first_post(search_num: int) -> FirstPostData | None:
     # FIXME – deactivated on Feb 6 2023 because seems it's not correct that this script should check status
     # FIXME – activated on Feb 7 2023 –af far as there were 2 searches w/o status updated
     _change_topic_status(search_num, raw_content)
-    topic_visibility = define_topic_visibility_by_content(raw_content)
+    topic_visibility = _define_topic_visibility_by_content(raw_content)
 
     prettified_content = prettify_content(raw_content)
 

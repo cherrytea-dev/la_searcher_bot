@@ -14,12 +14,7 @@ from _dependencies.pubsub import Ctx, pubsub_check_first_posts
 
 from ._utils.commons import PercentGroup, Search
 from ._utils.database import DBClient, get_db_client
-from ._utils.forum import (
-    ForumUnavailable,
-    define_topic_visibility_by_content,
-    get_first_post,
-    get_search_raw_content,
-)
+from ._utils.forum import ForumUnavailable, get_first_post
 
 setup_logging(__package__)
 
@@ -43,11 +38,13 @@ def update_visibility_for_one_hidden_topic() -> None:
     if not hidden_topic_id:
         logging.info('No hidden topics to check')
         return
+
     logging.info(f'we start checking visibility for topic {hidden_topic_id}')
-    post_content = get_search_raw_content(hidden_topic_id)
-    visibility = define_topic_visibility_by_content(post_content)
-    if visibility:
-        update_one_topic_visibility(hidden_topic_id, visibility)
+    post_data = get_first_post(hidden_topic_id)
+    if post_data:
+        update_one_topic_visibility(hidden_topic_id, post_data.topic_visibility)
+    else:
+        update_one_topic_visibility(hidden_topic_id, 'deleted')
 
 
 def _generate_list_of_topic_groups() -> list[PercentGroup]:
