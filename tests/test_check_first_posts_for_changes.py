@@ -152,7 +152,7 @@ class TestForum:
             text=text,
         )
 
-        res = forum.get_search_raw_content(search_num)
+        res = forum._get_search_raw_content(search_num)
 
         assert res
 
