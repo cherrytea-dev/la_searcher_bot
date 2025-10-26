@@ -524,6 +524,8 @@ class TestDetectSpam:
             'NEW - Обновленные*.* Ссылки на K*R*A*K*E*N 2025!',
             'TOR Vpn браузер - должно определиться как спам',
             'CASINÒ blablabla',
+            'CASINÓ',
+            'онлайн+казино: TOP-10 честные сайты с минимальным депозитом...',
         ],
     )
     def test_spam_detected(self, message: str):

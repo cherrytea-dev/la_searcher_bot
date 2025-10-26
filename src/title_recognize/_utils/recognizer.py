@@ -387,6 +387,7 @@ def is_spam_message(prettified_line: str) -> bool:
         r'https:\/\/.+\.biz',
         r'https:\/\/krak.+\.',
         r'CASINÒ'.lower(),
+        r'CASINÓ'.lower(),
     )
     re_patterns = [re.compile(x) for x in cases]
 
@@ -400,6 +401,7 @@ def is_spam_message(prettified_line: str) -> bool:
 
     keywords_combinations = [
         ['браузер', 'tor', 'vpn'],
+        ['онлайн', 'top', 'сайт'],
     ]
     for combination in keywords_combinations:
         if all((x in prettified_line) for x in combination):
