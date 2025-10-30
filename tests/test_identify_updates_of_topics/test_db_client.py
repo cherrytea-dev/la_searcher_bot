@@ -222,3 +222,10 @@ class TestDBClient:
         db_client.delete_key_value_item(key)
 
         assert db_client.get_key_value_item(key) is None
+
+    def test_geocoder_cache(self, db_client: DBClient):
+        address = fake.pystr(max_chars=50)
+        db_client.save_geolocation_in_psql(address, 'fail', 50, 60, 'yandex')
+        status, lat, lon, geocoder = db_client.get_geolocation_form_psql(address)
+
+        assert geocoder == 'yandex'

@@ -94,13 +94,13 @@ class DBClient:
         if not saved_result:
             return None, 0.0, 0.0, ''
 
+        geocoder = saved_result[4]
         if saved_result[1] == 'ok':
             latitude = saved_result[2]
             longitude = saved_result[3]
-            geocoder = saved_result[4]
             return 'ok', latitude, longitude, geocoder
 
-        return 'fail', 0.0, 0.0, ''
+        return 'fail', 0.0, 0.0, geocoder
 
     def save_last_api_call_time_to_psql(self, geocoder: str) -> None:
         """Used to track time of the last api call to geocoders. Saves the current timestamp in UTC in psql"""
