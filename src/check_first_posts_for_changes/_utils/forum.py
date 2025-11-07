@@ -62,6 +62,9 @@ def _get_search_raw_content(search_num: int) -> str:
     if response.status_code == 404:
         return response.content.decode('utf-8')  # dummy hack to use `_define_topic_visibility_by_content` later
 
+    if response.status_code == 429:
+        raise ForumUnavailable()
+
     response.raise_for_status()
     str_content = response.content.decode('utf-8')
     if is_forum_unavailable(str_content):
