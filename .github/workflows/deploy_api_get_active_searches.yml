@@ -15,4 +15,3 @@ jobs:
     secrets: inherit
     with:
       function_name: api_get_active_searches
-      memory: '256MB'

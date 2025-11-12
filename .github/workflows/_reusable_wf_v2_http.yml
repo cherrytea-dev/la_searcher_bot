@@ -7,9 +7,9 @@ on:
         required: true
         type: string
       memory:
-        required: true
+        required: false
         type: string
-      # TODO timeout
+        default: 256
     
 
 jobs:

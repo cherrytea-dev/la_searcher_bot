@@ -15,5 +15,5 @@ jobs:
     secrets: inherit
     with:
       function_name: user_provide_info
-      memory: '256MB'
+      memory: '256'
 
