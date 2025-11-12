@@ -7,6 +7,7 @@ Updates are either saved in PSQL or send via pub/sub to other scripts"""
 import datetime
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
 from itertools import repeat
 
 from _dependencies.commons import setup_logging
@@ -18,7 +19,8 @@ from ._utils.forum import ForumUnavailable, get_first_post
 
 setup_logging(__package__)
 
-MAX_WORKERS = 4
+WORKERS_COUNT = 2
+FUNCTION_TIMEOUT_SECONDS = 50
 
 
 def update_one_topic_visibility(search_id: int, visibility: str) -> None:
@@ -91,6 +93,7 @@ def get_topics_to_check() -> list[Search]:
 
     # TODO maybe there is better method of randomizing?
     searches = get_db_client().get_list_of_topics()
+
     list_of_groups = _define_which_topic_groups_to_be_checked()
 
     num_of_searches = len(searches)
@@ -104,7 +107,16 @@ def get_topics_to_check() -> list[Search]:
             if group_2.start_num <= j <= group_2.finish_num:
                 topics_to_check.append(search)
 
-    return topics_to_check
+    return topics_to_check  # TODO randomize?
+
+
+@dataclass
+class CancelToken:
+    timeout_seconds: int
+    start_time: datetime.datetime = field(default_factory=datetime.datetime.now)
+
+    def expired(self) -> bool:
+        return datetime.datetime.now() > (self.start_time + datetime.timedelta(seconds=self.timeout_seconds))
 
 
 def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
@@ -113,14 +125,20 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
     list_of_searches_with_updated_f_posts: list[int] = []
     db_client = get_db_client()
 
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+    cancel_token = CancelToken(FUNCTION_TIMEOUT_SECONDS)
+
+    with ThreadPoolExecutor(max_workers=WORKERS_COUNT) as executor:
         results = executor.map(
             _update_one_topic_hash,
             repeat(db_client, len(searches_list)),
+            repeat(cancel_token, len(searches_list)),
             searches_list,
         )
 
         for i, topic_updated in enumerate(results):
+            if cancel_token.expired():
+                break
+
             if topic_updated:
                 topic_id = searches_list[i].topic_id
                 list_of_searches_with_updated_f_posts.append(topic_id)
@@ -135,7 +153,9 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
     return list_of_searches_with_updated_f_posts
 
 
-def _update_one_topic_hash(db_client: DBClient, topic: Search) -> bool:
+def _update_one_topic_hash(db_client: DBClient, cancel_token: CancelToken, topic: Search) -> bool:
+    if cancel_token.expired():
+        return False
     topic_id = topic.topic_id
     post_data = get_first_post(topic_id)
 
@@ -181,8 +201,8 @@ def update_first_posts_and_statuses() -> None:
 
 def main(event: dict, context: Ctx) -> None:
     # to avoid function invocation except when it was initiated by scheduler (and pub/sub message was not doubled)
-    if datetime.datetime.now().second > 5:
-        return
+    # if datetime.datetime.now().second > 5:
+    #     return
 
     # BLOCK 1. for checking if the first posts were changed
     update_first_posts_and_statuses()

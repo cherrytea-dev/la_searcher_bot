@@ -15,7 +15,7 @@
             "justMyCode": false
         },
         {
-            "name": "Run bot locally",
+            "name": "run_bot",
             "type": "debugpy",
             "request": "launch",
             "program": "tests/tools/run_bot.py",
@@ -28,7 +28,7 @@
             "justMyCode": false
         },
         {
-            "name": "Run send_notifications locally",
+            "name": "run_send_notifications",
             "type": "debugpy",
             "request": "launch",
             "program": "tests/tools/run_send_notifications.py",
@@ -41,7 +41,20 @@
             "justMyCode": false
         },
         {
-            "name": "check_topics_by_upd_time",
+            "name": "run_check_first_posts_for_changes",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "tests/tools/run_check_first_posts_for_changes.py",
+            "console": "integratedTerminal",
+            "purpose": [
+                "debug-test",
+                "debug-in-terminal"
+            ],
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true
+        },
+        {
+            "name": "run_check_topics_by_upd_time",
             "type": "debugpy",
             "request": "launch",
             "program": "tests/tools/run_check_topics_by_upd_time.py",

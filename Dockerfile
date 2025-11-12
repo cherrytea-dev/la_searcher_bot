@@ -1,10 +1,10 @@
-FROM python:3.10-slim AS template
+FROM python:3.12-slim AS template
 
 ENV PYTHONPATH=src
 ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && \
-    apt-get install --assume-yes make g++ && \
+    apt-get install --assume-yes make g++ libpq-dev openssl && \
     apt-get clean
 
 RUN pip install uv

@@ -7,12 +7,12 @@ on:
       - 'src/send_debug_to_admin/**'
       - '.github/workflows/deploy_send_debug_to_admin.yml'
       - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_v1_trigger.yml'
+      - '.github/workflows/_reusable_wf_yc.yml'
 
 jobs:
   deploy:
-    uses: ./.github/workflows/_reusable_wf_v1_trigger.yml
+    uses: ./.github/workflows/_reusable_wf_yc.yml
     secrets: inherit
     with:
       function_name: send_debug_to_admin
-      event_trigger_resource: projects/lizaalert-bot-01/topics/topic_notify_admin
+      

@@ -11,14 +11,10 @@ from typing import Any, List
 import requests
 from psycopg2.extensions import connection, cursor
 
-from _dependencies.cloud_func_parallel_guard import check_and_save_event_id
-from _dependencies.commons import setup_logging, sql_connect_by_psycopg2
-from _dependencies.misc import (
-    generate_random_function_id,
-    get_triggering_function,
-    tg_api_main_account,
-)
-from _dependencies.pubsub import Ctx, notify_admin, process_pubsub_message, pubsub_send_notifications
+from _dependencies.commons import setup_logging, sql_connect_by_psycopg2, sqlalchemy_get_pool
+from _dependencies.lock_manager import FunctionLockError, lock_manager
+from _dependencies.misc import generate_random_function_id, tg_api_main_account
+from _dependencies.pubsub import Ctx, notify_admin, pubsub_send_notifications
 from _dependencies.telegram_api_wrapper import TGApiBase
 
 setup_logging(__package__)
@@ -29,11 +25,11 @@ FUNC_NAME = 'send_notifications'
 logging.getLogger('telegram.vendor.ptb_urllib3.urllib3').setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
-SCRIPT_SOFT_TIMEOUT_SECONDS = 60  # after which iterations should stop to prevent the whole script timeout
-INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 70  # window within which we check for started parallel function
+SCRIPT_SOFT_TIMEOUT_SECONDS = 40  # after which iterations should stop to prevent the whole script timeout
+INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 50  # window within which we check for started parallel function
 SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS = 5
 MESSAGES_BATCH_SIZE = 100
-WORKERS_COUNT = 4
+WORKERS_COUNT = 2
 
 
 @dataclass
@@ -234,6 +230,11 @@ def iterate_over_notifications(
                 for message_to_send in messages
             ]
             wait(futures)
+            for future in futures:
+                try:
+                    res = future.result()
+                except:
+                    logging.exception("can't send message")
 
             if time_is_out(time_analytics.script_start_time):
                 if get_notifs_to_send(cur, select_doubling=False):
@@ -392,26 +393,19 @@ def finish_time_analytics(
     logging.info(message)
 
     # save to psql the analytics on sending speed
-    conn_psy = sql_connect_by_psycopg2()
-    cur = conn_psy.cursor()
+    with sql_connect_by_psycopg2() as conn_psy, conn_psy.cursor() as cur:
+        try:
+            sql_text_psy = """
+                            INSERT INTO notif_stat_sending_speed
+                            (timestamp, num_of_msgs, speed, ttl_time)
+                            VALUES
+                            (%s, %s, %s, %s);
+                            /*action='notif_stat_sending_speed' */
+                            ;"""
 
-    try:
-        sql_text_psy = """
-                        INSERT INTO notif_stat_sending_speed
-                        (timestamp, num_of_msgs, speed, ttl_time)
-                        VALUES
-                        (%s, %s, %s, %s);
-                        /*action='notif_stat_sending_speed' */
-                        ;"""
-
-        cur.execute(sql_text_psy, (datetime.datetime.now(), len_n, average, ttl_time))
-    except:  # noqa
-        pass
-
-    cur.close()
-    conn_psy.close()
-
-    return None
+            cur.execute(sql_text_psy, (datetime.datetime.now(), len_n, average, ttl_time))
+        except:  # noqa
+            pass
 
 
 def main(event: dict, context: Ctx) -> str | None:
@@ -423,48 +417,19 @@ def main(event: dict, context: Ctx) -> str | None:
 
     function_id = generate_random_function_id()
 
-    message_from_pubsub = process_pubsub_message(event)
-    triggered_by_func_id = get_triggering_function(message_from_pubsub)  # type:ignore[arg-type]
-    # TODO maybe it not works
+    try:
+        pool = sqlalchemy_get_pool(1, 1)
+        connection = pool.connect()
+        with lock_manager(connection, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
+            with requests.Session() as session:
+                changed_ids = iterate_over_notifications(session, function_id, time_analytics)
 
-    # TODO remove after speeding up this function
-    there_is_function_working_in_parallel = check_and_save_event_id(
-        context,
-        'start',
-        function_id,
-        None,
-        triggered_by_func_id,
-        FUNC_NAME,
-        INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
-    )
-    if there_is_function_working_in_parallel:
-        logging.info('function execution stopped due to parallel run with another function')
-        check_and_save_event_id(
-            context,
-            'finish',
-            function_id,
-            None,
-            None,
-            FUNC_NAME,
-            INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
-        )
-        logging.info('script finished')
+    except FunctionLockError:
+        logging.info('script cancelled')
         return None
-
-    with requests.Session() as session:
-        changed_ids = iterate_over_notifications(session, function_id, time_analytics)
 
     finish_time_analytics(time_analytics, changed_ids)
 
-    check_and_save_event_id(
-        context,
-        'finish',
-        function_id,
-        changed_ids,
-        None,
-        FUNC_NAME,
-        INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
-    )
     logging.info('script finished')
 
     return 'ok'

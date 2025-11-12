@@ -94,29 +94,6 @@ def generate_random_function_id() -> int:
     return random_id
 
 
-def get_triggering_function(message_from_pubsub: dict) -> int:
-    """get a function_id of the function, which triggered this function (if available)"""
-
-    triggered_by_func_id = 0
-    try:
-        if (
-            message_from_pubsub
-            and isinstance(message_from_pubsub, dict)
-            and 'triggered_by_func_id' in message_from_pubsub.keys()
-        ):
-            triggered_by_func_id = int(message_from_pubsub['triggered_by_func_id'])
-
-    except Exception as e:
-        logging.exception(e)
-
-    if triggered_by_func_id:
-        logging.info(f'this function is triggered by func-id {triggered_by_func_id}')
-    else:
-        logging.info('triggering func_id was not determined')
-
-    return triggered_by_func_id
-
-
 def calc_bearing(lat_2: float, lon_2: float, lat_1: float, lon_1: float) -> float:
     d_lon_ = lon_2 - lon_1
     x = math.cos(math.radians(lat_2)) * math.sin(math.radians(d_lon_))
@@ -127,38 +104,6 @@ def calc_bearing(lat_2: float, lon_2: float, lat_1: float, lon_1: float) -> floa
     bearing = math.degrees(bearing)
 
     return bearing
-
-
-def save_function_into_register(
-    conn: sqlalchemy.engine.Connection,
-    event_id: str,
-    start_time: datetime.datetime,
-    function_id: int,
-    change_log_ids: list[int],
-    function_name: str,
-) -> None:
-    """save current function into functions_registry"""
-    # TODO merge with similar functions
-
-    json_of_params = json.dumps({'ch_id': change_log_ids})
-
-    sql_text = sqlalchemy.text("""
-        INSERT INTO functions_registry
-        (event_id, time_start, cloud_function_name, function_id,
-        time_finish, params)
-        VALUES (:a, :b, :c, :d, :e, :f)
-                                """)
-    conn.execute(
-        sql_text,
-        a=event_id,
-        b=start_time,
-        c=function_name,
-        d=function_id,
-        e=datetime.datetime.now(),
-        f=json_of_params,
-    )
-
-    logging.info(f'function {function_id} was saved in functions_registry')
 
 
 @dataclass
@@ -176,9 +121,9 @@ class ResponseWrapper:
     headers: Mapping[str, str | Sequence[str]] = field(default_factory=dict)
 
 
-def request_response_converter(func: Callable[..., ResponseWrapper]) -> Callable[..., Response]:
+def request_response_converter(func: Callable[..., ResponseWrapper]) -> Callable[..., dict]:
     @wraps(func)
-    def wrapper(request_data: Request, *args: Any, **kwargs: Any) -> Response:
+    def wrapper(request_data: dict, *args: Any, **kwargs: Any) -> dict:
         if isinstance(request_data, Request):
             # google branch
             request = convert_flask_request(request_data)
@@ -188,7 +133,7 @@ def request_response_converter(func: Callable[..., ResponseWrapper]) -> Callable
             # yc branch
             request = convert_yc_request(request_data)
             response = func(request, *args, **kwargs)
-            return {'statusCode': response.status_code, 'body': response.data}
+            return {'statusCode': response.status_code, 'body': response.data, 'headers': response.headers}
 
     return wrapper
 

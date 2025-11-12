@@ -3,8 +3,8 @@
 import logging
 
 import sqlalchemy
-from google.cloud import bigquery
 
+# from google.cloud import bigquery
 from _dependencies.commons import sqlalchemy_get_pool
 from _dependencies.pubsub import Ctx
 

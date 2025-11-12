@@ -5,15 +5,14 @@ on:
     branches: [ main ]
     paths:
       - 'src/_dependencies/*'
-      - 'src/archive_notifications/**' # UPD HERE!
-      - '.github/workflows/deploy_archive_notifications.yml' # UPD HERE!
-      - '.github/workflows/_reusable_wf_v1_trigger.yml'
+      - 'src/archive_notifications/**'
+      - '.github/workflows/deploy_archive_notifications.yml'
+      - '.github/workflows/_reusable_wf_yc.yml'
 
 jobs:
   deploy:
-    uses: ./.github/workflows/_reusable_wf_v1_trigger.yml
+    uses: ./.github/workflows/_reusable_wf_yc.yml
     secrets: inherit
     with:
       function_name: archive_notifications
       timeout: '540'
-      event_trigger_resource: projects/lizaalert-bot-01/topics/topic_to_archive_notifs # UPD HERE! topic

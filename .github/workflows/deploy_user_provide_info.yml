@@ -1,19 +1,19 @@
-name: Deploy-User-Provide-Info # UPD HERE!
+name: Deploy-User-Provide-Info
 
 on:
   push:
     branches: [ main ]
     paths:
-      - 'src/user_provide_info/**' # UPD HERE!
-      - '.github/workflows/deploy_user_provide_info.yml' # UPD HERE!
+      - 'src/user_provide_info/**'
+      - '.github/workflows/deploy_user_provide_info.yml'
       - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_v2_http.yml'
+      - '.github/workflows/_reusable_wf_yc.yml'
 
 jobs:
   deploy:
-    uses: ./.github/workflows/_reusable_wf_v2_http.yml
+    uses: ./.github/workflows/_reusable_wf_yc.yml
     secrets: inherit
     with:
       function_name: user_provide_info
-      memory: '256MB'
+      memory: '256Mb'
 

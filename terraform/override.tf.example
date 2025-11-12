@@ -1,0 +1,20 @@
+provider "yandex" {
+  zone = "ru-central1-a"
+  service_account_key_file = "./service_key.json"
+  ymq_access_key = "foo"
+  ymq_secret_key="bar"
+  folder_id = "buz"
+}
+
+variable "function_environment" {
+  type = map(string)
+  default = {
+    "BOT_API_TOKEN"         = "foo"
+    # and other
+  }
+}
+
+variable "sa_id" {
+  type = string
+  default = "foo"
+}

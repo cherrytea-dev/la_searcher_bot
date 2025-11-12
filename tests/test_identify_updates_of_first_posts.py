@@ -127,7 +127,6 @@ def test_multiple_updated_searches():
         patch('identify_updates_of_first_posts.main.process_first_page_comparison'),
         patch('identify_updates_of_first_posts.main.save_new_record_into_change_log'),
         patch('identify_updates_of_first_posts.main.parse_search_folder_num'),
-        patch('identify_updates_of_first_posts.main.save_function_into_register'),
     ):
         assert main.main(get_event_with_data('[1,2]'), {}) == 'ok'
 

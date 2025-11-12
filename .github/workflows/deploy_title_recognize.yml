@@ -1,18 +1,18 @@
-name: Deploy-Title-Recognize # UPD HERE!
+name: Deploy-Title-Recognize
 
 on:
   push:
     branches: [ main ]
     paths:
       - 'src/_dependencies/*'
-      - 'src/title_recognize/**' # UPD HERE!
-      - '.github/workflows/deploy_title_recognize.yml' # UPD HERE!
-      - '.github/workflows/_reusable_wf_v2_http.yml'
+      - 'src/title_recognize/**'
+      - '.github/workflows/deploy_title_recognize.yml'
+      - '.github/workflows/_reusable_wf_yc.yml'
 
 jobs:
   deploy:
-    uses: ./.github/workflows/_reusable_wf_v2_http.yml
+    uses: ./.github/workflows/_reusable_wf_yc.yml
     secrets: inherit
     with:
       function_name: title_recognize
-      memory: '1024MB'
+      memory: '1024Mb'
