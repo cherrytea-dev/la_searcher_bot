@@ -1,8 +1,8 @@
-name: Deploy-GCF-Archive-To-BigQuery
+name: Deploy-Archive-To-BigQuery
 
 on:
   push:
-    branches : [ main ]
+    branches: [ main ]
     paths:
       - 'src/archive_to_bigquery/**' # UPD HERE!
       - '.github/workflows/deploy_archive_to_bigquery.yml' # UPD HERE!

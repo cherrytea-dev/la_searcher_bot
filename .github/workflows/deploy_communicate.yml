@@ -1,8 +1,8 @@
-name: Deploy-GCF-Communicate
+name: Deploy-Communicate
 
 on:
   push:
-    branches : [ main ]
+    branches: [ main ]
     paths:
       - 'src/communicate/**' # UPD HERE!
       - '.github/workflows/deploy_communicate.yml' # UPD HERE!

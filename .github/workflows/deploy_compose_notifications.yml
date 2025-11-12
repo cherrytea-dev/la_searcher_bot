@@ -1,8 +1,8 @@
-name: Deploy-GCF-Compose-Notifications
+name: Deploy-Compose-Notifications
 
 on:
   push:
-    branches : [ main ]
+    branches: [ main ]
     paths:
       - 'src/compose_notifications/**'
       - '.github/workflows/deploy_compose_notifications.yml'

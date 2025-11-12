@@ -1,8 +1,8 @@
-name: Deploy-GCF-Identify-Updates-Of-First-Posts
+name: Deploy-Identify-Updates-Of-First-Posts
 
 on:
   push:
-    branches : [ main ]
+    branches: [ main ]
     paths:
       - 'src/identify_updates_of_first_posts/**'
       - '.github/workflows/deploy_identify_updates_of_first_posts.yml'

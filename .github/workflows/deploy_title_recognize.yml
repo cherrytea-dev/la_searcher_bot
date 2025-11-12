@@ -1,12 +1,12 @@
-name: Deploy-GCF-Title-Recognize # UPD HERE!
+name: Deploy-Title-Recognize # UPD HERE!
 
 on:
   push:
-    branches : [ main ]
+    branches: [ main ]
     paths:
+      - 'src/_dependencies/*'
       - 'src/title_recognize/**' # UPD HERE!
       - '.github/workflows/deploy_title_recognize.yml' # UPD HERE!
-      - 'src/_dependencies/*'
       - '.github/workflows/_reusable_wf_v2_http.yml'
 
 jobs:
