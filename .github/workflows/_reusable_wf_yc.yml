@@ -9,7 +9,11 @@ on:
       memory:
         required: false
         type: string
-        default: 256
+        default: 256Mb
+      event_trigger_resource:  # legacy: queue  which triggers this function to start
+        required: false
+        type: string
+        default: ""
     
 
 jobs:

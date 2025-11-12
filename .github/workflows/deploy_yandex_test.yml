@@ -15,4 +15,4 @@ jobs:
     secrets: inherit
     with:
       function_name: 'test_func'
-      memory: '128'
+      memory: '128Mb'

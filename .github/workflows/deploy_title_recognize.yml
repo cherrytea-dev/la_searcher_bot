@@ -15,4 +15,4 @@ jobs:
     secrets: inherit
     with:
       function_name: title_recognize
-      memory: '1024'
+      memory: '1024Mb'
