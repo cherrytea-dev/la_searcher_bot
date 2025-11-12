@@ -181,8 +181,8 @@ def update_first_posts_and_statuses() -> None:
 
 def main(event: dict, context: Ctx) -> None:
     # to avoid function invocation except when it was initiated by scheduler (and pub/sub message was not doubled)
-    if datetime.datetime.now().second > 5:
-        return
+    # if datetime.datetime.now().second > 5:
+    #     return
 
     # BLOCK 1. for checking if the first posts were changed
     update_first_posts_and_statuses()
