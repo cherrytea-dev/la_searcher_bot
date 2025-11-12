@@ -2,7 +2,7 @@ name: Deploy-Check-First-Posts-For-Changes
 
 on:
   push:
-    branches: [ main ]
+    branches: [ yandex-rebased ]
     paths:
       - 'src/check_first_posts_for_changes/**' # UPD HERE!
       - '.github/workflows/deploy_check_first_posts_for_changes.yml' # UPD HERE!

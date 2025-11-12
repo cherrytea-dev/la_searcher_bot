@@ -2,7 +2,7 @@ name: Deploy-Compose-Notifications
 
 on:
   push:
-    branches: [ main ]
+    branches: [ yandex-rebased ]
     paths:
       - 'src/compose_notifications/**'
       - '.github/workflows/deploy_compose_notifications.yml'

@@ -2,7 +2,7 @@ name: Deploy-API-Get-Active-Searches
 
 on:
   push:
-    branches: [ main ]
+    branches: [ yandex-rebased ]
     paths:
       - 'src/_dependencies/*'
       - 'src/api_get_active_searches/**' # UPD HERE!

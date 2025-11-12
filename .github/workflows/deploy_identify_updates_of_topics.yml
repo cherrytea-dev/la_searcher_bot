@@ -2,7 +2,7 @@ name: Deploy-Identify-Updates-Of-Topics
 
 on:
   push:
-    branches: [ main ]
+    branches: [ yandex-rebased ]
     paths:
       - 'src/identify_updates_of_topics/**'
       - '.github/workflows/deploy_identify_updates_of_topics.yml'

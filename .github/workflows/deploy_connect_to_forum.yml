@@ -2,7 +2,7 @@ name: Deploy-Connect-To-Forum
 
 on:
   push:
-    branches: [ main ]
+    branches: [ yandex-rebased ]
     paths:
       - 'src/connect_to_forum/**'
       - '.github/workflows/deploy_connect_to_forum.yml'

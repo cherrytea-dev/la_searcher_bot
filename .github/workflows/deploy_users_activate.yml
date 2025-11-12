@@ -2,7 +2,7 @@ name: Deploy-Users-Activate # UPD HERE!
 
 on:
   push:
-    branches: [ main ]
+    branches: [ yandex-rebased ]
     paths:
       - 'src/users_activate/**' # UPD HERE!
       - '.github/workflows/deploy_users_activate.yml' # UPD HERE!

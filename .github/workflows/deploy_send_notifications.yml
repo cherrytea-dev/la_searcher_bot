@@ -2,7 +2,7 @@ name: Deploy-Send-Notifications
 
 on:
   push:
-    branches: [ main ]
+    branches: [ yandex-rebased ]
     paths:
       - 'src/send_notifications/**'
       - '.github/workflows/deploy_send_notifications.yml'

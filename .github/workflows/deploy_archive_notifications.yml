@@ -2,7 +2,7 @@ name: Deploy-Archive-Notifications
 
 on:
   push:
-    branches: [ main ]
+    branches: [ yandex-rebased ]
     paths:
       - 'src/_dependencies/*'
       - 'src/archive_notifications/**' # UPD HERE!

@@ -2,7 +2,7 @@ name: Deploy-Communicate
 
 on:
   push:
-    branches: [ main ]
+    branches: [ yandex-rebased ]
     paths:
       - 'src/communicate/**' # UPD HERE!
       - '.github/workflows/deploy_communicate.yml' # UPD HERE!

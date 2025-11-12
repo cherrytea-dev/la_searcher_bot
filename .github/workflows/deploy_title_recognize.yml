@@ -2,7 +2,7 @@ name: Deploy-Title-Recognize # UPD HERE!
 
 on:
   push:
-    branches: [ main ]
+    branches: [ yandex-rebased ]
     paths:
       - 'src/_dependencies/*'
       - 'src/title_recognize/**' # UPD HERE!

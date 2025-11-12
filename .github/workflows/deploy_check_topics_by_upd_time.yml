@@ -2,7 +2,7 @@ name: Deploy-Check-Topics-By-Upd-Time
 
 on:
   push:
-    branches: [ main ]
+    branches: [ yandex-rebased ]
     paths:
       - 'src/check_topics_by_upd_time/**'
       - '.github/workflows/deploy_check_topics_by_upd_time.yml'
