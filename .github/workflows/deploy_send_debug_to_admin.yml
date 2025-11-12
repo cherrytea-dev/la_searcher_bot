@@ -1,8 +1,8 @@
-name: Deploy-GCF-Send-Debug-To-Admin
+name: Deploy-Send-Debug-To-Admin
 
 on:
   push:
-    branches : [ main ]
+    branches: [ main ]
     paths:
       - 'src/send_debug_to_admin/**'
       - '.github/workflows/deploy_send_debug_to_admin.yml'
