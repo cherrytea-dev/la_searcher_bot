@@ -8,11 +8,11 @@ variable "event-funcs" {
   }))
   default = {
     "compose-notifications" = { memory = "256", entrypoint = "foo.main.main", topic_name = "topic_for_notification"}
-    "connect-to-forum" = { memory = "256", entrypoint = "foo.main.main", topic_name = "connect_to_forum"}
+    "connect-to-forum" = { memory = "256", entrypoint = "foo.main.main", topic_name = "parse_user_profile_from_forum"}
     "identify-updates-of-first-posts" = { memory = "256", entrypoint = "foo.main.main", topic_name = "topic_for_first_post_processing"}
-    "identify-updates-of-topics" = { memory = "512", entrypoint = "foo.main.main", topic_name = "identify_updates_of_topics"}
+    "identify-updates-of-topics" = { memory = "512", entrypoint = "foo.main.main", topic_name = "topic_to_run_parsing_script"}
     "send-debug-to-admin" = { memory = "256", entrypoint = "foo.main.main", topic_name = "topic_notify_admin"}
-    "send-notifications" = { memory = "256", entrypoint = "foo.main.main", topic_name = "send_notifications"}
+    "send-notifications" = { memory = "256", entrypoint = "foo.main.main", topic_name = "topic_to_send_notifications"}
     # next are not active yet
     # "users-activate" = { memory = "256", entrypoint = "foo.main.main", topic_name = "____"}
     # "archive_notifications" = { memory = "256", entrypoint = "foo.main.main", topic_name = "archive_notifications"}

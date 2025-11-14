@@ -69,7 +69,7 @@ def send_topic_cloud(topic_name: str, message: Any) -> None:
         logging.info(f'Sent pub/sub message to topic {topic_name}: {str(message)}')
 
     except Exception:
-        logging.exception('Not able to send pub/sub message to topic {topic_name}')
+        logging.exception(f'Not able to send pub/sub message to topic {topic_name}')
 
 
 @retry(Exception, tries=3, delay=3)
