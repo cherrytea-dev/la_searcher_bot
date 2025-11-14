@@ -56,8 +56,8 @@ def main(event: dict[str, bytes], context: Ctx) -> None:  # noqa
     logging.info(f"Here's a list of change_log ids created: {change_log_ids}")
 
     if list_of_folders_with_updates:
-        with db_client.connect() as conn:
-            save_function_into_register(
-                conn, context.event_id, analytics_func_start, function_id, change_log_ids, 'identify_updates_of_topics'
-            )
+        # with db_client.connect() as conn:
+        #     save_function_into_register(
+        #         conn, context.event_id, analytics_func_start, function_id, change_log_ids, 'identify_updates_of_topics'
+        #     )
         pubsub_compose_notifications(function_id, "let's compose notifications")
