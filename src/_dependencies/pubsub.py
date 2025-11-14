@@ -53,6 +53,7 @@ def pubsub_archive_notifications() -> None:
 
 
 def pubsub_archive_to_bigquery() -> None:
+    return  # turned off with migration to yandex
     publish_to_pubsub(Topics.topic_to_archive_to_bigquery, 'go')
 
 

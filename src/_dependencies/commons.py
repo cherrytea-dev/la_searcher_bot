@@ -36,6 +36,7 @@ class AppConfig(BaseSettings):
     forum_bot_login: str = ''
     forum_bot_password: str = ''
     forum_proxy: str = ''
+    title_recognize_url: str = ''
 
 
 @lru_cache

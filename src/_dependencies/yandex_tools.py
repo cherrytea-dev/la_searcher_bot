@@ -74,19 +74,14 @@ def send_topic_cloud(topic_name: str, message: Any) -> None:
 
 @retry(Exception, tries=3, delay=3)
 def make_api_call_cloud(function: str, data: dict) -> dict:
-    # TODO update
-    endpoint = f'https://functions.yandexcloud.net/d4e8qu05ii8h2g7h64qt'
+    # TODO make more clear
+    from _dependencies.commons import get_app_config
 
-    # required magic for Google Cloud Functions Gen2 to invoke each other
-    # audience = endpoint
-    # auth_req = google.auth.transport.requests.Request()
-    # id_token = google.oauth2.id_token.fetch_id_token(auth_req, audience)
     headers = {
-        # 'Authorization': f'Bearer {id_token}',  # TODO auth
         'Content-Type': 'application/json',
     }
 
-    response = requests.post(endpoint, json=data, headers=headers, timeout=30)
+    response = requests.post(get_app_config().title_recognize_url, json=data, headers=headers, timeout=30)
     response.raise_for_status()
     return response.json()
 
