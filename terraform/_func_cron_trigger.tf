@@ -43,7 +43,7 @@ resource "yandex_function_trigger" "cron-trigger" {
 
 resource "yandex_function_trigger" "cron-trigger-archive-notifications" {
   # add one more trigger for notifications archive
-  name        = "archive-notifications"
+  name        = "archive-notifications-by-cron"
   timer {
     cron_expression = "0 * ? * * *"  # every hour
   }
