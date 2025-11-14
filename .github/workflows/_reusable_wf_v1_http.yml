@@ -74,3 +74,4 @@ jobs:
             WEB_APP_URL=${{ secrets.YC_WEB_APP_URL }}
             AWS_ACCESS_KEY_ID=${{ secrets.YC_AWS_ACCESS_KEY_ID }}
             AWS_SECRET_ACCESS_KEY=${{ secrets.YC_AWS_SECRET_ACCESS_KEY }}
+            TITLE_RECOGNIZE_URL=${{ secrets.YC_TITLE_RECOGNIZE_URL }}
