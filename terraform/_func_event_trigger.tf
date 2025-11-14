@@ -13,10 +13,10 @@ variable "event-funcs" {
     "identify-updates-of-topics" = { memory = "512", entrypoint = "foo.main.main", topic_name = "topic_to_run_parsing_script"}
     "send-debug-to-admin" = { memory = "256", entrypoint = "foo.main.main", topic_name = "topic_notify_admin"}
     "send-notifications" = { memory = "256", entrypoint = "foo.main.main", topic_name = "topic_to_send_notifications"}
+    "archive-notifications" = { memory = "256", entrypoint = "foo.main.main", topic_name = "topic_to_archive_notifs"}
     # next are not active yet
+    # "archive-to-bigquery" = { memory = "256", entrypoint = "foo.main.main", topic_name = "topic_to_archive_to_bigquery"}
     # "users-activate" = { memory = "256", entrypoint = "foo.main.main", topic_name = "____"}
-    # "archive_notifications" = { memory = "256", entrypoint = "foo.main.main", topic_name = "archive_notifications"}
-    # "archive_to_bigquery" = { memory = "256", entrypoint = "foo.main.main", topic_name = "archive_to_bigquery"}
   }
 }
 
@@ -57,3 +57,4 @@ resource "yandex_function_trigger" "event-trigger" {
     service_account_id = yandex_iam_service_account.sa.id
   }
 }
+
