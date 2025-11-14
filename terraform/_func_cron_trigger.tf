@@ -45,7 +45,7 @@ resource "yandex_function_trigger" "cron-trigger-archive-notifications" {
   # add one more trigger for notifications archive
   name        = "archive-notifications"
   timer {
-    cron_expression = "0 * * * *"  # every hour
+    cron_expression = "0 * ? * * *"  # every hour
   }
   function {
     id = yandex_function.event-based-func["archive-notifications"].id
