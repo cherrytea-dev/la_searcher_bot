@@ -419,7 +419,11 @@ def save_user_statistics_to_db(user_id: int, response: bool) -> None:
 
 
 def get_origin_to_show(request: RequestWrapper) -> str:
-    allowed_origins = ['https://web_app.storage.googleapis.com', 'https://storage.googleapis.com']
+    allowed_origins = [
+        'https://web_app.storage.googleapis.com',
+        'https://storage.googleapis.com',
+        'https://storage.yandexcloud.net',
+    ]
     origin = None
     try:
         origin = request.headers.get('Origin')
