@@ -57,6 +57,10 @@ dev = [
     "tqdm",
 
     "yandexcloud>=0.367.0",
+    "google-cloud-pubsub>=2.16.0",
+    "google-cloud-secret-manager>=2.16.0",
+    "google-cloud-logging>=3.5.0",
+    "google-cloud-bigquery",
 
 ]
 
@@ -134,7 +138,6 @@ exclude = [
     "env",
     "venv",
     "src/users_activate/",
-    "src/_dependencies/cloud_func_parallel_guard.py",
 ]
 files = ["src/"]
 explicit_package_bases = true

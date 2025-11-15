@@ -11,7 +11,7 @@ import google.cloud.logging
 import google.oauth2.id_token
 import requests
 from google.cloud import pubsub_v1, secretmanager
-from google.cloud.functions.context import Context
+from google.cloud.functions.context import Context  # type:ignore[import-not-found]
 from pydantic import BaseModel
 from retry import retry
 
