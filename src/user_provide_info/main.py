@@ -91,7 +91,7 @@ class OptionsResponse(FlaskResponseBase):
 
         headers = {
             'Access-Control-Allow-Origin': origin_to_show,
-            'Access-Control-Allow-Methods': ['GET', 'OPTIONS'],
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type',
             'Access-Control-Max-Age': '3600',
         }

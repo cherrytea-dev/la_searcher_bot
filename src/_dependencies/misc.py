@@ -189,7 +189,7 @@ def request_response_converter(func: Callable[..., ResponseWrapper]) -> Callable
             # yc branch
             request = convert_yc_request(request_data)
             response = func(request, *args, **kwargs)
-            return {'statusCode': response.status_code, 'body': response.data}
+            return {'statusCode': response.status_code, 'body': response.data, 'headers': response.headers}
 
     return wrapper
 
