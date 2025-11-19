@@ -100,7 +100,7 @@ def get_notifs_to_send(cur: cursor, select_doubling: bool) -> list[MessageToSend
                         )
                     ORDER BY user_id
                     LIMIT {MESSAGES_BATCH_SIZE}
-                    FOR NO KEY UPDATE
+                    -- FOR NO KEY UPDATE  # TODO try to understand, do we still need it
  
                     /*action='check_for_notifs_to_send 3.0' */
                     ;
