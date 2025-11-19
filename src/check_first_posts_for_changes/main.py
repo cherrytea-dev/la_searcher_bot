@@ -18,7 +18,7 @@ from ._utils.forum import ForumUnavailable, get_first_post
 
 setup_logging(__package__)
 
-MAX_WORKERS = 4
+WORKERS_COUNT = 2
 
 
 def update_one_topic_visibility(search_id: int, visibility: str) -> None:
@@ -113,7 +113,7 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
     list_of_searches_with_updated_f_posts: list[int] = []
     db_client = get_db_client()
 
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+    with ThreadPoolExecutor(max_workers=WORKERS_COUNT) as executor:
         results = executor.map(
             _update_one_topic_hash,
             repeat(db_client, len(searches_list)),
