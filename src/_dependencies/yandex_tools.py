@@ -18,7 +18,7 @@ def setup_logging_cloud(package_name: str | None = None) -> None:
     handler = logging.StreamHandler(sys.stdout)
 
     formatter = jsonlogger.JsonFormatter(
-        '{levelname}{message}{asctime}{exc_info}',
+        '{levelname}{message}{name}{asctime}{exc_info}',
         style='{',
         rename_fields={'levelname': 'level'},
         defaults={'stream_name': package_name},
