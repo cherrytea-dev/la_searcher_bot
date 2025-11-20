@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 import logging
 from contextlib import contextmanager
 from typing import Iterator
@@ -16,56 +17,65 @@ class FunctionLockError(Exception):
 @contextmanager
 def lock_manager(conn: Connection, func_name: str, timeout_in_seconds: int) -> Iterator[None]:
     """Context manager to avoid situation when many instances running one function"""
-    timeout_in_seconds = 0  # TODO do we need it?
-
-    fn_key = f'lock_function_{func_name}'
 
     logger.info(f'Trying to lock function {func_name}')
-    with conn.begin() as tr:
-        try:
-            _set_session_timeout_for_transaction(conn, 5)
-            _create_record_for_function_if_not_exists(conn, fn_key)
-            # TODO need separate table for locks, not key_value_storage
-            _lock_record_in_transaction(conn, fn_key)
-            logger.info(f'Lock for function {func_name} is acuqired')
+    if _check_if_another_function_is_running(conn, func_name, timeout_in_seconds):
+        logger.warning('Lock failed: another function is in progress')
+        raise FunctionLockError()
 
-            yield None
+    record_id = _write_function_start(conn, func_name)
+    logger.info(f'Lock for function {func_name} is acuqired; {record_id=}')
 
-            logger.info(f'Releasing lock for function {func_name}')
+    yield None
 
-            tr.commit()
-            logger.info(f'Lock for function {func_name} is released')
-
-        except (OperationalError, TimeoutError) as exc:
-            logger.exception(f'Function {func_name} is locked by another process')
-
-            tr.rollback()
-            logger.info(f'Lock for function {func_name}: exiting')
-
-            raise FunctionLockError() from exc
+    logger.info(f'Releasing function {func_name}')
+    _write_function_finish(conn, func_name, record_id)
+    logger.info(f'Lock for function {func_name} is released')
 
 
-def _lock_record_in_transaction(conn: Connection, fn_key: str) -> None:
+def _check_if_another_function_is_running(conn: Connection, func_name: str, timeout_in_seconds: int) -> bool:
+    now = datetime.now()
+    txt = text("""
+                    SELECT 
+                        id 
+                    FROM
+                        functions_registry
+                    WHERE
+                        time_start > :time_start AND
+                        time_finish IS NULL AND
+                        cloud_function_name  = :func_name
+                    LIMIT 1
+                    ;""")
+
+    start_time = now - timedelta(seconds=timeout_in_seconds)
+    res = conn.execute(txt, time_start=start_time, func_name=func_name)
+
+    rows = list(res)
+    return bool(rows)
+
+
+def _write_function_start(conn: Connection, func_name: str) -> int:
     sql_text = text("""
-                    SELECT * FROM key_value_storage kvs
-                    WHERE kvs."key" = :func_name 
-                    FOR NO KEY UPDATE
+                        INSERT INTO 
+                            functions_registry
+                        (time_start, cloud_function_name)
+                        VALUES
+                        (:start_time, :func_name )
+                        RETURNING id;
+                        ;
                             """)
-    # TODO need separate table for locks, not key_value_storage
-    conn.execute(sql_text, func_name=fn_key)
+    res = conn.execute(sql_text, func_name=func_name, start_time=datetime.now())
+    return res.first()[0]
 
 
-def _create_record_for_function_if_not_exists(conn: Connection, fn_key: str) -> None:
+def _write_function_finish(conn: Connection, func_name: str, record_id: int) -> None:
     sql_text = text("""
-                    INSERT INTO key_value_storage
-                    VALUES (:func_name, :any_value)
-                    ON CONFLICT(key) DO NOTHING
-                            """)
-    conn.execute(sql_text, func_name=fn_key, any_value='{}')
-
-
-def _set_session_timeout_for_transaction(conn: Connection, timeout_in_seconds: int) -> None:
-    conn.execute(
-        text('SET idle_in_transaction_session_timeout = :timeout'),
-        timeout=f'{timeout_in_seconds}s',
-    )
+                        UPDATE
+                            functions_registry
+                        SET
+                            time_finish = :finish_time
+                        WHERE
+                            id=:record_id
+                        ;
+                    """)
+    conn.execute(sql_text, record_id=record_id, finish_time=datetime.now())
