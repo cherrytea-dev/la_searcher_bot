@@ -37,7 +37,7 @@ def lock_manager(conn: Connection, func_name: str, timeout_in_seconds: int) -> I
             logger.info(f'Lock for function {func_name} is released')
 
         except (OperationalError, TimeoutError) as exc:
-            logger.info(f'Function {func_name} is locked by another process')
+            logger.exception(f'Function {func_name} is locked by another process')
 
             tr.rollback()
             logger.info(f'Lock for function {func_name}: exiting')
