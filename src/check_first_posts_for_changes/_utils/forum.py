@@ -48,7 +48,7 @@ def _define_topic_visibility_by_content(content: str) -> str:
     return 'regular'
 
 
-@retry((ForumUnavailable, requests.HTTPError), tries=3, delay=10, backoff=1.5)
+@retry((ForumUnavailable, requests.HTTPError), tries=3, delay=2, backoff=2)
 def _get_search_raw_content(search_num: int) -> str:
     """parse the whole search page"""
 
