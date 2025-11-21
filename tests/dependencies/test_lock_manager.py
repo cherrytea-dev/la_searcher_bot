@@ -1,10 +1,10 @@
+from time import sleep
 from uuid import uuid4
 
 import pytest
-from time import sleep
 
 from _dependencies.commons import sqlalchemy_get_pool
-from _dependencies.lock_manager import lock_manager, FunctionLockError
+from _dependencies.lock_manager import FunctionLockError, lock_manager
 
 TIMEOUT = 1
 
