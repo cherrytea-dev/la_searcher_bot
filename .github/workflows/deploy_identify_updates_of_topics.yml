@@ -16,5 +16,5 @@ jobs:
     with:
       function_name: identify_updates_of_topics
       event_trigger_resource: projects/lizaalert-bot-01/topics/topic_to_run_parsing_script
-      timeout: '540'
+      # timeout: '540'
       memory: '512Mb'

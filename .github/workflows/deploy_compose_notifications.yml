@@ -16,4 +16,4 @@ jobs:
     with:
       function_name: compose_notifications
       event_trigger_resource: projects/lizaalert-bot-01/topics/topic_for_notification
-      timeout: '540'
+      timeout: '240'

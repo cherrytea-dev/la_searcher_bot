@@ -16,4 +16,4 @@ jobs:
     with:
       function_name: connect_to_forum
       event_trigger_resource: projects/lizaalert-bot-01/topics/parse_user_profile_from_forum
-      timeout: '540'
+      # timeout: '540'
