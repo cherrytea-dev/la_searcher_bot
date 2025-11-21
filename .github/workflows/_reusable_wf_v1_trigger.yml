@@ -52,7 +52,7 @@ jobs:
           memory: ${{ inputs.memory }}
           entrypoint: ${{ inputs.function_name }}.main.main
           source-root: src
-          execution-timeout: 60 # TODO parametrize
+          execution-timeout: ${{ inputs.timeout }}
           include: |
             ${{ inputs.function_name }}
             _dependencies

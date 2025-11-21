@@ -16,7 +16,7 @@ from ._utils.log_record_composer import LogRecordComposer
 from ._utils.notifications_maker import NotificationMaker
 from ._utils.users_list_composer import UserListFilter, UsersListComposer
 
-INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 130
+INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 130  # TODO 540?
 FUNC_NAME = 'compose_notifications'
 
 
