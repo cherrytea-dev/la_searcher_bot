@@ -5,7 +5,6 @@ from typing import Iterator
 
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
-from sqlalchemy.exc import OperationalError, TimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +23,12 @@ def lock_manager(conn: Connection, func_name: str, timeout_in_seconds: int) -> I
         raise FunctionLockError()
 
     record_id = _write_function_start(conn, func_name)
+
+    if _check_if_another_function_is_running(conn, func_name, timeout_in_seconds, record_id):
+        logger.warning('Lock failed: another function started in same time, cancelling current.')
+        _write_function_finish(conn, func_name, record_id)
+        raise FunctionLockError()
+
     logger.info(f'Lock for function {func_name} is acuqired; {record_id=}')
 
     yield None
@@ -33,7 +38,9 @@ def lock_manager(conn: Connection, func_name: str, timeout_in_seconds: int) -> I
     logger.info(f'Lock for function {func_name} is released')
 
 
-def _check_if_another_function_is_running(conn: Connection, func_name: str, timeout_in_seconds: int) -> bool:
+def _check_if_another_function_is_running(
+    conn: Connection, func_name: str, timeout_in_seconds: int, current_run_id: int = 0
+) -> bool:
     now = datetime.now()
     txt = text("""
                     SELECT 
@@ -43,12 +50,13 @@ def _check_if_another_function_is_running(conn: Connection, func_name: str, time
                     WHERE
                         time_start > :time_start AND
                         time_finish IS NULL AND
+                        id != :current_run_id AND
                         cloud_function_name  = :func_name
                     LIMIT 1
                     ;""")
 
     start_time = now - timedelta(seconds=timeout_in_seconds)
-    res = conn.execute(txt, time_start=start_time, func_name=func_name)
+    res = conn.execute(txt, time_start=start_time, func_name=func_name, current_run_id=current_run_id)
 
     rows = list(res)
     return bool(rows)
