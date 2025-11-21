@@ -94,8 +94,6 @@ def get_topics_to_check() -> list[Search]:
     # TODO maybe there is better method of randomizing?
     searches = get_db_client().get_list_of_topics()
 
-    searches = [Search(x) for x in range(70000, 71000)]  # TODO debug
-
     list_of_groups = _define_which_topic_groups_to_be_checked()
 
     num_of_searches = len(searches)
