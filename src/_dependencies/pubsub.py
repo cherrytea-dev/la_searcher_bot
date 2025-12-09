@@ -3,7 +3,7 @@ from enum import Enum
 
 from pydantic import BaseModel
 
-from _dependencies.google_tools import Ctx, make_api_call_cloud, process_pubsub_message_cloud, send_topic_cloud
+from _dependencies.yandex_tools import Ctx, make_api_call_cloud, process_pubsub_message_cloud, send_topic_cloud
 
 
 class Topics(Enum):
@@ -52,6 +52,7 @@ def pubsub_archive_notifications() -> None:
 
 
 def pubsub_archive_to_bigquery() -> None:
+    return  # turned off with migration to yandex
     publish_to_pubsub(Topics.topic_to_archive_to_bigquery, 'go')
 
 

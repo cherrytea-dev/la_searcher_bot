@@ -7,14 +7,14 @@ on:
       - 'src/identify_updates_of_topics/**'
       - '.github/workflows/deploy_identify_updates_of_topics.yml'
       - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_v1_trigger.yml'
+      - '.github/workflows/_reusable_wf_yc.yml'
 
 jobs:
   deploy:
-    uses: ./.github/workflows/_reusable_wf_v1_trigger.yml
+    uses: ./.github/workflows/_reusable_wf_yc.yml
     secrets: inherit
     with:
       function_name: identify_updates_of_topics
-      event_trigger_resource: projects/lizaalert-bot-01/topics/topic_to_run_parsing_script
-      timeout: '540'
-      memory: '512'
+      
+      # timeout: '540'
+      memory: '512Mb'

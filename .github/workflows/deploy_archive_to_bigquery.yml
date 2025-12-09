@@ -4,16 +4,15 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'src/archive_to_bigquery/**' # UPD HERE!
-      - '.github/workflows/deploy_archive_to_bigquery.yml' # UPD HERE!
+      - 'src/archive_to_bigquery/**'
+      - '.github/workflows/deploy_archive_to_bigquery.yml'
       - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_v1_trigger.yml'
+      - '.github/workflows/_reusable_wf_yc.yml'
 
 jobs:
   deploy:
-    uses: ./.github/workflows/_reusable_wf_v1_trigger.yml
+    uses: ./.github/workflows/_reusable_wf_yc.yml
     secrets: inherit
     with:
       function_name: archive_to_bigquery
       timeout: '540'
-      event_trigger_resource: projects/lizaalert-bot-01/topics/topic_to_archive_to_bigquery # UPD HERE! topic

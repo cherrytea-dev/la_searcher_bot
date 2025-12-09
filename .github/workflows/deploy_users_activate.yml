@@ -1,18 +1,18 @@
-name: Deploy-Users-Activate # UPD HERE!
+name: Deploy-Users-Activate
 
 on:
   push:
     branches: [ main ]
     paths:
-      - 'src/users_activate/**' # UPD HERE!
-      - '.github/workflows/deploy_users_activate.yml' # UPD HERE!
+      - 'src/users_activate/**'
+      - '.github/workflows/deploy_users_activate.yml'
       - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_v1_trigger.yml'
+      - '.github/workflows/_reusable_wf_yc.yml'
 
 jobs:
   deploy:
-    uses: ./.github/workflows/_reusable_wf_v1_trigger.yml
+    uses: ./.github/workflows/_reusable_wf_yc.yml
     secrets: inherit
     with:
       function_name: users_activate
-      event_trigger_resource: projects/lizaalert-bot-01/topics/users_activate # UPD HERE! topic
+      

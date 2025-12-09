@@ -33,9 +33,6 @@ def patch_http():
         patch('requests.post'),
         patch('requests.session'),
         patch('requests.Session'),
-        patch('google.auth.transport.requests.Request'),
-        patch('google.auth.default'),
-        patch('google.oauth2.id_token.fetch_id_token'),
     ):
         yield
 

@@ -7,13 +7,13 @@ on:
       - 'src/compose_notifications/**'
       - '.github/workflows/deploy_compose_notifications.yml'
       - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_v1_trigger.yml'
+      - '.github/workflows/_reusable_wf_yc.yml'
 
 jobs:
   deploy:
-    uses: ./.github/workflows/_reusable_wf_v1_trigger.yml
+    uses: ./.github/workflows/_reusable_wf_yc.yml
     secrets: inherit
     with:
       function_name: compose_notifications
-      event_trigger_resource: projects/lizaalert-bot-01/topics/topic_for_notification
-      timeout: '540'
+      
+      timeout: '240'

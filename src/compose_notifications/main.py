@@ -6,20 +6,17 @@ import logging
 import sqlalchemy
 from sqlalchemy.engine.base import Connection
 
-from _dependencies.cloud_func_parallel_guard import check_and_save_event_id
 from _dependencies.commons import ChangeType, setup_logging, sqlalchemy_get_pool
-from _dependencies.misc import (
-    generate_random_function_id,
-    get_triggering_function,
-)
-from _dependencies.pubsub import Ctx, process_pubsub_message, pubsub_compose_notifications
+from _dependencies.lock_manager import FunctionLockError, lock_manager
+from _dependencies.misc import generate_random_function_id
+from _dependencies.pubsub import Ctx, pubsub_compose_notifications
 
 from ._utils.commons import LineInChangeLog, User
 from ._utils.log_record_composer import LogRecordComposer
 from ._utils.notifications_maker import NotificationMaker
 from ._utils.users_list_composer import UserListFilter, UsersListComposer
 
-INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 130
+INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 250
 FUNC_NAME = 'compose_notifications'
 
 
@@ -128,66 +125,34 @@ def main(event: dict, context: Ctx) -> None:
     analytics_start_of_func = datetime.datetime.now()
 
     function_id = generate_random_function_id()
-    message_from_pubsub = process_pubsub_message(event)
-    triggered_by_func_id = get_triggering_function(message_from_pubsub)  # type:ignore[arg-type]
 
-    there_is_function_working_in_parallel = check_and_save_event_id(
-        context,
-        'start',
-        function_id,
-        None,
-        triggered_by_func_id,
-        FUNC_NAME,
-        INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
-    )
-    if there_is_function_working_in_parallel:
+    try:
+        pool = sqlalchemy_get_pool(1, 1)
+        connection = pool.connect()
+        with lock_manager(connection, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
+            pool = sql_connect()
+            with pool.connect() as conn:
+                # compose New Records List: the delta from Change log
+                new_record = LogRecordComposer(conn).get_line()
+
+                if new_record:
+                    list_of_users = UsersListComposer(conn).get_users_list_for_line_in_change_log(new_record)
+                    list_of_users = UserListFilter(conn, new_record, list_of_users).apply()
+
+                    analytics_iterations_finish = create_user_notifications_from_change_log_record(
+                        analytics_start_of_func,
+                        function_id,
+                        conn,
+                        new_record,
+                        list_of_users,
+                    )
+
+                call_self_if_need_compose_more(conn, function_id)
+
+    except FunctionLockError:
         logging.info('function execution stopped due to parallel run with another function')
-        check_and_save_event_id(
-            context,
-            'finish',
-            function_id,
-            None,
-            triggered_by_func_id,
-            FUNC_NAME,
-            INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
-        )
-        logging.info('script finished')
-        return
-
-    list_of_change_log_ids = []
-    pool = sql_connect()
-    with pool.connect() as conn:
-        # compose New Records List: the delta from Change log
-        new_record = LogRecordComposer(conn).get_line()
-
-        if new_record:
-            list_of_users = UsersListComposer(conn).get_users_list_for_line_in_change_log(new_record)
-            list_of_users = UserListFilter(conn, new_record, list_of_users).apply()
-
-            analytics_iterations_finish = create_user_notifications_from_change_log_record(
-                analytics_start_of_func,
-                function_id,
-                conn,
-                new_record,
-                list_of_users,
-            )
-
-            try:
-                list_of_change_log_ids = [new_record.change_log_id]
-            except Exception as e:  # noqa
-                logging.exception(e)
-
-        call_self_if_need_compose_more(conn, function_id)
-
-    check_and_save_event_id(
-        context,
-        'finish',
-        function_id,
-        list_of_change_log_ids,
-        triggered_by_func_id,
-        FUNC_NAME,
-        INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS,
-    )
+        logging.info('script cancelled')
+        return None
 
     analytics_finish = datetime.datetime.now()
     if new_record:

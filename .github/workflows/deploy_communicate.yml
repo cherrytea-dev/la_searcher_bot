@@ -4,15 +4,15 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'src/communicate/**' # UPD HERE!
-      - '.github/workflows/deploy_communicate.yml' # UPD HERE!
+      - 'src/communicate/**'
+      - '.github/workflows/deploy_communicate.yml'
       - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_v1_http.yml'
+      - '.github/workflows/_reusable_wf_yc.yml'
 
 jobs:
   deploy:
-    uses: ./.github/workflows/_reusable_wf_v1_http.yml
+    uses: ./.github/workflows/_reusable_wf_yc.yml
     secrets: inherit
     with:
       function_name: communicate
-      memory: '8192MB'
+      # memory: '8192Mb' TODO

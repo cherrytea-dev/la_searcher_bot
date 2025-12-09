@@ -22,7 +22,7 @@ from _dependencies.commons import (
     sqlalchemy_get_pool,
 )
 from _dependencies.content import clean_up_content_2
-from _dependencies.misc import generate_random_function_id, save_function_into_register
+from _dependencies.misc import generate_random_function_id
 from _dependencies.pubsub import (
     Ctx,
     notify_admin,
@@ -246,11 +246,6 @@ def _process_folders_with_updated_searches(
     updated_searches_to_pubsub = [[folder_num, None] for folder_num in updated_searches]
     if not list_of_folders_with_upd_searches:
         return
-
-    # evoke 'parsing script' to check if the folders with updated searches have any update
-    save_function_into_register(
-        conn, context.event_id, analytics_func_start, function_id, change_log_ids, 'identify_updates_of_f_posts'
-    )
 
     pubsub_parse_folders(updated_searches_to_pubsub)
     pubsub_compose_notifications(function_id, str(list_of_folders_with_upd_searches))

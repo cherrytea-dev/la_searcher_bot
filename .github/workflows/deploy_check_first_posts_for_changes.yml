@@ -4,16 +4,16 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'src/check_first_posts_for_changes/**' # UPD HERE!
-      - '.github/workflows/deploy_check_first_posts_for_changes.yml' # UPD HERE!
+      - 'src/check_first_posts_for_changes/**'
+      - '.github/workflows/deploy_check_first_posts_for_changes.yml'
       - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_v1_trigger.yml'
+      - '.github/workflows/_reusable_wf_yc.yml'
 
 jobs:
   deploy:
-    uses: ./.github/workflows/_reusable_wf_v1_trigger.yml
+    uses: ./.github/workflows/_reusable_wf_yc.yml
     secrets: inherit
     with:
       function_name: check_first_posts_for_changes
-      timeout: '540'
-      event_trigger_resource: projects/lizaalert-bot-01/topics/topic_for_update_every_N_minutes # UPD HERE! topic
+      # timeout: '540'
+      

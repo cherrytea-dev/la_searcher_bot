@@ -7,13 +7,13 @@ on:
       - 'src/connect_to_forum/**'
       - '.github/workflows/deploy_connect_to_forum.yml'
       - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_v1_trigger.yml'
+      - '.github/workflows/_reusable_wf_yc.yml'
 
 jobs:
   deploy:
-    uses: ./.github/workflows/_reusable_wf_v1_trigger.yml
+    uses: ./.github/workflows/_reusable_wf_yc.yml
     secrets: inherit
     with:
       function_name: connect_to_forum
-      event_trigger_resource: projects/lizaalert-bot-01/topics/parse_user_profile_from_forum
-      timeout: '540'
+      
+      # timeout: '540'

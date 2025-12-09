@@ -24,6 +24,7 @@ setup_logging(__package__)
 
 DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%S+00:00'
 USELESS_FOLDERS = {84, 113, 112, 270, 86, 87, 88, 165, 365, 89, 172, 91, 90, 316, 234, 230, 319}
+WORKERS_COUNT = 2
 
 
 class DBClient:
@@ -447,7 +448,7 @@ def get_updates_of_nested_folders(folders_list_to_scan: list[str]) -> list[list]
     for folder_num in folders_list_to_scan:
         folders_to_check.append(FolderForDecompose(mother_folder_num=folder_num))
 
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    with ThreadPoolExecutor(max_workers=WORKERS_COUNT) as pool:
         futures = []
         while folders_to_check:
             while folders_to_check:

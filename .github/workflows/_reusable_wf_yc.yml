@@ -1,0 +1,71 @@
+name: Reusable Yandex Cloud Function Deployment
+
+
+on:
+  workflow_call:
+    inputs:
+      function_name:
+        required: true
+        type: string
+      memory:
+        required: false
+        type: string
+        default: 256Mb
+      max_instances:
+        required: false
+        type: string
+        default: 1
+      timeout:
+        required: false
+        type: string
+        default: 60
+
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: make requirements
+        run: 	cp src/${{ inputs.function_name }}/requirements.txt src/requirements.txt
+
+      - name: Process function name
+        id: process-name
+        run: |
+          KEBAB_NAME=$(echo "${{ inputs.function_name }}" | tr '_' '-')
+          echo "kebab-name=$KEBAB_NAME" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Yandex Cloud Function
+        uses: yc-actions/yc-sls-function@v2
+        with:
+          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
+          folder-id: ${{ secrets.YC_FOLDER_ID }}
+          runtime: 'python312'
+          function-name: ${{ steps.process-name.outputs.kebab-name }}
+          memory: ${{ inputs.memory }}
+          entrypoint: ${{ inputs.function_name }}.main.main
+          source-root: src
+          execution-timeout: ${{ inputs.timeout }}
+          include: |
+            ${{ inputs.function_name }}
+            _dependencies
+            requirements.txt
+          environment: |
+            POSTGRES_HOST=${{ secrets.YC_POSTGRES_HOST }}
+            POSTGRES_PORT=${{ secrets.YC_POSTGRES_PORT }}
+            POSTGRES_DB=${{ secrets.YC_POSTGRES_DB }}
+            POSTGRES_USER=${{ secrets.YC_POSTGRES_USER }}
+            POSTGRES_PASSWORD=${{ secrets.YC_POSTGRES_PASSWORD }}
+            BOT_API_TOKEN__PROD=${{ secrets.YC_BOT_API_TOKEN__PROD }}
+            BOT_API_TOKEN=${{ secrets.YC_BOT_API_TOKEN }}
+            MY_TELEGRAM_ID=${{ secrets.YC_MY_TELEGRAM_ID }}
+            FORUM_BOT_LOGIN=${{ secrets.YC_FORUM_BOT_LOGIN }}
+            FORUM_BOT_PASSWORD=${{ secrets.YC_FORUM_BOT_PASSWORD }}
+            OSM_IDENTIFIER=${{ secrets.YC_OSM_IDENTIFIER }}
+            YANDEX_API_KEY=${{ secrets.YC_YANDEX_API_KEY }}
+            WEB_APP_URL_TEST=${{ secrets.YC_WEB_APP_URL_TEST }}
+            WEB_APP_URL=${{ secrets.YC_WEB_APP_URL }}
+            AWS_ACCESS_KEY_ID=${{ secrets.YC_AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.YC_AWS_SECRET_ACCESS_KEY }}
+            TITLE_RECOGNIZE_URL=${{ secrets.YC_TITLE_RECOGNIZE_URL }}

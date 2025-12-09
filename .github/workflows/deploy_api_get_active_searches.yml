@@ -5,14 +5,13 @@ on:
     branches: [ main ]
     paths:
       - 'src/_dependencies/*'
-      - 'src/api_get_active_searches/**' # UPD HERE!
-      - '.github/workflows/deploy_api_get_active_searches.yml' # UPD HERE!
-      - '.github/workflows/_reusable_wf_v2_http.yml'
+      - 'src/api_get_active_searches/**'
+      - '.github/workflows/deploy_api_get_active_searches.yml'
+      - '.github/workflows/_reusable_wf_yc.yml'
 
 jobs:
   deploy:
-    uses: ./.github/workflows/_reusable_wf_v2_http.yml
+    uses: ./.github/workflows/_reusable_wf_yc.yml
     secrets: inherit
     with:
       function_name: api_get_active_searches
-      memory: '256MB'

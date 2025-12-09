@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings
 
-from _dependencies.google_tools import get_secrets, setup_logging_cloud
+from _dependencies.yandex_tools import setup_logging_cloud
 
 PHONE_RE = re.compile(r'(?:\+7|7|8)\s?[\s\-(]?\s?\d{3}[\s\-)]?\s?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}')
 
@@ -35,6 +35,7 @@ class AppConfig(BaseSettings):
     forum_bot_login: str = ''
     forum_bot_password: str = ''
     forum_proxy: str = ''
+    title_recognize_url: str = ''
 
 
 @lru_cache
@@ -56,24 +57,7 @@ def get_forum_proxies() -> dict:
 
 def _get_config() -> AppConfig:
     """for patching in tests"""
-    return AppConfig(
-        postgres_user=get_secrets('cloud-postgres-username'),
-        postgres_password=get_secrets('cloud-postgres-password'),
-        postgres_db=get_secrets('cloud-postgres-db-name'),
-        postgres_host='/cloudsql/' + get_secrets('cloud-postgres-connection-name'),
-        postgres_port=5432,
-        api_clients=get_secrets('api_clients'),
-        bot_api_token__prod=get_secrets('bot_api_token__prod'),
-        bot_api_token=get_secrets('bot_api_token'),
-        my_telegram_id=int(get_secrets('my_telegram_id')),
-        web_app_url=get_secrets('web_app_url'),
-        web_app_url_test=get_secrets('web_app_url_test'),
-        yandex_api_key=get_secrets('yandex_api_key'),
-        osm_identifier=get_secrets('osm_identifier'),
-        forum_bot_login=get_secrets('forum_bot_login'),
-        forum_bot_password=get_secrets('forum_bot_password'),
-        forum_proxy=get_secrets('forum_proxy'),
-    )
+    return AppConfig()
 
 
 def sql_connect_by_psycopg2() -> psycopg2.extensions.connection:
@@ -96,13 +80,20 @@ def sql_connect_by_psycopg2() -> psycopg2.extensions.connection:
 @lru_cache
 def sqlalchemy_get_pool(pool_size: int, pool_recycle_time_seconds: int) -> sqlalchemy.engine.Engine:
     """connect to PSQL in GCP"""
+    return sqlalchemy_get_pool_inner()
+
+
+@lru_cache
+def sqlalchemy_get_pool_inner() -> sqlalchemy.engine.Engine:
+    """connect to PSQL in GCP"""
     config = get_app_config()
 
     db_config = {
-        'pool_size': pool_size,
-        'max_overflow': 0,
-        'pool_timeout': 0,  # seconds
-        'pool_recycle': pool_recycle_time_seconds,  # seconds
+        'pool_size': 1,
+        'max_overflow': 4,
+        'pool_timeout': 1,  # seconds
+        'pool_recycle': 1,  # seconds
+        'pool_pre_ping': True,
     }
 
     pool = sqlalchemy.create_engine(
