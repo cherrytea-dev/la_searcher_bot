@@ -258,6 +258,11 @@ def _process_one_update(
 ) -> None:
     # get the Current First Page Content
 
+    ignoring_changes = [
+        ['[+] для СМИ'],
+        ['[+] '],
+    ]
+
     first_page_content_curr, first_page_content_prev = _get_actual_and_previous_page_content(conn, search_id)
     if not first_page_content_curr or not first_page_content_prev:
         return
@@ -266,6 +271,13 @@ def _process_one_update(
         # check the difference b/w first posts for current and previous version
         diff_message = process_first_page_comparison(conn, search_id, first_page_content_prev, first_page_content_curr)
         if not diff_message or not diff_message.message:
+            return
+
+        if (diff_message.additions in ignoring_changes and not diff_message.deletions) or (
+            diff_message.deletions in ignoring_changes and not diff_message.additions
+        ):
+            logging.info(f'Minor change for post {search_id}, ignored: {diff_message=}')
+            notify_admin(f'Minor change for post {search_id}, ignored: {diff_message=}')
             return
 
         change_log_id = save_new_record_into_change_log(
