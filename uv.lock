@@ -867,7 +867,7 @@ requires-dist = [
     { name = "yandex-geocoder", marker = "extra == 'identify-updates-of-topics'", specifier = "==3.0.1" },
     { name = "yarl", marker = "extra == 'identify-updates-of-topics'", specifier = "==1.18.3" },
 ]
-provides-extras = ["api-get-active-searches", "archive-notifications", "check-topics-by-upd-time", "communicate", "compose-notifications", "connect-to-forum", "identify-updates-of-first-posts", "identify-updates-of-topics", "send-debug-to-admin", "send-notifications", "title-recognize", "user-provide-info", "users-activate", "test-func"]
+provides-extras = ["api-get-active-searches", "archive-notifications", "archive-to-bigquery", "check-topics-by-upd-time", "communicate", "compose-notifications", "connect-to-forum", "identify-updates-of-first-posts", "identify-updates-of-topics", "send-debug-to-admin", "send-notifications", "title-recognize", "user-provide-info", "users-activate", "test-func"]
 
 [package.metadata.requires-dev]
 dev = [

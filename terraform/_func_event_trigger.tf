@@ -15,7 +15,6 @@ variable "event-funcs" {
     "send-notifications" = { memory = "256", entrypoint = "foo.main.main", topic_name = "topic_to_send_notifications"}
     "archive-notifications" = { memory = "256", entrypoint = "foo.main.main", topic_name = "topic_to_archive_notifs"}
     # next are not active yet
-    # "archive-to-bigquery" = { memory = "256", entrypoint = "foo.main.main", topic_name = "topic_to_archive_to_bigquery"}
     # "users-activate" = { memory = "256", entrypoint = "foo.main.main", topic_name = "____"}
   }
 }

@@ -15,4 +15,4 @@ jobs:
     secrets: inherit
     with:
       function_name: communicate
-      # memory: '8192Mb' TODO
+      memory: '256Mb'

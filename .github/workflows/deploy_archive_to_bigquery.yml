@@ -16,3 +16,4 @@ jobs:
     with:
       function_name: archive_to_bigquery
       timeout: '540'
+      memory: '512Mb'

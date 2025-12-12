@@ -4,6 +4,10 @@ terraform {
       source  = "yandex-cloud/yandex"
       version = ">= 0.84.0"
     }
+    aws = {
+      source  = "hashicorp/aws"
+      version = "> 5.1"
+    }
   }
 }
 
@@ -12,9 +16,19 @@ provider "yandex" {
   # other values in override.tf
 }
 
+provider "aws" {
+  region                      = "us-east-1"
+  skip_credentials_validation = true
+  skip_requesting_account_id  = true
+  skip_metadata_api_check     = true
+  access_key                  = "place_to_override"
+  secret_key                  = "place_to_override"
+}
 variable "function_environment" {
   type = map(string)
-  default = {}
+  default = {
+
+  }
 }
 
 variable "function_runtime" {
@@ -41,3 +55,7 @@ resource "yandex_iam_service_account" "sa" {
   name        = "la-searcher-bot"
 }
 
+resource "yandex_storage_bucket" "backup_bucket" {
+  bucket = "la-backup-notifications"
+  default_storage_class = "COLD"
+}

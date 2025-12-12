@@ -4,10 +4,12 @@ variable "cron-funcs" {
   type = map(object({
     memory = string
     entrypoint = string
+    cron_expression = string
   }))
   default = {
-    "check-topics-by-upd-time" = { memory = "256", entrypoint = "foo.main.main" }
-    "check-first-posts-for-changes" = { memory = "256", entrypoint = "foo.main.main" }
+    "check-topics-by-upd-time" = { memory = "256", entrypoint = "foo.main.main", cron_expression = "* * ? * * *"  } # every minute
+    "check-first-posts-for-changes" = { memory = "256", entrypoint = "foo.main.main", cron_expression = "* * ? * * *"  } # every minute
+    "archive-to-bigquery" = { memory = "512", entrypoint = "foo.main.main", cron_expression = "13 11 ? * * *"  } # every day at 11:13 AM
   }
 }
 
@@ -33,7 +35,7 @@ resource "yandex_function_trigger" "cron-trigger" {
 
   name        = each.key
   timer {
-    cron_expression = "* * ? * * *"  # every minute
+    cron_expression = each.value.cron_expression
   }
   function {
     id = yandex_function.cron-based-func[each.key].id

@@ -36,6 +36,9 @@ class AppConfig(BaseSettings):
     forum_bot_password: str = ''
     forum_proxy: str = ''
     title_recognize_url: str = ''
+    aws_access_key_id: str = ''
+    aws_secret_access_key: str = ''
+    aws_backup_bucket_name: str = 'la-backup-notifications'
 
 
 @lru_cache

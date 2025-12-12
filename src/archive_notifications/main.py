@@ -4,7 +4,7 @@ import sqlalchemy
 from sqlalchemy.engine.base import Connection
 
 from _dependencies.commons import setup_logging, sqlalchemy_get_pool
-from _dependencies.pubsub import Ctx, pubsub_archive_notifications, pubsub_archive_to_bigquery
+from _dependencies.pubsub import Ctx, pubsub_archive_notifications
 
 setup_logging(__package__)
 
@@ -75,7 +75,6 @@ def move_notifications_to_history_in_psql(conn: Connection) -> None:
         if not oldest_date_nbus[0]:
             logging.info('nothing to migrate in notif_by_user_status')
             move_first_posts_to_history_in_psql(conn)
-            pubsub_archive_to_bigquery()
             return
 
         logging.info('The oldest date in notif_by_user_status: {}'.format(oldest_date_nbus[0]))

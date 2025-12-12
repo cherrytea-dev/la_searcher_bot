@@ -60,7 +60,7 @@ api_get_active_searches = []
 
 archive_notifications = ["pytz"]
 
-# archive_to_bigquery = ["google-cloud-bigquery==3.27.0"]
+archive_to_bigquery = []
 
 check_topics_by_upd_time = []
 
@@ -122,7 +122,6 @@ exclude = [
     "env",
     "venv",
     "src/users_activate/",
-    "src/archive_to_bigquery/",
 ]
 files = ["src/"]
 explicit_package_bases = true
