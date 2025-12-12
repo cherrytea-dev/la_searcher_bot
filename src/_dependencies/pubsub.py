@@ -14,7 +14,6 @@ class Topics(Enum):
     parse_user_profile_from_forum = 'parse_user_profile_from_forum'  # connect_to_forum
     topic_to_send_notifications = 'topic_to_send_notifications'  # send_notifications
     topic_to_archive_notifs = 'topic_to_archive_notifs'  # archive_notifications
-    topic_to_archive_to_bigquery = 'topic_to_archive_to_bigquery'  # archive_to_bigquery
 
 
 def publish_to_pubsub(topic_name: Topics, message: str | dict | list | BaseModel) -> None:
@@ -49,11 +48,6 @@ def pubsub_send_notifications(function_id: int, text: str) -> None:
 
 def pubsub_archive_notifications() -> None:
     publish_to_pubsub(Topics.topic_to_archive_notifs, 'go')
-
-
-def pubsub_archive_to_bigquery() -> None:
-    return  # turned off with migration to yandex
-    publish_to_pubsub(Topics.topic_to_archive_to_bigquery, 'go')
 
 
 def notify_admin(message: str) -> None:

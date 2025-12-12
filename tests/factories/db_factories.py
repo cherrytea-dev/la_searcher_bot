@@ -53,6 +53,19 @@ class NotifByUserFactory(BaseFactory[db_models.NotifByUser]):
     mailing = Use(NotifMailingFactory.create_sync)
 
 
+class NotifByUserHistory(db_models.Base):
+    # we have no model for notif_by_user__archive, only Table. let's make it here
+    __table__ = db_models.t_notif_by_user__history
+    __mapper_args__ = {'primary_key': [db_models.t_notif_by_user__history.c.message_id]}
+
+
+class NotifByUserHistoryFactory(BaseFactory[NotifByUserHistory]):
+    __set_primary_key__ = True
+
+    message_params = '{"foo":1}'
+    message_type = 'text'
+
+
 class ChangeLogFactory(BaseFactory[db_models.ChangeLog]):
     pass
 
