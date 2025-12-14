@@ -24,15 +24,6 @@ Base = declarative_base()
 metadata = Base.metadata
 
 
-t__old_search_event_stages = Table(
-    '_old_search_event_stages',
-    metadata,
-    Column('id', Integer, nullable=False, unique=True),
-    Column('type', String(20), nullable=False),
-    Column('stage', String(20), nullable=False),
-)
-
-
 class ChangeLog(Base):
     __tablename__ = 'change_log'
 
@@ -103,13 +94,6 @@ class DictSearchActivity(Base):
     id = Column(Integer, primary_key=True, server_default=text("nextval('dict_search_activities_id_seq1'::regclass)"))
     activity_id = Column(String)
     activity_name = Column(String)
-
-
-class DictTopicType(Base):
-    __tablename__ = 'dict_topic_types'
-
-    id = Column(Integer, primary_key=True)
-    topic_type_name = Column(String(20))
 
 
 class Feedback(Base):
@@ -208,16 +192,6 @@ class GeocodeLastApiCall(Base):
     timestamp = Column(DateTime(True))
 
 
-class GeocodeRateLimit(Base):
-    __tablename__ = 'geocode_rate_limit'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('geocode_rate_limit_id_seq1'::regclass)"))
-    geocoder = Column(String(10))
-    rate = Column(String(10))
-    period = Column(DateTime(True))
-    requests = Column(Integer)
-
-
 class Geocoding(Base):
     __tablename__ = 'geocoding'
 
@@ -257,21 +231,6 @@ class News(Base):
     status = Column(String)
 
 
-class NotifByUserArchive(Base):
-    __tablename__ = 'notif_by_user__archive'
-
-    message_id = Column(BigInteger, primary_key=True)
-    mailing_id = Column(BigInteger)
-    change_log_id = Column(Integer)
-    user_id = Column(BigInteger)
-    change_type = Column(Integer)
-    message_type = Column(String(6))
-    created = Column(DateTime)
-    completed = Column(DateTime)
-    cancelled = Column(DateTime)
-    failed = Column(DateTime)
-
-
 t_notif_by_user__history = Table(
     'notif_by_user__history',
     metadata,
@@ -292,35 +251,6 @@ t_notif_by_user__history = Table(
 )
 
 
-class NotifByUserStatu(Base):
-    __tablename__ = 'notif_by_user_status'
-
-    id = Column(BigInteger, primary_key=True, server_default=text("nextval('notif_by_user_status_id_seq1'::regclass)"))
-    message_id = Column(BigInteger)
-    event = Column(String(100), nullable=False)
-    event_timestamp = Column(DateTime, nullable=False)
-    context = Column(String)
-    mailing_id = Column(Integer)
-    change_log_id = Column(Integer)
-    user_id = Column(BigInteger)
-    message_type = Column(String(50))
-
-
-t_notif_by_user_status__history = Table(
-    'notif_by_user_status__history',
-    metadata,
-    Column('id', BigInteger),
-    Column('message_id', BigInteger),
-    Column('event', String(100)),
-    Column('event_timestamp', DateTime),
-    Column('context', String),
-    Column('mailing_id', Integer),
-    Column('change_log_id', Integer),
-    Column('user_id', BigInteger),
-    Column('message_type', String(50)),
-)
-
-
 class NotifStatSendingSpeed(Base):
     __tablename__ = 'notif_stat_sending_speed'
 
@@ -337,59 +267,6 @@ t_old_dict_regions = Table(
     Column('id', Integer, nullable=False, server_default=text("nextval('my_serial'::regclass)")),
     Column('region_name', String),
 )
-
-
-t_old_folders = Table(
-    'old_folders',
-    metadata,
-    Column('folder_id', Integer),
-    Column('folder_name', String(255)),
-    Column('folder_type', String(100)),
-    Column('region', String(255)),
-    Column('region_id', Integer),
-)
-
-
-class OldRegion(Base):
-    __tablename__ = 'old_regions'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('regions_id_seq'::regclass)"))
-    region_name = Column(String)
-    yandex_reg_id = Column(ARRAY(Integer()))
-
-
-class OldRegionsToFolder(Base):
-    __tablename__ = 'old_regions_to_folders'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('regions_to_folders_id_seq'::regclass)"))
-    forum_folder_id = Column(Integer)
-    region_id = Column(Integer)
-    folder_description = Column(String)
-
-
-class ParsedSnapshot(Base):
-    __tablename__ = 'parsed_snapshot'
-
-    search_forum_num = Column(Integer)
-    parsed_time = Column(DateTime)
-    status_short = Column(String(255))
-    forum_search_title = Column(String(255))
-    cut_link = Column(String(255))
-    search_start_time = Column(DateTime)
-    num_of_replies = Column(Integer)
-    entry_id = Column(
-        Integer, primary_key=True, server_default=text("nextval('parsed_snapshot_entry_id_seq1'::regclass)")
-    )
-    search_person_age = Column(Integer)
-    name = Column(String)
-    forum_folder_id = Column(Integer)
-
-
-class PrevSnapshot(Base):
-    __tablename__ = 'prev_snapshot'
-
-    hash = Column(String)
-    id = Column(Integer, primary_key=True, server_default=text("nextval('prev_snapshot_id_seq1'::regclass)"))
 
 
 class SearchActivity(Base):
@@ -465,15 +342,6 @@ class SearchHealthCheck(Base):
     status = Column(String(50))
 
 
-class SearchLocation(Base):
-    __tablename__ = 'search_locations'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('search_locations_id_seq1'::regclass)"))
-    search_id = Column(BigInteger)
-    address = Column(String(50))
-    timestamp = Column(DateTime)
-
-
 class SearchPlace(Base):
     __tablename__ = 'search_places'
 
@@ -525,27 +393,6 @@ class StatMapUsage(Base):
     user_id = Column(BigInteger)
     timestamp = Column(DateTime)
     response = Column(JSON)
-
-
-t_temp_my_devisions = Table(
-    'temp_my_devisions', metadata, Column('forum_folder_num', Integer), Column('user_id', BigInteger)
-)
-
-
-class UserAttribute(Base):
-    __tablename__ = 'user_attributes'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('user_attributes_id_seq2'::regclass)"))
-    forum_user_id = Column(Integer)
-    forum_username = Column(String)
-    callsign = Column(String)
-    region = Column(String)
-    auto_num = Column(String)
-    phone = Column(String)
-    timestamp = Column(DateTime)
-    firstname = Column(String)
-    lastname = Column(String)
-    user_id = Column(BigInteger)
 
 
 class UserCoordinate(Base):
@@ -780,19 +627,6 @@ class NotifMailing(Base):
     change_log_id = Column(Integer, nullable=False)
 
     dict_notif_type = relationship('DictNotifType')
-
-
-class SearchEvent(Base):
-    __tablename__ = 'search_events'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('search_events_id_seq1'::regclass)"))
-    search_id = Column(Integer)
-    event = Column(ForeignKey('_old_search_event_stages.id'))
-    event_timestamp = Column(DateTime, nullable=False)
-    is_active = Column(Boolean, nullable=False)
-    dubug_event_proof = Column(String)
-
-    # _old_search_event_stage = relationship('t_old_search_event_stages')
 
 
 class UserPrefSearchWhitelist(Base):

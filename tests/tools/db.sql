@@ -74,15 +74,6 @@ CREATE SEQUENCE geocode_last_api_call_id_seq
 	START 1
 	CACHE 1
 	NO CYCLE;
--- DROP SEQUENCE geocode_rate_limit_id_seq;
-
-CREATE SEQUENCE geocode_rate_limit_id_seq
-	INCREMENT BY 1
-	MINVALUE 1
-	MAXVALUE 2147483647
-	START 1
-	CACHE 1
-	NO CYCLE;
 -- DROP SEQUENCE geocoding_id_seq;
 
 CREATE SEQUENCE geocoding_id_seq
@@ -128,15 +119,6 @@ CREATE SEQUENCE notif_by_user_message_id_seq
 	START 1
 	CACHE 1
 	NO CYCLE;
--- DROP SEQUENCE notif_by_user_status_id_seq;
-
-CREATE SEQUENCE notif_by_user_status_id_seq
-	INCREMENT BY 1
-	MINVALUE 1
-	MAXVALUE 9223372036854775807
-	START 1
-	CACHE 1
-	NO CYCLE;
 -- DROP SEQUENCE notif_functions_registry_id_seq;
 
 CREATE SEQUENCE notif_functions_registry_id_seq
@@ -167,24 +149,6 @@ CREATE SEQUENCE notif_mailings_mailing_id_seq
 -- DROP SEQUENCE notif_stat_sending_speed_id_seq;
 
 CREATE SEQUENCE notif_stat_sending_speed_id_seq
-	INCREMENT BY 1
-	MINVALUE 1
-	MAXVALUE 2147483647
-	START 1
-	CACHE 1
-	NO CYCLE;
--- DROP SEQUENCE parsed_snapshot_entry_id_seq;
-
-CREATE SEQUENCE parsed_snapshot_entry_id_seq
-	INCREMENT BY 1
-	MINVALUE 1
-	MAXVALUE 2147483647
-	START 1
-	CACHE 1
-	NO CYCLE;
--- DROP SEQUENCE prev_snapshot_id_seq;
-
-CREATE SEQUENCE prev_snapshot_id_seq
 	INCREMENT BY 1
 	MINVALUE 1
 	MAXVALUE 2147483647
@@ -236,15 +200,6 @@ CREATE SEQUENCE search_attributes_id_seq
 	START 1
 	CACHE 1
 	NO CYCLE;
--- DROP SEQUENCE search_events_id_seq;
-
-CREATE SEQUENCE search_events_id_seq
-	INCREMENT BY 1
-	MINVALUE 1
-	MAXVALUE 2147483647
-	START 1
-	CACHE 1
-	NO CYCLE;
 -- DROP SEQUENCE search_first_posts_id_seq;
 
 CREATE SEQUENCE search_first_posts_id_seq
@@ -257,15 +212,6 @@ CREATE SEQUENCE search_first_posts_id_seq
 -- DROP SEQUENCE search_health_check_id_seq;
 
 CREATE SEQUENCE search_health_check_id_seq
-	INCREMENT BY 1
-	MINVALUE 1
-	MAXVALUE 2147483647
-	START 1
-	CACHE 1
-	NO CYCLE;
--- DROP SEQUENCE search_locations_id_seq;
-
-CREATE SEQUENCE search_locations_id_seq
 	INCREMENT BY 1
 	MINVALUE 1
 	MAXVALUE 2147483647
@@ -311,15 +257,6 @@ CREATE SEQUENCE stat_map_usage_id_seq
 -- DROP SEQUENCE user_attributes_id_seq;
 
 CREATE SEQUENCE user_attributes_id_seq
-	INCREMENT BY 1
-	MINVALUE 1
-	MAXVALUE 2147483647
-	START 1
-	CACHE 1
-	NO CYCLE;
--- DROP SEQUENCE user_attributes_id_seq1;
-
-CREATE SEQUENCE user_attributes_id_seq1
 	INCREMENT BY 1
 	MINVALUE 1
 	MAXVALUE 2147483647
@@ -451,7 +388,7 @@ CREATE SEQUENCE users_id_seq
 	MAXVALUE 2147483647
 	START 1
 	CACHE 1
-	NO CYCLE;-- public."_old_search_event_stages" определение
+	NO CYCLE;
 
 -- Drop table
 
@@ -462,18 +399,6 @@ CREATE TABLE public.key_value_storage (
 	value jsonb NULL,
 	CONSTRAINT uniq UNIQUE (key)
 );
-
--- Drop table
-
--- DROP TABLE "_old_search_event_stages";
-
-CREATE TABLE "_old_search_event_stages" (
-	id int4 NOT NULL,
-	"type" varchar(20) NOT NULL,
-	stage varchar(20) NOT NULL,
-	CONSTRAINT search_event_stages_unique UNIQUE (id)
-);
-
 
 -- public.change_log определение
 
@@ -573,19 +498,6 @@ CREATE TABLE dict_search_activities (
 	activity_id varchar NULL,
 	activity_name varchar NULL,
 	CONSTRAINT dict_search_activities_pkey PRIMARY KEY (id)
-);
-
-
--- public.dict_topic_types определение
-
--- Drop table
-
--- DROP TABLE dict_topic_types;
-
-CREATE TABLE dict_topic_types (
-	id int4 NOT NULL,
-	topic_type_name varchar(20) NULL,
-	CONSTRAINT dict_topic_types_pkey PRIMARY KEY (id)
 );
 
 
@@ -715,22 +627,6 @@ CREATE TABLE geocode_last_api_call (
 );
 
 
--- public.geocode_rate_limit определение
-
--- Drop table
-
--- DROP TABLE geocode_rate_limit;
-
-CREATE TABLE geocode_rate_limit (
-	id serial4 NOT NULL,
-	geocoder varchar(10) NULL,
-	rate varchar(10) NULL,
-	"period" timestamptz NULL,
-	requests int4 NULL,
-	CONSTRAINT geocode_rate_limit_pkey PRIMARY KEY (id)
-);
-
-
 -- public.geocoding определение
 
 -- Drop table
@@ -781,27 +677,6 @@ CREATE TABLE news (
 );
 
 
--- public.notif_by_user__archive определение
-
--- Drop table
-
--- DROP TABLE notif_by_user__archive;
-
-CREATE TABLE notif_by_user__archive (
-	message_id int8 NOT NULL,
-	mailing_id int8 NULL,
-	change_log_id int4 NULL,
-	user_id int8 NULL,
-	change_type int4 NULL,
-	message_type varchar(6) NULL,
-	created timestamp NULL,
-	completed timestamp NULL,
-	cancelled timestamp NULL,
-	failed timestamp NULL,
-	CONSTRAINT notif_by_user__archive_pkey PRIMARY KEY (message_id)
-);
-
-
 -- public.notif_by_user__history определение
 
 -- Drop table
@@ -823,45 +698,6 @@ CREATE TABLE notif_by_user__history (
 	cancelled timestamp NULL,
 	failed timestamp NULL,
 	num_of_fails int4 NULL
-);
-
-
--- public.notif_by_user_status определение
-
--- Drop table
-
--- DROP TABLE notif_by_user_status;
-
-CREATE TABLE notif_by_user_status (
-	id bigserial NOT NULL,
-	message_id int8 NULL,
-	"event" varchar(100) NOT NULL,
-	event_timestamp timestamp NOT NULL,
-	context varchar NULL,
-	mailing_id int4 NULL,
-	change_log_id int4 NULL,
-	user_id int8 NULL,
-	message_type varchar(50) NULL,
-	CONSTRAINT notif_by_user_status_pkey PRIMARY KEY (id)
-);
-
-
--- public.notif_by_user_status__history определение
-
--- Drop table
-
--- DROP TABLE notif_by_user_status__history;
-
-CREATE TABLE notif_by_user_status__history (
-	id int8 NULL,
-	message_id int8 NULL,
-	"event" varchar(100) NULL,
-	event_timestamp timestamp NULL,
-	context varchar NULL,
-	mailing_id int4 NULL,
-	change_log_id int4 NULL,
-	user_id int8 NULL,
-	message_type varchar(50) NULL
 );
 
 
@@ -890,85 +726,6 @@ CREATE TABLE notif_stat_sending_speed (
 CREATE TABLE old_dict_regions (
 	id int4 DEFAULT nextval('my_serial'::regclass) NOT NULL,
 	region_name varchar NULL
-);
-
-
--- public.old_folders определение
-
--- Drop table
-
--- DROP TABLE old_folders;
-
-CREATE TABLE old_folders (
-	folder_id int4 NULL,
-	folder_name varchar(255) NULL,
-	folder_type varchar(100) NULL,
-	region varchar(255) NULL,
-	region_id int4 NULL
-);
-
-
--- public.old_regions определение
-
--- Drop table
-
--- DROP TABLE old_regions;
-
-CREATE TABLE old_regions (
-	id int4 DEFAULT nextval('regions_id_seq'::regclass) NOT NULL,
-	region_name varchar NULL,
-	yandex_reg_id _int4 NULL,
-	CONSTRAINT regions_pkey PRIMARY KEY (id)
-);
-
-
--- public.old_regions_to_folders определение
-
--- Drop table
-
--- DROP TABLE old_regions_to_folders;
-
-CREATE TABLE old_regions_to_folders (
-	id int4 DEFAULT nextval('regions_to_folders_id_seq'::regclass) NOT NULL,
-	forum_folder_id int4 NULL,
-	region_id int4 NULL,
-	folder_description varchar NULL,
-	CONSTRAINT regions_to_folders_pkey PRIMARY KEY (id)
-);
-
-
--- public.parsed_snapshot определение
-
--- Drop table
-
--- DROP TABLE parsed_snapshot;
-
-CREATE TABLE parsed_snapshot (
-	search_forum_num int4 NULL,
-	parsed_time timestamp NULL,
-	status_short varchar(255) NULL,
-	forum_search_title varchar(255) NULL,
-	cut_link varchar(255) NULL,
-	search_start_time timestamp NULL,
-	num_of_replies int4 NULL,
-	entry_id serial4 NOT NULL,
-	search_person_age int4 NULL,
-	"name" varchar NULL,
-	forum_folder_id int4 NULL,
-	CONSTRAINT parsed_snapshot_pkey PRIMARY KEY (entry_id)
-);
-
-
--- public.prev_snapshot определение
-
--- Drop table
-
--- DROP TABLE prev_snapshot;
-
-CREATE TABLE prev_snapshot (
-	hash varchar NULL,
-	id serial4 NOT NULL,
-	CONSTRAINT prev_snapshot_pkey PRIMARY KEY (id)
 );
 
 
@@ -1079,21 +836,6 @@ CREATE TABLE search_health_check (
 );
 
 
--- public.search_locations определение
-
--- Drop table
-
--- DROP TABLE search_locations;
-
-CREATE TABLE search_locations (
-	id serial4 NOT NULL,
-	search_id int8 NULL,
-	address varchar(50) NULL,
-	"timestamp" timestamp NULL,
-	CONSTRAINT search_locations_pkey PRIMARY KEY (id)
-);
-
-
 -- public.search_places определение
 
 -- Drop table
@@ -1166,40 +908,6 @@ CREATE TABLE stat_map_usage (
 	"timestamp" timestamp NULL,
 	response json NULL,
 	CONSTRAINT stat_map_usage_pkey PRIMARY KEY (id)
-);
-
-
--- public.temp_my_devisions определение
-
--- Drop table
-
--- DROP TABLE temp_my_devisions;
-
-CREATE TABLE temp_my_devisions (
-	forum_folder_num int4 NULL,
-	user_id int8 NULL
-);
-
-
--- public.user_attributes определение
-
--- Drop table
-
--- DROP TABLE user_attributes;
-
-CREATE TABLE user_attributes (
-	id serial4 NOT NULL,
-	forum_user_id int4 NULL,
-	forum_username varchar NULL,
-	callsign varchar NULL,
-	region varchar NULL,
-	auto_num varchar NULL,
-	phone varchar NULL,
-	"timestamp" timestamp NULL,
-	firstname varchar NULL,
-	lastname varchar NULL,
-	user_id int8 NULL,
-	CONSTRAINT user_attributes_pkey1 PRIMARY KEY (id)
 );
 
 
@@ -1463,24 +1171,6 @@ CREATE TABLE notif_mailings (
 	change_log_id int4 NOT NULL,
 	CONSTRAINT notif_mailings_pkey PRIMARY KEY (mailing_id),
 	CONSTRAINT notif_mail_type FOREIGN KEY (mailing_type) REFERENCES dict_notif_types(type_id)
-);
-
-
--- public.search_events определение
-
--- Drop table
-
--- DROP TABLE search_events;
-
-CREATE TABLE search_events (
-	id serial4 NOT NULL,
-	search_id int4 NULL,
-	"event" int4 NULL,
-	event_timestamp timestamp NOT NULL,
-	is_active bool NOT NULL,
-	dubug_event_proof varchar NULL,
-	CONSTRAINT search_events_pkey PRIMARY KEY (id),
-	CONSTRAINT search_events_event FOREIGN KEY ("event") REFERENCES "_old_search_event_stages"(id)
 );
 
 
