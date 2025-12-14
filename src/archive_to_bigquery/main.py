@@ -30,7 +30,7 @@ def sql_connect() -> Engine:
 class Archiver:
     """
     Archivation algorythm:
-    - Unload all records from table notif_by_user__archive by one day to CSV file.
+    - Unload all records from table notif_by_user__history by one day to CSV file.
     - Create zip archive.
     - Move archive to s3 storage.
     - Delete unloaded records.

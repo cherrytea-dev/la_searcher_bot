@@ -238,21 +238,6 @@ class News(Base):
     status = Column(String)
 
 
-class NotifByUserArchive(Base):
-    __tablename__ = 'notif_by_user__archive'
-
-    message_id = Column(BigInteger, primary_key=True)
-    mailing_id = Column(BigInteger)
-    change_log_id = Column(Integer)
-    user_id = Column(BigInteger)
-    change_type = Column(Integer)
-    message_type = Column(String(6))
-    created = Column(DateTime)
-    completed = Column(DateTime)
-    cancelled = Column(DateTime)
-    failed = Column(DateTime)
-
-
 t_notif_by_user__history = Table(
     'notif_by_user__history',
     metadata,

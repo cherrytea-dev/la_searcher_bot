@@ -735,27 +735,6 @@ CREATE TABLE news (
 );
 
 
--- public.notif_by_user__archive определение
-
--- Drop table
-
--- DROP TABLE notif_by_user__archive;
-
-CREATE TABLE notif_by_user__archive (
-	message_id int8 NOT NULL,
-	mailing_id int8 NULL,
-	change_log_id int4 NULL,
-	user_id int8 NULL,
-	change_type int4 NULL,
-	message_type varchar(6) NULL,
-	created timestamp NULL,
-	completed timestamp NULL,
-	cancelled timestamp NULL,
-	failed timestamp NULL,
-	CONSTRAINT notif_by_user__archive_pkey PRIMARY KEY (message_id)
-);
-
-
 -- public.notif_by_user__history определение
 
 -- Drop table

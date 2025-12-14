@@ -54,7 +54,7 @@ class NotifByUserFactory(BaseFactory[db_models.NotifByUser]):
 
 
 class NotifByUserHistory(db_models.Base):
-    # we have no model for notif_by_user__archive, only Table. let's make it here
+    # we have no model for notif_by_user__history, only Table. let's make it here
     __table__ = db_models.t_notif_by_user__history
     __mapper_args__ = {'primary_key': [db_models.t_notif_by_user__history.c.message_id]}
 
