@@ -218,15 +218,6 @@ CREATE SEQUENCE search_health_check_id_seq
 	START 1
 	CACHE 1
 	NO CYCLE;
--- DROP SEQUENCE search_locations_id_seq;
-
-CREATE SEQUENCE search_locations_id_seq
-	INCREMENT BY 1
-	MINVALUE 1
-	MAXVALUE 2147483647
-	START 1
-	CACHE 1
-	NO CYCLE;
 -- DROP SEQUENCE search_places_id_seq;
 
 CREATE SEQUENCE search_places_id_seq
@@ -851,21 +842,6 @@ CREATE TABLE search_health_check (
 	"timestamp" timestamp NULL,
 	status varchar(50) NULL,
 	CONSTRAINT search_health_check_pkey PRIMARY KEY (id)
-);
-
-
--- public.search_locations определение
-
--- Drop table
-
--- DROP TABLE search_locations;
-
-CREATE TABLE search_locations (
-	id serial4 NOT NULL,
-	search_id int8 NULL,
-	address varchar(50) NULL,
-	"timestamp" timestamp NULL,
-	CONSTRAINT search_locations_pkey PRIMARY KEY (id)
 );
 
 

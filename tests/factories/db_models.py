@@ -342,15 +342,6 @@ class SearchHealthCheck(Base):
     status = Column(String(50))
 
 
-class SearchLocation(Base):
-    __tablename__ = 'search_locations'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('search_locations_id_seq1'::regclass)"))
-    search_id = Column(BigInteger)
-    address = Column(String(50))
-    timestamp = Column(DateTime)
-
-
 class SearchPlace(Base):
     __tablename__ = 'search_places'
 
