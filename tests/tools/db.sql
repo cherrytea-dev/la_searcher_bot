@@ -826,21 +826,6 @@ CREATE TABLE old_dict_regions (
 );
 
 
--- public.old_folders определение
-
--- Drop table
-
--- DROP TABLE old_folders;
-
-CREATE TABLE old_folders (
-	folder_id int4 NULL,
-	folder_name varchar(255) NULL,
-	folder_type varchar(100) NULL,
-	region varchar(255) NULL,
-	region_id int4 NULL
-);
-
-
 -- public.old_regions определение
 
 -- Drop table

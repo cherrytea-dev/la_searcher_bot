@@ -305,17 +305,6 @@ t_old_dict_regions = Table(
 )
 
 
-t_old_folders = Table(
-    'old_folders',
-    metadata,
-    Column('folder_id', Integer),
-    Column('folder_name', String(255)),
-    Column('folder_type', String(100)),
-    Column('region', String(255)),
-    Column('region_id', Integer),
-)
-
-
 class OldRegion(Base):
     __tablename__ = 'old_regions'
 
