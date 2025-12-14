@@ -40,10 +40,10 @@ def get_coordinates_from_address_by_yandex(address_string: str) -> tuple[float, 
         logging.info(f'geo_location by yandex: {coordinates}')
         return float(coordinates[1]), float(coordinates[0])
     except exceptions.NothingFound:
-        logging.info(f'address "{address_string}" not found by yandex')
+        logging.warning(f'address "{address_string}" not found by yandex')
 
     except (exceptions.YandexGeocoderException, exceptions.UnexpectedResponse, exceptions.InvalidKey):
-        logging.info('unexpected yandex error')
+        logging.warning('unexpected yandex error')
 
     except Exception:
         logging.exception('unexpected error:')

@@ -4,6 +4,8 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from sqlalchemy.exc import OperationalError
+
 from _dependencies.commons import ChangeType, TopicType
 from _dependencies.pubsub import notify_admin, recognize_title_via_api
 from _dependencies.recognition_schema import RecognitionResult, RecognitionTopicType
@@ -484,8 +486,13 @@ class FolderUpdater:
             return lat, lon
 
         except Exception:
+            # TODO too wide exception.
+            # fails even if no free DB connection in pool
+            # try to add OperationalError
+
             logging.exception('TEMP - LOC - New getting coordinates from title failed')
             notify_admin('ERROR: major geocoding script failed')
+            raise
 
         return None, None
 
