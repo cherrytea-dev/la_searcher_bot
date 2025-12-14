@@ -161,7 +161,12 @@ def main(event: dict[str, bytes], context: Ctx) -> None:
 
     pool = sql_connect()
     with pool.connect() as conn:
-        move_notifications_to_history_in_psql(conn)
-        # move_first_posts_to_history_in_psql(conn) # TODO
+        with conn.begin() as tr:
+            move_notifications_to_history_in_psql(conn)
+            tr.commit()
+
+        with conn.begin() as tr:
+            move_first_posts_to_history_in_psql(conn)  # TODO
+            tr.commit()
 
     pool.dispose()
