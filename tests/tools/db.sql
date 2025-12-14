@@ -74,15 +74,6 @@ CREATE SEQUENCE geocode_last_api_call_id_seq
 	START 1
 	CACHE 1
 	NO CYCLE;
--- DROP SEQUENCE geocode_rate_limit_id_seq;
-
-CREATE SEQUENCE geocode_rate_limit_id_seq
-	INCREMENT BY 1
-	MINVALUE 1
-	MAXVALUE 2147483647
-	START 1
-	CACHE 1
-	NO CYCLE;
 -- DROP SEQUENCE geocoding_id_seq;
 
 CREATE SEQUENCE geocoding_id_seq
@@ -712,22 +703,6 @@ CREATE TABLE geocode_last_api_call (
 	geocoder varchar(20) NULL,
 	"timestamp" timestamptz NULL,
 	CONSTRAINT geocode_last_api_call_pkey PRIMARY KEY (id)
-);
-
-
--- public.geocode_rate_limit определение
-
--- Drop table
-
--- DROP TABLE geocode_rate_limit;
-
-CREATE TABLE geocode_rate_limit (
-	id serial4 NOT NULL,
-	geocoder varchar(10) NULL,
-	rate varchar(10) NULL,
-	"period" timestamptz NULL,
-	requests int4 NULL,
-	CONSTRAINT geocode_rate_limit_pkey PRIMARY KEY (id)
 );
 
 

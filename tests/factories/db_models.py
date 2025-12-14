@@ -208,16 +208,6 @@ class GeocodeLastApiCall(Base):
     timestamp = Column(DateTime(True))
 
 
-class GeocodeRateLimit(Base):
-    __tablename__ = 'geocode_rate_limit'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('geocode_rate_limit_id_seq1'::regclass)"))
-    geocoder = Column(String(10))
-    rate = Column(String(10))
-    period = Column(DateTime(True))
-    requests = Column(Integer)
-
-
 class Geocoding(Base):
     __tablename__ = 'geocoding'
 
