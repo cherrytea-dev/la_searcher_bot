@@ -26,87 +26,39 @@ def move_notifications_to_history_in_psql(conn: Connection) -> None:
                         """)
     oldest_date_nbu = conn.execute(stmt).fetchone()[0]
 
-    if oldest_date_nbu:
-        logging.info(f'The oldest date in notif_by_user: {oldest_date_nbu}')
+    if not oldest_date_nbu:
+        return
 
-        # DEBUG 1
-        stmt = sqlalchemy.text("""
-                    SELECT MIN(mailing_id) FROM notif_by_user;
-                    """)
-        query_result = conn.execute(stmt).fetchone()
-        logging.info(f'The mailing_id to be updated in nbu: {query_result[0]}')
+    logging.info(f'The oldest date in notif_by_user: {oldest_date_nbu}')
 
-        # migrate all records with "lowest" mailing_id from notif_by_user to notif_by_user__history
-        stmt = sqlalchemy.text("""
-            INSERT INTO notif_by_user__history
-            SELECT * FROM notif_by_user
+    # DEBUG 1
+    stmt = sqlalchemy.text("""
+                SELECT MIN(mailing_id) FROM notif_by_user;
+                """)
+    query_result = conn.execute(stmt).fetchone()
+    logging.info(f'The mailing_id to be updated in nbu: {query_result[0]}')
+
+    # migrate all records with "lowest" mailing_id from notif_by_user to notif_by_user__history
+    stmt = sqlalchemy.text("""
+        INSERT INTO notif_by_user__history
+        SELECT * FROM notif_by_user
+        WHERE mailing_id = (
+                SELECT MIN(mailing_id) FROM notif_by_user
+            );
+        """)
+    conn.execute(stmt)
+
+    # delete the old stuff
+    stmt = sqlalchemy.text("""
+            DELETE FROM notif_by_user
             WHERE mailing_id = (
-                    SELECT MIN(mailing_id) FROM notif_by_user
-                );
-            """)
-        conn.execute(stmt)
+                SELECT MIN(mailing_id) FROM notif_by_user
+            )
+        """)
+    conn.execute(stmt)
 
-        # delete the old stuff
-        stmt = sqlalchemy.text("""
-                DELETE FROM notif_by_user
-                WHERE mailing_id = (
-                    SELECT MIN(mailing_id) FROM notif_by_user
-                )
-            """)
-        conn.execute(stmt)
+    pubsub_archive_notifications()
 
-        pubsub_archive_notifications()
-        return
-
-    else:
-        logging.info('nothing to migrate in notif_by_user')
-
-        # checker – gives us a minimal date in notif_by_user_status, which is at least 2 days older than current
-        stmt = sqlalchemy.text("""
-                                    SELECT MIN(cl.parsed_time)
-                                    FROM notif_by_user_status AS nm
-                                    LEFT JOIN change_log AS cl
-                                    ON nm.change_log_id=cl.id
-                                    WHERE cl.parsed_time < NOW() - INTERVAL '2 hour' ORDER BY 1 LIMIT 1;
-                                    """)
-        oldest_date_nbus = conn.execute(stmt).fetchone()
-        logging.info('The oldest date in notif_by_user_status: {}'.format(oldest_date_nbus[0]))
-
-        if not oldest_date_nbus[0]:
-            logging.info('nothing to migrate in notif_by_user_status')
-            move_first_posts_to_history_in_psql(conn)
-            return
-
-        logging.info('The oldest date in notif_by_user_status: {}'.format(oldest_date_nbus[0]))
-
-        # DEBUG 1
-        stmt = sqlalchemy.text("""
-                                SELECT MIN(mailing_id) FROM notif_by_user_status;
-                                """)
-        query_result = conn.execute(stmt).fetchone()
-        logging.info('The mailing_id to be updated in nbus: {}'.format(query_result[0]))
-
-        # migrate all records with "lowest" mailing_id from notif_by_user_status to notif_by_user__history
-        stmt = sqlalchemy.text("""
-                        INSERT INTO notif_by_user_status__history
-                        SELECT * FROM notif_by_user_status
-                        WHERE mailing_id = (
-                                SELECT MIN(mailing_id) FROM notif_by_user_status
-                            );
-                        """)
-        conn.execute(stmt)
-
-        # delete the old stuff
-        stmt = sqlalchemy.text("""
-                            DELETE FROM notif_by_user_status
-                            WHERE mailing_id = (
-                                SELECT MIN(mailing_id) FROM notif_by_user_status
-                            )
-                        """)
-        conn.execute(stmt)
-
-        pubsub_archive_notifications()
-        return
 
 
 def move_first_posts_to_history_in_psql(conn: Connection) -> None:
@@ -211,5 +163,6 @@ def main(event: dict[str, bytes], context: Ctx) -> None:
     pool = sql_connect()
     with pool.connect() as conn:
         move_notifications_to_history_in_psql(conn)
+        # move_first_posts_to_history_in_psql(conn) # TODO
 
     pool.dispose()

@@ -251,35 +251,6 @@ t_notif_by_user__history = Table(
 )
 
 
-class NotifByUserStatu(Base):
-    __tablename__ = 'notif_by_user_status'
-
-    id = Column(BigInteger, primary_key=True, server_default=text("nextval('notif_by_user_status_id_seq1'::regclass)"))
-    message_id = Column(BigInteger)
-    event = Column(String(100), nullable=False)
-    event_timestamp = Column(DateTime, nullable=False)
-    context = Column(String)
-    mailing_id = Column(Integer)
-    change_log_id = Column(Integer)
-    user_id = Column(BigInteger)
-    message_type = Column(String(50))
-
-
-t_notif_by_user_status__history = Table(
-    'notif_by_user_status__history',
-    metadata,
-    Column('id', BigInteger),
-    Column('message_id', BigInteger),
-    Column('event', String(100)),
-    Column('event_timestamp', DateTime),
-    Column('context', String),
-    Column('mailing_id', Integer),
-    Column('change_log_id', Integer),
-    Column('user_id', BigInteger),
-    Column('message_type', String(50)),
-)
-
-
 class NotifStatSendingSpeed(Base):
     __tablename__ = 'notif_stat_sending_speed'
 

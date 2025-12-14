@@ -119,15 +119,6 @@ CREATE SEQUENCE notif_by_user_message_id_seq
 	START 1
 	CACHE 1
 	NO CYCLE;
--- DROP SEQUENCE notif_by_user_status_id_seq;
-
-CREATE SEQUENCE notif_by_user_status_id_seq
-	INCREMENT BY 1
-	MINVALUE 1
-	MAXVALUE 9223372036854775807
-	START 1
-	CACHE 1
-	NO CYCLE;
 -- DROP SEQUENCE notif_functions_registry_id_seq;
 
 CREATE SEQUENCE notif_functions_registry_id_seq
@@ -743,45 +734,6 @@ CREATE TABLE notif_by_user__history (
 	cancelled timestamp NULL,
 	failed timestamp NULL,
 	num_of_fails int4 NULL
-);
-
-
--- public.notif_by_user_status определение
-
--- Drop table
-
--- DROP TABLE notif_by_user_status;
-
-CREATE TABLE notif_by_user_status (
-	id bigserial NOT NULL,
-	message_id int8 NULL,
-	"event" varchar(100) NOT NULL,
-	event_timestamp timestamp NOT NULL,
-	context varchar NULL,
-	mailing_id int4 NULL,
-	change_log_id int4 NULL,
-	user_id int8 NULL,
-	message_type varchar(50) NULL,
-	CONSTRAINT notif_by_user_status_pkey PRIMARY KEY (id)
-);
-
-
--- public.notif_by_user_status__history определение
-
--- Drop table
-
--- DROP TABLE notif_by_user_status__history;
-
-CREATE TABLE notif_by_user_status__history (
-	id int8 NULL,
-	message_id int8 NULL,
-	"event" varchar(100) NULL,
-	event_timestamp timestamp NULL,
-	context varchar NULL,
-	mailing_id int4 NULL,
-	change_log_id int4 NULL,
-	user_id int8 NULL,
-	message_type varchar(50) NULL
 );
 
 
