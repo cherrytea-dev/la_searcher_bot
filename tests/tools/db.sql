@@ -826,35 +826,6 @@ CREATE TABLE old_dict_regions (
 );
 
 
--- public.old_regions определение
-
--- Drop table
-
--- DROP TABLE old_regions;
-
-CREATE TABLE old_regions (
-	id int4 DEFAULT nextval('regions_id_seq'::regclass) NOT NULL,
-	region_name varchar NULL,
-	yandex_reg_id _int4 NULL,
-	CONSTRAINT regions_pkey PRIMARY KEY (id)
-);
-
-
--- public.old_regions_to_folders определение
-
--- Drop table
-
--- DROP TABLE old_regions_to_folders;
-
-CREATE TABLE old_regions_to_folders (
-	id int4 DEFAULT nextval('regions_to_folders_id_seq'::regclass) NOT NULL,
-	forum_folder_id int4 NULL,
-	region_id int4 NULL,
-	folder_description varchar NULL,
-	CONSTRAINT regions_to_folders_pkey PRIMARY KEY (id)
-);
-
-
 -- public.parsed_snapshot определение
 
 -- Drop table

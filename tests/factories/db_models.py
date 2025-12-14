@@ -305,23 +305,6 @@ t_old_dict_regions = Table(
 )
 
 
-class OldRegion(Base):
-    __tablename__ = 'old_regions'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('regions_id_seq'::regclass)"))
-    region_name = Column(String)
-    yandex_reg_id = Column(ARRAY(Integer()))
-
-
-class OldRegionsToFolder(Base):
-    __tablename__ = 'old_regions_to_folders'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('regions_to_folders_id_seq'::regclass)"))
-    forum_folder_id = Column(Integer)
-    region_id = Column(Integer)
-    folder_description = Column(String)
-
-
 class ParsedSnapshot(Base):
     __tablename__ = 'parsed_snapshot'
 
