@@ -269,13 +269,6 @@ t_old_dict_regions = Table(
 )
 
 
-class PrevSnapshot(Base):
-    __tablename__ = 'prev_snapshot'
-
-    hash = Column(String)
-    id = Column(Integer, primary_key=True, server_default=text("nextval('prev_snapshot_id_seq1'::regclass)"))
-
-
 class SearchActivity(Base):
     __tablename__ = 'search_activities'
 

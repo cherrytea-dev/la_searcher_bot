@@ -155,15 +155,6 @@ CREATE SEQUENCE notif_stat_sending_speed_id_seq
 	START 1
 	CACHE 1
 	NO CYCLE;
--- DROP SEQUENCE prev_snapshot_id_seq;
-
-CREATE SEQUENCE prev_snapshot_id_seq
-	INCREMENT BY 1
-	MINVALUE 1
-	MAXVALUE 2147483647
-	START 1
-	CACHE 1
-	NO CYCLE;
 -- DROP SEQUENCE regions_id_seq;
 
 CREATE SEQUENCE regions_id_seq
@@ -753,19 +744,6 @@ CREATE TABLE notif_stat_sending_speed (
 CREATE TABLE old_dict_regions (
 	id int4 DEFAULT nextval('my_serial'::regclass) NOT NULL,
 	region_name varchar NULL
-);
-
-
--- public.prev_snapshot определение
-
--- Drop table
-
--- DROP TABLE prev_snapshot;
-
-CREATE TABLE prev_snapshot (
-	hash varchar NULL,
-	id serial4 NOT NULL,
-	CONSTRAINT prev_snapshot_pkey PRIMARY KEY (id)
 );
 
 
