@@ -16,5 +16,5 @@ jobs:
     with:
       function_name: identify_updates_of_topics
       
-      # timeout: '540'
+      timeout: '540'
       memory: '512Mb'
