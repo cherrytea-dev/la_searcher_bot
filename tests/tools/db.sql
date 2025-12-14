@@ -546,19 +546,6 @@ CREATE TABLE dict_search_activities (
 );
 
 
--- public.dict_topic_types определение
-
--- Drop table
-
--- DROP TABLE dict_topic_types;
-
-CREATE TABLE dict_topic_types (
-	id int4 NOT NULL,
-	topic_type_name varchar(20) NULL,
-	CONSTRAINT dict_topic_types_pkey PRIMARY KEY (id)
-);
-
-
 -- public.feedback определение
 
 -- Drop table

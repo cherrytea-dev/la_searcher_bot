@@ -96,13 +96,6 @@ class DictSearchActivity(Base):
     activity_name = Column(String)
 
 
-class DictTopicType(Base):
-    __tablename__ = 'dict_topic_types'
-
-    id = Column(Integer, primary_key=True)
-    topic_type_name = Column(String(20))
-
-
 class Feedback(Base):
     __tablename__ = 'feedback'
 

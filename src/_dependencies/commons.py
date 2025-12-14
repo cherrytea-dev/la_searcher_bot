@@ -157,10 +157,6 @@ class ChangeType(IntEnum):
 
 
 class TopicType(IntEnum):
-    """
-    SQL table 'dict_topic_types'
-    """
-
     search_regular = 0
     search_reverse = 1
     search_patrol = 2
