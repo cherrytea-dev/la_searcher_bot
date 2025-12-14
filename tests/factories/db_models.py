@@ -465,11 +465,6 @@ class StatMapUsage(Base):
     response = Column(JSON)
 
 
-t_temp_my_devisions = Table(
-    'temp_my_devisions', metadata, Column('forum_folder_num', Integer), Column('user_id', BigInteger)
-)
-
-
 class UserAttribute(Base):
     __tablename__ = 'user_attributes'
 

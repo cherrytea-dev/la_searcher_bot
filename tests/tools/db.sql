@@ -1058,18 +1058,6 @@ CREATE TABLE stat_map_usage (
 );
 
 
--- public.temp_my_devisions определение
-
--- Drop table
-
--- DROP TABLE temp_my_devisions;
-
-CREATE TABLE temp_my_devisions (
-	forum_folder_num int4 NULL,
-	user_id int8 NULL
-);
-
-
 -- public.user_attributes определение
 
 -- Drop table
