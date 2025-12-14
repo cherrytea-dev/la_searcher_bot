@@ -269,24 +269,6 @@ t_old_dict_regions = Table(
 )
 
 
-class ParsedSnapshot(Base):
-    __tablename__ = 'parsed_snapshot'
-
-    search_forum_num = Column(Integer)
-    parsed_time = Column(DateTime)
-    status_short = Column(String(255))
-    forum_search_title = Column(String(255))
-    cut_link = Column(String(255))
-    search_start_time = Column(DateTime)
-    num_of_replies = Column(Integer)
-    entry_id = Column(
-        Integer, primary_key=True, server_default=text("nextval('parsed_snapshot_entry_id_seq1'::regclass)")
-    )
-    search_person_age = Column(Integer)
-    name = Column(String)
-    forum_folder_id = Column(Integer)
-
-
 class PrevSnapshot(Base):
     __tablename__ = 'prev_snapshot'
 

@@ -155,15 +155,6 @@ CREATE SEQUENCE notif_stat_sending_speed_id_seq
 	START 1
 	CACHE 1
 	NO CYCLE;
--- DROP SEQUENCE parsed_snapshot_entry_id_seq;
-
-CREATE SEQUENCE parsed_snapshot_entry_id_seq
-	INCREMENT BY 1
-	MINVALUE 1
-	MAXVALUE 2147483647
-	START 1
-	CACHE 1
-	NO CYCLE;
 -- DROP SEQUENCE prev_snapshot_id_seq;
 
 CREATE SEQUENCE prev_snapshot_id_seq
@@ -762,28 +753,6 @@ CREATE TABLE notif_stat_sending_speed (
 CREATE TABLE old_dict_regions (
 	id int4 DEFAULT nextval('my_serial'::regclass) NOT NULL,
 	region_name varchar NULL
-);
-
-
--- public.parsed_snapshot определение
-
--- Drop table
-
--- DROP TABLE parsed_snapshot;
-
-CREATE TABLE parsed_snapshot (
-	search_forum_num int4 NULL,
-	parsed_time timestamp NULL,
-	status_short varchar(255) NULL,
-	forum_search_title varchar(255) NULL,
-	cut_link varchar(255) NULL,
-	search_start_time timestamp NULL,
-	num_of_replies int4 NULL,
-	entry_id serial4 NOT NULL,
-	search_person_age int4 NULL,
-	"name" varchar NULL,
-	forum_folder_id int4 NULL,
-	CONSTRAINT parsed_snapshot_pkey PRIMARY KEY (entry_id)
 );
 
 
