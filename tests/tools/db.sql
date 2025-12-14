@@ -263,15 +263,6 @@ CREATE SEQUENCE user_attributes_id_seq
 	START 1
 	CACHE 1
 	NO CYCLE;
--- DROP SEQUENCE user_attributes_id_seq1;
-
-CREATE SEQUENCE user_attributes_id_seq1
-	INCREMENT BY 1
-	MINVALUE 1
-	MAXVALUE 2147483647
-	START 1
-	CACHE 1
-	NO CYCLE;
 -- DROP SEQUENCE user_coordinates_id_seq;
 
 CREATE SEQUENCE user_coordinates_id_seq
@@ -917,28 +908,6 @@ CREATE TABLE stat_map_usage (
 	"timestamp" timestamp NULL,
 	response json NULL,
 	CONSTRAINT stat_map_usage_pkey PRIMARY KEY (id)
-);
-
-
--- public.user_attributes определение
-
--- Drop table
-
--- DROP TABLE user_attributes;
-
-CREATE TABLE user_attributes (
-	id serial4 NOT NULL,
-	forum_user_id int4 NULL,
-	forum_username varchar NULL,
-	callsign varchar NULL,
-	region varchar NULL,
-	auto_num varchar NULL,
-	phone varchar NULL,
-	"timestamp" timestamp NULL,
-	firstname varchar NULL,
-	lastname varchar NULL,
-	user_id int8 NULL,
-	CONSTRAINT user_attributes_pkey1 PRIMARY KEY (id)
 );
 
 

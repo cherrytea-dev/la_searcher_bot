@@ -395,22 +395,6 @@ class StatMapUsage(Base):
     response = Column(JSON)
 
 
-class UserAttribute(Base):
-    __tablename__ = 'user_attributes'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('user_attributes_id_seq2'::regclass)"))
-    forum_user_id = Column(Integer)
-    forum_username = Column(String)
-    callsign = Column(String)
-    region = Column(String)
-    auto_num = Column(String)
-    phone = Column(String)
-    timestamp = Column(DateTime)
-    firstname = Column(String)
-    lastname = Column(String)
-    user_id = Column(BigInteger)
-
-
 class UserCoordinate(Base):
     __tablename__ = 'user_coordinates'
 
