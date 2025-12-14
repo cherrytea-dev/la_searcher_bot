@@ -12,8 +12,11 @@ import boto3
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
-from _dependencies.commons import get_app_config, sqlalchemy_get_pool
+from _dependencies.commons import get_app_config, setup_logging, sqlalchemy_get_pool
 from _dependencies.pubsub import Ctx
+
+setup_logging(__package__)
+
 
 DAYS_AGO_TO_START = 7
 DAYS_AGO_TO_FINISH = 1  # at least 1 day ago to avoid timezone problems
