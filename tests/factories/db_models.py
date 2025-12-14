@@ -24,15 +24,6 @@ Base = declarative_base()
 metadata = Base.metadata
 
 
-t__old_search_event_stages = Table(
-    '_old_search_event_stages',
-    metadata,
-    Column('id', Integer, nullable=False, unique=True),
-    Column('type', String(20), nullable=False),
-    Column('stage', String(20), nullable=False),
-)
-
-
 class ChangeLog(Base):
     __tablename__ = 'change_log'
 
@@ -770,19 +761,6 @@ class NotifMailing(Base):
     change_log_id = Column(Integer, nullable=False)
 
     dict_notif_type = relationship('DictNotifType')
-
-
-class SearchEvent(Base):
-    __tablename__ = 'search_events'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('search_events_id_seq1'::regclass)"))
-    search_id = Column(Integer)
-    event = Column(ForeignKey('_old_search_event_stages.id'))
-    event_timestamp = Column(DateTime, nullable=False)
-    is_active = Column(Boolean, nullable=False)
-    dubug_event_proof = Column(String)
-
-    # _old_search_event_stage = relationship('t_old_search_event_stages')
 
 
 class UserPrefSearchWhitelist(Base):

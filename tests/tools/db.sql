@@ -227,15 +227,6 @@ CREATE SEQUENCE search_attributes_id_seq
 	START 1
 	CACHE 1
 	NO CYCLE;
--- DROP SEQUENCE search_events_id_seq;
-
-CREATE SEQUENCE search_events_id_seq
-	INCREMENT BY 1
-	MINVALUE 1
-	MAXVALUE 2147483647
-	START 1
-	CACHE 1
-	NO CYCLE;
 -- DROP SEQUENCE search_first_posts_id_seq;
 
 CREATE SEQUENCE search_first_posts_id_seq
@@ -442,7 +433,7 @@ CREATE SEQUENCE users_id_seq
 	MAXVALUE 2147483647
 	START 1
 	CACHE 1
-	NO CYCLE;-- public."_old_search_event_stages" определение
+	NO CYCLE;
 
 -- Drop table
 
@@ -453,18 +444,6 @@ CREATE TABLE public.key_value_storage (
 	value jsonb NULL,
 	CONSTRAINT uniq UNIQUE (key)
 );
-
--- Drop table
-
--- DROP TABLE "_old_search_event_stages";
-
-CREATE TABLE "_old_search_event_stages" (
-	id int4 NOT NULL,
-	"type" varchar(20) NOT NULL,
-	stage varchar(20) NOT NULL,
-	CONSTRAINT search_event_stages_unique UNIQUE (id)
-);
-
 
 -- public.change_log определение
 
@@ -1438,24 +1417,6 @@ CREATE TABLE notif_mailings (
 	change_log_id int4 NOT NULL,
 	CONSTRAINT notif_mailings_pkey PRIMARY KEY (mailing_id),
 	CONSTRAINT notif_mail_type FOREIGN KEY (mailing_type) REFERENCES dict_notif_types(type_id)
-);
-
-
--- public.search_events определение
-
--- Drop table
-
--- DROP TABLE search_events;
-
-CREATE TABLE search_events (
-	id serial4 NOT NULL,
-	search_id int4 NULL,
-	"event" int4 NULL,
-	event_timestamp timestamp NOT NULL,
-	is_active bool NOT NULL,
-	dubug_event_proof varchar NULL,
-	CONSTRAINT search_events_pkey PRIMARY KEY (id),
-	CONSTRAINT search_events_event FOREIGN KEY ("event") REFERENCES "_old_search_event_stages"(id)
 );
 
 

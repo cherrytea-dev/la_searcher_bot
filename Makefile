@@ -45,7 +45,6 @@ sqlalchemy-models:
 	uv run sqlacodegen \
 		postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} \
 		--outfile=tests/factories/db_models.py
-	# then fix "_old_search_event_stages"
 
 
 prepare-environment:
