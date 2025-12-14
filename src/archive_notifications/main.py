@@ -60,7 +60,6 @@ def move_notifications_to_history_in_psql(conn: Connection) -> None:
     pubsub_archive_notifications()
 
 
-
 def move_first_posts_to_history_in_psql(conn: Connection) -> None:
     """move all first posts for "completed" searches to psql table __history"""
 
