@@ -240,11 +240,11 @@ def add_tel_link(incoming_text: str) -> str:
     for num in nums:
         num_link = str('+7' + num[1:] if num[0] == '8' else num)
         try:
-            outcome_text = outcome_text.replace(num, ' <a href="tel:' + num_link + '">' + num_link + '</a> ')
+            outcome_text = outcome_text.replace(num, ' ☎️<a href="tel:' + num_link + '">' + num_link + '</a> ')
         except Exception as e:
             ### logging here is not needed untill we have strange behaviour
             ## logging.exception(f'add_tel_link..{e=} on {num=} in {outcome_text=}')
-            outcome_text = outcome_text.replace(num, '<code>' + str(num) + '</code>')
+            outcome_text = outcome_text.replace(num, ' ☎️<code>' + str(num) + '</code>')
 
     phpbb_tags_to_delete = {'[tel]', '[/tel]'}
     for tag in phpbb_tags_to_delete:
