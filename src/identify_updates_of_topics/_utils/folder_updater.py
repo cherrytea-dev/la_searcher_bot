@@ -215,7 +215,7 @@ class FolderUpdater:
                     list_of_location_coords.append([city_lat, city_lon])
             search_summary_object.locations = list_of_location_coords
 
-        logging.info(f'search_summary_object={search_summary_object}')
+        logging.debug(f'search_summary_object={search_summary_object}')
         folder_summary.append(search_summary_object)
 
     def _update_change_log_and_searches(self, new_folder_summary: list[SearchSummary]) -> list[int]:
