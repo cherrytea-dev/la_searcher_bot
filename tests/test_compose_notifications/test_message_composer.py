@@ -97,7 +97,7 @@ class TestMessageComposer:
         assert message
         assert 'Новый поиск' in message
         assert 'some activity' in message
-        assert 'manager2  <a href="tel:+79001234567">+79001234567</a>' in message
+        assert 'manager2  <a href="tel:+79001234567"> ☎️+79001234567</a>' in message
 
     def test_topic_new_event(self, user: User):
         record = LineInChageFactory.build(

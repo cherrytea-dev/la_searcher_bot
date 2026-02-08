@@ -199,7 +199,7 @@ def add_tel_link(incoming_text: str) -> str:
 
 
 def _make_phone_link(phone: str) -> str:
-    return f' <a href="tel:{phone}">{phone}</a> '
+    return f' <a href="tel:{phone}"> ☎️{phone}</a> '
 
 
 def _normalize_phone(phone: str) -> str:
