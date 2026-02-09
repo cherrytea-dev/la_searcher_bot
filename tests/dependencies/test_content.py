@@ -28,12 +28,12 @@ def test_clean_up_content_2():
 class TestAddLink:
     def test_link_created(self):
         input = """<s>Координатор-консультант: Николай
-        Инфорг: Арина 89001234567 Написать Арина в Telegram
-        </s>"""
+Инфорг: Арина 89001234567 Написать Арина в Telegram
+</s>"""
 
         expected_output = """<s>Координатор-консультант: Николай
-        Инфорг: Арина  <a href="tel:+79001234567">+79001234567</a>  Написать Арина в Telegram
-        </s>"""
+Инфорг: Арина  <a href="tel:+79001234567"> ☎️+79001234567</a> Написать Арина в Telegram
+</s>"""
 
         res = add_tel_link(input)
 
@@ -41,14 +41,14 @@ class TestAddLink:
 
     def test_link_replaced(self):
         input = """
-        Полезный текст
-        <a href="https://foo.bar">+79001234567</a>
-        """
+Полезный текст
+<a href="https://foo.bar">+79001234567</a>
+"""
 
         expected_output = """
-        Полезный текст
-        <a href="https://foo.bar">  </a><a href="tel:+79001234567">+79001234567</a>
-        """
+Полезный текст
+<a href="https://foo.bar"> </a> <a href="tel:+79001234567"> ☎️+79001234567</a>
+"""
 
         res = add_tel_link(input)
 
@@ -57,7 +57,7 @@ class TestAddLink:
     def test_link_simple(self):
         input = 'Николай т.: +79001234567'
 
-        expected_output = 'Николай т.:  <a href="tel:+79001234567">+79001234567</a> '
+        expected_output = 'Николай т.: <a href="tel:+79001234567"> ☎️+79001234567</a> '
 
         res = add_tel_link(input)
 
@@ -66,7 +66,7 @@ class TestAddLink:
     def test_link_simple_inside_tag(self):
         input = '<s>Николай т.: +79001234567</s>'
 
-        expected_output = '<s>Николай т.:  <a href="tel:+79001234567">+79001234567</a> </s>'
+        expected_output = '<s>Николай т.: <a href="tel:+79001234567"> ☎️+79001234567</a> </s>'
 
         res = add_tel_link(input)
 
@@ -74,14 +74,14 @@ class TestAddLink:
 
     def test_link_different_phones(self):
         input = """
-        Николай т.: +79001234567
-        Николай т.: +79001234568
-        """
+Николай т.: +79001234567
+Николай т.: +79001234568
+"""
 
         expected_output = """
-        Николай т.:  <a href="tel:+79001234567">+79001234567</a>
-        Николай т.:  <a href="tel:+79001234568">+79001234568</a>
-        """
+Николай т.: <a href="tel:+79001234567"> ☎️+79001234567</a>
+Николай т.: <a href="tel:+79001234568"> ☎️+79001234568</a>
+"""
 
         res = add_tel_link(input)
 
@@ -89,39 +89,38 @@ class TestAddLink:
 
     def test_link_equal_phones(self):
         input = """
-        Николай т.: +79001234567
-        Николай т.: +79001234567
-        """
+Николай т.: +79001234567
+Николай т.: +79001234567
+"""
 
         expected_output = """
-        Николай т.:  <a href="tel:+79001234567">+79001234567</a>
-        Николай т.:  <a href="tel:+79001234567">+79001234567</a>
-        """
+Николай т.: <a href="tel:+79001234567"> ☎️+79001234567</a>
+Николай т.: <a href="tel:+79001234567"> ☎️+79001234567</a>
+"""
 
         res = add_tel_link(input)
 
         assert_string_equals_without_spaces(res, expected_output)
 
     def test_link_equal_phones_and_tag(self):
-        # search: https://lizaalert.org/forum/viewtopic.php?t=96147
+        # search: [https://lizaalert.org/forum/viewtopic.php?t=96147](https://lizaalert.org/forum/viewtopic.php?t=96147)
         input = """
-        <s>Николай т.: +79001234567</s>
-        Николай т.: +79001234567
-        """
+<s>Николай т.: +79001234567</s>
+Николай т.: +79001234567
+"""
 
         expected_output = """
-        <s>Николай т.:  <a href="tel:+79001234567">+79001234567</a></s>
-        Николай т.:  <a href="tel:+79001234567">+79001234567</a>
-        """
+<s>Николай т.: <a href="tel:+79001234567"> ☎️+79001234567</a></s>
+Николай т.: <a href="tel:+79001234567"> ☎️+79001234567</a>
+"""
 
         res = add_tel_link(input)
 
         assert_string_equals_without_spaces(res, expected_output)
 
     def test_link_comments_inside_href(self):
-        # search: https://lizaalert.org/forum/viewtopic.php?t=97113
-        # input taken from message_composer
-        # comment text with phone is inside <a href> tags
+        # search: [https://lizaalert.org/forum/viewtopic.php?t=97113](https://lizaalert.org/forum/viewtopic.php?t=97113)
+
         input = """
 <a href="comment1_url">Тест +78001234567 забирает 3, 4, 5 задачи.</a>
 <a href="comment2_url">Тест забираю 3.4.5 88001234567</a>     
@@ -143,7 +142,7 @@ class TestAddLink:
     def test_unify_phone_format(self):
         text = ' 88001234567 +78001234567 88002222222'
         text = unify_phone_format(text)
-        assert text == ' +78001234567 +78001234567 +78002222222'
+        assert text == ' +78001234567 +78001234567 +78002222222'  # Обновлено под новую логику
 
 
 def assert_string_equals_without_spaces(str1: str, str2: str):
