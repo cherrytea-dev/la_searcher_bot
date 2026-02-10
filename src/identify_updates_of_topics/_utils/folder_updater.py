@@ -139,6 +139,9 @@ class FolderUpdater:
         else:
             gender_mark = None
 
+        if gender_mark == 'м' and total_display_name.find('одросток'):
+            gender_mark = None
+
         res_display_name = total_display_name
         if gender_mark:
             res_display_name = total_display_name[: space_pos + 1]
