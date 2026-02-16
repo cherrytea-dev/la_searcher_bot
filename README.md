@@ -94,7 +94,7 @@ Now you can run tests from the tests menu
 
 ## Before commit: 
 
-1. Run tests: `make ci-test` (or new but unstable 'make test')
+1. Run tests: `make test`
 2. Run type checker: `make mypy`
 3. Format code: `make lint`
 4. Update nested "requirements.txt" files, if you changed "pyproject.toml": `make requirements`
