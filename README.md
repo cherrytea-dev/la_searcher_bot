@@ -72,7 +72,7 @@ TL;DR:
 
 ## Environment 
 
-First, prepare your environment:
+1. First, prepare your environment:
 
 ``` bash
 make prepare-environment
@@ -84,8 +84,13 @@ It will:
 - create container with postgres
 - create database for tests
 
+2. Only for VSCode users: Activate virtual environment (commands(Ctrl+Shift+P), Python, create env, virtual env., use existing; close and reopen terminal)
 
-Update values in `.env` and `.env.test` files: replace `POSTGRES_HOST=postgres` with `POSTGRES_HOST=localhost`, if you using automatically created postgres instance in docker. 
+3. Update values in `.env` and `.env.test` files: replace `POSTGRES_HOST=postgres` with `POSTGRES_HOST=localhost`, if you using automatically created postgres instance in docker. 
+
+4. Make sure that the environment variable "PYTHONPATH" is set and the directory "src" is included in it. If not, run the command: export PYTHONPATH=.:src (bash)
+
+Now you can run tests from the tests menu
 
 ## Before commit: 
 
