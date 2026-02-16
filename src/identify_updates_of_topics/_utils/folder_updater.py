@@ -139,7 +139,7 @@ class FolderUpdater:
         else:
             gender_mark = None
 
-        if gender_mark == 'м' and total_display_name.find('одросток'):
+        if gender_mark == 'м' and 'подросток' in total_display_name.lower():
             gender_mark = None
 
         res_display_name = total_display_name
