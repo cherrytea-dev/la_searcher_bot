@@ -15,4 +15,5 @@ jobs:
     secrets: inherit
     with:
       function_name: identify_updates_of_first_posts
+      timeout: '540'
       
