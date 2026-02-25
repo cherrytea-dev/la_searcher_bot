@@ -18,11 +18,37 @@ def test_clean_up_content_unaccessible():
     assert res is None
 
 
-def test_clean_up_content_2():
-    data = '<span>some text</span>'
+class TestCleanupContent2:
+    def test_normal_text(self):
+        # Test with normal content that should remain
+        test_content = '<span>Normal text</span>'
+        result = content.clean_up_content_2(test_content)
+        assert result == ['Normal text']
 
-    res = content.clean_up_content_2(data)
-    assert res == ['some text']
+    def test_remove_specific_font(self):
+        # Test with content that has a styled span (should be removed)
+        test_content = '<span style="font-size:140%;line-height:116%">Some text</span>'
+        result = content.clean_up_content_2(test_content)
+        assert result == []
+
+    def test_remove_image_tag(self):
+        # Test with img tag (should be removed)
+        test_content = '<img src="test.jpg">'
+        result = content.clean_up_content_2(test_content)
+        assert result == []
+
+    def test_specific_tag_removed(self):
+        # test that text "Все фото/видео с поиска просьба отправлять" will be removed
+        test_content = '<span>Все фото/видео с поиска просьба отправлять туда-то</span>'
+        result = content.clean_up_content_2(test_content)
+        # The text should be removed because it matches a pattern in _delete_sorted_out_one_tag
+        assert result == []
+
+        # Test with text that contains the pattern but is not wrapped in a span
+        test_content = 'Все фото/видео с поиска просьба отправлять по адресу'
+        result = content.clean_up_content_2(test_content)
+        # The text should be removed because it matches a pattern in _delete_sorted_out_one_tag
+        assert result == []
 
 
 class TestAddLink:
