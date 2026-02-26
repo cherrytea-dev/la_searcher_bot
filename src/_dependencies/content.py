@@ -14,6 +14,19 @@ def content_is_unaccessible(content: str) -> bool:
     return any(bool(re.search(x, content)) for x in text_cases)
 
 
+def is_forum_unavailable(check_content: str) -> bool:
+    check_content = check_content.lower()
+    return (
+        '502 bad gateway' in check_content
+        or '503 service temporarily unavailable' in check_content
+        or 'sql error [ mysqli ]' in check_content
+        or '429 too many requests' in check_content
+        or 'too many connections' in check_content
+        or '403 forbidden' in check_content
+        or ('general error' in check_content and 'return to index page' in check_content)
+    )
+
+
 def clean_up_content(init_content: str) -> str | None:
     if not init_content or content_is_unaccessible(init_content):
         return None
@@ -47,7 +60,10 @@ def clean_up_content_2(init_content: str) -> list[str]:
 
     reco_content_list = reco_content_text.split('\n')
 
-    # language=regexp
+    return _replace_common_cases(reco_content_list)
+
+
+def _replace_common_cases(reco_content_list: list[str]) -> list[str]:
     patterns = [
         r'(\[/?[biu]]|\[/?color.{0,8}]|\[/?quote]|\[/?size.{0,8}]|\[/?spoiler=?]?)',
         r'(?i)последний раз редактировалось.{1,200}',
@@ -60,8 +76,13 @@ def clean_up_content_2(init_content: str) -> list[str]:
 
     reco_content_list = [re.sub('ё', 'е', line) for line in reco_content_list]
 
-    translate_table = str.maketrans({'{': r'\{', '}': r'\}'})
-    reco_content_list = [line.translate(translate_table) for line in reco_content_list]
+    translate_table = str.maketrans(
+        {
+            '{': r'\{',
+            '}': r'\}',
+        }
+    )
+    reco_content_list = [line.translate(translate_table).strip() for line in reco_content_list]
 
     return reco_content_list
 
@@ -304,12 +325,8 @@ def _prettify_soup(content: BeautifulSoup) -> BeautifulSoup:
         s.unwrap()
 
     for s in content.find_all('span'):
-        try:
-            if s.attrs['style'] and s['style'] and len(s['style']) > 5 and s['style'][0:5] == 'color':
-                s.unwrap()
-        except Exception as e:
-            logging.exception(e)
-            continue
+        if s.has_attr('style') and s['style'].startswith('color') and s['style'] != 'color':
+            s.unwrap()
 
     deleted_text = content.find_all('span', {'style': 'text-decoration:line-through'})
     for case in deleted_text:
@@ -319,16 +336,3 @@ def _prettify_soup(content: BeautifulSoup) -> BeautifulSoup:
         del dd['style']
 
     return content
-
-
-def is_forum_unavailable(check_content: str) -> bool:
-    check_content = check_content.lower()
-    return (
-        '502 bad gateway' in check_content
-        or '503 service temporarily unavailable' in check_content
-        or 'sql error [ mysqli ]' in check_content
-        or '429 too many requests' in check_content
-        or 'too many connections' in check_content
-        or '403 forbidden' in check_content
-        or ('general error' in check_content and 'return to index page' in check_content)
-    )
