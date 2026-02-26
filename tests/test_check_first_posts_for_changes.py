@@ -168,3 +168,17 @@ class TestForum:
 
         assert res.topic_visibility == 'regular'
         assert res.hash_num == '30439b2156a1c8050154c142dda4d04c'
+
+
+class TestRssFeed:
+    def test_read_rss(self):
+        rss_location = 'tests/fixtures/rss_feed.xml'
+        # filename = 'https://lizaalert.org/forum/app.php/feed'
+        with patch.object(main, 'get_search_id_by_comment') as mock:
+            mock.return_value = 123
+            main.read_rss_feed(rss_location)
+
+    @pytest.mark.skip(reason='real run')
+    def test_read_rss_real(self):
+        rss_location = 'https://lizaalert.org/forum/app.php/feed'
+        main.read_rss_feed(rss_location)

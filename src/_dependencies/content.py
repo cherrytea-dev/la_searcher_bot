@@ -31,7 +31,7 @@ def clean_up_content(init_content: str) -> str | None:
     if not init_content or content_is_unaccessible(init_content):
         return None
 
-    reco_content = _cook_soup(init_content)
+    reco_content = cook_soup(init_content)
     reco_content = _prettify_soup(reco_content)
     reco_content = _remove_links(reco_content)
     reco_content_text = reco_content.text
@@ -46,7 +46,7 @@ def clean_up_content_2(init_content: str) -> list[str]:
     if not init_content or content_is_unaccessible(init_content):
         return []
 
-    reco_content = _cook_soup(init_content)
+    reco_content = cook_soup(init_content)
     reco_content = _prettify_soup(reco_content)
     reco_content = _remove_links(reco_content)
     reco_content = _delete_sorted_out_all_tags(reco_content)
@@ -87,7 +87,7 @@ def _replace_common_cases(reco_content_list: list[str]) -> list[str]:
     return reco_content_list
 
 
-def _cook_soup(content: str | bytes) -> BeautifulSoup:
+def cook_soup(content: str | bytes) -> BeautifulSoup:
     return BeautifulSoup(content, 'lxml')
 
 

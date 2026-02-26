@@ -1,10 +1,21 @@
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 
 @dataclass
 class Search:
     topic_id: int
+
+
+@dataclass
+class RSSItem:
+    item_id: str  # URL oc comment
+    topic_id: int
+    published_at: datetime
+    updated_at: datetime
+    content: str
+    id: int | None = None
 
 
 @dataclass
