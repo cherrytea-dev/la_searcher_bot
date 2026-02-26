@@ -453,6 +453,18 @@ wheels = [
 ]
 
 [[package]]
+name = "feedparser"
+version = "6.0.12"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sgmllib3k" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/dc/79/db7edb5e77d6dfbc54d7d9df72828be4318275b2e580549ff45a962f6461/feedparser-6.0.12.tar.gz", hash = "sha256:64f76ce90ae3e8ef5d1ede0f8d3b50ce26bcce71dd8ae5e82b1cd2d4a5f94228", size = 286579, upload-time = "2025-09-10T13:33:59.486Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4e/eb/c96d64137e29ae17d83ad2552470bafe3a7a915e85434d9942077d7fd011/feedparser-6.0.12-py3-none-any.whl", hash = "sha256:6bbff10f5a52662c00a2e3f86a38928c37c48f77b3c511aedcd51de933549324", size = 81480, upload-time = "2025-09-10T13:33:58.022Z" },
+]
+
+[[package]]
 name = "flask"
 version = "3.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -770,6 +782,9 @@ dependencies = [
 archive-notifications = [
     { name = "pytz" },
 ]
+check-first-posts-for-changes = [
+    { name = "feedparser" },
+]
 compose-notifications = [
     { name = "certifi" },
     { name = "chardet" },
@@ -841,6 +856,7 @@ requires-dist = [
     { name = "chardet", marker = "extra == 'compose-notifications'", specifier = "==4.0.0" },
     { name = "chardet", marker = "extra == 'identify-updates-of-topics'", specifier = "==4.0.0" },
     { name = "faust-cchardet", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.1.19" },
+    { name = "feedparser", marker = "extra == 'check-first-posts-for-changes'", specifier = ">=6.0" },
     { name = "flask", specifier = ">=2.3.3" },
     { name = "geopy", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.2.0" },
     { name = "httpx", specifier = "==0.27.*" },
@@ -867,7 +883,7 @@ requires-dist = [
     { name = "yandex-geocoder", marker = "extra == 'identify-updates-of-topics'", specifier = "==3.0.1" },
     { name = "yarl", marker = "extra == 'identify-updates-of-topics'", specifier = "==1.18.3" },
 ]
-provides-extras = ["api-get-active-searches", "archive-notifications", "archive-to-bigquery", "check-topics-by-upd-time", "communicate", "compose-notifications", "connect-to-forum", "identify-updates-of-first-posts", "identify-updates-of-topics", "send-debug-to-admin", "send-notifications", "title-recognize", "user-provide-info", "users-activate", "test-func"]
+provides-extras = ["api-get-active-searches", "archive-notifications", "archive-to-bigquery", "check-topics-by-upd-time", "check-first-posts-for-changes", "communicate", "compose-notifications", "connect-to-forum", "identify-updates-of-first-posts", "identify-updates-of-topics", "send-debug-to-admin", "send-notifications", "title-recognize", "user-provide-info", "users-activate", "test-func"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1843,6 +1859,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/18/5d/3bf57dcd21979b887
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a3/dc/17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/setuptools-80.9.0-py3-none-any.whl", hash = "sha256:062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922", size = 1201486, upload-time = "2025-05-27T00:56:49.664Z" },
 ]
+
+[[package]]
+name = "sgmllib3k"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9e/bd/3704a8c3e0942d711c1299ebf7b9091930adae6675d7c8f476a7ce48653c/sgmllib3k-1.0.0.tar.gz", hash = "sha256:7868fb1c8bfa764c1ac563d3cf369c381d1325d36124933a726f29fcdaa812e9", size = 5750, upload-time = "2010-08-24T14:33:52.445Z" }
 
 [[package]]
 name = "six"

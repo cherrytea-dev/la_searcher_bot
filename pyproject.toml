@@ -64,6 +64,8 @@ archive_to_bigquery = []
 
 check_topics_by_upd_time = []
 
+check_first_posts_for_changes = ["feedparser>=6.0"]
+
 communicate = []
 
 compose_notifications = [

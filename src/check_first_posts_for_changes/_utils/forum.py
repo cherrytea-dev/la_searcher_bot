@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import re
+import urllib.parse
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -8,7 +9,7 @@ import requests
 from retry import retry
 
 from _dependencies.commons import get_forum_proxies
-from _dependencies.content import content_is_unaccessible, is_forum_unavailable
+from _dependencies.content import content_is_unaccessible, cook_soup, is_forum_unavailable
 from _dependencies.pubsub import recognize_title_via_api
 from _dependencies.recognition_schema import RecognitionResult
 from _dependencies.topic_management import save_status_for_topic
@@ -73,6 +74,40 @@ def _get_search_raw_content(search_num: int) -> str:
     logging.debug(f'Content of first post of search {search_num} is: \n{str_content}')
 
     return str_content
+
+
+def get_search_id_by_comment(comment_url: str) -> int:
+    response = get_requests_session().get(comment_url, timeout=10)
+    response.raise_for_status()
+
+    return _get_search_id_from_comment_html(response.text)
+
+
+def _get_search_id_from_comment_html(text: str) -> int:
+    """
+    find in page tag like this:
+    <h2 class="topic-title"><a href="./viewtopic.php?t=366377">г. Екатеринбург и Свердловская обл. 25.02.2026 год</a></h2>
+    and extract url param `t` (366377 in this example)
+    """
+
+    soup = cook_soup(text)
+    topic_title_element = soup.find('h2', class_='topic-title')
+    if not topic_title_element:
+        raise ValueError('Could not find topic title element')
+
+    anchor_tag = topic_title_element.find('a')
+    if not anchor_tag or not anchor_tag.get('href'):  # type:ignore [union-attr]
+        raise ValueError('Could not find anchor tag with href in topic title')
+
+    href = anchor_tag['href']  # type:ignore [index]
+
+    parsed_url = urllib.parse.urlparse(href)  # type:ignore [arg-type]
+    query_params = urllib.parse.parse_qs(parsed_url.query)
+
+    if 't' not in query_params:
+        raise ValueError("Could not find 't' parameter in URL")
+
+    return int(query_params['t'][0])
 
 
 def _recognize_status_with_title_recognize(title: str) -> str | None:

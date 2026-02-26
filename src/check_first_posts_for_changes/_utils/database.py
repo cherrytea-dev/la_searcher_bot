@@ -7,7 +7,7 @@ from sqlalchemy.engine.base import Engine
 
 from _dependencies.commons import sqlalchemy_get_pool
 
-from .commons import Search
+from .commons import RSSItem, Search
 
 
 class DBClient:
@@ -106,6 +106,42 @@ class DBClient:
             raw_data = conn.execute(stmt, a=topic_id).fetchone()
             if raw_data:
                 return raw_data[0]
+        return None
+
+    def save_rss_item(self, item: RSSItem) -> None:
+        with self.connect() as conn:
+            stmt = sqlalchemy.text("""
+                INSERT INTO rss_items 
+                (search_forum_num, published_at, updated_at, url, content)
+                VALUES (:a, :b, :c, :d, :e);
+                                   """)
+            conn.execute(
+                stmt,
+                a=item.topic_id,
+                b=item.published_at,
+                c=item.updated_at,
+                d=item.item_id,
+                e=item.content,
+            )
+
+    def get_rss_item(self, item_id: str) -> RSSItem | None:
+        with self.connect() as conn:
+            stmt = sqlalchemy.text("""
+                SELECT id, url, search_forum_num, published_at, updated_at, content 
+                FROM rss_items 
+                WHERE
+                    url = :a;
+                            """)
+            raw_data = conn.execute(stmt, a=item_id).fetchone()
+            if raw_data:
+                return RSSItem(
+                    id=raw_data[0],
+                    item_id=raw_data[1],
+                    topic_id=raw_data[2],
+                    published_at=raw_data[3],
+                    updated_at=raw_data[4],
+                    content=raw_data[5],
+                )
         return None
 
 

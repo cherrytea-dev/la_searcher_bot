@@ -9,13 +9,16 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from itertools import repeat
+from typing import Any
+
+import feedparser
 
 from _dependencies.commons import setup_logging
 from _dependencies.pubsub import Ctx, pubsub_check_first_posts
 
-from ._utils.commons import PercentGroup, Search
+from ._utils.commons import PercentGroup, RSSItem, Search
 from ._utils.database import DBClient, get_db_client
-from ._utils.forum import ForumUnavailable, get_first_post
+from ._utils.forum import ForumUnavailable, get_first_post, get_search_id_by_comment
 
 setup_logging(__package__)
 
@@ -199,10 +202,52 @@ def update_first_posts_and_statuses() -> None:
     pubsub_check_first_posts(topics_with_updated_first_posts)
 
 
+def read_rss_feed(filename_or_url: str) -> None:
+    logging.info('RSS feed processing: start')
+    feed = feedparser.parse(filename_or_url)
+
+    for item in feed.entries:
+        _process_rss_item(item)
+    logging.info('RSS feed processing: done')
+
+
+def _process_rss_item(item: Any) -> None:
+    db_client = get_db_client()
+
+    item_id = item.link
+    published_at = datetime.datetime.fromisoformat(item.published)
+    updated_at = datetime.datetime.fromisoformat(item.updated)
+
+    saved_item = db_client.get_rss_item(item_id)
+    if saved_item:
+        if saved_item.updated_at != updated_at:
+            logging.warning(f'Changed field updated_at for rss item: {item_id}')
+        return
+
+    search_id = get_search_id_by_comment(item_id)
+    logging.info(f'New comments rom RSS for search {search_id}')
+
+    db_client.save_rss_item(
+        RSSItem(
+            topic_id=search_id,
+            published_at=published_at,
+            updated_at=updated_at,
+            item_id=item_id,
+            content=item.summary,
+        )
+    )
+
+
 def main(event: dict, context: Ctx) -> None:
     # to avoid function invocation except when it was initiated by scheduler (and pub/sub message was not doubled)
     # if datetime.datetime.now().second > 5:
     #     return
+
+    # BLOCK 0. read rss feed
+    try:
+        read_rss_feed('https://lizaalert.org/forum/app.php/feed')
+    except Exception:
+        logging.exception('Error while processing RSS feed')
 
     # BLOCK 1. for checking if the first posts were changed
     update_first_posts_and_statuses()
