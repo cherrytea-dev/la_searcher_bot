@@ -83,6 +83,7 @@ def sql_connect_by_psycopg2() -> psycopg2.extensions.connection:
 @lru_cache
 def sqlalchemy_get_pool(pool_size: int, pool_recycle_time_seconds: int) -> sqlalchemy.engine.Engine:
     """connect to PSQL in GCP"""
+    # TODO remove args
     return sqlalchemy_get_pool_inner()
 
 
@@ -94,7 +95,7 @@ def sqlalchemy_get_pool_inner() -> sqlalchemy.engine.Engine:
     db_config = {
         'pool_size': 1,
         'max_overflow': 4,
-        'pool_timeout': 1,  # seconds
+        'pool_timeout': 5,  # seconds
         'pool_recycle': 1,  # seconds
         'pool_pre_ping': True,
     }
