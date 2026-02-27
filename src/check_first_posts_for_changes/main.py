@@ -249,10 +249,11 @@ def main(event: dict, context: Ctx) -> None:
     #     return
 
     # BLOCK 0. read rss feed
-    try:
-        read_rss_feed('https://lizaalert.org/forum/app.php/feed')
-    except Exception:
-        logging.exception('Error while processing RSS feed')
+    # TODO remove, it cannot help us
+    # try:
+    #     read_rss_feed('https://lizaalert.org/forum/app.php/feed')
+    # except Exception:
+    #     logging.exception('Error while processing RSS feed')
 
     # BLOCK 1. for checking if the first posts were changed
     update_first_posts_and_statuses()

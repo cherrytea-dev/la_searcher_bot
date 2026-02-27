@@ -38,7 +38,6 @@ PATTERNS_TO_CLEANUP = [
     r'Если же представитель СМИ хочет',
     r'8\(800\)700-?54-?52',
     r'smi@lizaalert.org',
-    r'(?i)smi@lizaalert.org',  # не работает. Возможно, потому что ссылка.
     r'https://la-org.ru/images/',
     r'(?i)Запрос на согласование фото- и видеосъемки',
     r'(?i)тема в соц сетях',
@@ -183,8 +182,7 @@ def clean_up_content(init_content: str) -> str | None:
         return None
 
     reco_content = cook_soup(init_content)
-    reco_content = _prettify_soup(reco_content)
-    reco_content = _remove_links(reco_content)
+
     reco_content_text = reco_content.text
     reco_content_text = _remove_irrelevant_content(reco_content_text)
     reco_content_text = _make_html(reco_content_text)
@@ -198,8 +196,7 @@ def clean_up_content_2(init_content: str) -> list[str]:
         return []
 
     reco_content = cook_soup(init_content)
-    reco_content = _prettify_soup(reco_content)
-    reco_content = _remove_links(reco_content)
+
     reco_content = _delete_sorted_out_all_tags(reco_content)
 
     # reco_content = reco_content.prettify()
@@ -224,6 +221,9 @@ def _replace_common_cases(reco_content_list_source: list[str]) -> list[str]:
         r'(?i)последний раз редактировалось.{1,200}',
         r'(?i).{1,200}\d\d:\d\d, всего редактировалось.{1,200}',
         r'^\s+',
+        r'\[\+\]',
+        r'\[\-\]',
+        r'(?i)для СМИ',
     ]
 
     for pattern in patterns:
@@ -243,7 +243,10 @@ def _replace_common_cases(reco_content_list_source: list[str]) -> list[str]:
 
 
 def cook_soup(content: str | bytes) -> BeautifulSoup:
-    return BeautifulSoup(content, 'lxml')
+    reco_content = BeautifulSoup(content, 'lxml')
+    reco_content = _prettify_soup(reco_content)
+    reco_content = _remove_links(reco_content)
+    return reco_content
 
 
 def _remove_irrelevant_content(content: str) -> str:
