@@ -199,7 +199,12 @@ def update_first_posts_and_statuses() -> None:
     if not topics_with_updated_first_posts:
         return
 
-    pubsub_check_first_posts(topics_with_updated_first_posts)
+    # Split topics_into_chunks of 10 items and send each chunk via pub/sub
+    # to avoid too large lists of searches to process
+    chunk_size = 10
+    for i in range(0, len(topics_with_updated_first_posts), chunk_size):
+        chunk = topics_with_updated_first_posts[i : i + chunk_size]
+        pubsub_check_first_posts(chunk)
 
 
 def read_rss_feed(filename_or_url: str) -> None:
