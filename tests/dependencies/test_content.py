@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from _dependencies import content
@@ -49,6 +51,17 @@ class TestCleanupContent2:
         result = content.clean_up_content_2(test_content)
         # The text should be removed because it matches a pattern in _delete_sorted_out_one_tag
         assert result == []
+
+    def test_email_lizaalert_filtered(self):
+        content_html = Path('tests/fixtures/cleanup_content_2_example_1.html').read_text()
+
+        result = content.clean_up_content_2(content_html)
+
+        assert result == [
+            'темно-синий пиджак, розовая кофта, серые брюки с белыми геометрическими фигурами, черные кеды, розовая панама.',
+            'Дарья 89000000000',
+            'Написать Дарье в WhatsApp',
+        ]
 
 
 class TestAddLink:
