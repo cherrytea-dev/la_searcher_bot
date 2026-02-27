@@ -103,30 +103,39 @@ def process_first_page_comparison(
 ) -> ChangeLogSavedValue | None:
     """compare first post content to identify any diffs"""
 
-    # check the latest status on this search
-    sql_text = sqlalchemy.text("""
-        SELECT display_name, status, family_name, age, status
-        FROM searches WHERE search_forum_num=:a;
-                               """)
-
-    what_is_saved_in_psql = conn.execute(sql_text, a=search_id).fetchone()
-
-    if not what_is_saved_in_psql:
-        logging.info('first page comparison failed – nothing is searches psql table')
-        return None
-
-    status = what_is_saved_in_psql[1]
-
-    # updates are made only for non-finished searches
-    if status != 'Ищем':
+    if not _search_status_is_active(conn, search_id):
         return None
 
     prev_clean_content = clean_up_content_2(first_page_content_prev)
     curr_clean_content = clean_up_content_2(first_page_content_curr)
 
     message_schema = compose_diff_message(curr_clean_content, prev_clean_content)
+
     _notify_admin_if_no_changes(message_schema)
     return message_schema
+
+
+def _search_status_is_active(conn: sqlalchemy.engine.Connection, search_id: int) -> bool:
+    search_status = _get_search_status(conn, search_id)
+
+    if not search_status:
+        logging.info('first page comparison failed – nothing is searches psql table')
+        return False
+
+    if search_status != 'Ищем':
+        return False
+
+    return True
+
+
+def _get_search_status(conn: sqlalchemy.engine.Connection, search_id: int) -> str | None:
+    sql_text = sqlalchemy.text("""
+        SELECT display_name, status, family_name, age, status
+        FROM searches WHERE search_forum_num=:a;
+                               """)
+
+    what_is_saved_in_psql = conn.execute(sql_text, a=search_id).fetchone()
+    return what_is_saved_in_psql[1] if what_is_saved_in_psql else None
 
 
 def _notify_admin_if_no_changes(message_schema: ChangeLogSavedValue) -> None:
@@ -315,7 +324,7 @@ def _get_actual_and_previous_page_content(conn: sqlalchemy.engine.Connection, se
                                         """)
         conn.execute(sql_text, a=content_compact, b=search_id)
 
-        # get the Previous First Page Content
+    # get the Previous First Page Content
     sql_text = sqlalchemy.text("""
         SELECT content
         FROM search_first_posts
