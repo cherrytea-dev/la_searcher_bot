@@ -3,8 +3,8 @@ import datetime
 import pytest
 from flask import Flask
 from polyfactory import Use
+from sqlalchemy.engine.base import Connection
 
-from _dependencies.commons import sql_connect_by_psycopg2
 from api_get_active_searches import main
 from tests.factories.db_factories import (
     GeoFolderFactory,
@@ -58,18 +58,17 @@ def test_main_cors(app: Flask):
     assert resp.status_code == 204
 
 
-def test_get_searches_from_db():
+def test_get_searches_from_db(connection: Connection):
     folder1 = GeoFolderFactory.create_sync(folder_type='searches')
     search1 = ActiveSearchFactory.create_sync(forum_folder_id=folder1.folder_id)
     SearchHealthCheckFactory.create_sync(search_forum_num=search1.search_forum_num, status='ok')
     SearchFirstPostFactory.create_sync(search_id=search1.search_forum_num, actual=True)
 
-    with sql_connect_by_psycopg2() as conn_psy:
-        searches = main.get_list_of_active_searches_from_db(conn_psy, main.UserRequest(app_id=1))
+    searches = main.get_list_of_active_searches_from_db(connection, main.UserRequest(app_id=1))
     assert searches  # TODO find correct params for db factory
 
 
-def test_get_query_results_with_folders():
+def test_get_query_results_with_folders(connection: Connection):
     folder1, folder2 = GeoFolderFactory.create_batch_sync(2, folder_type='searches')
 
     search1 = ActiveSearchFactory.create_sync(forum_folder_id=folder1.folder_id)
@@ -83,8 +82,7 @@ def test_get_query_results_with_folders():
 
     depth_days = 30
     folders_list = [folder1.folder_id, folder2.folder_id]
-    with sql_connect_by_psycopg2() as conn_psy:
-        result = main.get_query_results(conn_psy, depth_days, folders_list)
+    result = main.get_query_results(connection, depth_days, folders_list)
 
     # Assert that the result is a list of Search objects with the correct data
     assert len(result) == 2
@@ -95,7 +93,7 @@ def test_get_query_results_with_folders():
     assert result[1].forum_folder_id == search2.forum_folder_id
 
 
-def test_get_query_results_with_no_folders():
+def test_get_query_results_with_no_folders(connection: Connection):
     folder1 = GeoFolderFactory.create_sync(folder_type='searches')
     search1 = ActiveSearchFactory.create_sync(forum_folder_id=folder1.folder_id)
     SearchHealthCheckFactory.create_sync(search_forum_num=search1.search_forum_num, status='ok')
@@ -103,8 +101,7 @@ def test_get_query_results_with_no_folders():
 
     depth_days = 30
     folders_list = []
-    with sql_connect_by_psycopg2() as conn_psy:
-        result = main.get_query_results(conn_psy, depth_days, folders_list)
+    result = main.get_query_results(connection, depth_days, folders_list)
 
     assert result
     assert isinstance(result[0], main.Search)

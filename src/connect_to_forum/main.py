@@ -10,10 +10,11 @@ from time import sleep
 from typing import Any, Dict
 
 import requests
+import sqlalchemy
 from bs4 import BeautifulSoup, NavigableString, Tag
 from telegram import ReplyKeyboardMarkup
 
-from _dependencies.commons import get_app_config, get_forum_proxies, setup_logging, sql_connect_by_psycopg2
+from _dependencies.commons import get_app_config, get_forum_proxies, setup_logging, sqlalchemy_get_pool
 from _dependencies.pubsub import Ctx, process_pubsub_message
 from _dependencies.telegram_api_wrapper import TGApiBase
 
@@ -255,124 +256,131 @@ def match_user_region_from_forum_to_bot(forum_region: str) -> str | None:
 #    return None
 
 
+def sql_connect() -> sqlalchemy.engine.Engine:
+    return sqlalchemy_get_pool(5, 60)
+
+
 def main(event: Dict[str, bytes], context: Ctx) -> None:
     """main function triggered from communicate script via pyb/sub"""
 
-    conn = sql_connect_by_psycopg2()
-    cur = conn.cursor()
+    pool = sql_connect()
+    with pool.connect() as conn:
+        message_in_ascii = process_pubsub_message(event)
+        tg_user_id, f_username = list(message_in_ascii)
 
-    message_in_ascii = process_pubsub_message(event)
-    tg_user_id, f_username = list(message_in_ascii)
+        user = None
+        if message_in_ascii:
+            f_usr_id = get_user_id(f_username)
 
-    user = None
-    if message_in_ascii:
-        f_usr_id = get_user_id(f_username)
+            if f_usr_id:
+                block_of_user_data = get_user_attributes(f_usr_id)
 
-        if f_usr_id:
-            block_of_user_data = get_user_attributes(f_usr_id)
+                if block_of_user_data:
+                    user = get_user_data(block_of_user_data)
 
-            if block_of_user_data:
-                user = get_user_data(block_of_user_data)
+        if user:
+            bot_message = 'Посмотрите, Бот нашел следующий аккаунт на форуме, это Вы?\n'
+            bot_message += 'username: ' + f_username + ', '
+            if user.callsign:
+                bot_message += 'позывной: ' + user.callsign + ', '
+            # if user.region:
+            #     bot_message += 'регион: ' + user.region + ', '
+            if user.phone:
+                bot_message += 'телефон оканчивается на ' + str(user.phone)[-5:] + ', '
+            if user.age:
+                bot_message += 'возраст: ' + str(user.age) + ', '
+            if user.reg_date:
+                bot_message += 'дата регистрации: ' + str(user.reg_date)[:-7] + ', '
+            bot_message = bot_message[:-2]
 
-    if user:
-        bot_message = 'Посмотрите, Бот нашел следующий аккаунт на форуме, это Вы?\n'
-        bot_message += 'username: ' + f_username + ', '
-        if user.callsign:
-            bot_message += 'позывной: ' + user.callsign + ', '
-        # if user.region:
-        #     bot_message += 'регион: ' + user.region + ', '
-        if user.phone:
-            bot_message += 'телефон оканчивается на ' + str(user.phone)[-5:] + ', '
-        if user.age:
-            bot_message += 'возраст: ' + str(user.age) + ', '
-        if user.reg_date:
-            bot_message += 'дата регистрации: ' + str(user.reg_date)[:-7] + ', '
-        bot_message = bot_message[:-2]
+            keyboard = [['да, это я'], ['нет, это не я'], ['в начало']]
 
-        keyboard = [['да, это я'], ['нет, это не я'], ['в начало']]
-
-        # Delete previous records for this user
-        cur.execute("""DELETE FROM user_forum_attributes WHERE user_id=%s;""", (tg_user_id,))
-        conn.commit()
-
-        # Add new record for this user
-        cur.execute(
-            """INSERT INTO user_forum_attributes
-        (user_id, forum_user_id, status, timestamp, forum_username, forum_age, forum_sex, forum_region,
-        forum_auto_num, forum_callsign, forum_phone, forum_reg_date)
-        values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);""",
-            (
-                tg_user_id,
-                f_usr_id,
-                'non-varified',
-                datetime.datetime.now(),
-                f_username,
-                user.age,
-                user.sex,
-                user.region,
-                user.auto_num,
-                user.callsign,
-                user.phone,
-                user.reg_date,
-            ),
-        )
-        conn.commit()
-
-        cur.execute("""SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=%s""", (tg_user_id,))
-        conn.commit()
-        user_has_region_set = True if cur.fetchone() else False
-        logging.info(f'user_has_region_set = {user_has_region_set}')
-
-        if not user_has_region_set and user.region:
-            resulting_region_in_bot = match_user_region_from_forum_to_bot(user.region)  # noqa
-
-        # TODO - here should be a block for saving user region pref. now we cannot do it, cuz user prefs are
-        #  on folder level
-        # if resulting_region_in_bot:
-        # TODO ^^^
-
-    else:
-        bot_message = (
-            'Бот не смог найти такого пользователя на форуме. '
-            'Пожалуйста, проверьте правильность написания имени пользователя (логина). '
-            'Важно, чтобы каждый знак в точности соответствовал тому, что указано в вашем профиле на форуме'
-        )
-        keyboard = [['в начало']]
-        bot_request_aft_usr_msg = 'input_of_forum_username'
-
-        try:
-            cur.execute("""DELETE FROM msg_from_bot WHERE user_id=%s;""", (tg_user_id,))
-            conn.commit()
-            cur.execute(
-                """
-                INSERT INTO msg_from_bot (user_id, time, msg_type) values (%s, %s, %s);
-                """,
-                (tg_user_id, datetime.datetime.now(), bot_request_aft_usr_msg),
+            # Delete previous records for this user
+            conn.execute(
+                sqlalchemy.text("""DELETE FROM user_forum_attributes WHERE user_id=:user_id"""), {'user_id': tg_user_id}
             )
-            conn.commit()
 
-        except Exception:
-            logging.exception('failed to update the last saved message from bot')
+            # Add new record for this user
+            conn.execute(
+                sqlalchemy.text("""
+                INSERT INTO user_forum_attributes
+                (user_id, forum_user_id, status, timestamp, forum_username, forum_age, forum_sex, forum_region,
+                forum_auto_num, forum_callsign, forum_phone, forum_reg_date)
+                values (:user_id, :forum_user_id, :status, :timestamp, :forum_username, :forum_age, :forum_sex, 
+                :forum_region, :forum_auto_num, :forum_callsign, :forum_phone, :forum_reg_date)
+                """),
+                {
+                    'user_id': tg_user_id,
+                    'forum_user_id': f_usr_id,
+                    'status': 'non-varified',
+                    'timestamp': datetime.datetime.now(),
+                    'forum_username': f_username,
+                    'forum_age': user.age,
+                    'forum_sex': user.sex,
+                    'forum_region': user.region,
+                    'forum_auto_num': user.auto_num,
+                    'forum_callsign': user.callsign,
+                    'forum_phone': user.phone,
+                    'forum_reg_date': user.reg_date,
+                },
+            )
 
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    data = {
-        'text': bot_message,
-        'reply_markup': reply_markup,
-        'parse_mode': 'HTML',
-        'disable_web_page_preview': True,
-        'chat_id': tg_user_id,
-    }
+            result = conn.execute(
+                sqlalchemy.text("""SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=:user_id"""),
+                {'user_id': tg_user_id},
+            )
+            user_has_region_set = True if result.fetchone() else False
+            logging.info(f'user_has_region_set = {user_has_region_set}')
 
-    tg_api = TGApiBase(token=get_app_config().bot_api_token__prod)
-    tg_api.send_message(data)
+            if not user_has_region_set and user.region:
+                resulting_region_in_bot = match_user_region_from_forum_to_bot(user.region)  # noqa
 
-    # save bot's reply to incoming request
-    if bot_message:
-        cur.execute(
-            """INSERT INTO dialogs (user_id, author, timestamp, message_text) values (%s, %s, %s, %s);""",
-            (tg_user_id, 'bot', datetime.datetime.now(), bot_message),
-        )
-        conn.commit()
+        else:
+            bot_message = (
+                'Бот не смог найти такого пользователя на форуме. '
+                'Пожалуйста, проверьте правильность написания имени пользователя (логина). '
+                'Важно, чтобы каждый знак в точности соответствовал тому, что указано в вашем профиле на форуме'
+            )
+            keyboard = [['в начало']]
+            bot_request_aft_usr_msg = 'input_of_forum_username'
 
-    cur.close()
-    conn.close()
+            try:
+                conn.execute(
+                    sqlalchemy.text("""DELETE FROM msg_from_bot WHERE user_id=:user_id"""), {'user_id': tg_user_id}
+                )
+                conn.execute(
+                    sqlalchemy.text("""
+                    INSERT INTO msg_from_bot (user_id, time, msg_type) values (:user_id, :time, :msg_type)
+                    """),
+                    {'user_id': tg_user_id, 'time': datetime.datetime.now(), 'msg_type': bot_request_aft_usr_msg},
+                )
+
+            except Exception:
+                logging.exception('failed to update the last saved message from bot')
+
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        data = {
+            'text': bot_message,
+            'reply_markup': reply_markup,
+            'parse_mode': 'HTML',
+            'disable_web_page_preview': True,
+            'chat_id': tg_user_id,
+        }
+
+        tg_api = TGApiBase(token=get_app_config().bot_api_token__prod)
+        tg_api.send_message(data)
+
+        # save bot's reply to incoming request
+        if bot_message:
+            conn.execute(
+                sqlalchemy.text("""
+                INSERT INTO dialogs (user_id, author, timestamp, message_text) 
+                values (:user_id, :author, :timestamp, :message_text)
+                """),
+                {
+                    'user_id': tg_user_id,
+                    'author': 'bot',
+                    'timestamp': datetime.datetime.now(),
+                    'message_text': bot_message,
+                },
+            )
