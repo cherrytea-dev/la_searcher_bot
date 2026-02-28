@@ -297,7 +297,11 @@ def _get_actual_and_previous_page_content(conn: sqlalchemy.engine.Connection, se
         FROM search_first_posts 
         WHERE search_id=:a AND actual = True;
                     """)
-    raw_data = conn.execute(sql_text, a=search_id).fetchone()  # TODO result may be empty
+    raw_data = conn.execute(sql_text, a=search_id).fetchone()
+    if not raw_data:
+        logging.error(f'No actual content for first post of search {search_id}')
+        return '', ''
+
     first_page_content_curr = raw_data[0]
     first_page_content_curr_compact = raw_data[1]
 
@@ -319,7 +323,11 @@ def _get_actual_and_previous_page_content(conn: sqlalchemy.engine.Connection, se
         WHERE search_id=:a AND actual=False
         ORDER BY timestamp DESC;
                                    """)
-    first_page_content_prev = conn.execute(sql_text, a=search_id).fetchone()[0]  # TODO result may be empty
+    raw_data = conn.execute(sql_text, a=search_id).fetchone()
+    if not raw_data:
+        logging.error(f'No previous content for first post of search {search_id}')
+        return '', ''
+    first_page_content_prev = raw_data[0]
 
     logging.info(f'topic id {search_id} has an update of first post:')
     logging.info(f'first page content prev: {first_page_content_prev}')
