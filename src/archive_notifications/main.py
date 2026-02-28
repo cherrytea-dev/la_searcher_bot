@@ -60,95 +60,63 @@ def move_first_posts_to_history_in_psql(conn: Connection) -> None:
 
     # 1. COMPLETED SEARCHES
     # take all the first_posts for "completed" searches and copy it to __history table
+    # then delete them in a single atomic operation
     stmt = sqlalchemy.text("""
-                        INSERT INTO
-                            search_first_posts__history
-                        (
-                            SELECT
-                                sfp.*
-                            FROM
-                                search_first_posts AS sfp
-                            INNER JOIN
-                                searches AS s
-                            ON sfp.search_id=s.search_forum_num
-                            WHERE s.status = 'НЖ' or s.status = 'НП' or s.status = 'Найден'
-                                OR s.status = 'Завершен'
-                        )
-
-                        ;""")
-    # number_of_copied_rows = conn.execute(stmt).fetchone()
-    conn.execute(stmt)
-
-    logging.info('first_posts for completed searches are copied to __history')
-
-    # delete all the copied info from search_first_posts table
-    stmt = sqlalchemy.text("""
-        DELETE FROM
-            search_first_posts
-        WHERE
-            id in (
+        WITH moved_rows AS (
+            INSERT INTO
+                search_first_posts__history
+            (
                 SELECT
-                    sfp.id
+                    sfp.*
                 FROM
                     search_first_posts AS sfp
                 INNER JOIN
                     searches AS s
-                ON
-                    sfp.search_id=s.search_forum_num
+                ON sfp.search_id=s.search_forum_num
                 WHERE s.status = 'НЖ' or s.status = 'НП' or s.status = 'Найден'
                     OR s.status = 'Завершен'
-
-        );""")
-    # number_of_deleted_rows = conn.execute(stmt).fetchone()
+            )
+            RETURNING id
+        )
+        DELETE FROM
+            search_first_posts
+        WHERE
+            id IN (SELECT id FROM moved_rows);
+        """)
     conn.execute(stmt)
 
-    logging.info('first_posts for completed searches are deleted from search_first_posts')
+    logging.info('first_posts for completed searches are copied to __history and deleted from search_first_posts')
 
     # 2. ELDER FIRST POSTS snapshots
     # take all the first_posts for "completed" searches and copy it to __history table
+    # then delete them in a single atomic operation
     stmt = sqlalchemy.text("""
-                            INSERT INTO
-                                search_first_posts__history
-                            (
-                                SELECT
-                                    s1.id, s1.search_id, s1.timestamp, s1.actual, s1.content_hash, s1.content,
-                                    s1.num_of_checks, s1.coords, s1.field_trip, s1.content_compact
-                                FROM (
-                                    SELECT
-                                        *, RANK() OVER (PARTITION BY search_id ORDER BY timestamp DESC) AS rank
-                                    FROM
-                                        search_first_posts
-                                    ORDER BY
-                                        1, 2 DESC) as s1
-                                WHERE rank > 2
-                            )
-                            ;""")
-    # number_of_copied_rows = conn.execute(stmt).fetchone()
-    conn.execute(stmt)
-
-    logging.info('first_posts for elder snapshots are copied to __history')
-
-    # delete all the copied info from search_first_posts table
-    stmt = sqlalchemy.text("""
-            DELETE FROM
-                search_first_posts
-            WHERE
-                id in (
+        WITH moved_rows AS (
+            INSERT INTO
+                search_first_posts__history
+            (
+                SELECT
+                    s1.id, s1.search_id, s1.timestamp, s1.actual, s1.content_hash, s1.content,
+                    s1.num_of_checks, s1.coords, s1.field_trip, s1.content_compact
+                FROM (
                     SELECT
-                        s1.id
-                    FROM (
-                        SELECT
-                            *, RANK() OVER (PARTITION BY search_id ORDER BY timestamp DESC) AS rank
-                        FROM
-                            search_first_posts
-                        ORDER BY
-                            1, 2 DESC) as s1
-                    WHERE rank > 2
-            );""")
-    # number_of_deleted_rows = conn.execute(stmt).fetchone()
+                        *, RANK() OVER (PARTITION BY search_id ORDER BY timestamp DESC) AS rank
+                    FROM
+                        search_first_posts
+                    ORDER BY
+                        1, 2 DESC) as s1
+                WHERE rank > 2
+            )
+            RETURNING id
+        )
+        DELETE FROM
+            search_first_posts
+        WHERE
+            id IN (SELECT id FROM moved_rows);
+        """)
     conn.execute(stmt)
 
-    logging.info('first_posts for elder snapshots are deleted from search_first_posts')
+    logging.info('first_posts for elder snapshots are copied to __history and deleted from search_first_posts')
 
 
 def main(event: dict[str, bytes], context: Ctx) -> None:
