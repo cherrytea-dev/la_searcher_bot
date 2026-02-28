@@ -30,8 +30,7 @@ class UserSettingsSummary:
 
 @lru_cache
 def db() -> 'DBClient':
-    pool = sqlalchemy_get_pool(5, 60)
-    return DBClient(_pool=pool)
+    return DBClient(_pool=sqlalchemy_get_pool())
 
 
 @dataclass

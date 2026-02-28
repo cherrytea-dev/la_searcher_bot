@@ -22,10 +22,6 @@ DAYS_AGO_TO_START = 7
 DAYS_AGO_TO_FINISH = 1  # at least 1 day ago to avoid timezone problems
 
 
-def sql_connect() -> Engine:
-    return sqlalchemy_get_pool(5, 5)
-
-
 @dataclass
 class Archiver:
     """
@@ -153,7 +149,7 @@ def main(event: dict, context: Ctx) -> None:
         archive_date = date.today() - timedelta(days=i)
         logging.info(f'Processing date: {archive_date}')
 
-        archiver = Archiver(archive_date=archive_date, engine=sql_connect(), s3_client=s3)
+        archiver = Archiver(archive_date=archive_date, engine=sqlalchemy_get_pool(), s3_client=s3)
         archiver.run()
 
     logging.info('Done')

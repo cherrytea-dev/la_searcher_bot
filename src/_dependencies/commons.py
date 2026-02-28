@@ -3,7 +3,6 @@ import re
 from enum import Enum, IntEnum
 from functools import lru_cache
 
-import psycopg2
 import sqlalchemy
 from bs4 import BeautifulSoup
 from pydantic import BaseModel, ConfigDict, Field
@@ -64,9 +63,8 @@ def _get_config() -> AppConfig:
 
 
 @lru_cache
-def sqlalchemy_get_pool(pool_size: int, pool_recycle_time_seconds: int) -> sqlalchemy.engine.Engine:
+def sqlalchemy_get_pool() -> sqlalchemy.engine.Engine:
     """connect to PSQL in GCP"""
-    # TODO remove args
     return sqlalchemy_get_pool_inner()
 
 
@@ -76,9 +74,9 @@ def sqlalchemy_get_pool_inner() -> sqlalchemy.engine.Engine:
     config = get_app_config()
 
     db_config = {
-        'pool_size': 1,
+        'pool_size': 2,
         'max_overflow': 4,
-        'pool_timeout': 5,  # seconds
+        'pool_timeout': 10,  # seconds
         'pool_recycle': 1,  # seconds
         'pool_pre_ping': True,
     }

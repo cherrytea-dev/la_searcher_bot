@@ -41,10 +41,6 @@ def get_requests_session() -> requests.Session:
     return session
 
 
-def sql_connect() -> sqlalchemy.engine.Engine:
-    return sqlalchemy_get_pool(5, 30)
-
-
 def compose_diff_message(curr_list: list[str], prev_list: list[str]) -> ChangeLogSavedValue:
     if not curr_list or not prev_list:
         return ChangeLogSavedValue.model_construct()
@@ -349,7 +345,7 @@ def main(event: dict, context: Ctx) -> str:  # noqa
     if not list_of_updated_searches:
         return 'ok'
 
-    pool = sql_connect()
+    pool = sqlalchemy_get_pool()
     with pool.connect() as conn:
         try:
             change_log_ids: list[int] = []

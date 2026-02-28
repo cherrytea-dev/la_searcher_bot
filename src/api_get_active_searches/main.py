@@ -89,10 +89,6 @@ def get_list_of_allowed_apps() -> list[str]:
     return approved_app_ids
 
 
-def sql_connect() -> sqlalchemy.engine.Engine:
-    return sqlalchemy_get_pool(5, 60)
-
-
 def get_list_of_active_searches_from_db(conn: Connection, request: UserRequest) -> list[Search]:
     """retrieves a list of recent searches"""
 
@@ -191,7 +187,7 @@ def main(request_data: RequestWrapper, *args: Any, **kwargs: Any) -> ResponseWra
     request_json = request_data.json_
     logging.info(request_json)
 
-    pool = sql_connect()
+    pool = sqlalchemy_get_pool()
     with pool.connect() as conn:
         try:
             user_request = UserRequest.model_validate_json(request_data.data)

@@ -256,14 +256,10 @@ def match_user_region_from_forum_to_bot(forum_region: str) -> str | None:
 #    return None
 
 
-def sql_connect() -> sqlalchemy.engine.Engine:
-    return sqlalchemy_get_pool(5, 60)
-
-
 def main(event: Dict[str, bytes], context: Ctx) -> None:
     """main function triggered from communicate script via pyb/sub"""
 
-    pool = sql_connect()
+    pool = sqlalchemy_get_pool()
     with pool.connect() as conn:
         message_in_ascii = process_pubsub_message(event)
         tg_user_id, f_username = list(message_in_ascii)

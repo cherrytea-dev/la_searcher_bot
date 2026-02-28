@@ -156,16 +156,12 @@ def verify_telegram_data(user_input: str | dict) -> bool:
         return verify_telegram_data_json(user_input, bot_token)
 
 
-def sql_connect() -> sqlalchemy.engine.Engine:
-    return sqlalchemy_get_pool(5, 60)
-
-
 def get_user_data_from_db(user_id: int) -> BaseUserParams:
     """if user_is is a current bot's user – than retrieves user's data like home coords, radius, list of searches
     if user_id is not a user of bot – than retrieves a "demo" data with fake home coords, radius and real list of
     searches for Moscow Region"""
 
-    pool = sql_connect()
+    pool = sqlalchemy_get_pool()
     with pool.connect() as conn:
         user_params = _compose_basic_user_params(user_id, conn)
         if not user_params:
@@ -400,7 +396,7 @@ def save_user_statistics_to_db(user_id: int, response: bool) -> None:
 
     json_to_save = json.dumps({'ok': response})
 
-    pool = sql_connect()
+    pool = sqlalchemy_get_pool()
     with pool.connect() as conn:
         try:
             conn.execute(

@@ -58,8 +58,7 @@ class MessageToSend:
 
 @lru_cache
 def db() -> 'DBClient':
-    pool = sqlalchemy_get_pool(5, 60)
-    return DBClient(_pool=pool)
+    return DBClient(_pool=sqlalchemy_get_pool())
 
 
 @dataclass
@@ -421,7 +420,7 @@ def main(event: dict, context: Ctx) -> str | None:
     function_id = generate_random_function_id()
 
     try:
-        pool = sqlalchemy_get_pool(1, 1)
+        pool = sqlalchemy_get_pool()
         connection = pool.connect()
         with lock_manager(connection, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
             with requests.Session() as session:

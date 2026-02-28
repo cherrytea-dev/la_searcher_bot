@@ -147,5 +147,4 @@ class DBClient:
 
 @lru_cache
 def get_db_client() -> DBClient:
-    pool = sqlalchemy_get_pool(10, 120)
-    return DBClient(db=pool)
+    return DBClient(db=sqlalchemy_get_pool())

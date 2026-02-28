@@ -17,8 +17,8 @@ faker.seed_instance()
 
 @lru_cache
 def get_sessionmaner() -> sqlalchemy.orm.sessionmaker:
-    engine = sqlalchemy_get_pool(10, 10)
-    return sqlalchemy.orm.sessionmaker(engine, expire_on_commit=False)
+    pool = sqlalchemy_get_pool()
+    return sqlalchemy.orm.sessionmaker(pool, expire_on_commit=False)
 
 
 def get_session():

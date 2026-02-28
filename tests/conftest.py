@@ -39,7 +39,7 @@ def patch_http():
 
 @pytest.fixture(scope='session')
 def connection_pool() -> Pool:
-    return sqlalchemy_get_pool(10, 10)
+    return sqlalchemy_get_pool()
 
 
 @pytest.fixture()

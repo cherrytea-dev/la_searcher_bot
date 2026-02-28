@@ -529,7 +529,7 @@ def main(event, context):  # noqa
     print('this is 1st print line')
     # FIXME ^^^
 
-    pool = sqlalchemy_get_pool(5, 60)
+    pool = sqlalchemy_get_pool()
     with pool.connect() as conn:
         try:
             # mark_up_onboarding_status_0(conn)
