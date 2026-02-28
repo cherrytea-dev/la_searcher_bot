@@ -23,10 +23,6 @@ FUNC_NAME = 'compose_notifications'
 setup_logging(__package__)
 
 
-def sql_connect() -> sqlalchemy.engine.Engine:
-    return sqlalchemy_get_pool(5, 60)
-
-
 def get_list_of_admins_and_testers(conn: Connection) -> tuple[list[int], list[int]]:
     """
     get the list of users with admin & testers roles from PSQL
@@ -127,11 +123,9 @@ def main(event: dict, context: Ctx) -> None:
     function_id = generate_random_function_id()
 
     try:
-        pool = sqlalchemy_get_pool(1, 1)
-        connection = pool.connect()
-        with lock_manager(connection, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
-            pool = sql_connect()
-            with pool.connect() as conn:
+        pool = sqlalchemy_get_pool()
+        with pool.connect() as conn:
+            with lock_manager(conn, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
                 # compose New Records List: the delta from Change log
                 new_record = LogRecordComposer(conn).get_line()
 

@@ -3,7 +3,6 @@ import re
 from enum import Enum, IntEnum
 from functools import lru_cache
 
-import psycopg2
 import sqlalchemy
 from bs4 import BeautifulSoup
 from pydantic import BaseModel, ConfigDict, Field
@@ -63,27 +62,9 @@ def _get_config() -> AppConfig:
     return AppConfig()
 
 
-def sql_connect_by_psycopg2() -> psycopg2.extensions.connection:
-    """connect to GCP SQL via PsycoPG2"""
-    # TODO pool instead of single connections
-    config = get_app_config()
-
-    conn_psy = psycopg2.connect(
-        host=config.postgres_host,
-        dbname=config.postgres_db,
-        user=config.postgres_user,
-        password=config.postgres_password,
-        port=config.postgres_port,
-    )
-    conn_psy.autocommit = True
-
-    return conn_psy
-
-
 @lru_cache
-def sqlalchemy_get_pool(pool_size: int, pool_recycle_time_seconds: int) -> sqlalchemy.engine.Engine:
+def sqlalchemy_get_pool() -> sqlalchemy.engine.Engine:
     """connect to PSQL in GCP"""
-    # TODO remove args
     return sqlalchemy_get_pool_inner()
 
 
@@ -93,9 +74,9 @@ def sqlalchemy_get_pool_inner() -> sqlalchemy.engine.Engine:
     config = get_app_config()
 
     db_config = {
-        'pool_size': 1,
+        'pool_size': 2,
         'max_overflow': 4,
-        'pool_timeout': 5,  # seconds
+        'pool_timeout': 10,  # seconds
         'pool_recycle': 1,  # seconds
         'pool_pre_ping': True,
     }

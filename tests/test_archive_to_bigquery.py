@@ -4,16 +4,16 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from archive_to_bigquery.main import Archiver, main, sql_connect
+from archive_to_bigquery.main import Archiver, main
 from tests.factories.db_factories import NotifByUserHistoryFactory, faker
 
 
 class TestArchiveNotifications:
     @pytest.fixture
-    def archiver(self) -> Archiver:
+    def archiver(self, connection_pool) -> Archiver:
         return Archiver(
             archive_date=faker.date_object(),
-            engine=sql_connect(),
+            engine=connection_pool,
             s3_client=Mock(),
         )
 

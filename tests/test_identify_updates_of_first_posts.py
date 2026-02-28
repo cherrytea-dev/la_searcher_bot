@@ -121,8 +121,6 @@ def test_empty_list_of_updated_searches():
 
 def test_multiple_updated_searches():
     with (
-        # patch('identify_updates_of_first_posts.main.process_pubsub_message', return_value=[123, 456]),
-        patch('identify_updates_of_first_posts.main.sql_connect'),
         patch('identify_updates_of_first_posts.main.get_compressed_first_post'),
         patch('identify_updates_of_first_posts.main.process_first_page_comparison'),
         patch('identify_updates_of_first_posts.main.save_new_record_into_change_log'),

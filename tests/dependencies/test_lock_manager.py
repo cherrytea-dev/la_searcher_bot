@@ -14,10 +14,6 @@ class TestFunctionsLock:
     def func_name(self) -> str:
         return uuid4().hex[:30]
 
-    @pytest.fixture
-    def connection(self) -> str:
-        return sqlalchemy_get_pool(1, 1).connect()
-
     def test_is_locked(self, connection, func_name: str):
         with lock_manager(connection, func_name, TIMEOUT):
             with pytest.raises(FunctionLockError):

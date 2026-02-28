@@ -9,10 +9,6 @@ from _dependencies.pubsub import Ctx, pubsub_archive_notifications
 setup_logging(__package__)
 
 
-def sql_connect() -> sqlalchemy.engine.Engine:
-    return sqlalchemy_get_pool(20, 0)
-
-
 def move_notifications_to_history_in_psql(conn: Connection) -> None:
     """move all "completed" notifications to psql table __history"""
 
@@ -122,7 +118,7 @@ def move_first_posts_to_history_in_psql(conn: Connection) -> None:
 def main(event: dict[str, bytes], context: Ctx) -> None:
     """main function"""
 
-    pool = sql_connect()
+    pool = sqlalchemy_get_pool()
     with pool.connect() as conn:
         with conn.begin() as tr:
             move_notifications_to_history_in_psql(conn)
