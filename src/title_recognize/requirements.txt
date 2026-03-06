@@ -97,7 +97,7 @@ razdel==0.5.0
     # via
     #   natasha
     #   slovnet
-requests==2.32.3
+requests==2.32.5
     # via la-searcher-bot
 retry2==0.9.5
     # via la-searcher-bot

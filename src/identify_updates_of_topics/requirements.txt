@@ -79,7 +79,7 @@ python-json-logger==4.0.0
     # via la-searcher-bot
 python-telegram-bot==21.11.1
     # via la-searcher-bot
-requests==2.32.3
+requests==2.32.5
     # via
     #   la-searcher-bot
     #   yandex-geocoder

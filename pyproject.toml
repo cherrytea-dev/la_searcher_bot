@@ -10,7 +10,7 @@ dependencies = [
     "SQLAlchemy==1.4.54",
     "python-telegram-bot[rate-limiter, job-queue]==21.*",
     "retry2==0.9.5",
-    "requests==2.32.3",
+    "requests>=2.32.4",
     "httpx==0.27.*",
     "beautifulsoup4==4.9.3",                              # BS4
     "lxml==5.4.0",                                        # for BS4
