@@ -766,7 +766,6 @@ source = { virtual = "." }
 dependencies = [
     { name = "beautifulsoup4" },
     { name = "boto3" },
-    { name = "flask" },
     { name = "httpx" },
     { name = "lxml" },
     { name = "psycopg2-binary" },
@@ -817,6 +816,7 @@ title-recognize = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "flask" },
     { name = "mypy" },
     { name = "polyfactory" },
     { name = "pyannotate" },
@@ -857,7 +857,6 @@ requires-dist = [
     { name = "chardet", marker = "extra == 'identify-updates-of-topics'", specifier = "==4.0.0" },
     { name = "faust-cchardet", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.1.19" },
     { name = "feedparser", marker = "extra == 'check-first-posts-for-changes'", specifier = ">=6.0" },
-    { name = "flask", specifier = ">=2.3.3" },
     { name = "geopy", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.2.0" },
     { name = "httpx", specifier = "==0.27.*" },
     { name = "idna", marker = "extra == 'compose-notifications'", specifier = "==3.7" },
@@ -887,6 +886,7 @@ provides-extras = ["api-get-active-searches", "archive-notifications", "archive-
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "flask", specifier = ">=2.3.3" },
     { name = "mypy", specifier = ">=1.14.1" },
     { name = "polyfactory", specifier = ">=2.18" },
     { name = "pyannotate", specifier = "==1.2.*" },
