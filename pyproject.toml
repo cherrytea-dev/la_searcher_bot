@@ -16,6 +16,7 @@ dependencies = [
     "lxml==5.4.0", # for BS4
     "boto3>=1.38.27",
     "python-json-logger>=3.3.0",
+    "yarl>=1.18.3",
 ]
 [dependency-groups]
 
@@ -32,7 +33,6 @@ dev = [
     "pytest-xdist==3.*",
     "pytest-benchmark>=5.0",
     "pyannotate==1.2.*",
-    "flask>=2.3.3",
 
     "types-beautifulsoup4",
     "types-psycopg2",
