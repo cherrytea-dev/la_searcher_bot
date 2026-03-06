@@ -53,6 +53,7 @@ dev = [
 
     "yandexcloud>=0.367.0",
     "protobuf>=5.29.6",
+    "cryptography>=46.0.5",
 ]
 
 [project.optional-dependencies]
@@ -78,9 +79,7 @@ compose_notifications = [
     "pytz==2021.1",      # timezone
 ]
 
-connect_to_forum = [
-    "urllib3>=2.6.3",    
-]
+connect_to_forum = ["urllib3>=2.6.3"]
 
 identify_updates_of_first_posts = []
 
@@ -99,9 +98,7 @@ identify_updates_of_topics = [
 
 send_debug_to_admin = []
 
-send_notifications = [
-    "urllib3>=2.6.3",
-]
+send_notifications = ["urllib3>=2.6.3"]
 
 title_recognize = [
     "python-dateutil==2.8.2", # extension to datetime module
