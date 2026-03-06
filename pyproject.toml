@@ -52,6 +52,7 @@ dev = [
     "tqdm",
 
     "yandexcloud>=0.367.0",
+    "protobuf>=5.29.6",
 ]
 
 [project.optional-dependencies]
