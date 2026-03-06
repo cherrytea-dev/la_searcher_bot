@@ -1,17 +1,14 @@
 import pytest
-from flask import Flask
 
 from communicate import main
+from tests.common import get_http_request
 
 
-@pytest.fixture
-def app() -> Flask:
-    return Flask(__name__)
-
-
-def test_main_mock(app: Flask):
+def test_main_mock():
     # just to run imports and calculate code coverage
-    with app.test_request_context('/', method='OPTIONS') as request_context:
-        resp = main.main(request_context.request)
-    assert resp.status_code == 400
-    assert resp.data.decode() == 'it was not post request'
+    request = get_http_request(method='OPTIONS')
+
+    resp = main.main(request)
+
+    assert resp['statusCode'] == 400
+    assert resp['body'] == 'it was not post request'

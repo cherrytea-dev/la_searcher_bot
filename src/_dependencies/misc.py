@@ -145,4 +145,3 @@ def convert_yc_request(request_data: dict) -> RequestWrapper:
         headers=request_data.get('headers', {}),
         data=request_data.get('body', b''),
     )
-

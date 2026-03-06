@@ -107,3 +107,10 @@ def setup_logging_to_console() -> None:
 
 fake = Faker()
 Faker.seed()
+
+
+def get_http_request(method: str = 'GET', data: Any = None) -> dict:
+    return {
+        'body': json.dumps(data),
+        'httpMethod': method,
+    }

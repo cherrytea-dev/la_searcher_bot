@@ -1,11 +1,11 @@
 import datetime
 
 import pytest
-from flask import Flask
 from polyfactory import Use
 from sqlalchemy.engine.base import Connection
 
 from api_get_active_searches import main
+from tests.common import get_http_request
 from tests.factories.db_factories import (
     GeoFolderFactory,
     SearchFactory,
@@ -14,48 +14,53 @@ from tests.factories.db_factories import (
 )
 
 
-@pytest.fixture
-def app() -> Flask:
-    return Flask(__name__)
-
-
 class ActiveSearchFactory(SearchFactory):
     search_start_time = Use(datetime.datetime.now)
     status = 'Active'
 
 
-def test_main(app: Flask):
-    with app.test_request_context('/', json={'app_id': 1}) as app_request:
-        main.main(app_request.request)
-    assert True
+class TestMain:
+    def test_main(self):
+        request = get_http_request(method='POST', data={'app_id': 1})
 
+        main.main(request)
 
-def test_main_empty_json(app: Flask):
-    with app.test_request_context('/', json={}) as app_request:
-        resp = main.main(app_request.request)
-    answer = main.FailResponse.model_validate_json(resp.data)
-    assert 'app_id' in answer.reason
-    assert 'validation error' in answer.reason
+        assert True
 
+    def test_main_empty_json(self):
+        request = get_http_request(method='POST', data={})
 
-def test_main_no_json(app: Flask):
-    with app.test_request_context('/', data='not a json') as app_request:
-        resp = main.main(app_request.request)
-    answer = main.FailResponse.model_validate_json(resp.data)
-    assert 'Invalid JSON' in answer.reason
+        resp = main.main(request)
 
+        answer = main.FailResponse.model_validate_json(resp['body'])
+        assert 'app_id' in answer.reason
+        assert 'validation error' in answer.reason
 
-def test_main_incorrect_app_id(app: Flask):
-    with app.test_request_context('/', json={'app_id': 'unexisting'}) as app_request:
-        resp = main.main(app_request.request)
-    answer = main.FailResponse.model_validate_json(resp.data)
-    assert answer.reason == 'Incorrect app_id'
+    def test_main_no_json(self):
+        request = {
+            'body': 'not a json',
+            'httpMethod': 'GET',
+        }
 
+        resp = main.main(request)
 
-def test_main_cors(app: Flask):
-    with app.test_request_context('/', method='OPTIONS') as app_request:
-        resp = main.main(app_request.request)
-    assert resp.status_code == 204
+        answer = main.FailResponse.model_validate_json(resp['body'])
+        assert 'Invalid JSON' in answer.reason
+
+    def test_main_incorrect_app_id(self):
+        request = get_http_request(method='POST', data={'app_id': 'unexisting'})
+
+        resp = main.main(request)
+
+        answer = main.FailResponse.model_validate_json(resp['body'])
+        assert answer.reason == 'Incorrect app_id'
+
+    def test_main_cors(self):
+        request = get_http_request(method='OPTIONS')
+
+        resp = main.main(request)
+
+        assert resp['statusCode'] == 204
 
 
 def test_get_searches_from_db(connection: Connection):

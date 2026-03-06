@@ -1,11 +1,12 @@
+import json
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 from urllib.parse import quote, urlencode
 
 import pytest
-from flask import Flask
 
 from _dependencies.commons import TopicType
+from tests.common import get_http_request
 from tests.factories.db_factories import (
     ChangeLogFactory,
     GeoFolderFactory,
@@ -22,11 +23,6 @@ from tests.factories.db_factories import (
 from user_provide_info import main
 
 
-@pytest.fixture
-def app() -> Flask:
-    return Flask(__name__)
-
-
 def test_verify_telegram_data_string():
     hash_for_foo = '58e12c073b212a320f893933f1d62cbbef82c9df6a6a6d061a37a1a1c3ad861d'
     token = 'token'
@@ -34,84 +30,88 @@ def test_verify_telegram_data_string():
     assert main.verify_telegram_data_string(f'bar&hash={hash_for_foo}', token) is False
 
 
-def test_main_cors(app: Flask):
-    with app.test_request_context('/', method='OPTIONS') as app_request:
-        resp = main.main(app_request.request)
-    assert resp.status_code == 204
+class TestMain:
+    def test_main_cors(self):
+        request = get_http_request(method='OPTIONS')
 
+        resp = main.main(request)
 
-def test_main_query_str(app: Flask):
-    """lock current behavior"""
+        assert resp['statusCode'] == 204
 
-    user_data = {
-        'id': 1234567890,
-        'first_name': 'some_name',
-        'last_name': '',
-        'username': 'some_name',
-        'language_code': 'ru',
-        'allows_write_to_pm': True,
-        'photo_url': 'https:\\/\\/t.me\\/i\\/userpic\\/320\\/aa-bb-cc.svg',
-    }
-    query_dict = {
-        'query_id': 'AAGaPjcFAwAAAJo-NwXzGddd',
-        'user': str(user_data).replace("'", '"').replace(' ', ''),
-        'auth_date': 1739639621,
-        'signature': '-NKmZbtIMmvVNG_TWPKGwcxAyrEugx7ARhXMmNDIqsA18tr_xNjzC5EoEGTmOhbLtUDJ2lBgrOV78VzTRUR8CA',
-        'hash': '4d7e3fae1f4ea4df602d2601fb0d9e2c4d15005bb432e3d4180e0fccfbd402fb',  # calculated in debug mode
-    }
-    query = urlencode(query_dict, quote_via=quote)
-    with app.test_request_context('/', method='POST', json=query) as app_request:
-        resp = main.main(app_request.request)
-    assert resp.status_code == 200
-    assert resp.headers['Access-Control-Allow-Origin'] == 'https://storage.googleapis.com'
-    assert resp.json == {
-        'ok': True,
-        'user_id': 1234567890,
-        'params': {
-            'curr_user': False,
-            'home_lat': 55.752702,
-            'home_lon': 37.622914,
-            'radius': 100,
-            'regions': [28, 29],
-            'searches': [],
-        },
-    }
+    def test_main_query_str(self):
+        """lock current behavior"""
 
+        user_data = {
+            'id': 1234567890,
+            'first_name': 'some_name',
+            'last_name': '',
+            'username': 'some_name',
+            'language_code': 'ru',
+            'allows_write_to_pm': True,
+            'photo_url': 'https:\\/\\/t.me\\/i\\/userpic\\/320\\/aa-bb-cc.svg',
+        }
+        query_dict = {
+            'query_id': 'AAGaPjcFAwAAAJo-NwXzGddd',
+            'user': str(user_data).replace("'", '"').replace(' ', ''),
+            'auth_date': 1739639621,
+            'signature': '-NKmZbtIMmvVNG_TWPKGwcxAyrEugx7ARhXMmNDIqsA18tr_xNjzC5EoEGTmOhbLtUDJ2lBgrOV78VzTRUR8CA',
+            'hash': '4d7e3fae1f4ea4df602d2601fb0d9e2c4d15005bb432e3d4180e0fccfbd402fb',  # calculated in debug mode
+        }
+        query = urlencode(query_dict, quote_via=quote)
+        request = get_http_request(method='POST', data=query)
 
-def test_main_validate_no_data(app: Flask):
-    with (
-        app.test_request_context('/', method='POST') as app_request,
-        patch.object(main, 'verify_telegram_data', MagicMock(return_value=True)),
-    ):
-        resp = main.main(app_request.request)
-    assert resp.status_code == 200
-    assert resp.json['ok'] is False
-    assert resp.json['reason'] == 'No json/string received'
+        resp = main.main(request)
 
+        assert resp['statusCode'] == 200
+        assert resp['headers']['Access-Control-Allow-Origin'] == 'https://storage.googleapis.com'
+        assert json.loads(resp['body']) == {
+            'ok': True,
+            'user_id': 1234567890,
+            'params': {
+                'curr_user': False,
+                'home_lat': 55.752702,
+                'home_lon': 37.622914,
+                'radius': 100,
+                'regions': [28, 29],
+                'searches': [],
+            },
+        }
 
-def test_main_validate_incorrect_signature(app: Flask):
-    user_data = {
-        'id': 1234567890,
-        'first_name': 'some_name',
-        'last_name': '',
-        'username': 'some_name',
-        'language_code': 'ru',
-        'allows_write_to_pm': True,
-        'photo_url': 'https:\\/\\/t.me\\/i\\/userpic\\/320\\/aa-bb-cc.svg',
-    }
-    query_dict = {
-        'query_id': 'AAGaPjcFAwAAAJo-NwXzGddd',
-        'user': str(user_data).replace("'", '"').replace(' ', ''),
-    }
-    query = urlencode(query_dict, quote_via=quote)
-    with (
-        app.test_request_context('/', method='POST', json=query) as app_request,
-        patch.object(main, 'verify_telegram_data', MagicMock(return_value=False)),
-    ):
-        resp = main.main(app_request.request)
-    assert resp.status_code == 200
-    assert resp.json['ok'] is False
-    assert resp.json['reason'] == 'Provided json is not validated'
+    def test_main_validate_no_data(self):
+        request = get_http_request(method='POST')
+
+        with patch.object(main, 'verify_telegram_data', MagicMock(return_value=True)):
+            resp = main.main(request)
+
+        assert resp['statusCode'] == 200
+        resp_data = json.loads(resp['body'])
+        assert resp_data['ok'] is False
+        assert resp_data['reason'] == 'No json/string received'
+
+    def test_main_validate_incorrect_signature(self):
+        user_data = {
+            'id': 1234567890,
+            'first_name': 'some_name',
+            'last_name': '',
+            'username': 'some_name',
+            'language_code': 'ru',
+            'allows_write_to_pm': True,
+            'photo_url': 'https:\\/\\/t.me\\/i\\/userpic\\/320\\/aa-bb-cc.svg',
+        }
+        query_dict = {
+            'query_id': 'AAGaPjcFAwAAAJo-NwXzGddd',
+            'user': str(user_data).replace("'", '"').replace(' ', ''),
+        }
+        query = urlencode(query_dict, quote_via=quote)
+        request = get_http_request(method='POST', data=query)
+
+        with patch.object(main, 'verify_telegram_data', MagicMock(return_value=False)):
+            resp = main.main(request)
+
+        assert resp['statusCode'] == 200
+        resp_data = json.loads(resp['body'])
+        assert resp_data['ok'] is False
+        assert resp_data['reason'] == 'Provided json is not validated'
 
 
 class TestGetUserDataFromDb:
