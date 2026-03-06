@@ -5,7 +5,7 @@ venv:
 	uv sync --all-groups --all-extras --locked
 
 test:
-	PYTHONPATH=.:src uv run pytest . -v -n 4 --dist loadgroup
+	uv run pytest . -v -n 4 --dist loadgroup
 
 initdb:
 	uv run python tests/tools/init_testing_db.py --db=TEST
