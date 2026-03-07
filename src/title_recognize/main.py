@@ -44,7 +44,7 @@ def main(request: RequestWrapper, *args: Any, **kwargs: Any) -> ResponseWrapper:
         user_request = UserRequest.model_validate_json(request.data)
         logging.info(f'Received request data: {user_request}')
     except ValidationError as ve:
-        logging.info(f'Incorrect request data: {request.data.decode()}')
+        logging.info(f'Incorrect request data: {request.data}')  # type:ignore[str-bytes-safe]
         return FailResponse(fail_reason=str(ve)).as_response()
 
     reco_title = recognize_title(user_request.title, user_request.reco_type)

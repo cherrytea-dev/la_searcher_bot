@@ -175,7 +175,6 @@ def save_user_statistics_to_db(conn: Connection, user_input: Any, response: dict
         logging.exception('Cannot save statistics to DB')
 
 
-# @functions_framework.http
 @request_response_converter
 def main(request_data: RequestWrapper, *args: Any, **kwargs: Any) -> ResponseWrapper:
     # Set CORS headers for the preflight request

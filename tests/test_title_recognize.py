@@ -1,41 +1,35 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from flask import Flask
 
+from tests.common import get_http_request
 from title_recognize import main
 from title_recognize._utils.person import recognize_one_person_group
 from title_recognize._utils.recognizer import is_spam_message
 from title_recognize._utils.title_commons import Block, PersonGroup
 
 
-@pytest.fixture
-def app() -> Flask:
-    return Flask(__name__)
+class TestMain:
+    def test_main_positive(self):
+        request = get_http_request(data={'title': 'Пропал человек'})
 
+        res = main.main(request)
 
-def test_main_positive(app: Flask):
-    with app.test_request_context('/', json={'title': 'Пропал человек'}) as app_request:
-        res = main.main(app_request.request)
+        assert 'fail' not in res['body']
 
-    assert 'fail' not in res.data.decode()
+    def test_main_wrong_request(self):
+        request = get_http_request(data={'foo': 'bar'})
 
+        res = main.main(request)
 
-def test_main_wrong_request(app: Flask):
-    with app.test_request_context('/', json={'foo': 'bar'}) as app_request:
-        res = main.main(app_request.request)
+        assert 'fail' in res['body']
 
-    assert 'fail' in res.data.decode()
+    def test_main_unrecognized(self):
+        request = get_http_request(data={'title': 'Пропал человек'})
+        with patch.object(main, 'recognize_title', Mock(return_value=None)):
+            res = main.main(request)
 
-
-def test_main_unrecognized(app: Flask):
-    with (
-        app.test_request_context('/', json={'title': 'Пропал человек'}) as app_request,
-        patch.object(main, 'recognize_title', Mock(return_value=None)),
-    ):
-        res = main.main(app_request.request)
-
-    assert 'fail' in res.data.decode()
+        assert 'fail' in res['body']
 
 
 class TestRecognizeTitle:

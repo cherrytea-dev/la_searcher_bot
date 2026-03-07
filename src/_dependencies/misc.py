@@ -8,7 +8,6 @@ from functools import lru_cache, wraps
 from typing import Any, Callable, Mapping, Sequence
 
 import sqlalchemy
-from flask import Request, Response
 
 from _dependencies.commons import get_app_config
 from _dependencies.telegram_api_wrapper import TGApiBase
@@ -124,16 +123,10 @@ class ResponseWrapper:
 def request_response_converter(func: Callable[..., ResponseWrapper]) -> Callable[..., dict]:
     @wraps(func)
     def wrapper(request_data: dict, *args: Any, **kwargs: Any) -> dict:
-        if isinstance(request_data, Request):
-            # google branch
-            request = convert_flask_request(request_data)
-            response = func(request, *args, **kwargs)
-            return Response(response.data, response.status_code, response.headers)
-        else:
-            # yc branch
-            request = convert_yc_request(request_data)
-            response = func(request, *args, **kwargs)
-            return {'statusCode': response.status_code, 'body': response.data, 'headers': response.headers}
+        # yc branch
+        request = convert_yc_request(request_data)
+        response = func(request, *args, **kwargs)
+        return {'statusCode': response.status_code, 'body': response.data, 'headers': response.headers}
 
     return wrapper
 
@@ -151,19 +144,4 @@ def convert_yc_request(request_data: dict) -> RequestWrapper:
         json_=json_,
         headers=request_data.get('headers', {}),
         data=request_data.get('body', b''),
-    )
-
-
-def convert_flask_request(request: Request) -> RequestWrapper:
-    """Convert Yandex Cloud Functions request format to RequestWrapper object"""
-    try:
-        json_ = request.get_json()
-    except:
-        json_ = None
-
-    return RequestWrapper(
-        method=request.method,
-        json_=json_,
-        headers=request.headers,  # type: ignore[arg-type]
-        data=request.data,
     )
