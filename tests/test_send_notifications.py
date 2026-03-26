@@ -163,32 +163,14 @@ def test_get_notifications_1():
     assert any(x.message_id == notif_failed_six_minutes_ago.message_id for x in messages)
 
 
-@pytest.mark.skip(reason='performance test')
-class TestPerformance:
-    def test_generate_message_batch(self):
-        for _ in range(1000):
-            with suppress(Exception):
-                # cant set unique mailing_id
-                NotSentNotificationFactory.create_sync()
-
-    @pytest.mark.parametrize('batch_size', [1, 10, 100])
-    def test_queries_performance(self, benchmark, batch_size: int, connection: Connection):
-        # benchmark something
-
-        with patch('send_notifications.main.MESSAGES_BATCH_SIZE', batch_size):
-            benchmark(main.get_notifs_to_send, connection, True)
-
-
-class TestSendVK:
-    def test_foo(self):
-        pass
-
-
 @pytest.mark.skip(reason='Real run')
 class TestSendVKReal:
     def test_send_via_client(self):
         import os
         import random
+
+        message_html = 'НЖ – изменение статуса по <a href="https://lizaalert.org/forum/viewtopic.php?t=123">Иванова ж40 лет</a> (Москва и МО – Активные поиски)'
+        message_md = 'hello!\nsecond string - **bold**\n[link here](vk.com/foo)'
 
         apikey = os.getenv('VK_API_KEY')
         my_user_id = os.getenv('VK_USER_ID')  # TODO
@@ -197,8 +179,59 @@ class TestSendVKReal:
         resp_data = cln.send(
             user_id=my_user_id,
             random_id=randint,
-            message='hello',
-            lat='56.839356',
-            long='60.608865',
+            # message=message_md,
+            message=message_html,
+            # lat='56.839356',
+            # long='60.608865',
         )
         assert 'error' not in resp_data
+
+
+class TestFormatMessageForVK:
+    @pytest.mark.parametrize(
+        'input,result',
+        [
+            (
+                'НЖ <a href="https://lizaalert.org/forum/viewtopic.php?t=123">Иванова ж40 лет</a> (Самара)',
+                'НЖ https://lizaalert.org/forum/viewtopic.php?t=123 Иванова ж40 лет (Самара)',
+                # unfold links starting with lizaalert.org/forum/viewtopic.php
+            ),
+            (
+                'Комментарии от <a href="https://lizaalert.org/forum/memberlist.php?mode=viewprofile&amp;u=107175">Странник_klg</a>:',
+                'Комментарии от Странник_klg:',
+                # remove whole links starting with https://lizaalert.org/forum/memberlist.php
+            ),
+            (
+                '«<a href="https://lizaalert.org/forum/viewtopic.php?&amp;t=367030&amp;start=36">Странник_klg, в экипаже с Амрита, РВП позже   </a>',
+                '«Странник_klg, в экипаже с Амрита, РВП позже   ',
+                # remove whole links starting with https://lizaalert.org/forum/viewtopic.php and containing "start" in query
+            ),
+            (
+                '<i>some text and other links</i>',
+                'some text and other links',
+                # remove italic
+            ),
+            (
+                '<s>some text and other links</s>',
+                'some text and other links',
+                # remove strikethrough
+            ),
+            (
+                '<b>some text and other links</b>',
+                'some text and other links',
+                # remove bold
+            ),
+            (
+                ' <a href="tel:+79001234567"> ☎️+79001234567</a>»',
+                '  ☎️+79001234567»',
+                # remove whole link like phone numbers tel:+79001234567
+            ),
+            (
+                '<b> <a href="tel:+79001234567"> ☎️+79001234567</a>»</b>',
+                '  ☎️+79001234567»',
+                # remove nested hrefs too
+            ),
+        ],
+    )
+    def test_format(self, input: str, result: str):
+        assert main.format_mesage_for_vk(input) == result

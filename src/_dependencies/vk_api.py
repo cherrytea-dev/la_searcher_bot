@@ -24,18 +24,20 @@ class VKApi:
     ) -> dict:
         # https://dev.vk.com/ru/method/messages.send
         query: dict[str, Any] = {
-            'user_id': user_id,
+            'peer_id': user_id,
             'random_id': random_id,
             'v': self.API_VERSION,
-            'message': message,
             'lat': lat,
             'long': long,
-            'keyboard': keyboard,
+            'message': message,
+            # 'parse_mode': 'markdown_v2',
             # 'keyboard': '',  # https://dev.vk.com/ru/api/bots/development/keyboard
         }
-
+        payload: dict[str, Any] = {
+            # 'keyboard': keyboard,
+        }
         url = '/method/messages.send'
-        resp = self._session.post(url, json={}, params=query)
+        resp = self._session.post(url, json=payload, params=query)
         resp.raise_for_status()
         resp_data = resp.json()
         assert 'error' not in resp_data
