@@ -613,6 +613,7 @@ class User(Base):
     status_change_date = Column(DateTime)
     user_id = Column(BigInteger, unique=True)
     role = Column(String(255))
+    vk_id = Column(String(20), nullable=True)
 
 
 class NotifMailing(Base):

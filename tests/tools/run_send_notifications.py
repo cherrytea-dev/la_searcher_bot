@@ -13,6 +13,7 @@ def generate_messages(count: int):
             content = f'test message {i}'
             NotSentNotificationFactory.create_sync(
                 user_id=get_dotenv_config().my_telegram_id,
+                # vk_id=get_dotenv_config().my_vk_id,
                 message_type='text',
                 message_content=content,
                 message_text=content,
@@ -20,12 +21,13 @@ def generate_messages(count: int):
             )
             NotSentNotificationFactory.create_sync(
                 user_id=get_dotenv_config().my_telegram_id,
+                # vk_id=get_dotenv_config().my_vk_id,
                 message_content=None,
                 message_text=None,
                 message_type='coords',
                 message_params='{"latitude": "68.970663", "longitude": "33.074918"}',
             )
-        except:
+        except Exception as e:
             pass
 
 
@@ -37,7 +39,7 @@ if __name__ == '__main__':
     setup_logging_to_console()
     with (
         patch('_dependencies.commons._get_config', get_dotenv_config),
-        patch('_dependencies.pubsub.send_topic_google'),
+        # patch('_dependencies.pubsub.send_topic_google'),
         patch('send_notifications.main.SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS', 0),
     ):
         generate_messages(1)

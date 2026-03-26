@@ -1152,6 +1152,7 @@ CREATE TABLE users (
 	status_change_date timestamp NULL,
 	user_id int8 NULL,
 	"role" varchar(255) NULL,
+	vk_id varchar(20) NULL,
 	CONSTRAINT users_pkey PRIMARY KEY (id)
 );
 CREATE UNIQUE INDEX users_user_id ON public.users USING btree (user_id);

@@ -8,6 +8,7 @@ from polyfactory.factories import DataclassFactory
 from sqlalchemy.engine import Connection
 
 from _dependencies.telegram_api_wrapper import TGApiBase
+from _dependencies.vk_api import VKApi
 from send_notifications import main
 from tests.common import find_model, get_event_with_data
 from tests.factories.db_factories import NotifByUserFactory, get_session
@@ -87,7 +88,7 @@ def test_iterate_over_notifications():
     # TODO don't know why, but if move creation of unique_notification upper, then test started to fail
 
     with patch.object(TGApiBase, '_process_response_of_api_call', MagicMock(return_value='completed')):
-        main.iterate_over_notifications(MagicMock(), 1, time_analytics)
+        main.iterate_over_notifications(1, time_analytics)
 
     session.flush()
 
@@ -135,20 +136,15 @@ def test_finish_time_analytics():
     main.finish_time_analytics(time_analytics, list_of_change_ids=[1])
 
 
-def test__process_message_sending(connection: Connection):
-    main._process_message_sending(
-        tg_api=MagicMock(),
-        time_analytics=TimeAnalyticsFactory.build(),
-        set_of_change_ids=set(),
-        message_to_send=NotSentNotificationFactory.create_sync(),
-    )
-
-
 def test_send_single_message():
     msg = MessageFactory.build()
     tg_api = TGApiBase('token')
-    with patch.object(TGApiBase, 'send_message', MagicMock(return_value='completed')):
-        res = main.send_single_message(tg_api, msg)
+    vk_api = VKApi('token')
+    with (
+        patch.object(TGApiBase, 'send_message', MagicMock(return_value='completed')),
+        patch.object(VKApi, 'send', MagicMock(return_value={})),
+    ):
+        res = main.send_single_message(tg_api, vk_api, msg)
     assert res == 'completed'
 
 
@@ -181,3 +177,28 @@ class TestPerformance:
 
         with patch('send_notifications.main.MESSAGES_BATCH_SIZE', batch_size):
             benchmark(main.get_notifs_to_send, connection, True)
+
+
+class TestSendVK:
+    def test_foo(self):
+        pass
+
+
+@pytest.mark.skip(reason='Real run')
+class TestSendVKReal:
+    def test_send_via_client(self):
+        import os
+        import random
+
+        apikey = os.getenv('VK_API_KEY')
+        my_user_id = os.getenv('VK_USER_ID')  # TODO
+        cln = VKApi(apikey)
+        randint = f'{random.randint(1_000_000, 100_000_000)}'
+        resp_data = cln.send(
+            user_id=my_user_id,
+            random_id=randint,
+            message='hello',
+            lat='56.839356',
+            long='60.608865',
+        )
+        assert 'error' not in resp_data

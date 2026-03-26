@@ -38,6 +38,8 @@ class AppConfig(BaseSettings):
     aws_access_key_id: str = ''
     aws_secret_access_key: str = ''
     aws_backup_bucket_name: str = 'la-backup-notifications'
+    vk_api_key: str = ''  # TODO SecretStr
+    my_vk_id: str = ''
 
 
 @lru_cache

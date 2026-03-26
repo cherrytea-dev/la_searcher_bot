@@ -21,6 +21,7 @@ def get_sessionmaner() -> sqlalchemy.orm.sessionmaker:
     return sqlalchemy.orm.sessionmaker(pool, expire_on_commit=False)
 
 
+# @lru_cache
 def get_session():
     session_maker = get_sessionmaner()
     return session_maker()
