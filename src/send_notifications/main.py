@@ -3,6 +3,7 @@
 import ast
 import datetime
 import logging
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor, wait
 from contextlib import contextmanager
@@ -10,7 +11,6 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any, Iterator, List
 
-import requests
 import sqlalchemy
 from sqlalchemy.engine.base import Connection, Engine
 
@@ -258,7 +258,11 @@ def send_single_message(tg_api: TGApiBase, vk_api: VKApi, message_to_send: Messa
         if USE_VK_API and message_to_send.vk_id:
             try:
                 logging.info(f'Sending message to VK: {message_to_send.vk_id=} {message_to_send=}')
-                vk_api.send(message_to_send.vk_id, message_to_send.message_id, message_content)
+                vk_api.send(
+                    message_to_send.vk_id,
+                    message_to_send.message_id,
+                    format_mesage_for_vk(message_content),
+                )
             except Exception:
                 logging.exception(f'Sending message to VK: failed {message_to_send.vk_id=} {message_to_send=}')
 
@@ -274,7 +278,7 @@ def send_single_message(tg_api: TGApiBase, vk_api: VKApi, message_to_send: Messa
                     message_to_send.message_id,
                     '',
                     lat=message_params['latitude'],
-                    long=message_params['latitude'],
+                    long=message_params['longitude'],
                 )
             except Exception:
                 logging.exception(f'Sending message to VK: failed {message_to_send.vk_id=} {message_to_send=}')
@@ -493,3 +497,42 @@ def main(event: dict, context: Ctx) -> str | None:
     logging.info('script finished')
 
     return 'ok'
+
+
+def format_mesage_for_vk(message: str) -> str:
+    # Handle different types of <a> tags based on their href
+    # Pattern to match <a href="URL">text</a>
+    a_tag_pattern = re.compile(r'<a\s+href="([^"]+)"[^>]*>([^<]+)</a>')
+
+    def replace_a_tag(match: re.Match) -> str:
+        url = match.group(1)
+        text = match.group(2)
+
+        # Rule 1: For links starting with https://lizaalert.org/forum/memberlist.php
+        # Remove the link but keep the text
+        if url.startswith('https://lizaalert.org/forum/memberlist.php'):
+            return text
+
+        # Rule 2: For links starting with https://lizaalert.org/forum/viewtopic.php and containing "start" in query
+        # Remove the link but keep the text
+        if url.startswith('https://lizaalert.org/forum/viewtopic.php') and 'start=' in url:
+            return text
+
+        # Rule 3: For phone number links (tel:)
+        # Remove the link but keep the text
+        if url.startswith('tel:'):
+            return text
+
+        # Rule 4: For other links (including lizaalert.org/forum/viewtopic.php without start),
+        # unfold the link: show URL followed by text
+        return f'{url} {text}'
+
+    # Replace all <a> tags
+    result = a_tag_pattern.sub(replace_a_tag, message)
+
+    # Remove any remaining HTML tags (including self-closing tags)
+    # Pattern matches < followed by any characters (non-greedy) up to >
+    html_tag_pattern = re.compile(r'<[^>]+>')
+    result = html_tag_pattern.sub('', result)
+
+    return result
