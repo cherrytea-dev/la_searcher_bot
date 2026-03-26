@@ -19,6 +19,7 @@ from _dependencies.lock_manager import FunctionLockError, lock_manager
 from _dependencies.misc import generate_random_function_id, tg_api_main_account
 from _dependencies.pubsub import Ctx, notify_admin, pubsub_send_notifications
 from _dependencies.telegram_api_wrapper import TGApiBase
+from _dependencies.vk_api import VKApi, get_default_vk_api_client
 
 setup_logging(__package__)
 
@@ -30,6 +31,8 @@ INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 50  # window within which we check
 SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS = 5
 MESSAGES_BATCH_SIZE = 100
 WORKERS_COUNT = 2
+
+USE_VK_API = True  # feature-flag
 
 
 @dataclass
@@ -54,6 +57,7 @@ class MessageToSend:
     change_log_id: int
     mailing_id: int
     failed: datetime.datetime | None
+    vk_id: str | None = None
 
 
 @lru_cache
@@ -121,6 +125,33 @@ class DBClient:
                 retry_delay=datetime.datetime.now() - delay_to_retry_send_failed_messages,
             ).fetchall()
             return [MessageToSend(*notification) for notification in notifications]
+
+    def fill_vk_user_ids(self, messages: list['MessageToSend']) -> None:
+        """temporarily: append vk_id to MessageToSten"""
+        with self.connect() as conn:
+            user_ids = list(set([x.user_id for x in messages]))
+            if not user_ids:
+                return
+
+            notifications_query = """
+                SELECT
+                    user_id, vk_id 
+                FROM
+                    users
+                WHERE 
+                    users.user_id = ANY( :user_ids)
+                    AND vk_id is not null
+            """
+
+            stmt = sqlalchemy.text(notifications_query)
+            rows = conn.execute(
+                stmt,
+                user_ids=user_ids,
+            ).fetchall()
+            user_ids_map = {user_id: vk_id for user_id, vk_id in rows}
+
+            for message in messages:
+                message.vk_id = user_ids_map.get(message.user_id, None)
 
     def check_for_number_of_notifs_to_send(self) -> int:
         """return a number of notifications to be sent"""
@@ -203,7 +234,7 @@ class DBClient:
                 pass
 
 
-def send_single_message(tg_api: TGApiBase, message_to_send: MessageToSend) -> str | None:
+def send_single_message(tg_api: TGApiBase, vk_api: VKApi, message_to_send: MessageToSend) -> str | None:
     """send one message to telegram"""
 
     message_content = message_to_send.message_content
@@ -223,9 +254,32 @@ def send_single_message(tg_api: TGApiBase, message_to_send: MessageToSend) -> st
     if message_to_send.message_type == 'text':
         message_params['chat_id'] = user_id
         message_params['text'] = message_content
+
+        if USE_VK_API and message_to_send.vk_id:
+            try:
+                logging.info(f'Sending message to VK: {message_to_send.vk_id=} {message_to_send=}')
+                vk_api.send(message_to_send.vk_id, message_to_send.message_id, message_content)
+            except Exception:
+                logging.exception(f'Sending message to VK: failed {message_to_send.vk_id=} {message_to_send=}')
+
+        # return 'completed'  # TODO
         return tg_api.send_message(message_params)
 
     elif message_to_send.message_type == 'coords':
+        if USE_VK_API and message_to_send.vk_id:
+            try:
+                logging.info(f'Sending message to VK: {message_to_send.vk_id=} {message_to_send=}')
+                vk_api.send(
+                    message_to_send.vk_id,
+                    message_to_send.message_id,
+                    '',
+                    lat=message_params['latitude'],
+                    long=message_params['latitude'],
+                )
+            except Exception:
+                logging.exception(f'Sending message to VK: failed {message_to_send.vk_id=} {message_to_send=}')
+
+        # return 'completed'  # TODO
         return tg_api.send_location(user_id, message_params['latitude'], message_params['longitude'])
     else:
         raise ValueError(f'unknown message_type: {message_to_send.message_type}')
@@ -247,7 +301,6 @@ def time_is_out(start: datetime.datetime) -> bool:
 
 
 def iterate_over_notifications(
-    session: requests.Session,
     function_id: int,
     time_analytics: TimeAnalytics,
 ) -> list[int]:
@@ -255,6 +308,7 @@ def iterate_over_notifications(
 
     set_of_change_ids: set[int] = set()
     tg_api = tg_api_main_account()
+    vk_api = get_default_vk_api_client()
     db_client = db()
 
     with ThreadPoolExecutor(max_workers=WORKERS_COUNT) as executor:
@@ -267,6 +321,9 @@ def iterate_over_notifications(
 
             # check if there are any non-notified users
             messages = db_client.get_notifs_to_send(select_doubling=False)
+            if USE_VK_API:
+                db_client.fill_vk_user_ids(messages)
+
             analytics_sql_duration = seconds_between_round_2(analytics_sql_start)
             logging.debug(f'time: {analytics_sql_duration:.2f} – reading sql')
 
@@ -281,6 +338,7 @@ def iterate_over_notifications(
                 executor.submit(
                     _process_message_sending,
                     tg_api,
+                    vk_api,
                     time_analytics,
                     set_of_change_ids,
                     message_to_send,
@@ -304,6 +362,7 @@ def iterate_over_notifications(
 
 def _process_message_sending(
     tg_api: TGApiBase,
+    vk_api: VKApi,
     time_analytics: TimeAnalytics,
     set_of_change_ids: set[int],
     message_to_send: MessageToSend,
@@ -316,7 +375,7 @@ def _process_message_sending(
 
     analytics_pre_sending_msg = datetime.datetime.now()
 
-    result = send_single_message(tg_api, message_to_send)
+    result = send_single_message(tg_api, vk_api, message_to_send)
 
     analytics_send_start_finish = seconds_between_round_2(analytics_pre_sending_msg)
     logging.debug(f'time: {analytics_send_start_finish:.2f} – sending msg')
@@ -423,8 +482,7 @@ def main(event: dict, context: Ctx) -> str | None:
         pool = sqlalchemy_get_pool()
         connection = pool.connect()
         with lock_manager(connection, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
-            with requests.Session() as session:
-                changed_ids = iterate_over_notifications(session, function_id, time_analytics)
+            changed_ids = iterate_over_notifications(function_id, time_analytics)
 
     except FunctionLockError:
         logging.info('script cancelled')

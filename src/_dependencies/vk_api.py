@@ -1,0 +1,48 @@
+from functools import cache
+from typing import Any
+
+import httpx
+
+from _dependencies.commons import get_app_config
+
+
+class VKApi:
+    API_VERSION = '5.199'
+
+    def __init__(self, token: str):
+        headers = {'Authorization': f'Bearer {token}'}
+        self._session = httpx.Client(base_url='https://api.vk.ru/', headers=headers)
+
+    def send(
+        self,
+        user_id: str,
+        random_id: int,
+        message: str = '',
+        lat: str = '',
+        long: str = '',
+        keyboard: str = '',
+    ) -> dict:
+        # https://dev.vk.com/ru/method/messages.send
+        query: dict[str, Any] = {
+            'user_id': user_id,
+            'random_id': random_id,
+            'v': self.API_VERSION,
+            'message': message,
+            'lat': lat,
+            'long': long,
+            'keyboard': keyboard,
+            # 'keyboard': '',  # https://dev.vk.com/ru/api/bots/development/keyboard
+        }
+
+        url = '/method/messages.send'
+        resp = self._session.post(url, json={}, params=query)
+        resp.raise_for_status()
+        resp_data = resp.json()
+        assert 'error' not in resp_data
+        return resp_data
+
+
+@cache
+def get_default_vk_api_client() -> VKApi:
+    config = get_app_config()
+    return VKApi(config.vk_api_key)
