@@ -2,12 +2,12 @@ name: Deploy-Archive-To-BigQuery
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'src/archive_to_bigquery/**'
-      - '.github/workflows/deploy_archive_to_bigquery.yml'
-      - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_yc.yml'
+      - "src/archive_to_bigquery/**"
+      - ".github/workflows/deploy_archive_to_bigquery.yml"
+      - "src/_dependencies/*"
+      - ".github/workflows/_reusable_wf_yc.yml"
 
 jobs:
   deploy:
@@ -15,5 +15,5 @@ jobs:
     secrets: inherit
     with:
       function_name: archive_to_bigquery
-      timeout: '540'
-      memory: '512Mb'
+      timeout: "1800"
+      memory: "1024Mb"
