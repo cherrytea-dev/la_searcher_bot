@@ -3,9 +3,11 @@ from tempfile import NamedTemporaryFile
 from unittest.mock import Mock, patch
 
 import pytest
+from sqlalchemy.orm.session import Session
 
 from archive_to_bigquery.main import Archiver, main
-from tests.factories.db_factories import NotifByUserHistoryFactory, faker
+from tests.common import find_model
+from tests.factories.db_factories import NotifByUserHistory, NotifByUserHistoryFactory, faker
 
 
 class TestArchiveNotifications:
@@ -31,15 +33,17 @@ class TestArchiveNotifications:
         NotifByUserHistoryFactory.create_batch_sync(3, created=datetime.now())
         main('event', 'context')
 
-    def test_records_unloaded(self, archiver: Archiver):
+    def test_records_unloaded(self, archiver: Archiver, session: Session):
         """unload old records"""
         records_count = 3
-        NotifByUserHistoryFactory.create_batch_sync(records_count, created=archiver.archive_date)
+        first_notif, *others = NotifByUserHistoryFactory.create_batch_sync(records_count, created=archiver.archive_date)
         unload_file_name = archiver._unload_records_to_csv()
 
         assert unload_file_name.startswith('/tmp')
 
+        assert find_model(session, NotifByUserHistory, message_id=first_notif.message_id)
         archiver._delete_old_records()
+        assert not find_model(session, NotifByUserHistory, message_id=first_notif.message_id)
 
     def test_no_records(self, archiver: Archiver):
         """records are not enough old to unload"""

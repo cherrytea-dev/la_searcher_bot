@@ -18,7 +18,7 @@ from _dependencies.pubsub import Ctx
 setup_logging(__package__)
 
 
-DAYS_AGO_TO_START = 7
+DAYS_AGO_TO_START = 40  # temporarily increase
 DAYS_AGO_TO_FINISH = 1  # at least 1 day ago to avoid timezone problems
 
 
@@ -84,7 +84,7 @@ class Archiver:
 
             with NamedTemporaryFile('w', delete=False) as f:
                 writer = csv.writer(f)
-                columns = [desc[0] for desc in result.cursor.description]
+                columns = (desc[0] for desc in result.cursor.description)
                 writer.writerow(columns)
                 writer.writerows(result)
 
