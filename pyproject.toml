@@ -17,6 +17,7 @@ dependencies = [
     "boto3>=1.38.27",
     "python-json-logger>=3.3.0",
     "yarl>=1.18.3",
+    "telethon",
 ]
 [dependency-groups]
 
@@ -135,3 +136,6 @@ plugins = ["pydantic.mypy"]
 init_forbid_extra = true
 init_typed = true
 warn_required_dynamic_aliases = true
+
+[tool.uv.sources]
+index = { url = "https://pypi.kontur.host" }
