@@ -140,6 +140,7 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
 
         for i, topic_updated in enumerate(results):
             if cancel_token.expired():
+                executor.shutdown(wait=False, cancel_futures=True)
                 break
 
             if topic_updated:
