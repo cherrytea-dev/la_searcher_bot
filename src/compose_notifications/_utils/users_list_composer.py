@@ -145,8 +145,7 @@ class UsersListComposer:
         duration_sql = round((analytics_sql_finish - analytics_start).total_seconds(), 2)
         logging.info(f'time: {analytics_prefix} sql – {duration_sql} sec')
 
-        logging.info(f'{users_short_version}')
-        users_short_version = list(users_short_version)
+        logging.debug(f'{users_short_version}')
 
         list_of_users: list[User] = []
 
@@ -160,12 +159,13 @@ class UsersListComposer:
                 user_in_multi_folders=line[6],
                 all_notifs=line[7],
                 radius=int(line[8]) if line[8] is not None else 0,
-                age_periods=line[9] if line[9] is not None else [],
+                age_periods=line[9] if line[9] is not None else list(),
             )
-            if line[5] == 'None' or line[5] is None:
-                new_line.user_new_search_notifs = 0
-            else:
+
+            try:
                 new_line.user_new_search_notifs = int(line[5])
+            except:
+                new_line.user_new_search_notifs = 0
 
             list_of_users.append(new_line)
 
@@ -235,11 +235,12 @@ class UserListFilter:
 
         for user_line in users_list_outcome:
             age_requirements_met = check_if_age_requirements_met(search_age_range, user_line.age_periods)
-            logging.info(
-                f'AGE CHECK for {user_line.user_id} is {"OK" if age_requirements_met else "FAIL"}, record {search_age_range}, '
-                f'user {user_line.age_periods}. record {record.forum_search_num}'
-            )
-            if age_requirements_met:
+            if not age_requirements_met:
+                logging.info(
+                    f'AGE CHECK for {user_line.user_id} is FAIL, record {search_age_range}, '
+                    f'user {user_line.age_periods}. record {record.forum_search_num}'
+                )
+            else:
                 temp_user_list.append(user_line)
 
         logging.info(f'User List crop due to ages: {len(users_list_outcome)} --> {len(temp_user_list)}')

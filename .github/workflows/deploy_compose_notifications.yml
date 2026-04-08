@@ -16,4 +16,4 @@ jobs:
     with:
       function_name: compose_notifications
       
-      timeout: '240'
+      timeout: '540'
