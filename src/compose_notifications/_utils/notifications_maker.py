@@ -1,6 +1,7 @@
 import datetime
 import logging
 import re
+from dataclasses import asdict, dataclass
 from typing import Any
 
 import sqlalchemy
@@ -16,6 +17,22 @@ from .commons import (
 )
 from .message_composer import MessageComposer
 
+
+@dataclass
+class NotificationRecord:
+    """Dataclass representing a notification record for batch insertion."""
+
+    mailing_id: int
+    user_id: int
+    message: str | None
+    message_without_html: str | None
+    message_type: str
+    message_params: str  # Already converted to string
+    change_log_id: int
+    created: datetime.datetime
+    message_group: int = 0
+
+
 CLEANER_RE = re.compile('<.*?>')
 
 RE_LIST_COORDS = re.compile(r'<code>')
@@ -30,6 +47,8 @@ class NotificationMaker:
         self.stat_list_of_recipients: list[int] = []  # list of users who received notification on new search
         self.new_record = new_record
         self.list_of_users = list_of_users
+        self._batch_buffer: list[NotificationRecord] = []
+        self._BATCH_SIZE = 100
 
     def generate_notifications_for_users(self, function_id: int) -> None:
         """initiates a full cycle for all messages composition for all the users"""
@@ -48,6 +67,8 @@ class NotificationMaker:
 
         for user in self.list_of_users:
             self.generate_notification_for_user(mailing_id, user)
+
+        self.flush_batch()
 
         # mark this line as all-processed
         new_record.processed = True
@@ -203,8 +224,28 @@ class NotificationMaker:
     ) -> None:
         """save to sql table notif_by_user the new message"""
 
-        # record into SQL table notif_by_user
-        sql_text_ = sqlalchemy.text("""
+        record = NotificationRecord(
+            mailing_id=mailing_id_,
+            user_id=user_id,
+            message=message,
+            message_without_html=message_without_html,
+            message_type=message_type,
+            message_params=str(message_params),
+            change_log_id=self.new_record.change_log_id,
+            created=datetime.datetime.now(),
+        )
+
+        self._batch_buffer.append(record)
+
+        if len(self._batch_buffer) >= self._BATCH_SIZE:
+            self.flush_batch()
+
+    def flush_batch(self) -> None:
+        """Flush the batch buffer to the database"""
+        if not self._batch_buffer:
+            return
+
+        sql_text = sqlalchemy.text("""
             INSERT INTO notif_by_user (
                 mailing_id,
                 user_id,
@@ -215,21 +256,23 @@ class NotificationMaker:
                 message_group_id,
                 change_log_id,
                 created)
-            VALUES (:a, :b, :c, :d, :e, :f, :g, :h, :i);
-                            """)
+            VALUES (
+                :mailing_id,
+                :user_id,
+                :message, 
+                :message_without_html,
+                :message_type,
+                :message_params, 
+                :message_group,
+                :change_log_id,
+                :created
+                    );
+        """)
 
-        self.conn.execute(
-            sql_text_,
-            a=mailing_id_,
-            b=user_id,
-            c=message,
-            d=message_without_html,
-            e=message_type,
-            f=str(message_params),
-            g=0,
-            h=self.new_record.change_log_id,
-            i=datetime.datetime.now(),
-        )
+        params_list = [asdict(record) for record in self._batch_buffer]
+        self.conn.execute(sql_text, params_list)
+        logging.debug(f'Flushed {len(self._batch_buffer)} records to notif_by_user table')
+        self._batch_buffer.clear()
 
     def record_notification_statistics(self) -> None:
         """records +1 into users' statistics of new searches notification. needed only for usability tips"""
@@ -325,7 +368,6 @@ def _extract_coordinates_from_message(user_message: str) -> None | tuple[str, st
         both_coordinates = re.search(RE_BOTH_COORDINATES, user_message).group()  # type:ignore[union-attr]
         new_lat = re.search(RE_LATITUDE, both_coordinates).group()  # type:ignore[union-attr]
         new_lon = re.search(RE_LONGITUDE, both_coordinates).group()  # type:ignore[union-attr]
+        return new_lat, new_lon
     except AttributeError:
         return None  # not found coordinates in the message, we should not send any message
-
-    return new_lat, new_lon

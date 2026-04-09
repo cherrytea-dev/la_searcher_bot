@@ -32,6 +32,7 @@ class TestNotificationMaker:
         mailing_id = composer.create_new_mailing_id()
 
         composer.generate_notification_for_user(mailing_id, user)
+        composer.flush_batch()
 
         query = session.query(db_models.NotifByUser).filter(
             db_models.NotifByUser.change_log_id == record.change_log_id,
@@ -62,6 +63,7 @@ class TestNotificationMaker:
         mailing_id = composer.create_new_mailing_id()
 
         composer.generate_notification_for_user(mailing_id, user)
+        composer.flush_batch()
 
         query = session.query(db_models.NotifByUser).filter(
             db_models.NotifByUser.change_log_id == record.change_log_id,
@@ -92,6 +94,7 @@ class TestNotificationMaker:
         mailing_id = composer.create_new_mailing_id()
 
         composer.generate_notification_for_user(mailing_id, user)
+        composer.flush_batch()
 
         query = session.query(db_models.NotifByUser).filter(
             db_models.NotifByUser.change_log_id == record.change_log_id,
