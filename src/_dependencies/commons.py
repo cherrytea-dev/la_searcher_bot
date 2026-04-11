@@ -40,6 +40,7 @@ class AppConfig(BaseSettings):
     aws_backup_bucket_name: str = 'la-backup-notifications'
     vk_api_key: str = ''  # TODO SecretStr
     my_vk_id: str = ''
+    vk_confirmation_code: str = ''
 
 
 @lru_cache

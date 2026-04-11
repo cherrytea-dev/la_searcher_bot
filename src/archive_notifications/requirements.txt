@@ -51,9 +51,9 @@ multidict==6.7.0
     # via yarl
 propcache==0.4.1
     # via yarl
-psycopg2-binary==2.9.5
+psycopg2-binary==2.9.11
     # via la-searcher-bot
-pydantic==2.12.4
+pydantic==2.12.5
     # via pydantic-settings
 pydantic-core==2.41.5
     # via pydantic
@@ -70,7 +70,9 @@ python-telegram-bot==21.11.1
 pytz==2021.1
     # via la-searcher-bot
 requests==2.32.5
-    # via la-searcher-bot
+    # via
+    #   la-searcher-bot
+    #   vk-api
 retry2==0.9.5
     # via la-searcher-bot
 s3transfer==0.15.0
@@ -103,5 +105,7 @@ urllib3==2.6.3
     # via
     #   botocore
     #   requests
+vk-api==11.10.0
+    # via la-searcher-bot
 yarl==1.18.3
     # via la-searcher-bot

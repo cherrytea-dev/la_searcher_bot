@@ -8,7 +8,7 @@ from polyfactory.factories import DataclassFactory
 from sqlalchemy.engine import Connection
 
 from _dependencies.telegram_api_wrapper import TGApiBase
-from _dependencies.vk_api import VKApi
+from _dependencies.vk_api_client import VKApi
 from send_notifications import main
 from tests.common import find_model, get_event_with_data
 from tests.factories.db_factories import NotifByUserFactory, get_session

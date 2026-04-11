@@ -6,6 +6,7 @@ from telegram import Bot
 from telegram.ext import Updater
 
 from communicate._utils.database import db
+from communicate._utils.message_sending import tg_api
 from communicate.main import process_update
 from tests.common import get_dotenv_config, patched_send_topic, setup_logging_to_console
 

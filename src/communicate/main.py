@@ -57,6 +57,7 @@ COMMON_HANDLERS = [
     button_handlers.handle_radius_menu,
     button_handlers.handle_radius_menu_show,
     button_handlers.handle_linking_to_forum_show_menu,
+    button_handlers.handle_linking_to_vk_show_menu,
     button_handlers.handle_linking_to_forum_its_me,
     button_handlers.handle_linking_to_forum_not_me,
     button_handlers.handle_test_admin_check,
