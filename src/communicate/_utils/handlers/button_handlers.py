@@ -447,6 +447,7 @@ def handle_main_settings(update_params: UpdateBasicParams, extra_params: UpdateE
         MainSettingsMenu.b_set_pref_radius,
         MainSettingsMenu.b_set_pref_age,
         MainSettingsMenu.b_set_forum_nick,
+        MainSettingsMenu.b_set_vkontakte_nick,
         b_back_to_start,
     ]  # #AK added b_set_forum_nick for issue #6
     return bot_message, create_one_column_reply_markup(keyboard)
@@ -803,6 +804,43 @@ def handle_linking_to_forum_show_menu(
         saved_forum_username, saved_forum_user_id = list(saved_forum_user)
 
         bot_message = (
+            f'Ваш телеграм уже привязан к аккаунту '
+            f'<a href="https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u='
+            f'{saved_forum_user_id}">{saved_forum_username}</a> '
+            f'на форуме ЛизаАлерт. Больше никаких действий касательно аккаунта на форуме не требуется:)'
+        )
+        keyboard = [MainMenu.b_settings, b_back_to_start]
+        return bot_message, create_one_column_reply_markup(keyboard)
+
+
+@button_handler(buttons=[MainSettingsMenu.b_set_vkontakte_nick])
+def handle_linking_to_vk_show_menu(
+    update_params: UpdateBasicParams, extra_params: UpdateExtraParams
+) -> HandlerResult | HandlerResultWithState:
+    """manage all interactions regarding connection of telegram and VKontakte user accounts"""
+
+    saved_vk_user_id = db().get_user_vk_id(update_params.user_id)
+
+    if not saved_vk_user_id:
+        bot_message = (
+            'TODO текст про то, что привязка к ВК позволит получать уведомления даже в случае неработоспособности телеграм'
+            ''
+            'Бот сможет быть еще полезнее, эффективнее и быстрее, если указать ваш аккаунт на форуме '
+            'lizaalert.org\n\n'
+            'Для этого просто введите ответным сообщением своё имя пользователя (логин).\n\n'
+            'Если возникнут ошибки при распознавании – просто скопируйте имя с форума и '
+            'отправьте боту ответным сообщением.'
+        )
+        keyboard = [b_back_to_start]
+        reply_markup = create_one_column_reply_markup(keyboard)
+        return bot_message, reply_markup, UserInputState.input_of_vk_login
+
+    else:
+        saved_forum_username, saved_forum_user_id = list(saved_vk_user_id)
+
+        bot_message = (
+            'TODO текст про то, что аккаунт VK уже привязан'
+            ''
             f'Ваш телеграм уже привязан к аккаунту '
             f'<a href="https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u='
             f'{saved_forum_user_id}">{saved_forum_username}</a> '

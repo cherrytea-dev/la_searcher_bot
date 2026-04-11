@@ -43,6 +43,23 @@ class VKApi:
         assert 'error' not in resp_data
         return resp_data
 
+    def ge_user_id_by_login(
+        self,
+        login: str,
+    ) -> dict:
+        # https://dev.vk.com/ru/method/users.get
+
+        query: dict[str, Any] = {
+            'user_ids': login,
+            'v': self.API_VERSION,
+        }
+        url = '/method/users.get'
+        resp = self._session.get(url, params=query)
+        resp.raise_for_status()
+        resp_data = resp.json()
+        assert 'error' not in resp_data
+        return resp_data
+
 
 @cache
 def get_default_vk_api_client() -> VKApi:

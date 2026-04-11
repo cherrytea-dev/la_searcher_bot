@@ -46,6 +46,7 @@ COMMON_HANDLERS = [
     state_handlers.handle_radius_value,
     state_handlers.handle_linking_to_forum_user_input,
     state_handlers.handle_user_coordinates_from_text,
+    state_handlers.handle_linking_to_vk_user_input,
     ###
     button_handlers.handle_command_start,
     button_handlers.handle_user_role,
@@ -57,6 +58,7 @@ COMMON_HANDLERS = [
     button_handlers.handle_radius_menu,
     button_handlers.handle_radius_menu_show,
     button_handlers.handle_linking_to_forum_show_menu,
+    button_handlers.handle_linking_to_vk_show_menu,
     button_handlers.handle_linking_to_forum_its_me,
     button_handlers.handle_linking_to_forum_not_me,
     button_handlers.handle_test_admin_check,
