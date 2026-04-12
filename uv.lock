@@ -713,6 +713,7 @@ dependencies = [
     { name = "requests" },
     { name = "retry2" },
     { name = "sqlalchemy" },
+    { name = "vk-api" },
     { name = "yarl" },
 ]
 
@@ -751,6 +752,9 @@ send-notifications = [
 title-recognize = [
     { name = "natasha" },
     { name = "python-dateutil" },
+]
+vk-bot = [
+    { name = "vk-api" },
 ]
 
 [package.dev-dependencies]
@@ -819,11 +823,13 @@ requires-dist = [
     { name = "urllib3", marker = "extra == 'connect-to-forum'", specifier = ">=2.6.3" },
     { name = "urllib3", marker = "extra == 'identify-updates-of-topics'", specifier = ">=2.6.3" },
     { name = "urllib3", marker = "extra == 'send-notifications'", specifier = ">=2.6.3" },
+    { name = "vk-api", specifier = ">=11.10.0" },
+    { name = "vk-api", marker = "extra == 'vk-bot'", specifier = ">=11.10.0" },
     { name = "yandex-geocoder", marker = "extra == 'identify-updates-of-topics'", specifier = "==3.0.1" },
     { name = "yarl", specifier = ">=1.18.3" },
     { name = "yarl", marker = "extra == 'identify-updates-of-topics'", specifier = "==1.18.3" },
 ]
-provides-extras = ["api-get-active-searches", "archive-notifications", "archive-to-bigquery", "check-topics-by-upd-time", "check-first-posts-for-changes", "communicate", "compose-notifications", "connect-to-forum", "identify-updates-of-first-posts", "identify-updates-of-topics", "send-debug-to-admin", "send-notifications", "title-recognize", "user-provide-info", "users-activate", "test-func"]
+provides-extras = ["api-get-active-searches", "archive-notifications", "archive-to-bigquery", "check-topics-by-upd-time", "check-first-posts-for-changes", "communicate", "compose-notifications", "connect-to-forum", "identify-updates-of-first-posts", "identify-updates-of-topics", "send-debug-to-admin", "send-notifications", "title-recognize", "user-provide-info", "users-activate", "test-func", "vk-bot"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -2086,6 +2092,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/8f/4d/bfd41bf087522601c724d712c3727aeb62f51b1f67c4ab86a078c3947525/uv-0.9.11-py3-none-win32.whl", hash = "sha256:af5fd91eecaa04b4799f553c726307200f45da844d5c7c5880d64db4debdd5dc", size = 19639246, upload-time = "2025-11-20T23:19:50.254Z" },
     { url = "https://files.pythonhosted.org/packages/2c/2f/d51c02627de68a7ca5b82f0a5d61d753beee3fe696366d1a1c5d5e40cd58/uv-0.9.11-py3-none-win_amd64.whl", hash = "sha256:c65a024ad98547e32168f3a52360fe73ff39cd609a8fb9dd2509aac91483cfc8", size = 21626822, upload-time = "2025-11-20T23:19:54.424Z" },
     { url = "https://files.pythonhosted.org/packages/af/d8/e07e866ee328d3c9f27a6d57a018d8330f47be95ef4654a178779c968a66/uv-0.9.11-py3-none-win_arm64.whl", hash = "sha256:4907a696c745703542ed2559bdf5380b92c8b1d4bf290ebfed45bf9a2a2c6690", size = 20046856, upload-time = "2025-11-20T23:19:58.517Z" },
+]
+
+[[package]]
+name = "vk-api"
+version = "11.10.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1d/19/1c2733571bb38f8846d6048eb6c756b7651960c73561741ccdb41f6c31bf/vk_api-11.10.0.tar.gz", hash = "sha256:a63fbd7d7a9d39348638d3eade49f964e8ebeba0898a070b03a7f082dbf5d112", size = 46642, upload-time = "2025-07-18T17:08:00.324Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/92/ac/4d14b592c62a18c0d5441105f284db4211f39904d65509ce98df7981a872/vk_api-11.10.0-py3-none-any.whl", hash = "sha256:2032127a64433c307559a0f8d2501eea1415dcfd5408fc398b1e837b6fcfbfe1", size = 53994, upload-time = "2025-07-18T17:07:59.146Z" },
 ]
 
 [[package]]

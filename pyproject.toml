@@ -17,6 +17,7 @@ dependencies = [
     "boto3>=1.38.27",
     "python-json-logger>=3.3.0",
     "yarl>=1.18.3",
+    "vk-api>=11.10.0",
 ]
 [dependency-groups]
 
@@ -110,6 +111,8 @@ user_provide_info = []
 users_activate = []
 
 test_func = []
+
+vk_bot = ["vk-api>=11.10.0"]
 
 [tool.ruff]
 line-length = 120
