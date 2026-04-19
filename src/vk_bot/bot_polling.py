@@ -29,36 +29,31 @@ def main() -> None:
 
 
 def process_incoming_message(vk: VkApiMethod, event: Event) -> None:
-    # event.from_admin
-    # event.message
-    # event.peer_id
-    # event.from_user
-    # event.text
     if event.from_me:
         return
 
-    random_id = random.randint(0, 10_000_000)
     msg = event.text.lower()
-    vk_user_id = event.user_id
 
     telegram_user_id, secret = get_invite_from_message(msg)
+    if not telegram_user_id:
+        return
 
-    if telegram_user_id:
-        if make_invite_text_for_user(telegram_user_id).lower() != msg:
-            logging.warning(f'invite hash wrong for telegram user {telegram_user_id}')
-            return
-        try:
-            db().set_user_vk_id(telegram_user_id, vk_user_id)
-            message = (
-                'Ваш акаунт связан с аккаунтом в Телеграм. \n'
-                'Вы будете получать здесь уведомления о поисках с теми же настройками, которые заданы в Телеграм'
-            )
-            vk.messages.send(user_id=vk_user_id, message=message, random_id=random_id)
-        except:
-            logging.exception("can't connect VK and Telegram users")
-            vk.messages.send(
-                user_id=vk_user_id, message='не удалось привязать пользователя Телеграм', random_id=random_id
-            )
+    if make_invite_text_for_user(telegram_user_id).lower() != msg:
+        logging.warning(f'invite hash wrong for telegram user {telegram_user_id}')
+        return
+
+    random_id = random.randint(0, 10_000_000)
+    vk_user_id = event.user_id
+    try:
+        db().set_user_vk_id(telegram_user_id, vk_user_id)
+        message = (
+            'Ваш акаунт связан с аккаунтом в Телеграм. \n'
+            'Вы будете получать здесь уведомления о поисках с теми же настройками, которые заданы в Телеграм'
+        )
+        vk.messages.send(user_id=vk_user_id, message=message, random_id=random_id)
+    except:
+        logging.exception("can't connect VK and Telegram users")
+        vk.messages.send(user_id=vk_user_id, message='не удалось привязать пользователя Телеграм', random_id=random_id)
 
 
 def get_invite_from_message(message: str) -> tuple[int, str] | tuple[None, None]:

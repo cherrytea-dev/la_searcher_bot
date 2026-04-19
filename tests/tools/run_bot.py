@@ -28,25 +28,6 @@ if __name__ == '__main__':
     setup_logging_to_console()
     logging.info('hello')
 
-    # bot_message = (
-    #     'Откройте чат в VK по кнопке ниже \n'
-    #     f'и вставьте туда следующий текст: `user_id: {196282174}`'
-    # )
-    # # keyboard = [b_back_to_start]
-    # # reply_markup = create_one_column_reply_markup(keyboard)
-
-    # from telegram import ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
-    # btn = InlineKeyboardButton(text="Чат в VK", url="https://m.vk.com/write-237036024")
-    # markup = InlineKeyboardMarkup([[btn]])
-    # params = {
-    #     'chat_id': 196282174,
-    #     'text': bot_message,
-    #     'parse_mode': 'markdown',
-    #     'disable_web_page_preview': True,
-    #     'reply_markup': markup,
-    # }
-    # tg_api().send_message(params)
-
     with (
         patch('_dependencies.commons._get_config', get_dotenv_config),
         # patch('_dependencies.pubsub.send_topic_google', patched_send_topic),

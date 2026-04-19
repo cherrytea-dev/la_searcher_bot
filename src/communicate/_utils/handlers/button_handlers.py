@@ -822,7 +822,7 @@ def handle_linking_to_vk_show_menu(
 
     saved_vk_user_id = db().get_user_vk_id(update_params.user_id)
 
-    if not saved_vk_user_id or True:
+    if not saved_vk_user_id:
         send_invite_vk_message_to_user(update_params.user_id)
         keyboard = [b_back_to_start]
         reply_markup = create_one_column_reply_markup(keyboard)
