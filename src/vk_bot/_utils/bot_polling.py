@@ -57,6 +57,7 @@ def process_incoming_message(vk: VkApiMethod, event: Event) -> None:
     msg = event.text.lower()
 
     telegram_user_id, secret = get_invite_from_message(msg)
+    vk.messages.mark_as_read(peer_id=event.peer_id)
     if not telegram_user_id:
         return
 
@@ -73,6 +74,7 @@ def process_incoming_message(vk: VkApiMethod, event: Event) -> None:
             'Вы будете получать здесь уведомления о поисках с теми же настройками, которые заданы в Телеграм'
         )
         vk.messages.send(user_id=vk_user_id, message=message, random_id=random_id)
+
     except:
         logging.exception("can't connect VK and Telegram users")
         vk.messages.send(user_id=vk_user_id, message='не удалось привязать пользователя Телеграм', random_id=random_id)
@@ -93,7 +95,7 @@ def get_invite_from_message(message: str) -> tuple[int, str] | tuple[None, None]
     return None, None
 
 
-if __name__ == '__main__':
+def run_polling() -> None:
     vk_session = vk_api.VkApi(token=get_app_config().vk_api_key)
     vk = vk_session.get_api()
     longpoll = VkLongPoll(vk_session)

@@ -70,3 +70,4 @@ jobs:
             AWS_SECRET_ACCESS_KEY=${{ secrets.YC_AWS_SECRET_ACCESS_KEY }}
             TITLE_RECOGNIZE_URL=${{ secrets.YC_TITLE_RECOGNIZE_URL }}
             VK_API_KEY=${{ secrets.VK_API_KEY }}
+            VK_CONFIRMATION_CODE=${{ secrets.VK_CONFIRMATION_CODE }}
