@@ -11,7 +11,8 @@ from _dependencies.vk_api import VKApi
 from tests.common import find_model, get_event_with_data
 from tests.factories.db_factories import NotifByUserFactory, UserFactory, get_session
 from tests.factories.db_models import User
-from vk_bot import bot_polling, main
+from vk_bot import main
+from vk_bot._utils import bot_polling
 
 
 @pytest.fixture(scope='session')

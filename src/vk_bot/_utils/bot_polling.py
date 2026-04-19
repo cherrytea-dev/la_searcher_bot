@@ -19,13 +19,35 @@ from _dependencies.telegram_api_wrapper import make_invite_text_for_user
 random.seed()
 
 
-def main() -> None:
-    vk_session = vk_api.VkApi(token=get_app_config().vk_api_key)
-    vk = vk_session.get_api()
-    longpoll = VkLongPoll(vk_session)
-    for event in longpoll.listen():
-        if event.type == VkEventType.MESSAGE_NEW:
-            process_incoming_message(vk, event)
+@dataclass
+class DBClient:
+    _pool: Engine
+
+    @contextmanager
+    def connect(self) -> Iterator[Connection]:
+        with self._pool.connect() as connection:
+            yield connection
+
+    def set_user_vk_id(self, telegram_user_id: int, vk_id: str) -> None:
+        """Write user's VKontakte id"""
+
+        with self.connect() as connection:
+            stmt = sqlalchemy.text("""
+                UPDATE users 
+                SET vk_id=:vk_id 
+                where user_id=:user_id;
+                                   """)
+            result = connection.execute(stmt, user_id=telegram_user_id, vk_id=vk_id)
+            rows = result.fetchone()
+            if rows:
+                return rows[0]
+            else:
+                return None
+
+
+@lru_cache
+def db() -> 'DBClient':
+    return DBClient(_pool=sqlalchemy_get_pool())
 
 
 def process_incoming_message(vk: VkApiMethod, event: Event) -> None:
@@ -71,32 +93,10 @@ def get_invite_from_message(message: str) -> tuple[int, str] | tuple[None, None]
     return None, None
 
 
-@dataclass
-class DBClient:
-    _pool: Engine
-
-    @contextmanager
-    def connect(self) -> Iterator[Connection]:
-        with self._pool.connect() as connection:
-            yield connection
-
-    def set_user_vk_id(self, telegram_user_id: int, vk_id: str) -> None:
-        """Write user's VKontakte id"""
-
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""UPDATE users SET vk_id=:vk_id where user_id=:user_id;""")
-            result = connection.execute(stmt, user_id=telegram_user_id, vk_id=vk_id)
-            rows = result.fetchone()
-            if rows:
-                return rows[0]
-            else:
-                return None
-
-
-@lru_cache
-def db() -> 'DBClient':
-    return DBClient(_pool=sqlalchemy_get_pool())
-
-
 if __name__ == '__main__':
-    main()
+    vk_session = vk_api.VkApi(token=get_app_config().vk_api_key)
+    vk = vk_session.get_api()
+    longpoll = VkLongPoll(vk_session)
+    for event in longpoll.listen():
+        if event.type == VkEventType.MESSAGE_NEW:
+            process_incoming_message(vk, event)
