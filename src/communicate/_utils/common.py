@@ -50,7 +50,6 @@ class UserInputState(str, Enum):
     radius_input = 'radius_input'
     input_of_coords_man = 'input_of_coords_man'
     input_of_forum_username = 'input_of_forum_username'
-    input_of_vk_login = 'input_of_vk_login'
     not_defined = 'not_defined'
 
 

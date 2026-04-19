@@ -18,7 +18,7 @@ from _dependencies.commons import get_app_config, sqlalchemy_get_pool
 random.seed()
 
 
-def main():
+def main() -> None:
     vk_session = vk_api.VkApi(token=get_app_config().vk_api_key)
     vk = vk_session.get_api()
     longpoll = VkLongPoll(vk_session)
@@ -82,7 +82,10 @@ class DBClient:
             stmt = sqlalchemy.text("""UPDATE users SET vk_id=:vk_id where user_id=:user_id;""")
             result = connection.execute(stmt, user_id=telegram_user_id, vk_id=vk_id)
             rows = result.fetchone()
-            return rows[0] if rows else None
+            if rows:
+                return rows[0]
+            else:
+                return None
 
 
 @lru_cache

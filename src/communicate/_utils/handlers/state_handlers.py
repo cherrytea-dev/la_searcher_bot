@@ -83,29 +83,6 @@ def handle_linking_to_forum_user_input(
     return bot_message, reply_markup
 
 
-@state_handler(UserInputState.input_of_vk_login)
-def handle_linking_to_vk_user_input(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
-    """manage all interactions regarding connection of telegram and VKontakte accounts"""
-
-    login = update_params.got_message
-    if not login or update_params.got_message in {b_admin_menu, b_back_to_start, b_test_menu}:
-        return 'Неправильный логин, попробуйте еще раз', reply_markup_main
-
-    from _dependencies.vk_api import get_default_vk_api_client
-
-    vk_api = get_default_vk_api_client()
-    res = vk_api.ge_user_id_by_login(login)
-    if res:
-        vk_user_id = res['response'][0]['id']  # TODO need more high-level responses
-        db().set_user_vk_id(update_params.user_id, vk_user_id)
-
-        bot_message = 'Аккаунты успешно связаны.'
-        keyboard = [b_back_to_start]
-        reply_markup = create_one_column_reply_markup(keyboard)
-        return bot_message, reply_markup
-    return 'Что-то пошло не так', [b_back_to_start]
-
-
 @state_handler(UserInputState.input_of_coords_man)
 def handle_user_coordinates_from_text(
     update_params: UpdateBasicParams, extra_params: UpdateExtraParams

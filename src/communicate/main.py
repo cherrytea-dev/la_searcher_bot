@@ -46,7 +46,6 @@ COMMON_HANDLERS = [
     state_handlers.handle_radius_value,
     state_handlers.handle_linking_to_forum_user_input,
     state_handlers.handle_user_coordinates_from_text,
-    state_handlers.handle_linking_to_vk_user_input,
     ###
     button_handlers.handle_command_start,
     button_handlers.handle_user_role,

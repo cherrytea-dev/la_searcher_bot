@@ -106,4 +106,4 @@ def main(request: RequestWrapper, *args: Any, **kwargs: Any) -> ResponseWrapper:
 
     logging.info(request)
 
-    return 'ok'
+    return ResponseWrapper('ok')

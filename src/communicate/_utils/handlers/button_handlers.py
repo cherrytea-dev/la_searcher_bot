@@ -822,29 +822,32 @@ def handle_linking_to_vk_show_menu(
     saved_vk_user_id = db().get_user_vk_id(update_params.user_id)
 
     if not saved_vk_user_id:
-        bot_message = (
-            'TODO текст про то, что привязка к ВК позволит получать уведомления даже в случае неработоспособности телеграм'
-            ''
-            'Бот сможет быть еще полезнее, эффективнее и быстрее, если указать ваш аккаунт на форуме '
-            'lizaalert.org\n\n'
-            'Для этого просто введите ответным сообщением своё имя пользователя (логин).\n\n'
-            'Если возникнут ошибки при распознавании – просто скопируйте имя с форума и '
-            'отправьте боту ответным сообщением.'
-        )
+        user_invite_text = f'telegram_id: {update_params.user_id}'
+        bot_message = f'Откройте чат в VK по кнопке ниже \n и вставьте туда следующий текст: `{user_invite_text}`'
+        btn_open_vk_chat = InlineKeyboardButton(text='Чат в VK', url='https://m.vk.com/write-237036024')
+        inline_markup = InlineKeyboardMarkup([[btn_open_vk_chat]])
+
         keyboard = [b_back_to_start]
         reply_markup = create_one_column_reply_markup(keyboard)
-        return bot_message, reply_markup, UserInputState.input_of_vk_login
+
+        params = {
+            'chat_id': update_params.user_id,
+            'text': bot_message,
+            'parse_mode': 'markdown',
+            'disable_web_page_preview': True,
+            'reply_markup': inline_markup,
+        }
+        tg_api().send_message(params)
+
+        return (
+            'После того, как вы отправите скопированный текст в чате VK,'
+            ' бот начнет присылать вам уведомления по текущим настройкам.',
+            reply_markup,
+        )
 
     else:
         saved_forum_username, saved_forum_user_id = list(saved_vk_user_id)
 
-        bot_message = (
-            'TODO текст про то, что аккаунт VK уже привязан'
-            ''
-            f'Ваш телеграм уже привязан к аккаунту '
-            f'<a href="https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u='
-            f'{saved_forum_user_id}">{saved_forum_username}</a> '
-            f'на форуме ЛизаАлерт. Больше никаких действий касательно аккаунта на форуме не требуется:)'
-        )
+        bot_message = 'Ваши аккаунты в Telegram и в VK уже связаны'
         keyboard = [MainMenu.b_settings, b_back_to_start]
         return bot_message, create_one_column_reply_markup(keyboard)
