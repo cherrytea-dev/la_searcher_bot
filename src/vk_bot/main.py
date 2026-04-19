@@ -1,7 +1,7 @@
 import logging
 import random
-from functools import lru_cache
 from contextlib import suppress
+from functools import lru_cache
 from typing import Any
 
 import vk_api

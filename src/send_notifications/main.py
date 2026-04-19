@@ -19,7 +19,7 @@ from _dependencies.lock_manager import FunctionLockError, lock_manager
 from _dependencies.misc import generate_random_function_id, tg_api_main_account
 from _dependencies.pubsub import Ctx, notify_admin, pubsub_send_notifications
 from _dependencies.telegram_api_wrapper import TGApiBase
-from _dependencies.vk_api import VKApi, get_default_vk_api_client
+from _dependencies.vk_api_client import VKApi, get_default_vk_api_client
 
 setup_logging(__package__)
 
