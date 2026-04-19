@@ -12,6 +12,7 @@ from telegram import (
 
 from _dependencies.commons import add_tel_link, get_app_config
 from _dependencies.pubsub import notify_admin
+from _dependencies.telegram_api_wrapper import make_invite_text_for_user
 from _dependencies.users_management import save_onboarding_step
 
 from ..buttons import (
@@ -821,23 +822,10 @@ def handle_linking_to_vk_show_menu(
 
     saved_vk_user_id = db().get_user_vk_id(update_params.user_id)
 
-    if not saved_vk_user_id:
-        user_invite_text = f'telegram_id: {update_params.user_id}'
-        bot_message = f'Откройте чат в VK по кнопке ниже \n и вставьте туда следующий текст: `{user_invite_text}`'
-        btn_open_vk_chat = InlineKeyboardButton(text='Чат в VK', url='https://m.vk.com/write-237036024')
-        inline_markup = InlineKeyboardMarkup([[btn_open_vk_chat]])
-
+    if not saved_vk_user_id or True:
+        send_invite_vk_message_to_user(update_params.user_id)
         keyboard = [b_back_to_start]
         reply_markup = create_one_column_reply_markup(keyboard)
-
-        params = {
-            'chat_id': update_params.user_id,
-            'text': bot_message,
-            'parse_mode': 'markdown',
-            'disable_web_page_preview': True,
-            'reply_markup': inline_markup,
-        }
-        tg_api().send_message(params)
 
         return (
             'После того, как вы отправите скопированный текст в чате VK,'
@@ -851,3 +839,20 @@ def handle_linking_to_vk_show_menu(
         bot_message = 'Ваши аккаунты в Telegram и в VK уже связаны'
         keyboard = [MainMenu.b_settings, b_back_to_start]
         return bot_message, create_one_column_reply_markup(keyboard)
+
+
+def send_invite_vk_message_to_user(user_id: int) -> None:
+    user_invite_text = make_invite_text_for_user(user_id)
+
+    bot_message = f'Откройте чат в VK по кнопке ниже \n и вставьте туда следующий текст: `{user_invite_text}`'
+    btn_open_vk_chat = InlineKeyboardButton(text='Чат в VK', url='https://m.vk.com/write-237036024')
+    inline_markup = InlineKeyboardMarkup([[btn_open_vk_chat]])
+
+    params = {
+        'chat_id': user_id,
+        'text': bot_message,
+        'parse_mode': 'markdown',
+        'disable_web_page_preview': True,
+        'reply_markup': inline_markup,
+    }
+    tg_api().send_message(params)

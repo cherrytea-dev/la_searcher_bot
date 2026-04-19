@@ -14,6 +14,7 @@ from vk_api.longpoll import Event, VkEventType, VkLongPoll
 from vk_api.vk_api import VkApiMethod
 
 from _dependencies.commons import get_app_config, sqlalchemy_get_pool
+from _dependencies.telegram_api_wrapper import make_invite_text_for_user
 
 random.seed()
 
@@ -40,30 +41,39 @@ def process_incoming_message(vk: VkApiMethod, event: Event) -> None:
     msg = event.text.lower()
     vk_user_id = event.user_id
 
-    if telegram_user_id := get_invite_from_message(msg):
+    telegram_user_id, secret = get_invite_from_message(msg)
+
+    if telegram_user_id:
+        if make_invite_text_for_user(telegram_user_id).lower() != msg:
+            logging.warning(f'invite hash wrong for telegram user {telegram_user_id}')
+            return
         try:
             db().set_user_vk_id(telegram_user_id, vk_user_id)
-            vk.messages.send(user_id=vk_user_id, message='got invite', random_id=random_id)
+            message = (
+                'Ваш акаунт связан с аккаунтом в Телеграм. \n'
+                'Вы будете получать здесь уведомления о поисках с теми же настройками, которые заданы в Телеграм'
+            )
+            vk.messages.send(user_id=vk_user_id, message=message, random_id=random_id)
         except:
             logging.exception("can't connect VK and Telegram users")
-            vk.messages.send(user_id=vk_user_id, message='something got wrong', random_id=random_id)
-    else:
-        vk.messages.send(user_id=vk_user_id, message='cant recognize invite', random_id=random_id)
+            vk.messages.send(
+                user_id=vk_user_id, message='не удалось привязать пользователя Телеграм', random_id=random_id
+            )
 
 
-def get_invite_from_message(message: str) -> int | None:
+def get_invite_from_message(message: str) -> tuple[int, str] | tuple[None, None]:
     """
     Pattern: telegram_id: <digits> invite_hash: <alphanumeric>
     The message may have extra text before/after, and spacing may vary.
     Use case-insensitive search (message is already lowercased in caller).
     """
-    match = re.search(r'telegram_id:\s*(\d+)', message, re.IGNORECASE)
+    match = re.search(r'telegram_id:\s*(\d+) invite_hash:\s*(\w+)', message, re.IGNORECASE)
     if match:
         try:
-            return int(match.group(1))
+            return int(match.group(1)), match.group(2)
         except ValueError:
-            return None
-    return None
+            return None, None
+    return None, None
 
 
 @dataclass
