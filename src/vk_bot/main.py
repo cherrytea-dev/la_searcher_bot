@@ -30,19 +30,30 @@ def _get_vk_session() -> vk_api.VkApi:
     return vk_session
 
 
-@request_response_converter
-def main(request: RequestWrapper, *args: Any, **kwargs: Any) -> ResponseWrapper:
+@lru_cache
+def _get_longpoll():
+    vk_session = _get_vk_session()
+    longpoll = VkLongPoll(vk_session)
+    return longpoll
+
+
+def main_raw(request: RequestWrapper, *args: Any, **kwargs: Any) -> ResponseWrapper:
+    # Cannot convert Flask request to Event. So we'll use endpoint just as trigger to run polling.
     logging.info(request)
 
     with suppress(Exception):
-        if request.json_['group_id'] == 237036024:
+        if request['type'] == 'confirmation' and request.json_['group_id'] == 237036024:
             # confirmation, run once
-            return ResponseWrapper('77e4eb27')
+            return ResponseWrapper('97153b4d')
 
     vk_session = _get_vk_session()
     vk = vk_session.get_api()
 
-    event = Event(request.json_)
-    process_incoming_message(vk, event)
+    for event in _get_longpoll().check():
+        if event.type == VkEventType.MESSAGE_NEW:
+            process_incoming_message(vk, event)
 
-    return ResponseWrapper('ok')
+    return ResponseWrapper('fail')
+
+
+main = request_response_converter(main_raw)
