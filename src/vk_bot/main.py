@@ -39,6 +39,7 @@ def _get_longpoll() -> VkLongPoll:
 
 @request_response_converter
 def main(request: RequestWrapper, *args: Any, **kwargs: Any) -> ResponseWrapper:
+    logging.info('Incoming http request %s', request)
     return ResponseWrapper(data=main_raw(request.json_))  # type:ignore[arg-type]
 
 

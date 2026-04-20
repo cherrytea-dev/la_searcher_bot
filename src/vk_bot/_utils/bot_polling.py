@@ -37,12 +37,7 @@ class DBClient:
                 SET vk_id=:vk_id 
                 where user_id=:user_id;
                                    """)
-            result = connection.execute(stmt, user_id=telegram_user_id, vk_id=vk_id)
-            rows = result.fetchone()
-            if rows:
-                return rows[0]
-            else:
-                return None
+            connection.execute(stmt, user_id=telegram_user_id, vk_id=vk_id)
 
 
 @lru_cache
