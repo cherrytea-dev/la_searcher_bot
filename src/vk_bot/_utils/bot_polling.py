@@ -99,7 +99,7 @@ def process_incoming_message(vk: VkApiMethod, event: Event) -> None:
 
 def process_incoming_message_2(event: UpdateEvent) -> None:
     logging.info('processing message %s', event)
-    if event.from_me:
+    if event.object.message.from_id == event.group_id:
         return
 
     msg = event.object.message.text.lower()
@@ -115,7 +115,7 @@ def process_incoming_message_2(event: UpdateEvent) -> None:
         return
 
     random_id = random.randint(0, 10_000_000)
-    vk_user_id = event.user_id
+    vk_user_id = event.object.message.from_id
     try:
         logging.info('connecting user %s', telegram_user_id)
         db().set_user_vk_id(telegram_user_id, vk_user_id)
