@@ -51,12 +51,14 @@ def db() -> 'DBClient':
 
 
 def process_incoming_message(vk: VkApiMethod, event: Event) -> None:
+    logging.info('processing message %s', event)
     if event.from_me:
         return
 
     msg = event.text.lower()
 
     telegram_user_id, secret = get_invite_from_message(msg)
+    logging.info('got invite from user %s', telegram_user_id)
     vk.messages.mark_as_read(peer_id=event.peer_id)
     if not telegram_user_id:
         return
@@ -68,6 +70,7 @@ def process_incoming_message(vk: VkApiMethod, event: Event) -> None:
     random_id = random.randint(0, 10_000_000)
     vk_user_id = event.user_id
     try:
+        logging.info('connecting user %s', telegram_user_id)
         db().set_user_vk_id(telegram_user_id, vk_user_id)
         message = (
             'Ваш акаунт связан с аккаунтом в Телеграм. \n'

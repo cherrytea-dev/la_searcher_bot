@@ -834,8 +834,6 @@ def handle_linking_to_vk_show_menu(
         )
 
     else:
-        saved_forum_username, saved_forum_user_id = list(saved_vk_user_id)
-
         bot_message = 'Ваши аккаунты в Telegram и в VK уже связаны'
         keyboard = [MainMenu.b_settings, b_back_to_start]
         return bot_message, create_one_column_reply_markup(keyboard)
