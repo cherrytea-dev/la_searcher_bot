@@ -51,10 +51,13 @@ def main_raw(request: dict) -> str:
             return get_app_config().vk_confirmation_code
 
     # Cannot convert Flask request to Event. So we'll use endpoint just as trigger to run polling.
+    logging.info('getting session')
     vk_session = _get_vk_session()
     vk = vk_session.get_api()
 
+    logging.info('checking updates')
     for event in _get_longpoll().check():
+        logging.info('got event %s', event)
         if event.type == VkEventType.MESSAGE_NEW:
             process_incoming_message(vk, event)
 
