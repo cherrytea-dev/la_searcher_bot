@@ -9,14 +9,33 @@ from typing import Iterator, List
 
 import sqlalchemy
 import vk_api
+from pydantic import BaseModel
 from sqlalchemy.engine.base import Connection, Engine
 from vk_api.longpoll import Event, VkEventType, VkLongPoll
 from vk_api.vk_api import VkApiMethod
 
 from _dependencies.commons import get_app_config, sqlalchemy_get_pool
 from _dependencies.telegram_api_wrapper import make_invite_text_for_user
+from _dependencies.vk_api_client import get_default_vk_api_client
 
 random.seed()
+
+
+class EventMessage(BaseModel):
+    text: str
+    from_id: int
+    peer_id: int
+
+
+class EventObject(BaseModel):
+    client_info: dict | None = None
+    message: EventMessage | None = None
+
+
+class UpdateEvent(BaseModel):
+    type: str
+    object: EventObject
+    group_id: int
 
 
 @dataclass
@@ -76,6 +95,43 @@ def process_incoming_message(vk: VkApiMethod, event: Event) -> None:
     except:
         logging.exception("can't connect VK and Telegram users")
         vk.messages.send(user_id=vk_user_id, message='не удалось привязать пользователя Телеграм', random_id=random_id)
+
+
+def process_incoming_message_2(event: UpdateEvent) -> None:
+    logging.info('processing message %s', event)
+    if event.from_me:
+        return
+
+    msg = event.object.message.text.lower()
+
+    telegram_user_id, secret = get_invite_from_message(msg)
+    logging.info('got invite from user %s', telegram_user_id)
+    # vk.messages.mark_as_read(peer_id=event.peer_id)
+    if not telegram_user_id:
+        return
+
+    if make_invite_text_for_user(telegram_user_id).lower() != msg:
+        logging.warning(f'invite hash wrong for telegram user {telegram_user_id}')
+        return
+
+    random_id = random.randint(0, 10_000_000)
+    vk_user_id = event.user_id
+    try:
+        logging.info('connecting user %s', telegram_user_id)
+        db().set_user_vk_id(telegram_user_id, vk_user_id)
+        message = (
+            'Ваш акаунт связан с аккаунтом в Телеграм. \n'
+            'Вы будете получать здесь уведомления о поисках с теми же настройками, которые заданы в Телеграм'
+        )
+        get_default_vk_api_client().send(user_id=vk_user_id, message=message, random_id=random_id)
+        # vk.messages.send(user_id=vk_user_id, message=message, random_id=random_id)
+
+    except:
+        logging.exception("can't connect VK and Telegram users")
+        get_default_vk_api_client().send(
+            user_id=vk_user_id, message='не удалось привязать пользователя Телеграм', random_id=random_id
+        )
+        # vk.messages.send(user_id=vk_user_id, message='не удалось привязать пользователя Телеграм', random_id=random_id)
 
 
 def get_invite_from_message(message: str) -> tuple[int, str] | tuple[None, None]:
