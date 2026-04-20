@@ -136,12 +136,7 @@ class DBClient:
 
         with self.connect() as connection:
             stmt = sqlalchemy.text("""UPDATE users SET vk_id=:vk_id where user_id=:user_id;""")
-            result = connection.execute(stmt, user_id=user_id, vk_id=vk_id)
-            rows = result.fetchone()
-            if rows:
-                return rows[0]
-            else:
-                return None
+            connection.execute(stmt, user_id=user_id, vk_id=vk_id)
 
     def is_user_tester(self, user_id: int) -> bool:
         return 'tester' in self.get_user_sys_roles(user_id)
