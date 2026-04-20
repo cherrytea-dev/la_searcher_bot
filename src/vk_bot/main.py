@@ -18,7 +18,7 @@ from _dependencies.misc import (
 )
 from _dependencies.telegram_api_wrapper import make_invite_text_for_user
 
-from ._utils.bot_polling import process_incoming_message
+from ._utils.bot_polling import UpdateEvent, process_incoming_message, process_incoming_message_2
 
 setup_logging(__package__)
 random.seed()
@@ -51,15 +51,17 @@ def main_raw(request: dict) -> str:
             # confirmation, run once
             return get_app_config().vk_confirmation_code
 
+    event = UpdateEvent.model_validate(request)
+    process_incoming_message_2(event)
     # Cannot convert Flask request to Event. So we'll use endpoint just as trigger to run polling.
-    logging.info('getting session')
-    vk_session = _get_vk_session()
-    vk = vk_session.get_api()
+    # logging.info('getting session')
+    # vk_session = _get_vk_session()
+    # vk = vk_session.get_api()
 
-    logging.info('checking updates')
-    for event in _get_longpoll().check():
-        logging.info('got event %s', event)
-        if event.type == VkEventType.MESSAGE_NEW:
-            process_incoming_message(vk, event)
+    # logging.info('checking updates')
+    # for event in _get_longpoll().check():
+    #     logging.info('got event %s', event)
+    #     if event.type == VkEventType.MESSAGE_NEW:
+    #         process_incoming_message(vk, event)
 
     return 'ok'
