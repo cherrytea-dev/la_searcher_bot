@@ -123,6 +123,26 @@ class DBClient:
 
             return None
 
+    def get_user_vk_id(self, user_id: int) -> str | None:
+        """Return user's VKontakte id"""
+        with self.connect() as connection:
+            stmt = sqlalchemy.text('SELECT vk_id FROM users WHERE user_id=:user_id LIMIT 1;')
+            result = connection.execute(stmt, user_id=user_id)
+            rows = result.fetchone()
+            return rows[0] if rows else None
+
+    def set_user_vk_id(self, user_id: int, vk_id: str) -> None:
+        """Write user's VKontakte id"""
+
+        with self.connect() as connection:
+            stmt = sqlalchemy.text("""UPDATE users SET vk_id=:vk_id where user_id=:user_id;""")
+            result = connection.execute(stmt, user_id=user_id, vk_id=vk_id)
+            rows = result.fetchone()
+            if rows:
+                return rows[0]
+            else:
+                return None
+
     def is_user_tester(self, user_id: int) -> bool:
         return 'tester' in self.get_user_sys_roles(user_id)
 

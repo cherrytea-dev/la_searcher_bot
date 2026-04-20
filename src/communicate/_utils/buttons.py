@@ -92,7 +92,7 @@ class MainSettingsMenu(str, ExtendedEnum):
     b_set_pref_radius = 'настроить максимальный радиус'
     b_set_pref_age = 'настроить возрастные группы БВП'
     b_set_forum_nick = 'связать аккаунты бота и форума'
-    b_change_forum_nick = 'изменить аккаунт форума'  # noqa
+    b_set_vkontakte_nick = 'связать аккаунты бота и VKontakte'
     b_set_topic_type = 'настроить вид поисков'
 
 

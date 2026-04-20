@@ -141,6 +141,7 @@ def _handle_onboarding_step_region_is_set(
         MainSettingsMenu.b_set_pref_radius,
         MainSettingsMenu.b_set_pref_age,
         MainSettingsMenu.b_set_forum_nick,
+        MainSettingsMenu.b_set_vkontakte_nick,
         OtherOptionsMenu.b_view_latest_searches,
         MainMenu.b_view_act_searches,
         b_back_to_start,

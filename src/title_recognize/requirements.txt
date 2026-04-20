@@ -69,9 +69,9 @@ numpy==2.3.5
     #   slovnet
 propcache==0.4.1
     # via yarl
-psycopg2-binary==2.9.5
+psycopg2-binary==2.9.11
     # via la-searcher-bot
-pydantic==2.12.4
+pydantic==2.12.5
     # via pydantic-settings
 pydantic-core==2.41.5
     # via pydantic
@@ -98,7 +98,9 @@ razdel==0.5.0
     #   natasha
     #   slovnet
 requests==2.32.5
-    # via la-searcher-bot
+    # via
+    #   la-searcher-bot
+    #   vk-api
 retry2==0.9.5
     # via la-searcher-bot
 s3transfer==0.15.0
@@ -135,6 +137,8 @@ urllib3==2.6.3
     # via
     #   botocore
     #   requests
+vk-api==11.10.0
+    # via la-searcher-bot
 yargy==0.16.0
     # via natasha
 yarl==1.18.3

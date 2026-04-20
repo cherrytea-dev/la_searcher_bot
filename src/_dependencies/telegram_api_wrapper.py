@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import urllib.parse
@@ -7,6 +8,7 @@ from requests.models import Response
 from retry.api import retry_call
 from telegram import TelegramObject
 
+from _dependencies.commons import get_app_config
 from _dependencies.users_management import ManageUserAction, update_user_status
 
 
@@ -152,3 +154,10 @@ class TGApiBase:
         except Exception as e:
             logging.exception(f'Response is corrupted. {response.json()=}')
             return 'failed'
+
+
+def make_invite_text_for_user(user_id: int | str) -> str:
+    invite_secret = f'{user_id}{get_app_config().bot_api_token__prod}'
+    secret_hash = hashlib.sha256(invite_secret.encode()).hexdigest()
+    user_invite_text = f'telegram_id: {user_id} invite_hash: {secret_hash}'
+    return user_invite_text
