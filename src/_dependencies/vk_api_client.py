@@ -15,7 +15,7 @@ class VKApi:
 
     def send(
         self,
-        user_id: str,
+        user_id: int | str,
         random_id: int,
         message: str = '',
         lat: str = '',
