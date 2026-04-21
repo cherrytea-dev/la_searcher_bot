@@ -1,40 +1,31 @@
 import logging
 import random
 from contextlib import suppress
-from functools import lru_cache
 from typing import Any
 
-import vk_api
-from pydantic import BaseModel
-from sqlalchemy.engine.base import Connection, Engine
-from vk_api.longpoll import Event, VkEventType, VkLongPoll
-from vk_api.vk_api import VkApiMethod
-
-from _dependencies.commons import get_app_config, setup_logging, sqlalchemy_get_pool
+from _dependencies.commons import get_app_config, setup_logging
 from _dependencies.misc import (
     RequestWrapper,
     ResponseWrapper,
     request_response_converter,
 )
-from _dependencies.telegram_api_wrapper import make_invite_text_for_user
 
-from ._utils.bot_polling import UpdateEvent, process_incoming_message, process_incoming_message_2
+from ._utils.bot_polling import UpdateEvent, process_incoming_message, run_polling
 
 setup_logging(__package__)
 random.seed()
 
 
-@lru_cache
-def _get_vk_session() -> vk_api.VkApi:
-    vk_session = vk_api.VkApi(token=get_app_config().vk_api_key)
-    return vk_session
+def main_raw(request: dict) -> str:
+    with suppress(Exception):
+        if request['type'] == 'confirmation' and request['group_id'] == 237036024:
+            # confirmation, run once
+            return get_app_config().vk_confirmation_code
 
+    event = UpdateEvent.model_validate(request)
+    process_incoming_message(event)
 
-@lru_cache
-def _get_longpoll() -> VkLongPoll:
-    vk_session = _get_vk_session()
-    longpoll = VkLongPoll(vk_session)
-    return longpoll
+    return 'ok'
 
 
 @request_response_converter
@@ -43,25 +34,6 @@ def main(request: RequestWrapper, *args: Any, **kwargs: Any) -> ResponseWrapper:
     return ResponseWrapper(data=main_raw(request.json_))  # type:ignore[arg-type]
 
 
-def main_raw(request: dict) -> str:
-    logging.info(request)
-
-    with suppress(Exception):
-        if request['type'] == 'confirmation' and request['group_id'] == 237036024:
-            # confirmation, run once
-            return get_app_config().vk_confirmation_code
-
-    event = UpdateEvent.model_validate(request)
-    process_incoming_message_2(event)
-    # Cannot convert Flask request to Event. So we'll use endpoint just as trigger to run polling.
-    # logging.info('getting session')
-    # vk_session = _get_vk_session()
-    # vk = vk_session.get_api()
-
-    # logging.info('checking updates')
-    # for event in _get_longpoll().check():
-    #     logging.info('got event %s', event)
-    #     if event.type == VkEventType.MESSAGE_NEW:
-    #         process_incoming_message(vk, event)
-
-    return 'ok'
+# if __name__ == '__main__':
+#     run_polling()
+#     # run_flask()
