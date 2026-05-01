@@ -1,4 +1,3 @@
-from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 from uuid import uuid4
@@ -10,7 +9,7 @@ from sqlalchemy.orm import Session
 import check_first_posts_for_changes._utils.database
 from check_first_posts_for_changes import main
 from check_first_posts_for_changes._utils import forum
-from check_first_posts_for_changes._utils.database import DBClient, get_db_client
+from check_first_posts_for_changes._utils.database import DBClient
 from tests.common import fake, find_model
 from tests.factories import db_factories, db_models
 
@@ -88,9 +87,9 @@ class TestDBClient:
             search_forum_num=search.search_forum_num,
         )
 
-        searches = db_client.get_list_of_topics()
+        active_searches_ids = db_client.get_active_searches_ids()
 
-        assert any(s.topic_id == search.search_forum_num for s in searches)
+        assert search.search_forum_num in active_searches_ids
 
     def test_create_search_first_post(self, db_client: DBClient, session: Session):
         search_id = fake.pyint()

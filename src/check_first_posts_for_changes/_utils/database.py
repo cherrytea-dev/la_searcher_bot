@@ -1,5 +1,4 @@
 import datetime
-from dataclasses import dataclass
 from functools import lru_cache
 
 import sqlalchemy
@@ -7,11 +6,6 @@ from sqlalchemy.engine import Connection, create_engine
 
 from _dependencies.commons import get_app_config
 from _dependencies.db_client import DBClientBase, DBKeyValueStorageMixin
-
-
-@dataclass(slots=True)
-class Search:
-    topic_id: int
 
 
 class DBClient(DBClientBase, DBKeyValueStorageMixin):
@@ -47,7 +41,7 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                                    """)
             conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=visibility)
 
-    def get_list_of_topics(self) -> list[Search]:
+    def get_active_searches_ids(self) -> list[int]:
         """get best list of searches for which first posts should be checked"""
 
         with self.connect() as conn:
@@ -63,8 +57,8 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                     FROM s
                         LEFT JOIN h ON s.search_forum_num=h.search_forum_num
                         JOIN f ON s.forum_folder_id=f.folder_id
-                    WHERE 
-                        (h.status != 'deleted' AND h.status != 'hidden') 
+                    WHERE
+                        (h.status != 'deleted' AND h.status != 'hidden')
                         OR h.status IS NULL
                     ORDER BY s.search_start_time DESC
                     /*action='get_list_of_searches_for_first_post_and_status_update 3.0' */
@@ -72,7 +66,7 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                                             """).fetchall()
 
             # form the list-like table
-            return [Search(topic_id=line[0]) for line in raw_sql_extract]
+            return [line[0] for line in raw_sql_extract]
 
     def create_search_first_post(self, topic_id: int, act_hash: str, act_content: str) -> None:
         with self.connect() as conn:
