@@ -1,12 +1,9 @@
-import json
 import logging
 from datetime import datetime, timezone
 from functools import lru_cache
-from typing import Any
 
 import sqlalchemy
 
-from _dependencies.commons import sqlalchemy_get_pool
 from _dependencies.db_client import DBClientBase, DBKeyValueStorageMixin
 
 from .topics_commons import (
@@ -17,7 +14,7 @@ from .topics_commons import (
 )
 
 
-class DBClient(DBClientBase,DBKeyValueStorageMixin):
+class DBClient(DBClientBase, DBKeyValueStorageMixin):
     def get_the_list_of_ignored_folders(self) -> list[int]:
         """get the list of folders which does not contain searches – thus should be ignored"""
 
@@ -407,4 +404,4 @@ class DBClient(DBClientBase,DBKeyValueStorageMixin):
 
 @lru_cache
 def get_db_client() -> DBClient:
-    return DBClient(db=sqlalchemy_get_pool())
+    return DBClient()

@@ -3,7 +3,6 @@ from functools import lru_cache
 
 import sqlalchemy
 
-from _dependencies.commons import sqlalchemy_get_pool
 from _dependencies.db_client import DBClientBase, DBKeyValueStorageMixin
 
 from .commons import RSSItem, Search
@@ -140,4 +139,4 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
 
 @lru_cache
 def get_db_client() -> DBClient:
-    return DBClient(db=sqlalchemy_get_pool())
+    return DBClient()

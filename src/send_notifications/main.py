@@ -59,11 +59,6 @@ class MessageToSend:
     vk_id: str | None = None
 
 
-@lru_cache
-def db() -> 'DBClient':
-    return DBClient(db=sqlalchemy_get_pool())
-
-
 class DBClient(DBClientBase):
     def get_notifs_to_send(self, select_doubling: bool) -> list['MessageToSend']:
         """return notifications which should be sent"""
@@ -464,32 +459,6 @@ def finish_time_analytics(
     return None
 
 
-def main(event: dict, context: Ctx) -> str | None:
-    """Main function that is triggered by pub/sub"""
-
-    time_analytics = TimeAnalytics(script_start_time=datetime.datetime.now())
-
-    # timer is needed to finish the script if it's already close to timeout
-
-    function_id = generate_random_function_id()
-
-    try:
-        pool = sqlalchemy_get_pool()
-        connection = pool.connect()
-        with lock_manager(connection, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
-            changed_ids = iterate_over_notifications(function_id, time_analytics)
-
-    except FunctionLockError:
-        logging.info('script cancelled')
-        return None
-
-    finish_time_analytics(time_analytics, changed_ids)
-
-    logging.info('script finished')
-
-    return 'ok'
-
-
 def format_mesage_for_vk(message: str) -> str:
     # Handle different types of <a> tags based on their href
     # Pattern to match <a href="URL">text</a>
@@ -527,3 +496,34 @@ def format_mesage_for_vk(message: str) -> str:
     result = html_tag_pattern.sub('', result)
 
     return result
+
+
+@lru_cache
+def db() -> DBClient:
+    return DBClient()
+
+
+def main(event: dict, context: Ctx) -> str | None:
+    """Main function that is triggered by pub/sub"""
+
+    time_analytics = TimeAnalytics(script_start_time=datetime.datetime.now())
+
+    # timer is needed to finish the script if it's already close to timeout
+
+    function_id = generate_random_function_id()
+
+    try:
+        pool = sqlalchemy_get_pool()
+        connection = pool.connect()
+        with lock_manager(connection, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
+            changed_ids = iterate_over_notifications(function_id, time_analytics)
+
+    except FunctionLockError:
+        logging.info('script cancelled')
+        return None
+
+    finish_time_analytics(time_analytics, changed_ids)
+
+    logging.info('script finished')
+
+    return 'ok'
