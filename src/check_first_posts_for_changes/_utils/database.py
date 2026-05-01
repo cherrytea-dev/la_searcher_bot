@@ -1,11 +1,17 @@
 import datetime
+from dataclasses import dataclass
 from functools import lru_cache
 
 import sqlalchemy
+from sqlalchemy.engine import Connection, create_engine
 
+from _dependencies.commons import get_app_config
 from _dependencies.db_client import DBClientBase, DBKeyValueStorageMixin
 
-from .commons import RSSItem, Search
+
+@dataclass(slots=True)
+class Search:
+    topic_id: int
 
 
 class DBClient(DBClientBase, DBKeyValueStorageMixin):
@@ -100,43 +106,38 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                 return raw_data[0]
         return None
 
-    def save_rss_item(self, item: RSSItem) -> None:
-        with self.connect() as conn:
-            stmt = sqlalchemy.text("""
-                INSERT INTO rss_items 
-                (search_forum_num, published_at, updated_at, url, content)
-                VALUES (:a, :b, :c, :d, :e);
-                                   """)
-            conn.execute(
-                stmt,
-                a=item.topic_id,
-                b=item.published_at,
-                c=item.updated_at,
-                d=item.item_id,
-                e=item.content,
-            )
-
-    def get_rss_item(self, item_id: str) -> RSSItem | None:
-        with self.connect() as conn:
-            stmt = sqlalchemy.text("""
-                SELECT id, url, search_forum_num, published_at, updated_at, content 
-                FROM rss_items 
-                WHERE
-                    url = :a;
-                            """)
-            raw_data = conn.execute(stmt, a=item_id).fetchone()
-            if raw_data:
-                return RSSItem(
-                    id=raw_data[0],
-                    item_id=raw_data[1],
-                    topic_id=raw_data[2],
-                    published_at=raw_data[3],
-                    updated_at=raw_data[4],
-                    content=raw_data[5],
-                )
-        return None
-
 
 @lru_cache
 def get_db_client() -> DBClient:
     return DBClient()
+
+
+class PhpBbDbClient:
+    """Client for LA forum database (phpbb, mysql/mariadb)"""
+
+    def __init__(self, connection_url: str):
+        engine = create_engine(url=connection_url)
+        self._connection = Connection(engine)
+
+    def get_changed_post_ids_from_last_id(self, last_id: int) -> list[int]:
+        """
+        fetch records from last_id from table phpbb_posts_history.
+        Returns only list of post_id.
+        """
+
+        MAX_RECORDS_COUNT = 1000
+
+        stmt = sqlalchemy.text("""
+            SELECT post_id
+            FROM phpbb_posts_history
+            WHERE history_id > :last_id
+            ORDER BY history_id ASC
+            LIMIT :count
+        """)
+
+        result = self._connection.execute(stmt, {'last_id': last_id, 'count': MAX_RECORDS_COUNT})
+        return [row.post_id for row in result.fetchall()]
+
+
+def get_phpbb_db_client() -> PhpBbDbClient:
+    return PhpBbDbClient(get_app_config().phpbb_db_url)

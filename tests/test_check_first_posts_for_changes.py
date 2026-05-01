@@ -7,6 +7,7 @@ import pytest
 from requests_mock.mocker import Mocker
 from sqlalchemy.orm import Session
 
+import check_first_posts_for_changes._utils.database
 from check_first_posts_for_changes import main
 from check_first_posts_for_changes._utils import forum
 from check_first_posts_for_changes._utils.database import DBClient, get_db_client
@@ -40,16 +41,6 @@ class TestMain:
         requests_mock.get(f'https://lizaalert.org/forum/viewtopic.php', text=text)  # mocking any topic
 
         main.main(MagicMock(), 'context')
-
-    def test_generate_list_of_topic_groups(self):
-        res = main._generate_list_of_topic_groups()
-
-        assert len(res) == 20
-
-    def test__define_which_topic_groups_to_be_checked(self):
-        res = main._define_which_topic_groups_to_be_checked()
-
-        assert res
 
     def test_update_one_topic_visibility(self, session):
         search_health_check = db_factories.SearchHealthCheckFactory.create_sync()
@@ -150,25 +141,11 @@ class TestForum:
         assert res.hash_num == '30439b2156a1c8050154c142dda4d04c'
 
 
-class TestRssFeed:
-    def test_read_rss(self):
-        rss_location = 'tests/fixtures/rss_feed.xml'
-        # filename = 'https://lizaalert.org/forum/app.php/feed'
-        with patch.object(main, 'get_search_id_by_comment') as mock:
-            mock.return_value = 123
-            main.read_rss_feed(rss_location)
-
-    @pytest.mark.skip(reason='real run')
-    def test_read_rss_real(self):
-        rss_location = 'https://lizaalert.org/forum/app.php/feed'
-        main.read_rss_feed(rss_location)
-
-
 class TestParseDatabaseTables:
     """New way to identify updates: parse table `phpbb_posts_history` in mysql"""
 
     def test_fetch_changes_from_last_time(self):
-        db_cln_2 = main.get_phpbb_db_client()
+        db_cln_2 = check_first_posts_for_changes._utils.database.get_phpbb_db_client()
         assert db_cln_2
         last_change_id = 1
         changes = db_cln_2.get_changed_post_ids_from_last_id(last_change_id)

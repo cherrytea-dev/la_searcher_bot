@@ -9,24 +9,28 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from itertools import repeat
-from typing import Any
 
-import feedparser
-import sqlalchemy
-from sqlalchemy.engine import Connection, create_engine
-
-from _dependencies.commons import get_app_config, setup_logging
+from _dependencies.commons import setup_logging
 from _dependencies.pubsub import Ctx, pubsub_check_first_posts
+from check_first_posts_for_changes._utils.database import get_phpbb_db_client
 
-from ._utils.commons import PercentGroup, RSSItem, Search
-from ._utils.database import DBClient, get_db_client
-from ._utils.forum import ForumUnavailable, get_first_post, get_search_id_by_comment
+from ._utils.database import DBClient, Search, get_db_client
+from ._utils.forum import ForumUnavailable, get_first_post
 
 setup_logging(__package__)
 
 WORKERS_COUNT = 2
 FUNCTION_TIMEOUT_SECONDS = 50
 LAST_CHANGE_ID_IN_PHPBB_DB = 'LAST_CHANGE_ID_IN_PHPBB_DB'
+
+
+@dataclass
+class CancelToken:
+    timeout_seconds: int
+    start_time: datetime.datetime = field(default_factory=datetime.datetime.now)
+
+    def expired(self) -> bool:
+        return datetime.datetime.now() > (self.start_time + datetime.timedelta(seconds=self.timeout_seconds))
 
 
 def update_one_topic_visibility(search_id: int, visibility: str) -> None:
@@ -53,53 +57,6 @@ def update_visibility_for_one_hidden_topic() -> None:
         update_one_topic_visibility(hidden_topic_id, post_data.topic_visibility)
     else:
         update_one_topic_visibility(hidden_topic_id, 'deleted')
-
-
-def _generate_list_of_topic_groups() -> list[PercentGroup]:
-    """generate N search groups, groups needed to define which part of all searches will be checked now"""
-
-    percent_step = 5
-    list_of_groups: list[PercentGroup] = []
-    current_percent = 0
-
-    while current_percent < 100:
-        n = int(current_percent / percent_step)
-        new_group = PercentGroup(
-            n=n,
-            start_percent=current_percent,
-            finish_percent=min(100, current_percent + percent_step - 1),
-            frequency=2**n,
-            first_delay=2 ** (n - 1) - 1 if n != 0 else 0,
-        )
-        list_of_groups.append(new_group)
-        current_percent += percent_step
-
-    return list_of_groups
-
-
-def _define_which_topic_groups_to_be_checked() -> list[PercentGroup]:
-    """gives an output of 2 groups that should be checked for this time"""
-    list_of_groups = _generate_list_of_topic_groups()
-
-    start_time = datetime.datetime(2023, 1, 1, 0, 0, 0)
-    curr_minute = int(((datetime.datetime.now() - start_time).total_seconds() / 60) // 1)
-
-    curr_minute_list: list[PercentGroup] = []
-    for group_2 in list_of_groups:
-        if not ((curr_minute - group_2.first_delay) % group_2.frequency):
-            curr_minute_list.append(group_2)
-            logging.debug(f'Group to be checked {group_2}')
-
-    return curr_minute_list
-
-
-@dataclass
-class CancelToken:
-    timeout_seconds: int
-    start_time: datetime.datetime = field(default_factory=datetime.datetime.now)
-
-    def expired(self) -> bool:
-        return datetime.datetime.now() > (self.start_time + datetime.timedelta(seconds=self.timeout_seconds))
 
 
 def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
@@ -194,85 +151,7 @@ def update_first_posts_and_statuses() -> None:
     get_db_client().set_key_value_item(LAST_CHANGE_ID_IN_PHPBB_DB, last_id + fetched_records_count)
 
 
-def read_rss_feed(filename_or_url: str) -> None:
-    logging.info('RSS feed processing: start')
-    feed = feedparser.parse(filename_or_url)
-
-    for item in feed.entries:
-        _process_rss_item(item)
-    logging.info('RSS feed processing: done')
-
-
-def _process_rss_item(item: Any) -> None:
-    db_client = get_db_client()
-
-    item_id = item.link
-    published_at = datetime.datetime.fromisoformat(item.published)
-    updated_at = datetime.datetime.fromisoformat(item.updated)
-
-    saved_item = db_client.get_rss_item(item_id)
-    if saved_item:
-        if saved_item.updated_at != updated_at:
-            logging.warning(f'Changed field updated_at for rss item: {item_id}')
-        return
-
-    search_id = get_search_id_by_comment(item_id)
-    logging.info(f'New comments rom RSS for search {search_id}')
-
-    db_client.save_rss_item(
-        RSSItem(
-            topic_id=search_id,
-            published_at=published_at,
-            updated_at=updated_at,
-            item_id=item_id,
-            content=item.summary,
-        )
-    )
-
-
-class PhpBbDbClient:
-    """Client for LA forum database (phpbb, mysql/mariadb)"""
-
-    def __init__(self, connection_url: str):
-        engine = create_engine(url=connection_url)
-        self._connection = Connection(engine)
-
-    def get_changed_post_ids_from_last_id(self, last_id: int) -> list[int]:
-        """
-        fetch records from last_id from table phpbb_posts_history.
-        Returns only list of post_id.
-        """
-
-        MAX_RECORDS_COUNT = 1000
-
-        stmt = sqlalchemy.text("""
-            SELECT post_id
-            FROM phpbb_posts_history
-            WHERE history_id > :last_id
-            ORDER BY history_id ASC
-            LIMIT :count
-        """)
-
-        result = self._connection.execute(stmt, {'last_id': last_id, 'count': MAX_RECORDS_COUNT})
-        return [row.post_id for row in result.fetchall()]
-
-
-def get_phpbb_db_client() -> PhpBbDbClient:
-    return PhpBbDbClient(get_app_config().phpbb_db_url)
-
-
 def main(event: dict, context: Ctx) -> None:
-    # to avoid function invocation except when it was initiated by scheduler (and pub/sub message was not doubled)
-    # if datetime.datetime.now().second > 5:
-    #     return
-
-    # BLOCK 0. read rss feed
-    # TODO remove, it cannot help us
-    # try:
-    #     read_rss_feed('https://lizaalert.org/forum/app.php/feed')
-    # except Exception:
-    #     logging.exception('Error while processing RSS feed')
-
     # BLOCK 1. for checking if the first posts were changed
     update_first_posts_and_statuses()
 

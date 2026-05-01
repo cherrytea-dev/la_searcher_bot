@@ -1236,24 +1236,6 @@ CREATE TABLE notif_mailing_status (
 
 
 
--- public.rss_items определение
-
--- Drop table
-
--- DROP TABLE rss_items;
-
-CREATE TABLE rss_items (
-	id serial4 NOT NULL,
-	published_at TIMESTAMPTZ not NULL,
-	updated_at TIMESTAMPTZ not NULL,
-	search_forum_num int4 not NULL,
-	url varchar(255) NULL,
-	content varchar not NULL,
-	CONSTRAINT rss_items_pkey PRIMARY KEY (id)
-);
-CREATE INDEX index_rss_items_url ON public.rss_items USING btree (url);
-
-
 -- public.geo_folders_view исходный текст
 
 CREATE OR REPLACE VIEW geo_folders_view
