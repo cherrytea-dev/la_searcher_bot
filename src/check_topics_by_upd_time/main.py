@@ -423,7 +423,7 @@ def get_updates_of_nested_folders(folders_list_to_scan: list[str]) -> list[list]
                 futures.append(future)
             wait(futures)
             [f.result() for f in futures]  # check that all tasks are done without exceptions
-    return updated_folders
+    return sorted(updated_folders, key=lambda x: x[1])
 
 
 def main(event: dict[str, Any], context: Ctx | None = None) -> None:

@@ -26,6 +26,7 @@ setup_logging(__package__)
 
 WORKERS_COUNT = 2
 FUNCTION_TIMEOUT_SECONDS = 50
+LAST_CHANGE_ID_IN_PHPBB_DB = 'LAST_CHANGE_ID_IN_PHPBB_DB'
 
 
 def update_one_topic_visibility(search_id: int, visibility: str) -> None:
@@ -92,29 +93,6 @@ def _define_which_topic_groups_to_be_checked() -> list[PercentGroup]:
     return curr_minute_list
 
 
-def get_topics_to_check() -> list[Search]:
-    """add searches to the chosen groups"""
-    topics_to_check: list[Search] = []
-
-    # TODO maybe there is better method of randomizing?
-    searches = get_db_client().get_list_of_topics()
-
-    list_of_groups = _define_which_topic_groups_to_be_checked()
-
-    num_of_searches = len(searches)
-
-    for group_2 in list_of_groups:
-        group_2.start_num = int((group_2.start_percent * num_of_searches / 100) // 1)
-        group_2.finish_num = min(int(((group_2.finish_percent + 1) * num_of_searches / 100) // 1 - 1), len(searches))
-
-    for j, search in enumerate(searches):
-        for group_2 in list_of_groups:
-            if group_2.start_num <= j <= group_2.finish_num:
-                topics_to_check.append(search)
-
-    return topics_to_check  # TODO randomize?
-
-
 @dataclass
 class CancelToken:
     timeout_seconds: int
@@ -126,6 +104,9 @@ class CancelToken:
 
 def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
     """generate a list of topic_ids with updated first posts and record in it PSQL"""
+
+    if not searches_list:
+        return []
 
     list_of_searches_with_updated_f_posts: list[int] = []
     db_client = get_db_client()
@@ -188,18 +169,19 @@ def _update_one_topic_hash(db_client: DBClient, cancel_token: CancelToken, topic
 def update_first_posts_and_statuses() -> None:
     """update first posts for topics"""
 
-    topics_to_check = get_topics_to_check()
+    active_searches = get_db_client().get_list_of_topics()
+    last_id = get_db_client().get_key_value_item(LAST_CHANGE_ID_IN_PHPBB_DB) or 0
 
-    if not topics_to_check:
-        return
+    changed_topic_ids = get_phpbb_db_client().get_changed_post_ids_from_last_id(last_id)
+    fetched_records_count = len(changed_topic_ids)
+    unique_changed_topic_ids = set(changed_topic_ids)
+
+    topics_to_check = [item for item in active_searches if item.topic_id in unique_changed_topic_ids]
 
     try:
         topics_with_updated_first_posts = update_first_posts_in_sql(topics_to_check)
     except ForumUnavailable:
         logging.warning('Forum unavailable')
-        return
-
-    if not topics_with_updated_first_posts:
         return
 
     # Split topics_into_chunks of 10 items and send each chunk via pub/sub
@@ -208,6 +190,8 @@ def update_first_posts_and_statuses() -> None:
     for i in range(0, len(topics_with_updated_first_posts), chunk_size):
         chunk = topics_with_updated_first_posts[i : i + chunk_size]
         pubsub_check_first_posts(chunk)
+
+    get_db_client().set_key_value_item(LAST_CHANGE_ID_IN_PHPBB_DB, last_id + fetched_records_count)
 
 
 def read_rss_feed(filename_or_url: str) -> None:
@@ -253,21 +237,23 @@ class PhpBbDbClient:
         engine = create_engine(url=connection_url)
         self._connection = Connection(engine)
 
-    def get_changed_post_ids_from(self, last_id: int) -> list[int]:
+    def get_changed_post_ids_from_last_id(self, last_id: int) -> list[int]:
         """
-        fetch 50 records from last_id from table phpbb_posts_history.
-
+        fetch records from last_id from table phpbb_posts_history.
         Returns only list of post_id.
         """
+
+        MAX_RECORDS_COUNT = 1000
 
         stmt = sqlalchemy.text("""
             SELECT post_id
             FROM phpbb_posts_history
             WHERE history_id > :last_id
             ORDER BY history_id ASC
-            LIMIT 50
+            LIMIT :count
         """)
-        result = self._connection.execute(stmt, {'last_id': last_id})
+
+        result = self._connection.execute(stmt, {'last_id': last_id, 'count': MAX_RECORDS_COUNT})
         return [row.post_id for row in result.fetchall()]
 
 
