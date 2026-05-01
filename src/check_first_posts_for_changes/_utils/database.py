@@ -2,22 +2,14 @@ import datetime
 from functools import lru_cache
 
 import sqlalchemy
-from sqlalchemy.engine import Connection
-from sqlalchemy.engine.base import Engine
 
 from _dependencies.commons import sqlalchemy_get_pool
+from _dependencies.db_client import DBClientBase, DBKeyValueStorageMixin
 
 from .commons import RSSItem, Search
 
 
-class DBClient:
-    # TODO key-value settings (maybe as mixin?)
-    def __init__(self, db: Engine) -> None:
-        self._db = db
-
-    def connect(self) -> Connection:
-        return self._db.connect()
-
+class DBClient(DBClientBase, DBKeyValueStorageMixin):
     def get_random_hidden_topic_id(self) -> int | None:
         with self.connect() as conn:
             hidden_topic = conn.execute("""

@@ -3,7 +3,6 @@ which contain updates – and makes a pub/sub call for other script to parse con
 
 import ast
 import datetime
-import json
 import logging
 from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass
@@ -11,13 +10,12 @@ from functools import lru_cache
 from typing import Any, Optional, no_type_check
 
 import requests
-import sqlalchemy
 from bs4 import BeautifulSoup, SoupStrainer, Tag
 from retry.api import retry_call
-from sqlalchemy.engine import Connection
-from sqlalchemy.engine.base import Engine
 
 from _dependencies.commons import get_forum_proxies, setup_logging, sqlalchemy_get_pool
+from _dependencies.db_client import DBClientBase
+from _dependencies.db_client import DBKeyValueStorageMixin
 from _dependencies.pubsub import Ctx, pubsub_parse_folders
 
 setup_logging(__package__)
@@ -27,38 +25,8 @@ USELESS_FOLDERS = {84, 113, 112, 270, 86, 87, 88, 165, 365, 89, 172, 91, 90, 316
 WORKERS_COUNT = 2
 
 
-class DBClient:
-    def __init__(self, db: Engine) -> None:
-        self._db = db
-
-    def connect(self) -> Connection:
-        return self._db.connect()
-
-    def get_key_value_item(self, key: str) -> Any:
-        with self.connect() as conn:
-            stmt = sqlalchemy.text("""
-                SELECT value FROM key_value_storage WHERE key=:key;
-                                   """)
-            raw_data = conn.execute(stmt, key=key).fetchone()
-            return raw_data[0] if raw_data else None
-
-    def set_key_value_item(self, key: str, value: Any) -> None:
-        with self.connect() as conn:
-            stmt = sqlalchemy.text("""
-                INSERT INTO key_value_storage 
-                (key, value) 
-                VALUES (:key, :value) 
-                ON CONFLICT (key) DO UPDATE SET value = :value ; 
-                                   """)
-            conn.execute(stmt, key=key, value=json.dumps(value))
-
-    def delete_key_value_item(self, key: str) -> None:
-        with self.connect() as conn:
-            stmt = sqlalchemy.text("""
-                DELETE FROM key_value_storage 
-                WHERE key=:key; 
-                                   """)
-            conn.execute(stmt, key=key)
+class DBClient(DBClientBase, DBKeyValueStorageMixin):
+    pass
 
 
 @lru_cache
