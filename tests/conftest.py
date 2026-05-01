@@ -33,6 +33,9 @@ def patch_http():
         patch('requests.post'),
         patch('requests.session'),
         patch('requests.Session'),
+        patch('httpx.get'),
+        patch('httpx.post'),
+        patch('httpx.Client'),
     ):
         yield
 

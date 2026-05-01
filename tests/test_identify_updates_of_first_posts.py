@@ -14,12 +14,6 @@ from tests.common import get_event_with_data
 from tests.factories import db_factories
 
 
-@pytest.fixture(autouse=True)
-def patch_http():
-    # disable http patching
-    pass
-
-
 def test_main():
     # TODO paste some posts in db
     main.main(get_event_with_data('[1,2]'), 'context')
@@ -128,8 +122,14 @@ def test_multiple_updated_searches():
 
 
 class TestParseSearchFolder:
-    @pytest.fixture(scope='class')
+    @pytest.fixture(autouse=True)
+    def patch_http(self):
+        # disable http patching
+        pass
+
+    @pytest.fixture()
     def mock_response(self):
+        main.get_requests_session.cache_clear()
         with patch.object(requests.Session, 'get') as mock_get:
             yield mock_get
 
