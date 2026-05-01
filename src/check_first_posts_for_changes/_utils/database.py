@@ -11,6 +11,7 @@ from .commons import RSSItem, Search
 
 
 class DBClient:
+    # TODO key-value settings (maybe as mixin?)
     def __init__(self, db: Engine) -> None:
         self._db = db
 

@@ -723,6 +723,7 @@ archive-notifications = [
 ]
 check-first-posts-for-changes = [
     { name = "feedparser" },
+    { name = "pymysql" },
 ]
 compose-notifications = [
     { name = "certifi" },
@@ -809,6 +810,7 @@ requires-dist = [
     { name = "natasha", marker = "extra == 'title-recognize'", specifier = "==1.4.0" },
     { name = "psycopg2-binary", specifier = "==2.9.11" },
     { name = "pydantic-settings", specifier = "==2.*" },
+    { name = "pymysql", marker = "extra == 'check-first-posts-for-changes'", specifier = ">=1.1.3" },
     { name = "python-dateutil", marker = "extra == 'compose-notifications'" },
     { name = "python-dateutil", marker = "extra == 'identify-updates-of-topics'", specifier = "==2.8.2" },
     { name = "python-dateutil", marker = "extra == 'title-recognize'", specifier = "==2.8.2" },
@@ -1497,6 +1499,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b2/e1/1cfed107fc0f2f0e315ae0f226e6175e76dcd8b2e65cad46f8d9087c679d/pymorphy2-dicts-ru-2.4.417127.4579844.tar.gz", hash = "sha256:78cad03adca605021abd387a3b2eb515c851b86e94682a1ef2354a2c74fcc196", size = 8180941, upload-time = "2020-10-11T15:14:42.865Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3a/79/bea0021eeb7eeefde22ef9e96badf174068a2dd20264b9a378f2be1cdd9e/pymorphy2_dicts_ru-2.4.417127.4579844-py2.py3-none-any.whl", hash = "sha256:9a322a6ee78fd4a5dceead0545c24b9a91687ad5df95cbac1b36f6c36cbb498a", size = 8212425, upload-time = "2020-10-11T15:15:02.922Z" },
+]
+
+[[package]]
+name = "pymysql"
+version = "1.1.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7f/ec/8d45c920e90445f0b75c590b32851853ed319763b0d8dff8d283052da8cf/pymysql-1.1.3.tar.gz", hash = "sha256:e70ebf2047a4edf6138cf79c68ad418ef620af65900aa585c5e8bfc95044d43a", size = 48207, upload-time = "2026-05-01T09:09:54.532Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8e/dc/9085f3d6f497e9b25fb40d6e8ecef3ddbb5cf977a949b933624a299f5c16/pymysql-1.1.3-py3-none-any.whl", hash = "sha256:8164ba62c552f6105f3b11753352d0f16b90d1703ba67d81923d5a8a5d1c5289", size = 45356, upload-time = "2026-05-01T09:09:53.316Z" },
 ]
 
 [[package]]

@@ -6,7 +6,6 @@ import pytest
 from requests_mock.mocker import Mocker
 from sqlalchemy.orm import Session
 
-from _dependencies.commons import sqlalchemy_get_pool
 from check_first_posts_for_changes import main
 from check_first_posts_for_changes._utils import forum
 from check_first_posts_for_changes._utils.database import DBClient, get_db_client
@@ -142,6 +141,13 @@ class TestDBClient:
 
         assert hash == sfp.content_hash
 
+    def test_key_value_settings(self):
+        """
+        we need to keep last_change_id
+        TODO look for existing similar tests
+        """
+        raise NotImplementedError()
+
 
 class TestForum:
     def test_get_search_raw_content(self, requests_mock: Mocker):
@@ -182,3 +188,14 @@ class TestRssFeed:
     def test_read_rss_real(self):
         rss_location = 'https://lizaalert.org/forum/app.php/feed'
         main.read_rss_feed(rss_location)
+
+
+class TestParseDatabaseTables:
+    """New way to identify updates: parse table `phpbb_posts_history` in mysql"""
+
+    def test_fetch_changes_from_last_time(self):
+        db_cln_2 = main.get_phpbb_db_client()
+        assert db_cln_2
+        last_change_id = 1
+        changes = db_cln_2.get_changed_post_ids_from(last_change_id)
+        assert changes
