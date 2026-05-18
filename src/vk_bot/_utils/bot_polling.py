@@ -73,20 +73,29 @@ def process_incoming_message(event: UpdateEvent) -> None:
     if not event.object.message:
         return
 
+    random_id = random.randint(0, 10_000_000)
+    vk_user_id = event.object.message.from_id
     msg = event.object.message.text.lower()
 
     telegram_user_id, secret = get_invite_from_message(msg)
     logging.info('got invite from user %s', telegram_user_id)
     # vk.messages.mark_as_read(peer_id=event.peer_id)
     if not telegram_user_id:
+        message = (
+            'Чтобы связать ваши аккаунты Телеграм и Вконтакте, \n'
+            'зайдите в настройки бота в Телеграм и выберите пункт "Связать аккаунты бота и VKontakte", \n'
+            'после чего отправьте сюда текст, полученный в Телеграм. \n'
+            'Если возникают сложности, напишите в чат "Обратная связь" на странице сообщества'
+        )
+        get_default_vk_api_client().send(user_id=vk_user_id, message=message, random_id=random_id)
         return
 
     if make_invite_text_for_user(telegram_user_id).lower() != msg:
+        message = 'Что-то пошло не так. \n' 'Напишите в чат "Обратная связь" на странице сообщества'
+        get_default_vk_api_client().send(user_id=vk_user_id, message=message, random_id=random_id)
         logging.warning(f'invite hash wrong for telegram user {telegram_user_id}')
         return
 
-    random_id = random.randint(0, 10_000_000)
-    vk_user_id = event.object.message.from_id
     try:
         logging.info('connecting user %s', telegram_user_id)
         db().set_user_vk_id(telegram_user_id, vk_user_id)
