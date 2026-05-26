@@ -127,13 +127,17 @@ def update_first_posts_and_statuses() -> None:
     """update first posts for topics"""
 
     active_searches = get_db_client().get_list_of_topics()
+    logging.info(f'Found {len(active_searches)} active searches')
     last_id = get_db_client().get_key_value_item(LAST_CHANGE_ID_IN_PHPBB_DB) or 0
 
     changed_topic_ids = get_phpbb_db_client().get_changed_post_ids_from_last_id(last_id)
     fetched_records_count = len(changed_topic_ids)
     unique_changed_topic_ids = set(changed_topic_ids)
+    logging.info(f'Changed topics in forum: {unique_changed_topic_ids}')
 
     topics_to_check = [item for item in active_searches if item.topic_id in unique_changed_topic_ids]
+    topic_ids_to_check = [x.topic_id for x in topics_to_check]
+    logging.info(f'First posts to check update: {topic_ids_to_check}')
 
     try:
         topics_with_updated_first_posts = update_first_posts_in_sql(topics_to_check)
