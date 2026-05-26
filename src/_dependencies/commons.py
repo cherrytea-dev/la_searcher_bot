@@ -49,7 +49,7 @@ class AppConfig(BaseSettings):
 
     @property
     def phpbb_db_url(self) -> str:
-        return f'mysql+pymysql://{self.mysql_user}:{self.mysql_pass}@{self.mysql_host}:3306/{self.mysql_db}'
+        return f'mysql+pymysql://{self.mysql_user}:{self.mysql_pass}@{self.mysql_host}:3306/{self.mysql_db}?ssl_ca='
 
 
 @lru_cache
