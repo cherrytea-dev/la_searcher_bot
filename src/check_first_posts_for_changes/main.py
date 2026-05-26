@@ -14,7 +14,7 @@ from _dependencies.commons import setup_logging
 from _dependencies.pubsub import Ctx, pubsub_check_first_posts
 from check_first_posts_for_changes._utils.database import get_phpbb_db_client
 
-from ._utils.database import DBClient, Search, get_db_client
+from ._utils.database import DBClient, get_db_client
 from ._utils.forum import ForumUnavailable, get_first_post
 
 setup_logging(__package__)
@@ -59,7 +59,7 @@ def update_visibility_for_one_hidden_topic() -> None:
         update_one_topic_visibility(hidden_topic_id, 'deleted')
 
 
-def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
+def update_first_posts_in_sql(searches_list: list[int]) -> list[int]:
     """generate a list of topic_ids with updated first posts and record in it PSQL"""
 
     if not searches_list:
@@ -84,7 +84,7 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
                 break
 
             if topic_updated:
-                topic_id = searches_list[i].topic_id
+                topic_id = searches_list[i]
                 list_of_searches_with_updated_f_posts.append(topic_id)
 
     logging.info(
@@ -97,10 +97,9 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
     return list_of_searches_with_updated_f_posts
 
 
-def _update_one_topic_hash(db_client: DBClient, cancel_token: CancelToken, topic: Search) -> bool:
+def _update_one_topic_hash(db_client: DBClient, cancel_token: CancelToken, topic_id: int) -> bool:
     if cancel_token.expired():
         return False
-    topic_id = topic.topic_id
     post_data = get_first_post(topic_id)
 
     if not post_data:
@@ -126,7 +125,7 @@ def _update_one_topic_hash(db_client: DBClient, cancel_token: CancelToken, topic
 def update_first_posts_and_statuses() -> None:
     """update first posts for topics"""
 
-    active_searches = get_db_client().get_list_of_topics()
+    active_searches = get_db_client().get_active_searches_ids()
     logging.info(f'Found {len(active_searches)} active searches')
     last_id = get_db_client().get_key_value_item(LAST_CHANGE_ID_IN_PHPBB_DB) or 0
 
@@ -135,12 +134,11 @@ def update_first_posts_and_statuses() -> None:
     unique_changed_topic_ids = set(changed_topic_ids)
     logging.info(f'Changed topics in forum: {unique_changed_topic_ids}')
 
-    topics_to_check = [item for item in active_searches if item.topic_id in unique_changed_topic_ids]
-    topic_ids_to_check = [x.topic_id for x in topics_to_check]
+    topic_ids_to_check = [item for item in active_searches if item in unique_changed_topic_ids]
     logging.info(f'First posts to check update: {topic_ids_to_check}')
 
     try:
-        topics_with_updated_first_posts = update_first_posts_in_sql(topics_to_check)
+        topics_with_updated_first_posts = update_first_posts_in_sql(topic_ids_to_check)
     except ForumUnavailable:
         logging.warning('Forum unavailable')
         return
