@@ -37,7 +37,7 @@ jobs:
           echo "kebab-name=$KEBAB_NAME" >> $GITHUB_OUTPUT
 
       - name: Deploy to Yandex Cloud Function
-        uses: yc-actions/yc-sls-function@v2
+        uses: yc-actions/yc-sls-function@v4
         with:
           yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
           folder-id: ${{ secrets.YC_FOLDER_ID }}
@@ -47,7 +47,7 @@ jobs:
           entrypoint: ${{ inputs.function_name }}.main.main
           source-root: src
           execution-timeout: ${{ inputs.timeout }}
-          service-account: 'ajelk4kascpboi0g4bjm'
+          service-account-name: 'la-searcher-bot'
           include: |
             ${{ inputs.function_name }}
             _dependencies
@@ -73,7 +73,7 @@ jobs:
             VK_API_KEY=${{ secrets.VK_API_KEY }}
             VK_CONFIRMATION_CODE=${{ secrets.VK_CONFIRMATION_CODE }}
           secrets: |
-            MYSQL_HOST=e6qsc5sqd7db7gk4m9u8/e6qsgh64n9r3blb62d25/MYSQL_HOST
-            MYSQL_DB=e6qsc5sqd7db7gk4m9u8/e6qsgh64n9r3blb62d25/MYSQL_DB
-            MYSQL_USER=e6qsc5sqd7db7gk4m9u8/e6qsgh64n9r3blb62d25/MYSQL_USER
-            MYSQL_PASS=e6qsc5sqd7db7gk4m9u8/e6qsgh64n9r3blb62d25/MYSQL_PASS
+            MYSQL_HOST=e6qsc5sqd7db7gk4m9u8/latest/MYSQL_HOST
+            MYSQL_DB=e6qsc5sqd7db7gk4m9u8/latest/MYSQL_DB
+            MYSQL_USER=e6qsc5sqd7db7gk4m9u8/latest/MYSQL_USER
+            MYSQL_PASS=e6qsc5sqd7db7gk4m9u8/latest/MYSQL_PASS
