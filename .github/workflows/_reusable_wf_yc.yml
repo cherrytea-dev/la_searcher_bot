@@ -47,7 +47,7 @@ jobs:
           entrypoint: ${{ inputs.function_name }}.main.main
           source-root: src
           execution-timeout: ${{ inputs.timeout }}
-          service-account-id: 'ajelk4kascpboi0g4bjm'
+          service-account-name: 'la-searcher-bot'
           include: |
             ${{ inputs.function_name }}
             _dependencies
