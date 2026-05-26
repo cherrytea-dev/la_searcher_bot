@@ -41,7 +41,15 @@ class AppConfig(BaseSettings):
     vk_api_key: str = ''  # TODO SecretStr
     my_vk_id: str = ''
     vk_confirmation_code: str = ''
-    phpbb_db_url: str = ''  # TODO SecretStr
+
+    mysql_host: str = ''
+    mysql_db: str = ''
+    mysql_user: str = ''
+    mysql_pass: str = ''
+
+    @property
+    def phpbb_db_url(self) -> str:
+        return f'mysql+pymysql://{self.mysql_user}:{self.mysql_pass}@{self.mysql_host}:3306/{self.mysql_db}'
 
 
 @lru_cache
