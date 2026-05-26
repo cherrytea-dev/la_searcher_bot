@@ -140,7 +140,7 @@ class TestForum:
         assert res.hash_num == '30439b2156a1c8050154c142dda4d04c'
 
 
-@pytest.mark.skip(reason="don't have mysql instance yet")
+# @pytest.mark.skip(reason="don't have mysql instance yet")
 class TestParseDatabaseTables:
     """New way to identify updates: parse table `phpbb_posts_history` in mysql"""
 

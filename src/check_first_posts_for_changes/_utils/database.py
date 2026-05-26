@@ -110,7 +110,17 @@ class PhpBbDbClient:
     """Client for LA forum database (phpbb, mysql/mariadb)"""
 
     def __init__(self, connection_url: str):
-        engine = create_engine(url=connection_url)
+        ssl_arg = {
+            'ssl_verify_cert': False,
+            'ca': None,
+            'check_hostname': False,
+            'verify_mode': False,
+        }
+
+        engine = create_engine(
+            url=connection_url,
+            connect_args={'ssl': ssl_arg},
+        )
         self._connection = Connection(engine)
 
     def get_changed_post_ids_from_last_id(self, last_id: int) -> list[int]:
