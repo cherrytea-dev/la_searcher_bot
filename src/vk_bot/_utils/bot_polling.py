@@ -1,19 +1,15 @@
 import logging
 import random
 import re
-from contextlib import contextmanager
-from dataclasses import dataclass
-from datetime import datetime
 from functools import lru_cache
-from typing import Iterator, List
 
 import sqlalchemy
 import vk_api
 from pydantic import BaseModel
-from sqlalchemy.engine.base import Connection, Engine
 from vk_api.longpoll import Event, VkEventType, VkLongPoll
 
 from _dependencies.commons import get_app_config, sqlalchemy_get_pool
+from _dependencies.db_client import DBClientBase
 from _dependencies.telegram_api_wrapper import make_invite_text_for_user
 from _dependencies.vk_api_client import get_default_vk_api_client
 
@@ -36,15 +32,7 @@ class UpdateEvent(BaseModel):
     object: EventObject | None
 
 
-@dataclass
-class DBClient:
-    _pool: Engine
-
-    @contextmanager
-    def connect(self) -> Iterator[Connection]:
-        with self._pool.connect() as connection:
-            yield connection
-
+class DBClient(DBClientBase):
     def set_user_vk_id(self, telegram_user_id: int, vk_id: int) -> None:
         """Write user's VKontakte id"""
 
@@ -59,7 +47,7 @@ class DBClient:
 
 @lru_cache
 def db() -> 'DBClient':
-    return DBClient(_pool=sqlalchemy_get_pool())
+    return DBClient(db=sqlalchemy_get_pool())
 
 
 def process_incoming_message(event: UpdateEvent) -> None:

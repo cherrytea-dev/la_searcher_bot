@@ -1,14 +1,12 @@
 import datetime
 import logging
-from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Iterator, List
 
 import sqlalchemy
-from sqlalchemy.engine.base import Connection, Engine
 
 from _dependencies.commons import SearchFollowingMode, sqlalchemy_get_pool
+from _dependencies.db_client import DBClientBase
 
 from .common import PREF_DICT, AgePeriod, SearchSummary, UserInputState
 
@@ -30,18 +28,10 @@ class UserSettingsSummary:
 
 @lru_cache
 def db() -> 'DBClient':
-    return DBClient(_pool=sqlalchemy_get_pool())
+    return DBClient(db=sqlalchemy_get_pool())
 
 
-@dataclass
-class DBClient:
-    _pool: Engine
-
-    @contextmanager
-    def connect(self) -> Iterator[Connection]:
-        with self._pool.connect() as connection:
-            yield connection
-
+class DBClient(DBClientBase):
     def save_user_message_to_bot(self, user_id: int, got_message: str) -> None:
         """save user's message to bot in psql"""
 
@@ -304,7 +294,7 @@ class DBClient:
                 pref_id=preference_id,
             )
 
-    def user_preference_delete(self, user: int, list_of_prefs: List[str]) -> None:
+    def user_preference_delete(self, user: int, list_of_prefs: list[str]) -> None:
         """execute SQL DELETE command"""
         with self.connect() as connection:
             if list_of_prefs:
