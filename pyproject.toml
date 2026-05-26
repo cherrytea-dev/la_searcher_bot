@@ -72,7 +72,6 @@ check_first_posts_for_changes = ["PyMySQL>=1.1.3"]
 communicate = []
 
 compose_notifications = [
-    "urllib3>=2.6.3",
     "idna==3.7",         # translation of domain names
     "certifi==2024.7.4", # SSL certificates
     "chardet==4.0.0",    # encoding detector
@@ -80,12 +79,11 @@ compose_notifications = [
     "pytz==2021.1",      # timezone
 ]
 
-connect_to_forum = ["urllib3>=2.6.3"]
+connect_to_forum = []
 
 identify_updates_of_first_posts = []
 
 identify_updates_of_topics = [
-    "urllib3>=2.6.3",
     "idna==3.7",              # translation of domain names
     "certifi==2024.7.4",      # SSL certificates
     "chardet==4.0.0",         # encoding detector
@@ -99,14 +97,14 @@ identify_updates_of_topics = [
 
 send_debug_to_admin = []
 
-send_notifications = ["urllib3>=2.6.3"]
+send_notifications = []
 
 title_recognize = [
     "python-dateutil==2.8.2", # extension to datetime module
     "natasha==1.4.0",         # recognition of person and location within text string
 ]
 
-user_provide_info = []
+user_provide_info = ["urllib3>=2.7.0"]
 
 users_activate = []
 
