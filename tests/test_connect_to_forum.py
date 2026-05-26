@@ -38,12 +38,6 @@ def test_main(user_id: int):
         main.main(get_event_with_data(data), 'context')
 
 
-@pytest.fixture
-def patch_http():
-    # bypass http patching in this tests
-    pass
-
-
 @pytest.mark.skip(reason='manual testing')
 def test_get_user_id(patch_http):
     login = 'Admin'
