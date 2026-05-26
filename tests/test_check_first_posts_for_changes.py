@@ -6,10 +6,9 @@ import pytest
 from requests_mock.mocker import Mocker
 from sqlalchemy.orm import Session
 
-import check_first_posts_for_changes._utils.database
 from check_first_posts_for_changes import main
 from check_first_posts_for_changes._utils import forum
-from check_first_posts_for_changes._utils.database import DBClient
+from check_first_posts_for_changes._utils.database import DBClient, get_phpbb_db_client
 from tests.common import fake, find_model
 from tests.factories import db_factories, db_models
 
@@ -33,6 +32,7 @@ def db_client(connection_pool) -> DBClient:
 
 
 class TestMain:
+    @pytest.mark.skip(reason="don't have mysql db yet")
     @pytest.mark.freeze_time('2025-02-13 14:25:00')
     def test_main(self, requests_mock: Mocker, mock_topic_management):
         # TODO mock http back or remove this test
@@ -140,11 +140,12 @@ class TestForum:
         assert res.hash_num == '30439b2156a1c8050154c142dda4d04c'
 
 
+@pytest.mark.skip(reason="don't have mysql instance yet")
 class TestParseDatabaseTables:
     """New way to identify updates: parse table `phpbb_posts_history` in mysql"""
 
     def test_fetch_changes_from_last_time(self):
-        db_cln_2 = check_first_posts_for_changes._utils.database.get_phpbb_db_client()
+        db_cln_2 = get_phpbb_db_client()
         assert db_cln_2
         last_change_id = 1
         changes = db_cln_2.get_changed_post_ids_from_last_id(last_change_id)
