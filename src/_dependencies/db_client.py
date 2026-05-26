@@ -1,14 +1,16 @@
+import json
 from typing import TYPE_CHECKING, Any
 
+import sqlalchemy
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.base import Engine
-import sqlalchemy
-import json
+
+from _dependencies.commons import sqlalchemy_get_pool
 
 
 class DBClientBase:
-    def __init__(self, db: Engine) -> None:
-        self._db = db
+    def __init__(self, db: Engine | None = None) -> None:
+        self._db = db or sqlalchemy_get_pool()
 
     def connect(self) -> Connection:
         return self._db.connect()
@@ -44,5 +46,3 @@ class DBKeyValueStorageMixin:
                 WHERE key=:key; 
                                    """)
             conn.execute(stmt, key=key)
-
-

@@ -5,7 +5,7 @@ from functools import lru_cache
 
 import sqlalchemy
 
-from _dependencies.commons import SearchFollowingMode, sqlalchemy_get_pool
+from _dependencies.commons import SearchFollowingMode
 from _dependencies.db_client import DBClientBase
 
 from .common import PREF_DICT, AgePeriod, SearchSummary, UserInputState
@@ -24,11 +24,6 @@ class UserSettingsSummary:
     pref_notif_type: bool
     pref_region_old: bool
     pref_forum: bool
-
-
-@lru_cache
-def db() -> 'DBClient':
-    return DBClient(db=sqlalchemy_get_pool())
 
 
 class DBClient(DBClientBase):
@@ -826,3 +821,8 @@ class DBClient(DBClientBase):
                 )
                 for row in result.fetchall()
             ]
+
+
+@lru_cache
+def db() -> DBClient:
+    return DBClient()

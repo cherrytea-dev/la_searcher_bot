@@ -13,9 +13,8 @@ import requests
 from bs4 import BeautifulSoup, SoupStrainer, Tag
 from retry.api import retry_call
 
-from _dependencies.commons import get_forum_proxies, setup_logging, sqlalchemy_get_pool
-from _dependencies.db_client import DBClientBase
-from _dependencies.db_client import DBKeyValueStorageMixin
+from _dependencies.commons import get_forum_proxies, setup_logging
+from _dependencies.db_client import DBClientBase, DBKeyValueStorageMixin
 from _dependencies.pubsub import Ctx, pubsub_parse_folders
 
 setup_logging(__package__)
@@ -31,7 +30,7 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
 
 @lru_cache
 def get_db_client() -> DBClient:
-    return DBClient(db=sqlalchemy_get_pool())
+    return DBClient()
 
 
 @dataclass

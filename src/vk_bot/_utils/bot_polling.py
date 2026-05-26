@@ -8,7 +8,7 @@ import vk_api
 from pydantic import BaseModel
 from vk_api.longpoll import Event, VkEventType, VkLongPoll
 
-from _dependencies.commons import get_app_config, sqlalchemy_get_pool
+from _dependencies.commons import get_app_config
 from _dependencies.db_client import DBClientBase
 from _dependencies.telegram_api_wrapper import make_invite_text_for_user
 from _dependencies.vk_api_client import get_default_vk_api_client
@@ -46,8 +46,8 @@ class DBClient(DBClientBase):
 
 
 @lru_cache
-def db() -> 'DBClient':
-    return DBClient(db=sqlalchemy_get_pool())
+def db() -> DBClient:
+    return DBClient()
 
 
 def process_incoming_message(event: UpdateEvent) -> None:
