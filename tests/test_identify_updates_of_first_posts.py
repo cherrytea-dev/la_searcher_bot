@@ -3,10 +3,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 import requests
-from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
-from _dependencies.commons import sqlalchemy_get_pool
 from identify_updates_of_first_posts import main
 from src.identify_updates_of_first_posts.main import (
     process_first_page_comparison,

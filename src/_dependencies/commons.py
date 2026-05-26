@@ -41,6 +41,7 @@ class AppConfig(BaseSettings):
     vk_api_key: str = ''  # TODO SecretStr
     my_vk_id: str = ''
     vk_confirmation_code: str = ''
+    phpbb_db_url: str = ''  # TODO SecretStr
 
 
 @lru_cache

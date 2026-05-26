@@ -12,8 +12,10 @@ from itertools import repeat
 from typing import Any
 
 import feedparser
+import sqlalchemy
+from sqlalchemy.engine import Connection, create_engine
 
-from _dependencies.commons import setup_logging
+from _dependencies.commons import get_app_config, setup_logging
 from _dependencies.pubsub import Ctx, pubsub_check_first_posts
 
 from ._utils.commons import PercentGroup, RSSItem, Search
@@ -242,6 +244,35 @@ def _process_rss_item(item: Any) -> None:
             content=item.summary,
         )
     )
+
+
+class PhpBbDbClient:
+    """Client for LA forum database (phpbb, mysql/mariadb)"""
+
+    def __init__(self, connection_url: str):
+        engine = create_engine(url=connection_url)
+        self._connection = Connection(engine)
+
+    def get_changed_post_ids_from(self, last_id: int) -> list[int]:
+        """
+        fetch 50 records from last_id from table phpbb_posts_history.
+
+        Returns only list of post_id.
+        """
+
+        stmt = sqlalchemy.text("""
+            SELECT post_id
+            FROM phpbb_posts_history
+            WHERE history_id > :last_id
+            ORDER BY history_id ASC
+            LIMIT 50
+        """)
+        result = self._connection.execute(stmt, {'last_id': last_id})
+        return [row.post_id for row in result.fetchall()]
+
+
+def get_phpbb_db_client() -> PhpBbDbClient:
+    return PhpBbDbClient(get_app_config().phpbb_db_url)
 
 
 def main(event: dict, context: Ctx) -> None:
