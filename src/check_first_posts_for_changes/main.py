@@ -9,21 +9,28 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from itertools import repeat
-from typing import Any
-
-import feedparser
 
 from _dependencies.commons import setup_logging
 from _dependencies.pubsub import Ctx, pubsub_check_first_posts
+from check_first_posts_for_changes._utils.database import get_phpbb_db_client
 
-from ._utils.commons import PercentGroup, RSSItem, Search
 from ._utils.database import DBClient, get_db_client
-from ._utils.forum import ForumUnavailable, get_first_post, get_search_id_by_comment
+from ._utils.forum import ForumUnavailable, get_first_post
 
 setup_logging(__package__)
 
 WORKERS_COUNT = 2
 FUNCTION_TIMEOUT_SECONDS = 50
+LAST_CHANGE_ID_IN_PHPBB_DB = 'LAST_CHANGE_ID_IN_PHPBB_DB'
+
+
+@dataclass
+class CancelToken:
+    timeout_seconds: int
+    start_time: datetime.datetime = field(default_factory=datetime.datetime.now)
+
+    def expired(self) -> bool:
+        return datetime.datetime.now() > (self.start_time + datetime.timedelta(seconds=self.timeout_seconds))
 
 
 def update_one_topic_visibility(search_id: int, visibility: str) -> None:
@@ -52,78 +59,11 @@ def update_visibility_for_one_hidden_topic() -> None:
         update_one_topic_visibility(hidden_topic_id, 'deleted')
 
 
-def _generate_list_of_topic_groups() -> list[PercentGroup]:
-    """generate N search groups, groups needed to define which part of all searches will be checked now"""
-
-    percent_step = 5
-    list_of_groups: list[PercentGroup] = []
-    current_percent = 0
-
-    while current_percent < 100:
-        n = int(current_percent / percent_step)
-        new_group = PercentGroup(
-            n=n,
-            start_percent=current_percent,
-            finish_percent=min(100, current_percent + percent_step - 1),
-            frequency=2**n,
-            first_delay=2 ** (n - 1) - 1 if n != 0 else 0,
-        )
-        list_of_groups.append(new_group)
-        current_percent += percent_step
-
-    return list_of_groups
-
-
-def _define_which_topic_groups_to_be_checked() -> list[PercentGroup]:
-    """gives an output of 2 groups that should be checked for this time"""
-    list_of_groups = _generate_list_of_topic_groups()
-
-    start_time = datetime.datetime(2023, 1, 1, 0, 0, 0)
-    curr_minute = int(((datetime.datetime.now() - start_time).total_seconds() / 60) // 1)
-
-    curr_minute_list: list[PercentGroup] = []
-    for group_2 in list_of_groups:
-        if not ((curr_minute - group_2.first_delay) % group_2.frequency):
-            curr_minute_list.append(group_2)
-            logging.debug(f'Group to be checked {group_2}')
-
-    return curr_minute_list
-
-
-def get_topics_to_check() -> list[Search]:
-    """add searches to the chosen groups"""
-    topics_to_check: list[Search] = []
-
-    # TODO maybe there is better method of randomizing?
-    searches = get_db_client().get_list_of_topics()
-
-    list_of_groups = _define_which_topic_groups_to_be_checked()
-
-    num_of_searches = len(searches)
-
-    for group_2 in list_of_groups:
-        group_2.start_num = int((group_2.start_percent * num_of_searches / 100) // 1)
-        group_2.finish_num = min(int(((group_2.finish_percent + 1) * num_of_searches / 100) // 1 - 1), len(searches))
-
-    for j, search in enumerate(searches):
-        for group_2 in list_of_groups:
-            if group_2.start_num <= j <= group_2.finish_num:
-                topics_to_check.append(search)
-
-    return topics_to_check  # TODO randomize?
-
-
-@dataclass
-class CancelToken:
-    timeout_seconds: int
-    start_time: datetime.datetime = field(default_factory=datetime.datetime.now)
-
-    def expired(self) -> bool:
-        return datetime.datetime.now() > (self.start_time + datetime.timedelta(seconds=self.timeout_seconds))
-
-
-def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
+def update_first_posts_in_sql(searches_list: list[int]) -> list[int]:
     """generate a list of topic_ids with updated first posts and record in it PSQL"""
+
+    if not searches_list:
+        return []
 
     list_of_searches_with_updated_f_posts: list[int] = []
     db_client = get_db_client()
@@ -144,7 +84,7 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
                 break
 
             if topic_updated:
-                topic_id = searches_list[i].topic_id
+                topic_id = searches_list[i]
                 list_of_searches_with_updated_f_posts.append(topic_id)
 
     logging.info(
@@ -157,10 +97,9 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
     return list_of_searches_with_updated_f_posts
 
 
-def _update_one_topic_hash(db_client: DBClient, cancel_token: CancelToken, topic: Search) -> bool:
+def _update_one_topic_hash(db_client: DBClient, cancel_token: CancelToken, topic_id: int) -> bool:
     if cancel_token.expired():
         return False
-    topic_id = topic.topic_id
     post_data = get_first_post(topic_id)
 
     if not post_data:
@@ -186,18 +125,22 @@ def _update_one_topic_hash(db_client: DBClient, cancel_token: CancelToken, topic
 def update_first_posts_and_statuses() -> None:
     """update first posts for topics"""
 
-    topics_to_check = get_topics_to_check()
+    active_searches = get_db_client().get_active_searches_ids()
+    logging.info(f'Found {len(active_searches)} active searches')
+    last_id = get_db_client().get_key_value_item(LAST_CHANGE_ID_IN_PHPBB_DB) or 0
 
-    if not topics_to_check:
-        return
+    changed_topic_ids = get_phpbb_db_client().get_changed_post_ids_from_last_id(last_id)
+    fetched_records_count = len(changed_topic_ids)
+    unique_changed_topic_ids = set(changed_topic_ids)
+    logging.info(f'Changed topics in forum: {unique_changed_topic_ids}')
+
+    topic_ids_to_check = [item for item in active_searches if item in unique_changed_topic_ids]
+    logging.info(f'First posts to check update: {topic_ids_to_check}')
 
     try:
-        topics_with_updated_first_posts = update_first_posts_in_sql(topics_to_check)
+        topics_with_updated_first_posts = update_first_posts_in_sql(topic_ids_to_check)
     except ForumUnavailable:
         logging.warning('Forum unavailable')
-        return
-
-    if not topics_with_updated_first_posts:
         return
 
     # Split topics_into_chunks of 10 items and send each chunk via pub/sub
@@ -207,55 +150,10 @@ def update_first_posts_and_statuses() -> None:
         chunk = topics_with_updated_first_posts[i : i + chunk_size]
         pubsub_check_first_posts(chunk)
 
-
-def read_rss_feed(filename_or_url: str) -> None:
-    logging.info('RSS feed processing: start')
-    feed = feedparser.parse(filename_or_url)
-
-    for item in feed.entries:
-        _process_rss_item(item)
-    logging.info('RSS feed processing: done')
-
-
-def _process_rss_item(item: Any) -> None:
-    db_client = get_db_client()
-
-    item_id = item.link
-    published_at = datetime.datetime.fromisoformat(item.published)
-    updated_at = datetime.datetime.fromisoformat(item.updated)
-
-    saved_item = db_client.get_rss_item(item_id)
-    if saved_item:
-        if saved_item.updated_at != updated_at:
-            logging.warning(f'Changed field updated_at for rss item: {item_id}')
-        return
-
-    search_id = get_search_id_by_comment(item_id)
-    logging.info(f'New comments rom RSS for search {search_id}')
-
-    db_client.save_rss_item(
-        RSSItem(
-            topic_id=search_id,
-            published_at=published_at,
-            updated_at=updated_at,
-            item_id=item_id,
-            content=item.summary,
-        )
-    )
+    get_db_client().set_key_value_item(LAST_CHANGE_ID_IN_PHPBB_DB, last_id + fetched_records_count)
 
 
 def main(event: dict, context: Ctx) -> None:
-    # to avoid function invocation except when it was initiated by scheduler (and pub/sub message was not doubled)
-    # if datetime.datetime.now().second > 5:
-    #     return
-
-    # BLOCK 0. read rss feed
-    # TODO remove, it cannot help us
-    # try:
-    #     read_rss_feed('https://lizaalert.org/forum/app.php/feed')
-    # except Exception:
-    #     logging.exception('Error while processing RSS feed')
-
     # BLOCK 1. for checking if the first posts were changed
     update_first_posts_and_statuses()
 

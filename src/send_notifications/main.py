@@ -6,15 +6,14 @@ import logging
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, wait
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import Any, Iterator, List
+from typing import Any
 
 import sqlalchemy
-from sqlalchemy.engine.base import Connection, Engine
 
 from _dependencies.commons import setup_logging, sqlalchemy_get_pool
+from _dependencies.db_client import DBClientBase
 from _dependencies.lock_manager import FunctionLockError, lock_manager
 from _dependencies.misc import generate_random_function_id, tg_api_main_account
 from _dependencies.pubsub import Ctx, notify_admin, pubsub_send_notifications
@@ -60,20 +59,7 @@ class MessageToSend:
     vk_id: str | None = None
 
 
-@lru_cache
-def db() -> 'DBClient':
-    return DBClient(_pool=sqlalchemy_get_pool())
-
-
-@dataclass
-class DBClient:
-    _pool: Engine
-
-    @contextmanager
-    def connect(self) -> Iterator[Connection]:
-        with self._pool.connect() as connection:
-            yield connection
-
+class DBClient(DBClientBase):
     def get_notifs_to_send(self, select_doubling: bool) -> list['MessageToSend']:
         """return notifications which should be sent"""
         with self.connect() as conn:
@@ -430,7 +416,7 @@ def _process_logs_with_completed_sending(
 
 def finish_time_analytics(
     time_analytics: TimeAnalytics,
-    list_of_change_ids: List,
+    list_of_change_ids: list,
 ) -> None:
     """Make final steps for time analytics: inform admin, log, record statistics into PSQL"""
 
@@ -473,32 +459,6 @@ def finish_time_analytics(
     return None
 
 
-def main(event: dict, context: Ctx) -> str | None:
-    """Main function that is triggered by pub/sub"""
-
-    time_analytics = TimeAnalytics(script_start_time=datetime.datetime.now())
-
-    # timer is needed to finish the script if it's already close to timeout
-
-    function_id = generate_random_function_id()
-
-    try:
-        pool = sqlalchemy_get_pool()
-        connection = pool.connect()
-        with lock_manager(connection, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
-            changed_ids = iterate_over_notifications(function_id, time_analytics)
-
-    except FunctionLockError:
-        logging.info('script cancelled')
-        return None
-
-    finish_time_analytics(time_analytics, changed_ids)
-
-    logging.info('script finished')
-
-    return 'ok'
-
-
 def format_mesage_for_vk(message: str) -> str:
     # Handle different types of <a> tags based on their href
     # Pattern to match <a href="URL">text</a>
@@ -536,3 +496,34 @@ def format_mesage_for_vk(message: str) -> str:
     result = html_tag_pattern.sub('', result)
 
     return result
+
+
+@lru_cache
+def db() -> DBClient:
+    return DBClient()
+
+
+def main(event: dict, context: Ctx) -> str | None:
+    """Main function that is triggered by pub/sub"""
+
+    time_analytics = TimeAnalytics(script_start_time=datetime.datetime.now())
+
+    # timer is needed to finish the script if it's already close to timeout
+
+    function_id = generate_random_function_id()
+
+    try:
+        pool = sqlalchemy_get_pool()
+        connection = pool.connect()
+        with lock_manager(connection, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
+            changed_ids = iterate_over_notifications(function_id, time_analytics)
+
+    except FunctionLockError:
+        logging.info('script cancelled')
+        return None
+
+    finish_time_analytics(time_analytics, changed_ids)
+
+    logging.info('script finished')
+
+    return 'ok'

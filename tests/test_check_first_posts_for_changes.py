@@ -1,15 +1,14 @@
-from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
+from uuid import uuid4
 
 import pytest
 from requests_mock.mocker import Mocker
 from sqlalchemy.orm import Session
 
-from _dependencies.commons import sqlalchemy_get_pool
 from check_first_posts_for_changes import main
 from check_first_posts_for_changes._utils import forum
-from check_first_posts_for_changes._utils.database import DBClient, get_db_client
+from check_first_posts_for_changes._utils.database import DBClient, get_phpbb_db_client
 from tests.common import fake, find_model
 from tests.factories import db_factories, db_models
 
@@ -33,6 +32,7 @@ def db_client(connection_pool) -> DBClient:
 
 
 class TestMain:
+    @pytest.mark.skip(reason="don't have mysql db yet")
     @pytest.mark.freeze_time('2025-02-13 14:25:00')
     def test_main(self, requests_mock: Mocker, mock_topic_management):
         # TODO mock http back or remove this test
@@ -40,36 +40,6 @@ class TestMain:
         requests_mock.get(f'https://lizaalert.org/forum/viewtopic.php', text=text)  # mocking any topic
 
         main.main(MagicMock(), 'context')
-
-    def test_generate_list_of_topic_groups(self):
-        res = main._generate_list_of_topic_groups()
-
-        assert len(res) == 20
-
-    def test__define_which_topic_groups_to_be_checked(self):
-        res = main._define_which_topic_groups_to_be_checked()
-
-        assert res
-
-    @pytest.mark.freeze_time('2025-02-13 14:27:00')
-    def test_get_topics_to_check(self):
-        cnt = 10
-        geofolder = db_factories.GeoFolderFactory.create_sync(
-            folder_type='searches',
-        )
-        for _ in range(cnt):
-            search = db_factories.SearchFactory.create_sync(
-                status='Ищем',
-                forum_folder_id=geofolder.folder_id,
-            )
-            db_factories.SearchHealthCheckFactory.create_sync(
-                search_forum_num=search.search_forum_num,
-            )
-
-        assert get_db_client().get_list_of_topics()
-        topics_to_check = main.get_topics_to_check()
-
-        assert topics_to_check
 
     def test_update_one_topic_visibility(self, session):
         search_health_check = db_factories.SearchHealthCheckFactory.create_sync()
@@ -117,9 +87,9 @@ class TestDBClient:
             search_forum_num=search.search_forum_num,
         )
 
-        searches = db_client.get_list_of_topics()
+        active_searches_ids = db_client.get_active_searches_ids()
 
-        assert any(s.topic_id == search.search_forum_num for s in searches)
+        assert search.search_forum_num in active_searches_ids
 
     def test_create_search_first_post(self, db_client: DBClient, session: Session):
         search_id = fake.pyint()
@@ -170,15 +140,22 @@ class TestForum:
         assert res.hash_num == '30439b2156a1c8050154c142dda4d04c'
 
 
-class TestRssFeed:
-    def test_read_rss(self):
-        rss_location = 'tests/fixtures/rss_feed.xml'
-        # filename = 'https://lizaalert.org/forum/app.php/feed'
-        with patch.object(main, 'get_search_id_by_comment') as mock:
-            mock.return_value = 123
-            main.read_rss_feed(rss_location)
+@pytest.mark.skip(reason="don't have mysql instance yet")
+class TestParseDatabaseTables:
+    """New way to identify updates: parse table `phpbb_posts_history` in mysql"""
 
-    @pytest.mark.skip(reason='real run')
-    def test_read_rss_real(self):
-        rss_location = 'https://lizaalert.org/forum/app.php/feed'
-        main.read_rss_feed(rss_location)
+    def test_fetch_changes_from_last_time(self):
+        db_cln_2 = get_phpbb_db_client()
+        assert db_cln_2
+        last_change_id = 1
+        changes = db_cln_2.get_changed_post_ids_from_last_id(last_change_id)
+        assert changes
+
+    def test_key_value_settings(self, db_client: DBClient):
+        key = str(uuid4())
+        value = '123'
+
+        db_client.set_key_value_item(key, value)
+        saved = db_client.get_key_value_item(key)
+
+        assert saved == value

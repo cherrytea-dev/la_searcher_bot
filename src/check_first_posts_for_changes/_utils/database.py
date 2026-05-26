@@ -2,21 +2,13 @@ import datetime
 from functools import lru_cache
 
 import sqlalchemy
-from sqlalchemy.engine import Connection
-from sqlalchemy.engine.base import Engine
+from sqlalchemy.engine import Connection, create_engine
 
-from _dependencies.commons import sqlalchemy_get_pool
-
-from .commons import RSSItem, Search
+from _dependencies.commons import get_app_config
+from _dependencies.db_client import DBClientBase, DBKeyValueStorageMixin
 
 
-class DBClient:
-    def __init__(self, db: Engine) -> None:
-        self._db = db
-
-    def connect(self) -> Connection:
-        return self._db.connect()
-
+class DBClient(DBClientBase, DBKeyValueStorageMixin):
     def get_random_hidden_topic_id(self) -> int | None:
         with self.connect() as conn:
             hidden_topic = conn.execute("""
@@ -49,7 +41,7 @@ class DBClient:
                                    """)
             conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=visibility)
 
-    def get_list_of_topics(self) -> list[Search]:
+    def get_active_searches_ids(self) -> list[int]:
         """get best list of searches for which first posts should be checked"""
 
         with self.connect() as conn:
@@ -65,8 +57,8 @@ class DBClient:
                     FROM s
                         LEFT JOIN h ON s.search_forum_num=h.search_forum_num
                         JOIN f ON s.forum_folder_id=f.folder_id
-                    WHERE 
-                        (h.status != 'deleted' AND h.status != 'hidden') 
+                    WHERE
+                        (h.status != 'deleted' AND h.status != 'hidden')
                         OR h.status IS NULL
                     ORDER BY s.search_start_time DESC
                     /*action='get_list_of_searches_for_first_post_and_status_update 3.0' */
@@ -74,7 +66,7 @@ class DBClient:
                                             """).fetchall()
 
             # form the list-like table
-            return [Search(topic_id=line[0]) for line in raw_sql_extract]
+            return [line[0] for line in raw_sql_extract]
 
     def create_search_first_post(self, topic_id: int, act_hash: str, act_content: str) -> None:
         with self.connect() as conn:
@@ -108,43 +100,38 @@ class DBClient:
                 return raw_data[0]
         return None
 
-    def save_rss_item(self, item: RSSItem) -> None:
-        with self.connect() as conn:
-            stmt = sqlalchemy.text("""
-                INSERT INTO rss_items 
-                (search_forum_num, published_at, updated_at, url, content)
-                VALUES (:a, :b, :c, :d, :e);
-                                   """)
-            conn.execute(
-                stmt,
-                a=item.topic_id,
-                b=item.published_at,
-                c=item.updated_at,
-                d=item.item_id,
-                e=item.content,
-            )
-
-    def get_rss_item(self, item_id: str) -> RSSItem | None:
-        with self.connect() as conn:
-            stmt = sqlalchemy.text("""
-                SELECT id, url, search_forum_num, published_at, updated_at, content 
-                FROM rss_items 
-                WHERE
-                    url = :a;
-                            """)
-            raw_data = conn.execute(stmt, a=item_id).fetchone()
-            if raw_data:
-                return RSSItem(
-                    id=raw_data[0],
-                    item_id=raw_data[1],
-                    topic_id=raw_data[2],
-                    published_at=raw_data[3],
-                    updated_at=raw_data[4],
-                    content=raw_data[5],
-                )
-        return None
-
 
 @lru_cache
 def get_db_client() -> DBClient:
-    return DBClient(db=sqlalchemy_get_pool())
+    return DBClient()
+
+
+class PhpBbDbClient:
+    """Client for LA forum database (phpbb, mysql/mariadb)"""
+
+    def __init__(self, connection_url: str):
+        engine = create_engine(url=connection_url)
+        self._connection = Connection(engine)
+
+    def get_changed_post_ids_from_last_id(self, last_id: int) -> list[int]:
+        """
+        fetch records from last_id from table phpbb_posts_history.
+        Returns only list of post_id.
+        """
+
+        MAX_RECORDS_COUNT = 1000
+
+        stmt = sqlalchemy.text("""
+            SELECT post_id
+            FROM phpbb_posts_history
+            WHERE history_id > :last_id
+            ORDER BY history_id ASC
+            LIMIT :count
+        """)
+
+        result = self._connection.execute(stmt, {'last_id': last_id, 'count': MAX_RECORDS_COUNT})
+        return [row.post_id for row in result.fetchall()]
+
+
+def get_phpbb_db_client() -> PhpBbDbClient:
+    return PhpBbDbClient(get_app_config().phpbb_db_url)

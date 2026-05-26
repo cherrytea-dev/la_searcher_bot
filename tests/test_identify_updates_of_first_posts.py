@@ -3,10 +3,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 import requests
-from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
-from _dependencies.commons import sqlalchemy_get_pool
 from identify_updates_of_first_posts import main
 from src.identify_updates_of_first_posts.main import (
     process_first_page_comparison,
@@ -14,12 +12,6 @@ from src.identify_updates_of_first_posts.main import (
 )
 from tests.common import get_event_with_data
 from tests.factories import db_factories
-
-
-@pytest.fixture(autouse=True)
-def patch_http():
-    # disable http patching
-    pass
 
 
 def test_main():
@@ -130,8 +122,14 @@ def test_multiple_updated_searches():
 
 
 class TestParseSearchFolder:
-    @pytest.fixture(scope='class')
+    @pytest.fixture(autouse=True)
+    def patch_http(self):
+        # disable http patching
+        pass
+
+    @pytest.fixture()
     def mock_response(self):
+        main.get_requests_session.cache_clear()
         with patch.object(requests.Session, 'get') as mock_get:
             yield mock_get
 
