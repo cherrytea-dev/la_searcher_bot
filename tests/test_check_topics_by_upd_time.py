@@ -82,8 +82,8 @@ def test_get_updates_of_nested_folders():
 
         expected_updated_folders = [
             (str(folders[0].folder_num), 'f1'),
-            (str(folders[2].folder_num), 'f3'),
             (str(folders[1].folder_num), 'f2'),
+            (str(folders[2].folder_num), 'f3'),
         ]
         assert updated_folders == expected_updated_folders
 

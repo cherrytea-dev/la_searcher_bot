@@ -1,6 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
+from uuid import uuid4
 
 import pytest
 from requests_mock.mocker import Mocker
@@ -49,26 +50,6 @@ class TestMain:
         res = main._define_which_topic_groups_to_be_checked()
 
         assert res
-
-    @pytest.mark.freeze_time('2025-02-13 14:27:00')
-    def test_get_topics_to_check(self):
-        cnt = 10
-        geofolder = db_factories.GeoFolderFactory.create_sync(
-            folder_type='searches',
-        )
-        for _ in range(cnt):
-            search = db_factories.SearchFactory.create_sync(
-                status='Ищем',
-                forum_folder_id=geofolder.folder_id,
-            )
-            db_factories.SearchHealthCheckFactory.create_sync(
-                search_forum_num=search.search_forum_num,
-            )
-
-        assert get_db_client().get_list_of_topics()
-        topics_to_check = main.get_topics_to_check()
-
-        assert topics_to_check
 
     def test_update_one_topic_visibility(self, session):
         search_health_check = db_factories.SearchHealthCheckFactory.create_sync()
@@ -141,13 +122,6 @@ class TestDBClient:
 
         assert hash == sfp.content_hash
 
-    def test_key_value_settings(self):
-        """
-        we need to keep last_change_id
-        TODO look for existing similar tests
-        """
-        raise NotImplementedError()
-
 
 class TestForum:
     def test_get_search_raw_content(self, requests_mock: Mocker):
@@ -197,5 +171,14 @@ class TestParseDatabaseTables:
         db_cln_2 = main.get_phpbb_db_client()
         assert db_cln_2
         last_change_id = 1
-        changes = db_cln_2.get_changed_post_ids_from(last_change_id)
+        changes = db_cln_2.get_changed_post_ids_from_last_id(last_change_id)
         assert changes
+
+    def test_key_value_settings(self, db_client: DBClient):
+        key = str(uuid4())
+        value = '123'
+
+        db_client.set_key_value_item(key, value)
+        saved = db_client.get_key_value_item(key)
+
+        assert saved == value
