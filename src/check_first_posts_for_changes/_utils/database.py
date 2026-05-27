@@ -108,7 +108,7 @@ def get_db_client() -> DBClient:
 
 
 class PostInfo(NamedTuple):
-    post_id: int
+    topic_id: int
     forum_id: int
 
 
@@ -138,7 +138,7 @@ class PhpBbDbClient:
         MAX_RECORDS_COUNT = 1000
 
         stmt = sqlalchemy.text("""
-            SELECT post_id, forum_id
+            SELECT topic_id, forum_id
             FROM phpbb_posts_history
             WHERE history_id > :last_id
             ORDER BY history_id ASC
@@ -146,7 +146,7 @@ class PhpBbDbClient:
         """)
 
         result = self._connection.execute(stmt, {'last_id': last_id, 'count': MAX_RECORDS_COUNT})
-        return [PostInfo(post_id=row.post_id, forum_id=row.forum_id) for row in result.fetchall()]
+        return [PostInfo(topic_id=row.topic_id, forum_id=row.forum_id) for row in result.fetchall()]
 
 
 def get_phpbb_db_client() -> PhpBbDbClient:
