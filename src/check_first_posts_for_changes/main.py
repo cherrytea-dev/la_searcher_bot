@@ -137,7 +137,7 @@ def send_updates_to_parse() -> None:
     last_id = get_db_client().get_key_value_item(LAST_CHANGE_ID_IN_PHPBB_DB) or 0
 
     changed_topics = get_phpbb_db_client().get_changed_posts_from_last_id(last_id)
-    changed_topic_ids = [x.post_id for x in changed_topics]
+    changed_topic_ids = [x.topic_id for x in changed_topics]
     fetched_records_count = len(changed_topic_ids)
     unique_changed_topic_ids = set(changed_topic_ids)
     logging.info(f'Changed topics in forum: {unique_changed_topic_ids}')
