@@ -809,7 +809,7 @@ requires-dist = [
     { name = "yarl", specifier = ">=1.18.3" },
     { name = "yarl", marker = "extra == 'identify-updates-of-topics'", specifier = "==1.18.3" },
 ]
-provides-extras = ["api-get-active-searches", "archive-notifications", "archive-to-bigquery", "check-topics-by-upd-time", "check-first-posts-for-changes", "communicate", "compose-notifications", "connect-to-forum", "identify-updates-of-first-posts", "identify-updates-of-topics", "send-debug-to-admin", "send-notifications", "title-recognize", "user-provide-info", "users-activate", "test-func", "vk-bot"]
+provides-extras = ["api-get-active-searches", "archive-notifications", "archive-to-bigquery", "check-first-posts-for-changes", "communicate", "compose-notifications", "connect-to-forum", "identify-updates-of-first-posts", "identify-updates-of-topics", "send-debug-to-admin", "send-notifications", "title-recognize", "user-provide-info", "users-activate", "test-func", "vk-bot"]
 
 [package.metadata.requires-dev]
 dev = [
