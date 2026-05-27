@@ -7,7 +7,6 @@ variable "cron-funcs" {
     cron_expression = string
   }))
   default = {
-    "check-topics-by-upd-time" = { memory = "256", entrypoint = "foo.main.main", cron_expression = "* * ? * * *"  } # every minute
     "check-first-posts-for-changes" = { memory = "256", entrypoint = "foo.main.main", cron_expression = "* * ? * * *"  } # every minute
     "archive-to-bigquery" = { memory = "512", entrypoint = "foo.main.main", cron_expression = "13 11 ? * * *"  } # every day at 11:13 AM
   }

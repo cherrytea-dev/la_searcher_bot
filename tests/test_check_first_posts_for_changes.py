@@ -148,7 +148,7 @@ class TestParseDatabaseTables:
         db_cln_2 = get_phpbb_db_client()
         assert db_cln_2
         last_change_id = 1
-        changes = db_cln_2.get_changed_post_ids_from_last_id(last_change_id)
+        changes = db_cln_2.get_changed_posts_from_last_id(last_change_id)
         assert changes
 
     def test_key_value_settings(self, db_client: DBClient):

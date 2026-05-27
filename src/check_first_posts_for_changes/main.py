@@ -1,8 +1,11 @@
-"""Script does several things:
+"""
+Script does several things:
 1. checks if the first posts of the searches were changed
-2. FIXME - checks active searches' status (Ищем, НЖ, НП, etc.)
-3. checks active searches' visibility (accessible for everyone, restricted to a certain group or permanently deleted).
-Updates are either saved in PSQL or send via pub/sub to other scripts"""
+2. checks if any folders with posts were changed
+3. FIXME - checks active searches' status (Ищем, НЖ, НП, etc.)
+4. checks active searches' visibility (accessible for everyone, restricted to a certain group or permanently deleted).
+Updates are either saved in PSQL or send via pub/sub to other scripts
+"""
 
 import datetime
 import logging
@@ -11,7 +14,7 @@ from dataclasses import dataclass, field
 from itertools import repeat
 
 from _dependencies.commons import setup_logging
-from _dependencies.pubsub import Ctx, pubsub_check_first_posts
+from _dependencies.pubsub import Ctx, pubsub_check_first_posts, pubsub_parse_folders
 from check_first_posts_for_changes._utils.database import get_phpbb_db_client
 
 from ._utils.database import DBClient, get_db_client
@@ -22,6 +25,7 @@ setup_logging(__package__)
 WORKERS_COUNT = 2
 FUNCTION_TIMEOUT_SECONDS = 50
 LAST_CHANGE_ID_IN_PHPBB_DB = 'LAST_CHANGE_ID_IN_PHPBB_DB'
+USELESS_FOLDERS = {84, 113, 112, 270, 86, 87, 88, 165, 365, 89, 172, 91, 90, 316, 234, 230, 319}
 
 
 @dataclass
@@ -122,14 +126,18 @@ def _update_one_topic_hash(db_client: DBClient, cancel_token: CancelToken, topic
     return False
 
 
-def update_first_posts_and_statuses() -> None:
-    """update first posts for topics"""
+def send_updates_to_parse() -> None:
+    """
+    update first posts for topics;
+    send folders of changed posts to parse.
+    """
 
     active_searches = get_db_client().get_active_searches_ids()
     logging.info(f'Found {len(active_searches)} active searches')
     last_id = get_db_client().get_key_value_item(LAST_CHANGE_ID_IN_PHPBB_DB) or 0
 
-    changed_topic_ids = get_phpbb_db_client().get_changed_post_ids_from_last_id(last_id)
+    changed_topics = get_phpbb_db_client().get_changed_posts_from_last_id(last_id)
+    changed_topic_ids = [x.post_id for x in changed_topics]
     fetched_records_count = len(changed_topic_ids)
     unique_changed_topic_ids = set(changed_topic_ids)
     logging.info(f'Changed topics in forum: {unique_changed_topic_ids}')
@@ -150,12 +158,20 @@ def update_first_posts_and_statuses() -> None:
         chunk = topics_with_updated_first_posts[i : i + chunk_size]
         pubsub_check_first_posts(chunk)
 
+    changed_folder_ids = set(x.forum_id for x in changed_topics if x.forum_id not in USELESS_FOLDERS)
+    logging.info(f'Changed folders in forum: {changed_folder_ids}')
+
+    folders_to_parse = [(folder_id, '') for folder_id in changed_folder_ids]  # save compatibility
+    for i in range(0, len(folders_to_parse), chunk_size):
+        chunk2 = folders_to_parse[i : i + chunk_size]
+        pubsub_parse_folders(chunk2)
+
     get_db_client().set_key_value_item(LAST_CHANGE_ID_IN_PHPBB_DB, last_id + fetched_records_count)
 
 
 def main(event: dict, context: Ctx) -> None:
     # BLOCK 1. for checking if the first posts were changed
-    update_first_posts_and_statuses()
+    send_updates_to_parse()
 
     # BLOCK 2. small bonus: check one of topics, which has visibility='hidden' to check if it was not unhidden later.
     # It is done in this script only because there's no better place. Ant these are circa 40 hidden topics at all.

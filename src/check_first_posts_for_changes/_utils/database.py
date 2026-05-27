@@ -1,5 +1,6 @@
 import datetime
 from functools import lru_cache
+from typing import NamedTuple
 
 import sqlalchemy
 from sqlalchemy.engine import Connection, create_engine
@@ -106,6 +107,11 @@ def get_db_client() -> DBClient:
     return DBClient()
 
 
+class PostInfo(NamedTuple):
+    post_id: int
+    forum_id: int
+
+
 class PhpBbDbClient:
     """Client for LA forum database (phpbb, mysql/mariadb)"""
 
@@ -123,7 +129,7 @@ class PhpBbDbClient:
         )
         self._connection = Connection(engine)
 
-    def get_changed_post_ids_from_last_id(self, last_id: int) -> list[int]:
+    def get_changed_posts_from_last_id(self, last_id: int) -> list[PostInfo]:
         """
         fetch records from last_id from table phpbb_posts_history.
         Returns only list of post_id.
@@ -132,7 +138,7 @@ class PhpBbDbClient:
         MAX_RECORDS_COUNT = 1000
 
         stmt = sqlalchemy.text("""
-            SELECT post_id
+            SELECT post_id, forum_id
             FROM phpbb_posts_history
             WHERE history_id > :last_id
             ORDER BY history_id ASC
@@ -140,7 +146,7 @@ class PhpBbDbClient:
         """)
 
         result = self._connection.execute(stmt, {'last_id': last_id, 'count': MAX_RECORDS_COUNT})
-        return [row.post_id for row in result.fetchall()]
+        return [PostInfo(post_id=row.post_id, forum_id=row.forum_id) for row in result.fetchall()]
 
 
 def get_phpbb_db_client() -> PhpBbDbClient:

@@ -54,19 +54,6 @@
             "justMyCode": true
         },
         {
-            "name": "run_check_topics_by_upd_time",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "tests/tools/run_check_topics_by_upd_time.py",
-            "console": "integratedTerminal",
-            "purpose": [
-                "debug-test",
-                "debug-in-terminal"
-            ],
-            "cwd": "${workspaceFolder}",
-            "justMyCode": true
-        },
-        {
             "name": "run_identify_updates_of_topics",
             "type": "debugpy",
             "request": "launch",
