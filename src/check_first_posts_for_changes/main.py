@@ -132,8 +132,6 @@ def send_updates_to_parse() -> None:
     send folders of changed posts to parse.
     """
 
-    active_searches = get_db_client().get_active_searches_ids()
-    logging.info(f'Found {len(active_searches)} active searches')
     last_id = get_db_client().get_key_value_item(LAST_CHANGE_ID_IN_PHPBB_DB) or 0
 
     changed_topics = get_phpbb_db_client().get_changed_posts_from_last_id(last_id)
@@ -145,6 +143,9 @@ def send_updates_to_parse() -> None:
     fetched_records_count = len(changed_topic_ids)
     unique_changed_topic_ids = set(changed_topic_ids)
     logging.info(f'Changed topics in forum: {unique_changed_topic_ids}')
+
+    active_searches = get_db_client().get_active_searches_ids()
+    logging.info(f'Found {len(active_searches)} active searches')
 
     topic_ids_to_check = [item for item in active_searches if item in unique_changed_topic_ids]
     logging.info(f'First posts to check update: {topic_ids_to_check}')
