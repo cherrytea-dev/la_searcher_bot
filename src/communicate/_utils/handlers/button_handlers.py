@@ -1,5 +1,6 @@
 import logging
 import re
+from uuid import uuid4
 
 from telegram import (
     InlineKeyboardButton,
@@ -237,7 +238,10 @@ def handle_show_map(update_params: UpdateBasicParams, extra_params: UpdateExtraP
     )
 
     map_button = InlineKeyboardButton(
-        text='Открыть карту поисков', web_app=WebAppInfo(url=get_app_config().web_app_url)
+        text='Открыть карту поисков',
+        web_app=WebAppInfo(
+            url=f'{get_app_config().web_app_url}?nocache={uuid4()}',
+        ),
     )
 
     keyboard = [[map_button]]
