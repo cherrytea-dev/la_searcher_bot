@@ -18,7 +18,8 @@ def tg_api_service_account() -> TGApiBase:
 
 @lru_cache
 def tg_api_main_account() -> TGApiBase:
-    return TGApiBase(token=get_app_config().bot_api_token__prod)
+    config = get_app_config()
+    return TGApiBase(token=config.bot_api_token__prod, host=config.bot_api_host)
 
 
 def time_counter_since_search_start(start_time: datetime.datetime) -> tuple[str, int]:

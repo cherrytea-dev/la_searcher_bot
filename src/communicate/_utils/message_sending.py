@@ -12,7 +12,8 @@ from .database import db
 
 @lru_cache
 def tg_api() -> 'TGApiCommunicate':
-    return TGApiCommunicate(token=get_app_config().bot_api_token__prod)
+    config = get_app_config()
+    return TGApiCommunicate(token=config.bot_api_token__prod, host=config.bot_api_host)
 
 
 class TGApiCommunicate(TGApiBase):

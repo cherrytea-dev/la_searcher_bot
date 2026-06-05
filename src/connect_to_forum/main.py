@@ -1,11 +1,9 @@
 import datetime
 import logging
-import pickle
 import re
 import urllib.parse
 from dataclasses import dataclass
 from functools import lru_cache
-from pathlib import Path
 from time import sleep
 from typing import Any, Dict
 
@@ -15,8 +13,8 @@ from bs4 import BeautifulSoup, NavigableString, Tag
 from telegram import ReplyKeyboardMarkup
 
 from _dependencies.commons import get_app_config, get_forum_proxies, setup_logging, sqlalchemy_get_pool
+from _dependencies.misc import tg_api_main_account
 from _dependencies.pubsub import Ctx, process_pubsub_message
-from _dependencies.telegram_api_wrapper import TGApiBase
 
 COOKIE_FILE_NAME = 'session_cookies.pkl'
 
@@ -363,7 +361,7 @@ def main(event: Dict[str, bytes], context: Ctx) -> None:
             'chat_id': tg_user_id,
         }
 
-        tg_api = TGApiBase(token=get_app_config().bot_api_token__prod)
+        tg_api = tg_api_main_account()
         tg_api.send_message(data)
 
         # save bot's reply to incoming request
