@@ -18,6 +18,10 @@ class TGApiBase:
         self._session = requests.Session()
         self._host = host or 'https://api.telegram.org'
 
+    @property
+    def bot_api_path_start(self) -> str:
+        return f'{self._host}/bot{self._token}'
+
     def leave_chat(self, user_id: int) -> None:
         self._make_api_call('leaveChat', {'chat_id': user_id})
 
@@ -28,7 +32,7 @@ class TGApiBase:
             message_encoded = f'&text={urllib.parse.quote(message)}'
 
             request_text = (
-                f'{self._host}/bot{self._token}/answerCallbackQuery?callback_query_id='
+                f'{self.bot_api_path_start}/answerCallbackQuery?callback_query_id='
                 f'{callback_query_id}{message_encoded}'
             )
 
@@ -84,7 +88,7 @@ class TGApiBase:
         if 'chat_id' not in params.keys() and ('scope' not in params.keys() or 'chat_id' not in params['scope'].keys()):
             return None
 
-        url = f'{self._host}/bot{self._token}/{method}'  # e.g. sendMessage
+        url = f'{self.bot_api_path_start}/{method}'  # e.g. sendMessage
         headers = {'Content-Type': 'application/json'}
 
         if 'reply_markup' in params and isinstance(params['reply_markup'], TelegramObject):
