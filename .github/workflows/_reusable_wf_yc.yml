@@ -1,6 +1,5 @@
 name: Reusable Yandex Cloud Function Deployment
 
-
 on:
   workflow_call:
     inputs:
@@ -20,7 +19,6 @@ on:
         type: string
         default: 60
 
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -28,7 +26,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: make requirements
-        run: 	cp src/${{ inputs.function_name }}/requirements.txt src/requirements.txt
+        run: cp src/${{ inputs.function_name }}/requirements.txt src/requirements.txt
 
       - name: Process function name
         id: process-name
@@ -41,13 +39,13 @@ jobs:
         with:
           yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
           folder-id: ${{ secrets.YC_FOLDER_ID }}
-          runtime: 'python312'
+          runtime: "python312"
           function-name: ${{ steps.process-name.outputs.kebab-name }}
           memory: ${{ inputs.memory }}
           entrypoint: ${{ inputs.function_name }}.main.main
           source-root: src
           execution-timeout: ${{ inputs.timeout }}
-          service-account-name: 'la-searcher-bot'
+          service-account-name: "la-searcher-bot"
           include: |
             ${{ inputs.function_name }}
             _dependencies
@@ -72,6 +70,7 @@ jobs:
             TITLE_RECOGNIZE_URL=${{ secrets.YC_TITLE_RECOGNIZE_URL }}
             VK_API_KEY=${{ secrets.VK_API_KEY }}
             VK_CONFIRMATION_CODE=${{ secrets.VK_CONFIRMATION_CODE }}
+            BOT_API_HOST=${{ secrets.BOT_API_HOST }}
           secrets: |
             MYSQL_HOST=e6qsc5sqd7db7gk4m9u8/latest/MYSQL_HOST
             MYSQL_DB=e6qsc5sqd7db7gk4m9u8/latest/MYSQL_DB

@@ -26,6 +26,7 @@ class AppConfig(BaseSettings):
     api_clients: str = ''
     bot_api_token__prod: str = ''
     bot_api_token: str = ''
+    bot_api_host: str = ''
     my_telegram_id: int = 0
     web_app_url: str = ''
     web_app_url_test: str = ''

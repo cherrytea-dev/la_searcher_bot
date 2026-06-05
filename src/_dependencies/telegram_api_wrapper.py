@@ -13,9 +13,10 @@ from _dependencies.users_management import ManageUserAction, update_user_status
 
 
 class TGApiBase:
-    def __init__(self, token: str) -> None:
+    def __init__(self, token: str, host: str = '') -> None:
         self._token = token
         self._session = requests.Session()
+        self._host = host or 'https://api.telegram.org'
 
     def leave_chat(self, user_id: int) -> None:
         self._make_api_call('leaveChat', {'chat_id': user_id})
@@ -27,7 +28,7 @@ class TGApiBase:
             message_encoded = f'&text={urllib.parse.quote(message)}'
 
             request_text = (
-                f'https://api.telegram.org/bot{self._token}/answerCallbackQuery?callback_query_id='
+                f'{self._host}/bot{self._token}/answerCallbackQuery?callback_query_id='
                 f'{callback_query_id}{message_encoded}'
             )
 
@@ -44,8 +45,6 @@ class TGApiBase:
         return self._process_response_of_api_call(user_id, response)
 
     def send_location(self, user_id: int, latitude: str, longitude: str) -> str:
-        # request_text = f'https://api.telegram.org/bot{bot_token}/sendLocation?chat_id={user_id}{latitude}{longitude}'
-
         params = {'chat_id': user_id, 'latitude': latitude, 'longitude': longitude}
         response = self._make_api_call('sendLocation', params)
         return self._process_response_of_api_call(user_id, response)
@@ -85,7 +84,7 @@ class TGApiBase:
         if 'chat_id' not in params.keys() and ('scope' not in params.keys() or 'chat_id' not in params['scope'].keys()):
             return None
 
-        url = f'https://api.telegram.org/bot{self._token}/{method}'  # e.g. sendMessage
+        url = f'{self._host}/bot{self._token}/{method}'  # e.g. sendMessage
         headers = {'Content-Type': 'application/json'}
 
         if 'reply_markup' in params and isinstance(params['reply_markup'], TelegramObject):

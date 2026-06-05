@@ -138,7 +138,7 @@ def test_finish_time_analytics():
 
 def test_send_single_message():
     msg = MessageFactory.build()
-    tg_api = TGApiBase('token')
+    tg_api = TGApiBase(token='token')
     vk_api = VKApi('token')
     with (
         patch.object(TGApiBase, 'send_message', MagicMock(return_value='completed')),
