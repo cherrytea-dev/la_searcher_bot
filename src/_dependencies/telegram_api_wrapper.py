@@ -7,15 +7,21 @@ import requests
 from requests.models import Response
 from retry.api import retry_call
 from telegram import TelegramObject
+from yarl import URL
 
 from _dependencies.commons import get_app_config
 from _dependencies.users_management import ManageUserAction, update_user_status
 
 
 class TGApiBase:
-    def __init__(self, token: str) -> None:
+    def __init__(self, token: str, host: str = '') -> None:
         self._token = token
         self._session = requests.Session()
+        self._host = host or 'https://api.telegram.org'
+
+    @property
+    def bot_api_path_start(self) -> URL:
+        return URL(self._host) / f'bot{self._token}'
 
     def leave_chat(self, user_id: int) -> None:
         self._make_api_call('leaveChat', {'chat_id': user_id})
@@ -24,14 +30,13 @@ class TGApiBase:
         try:
             # NB! only 200 characters
             message = message[:200]
-            message_encoded = f'&text={urllib.parse.quote(message)}'
+            message_encoded = urllib.parse.quote(message)
 
-            request_text = (
-                f'https://api.telegram.org/bot{self._token}/answerCallbackQuery?callback_query_id='
-                f'{callback_query_id}{message_encoded}'
-            )
+            url = self.bot_api_path_start / 'answerCallbackQuery'
+            query_params = {'callback_query_id': callback_query_id, 'text': message_encoded}
+            url = url.with_query(query_params)
 
-            response = self._session.get(request_text)
+            response = self._session.get(str(url))
             logging.info(f'send_callback_answer_to_api..{response.json()=}')
 
             self._process_response_of_api_call(user_id, response)
@@ -44,8 +49,6 @@ class TGApiBase:
         return self._process_response_of_api_call(user_id, response)
 
     def send_location(self, user_id: int, latitude: str, longitude: str) -> str:
-        # request_text = f'https://api.telegram.org/bot{bot_token}/sendLocation?chat_id={user_id}{latitude}{longitude}'
-
         params = {'chat_id': user_id, 'latitude': latitude, 'longitude': longitude}
         response = self._make_api_call('sendLocation', params)
         return self._process_response_of_api_call(user_id, response)
@@ -85,7 +88,7 @@ class TGApiBase:
         if 'chat_id' not in params.keys() and ('scope' not in params.keys() or 'chat_id' not in params['scope'].keys()):
             return None
 
-        url = f'https://api.telegram.org/bot{self._token}/{method}'  # e.g. sendMessage
+        url = self.bot_api_path_start / method  # e.g. sendMessage
         headers = {'Content-Type': 'application/json'}
 
         if 'reply_markup' in params and isinstance(params['reply_markup'], TelegramObject):
@@ -96,7 +99,7 @@ class TGApiBase:
         try:
             response = retry_call(
                 self._session.post,
-                fargs=[url],
+                fargs=[str(url)],
                 fkwargs=dict(data=json_params, headers=headers),
                 tries=3,
             )

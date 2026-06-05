@@ -1,13 +1,10 @@
 import datetime
 import json
-import logging
 import math
 import random
 from dataclasses import dataclass, field
 from functools import lru_cache, wraps
 from typing import Any, Callable, Mapping, Sequence
-
-import sqlalchemy
 
 from _dependencies.commons import get_app_config
 from _dependencies.telegram_api_wrapper import TGApiBase
@@ -15,7 +12,8 @@ from _dependencies.telegram_api_wrapper import TGApiBase
 
 @lru_cache
 def tg_api_service_account() -> TGApiBase:
-    return TGApiBase(token=get_app_config().bot_api_token)
+    config = get_app_config()
+    return TGApiBase(token=config.bot_api_token, host=config.bot_api_host)
 
 
 @lru_cache
