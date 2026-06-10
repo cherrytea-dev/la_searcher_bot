@@ -263,7 +263,7 @@ class ForumClient:
 
     @retry(Exception, tries=5, delay=1, backoff=2)
     def _get_folder_content(self, folder_id: int) -> bytes:
-        url = f'https://lizaalert.org/forum/viewforum.php?f={folder_id}'
+        url = f'https://lizaalert.org/forum/viewforum.php?f={folder_id}'  # TODO avoid this. I already have topic ids
         resp = self.session.get(url, timeout=self._TIMEOUT)
         resp.raise_for_status()
         return resp.content
