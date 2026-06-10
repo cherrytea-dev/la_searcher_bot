@@ -151,8 +151,8 @@ class ForumClient:
         return [lat, lon, coord_type, title]
 
     @no_type_check
-    def parse_search(self, search_id: int) -> ForumSearchItem:
-        content = self._get_topic_content(search_id)
+    def parse_search(self, search_num: int) -> ForumSearchItem:
+        content = self._get_topic_content(search_num)
         soup = BeautifulSoup(content, features='lxml')
 
         # Parse title from <h2 class="topic-title"><a>...</a></h2>
@@ -180,11 +180,16 @@ class ForumClient:
             if match:
                 replies_count = int(match.group(1))
 
+        lat, lon, coord_type, _ = self.parse_coordinates_of_search(search_num)
+        # TODO merge functions
         return ForumSearchItem(
-            search_id=search_id,
+            search_id=search_num,
             title=title,
             start_datetime=start_datetime,
             replies_count=replies_count,
+            lat=lat,
+            lon=lon,
+            coord_type=coord_type,
         )
 
     @no_type_check
@@ -212,6 +217,8 @@ class ForumClient:
             search_url = URL(search_title_block['href'])
             search_id = int(search_url.query['t'])
             start_datetime = define_start_time_of_search(data_block)
+
+            # self.parse_search(search_id) # TODO
 
             summaries.append(
                 ForumSearchItem(

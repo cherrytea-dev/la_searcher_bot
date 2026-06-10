@@ -116,6 +116,9 @@ class TestForumClient:
         )
         assert search_data.replies_count == 3
         assert search_data.start_datetime == datetime.fromisoformat('2024-10-06T20:52:48+00:00')
+        assert search_data.lat == 53.510722
+        assert search_data.lon == 33.637365
+        assert search_data.coord_type == CoordType.type_3_deleted
 
 
 def _normallize_text(text: str) -> str:
