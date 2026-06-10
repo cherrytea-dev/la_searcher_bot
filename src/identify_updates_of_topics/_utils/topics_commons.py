@@ -51,6 +51,7 @@ class ForumSearchItem:
     title: str
     search_id: int
     start_datetime: datetime
+    replies_count: int = 0
 
 
 @dataclass

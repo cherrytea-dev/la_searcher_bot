@@ -104,6 +104,19 @@ class TestForumClient:
 
         assert comments_count == 3
 
+    def test_parse_search(self, mock_http_get):
+        mock_http_get.return_value.content = Path('tests/fixtures/forum_topic.html').read_bytes()
+        forum_client = ForumClient()
+
+        search_data = forum_client.parse_search(1)
+
+        assert (
+            search_data.title
+            == 'Жива (Иванова) Надежда Петровна, 30 лет, д. Никольская Слобода, Жуковский р-он, Брянская обл.'
+        )
+        assert search_data.replies_count == 3
+        assert search_data.start_datetime == datetime.fromisoformat('2024-10-06T20:52:48+00:00')
+
 
 def _normallize_text(text: str) -> str:
     return text.replace('\t', '').replace('\n', '').replace(' ', '')

@@ -151,6 +151,43 @@ class ForumClient:
         return [lat, lon, coord_type, title]
 
     @no_type_check
+    def parse_search(self, search_id: int) -> ForumSearchItem:
+        content = self._get_topic_content(search_id)
+        soup = BeautifulSoup(content, features='lxml')
+
+        # Parse title from <h2 class="topic-title"><a>...</a></h2>
+        title_tag = soup.find('h2', class_='topic-title')
+        title = ''
+        if title_tag:
+            link_tag = title_tag.find('a')
+            if link_tag:
+                title = re.sub(r'\s+', ' ', link_tag.get_text(strip=True))
+
+        # Parse start_datetime from first <p class="author"> -> <time datetime="...">
+        start_datetime = ''
+        first_author = soup.find('p', class_='author')
+        if first_author:
+            time_tag = first_author.find('time')
+            if time_tag and time_tag.has_attr('datetime'):
+                start_datetime = datetime.fromisoformat(time_tag['datetime'])
+
+        # Parse replies_count from pagination div (same logic as get_replies_count)
+        replies_count = 0
+        pagination_div = soup.find('div', class_='pagination')
+        if pagination_div:
+            pagination_text = pagination_div.get_text(strip=True)
+            match = re.search(r'(\d+)\s*сообщения', pagination_text)
+            if match:
+                replies_count = int(match.group(1))
+
+        return ForumSearchItem(
+            search_id=search_id,
+            title=title,
+            start_datetime=start_datetime,
+            replies_count=replies_count,
+        )
+
+    @no_type_check
     def get_folder_searches(self, folder_id: int) -> list[ForumSearchItem]:
         content = self._get_folder_content(folder_id)
         only_tag = SoupStrainer('div', {'class': 'forumbg'})
