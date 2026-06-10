@@ -177,7 +177,14 @@ class ForumClient:
             search_replies_num = int(data_block.find('dd', 'posts').next_element)
             start_datetime = define_start_time_of_search(data_block)
 
-            summaries.append(ForumSearchItem(search_title, search_id, search_replies_num, start_datetime))
+            summaries.append(
+                ForumSearchItem(
+                    title=search_title,
+                    search_id=search_id,
+                    replies_count=search_replies_num,
+                    start_datetime=start_datetime,
+                )
+            )
 
         del search_code_blocks
 

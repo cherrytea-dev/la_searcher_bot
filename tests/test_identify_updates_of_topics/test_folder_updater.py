@@ -33,8 +33,8 @@ class FakeForum(ForumClient):
 
 class TestFolderUpdater:
     def test_parse_one_folder(self, folder_updater: PatchedFolderUpdater):
-        summaries, details = folder_updater._parse_one_folder()
-
+        details = folder_updater._parse_one_folder()
+        summaries = [[x.title, x.num_of_replies] for x in details]
         assert summaries == [
             ['Пропала Иванова Лидия 77 лет, г. Моршанск, Тамбовская обл.', 2],
             ['Жив Иванов Иван 55 лет, Чистые пруды, Тамбовская обл.', 13],

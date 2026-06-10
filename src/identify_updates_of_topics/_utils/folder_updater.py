@@ -64,7 +64,8 @@ class FolderUpdater:
         change_log_ids = []
 
         # parse a new version of summary page from the chosen folder
-        titles_and_num_of_replies, new_folder_summary = self._parse_one_folder()
+        new_folder_summary = self._parse_one_folder()
+        titles_and_num_of_replies = [[x.title, x.num_of_replies] for x in new_folder_summary]
 
         update_trigger = False
 
@@ -84,11 +85,10 @@ class FolderUpdater:
         logging.info(f'starting updating change_log and searches tables for folder {self.folder_num}')
 
         change_log_ids = self._update_change_log_and_searches(new_folder_summary)
-        self._update_coordinates(new_folder_summary)
 
         return True, change_log_ids
 
-    def _parse_one_folder(self) -> tuple[list, list[SearchSummary]]:
+    def _parse_one_folder(self) -> list[SearchSummary]:
         """parse forum folder with searches' summaries"""
 
         folder_summary: list[SearchSummary] = []
@@ -97,14 +97,15 @@ class FolderUpdater:
         folder_content_items = self.forum.get_folder_searches(self.folder_num)
         for forum_search_item in folder_content_items:
             try:
-                self._parse_one_search(current_datetime, folder_summary, forum_search_item)
+                item = self._parse_one_search(current_datetime, forum_search_item)
+                if item:
+                    folder_summary.append(item)
 
             except Exception as e:
                 logging.exception(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
                 notify_admin(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
 
-        titles_and_num_of_replies = [[x.title, x.num_of_replies] for x in folder_summary]
-        return titles_and_num_of_replies, folder_summary
+        return folder_summary
 
     def update_checker(self, current_hash: str, folder_num: int) -> bool:
         """compare prev snapshot and freshly-parsed snapshot, returns NO or YES and Previous hash"""
@@ -153,9 +154,8 @@ class FolderUpdater:
     def _parse_one_search(
         self,
         current_datetime: datetime,
-        folder_summary: list[SearchSummary],
         forum_search_item: ForumSearchItem,
-    ) -> None:
+    ) -> SearchSummary | None:
         topic_type_dict = {
             RecognitionTopicType.search: TopicType.search_regular,
             RecognitionTopicType.search_reverse: TopicType.search_reverse,
@@ -172,7 +172,7 @@ class FolderUpdater:
             title_reco_dict = RecognitionResult.model_validate(title_reco_response['recognition'])
             # TODO validate whole response
         else:
-            return
+            return None
 
         logging.info(f'{title_reco_dict=}')
 
@@ -219,7 +219,7 @@ class FolderUpdater:
             search_summary_object.locations = list_of_location_coords
 
         logging.debug(f'search_summary_object={search_summary_object}')
-        folder_summary.append(search_summary_object)
+        return search_summary_object
 
     def _update_change_log_and_searches(self, new_folder_summary: list[SearchSummary]) -> list[int]:
         """update of SQL tables 'searches' and 'change_log' on the changes vs previous parse"""
@@ -248,6 +248,9 @@ class FolderUpdater:
         func_finish = datetime.now()
         func_execution_time_ms = func_finish - func_start
         logging.info(f'DBG.P.5.process_delta() exec time: {func_execution_time_ms}')
+
+        for search in new_folder_summary:
+            self._update_coordinates_of_search(search)
 
         return change_log_ids
 
@@ -340,22 +343,18 @@ class FolderUpdater:
 
         return there_are_inforg_comments
 
-    def _update_coordinates(self, list_of_search_objects: list[SearchSummary]) -> None:
+    def _update_coordinates_of_search(self, search: SearchSummary) -> None:
         """Record search coordinates to PSQL"""
+        search_id = search.topic_id
+        search_status = search.new_status
 
-        for search in list_of_search_objects:
-            search_id = search.topic_id
-            search_status = search.new_status
+        if search_status not in {'Ищем', 'СТОП'}:
+            return
 
-            if search_status not in {'Ищем', 'СТОП'}:
-                continue
+        logging.info(f'search coordinates should be saved for {search_id=}')
+        coords = self._parse_coordinates_of_search(search_id)
 
-            logging.info(f'search coordinates should be saved for {search_id=}')
-            coords = self._parse_coordinates_of_search(search_id)
-
-            self.db.update_coordinates_in_db(search_id, coords[0], coords[1], coords[2])
-
-        return None
+        self.db.update_coordinates_in_db(search_id, coords[0], coords[1], coords[2])
 
     def _parse_coordinates_of_search(self, search_num: int) -> tuple[float, float, CoordType]:
         """finds coordinates of the search"""
