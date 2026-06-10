@@ -29,13 +29,11 @@ class TestForumClient:
             ForumSearchItem(
                 title='Жив Иванов Иван, 10 лет, ЗАО, г. Москва',
                 search_id=85471,
-                replies_count=29,
                 start_datetime=datetime(2025, 1, 13, 14, 10, 25, tzinfo=timezone.utc),
             ),
             ForumSearchItem(
                 title='Пропал Петров Петр Петрович, 48 лет, ЗелАО, г. Москва - Тверская обл.',
                 search_id=81634,
-                replies_count=116,
                 start_datetime=datetime(2024, 8, 27, 15, 40, 22, tzinfo=timezone.utc),
             ),
         ]
@@ -97,6 +95,14 @@ class TestForumClient:
         assert lat == 53.510722
         assert lon == 33.637365
         assert coord_type == CoordType.type_3_deleted
+
+    def test_get_replies_count(self, mock_http_get):
+        mock_http_get.return_value.content = Path('tests/fixtures/forum_topic.html').read_bytes()
+        forum_client = ForumClient()
+
+        comments_count = forum_client.get_replies_count(1)
+
+        assert comments_count == 3
 
 
 def _normallize_text(text: str) -> str:

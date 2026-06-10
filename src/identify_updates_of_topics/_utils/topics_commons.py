@@ -50,7 +50,6 @@ class SearchSummary:
 class ForumSearchItem:
     title: str
     search_id: int
-    replies_count: int
     start_datetime: datetime
 
 

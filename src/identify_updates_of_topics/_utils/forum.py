@@ -174,14 +174,12 @@ class ForumClient:
             search_title = re.sub(r'\[/?(b|size.{0,6}|color.{0,10})]', '', search_title_block.next_element)
             search_url = URL(search_title_block['href'])
             search_id = int(search_url.query['t'])
-            search_replies_num = int(data_block.find('dd', 'posts').next_element)
             start_datetime = define_start_time_of_search(data_block)
 
             summaries.append(
                 ForumSearchItem(
                     title=search_title,
                     search_id=search_id,
-                    replies_count=search_replies_num,
                     start_datetime=start_datetime,
                 )
             )
@@ -268,6 +266,25 @@ class ForumClient:
             inforg_comment_present=there_are_inforg_comments,
         )
 
+    @no_type_check
+    def get_replies_count(self, search_num: int) -> int | None:
+        """parse topic and get count of comments"""
+        content = self._get_topic_content(search_num)
+        if not is_content_visible(content, search_num):
+            return None
+
+        soup = BeautifulSoup(content, features='lxml')
+        pagination_div = soup.find('div', class_='pagination')
+        if pagination_div is None:
+            return None
+
+        pagination_text = pagination_div.get_text(strip=True)
+        # pagination_text looks like: "3 сообщения•Страница1из1"
+        match = re.search(r'(\d+)\s*сообщения', pagination_text)
+        if match:
+            return int(match.group(1))
+        return None
+
     @retry(Exception, tries=5, delay=1, backoff=2)
     def _get_folder_content(self, folder_id: int) -> bytes:
         url = f'https://lizaalert.org/forum/viewforum.php?f={folder_id}'  # TODO avoid this. I already have topic ids
@@ -287,6 +304,7 @@ class ForumClient:
 
     @retry(Exception, tries=5, delay=1, backoff=2)
     def _get_topic_content(self, search_num: int) -> bytes:
+        # TODO cache
         url = self._get_topic_url(search_num)
         resp = self.session.get(url, timeout=self._TIMEOUT)
         resp.raise_for_status()

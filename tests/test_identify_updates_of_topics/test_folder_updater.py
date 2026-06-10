@@ -36,8 +36,8 @@ class TestFolderUpdater:
         details = folder_updater._parse_one_folder()
         summaries = [[x.title, x.num_of_replies] for x in details]
         assert summaries == [
-            ['Пропала Иванова Лидия 77 лет, г. Моршанск, Тамбовская обл.', 2],
-            ['Жив Иванов Иван 55 лет, Чистые пруды, Тамбовская обл.', 13],
+            ['Пропала Иванова Лидия 77 лет, г. Моршанск, Тамбовская обл.', 3],
+            ['Жив Иванов Иван 55 лет, Чистые пруды, Тамбовская обл.', 3],
         ]
         assert len(details) == 2
 

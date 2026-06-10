@@ -186,12 +186,13 @@ class FolderUpdater:
         if self.folder_num in self.folders_with_events:
             topic_type = RecognitionTopicType.event
 
+        replies_count = self.forum.get_replies_count(forum_search_item.search_id)
         search_summary_object = SearchSummary(
             parsed_time=current_datetime,
             topic_id=forum_search_item.search_id,
             title=forum_search_item.title,
             start_time=forum_search_item.start_datetime,
-            num_of_replies=forum_search_item.replies_count,
+            num_of_replies=replies_count,
             name=person_fam_name,
             folder_id=self.folder_num,
             topic_type=topic_type,
