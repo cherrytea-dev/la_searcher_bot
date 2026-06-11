@@ -1,7 +1,7 @@
 import logging
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
 
 from _dependencies.yandex_tools import Ctx, make_api_call_cloud, process_pubsub_message_cloud, send_topic_cloud
 
@@ -16,6 +16,10 @@ class Topics(Enum):
     topic_to_archive_notifs = 'topic_to_archive_notifs'  # archive_notifications
 
 
+class MessageForIdentifyUpdatesOfTopics(RootModel):
+    root: list[int]  # ids of topic (search)
+
+
 def publish_to_pubsub(topic_name: Topics, message: str | dict | list | BaseModel) -> None:
     """publish a new message to pub/sub"""
     topic_name_str = topic_name.value if isinstance(topic_name, Topics) else topic_name
@@ -27,8 +31,8 @@ def pubsub_parse_user_profile(user_id: int, got_message: str) -> None:
     publish_to_pubsub(Topics.parse_user_profile_from_forum, message_for_pubsub)
 
 
-def pubsub_parse_folders(folders_list: list) -> None:
-    publish_to_pubsub(Topics.topic_to_run_parsing_script, folders_list)
+def pubsub_parse_searches(topic_ids: MessageForIdentifyUpdatesOfTopics) -> None:
+    publish_to_pubsub(Topics.topic_to_run_parsing_script, topic_ids)
 
 
 def pubsub_compose_notifications(function_id: int, text: str) -> None:

@@ -28,8 +28,7 @@ from .topics_commons import (
 
 class SearchUpdater:
     # TODO split: FolderUpdater and maybe SearchUpdater, CoordinatesChecker etc
-    def __init__(self, db_client: DBClient, forum_client: ForumClient, folder_num: int) -> None:
-        self.folder_num = folder_num
+    def __init__(self, db_client: DBClient, forum_client: ForumClient) -> None:
         self.forum = forum_client
         self.db = db_client
         self.folders_with_events = set(self.db.get_folders_with_events_only())
@@ -117,7 +116,7 @@ class SearchUpdater:
             person_fam_name = title_reco_dict.persons.total_name if title_reco_dict.persons else 'БВП'
 
         topic_type = title_reco_dict.topic_type
-        if self.folder_num in self.folders_with_events:
+        if forum_search_item.folder_id in self.folders_with_events:
             topic_type = RecognitionTopicType.event
 
         replies_count = self.forum.get_replies_count(forum_search_item.search_id)
@@ -128,7 +127,7 @@ class SearchUpdater:
             start_time=forum_search_item.start_datetime,
             num_of_replies=replies_count,
             name=person_fam_name,
-            folder_id=self.folder_num,
+            folder_id=forum_search_item.folder_id,
             topic_type=topic_type,
             topic_type_id=topic_type_dict[title_reco_dict.topic_type],
             new_status=title_reco_dict.status,
@@ -159,7 +158,7 @@ class SearchUpdater:
     def _update_change_log_and_search(self, search_summary: SearchSummary) -> list[int]:
         """update of SQL tables 'searches' and 'change_log' on the changes vs previous parse"""
         new_folder_summary = [search_summary]
-        self.db.rewrite_snapshot_in_sql(self.folder_num, new_folder_summary)
+        self.db.rewrite_snapshot_in_sql(new_folder_summary)
         # TODO maybe we dont need snapshots at all.
 
         current_snapshot = self.db.get_current_snapshot(search_summary.topic_id)
@@ -168,9 +167,6 @@ class SearchUpdater:
         # TODO maybe we dont need snapshots at all. new_folder_summary is enough.
         search_ids = [x.topic_id for x in new_folder_summary]
         prev_searches_list = self.db.get_searches_by_ids(search_ids)
-
-        if len(prev_searches_list) > 5000:
-            logging.warning('TEMP - you use too big table Searches, it should be optimized')
 
         change_log_ids = self._write_updated_searches_to_changelog(curr_snapshot_list, prev_searches_list)
         new_change_log_ids = self._write_new_searches_to_changelog(curr_snapshot_list, prev_searches_list)

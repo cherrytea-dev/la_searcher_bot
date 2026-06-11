@@ -28,7 +28,7 @@ from _dependencies.pubsub import (
     notify_admin,
     process_pubsub_message,
     pubsub_compose_notifications,
-    pubsub_parse_folders,
+    pubsub_parse_searches,
 )
 
 setup_logging(__package__)
@@ -172,27 +172,6 @@ def save_new_record_into_change_log(
     return change_log_id
 
 
-def parse_search_folder_num(search_num: int) -> int | None:
-    """parse search's folder number"""
-
-    folder = None
-
-    url = 'https://lizaalert.org/forum/viewtopic.php?t=' + str(search_num)
-    r = get_requests_session().get(url)  # 10 seconds – do we need it in this script?
-    content = r.content.decode('utf-8')
-
-    soup = BeautifulSoup(content, features='html.parser')
-    spans = soup.find_all('span', {'class': 'crumb'})
-
-    for line in spans:
-        try:
-            folder = int(line['data-forum-id'])
-        except:  # noqa
-            pass
-
-    return folder
-
-
 def get_compressed_first_post(initial_text: str) -> str:
     """convert the initial html text of first post into readable string (for reading in SQL)"""
 
@@ -235,25 +214,6 @@ def split_text_to_deleted_and_regular_parts(text: str) -> tuple[str, str]:
     deleted_text = '\n'.join(deleted_list)
 
     return deleted_text, non_deleted_text
-
-
-def _process_folders_with_updated_searches(
-    context: Ctx,
-    function_id: int,
-    analytics_func_start: datetime.datetime,
-    list_of_updated_searches: list[int],
-    change_log_ids: list[int],
-    conn: sqlalchemy.engine.Connection,
-) -> None:
-    # save folder number for the search that has an update
-    list_of_folders_with_upd_searches = [parse_search_folder_num(search_id) for search_id in list_of_updated_searches]
-    updated_searches = set((folder_num for folder_num in list_of_folders_with_upd_searches if folder_num))
-    updated_searches_to_pubsub = [[folder_num, None] for folder_num in updated_searches]
-    if not list_of_folders_with_upd_searches:
-        return
-
-    pubsub_parse_folders(updated_searches_to_pubsub)
-    pubsub_compose_notifications(function_id, str(list_of_folders_with_upd_searches))
 
 
 def _process_one_update(
@@ -336,7 +296,6 @@ def main(event: dict, context: Ctx) -> str:  # noqa
     """key function"""
 
     function_id = generate_random_function_id()
-    analytics_func_start = datetime.datetime.now()
 
     # receive a list of searches where first post was updated
     message_from_pubsub = process_pubsub_message(event)
@@ -347,17 +306,11 @@ def main(event: dict, context: Ctx) -> str:  # noqa
 
     pool = sqlalchemy_get_pool()
     with pool.connect() as conn:
-        try:
-            change_log_ids: list[int] = []
-            for search_id in list_of_updated_searches:
-                _process_one_update(change_log_ids, conn, search_id)
+        change_log_ids: list[int] = []
+        for search_id in list_of_updated_searches:
+            _process_one_update(change_log_ids, conn, search_id)
 
-            _process_folders_with_updated_searches(
-                context, function_id, analytics_func_start, list_of_updated_searches, change_log_ids, conn
-            )
-
-        except Exception as e:
-            logging.exception('exception in main function')
+        pubsub_compose_notifications(function_id, '')
 
     pool.dispose()
 

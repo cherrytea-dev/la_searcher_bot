@@ -143,7 +143,7 @@ class TestDBClient:
         snapshot_to_leave = db_factories.ForumSummarySnapshotFactory.create_sync()
         summaries = SearchSummaryFactory.batch(3, folder_id=folder_id)
 
-        db_client.rewrite_snapshot_in_sql(folder_id, summaries)
+        db_client.rewrite_snapshot_in_sql(summaries)
 
         assert find_model(session, db_models.ForumSummarySnapshot, id=snapshot_to_leave.id)
         assert not find_model(session, db_models.ForumSummarySnapshot, id=snapshot_to_delete.id)

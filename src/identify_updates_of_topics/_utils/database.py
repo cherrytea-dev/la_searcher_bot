@@ -113,17 +113,16 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
             last_call = conn.execute(stmt, a=geocoder).fetchone()
             return last_call[0] if last_call else None
 
-    def rewrite_snapshot_in_sql(self, folder_num: int, folder_summary: list[SearchSummary]) -> None:
+    def rewrite_snapshot_in_sql(self, folder_summary: list[SearchSummary]) -> None:
         """rewrite the freshly-parsed snapshot into sql table 'forum_summary_snapshot'"""
 
         with self.connect() as conn:
-            sql_text = sqlalchemy.text("""
+            sql_text_delete = sqlalchemy.text("""
                 DELETE FROM forum_summary_snapshot 
-                WHERE forum_folder_id = :a;
+                WHERE search_forum_num = :topic_id;
                                         """)
-            conn.execute(sql_text, a=folder_num)
 
-            sql_text = sqlalchemy.text("""
+            sql_text_insert = sqlalchemy.text("""
                 INSERT INTO forum_summary_snapshot 
                     (search_forum_num, parsed_time, forum_search_title, search_start_time, num_of_replies, age, family_name, 
                     forum_folder_id, topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id)
@@ -131,8 +130,10 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                                        """)
             # FIXME – add status
             for line in folder_summary:
+                conn.execute(sql_text_delete, topic_id=line.topic_id)
+
                 conn.execute(
-                    sql_text,
+                    sql_text_insert,
                     a=line.topic_id,
                     b=line.parsed_time,
                     d=line.title,

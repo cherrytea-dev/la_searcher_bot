@@ -33,9 +33,9 @@ class FakeForum(ForumClient):
 
 class TestFolderUpdaterChangeLogCreation:
     def test_new_search(self, session, folder_updater: PatchedFolderUpdater):
-        search_summary = SearchSummaryFactory.build(folder_id=folder_updater.folder_num)
+        search_summary = SearchSummaryFactory.build()
 
-        change_log_ids = folder_updater._update_change_log_and_searches([search_summary])
+        change_log_ids = folder_updater._update_change_log_and_search(search_summary)
 
         assert len(change_log_ids) == 1
         assert find_model(session, db_models.ChangeLog, id=change_log_ids[0], change_type=ChangeType.topic_new)
@@ -44,7 +44,6 @@ class TestFolderUpdaterChangeLogCreation:
     def test_changed_search(self, session, folder_updater: PatchedFolderUpdater):
         start_replies = 2
         search_summary = SearchSummaryFactory.build(
-            folder_id=folder_updater.folder_num,
             num_of_replies=start_replies + 1,
         )
         existed_search = db_factories.SearchFactory.create_sync(
@@ -53,7 +52,7 @@ class TestFolderUpdaterChangeLogCreation:
             num_of_replies=start_replies,
         )
 
-        change_log_ids = folder_updater._update_change_log_and_searches([search_summary])
+        change_log_ids = folder_updater._update_change_log_and_search(search_summary)
 
         assert len(change_log_ids) == 4
         assert find_model(
