@@ -43,12 +43,12 @@ class TestDBClient:
         assert str(search_summary.locations) == search_model.city_locations
         assert search_summary.topic_type_id == search_model.topic_type_id
 
-    def test_get_searches(self, db_client: DBClient):
+    def test_get_search(self, db_client: DBClient):
         search = db_factories.SearchFactory.create_sync()
 
-        searches = db_client.get_searches_by_ids([search.search_forum_num])
+        found_search = db_client.get_search_by_id(search.search_forum_num)
 
-        assert search.search_forum_num in [x.topic_id for x in searches]
+        assert search.search_forum_num == found_search.topic_id
 
     def test_delete_search(self, db_client: DBClient, session: Session):
         search_to_delete, search_to_leave = db_factories.SearchFactory.create_batch_sync(2)

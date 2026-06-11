@@ -157,7 +157,6 @@ class SearchUpdater:
 
     def _update_change_log_and_search(self, search_summary: SearchSummary) -> list[int]:
         """update of SQL tables 'searches' and 'change_log' on the changes vs previous parse"""
-        new_folder_summary = [search_summary]
         self.db.rewrite_snapshot_in_sql(search_summary)
         # TODO maybe we dont need snapshots at all.
 
@@ -165,8 +164,9 @@ class SearchUpdater:
         curr_snapshot_list = [current_snapshot] if current_snapshot else []
 
         # TODO maybe we dont need snapshots at all. new_folder_summary is enough.
-        search_ids = [x.topic_id for x in new_folder_summary]
-        prev_searches_list = self.db.get_searches_by_ids(search_ids)
+
+        prev_search = self.db.get_search_by_id(search_summary.topic_id)
+        prev_searches_list = [prev_search] if prev_search else []
 
         change_log_ids = self._write_updated_searches_to_changelog(curr_snapshot_list, prev_searches_list)
         new_change_log_ids = self._write_new_searches_to_changelog(curr_snapshot_list, prev_searches_list)
