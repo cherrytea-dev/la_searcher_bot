@@ -26,15 +26,15 @@ def main(event: dict[str, bytes], context: Ctx) -> None:  # noqa
 
     list_from_pubsub = process_pubsub_message(event)
     logging.info(f'received message from pub/sub: {list_from_pubsub}')
-    changed_searches = MessageForIdentifyUpdatesOfTopics.model_validate(list_from_pubsub)
+    changed_topics = MessageForIdentifyUpdatesOfTopics.model_validate(list_from_pubsub)
 
     change_log_ids: list[int] = []
 
     search_updater = SearchUpdater(get_db_client(), ForumClient())
-    for search_id in changed_searches.root:
-        logging.info(f'start checking if search {search_id} has any updates')
+    for topic_id in changed_topics.root:
+        logging.info(f'start checking if search {topic_id} has any updates')
 
-        one_folder_change_log_ids = search_updater.update_search(search_id)
+        one_folder_change_log_ids = search_updater.update_search(topic_id)
         change_log_ids.extend(one_folder_change_log_ids)
 
     logging.info(f"Here's a list of change_log ids created: {change_log_ids}")
