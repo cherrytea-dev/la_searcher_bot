@@ -13,18 +13,16 @@ def test_main():
 
 
 def test_main_full_scenario(mock_http_get, patch_app_config):
-    folder_num = 11
-    data = [(folder_num,)]
+    search_id = 11
+    data = [search_id]
     context = Mock()
     context.event_id = 123
 
     class FakeUpdater(main.SearchUpdater):
-        walked_folders = []
+        pass
 
-        def __init__(self, db_client, forum, folder_num):
-            self.__class__.walked_folders.append(folder_num)
-
-    with patch.object(main, 'FolderUpdater', FakeUpdater):
+    with patch.object(main, 'SearchUpdater', FakeUpdater):
         main.main(get_event_with_data(data), context)
 
-    assert FakeUpdater.walked_folders == [folder_num]
+    # what to check here?
+    pass

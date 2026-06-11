@@ -138,21 +138,16 @@ class TestDBClient:
         assert comment_model.comment_global_num == comment.comment_forum_global_id
 
     def test_rewrite_snapshot_in_sql(self, db_client: DBClient, session: Session):
-        folder_id = fake.pyint()
-        snapshot_to_delete = db_factories.ForumSummarySnapshotFactory.create_sync(forum_folder_id=folder_id)
-        snapshot_to_leave = db_factories.ForumSummarySnapshotFactory.create_sync()
-        summaries = SearchSummaryFactory.batch(3, folder_id=folder_id)
+        snapshot_to_update = db_factories.ForumSummarySnapshotFactory.create_sync()
+        new_snapshot = SearchSummaryFactory.build(folder_id=snapshot_to_update.search_forum_num)
 
-        db_client.rewrite_snapshot_in_sql(summaries)
+        db_client.rewrite_snapshot_in_sql(new_snapshot)
 
-        assert find_model(session, db_models.ForumSummarySnapshot, id=snapshot_to_leave.id)
-        assert not find_model(session, db_models.ForumSummarySnapshot, id=snapshot_to_delete.id)
+        assert find_model(session, db_models.ForumSummarySnapshot, id=snapshot_to_update.id)
 
-        new_snapshot = summaries[0]
         new_snapshot_model = find_model(
             session,
             db_models.ForumSummarySnapshot,
-            forum_folder_id=new_snapshot.folder_id,
             search_forum_num=new_snapshot.topic_id,
         )
         assert new_snapshot.title == new_snapshot_model.forum_search_title

@@ -63,7 +63,7 @@ class ForumClient:
         self.session = get_requests_session()
 
     @no_type_check
-    def parse_search_profile(self, search_num: int) -> str | None:
+    def get_raw_search_text(self, search_num: int) -> str | None:
         """get raw search text"""
         content = self._get_topic_content(search_num)
         if not is_content_visible(content, search_num):
@@ -186,16 +186,15 @@ class ForumClient:
         lat, lon, coord_type, _ = self.parse_coordinates_of_search(search_num)
         # TODO merge functions
 
+        # Parse folder_id from <h2 class="topic-title"><a href="./viewtopic.php?f=424&t=83087">...</a></h2>
         folder_id: int = 0
-        """
-        TODO parse from here (should be 424 in this example):
-
-			<h2 class="topic-title"><a href="./viewtopic.php?f=424&amp;t=83087">Жива (Иванова) Надежда Петровна, 30 лет,
-					д. Никольская Слобода, Жуковский р-он, Брянская обл.</a>
-			</h2>
-        
-
-        """
+        if title_tag:
+            link_tag = title_tag.find('a')
+            if link_tag and link_tag.has_attr('href'):
+                href = link_tag['href']
+                match = re.search(r'[?&]f=(\d+)', href)
+                if match:
+                    folder_id = int(match.group(1))
 
         return ForumSearchItem(
             search_id=search_num,
@@ -207,35 +206,6 @@ class ForumClient:
             lon=lon,
             coord_type=coord_type,
         )
-
-    @no_type_check
-    def get_folder_searches(self, folder_id: int) -> list[ForumSearchItem]:
-        content = self._get_folder_content(folder_id)
-        only_tag = SoupStrainer('div', {'class': 'forumbg'})
-        soup = BeautifulSoup(content, features='lxml', parse_only=only_tag)
-        search_code_blocks = soup.find_all('dl', 'row-item')
-
-        summaries: list[ForumSearchItem] = []
-        for i, data_block in enumerate(search_code_blocks):
-            # First block is always not one we want
-            if i == 0:
-                continue
-
-            # In rare cases there are aliases from other folders, which have static titles – and we're avoiding them
-            if str(data_block).find('<dl class="row-item topic_moved">') > -1:
-                continue
-
-            # Current block which contains everything regarding certain search
-            search_title_block = data_block.find('a', 'topictitle')
-            # rare case: cleaning [size][b]...[/b][/size] tags
-            search_url = URL(search_title_block['href'])
-            search_id = int(search_url.query['t'])
-
-            search = self.parse_search(search_id)
-            if search:
-                summaries.append(search)
-
-        return summaries
 
     @no_type_check
     def get_comment_data(self, search_num: int, comment_num: int) -> ForumCommentItem | None:

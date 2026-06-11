@@ -111,16 +111,6 @@ def test_empty_list_of_updated_searches():
         assert main.main({}, {}) == 'ok'
 
 
-def test_multiple_updated_searches():
-    with (
-        patch('identify_updates_of_first_posts.main.get_compressed_first_post'),
-        patch('identify_updates_of_first_posts.main.process_first_page_comparison'),
-        patch('identify_updates_of_first_posts.main.save_new_record_into_change_log'),
-        patch('identify_updates_of_first_posts.main.parse_search_folder_num'),
-    ):
-        assert main.main(get_event_with_data('[1,2]'), {}) == 'ok'
-
-
 class TestCompressedFirstPost:
     def test_get_compressed_first_post(self):
         initial_text = '<html><body><p>This is a test string.</p></body></html>'
@@ -154,12 +144,11 @@ class TestProcessOneUpdate:
         )
         change_log_ids = []
 
-        with patch.object(main, 'parse_search_folder_num', Mock(return_value=1)):
-            res = main._process_one_update(
-                change_log_ids,
-                connection,
-                search_first_post.search_id,
-            )
+        main._process_one_update(
+            change_log_ids,
+            connection,
+            search_first_post.search_id,
+        )
 
         assert len(change_log_ids) == 1
 

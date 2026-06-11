@@ -158,7 +158,7 @@ class SearchUpdater:
     def _update_change_log_and_search(self, search_summary: SearchSummary) -> list[int]:
         """update of SQL tables 'searches' and 'change_log' on the changes vs previous parse"""
         new_folder_summary = [search_summary]
-        self.db.rewrite_snapshot_in_sql(new_folder_summary)
+        self.db.rewrite_snapshot_in_sql(search_summary)
         # TODO maybe we dont need snapshots at all.
 
         current_snapshot = self.db.get_current_snapshot(search_summary.topic_id)
@@ -203,7 +203,7 @@ class SearchUpdater:
 
         for search_summary_line in new_topics:
             search_num = search_summary_line.topic_id
-            parsed_profile_text = self.forum.parse_search_profile(search_num)
+            parsed_profile_text = self.forum.get_raw_search_text(search_num)
             search_activities = profile_get_type_of_activity(parsed_profile_text)
             managers = profile_get_managers(parsed_profile_text)
 

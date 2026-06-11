@@ -113,7 +113,7 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
             last_call = conn.execute(stmt, a=geocoder).fetchone()
             return last_call[0] if last_call else None
 
-    def rewrite_snapshot_in_sql(self, folder_summary: list[SearchSummary]) -> None:
+    def rewrite_snapshot_in_sql(self, line: SearchSummary) -> None:
         """rewrite the freshly-parsed snapshot into sql table 'forum_summary_snapshot'"""
 
         with self.connect() as conn:
@@ -129,27 +129,26 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                 VALUES (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); 
                                        """)
             # FIXME – add status
-            for line in folder_summary:
-                conn.execute(sql_text_delete, topic_id=line.topic_id)
+            conn.execute(sql_text_delete, topic_id=line.topic_id)
 
-                conn.execute(
-                    sql_text_insert,
-                    a=line.topic_id,
-                    b=line.parsed_time,
-                    d=line.title,
-                    e=line.start_time,
-                    f=line.num_of_replies,
-                    g=line.age,
-                    h=line.name,
-                    i=line.folder_id,
-                    j=line.topic_type,
-                    k=line.display_name,
-                    l=line.age_min,
-                    m=line.age_max,
-                    n=line.new_status,
-                    o=str(line.locations),
-                    p=line.topic_type_id,
-                )
+            conn.execute(
+                sql_text_insert,
+                a=line.topic_id,
+                b=line.parsed_time,
+                d=line.title,
+                e=line.start_time,
+                f=line.num_of_replies,
+                g=line.age,
+                h=line.name,
+                i=line.folder_id,
+                j=line.topic_type,
+                k=line.display_name,
+                l=line.age_min,
+                m=line.age_max,
+                n=line.new_status,
+                o=str(line.locations),
+                p=line.topic_type_id,
+            )
 
     def write_comment(self, comment_data: ForumCommentItem) -> None:
         with self.connect() as conn:

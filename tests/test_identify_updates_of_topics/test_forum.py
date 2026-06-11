@@ -18,26 +18,6 @@ class TestForumClient:
 
         assert len(folder_content) > 0
 
-    def test_get_folder_content(self, mock_http_get):
-        mock_http_get.return_value.content = Path('tests/fixtures/forum_folder_276.html').read_bytes()
-        forum_search_folder_id = 276
-        forum_client = ForumClient()
-
-        folder_content_summaries = forum_client.get_folder_searches(forum_search_folder_id)
-
-        assert folder_content_summaries == [
-            ForumSearchItem(
-                title='Жив Иванов Иван, 10 лет, ЗАО, г. Москва',
-                search_id=85471,
-                start_datetime=datetime(2025, 1, 13, 14, 10, 25, tzinfo=timezone.utc),
-            ),
-            ForumSearchItem(
-                title='Пропал Петров Петр Петрович, 48 лет, ЗелАО, г. Москва - Тверская обл.',
-                search_id=81634,
-                start_datetime=datetime(2024, 8, 27, 15, 40, 22, tzinfo=timezone.utc),
-            ),
-        ]
-
     def test_get_comment_data(self, mock_http_get):
         mock_http_get.return_value.content = Path('tests/fixtures/forum_comment.html').read_bytes()
         forum_client = ForumClient()
@@ -56,11 +36,11 @@ class TestForumClient:
             inforg_comment_present=True,
         )
 
-    def test_parse_search_profile_mock(self, mock_http_get):
+    def test_get_raw_search_text(self, mock_http_get):
         mock_http_get.return_value.content = Path('tests/fixtures/forum_topic.html').read_bytes()
         forum_client = ForumClient()
 
-        left_text = forum_client.parse_search_profile(1)
+        left_text = forum_client.get_raw_search_text(1)
 
         expected = """
         Сидорова (Иванова) Надежда Петровна, 30 лет, д. Никольская Слобода, 
