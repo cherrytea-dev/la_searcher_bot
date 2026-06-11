@@ -21,9 +21,6 @@ def searches_updater(db_client) -> PatchedSearchUpdater:
 
 
 class FakeForum(ForumClient):
-    def _get_folder_content(self, folder_id: int) -> bytes:
-        return Path('tests/fixtures/forum_folder_179_with_subfolders.html').read_bytes()
-
     def _get_comment_content(self, search_num: int, comment_num: int) -> bytes:
         return Path('tests/fixtures/forum_comment.html').read_bytes()
 

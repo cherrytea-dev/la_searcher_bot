@@ -304,13 +304,6 @@ class ForumClient:
             return int(match.group(1))
         return None
 
-    @retry(Exception, tries=5, delay=1, backoff=2)
-    def _get_folder_content(self, folder_id: int) -> bytes:
-        url = f'https://lizaalert.org/forum/viewforum.php?f={folder_id}'  # TODO avoid this. I already have topic ids
-        resp = self.session.get(url, timeout=self._TIMEOUT)
-        resp.raise_for_status()
-        return resp.content
-
     def _get_comment_url(self, search_num: int, comment_num: int) -> str:
         return f'https://lizaalert.org/forum/viewtopic.php?&t={search_num}&start={comment_num}'
 
@@ -321,9 +314,14 @@ class ForumClient:
         resp.raise_for_status()
         return resp.content
 
+    @lru_cache
     @retry(Exception, tries=5, delay=1, backoff=2)
     def _get_topic_content(self, search_num: int) -> bytes:
-        # TODO cache
+        """
+        TODO it's better to merge all parsing functions into `parse_search`.
+        But now it's important to release quick.
+        So i'll just cache content to avoid multiple requests to forum.
+        """
         url = self._get_topic_url(search_num)
         resp = self.session.get(url, timeout=self._TIMEOUT)
         resp.raise_for_status()

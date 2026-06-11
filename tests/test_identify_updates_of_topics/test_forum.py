@@ -1,23 +1,11 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-from unittest.mock import Mock, patch
-
-import pytest
 
 from identify_updates_of_topics._utils.forum import ForumClient, is_content_visible
-from identify_updates_of_topics._utils.topics_commons import CoordType, ForumCommentItem, ForumSearchItem
+from identify_updates_of_topics._utils.topics_commons import CoordType, ForumCommentItem
 
 
 class TestForumClient:
-    def test_get_folder_content_bytes(self, mock_http_get):
-        mock_http_get.return_value.content = Path('tests/fixtures/forum_folder_276.html').read_bytes()
-        forum_search_folder_id = 276
-        forum_client = ForumClient()
-
-        folder_content = forum_client._get_folder_content(forum_search_folder_id)
-
-        assert len(folder_content) > 0
-
     def test_get_comment_data(self, mock_http_get):
         mock_http_get.return_value.content = Path('tests/fixtures/forum_comment.html').read_bytes()
         forum_client = ForumClient()

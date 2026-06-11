@@ -158,90 +158,76 @@ class SearchUpdater:
     def _update_change_log_and_search(self, search_summary: SearchSummary) -> list[int]:
         """update of SQL tables 'searches' and 'change_log' on the changes vs previous parse"""
         self.db.rewrite_snapshot_in_sql(search_summary)
-        # TODO maybe we dont need snapshots at all.
-
         current_snapshot = self.db.get_current_snapshot(search_summary.topic_id)
-        curr_snapshot_list = [current_snapshot] if current_snapshot else []
-
         # TODO maybe we dont need snapshots at all. new_folder_summary is enough.
 
         prev_search = self.db.get_search_by_id(search_summary.topic_id)
-        prev_searches_list = [prev_search] if prev_search else []
 
-        change_log_ids = self._write_updated_searches_to_changelog(curr_snapshot_list, prev_searches_list)
-        new_change_log_ids = self._write_new_searches_to_changelog(curr_snapshot_list, prev_searches_list)
+        change_log_ids = self._write_updated_search_to_changelog(current_snapshot, prev_search)
+        new_change_log_ids = self._write_new_search_to_changelog(current_snapshot, prev_search)
         change_log_ids.extend(new_change_log_ids)
 
-        self._update_changed_searches(curr_snapshot_list, prev_searches_list)
-
+        self._update_changed_searches(current_snapshot, prev_search)
         self._update_coordinates_of_search(search_summary)
 
         return change_log_ids
 
-    def _update_changed_searches(
-        self, curr_snapshot_list: list[SearchSummary], prev_searches_list: list[SearchSummary]
-    ) -> None:
-        for snapshot in curr_snapshot_list:
-            for search in prev_searches_list:
-                if snapshot.topic_id != search.topic_id:
-                    continue
-                if (
-                    snapshot.status != search.status
-                    or snapshot.title != search.title
-                    or snapshot.num_of_replies != search.num_of_replies
-                ):
-                    self.db.delete_search(search.topic_id)
-                    self.db.write_search(snapshot)
+    def _update_changed_searches(self, snapshot: SearchSummary | None, search: SearchSummary | None) -> None:
+        if not snapshot or not search:
+            return
 
-    def _write_new_searches_to_changelog(
-        self, curr_snapshot_list: list[SearchSummary], prev_searches_list: list[SearchSummary]
+        if (
+            snapshot.status != search.status
+            or snapshot.title != search.title
+            or snapshot.num_of_replies != search.num_of_replies
+        ):
+            self.db.delete_search(search.topic_id)
+            self.db.write_search(snapshot)
+
+    def _write_new_search_to_changelog(
+        self, new_search_summary: SearchSummary | None, prev_search: SearchSummary | None
     ) -> list[int]:
-        prev_searches_topic_ids = set([search.topic_id for search in prev_searches_list])
+        if prev_search or not new_search_summary:
+            return []
 
-        new_topics = [x for x in curr_snapshot_list if x.topic_id not in prev_searches_topic_ids]
         change_log_ids: list[int] = []
 
-        for search_summary_line in new_topics:
-            search_num = search_summary_line.topic_id
-            parsed_profile_text = self.forum.get_raw_search_text(search_num)
-            search_activities = profile_get_type_of_activity(parsed_profile_text)
-            managers = profile_get_managers(parsed_profile_text)
+        search_num = new_search_summary.topic_id
+        parsed_profile_text = self.forum.get_raw_search_text(search_num)
+        search_activities = profile_get_type_of_activity(parsed_profile_text)
+        managers = profile_get_managers(parsed_profile_text)
 
-            self.db.write_search(search_summary_line)
-            self.db.update_search_activities(search_num, search_activities)
-            self.db.update_search_managers(search_num, managers)
+        self.db.write_search(new_search_summary)
+        self.db.update_search_activities(search_num, search_activities)
+        self.db.update_search_managers(search_num, managers)
 
-            line = ChangeLogLine(
-                parsed_time=search_summary_line.parsed_time,
-                topic_id=search_summary_line.topic_id,
-                changed_field='new_search',
-                new_value=search_summary_line.title,
-                parameters='',
-                change_type=ChangeType.topic_new,
-            )
-            # TODO can we collect all ChangeLogLine creation on one place?
+        line = ChangeLogLine(
+            parsed_time=new_search_summary.parsed_time,
+            topic_id=new_search_summary.topic_id,
+            changed_field='new_search',
+            new_value=new_search_summary.title,
+            parameters='',
+            change_type=ChangeType.topic_new,
+        )
+        # TODO can we collect all ChangeLogLine creation on one place?
 
-            change_log_id = self.db.write_change_log(line)
-            change_log_ids.append(change_log_id)
+        change_log_id = self.db.write_change_log(line)
+        change_log_ids.append(change_log_id)
 
         return change_log_ids
 
-    def _write_updated_searches_to_changelog(
-        self, curr_snapshot_list: list[SearchSummary], prev_searches_list: list[SearchSummary]
+    def _write_updated_search_to_changelog(
+        self, snapshot: SearchSummary | None, prev_search: SearchSummary | None
     ) -> list[int]:
+        if not prev_search or not snapshot:
+            return []
+
         change_log_ids: list[int] = []
         change_log_updates_list: list[ChangeLogLine] = []
 
-        for snapshot in curr_snapshot_list:
-            for search in prev_searches_list:
-                if snapshot.topic_id != search.topic_id:
-                    continue  # TODO we are merging two lists here. It's slow.
-
-                # take the search matched with the snapshot by topic_id
-
-                there_are_inforg_comments = self._parse_comments_and_detect_inforg_comments(snapshot, search)
-                changes = self._detect_changes(snapshot, search, there_are_inforg_comments)
-                change_log_updates_list.extend(changes)
+        there_are_inforg_comments = self._parse_comments_and_detect_inforg_comments(snapshot, prev_search)
+        changes = self._detect_changes(snapshot, prev_search, there_are_inforg_comments)
+        change_log_updates_list.extend(changes)
 
         for line in change_log_updates_list:  # TODO
             change_log_id = self.db.write_change_log(line)
