@@ -188,8 +188,9 @@ class ForumClient:
 
         # Parse folder_id from <h2 class="topic-title"><a href="./viewtopic.php?f=424&t=83087">...</a></h2>
         folder_id: int = 0
-        if title_tag:
-            link_tag = title_tag.find('a')
+        folder_tag = soup.find('p', class_='jumpbox-return')
+        if folder_tag:
+            link_tag = folder_tag.find('a')
             if link_tag and link_tag.has_attr('href'):
                 href = link_tag['href']
                 match = re.search(r'[?&]f=(\d+)', href)
