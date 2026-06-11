@@ -286,7 +286,7 @@ class ForumClient:
         )
 
     @no_type_check
-    def get_replies_count(self, search_num: int) -> int | None:
+    def get_replies_count(self, search_num: int) -> int:
         """parse topic and get count of comments"""
         content = self._get_topic_content(search_num)
         if not is_content_visible(content, search_num):
@@ -299,10 +299,10 @@ class ForumClient:
 
         pagination_text = pagination_div.get_text(strip=True)
         # pagination_text looks like: "3 сообщения•Страница1из1"
-        match = re.search(r'(\d+)\s*сообщения', pagination_text)
+        match = re.search(r'(\d+)\s*сообщени', pagination_text)
         if match:
             return int(match.group(1))
-        return None
+        return 0
 
     def _get_comment_url(self, search_num: int, comment_num: int) -> str:
         return f'https://lizaalert.org/forum/viewtopic.php?&t={search_num}&start={comment_num}'
