@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from itertools import repeat
 
 from _dependencies.commons import setup_logging
-from _dependencies.pubsub import Ctx, pubsub_check_first_posts, pubsub_parse_folders
+from _dependencies.pubsub import Ctx, MessageForIdentifyUpdatesOfTopics, pubsub_check_first_posts, pubsub_parse_searches
 from check_first_posts_for_changes._utils.database import get_phpbb_db_client
 
 from ._utils.database import DBClient, get_db_client
@@ -158,20 +158,26 @@ def send_updates_to_parse() -> None:
 
     # Split topics_into_chunks of 10 items and send each chunk via pub/sub
     # to avoid too large lists of searches to process
+
+    _send_update_first_posts(topics_with_updated_first_posts)
+    _send_identify_updates_of_topics(list(set(changed_topic_ids)))
+
+    get_db_client().set_key_value_item(LAST_CHANGE_ID_IN_PHPBB_DB, last_id + fetched_records_count)
+
+
+def _send_identify_updates_of_topics(changed_topic_ids: list[int]) -> None:
     chunk_size = 10
+    for i in range(0, len(changed_topic_ids), chunk_size):
+        chunk = changed_topic_ids[i : i + chunk_size]
+        pubsub_parse_searches(MessageForIdentifyUpdatesOfTopics(root=chunk))
+
+
+def _send_update_first_posts(topics_with_updated_first_posts: list[int]) -> None:
+    chunk_size = 10
+
     for i in range(0, len(topics_with_updated_first_posts), chunk_size):
         chunk = topics_with_updated_first_posts[i : i + chunk_size]
         pubsub_check_first_posts(chunk)
-
-    changed_folder_ids = set(x.forum_id for x in changed_topics if x.forum_id not in USELESS_FOLDERS)
-    logging.info(f'Changed folders in forum: {changed_folder_ids}')
-
-    folders_to_parse = [(folder_id, '') for folder_id in changed_folder_ids]  # save compatibility
-    for i in range(0, len(folders_to_parse), chunk_size):
-        chunk2 = folders_to_parse[i : i + chunk_size]
-        pubsub_parse_folders(chunk2)
-
-    get_db_client().set_key_value_item(LAST_CHANGE_ID_IN_PHPBB_DB, last_id + fetched_records_count)
 
 
 def main(event: dict, context: Ctx) -> None:

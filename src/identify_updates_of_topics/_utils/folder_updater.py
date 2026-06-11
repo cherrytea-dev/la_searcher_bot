@@ -2,9 +2,6 @@ import logging
 import re
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any
-
-from sqlalchemy.exc import OperationalError
 
 from _dependencies.commons import ChangeType, TopicType
 from _dependencies.pubsub import notify_admin, recognize_title_via_api
@@ -29,97 +26,34 @@ from .topics_commons import (
 )
 
 
-class KeyValueStorage:
-    # TODO rename and move to common code
-
-    KEY_PREFIX = 'folder_summary_snapshot'
-
-    def __init__(self, db: DBClient):
-        self.db = db
-
-    def _get_key(self, folder_num: int) -> str:
-        return f'{self.KEY_PREFIX}-{folder_num}'
-
-    def read_folder_hash(self, folder_num: int) -> str | None:
-        saved_value = self.db.get_key_value_item(self._get_key(folder_num))
-        if saved_value is None:
-            return None
-        return str(saved_value)
-
-    def write_folder_hash(self, data: str, folder_num: int) -> None:
-        self.db.set_key_value_item(self._get_key(folder_num), data)
-
-
-class FolderUpdater:
-    # TODO split: FolderUpdater and maybe SearchUpdater
-    def __init__(self, db_client: DBClient, forum_client: ForumClient, folder_num: int) -> None:
-        self.folder_num = folder_num
+class SearchUpdater:
+    # TODO split: FolderUpdater and maybe SearchUpdater, CoordinatesChecker etc
+    def __init__(self, db_client: DBClient, forum_client: ForumClient) -> None:
         self.forum = forum_client
         self.db = db_client
         self.folders_with_events = set(self.db.get_folders_with_events_only())
 
-    def run(self) -> tuple[bool, list[int]]:
-        """process one forum folder: check for updates, upload them into cloud sql"""
+    def update_search(self, search_id: int) -> list[int]:
+        """process one forum search: check for updates, upload them into cloud sql"""
 
         change_log_ids = []
 
-        # parse a new version of summary page from the chosen folder
-        titles_and_num_of_replies, new_folder_summary = self._parse_one_folder()
+        item = self.forum.parse_search(search_id)
+        if not item:
+            return []
 
-        update_trigger = False
+        if item.folder_id in self.db.get_the_list_of_ignored_folders():
+            # TODO parse folder_id
+            return []
 
-        if not new_folder_summary:
-            return False, []
+        now_ = datetime.now()
+        summary = self._parse_one_search(now_, item)
+        if not summary:
+            return []
 
-        # transform the current snapshot into the string to be able to compare it: string vs string
-        curr_snapshot_as_one_dimensional_list = [y for x in titles_and_num_of_replies for y in x]
-        curr_snapshot_as_string = ','.join(map(str, curr_snapshot_as_one_dimensional_list))
+        change_log_ids = self._update_change_log_and_search(summary)
 
-        # get the prev snapshot as string from cloud storage & get the trigger if there are updates at all
-        update_trigger = self.update_checker(curr_snapshot_as_string, self.folder_num)
-
-        if not update_trigger:
-            return False, []
-
-        logging.info(f'starting updating change_log and searches tables for folder {self.folder_num}')
-
-        change_log_ids = self._update_change_log_and_searches(new_folder_summary)
-        self._update_coordinates(new_folder_summary)
-
-        return True, change_log_ids
-
-    def _parse_one_folder(self) -> tuple[list, list[SearchSummary]]:
-        """parse forum folder with searches' summaries"""
-
-        folder_summary: list[SearchSummary] = []
-        current_datetime = datetime.now()
-
-        folder_content_items = self.forum.get_folder_searches(self.folder_num)
-        for forum_search_item in folder_content_items:
-            try:
-                self._parse_one_search(current_datetime, folder_summary, forum_search_item)
-
-            except Exception as e:
-                logging.exception(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
-                notify_admin(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
-
-        titles_and_num_of_replies = [[x.title, x.num_of_replies] for x in folder_summary]
-        return titles_and_num_of_replies, folder_summary
-
-    def update_checker(self, current_hash: str, folder_num: int) -> bool:
-        """compare prev snapshot and freshly-parsed snapshot, returns NO or YES and Previous hash"""
-
-        folder_hash_storage = KeyValueStorage(self.db)
-
-        previous_hash = folder_hash_storage.read_folder_hash(folder_num)
-        if current_hash == previous_hash:
-            return False
-
-        # update hash in Storage
-        folder_hash_storage.write_folder_hash(current_hash, folder_num)
-        logging.info(f'folder = {folder_num}, hash is updated, prev snapshot as string = {previous_hash}')
-
-        return True
+        return change_log_ids
 
     def _add_gender(self, total_display_name: str, title: str) -> str:
         space_pos = total_display_name.find(' ')
@@ -153,9 +87,8 @@ class FolderUpdater:
     def _parse_one_search(
         self,
         current_datetime: datetime,
-        folder_summary: list[SearchSummary],
         forum_search_item: ForumSearchItem,
-    ) -> None:
+    ) -> SearchSummary | None:
         topic_type_dict = {
             RecognitionTopicType.search: TopicType.search_regular,
             RecognitionTopicType.search_reverse: TopicType.search_reverse,
@@ -172,7 +105,7 @@ class FolderUpdater:
             title_reco_dict = RecognitionResult.model_validate(title_reco_response['recognition'])
             # TODO validate whole response
         else:
-            return
+            return None
 
         logging.info(f'{title_reco_dict=}')
 
@@ -183,17 +116,18 @@ class FolderUpdater:
             person_fam_name = title_reco_dict.persons.total_name if title_reco_dict.persons else 'БВП'
 
         topic_type = title_reco_dict.topic_type
-        if self.folder_num in self.folders_with_events:
+        if forum_search_item.folder_id in self.folders_with_events:
             topic_type = RecognitionTopicType.event
 
+        replies_count = self.forum.get_replies_count(forum_search_item.search_id)
         search_summary_object = SearchSummary(
             parsed_time=current_datetime,
             topic_id=forum_search_item.search_id,
             title=forum_search_item.title,
             start_time=forum_search_item.start_datetime,
-            num_of_replies=forum_search_item.replies_count,
+            num_of_replies=replies_count,
             name=person_fam_name,
-            folder_id=self.folder_num,
+            folder_id=forum_search_item.folder_id,
             topic_type=topic_type,
             topic_type_id=topic_type_dict[title_reco_dict.topic_type],
             new_status=title_reco_dict.status,
@@ -219,102 +153,81 @@ class FolderUpdater:
             search_summary_object.locations = list_of_location_coords
 
         logging.debug(f'search_summary_object={search_summary_object}')
-        folder_summary.append(search_summary_object)
+        return search_summary_object
 
-    def _update_change_log_and_searches(self, new_folder_summary: list[SearchSummary]) -> list[int]:
+    def _update_change_log_and_search(self, search_summary: SearchSummary) -> list[int]:
         """update of SQL tables 'searches' and 'change_log' on the changes vs previous parse"""
-        self.db.rewrite_snapshot_in_sql(self.folder_num, new_folder_summary)
-        # TODO maybe we dont need snapshots at all.
-
-        # DEBUG - function execution time counter
-        func_start = datetime.now()
-
-        curr_snapshot_list = self.db.get_current_snapshots_list(self.folder_num)
+        self.db.rewrite_snapshot_in_sql(search_summary)
+        current_snapshot = self.db.get_current_snapshot(search_summary.topic_id)
         # TODO maybe we dont need snapshots at all. new_folder_summary is enough.
-        search_ids = [x.topic_id for x in new_folder_summary]
-        prev_searches_list = self.db.get_searches_by_ids(search_ids)
 
-        logging.debug(f'TEMP – len of prev_searches_list = {len(prev_searches_list)}')
-        if len(prev_searches_list) > 5000:
-            logging.warning('TEMP - you use too big table Searches, it should be optimized')
+        prev_search = self.db.get_search_by_id(search_summary.topic_id)
 
-        change_log_ids = self._write_updated_searches_to_changelog(curr_snapshot_list, prev_searches_list)
-        new_change_log_ids = self._write_new_searches_to_changelog(curr_snapshot_list, prev_searches_list)
+        change_log_ids = self._write_updated_search_to_changelog(current_snapshot, prev_search)
+        new_change_log_ids = self._write_new_search_to_changelog(current_snapshot, prev_search)
         change_log_ids.extend(new_change_log_ids)
 
-        self._update_changed_searches(curr_snapshot_list, prev_searches_list)
-
-        # DEBUG - function execution time counter
-        func_finish = datetime.now()
-        func_execution_time_ms = func_finish - func_start
-        logging.info(f'DBG.P.5.process_delta() exec time: {func_execution_time_ms}')
+        self._update_changed_searches(current_snapshot, prev_search)
+        self._update_coordinates_of_search(search_summary)
 
         return change_log_ids
 
-    def _update_changed_searches(
-        self, curr_snapshot_list: list[SearchSummary], prev_searches_list: list[SearchSummary]
-    ) -> None:
-        for snapshot in curr_snapshot_list:
-            for search in prev_searches_list:
-                if snapshot.topic_id != search.topic_id:
-                    continue
-                if (
-                    snapshot.status != search.status
-                    or snapshot.title != search.title
-                    or snapshot.num_of_replies != search.num_of_replies
-                ):
-                    self.db.delete_search(search.topic_id)
-                    self.db.write_search(snapshot)
+    def _update_changed_searches(self, snapshot: SearchSummary | None, search: SearchSummary | None) -> None:
+        if not snapshot or not search:
+            return
 
-    def _write_new_searches_to_changelog(
-        self, curr_snapshot_list: list[SearchSummary], prev_searches_list: list[SearchSummary]
+        if (
+            snapshot.status != search.status
+            or snapshot.title != search.title
+            or snapshot.num_of_replies != search.num_of_replies
+        ):
+            self.db.delete_search(search.topic_id)
+            self.db.write_search(snapshot)
+
+    def _write_new_search_to_changelog(
+        self, new_search_summary: SearchSummary | None, prev_search: SearchSummary | None
     ) -> list[int]:
-        prev_searches_topic_ids = set([search.topic_id for search in prev_searches_list])
+        if prev_search or not new_search_summary:
+            return []
 
-        new_topics = [x for x in curr_snapshot_list if x.topic_id not in prev_searches_topic_ids]
         change_log_ids: list[int] = []
 
-        for search_summary_line in new_topics:
-            search_num = search_summary_line.topic_id
-            parsed_profile_text = self.forum.parse_search_profile(search_num)
-            search_activities = profile_get_type_of_activity(parsed_profile_text)
-            managers = profile_get_managers(parsed_profile_text)
+        search_num = new_search_summary.topic_id
+        parsed_profile_text = self.forum.get_raw_search_text(search_num)
+        search_activities = profile_get_type_of_activity(parsed_profile_text)
+        managers = profile_get_managers(parsed_profile_text)
 
-            self.db.write_search(search_summary_line)
-            self.db.update_search_activities(search_num, search_activities)
-            self.db.update_search_managers(search_num, managers)
+        self.db.write_search(new_search_summary)
+        self.db.update_search_activities(search_num, search_activities)
+        self.db.update_search_managers(search_num, managers)
 
-            line = ChangeLogLine(
-                parsed_time=search_summary_line.parsed_time,
-                topic_id=search_summary_line.topic_id,
-                changed_field='new_search',
-                new_value=search_summary_line.title,
-                parameters='',
-                change_type=ChangeType.topic_new,
-            )
-            # TODO can we collect all ChangeLogLine creation on one place?
+        line = ChangeLogLine(
+            parsed_time=new_search_summary.parsed_time,
+            topic_id=new_search_summary.topic_id,
+            changed_field='new_search',
+            new_value=new_search_summary.title,
+            parameters='',
+            change_type=ChangeType.topic_new,
+        )
+        # TODO can we collect all ChangeLogLine creation on one place?
 
-            change_log_id = self.db.write_change_log(line)
-            change_log_ids.append(change_log_id)
+        change_log_id = self.db.write_change_log(line)
+        change_log_ids.append(change_log_id)
 
         return change_log_ids
 
-    def _write_updated_searches_to_changelog(
-        self, curr_snapshot_list: list[SearchSummary], prev_searches_list: list[SearchSummary]
+    def _write_updated_search_to_changelog(
+        self, snapshot: SearchSummary | None, prev_search: SearchSummary | None
     ) -> list[int]:
+        if not prev_search or not snapshot:
+            return []
+
         change_log_ids: list[int] = []
         change_log_updates_list: list[ChangeLogLine] = []
 
-        for snapshot in curr_snapshot_list:
-            for search in prev_searches_list:
-                if snapshot.topic_id != search.topic_id:
-                    continue  # TODO we are merging two lists here. It's slow.
-
-                # take the search matched with the snapshot by topic_id
-
-                there_are_inforg_comments = self._parse_comments_and_detect_inforg_comments(snapshot, search)
-                changes = self._detect_changes(snapshot, search, there_are_inforg_comments)
-                change_log_updates_list.extend(changes)
+        there_are_inforg_comments = self._parse_comments_and_detect_inforg_comments(snapshot, prev_search)
+        changes = self._detect_changes(snapshot, prev_search, there_are_inforg_comments)
+        change_log_updates_list.extend(changes)
 
         for line in change_log_updates_list:  # TODO
             change_log_id = self.db.write_change_log(line)
@@ -340,22 +253,18 @@ class FolderUpdater:
 
         return there_are_inforg_comments
 
-    def _update_coordinates(self, list_of_search_objects: list[SearchSummary]) -> None:
+    def _update_coordinates_of_search(self, search: SearchSummary) -> None:
         """Record search coordinates to PSQL"""
+        search_id = search.topic_id
+        search_status = search.new_status
 
-        for search in list_of_search_objects:
-            search_id = search.topic_id
-            search_status = search.new_status
+        if search_status not in {'Ищем', 'СТОП'}:
+            return
 
-            if search_status not in {'Ищем', 'СТОП'}:
-                continue
+        logging.info(f'search coordinates should be saved for {search_id=}')
+        coords = self._parse_coordinates_of_search(search_id)
 
-            logging.info(f'search coordinates should be saved for {search_id=}')
-            coords = self._parse_coordinates_of_search(search_id)
-
-            self.db.update_coordinates_in_db(search_id, coords[0], coords[1], coords[2])
-
-        return None
+        self.db.update_coordinates_in_db(search_id, coords[0], coords[1], coords[2])
 
     def _parse_coordinates_of_search(self, search_num: int) -> tuple[float, float, CoordType]:
         """finds coordinates of the search"""

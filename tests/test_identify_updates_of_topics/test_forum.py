@@ -1,45 +1,11 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-from unittest.mock import Mock, patch
-
-import pytest
 
 from identify_updates_of_topics._utils.forum import ForumClient, is_content_visible
-from identify_updates_of_topics._utils.topics_commons import CoordType, ForumCommentItem, ForumSearchItem
+from identify_updates_of_topics._utils.topics_commons import CoordType, ForumCommentItem
 
 
 class TestForumClient:
-    def test_get_folder_content_bytes(self, mock_http_get):
-        mock_http_get.return_value.content = Path('tests/fixtures/forum_folder_276.html').read_bytes()
-        forum_search_folder_id = 276
-        forum_client = ForumClient()
-
-        folder_content = forum_client._get_folder_content(forum_search_folder_id)
-
-        assert len(folder_content) > 0
-
-    def test_get_folder_content(self, mock_http_get):
-        mock_http_get.return_value.content = Path('tests/fixtures/forum_folder_276.html').read_bytes()
-        forum_search_folder_id = 276
-        forum_client = ForumClient()
-
-        folder_content_summaries = forum_client.get_folder_searches(forum_search_folder_id)
-
-        assert folder_content_summaries == [
-            ForumSearchItem(
-                title='Жив Иванов Иван, 10 лет, ЗАО, г. Москва',
-                search_id=85471,
-                replies_count=29,
-                start_datetime=datetime(2025, 1, 13, 14, 10, 25, tzinfo=timezone.utc),
-            ),
-            ForumSearchItem(
-                title='Пропал Петров Петр Петрович, 48 лет, ЗелАО, г. Москва - Тверская обл.',
-                search_id=81634,
-                replies_count=116,
-                start_datetime=datetime(2024, 8, 27, 15, 40, 22, tzinfo=timezone.utc),
-            ),
-        ]
-
     def test_get_comment_data(self, mock_http_get):
         mock_http_get.return_value.content = Path('tests/fixtures/forum_comment.html').read_bytes()
         forum_client = ForumClient()
@@ -58,11 +24,11 @@ class TestForumClient:
             inforg_comment_present=True,
         )
 
-    def test_parse_search_profile_mock(self, mock_http_get):
+    def test_get_raw_search_text(self, mock_http_get):
         mock_http_get.return_value.content = Path('tests/fixtures/forum_topic.html').read_bytes()
         forum_client = ForumClient()
 
-        left_text = forum_client.parse_search_profile(1)
+        left_text = forum_client.get_raw_search_text(1)
 
         expected = """
         Сидорова (Иванова) Надежда Петровна, 30 лет, д. Никольская Слобода, 
@@ -97,6 +63,31 @@ class TestForumClient:
         assert lat == 53.510722
         assert lon == 33.637365
         assert coord_type == CoordType.type_3_deleted
+
+    def test_get_replies_count(self, mock_http_get):
+        mock_http_get.return_value.content = Path('tests/fixtures/forum_topic.html').read_bytes()
+        forum_client = ForumClient()
+
+        comments_count = forum_client.get_replies_count(1)
+
+        assert comments_count == 3
+
+    def test_parse_search(self, mock_http_get):
+        mock_http_get.return_value.content = Path('tests/fixtures/forum_topic.html').read_bytes()
+        forum_client = ForumClient()
+
+        search_data = forum_client.parse_search(1)
+
+        assert (
+            search_data.title
+            == 'Жива (Иванова) Надежда Петровна, 30 лет, д. Никольская Слобода, Жуковский р-он, Брянская обл.'
+        )
+        assert search_data.replies_count == 3
+        assert search_data.start_datetime == datetime.fromisoformat('2024-10-06T20:52:48+00:00')
+        assert search_data.lat == 53.510722
+        assert search_data.lon == 33.637365
+        assert search_data.coord_type == CoordType.type_3_deleted
+        assert search_data.folder_id == 424
 
 
 def _normallize_text(text: str) -> str:

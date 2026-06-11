@@ -1,7 +1,12 @@
 from polyfactory import Use
 from polyfactory.factories import DataclassFactory
 
-from identify_updates_of_topics._utils.topics_commons import ChangeLogLine, ForumCommentItem, SearchSummary
+from identify_updates_of_topics._utils.topics_commons import (
+    ChangeLogLine,
+    ForumCommentItem,
+    ForumSearchItem,
+    SearchSummary,
+)
 from tests.common import fake
 
 
@@ -15,3 +20,7 @@ class ChangeLogLineFactory(DataclassFactory[ChangeLogLine]):
 
 class ForumCommentItemFactory(DataclassFactory[ForumCommentItem]):
     comment_forum_global_id = Use(fake.pystr, max_chars=10)
+
+
+class ForumSearchItemFactory(DataclassFactory[ForumSearchItem]):
+    pass

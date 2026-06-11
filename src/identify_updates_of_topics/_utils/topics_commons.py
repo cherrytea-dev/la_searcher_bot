@@ -49,9 +49,13 @@ class SearchSummary:
 @dataclass
 class ForumSearchItem:
     title: str
+    folder_id: int
     search_id: int
-    replies_count: int
     start_datetime: datetime
+    replies_count: int = 0
+    lat: float | None = None
+    lon: float | None = None
+    coord_type: CoordType | None = None
 
 
 @dataclass

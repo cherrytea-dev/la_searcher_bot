@@ -63,7 +63,7 @@ class ForumClient:
         self.session = get_requests_session()
 
     @no_type_check
-    def parse_search_profile(self, search_num: int) -> str | None:
+    def get_raw_search_text(self, search_num: int) -> str | None:
         """get raw search text"""
         content = self._get_topic_content(search_num)
         if not is_content_visible(content, search_num):
@@ -151,37 +151,61 @@ class ForumClient:
         return [lat, lon, coord_type, title]
 
     @no_type_check
-    def get_folder_searches(self, folder_id: int) -> list[ForumSearchItem]:
-        content = self._get_folder_content(folder_id)
-        only_tag = SoupStrainer('div', {'class': 'forumbg'})
-        soup = BeautifulSoup(content, features='lxml', parse_only=only_tag)
-        search_code_blocks = soup.find_all('dl', 'row-item')
-        del soup  # trying to free up memory
+    def parse_search(self, search_num: int) -> ForumSearchItem | None:
+        content = self._get_topic_content(search_num)
+        if not is_content_visible(content, search_num):
+            return None
 
-        summaries: list[ForumSearchItem] = []
-        for i, data_block in enumerate(search_code_blocks):
-            # First block is always not one we want
-            if i == 0:
-                continue
+        soup = BeautifulSoup(content, features='lxml')
 
-            # In rare cases there are aliases from other folders, which have static titles – and we're avoiding them
-            if str(data_block).find('<dl class="row-item topic_moved">') > -1:
-                continue
+        # Parse title from <h2 class="topic-title"><a>...</a></h2>
+        title_tag = soup.find('h2', class_='topic-title')
+        title = ''
+        if title_tag:
+            link_tag = title_tag.find('a')
+            if link_tag:
+                title = re.sub(r'\s+', ' ', link_tag.get_text(strip=True))
 
-            # Current block which contains everything regarding certain search
-            search_title_block = data_block.find('a', 'topictitle')
-            # rare case: cleaning [size][b]...[/b][/size] tags
-            search_title = re.sub(r'\[/?(b|size.{0,6}|color.{0,10})]', '', search_title_block.next_element)
-            search_url = URL(search_title_block['href'])
-            search_id = int(search_url.query['t'])
-            search_replies_num = int(data_block.find('dd', 'posts').next_element)
-            start_datetime = define_start_time_of_search(data_block)
+        # Parse start_datetime from first <p class="author"> -> <time datetime="...">
+        start_datetime = ''
+        first_author = soup.find('p', class_='author')
+        if first_author:
+            time_tag = first_author.find('time')
+            if time_tag and time_tag.has_attr('datetime'):
+                start_datetime = datetime.fromisoformat(time_tag['datetime'])
 
-            summaries.append(ForumSearchItem(search_title, search_id, search_replies_num, start_datetime))
+        # Parse replies_count from pagination div (same logic as get_replies_count)
+        replies_count = 0
+        pagination_div = soup.find('div', class_='pagination')
+        if pagination_div:
+            pagination_text = pagination_div.get_text(strip=True)
+            match = re.search(r'(\d+)\s*сообщения', pagination_text)
+            if match:
+                replies_count = int(match.group(1))
 
-        del search_code_blocks
+        lat, lon, coord_type, _ = self.parse_coordinates_of_search(search_num)
+        # TODO merge functions
 
-        return summaries
+        # Parse folder_id from <h2 class="topic-title"><a href="./viewtopic.php?f=424&t=83087">...</a></h2>
+        folder_id: int = 0
+        if title_tag:
+            link_tag = title_tag.find('a')
+            if link_tag and link_tag.has_attr('href'):
+                href = link_tag['href']
+                match = re.search(r'[?&]f=(\d+)', href)
+                if match:
+                    folder_id = int(match.group(1))
+
+        return ForumSearchItem(
+            search_id=search_num,
+            folder_id=folder_id,
+            title=title,
+            start_datetime=start_datetime,
+            replies_count=replies_count,
+            lat=lat,
+            lon=lon,
+            coord_type=coord_type,
+        )
 
     @no_type_check
     def get_comment_data(self, search_num: int, comment_num: int) -> ForumCommentItem | None:
@@ -261,12 +285,24 @@ class ForumClient:
             inforg_comment_present=there_are_inforg_comments,
         )
 
-    @retry(Exception, tries=5, delay=1, backoff=2)
-    def _get_folder_content(self, folder_id: int) -> bytes:
-        url = f'https://lizaalert.org/forum/viewforum.php?f={folder_id}'
-        resp = self.session.get(url, timeout=self._TIMEOUT)
-        resp.raise_for_status()
-        return resp.content
+    @no_type_check
+    def get_replies_count(self, search_num: int) -> int | None:
+        """parse topic and get count of comments"""
+        content = self._get_topic_content(search_num)
+        if not is_content_visible(content, search_num):
+            return None
+
+        soup = BeautifulSoup(content, features='lxml')
+        pagination_div = soup.find('div', class_='pagination')
+        if pagination_div is None:
+            return None
+
+        pagination_text = pagination_div.get_text(strip=True)
+        # pagination_text looks like: "3 сообщения•Страница1из1"
+        match = re.search(r'(\d+)\s*сообщения', pagination_text)
+        if match:
+            return int(match.group(1))
+        return None
 
     def _get_comment_url(self, search_num: int, comment_num: int) -> str:
         return f'https://lizaalert.org/forum/viewtopic.php?&t={search_num}&start={comment_num}'
@@ -278,8 +314,14 @@ class ForumClient:
         resp.raise_for_status()
         return resp.content
 
+    @lru_cache
     @retry(Exception, tries=5, delay=1, backoff=2)
     def _get_topic_content(self, search_num: int) -> bytes:
+        """
+        TODO it's better to merge all parsing functions into `parse_search`.
+        But now it's important to release quick.
+        So i'll just cache content to avoid multiple requests to forum.
+        """
         url = self._get_topic_url(search_num)
         resp = self.session.get(url, timeout=self._TIMEOUT)
         resp.raise_for_status()

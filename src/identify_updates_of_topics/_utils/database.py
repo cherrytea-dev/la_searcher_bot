@@ -113,42 +113,42 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
             last_call = conn.execute(stmt, a=geocoder).fetchone()
             return last_call[0] if last_call else None
 
-    def rewrite_snapshot_in_sql(self, folder_num: int, folder_summary: list[SearchSummary]) -> None:
+    def rewrite_snapshot_in_sql(self, line: SearchSummary) -> None:
         """rewrite the freshly-parsed snapshot into sql table 'forum_summary_snapshot'"""
 
         with self.connect() as conn:
-            sql_text = sqlalchemy.text("""
+            sql_text_delete = sqlalchemy.text("""
                 DELETE FROM forum_summary_snapshot 
-                WHERE forum_folder_id = :a;
+                WHERE search_forum_num = :topic_id;
                                         """)
-            conn.execute(sql_text, a=folder_num)
 
-            sql_text = sqlalchemy.text("""
+            sql_text_insert = sqlalchemy.text("""
                 INSERT INTO forum_summary_snapshot 
                     (search_forum_num, parsed_time, forum_search_title, search_start_time, num_of_replies, age, family_name, 
                     forum_folder_id, topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id)
                 VALUES (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); 
                                        """)
             # FIXME – add status
-            for line in folder_summary:
-                conn.execute(
-                    sql_text,
-                    a=line.topic_id,
-                    b=line.parsed_time,
-                    d=line.title,
-                    e=line.start_time,
-                    f=line.num_of_replies,
-                    g=line.age,
-                    h=line.name,
-                    i=line.folder_id,
-                    j=line.topic_type,
-                    k=line.display_name,
-                    l=line.age_min,
-                    m=line.age_max,
-                    n=line.new_status,
-                    o=str(line.locations),
-                    p=line.topic_type_id,
-                )
+            conn.execute(sql_text_delete, topic_id=line.topic_id)
+
+            conn.execute(
+                sql_text_insert,
+                a=line.topic_id,
+                b=line.parsed_time,
+                d=line.title,
+                e=line.start_time,
+                f=line.num_of_replies,
+                g=line.age,
+                h=line.name,
+                i=line.folder_id,
+                j=line.topic_type,
+                k=line.display_name,
+                l=line.age_min,
+                m=line.age_max,
+                n=line.new_status,
+                o=str(line.locations),
+                p=line.topic_type_id,
+            )
 
     def write_comment(self, comment_data: ForumCommentItem) -> None:
         with self.connect() as conn:
@@ -229,39 +229,38 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                                        """)
                 conn.execute(stmt, a=coord_type, b=search_id)
 
-    def get_current_snapshots_list(self, folder_num: int) -> list[SearchSummary]:
+    def get_current_snapshot(self, search_forum_num: int) -> SearchSummary | None:
         sql_text = sqlalchemy.text("""
                 SELECT search_forum_num, parsed_time, status, forum_search_title, search_start_time,
                 num_of_replies, family_name, age, id, forum_folder_id, topic_type, display_name, age_min, age_max,
                 status, city_locations, topic_type_id
                 FROM forum_summary_snapshot 
-                WHERE forum_folder_id = :a; 
+                WHERE search_forum_num = :search_forum_num; 
                                 """)
         with self.connect() as conn:
-            rows = conn.execute(sql_text, a=folder_num).fetchall()
-            curr_snapshot_list: list[SearchSummary] = []
-            for row in rows:
-                snapshot_line = SearchSummary(
-                    topic_id=row[0],
-                    parsed_time=row[1],
-                    status=row[2],
-                    title=row[3],
-                    start_time=row[4],
-                    num_of_replies=row[5],
-                    name=row[6],
-                    age=row[7],
-                    searches_table_id=row[8],
-                    folder_id=row[9],
-                    topic_type=row[10],
-                    display_name=row[11],
-                    age_min=row[12],
-                    age_max=row[13],
-                    new_status=row[14],
-                    locations=row[15],
-                    topic_type_id=row[16],
-                )
-                curr_snapshot_list.append(snapshot_line)
-            return curr_snapshot_list
+            rows = conn.execute(sql_text, search_forum_num=search_forum_num).fetchall()
+            if not rows:
+                return None
+            row = rows[0]
+            return SearchSummary(
+                topic_id=row[0],
+                parsed_time=row[1],
+                status=row[2],
+                title=row[3],
+                start_time=row[4],
+                num_of_replies=row[5],
+                name=row[6],
+                age=row[7],
+                searches_table_id=row[8],
+                folder_id=row[9],
+                topic_type=row[10],
+                display_name=row[11],
+                age_min=row[12],
+                age_max=row[13],
+                new_status=row[14],
+                locations=row[15],
+                topic_type_id=row[16],
+            )
 
     def write_search(self, line: SearchSummary) -> int:
         """TODO we cannot update search right here because `search_forum_num` is not unique"""
@@ -295,7 +294,7 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
             ).fetchone()
             return row[0]
 
-    def get_searches_by_ids(self, search_ids: list[int]) -> list[SearchSummary]:
+    def get_search_by_id(self, search_id: int) -> SearchSummary | None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 SELECT 
@@ -303,33 +302,33 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                     num_of_replies, family_name, age, id, forum_folder_id,
                     topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id 
                 FROM searches
-                WHERE search_forum_num = ANY(:a);
+                WHERE search_forum_num = :search_id;
                                     """)
 
-            rows = conn.execute(stmt, a=search_ids).fetchall()
-            prev_searches_list: list[SearchSummary] = []
-            for r in rows:
-                search = SearchSummary(
-                    topic_id=r[0],
-                    parsed_time=r[1],
-                    status=r[2],
-                    title=r[3],
-                    start_time=r[4],
-                    num_of_replies=r[5],
-                    name=r[6],
-                    age=r[7],
-                    searches_table_id=r[8],
-                    folder_id=r[9],
-                    topic_type=r[10],
-                    display_name=r[11],
-                    age_min=r[12],
-                    age_max=r[13],
-                    new_status=r[14],
-                    locations=r[15],
-                    topic_type_id=r[16],
-                )
-                prev_searches_list.append(search)
-            return prev_searches_list
+            rows = conn.execute(stmt, search_id=search_id).fetchall()
+            if not rows:
+                return None
+
+            row = rows[0]
+            return SearchSummary(
+                topic_id=row[0],
+                parsed_time=row[1],
+                status=row[2],
+                title=row[3],
+                start_time=row[4],
+                num_of_replies=row[5],
+                name=row[6],
+                age=row[7],
+                searches_table_id=row[8],
+                folder_id=row[9],
+                topic_type=row[10],
+                display_name=row[11],
+                age_min=row[12],
+                age_max=row[13],
+                new_status=row[14],
+                locations=row[15],
+                topic_type_id=row[16],
+            )
 
     def write_change_log(self, line: ChangeLogLine) -> int:
         # TODO field "parameters is obsolete"

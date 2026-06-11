@@ -111,45 +111,6 @@ def test_empty_list_of_updated_searches():
         assert main.main({}, {}) == 'ok'
 
 
-def test_multiple_updated_searches():
-    with (
-        patch('identify_updates_of_first_posts.main.get_compressed_first_post'),
-        patch('identify_updates_of_first_posts.main.process_first_page_comparison'),
-        patch('identify_updates_of_first_posts.main.save_new_record_into_change_log'),
-        patch('identify_updates_of_first_posts.main.parse_search_folder_num'),
-    ):
-        assert main.main(get_event_with_data('[1,2]'), {}) == 'ok'
-
-
-class TestParseSearchFolder:
-    @pytest.fixture(autouse=True)
-    def patch_http(self):
-        # disable http patching
-        pass
-
-    @pytest.fixture()
-    def mock_response(self):
-        main.get_requests_session.cache_clear()
-        with patch.object(requests.Session, 'get') as mock_get:
-            yield mock_get
-
-    def test_parse_search_folder(self, mock_response):
-        mock_response.return_value.content = (
-            b'<html><body><span class="crumb" data-forum-id="123"></span></body></html>'
-        )
-        assert main.parse_search_folder_num(777) == 123
-
-    def test_parse_search_folder_no_folder(self, mock_response):
-        mock_response.return_value.content = b'<html><body></body></html>'
-        assert main.parse_search_folder_num(777) is None
-
-    def test_parse_search_folder_invalid_folder(self, mock_response):
-        mock_response.return_value.content = (
-            b'<html><body><span class="crumb" data-forum-id="abc"></span></body></html>'
-        )
-        assert main.parse_search_folder_num(777) is None
-
-
 class TestCompressedFirstPost:
     def test_get_compressed_first_post(self):
         initial_text = '<html><body><p>This is a test string.</p></body></html>'
@@ -183,28 +144,13 @@ class TestProcessOneUpdate:
         )
         change_log_ids = []
 
-        with patch.object(main, 'parse_search_folder_num', Mock(return_value=1)):
-            res = main._process_one_update(
-                change_log_ids,
-                connection,
-                search_first_post.search_id,
-            )
+        main._process_one_update(
+            change_log_ids,
+            connection,
+            search_first_post.search_id,
+        )
 
         assert len(change_log_ids) == 1
-
-
-def test__process_folders_with_updated_searches(connection):
-    mocked_context = Mock()
-    mocked_context.event_id = 1
-    with patch.object(main, 'parse_search_folder_num', Mock(return_value=1)):
-        main._process_folders_with_updated_searches(
-            context=mocked_context,
-            function_id=5,
-            analytics_func_start=datetime.datetime.now(),
-            list_of_updated_searches=[1, 2],
-            change_log_ids=[1, 2],
-            conn=connection,
-        )
 
 
 def test__get_actual_and_previous_page_content(connection):
