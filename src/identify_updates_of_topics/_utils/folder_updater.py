@@ -2,9 +2,6 @@ import logging
 import re
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any
-
-from sqlalchemy.exc import OperationalError
 
 from _dependencies.commons import ChangeType, TopicType
 from _dependencies.pubsub import notify_admin, recognize_title_via_api
@@ -29,98 +26,35 @@ from .topics_commons import (
 )
 
 
-class KeyValueStorage:
-    # TODO rename and move to common code
-
-    KEY_PREFIX = 'folder_summary_snapshot'
-
-    def __init__(self, db: DBClient):
-        self.db = db
-
-    def _get_key(self, folder_num: int) -> str:
-        return f'{self.KEY_PREFIX}-{folder_num}'
-
-    def read_folder_hash(self, folder_num: int) -> str | None:
-        saved_value = self.db.get_key_value_item(self._get_key(folder_num))
-        if saved_value is None:
-            return None
-        return str(saved_value)
-
-    def write_folder_hash(self, data: str, folder_num: int) -> None:
-        self.db.set_key_value_item(self._get_key(folder_num), data)
-
-
-class FolderUpdater:
-    # TODO split: FolderUpdater and maybe SearchUpdater
+class SearchUpdater:
+    # TODO split: FolderUpdater and maybe SearchUpdater, CoordinatesChecker etc
     def __init__(self, db_client: DBClient, forum_client: ForumClient, folder_num: int) -> None:
         self.folder_num = folder_num
         self.forum = forum_client
         self.db = db_client
         self.folders_with_events = set(self.db.get_folders_with_events_only())
 
-    def run(self) -> tuple[bool, list[int]]:
-        """process one forum folder: check for updates, upload them into cloud sql"""
+    def update_search(self, search_id: int) -> list[int]:
+        """process one forum search: check for updates, upload them into cloud sql"""
 
         change_log_ids = []
 
-        # parse a new version of summary page from the chosen folder
-        new_folder_summary = self._parse_one_folder()
-        titles_and_num_of_replies = [[x.title, x.num_of_replies] for x in new_folder_summary]
+        item = self.forum.parse_search(search_id)
+        if not item:
+            return []
 
-        update_trigger = False
+        if item.folder_id in self.db.get_the_list_of_ignored_folders():
+            # TODO parse folder_id
+            return []
 
-        if not new_folder_summary:
-            return False, []
+        now_ = datetime.now()
+        summary = self._parse_one_search(now_, item)
+        if not summary:
+            return []
 
-        # transform the current snapshot into the string to be able to compare it: string vs string
-        curr_snapshot_as_one_dimensional_list = [y for x in titles_and_num_of_replies for y in x]
-        curr_snapshot_as_string = ','.join(map(str, curr_snapshot_as_one_dimensional_list))
+        change_log_ids = self._update_change_log_and_search(summary)
 
-        # get the prev snapshot as string from cloud storage & get the trigger if there are updates at all
-        update_trigger = self.update_checker(curr_snapshot_as_string, self.folder_num)
-
-        if not update_trigger:
-            return False, []
-
-        logging.info(f'starting updating change_log and searches tables for folder {self.folder_num}')
-
-        change_log_ids = self._update_change_log_and_searches(new_folder_summary)
-
-        return True, change_log_ids
-
-    def _parse_one_folder(self) -> list[SearchSummary]:
-        """parse forum folder with searches' summaries"""
-
-        folder_summary: list[SearchSummary] = []
-        current_datetime = datetime.now()
-
-        folder_content_items = self.forum.get_folder_searches(self.folder_num)
-        for forum_search_item in folder_content_items:
-            try:
-                item = self._parse_one_search(current_datetime, forum_search_item)
-                if item:
-                    folder_summary.append(item)
-
-            except Exception as e:
-                logging.exception(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
-                notify_admin(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
-
-        return folder_summary
-
-    def update_checker(self, current_hash: str, folder_num: int) -> bool:
-        """compare prev snapshot and freshly-parsed snapshot, returns NO or YES and Previous hash"""
-
-        folder_hash_storage = KeyValueStorage(self.db)
-
-        previous_hash = folder_hash_storage.read_folder_hash(folder_num)
-        if current_hash == previous_hash:
-            return False
-
-        # update hash in Storage
-        folder_hash_storage.write_folder_hash(current_hash, folder_num)
-        logging.info(f'folder = {folder_num}, hash is updated, prev snapshot as string = {previous_hash}')
-
-        return True
+        return change_log_ids
 
     def _add_gender(self, total_display_name: str, title: str) -> str:
         space_pos = total_display_name.find(' ')
@@ -222,20 +156,19 @@ class FolderUpdater:
         logging.debug(f'search_summary_object={search_summary_object}')
         return search_summary_object
 
-    def _update_change_log_and_searches(self, new_folder_summary: list[SearchSummary]) -> list[int]:
+    def _update_change_log_and_search(self, search_summary: SearchSummary) -> list[int]:
         """update of SQL tables 'searches' and 'change_log' on the changes vs previous parse"""
+        new_folder_summary = [search_summary]
         self.db.rewrite_snapshot_in_sql(self.folder_num, new_folder_summary)
         # TODO maybe we dont need snapshots at all.
 
-        # DEBUG - function execution time counter
-        func_start = datetime.now()
+        current_snapshot = self.db.get_current_snapshot(search_summary.topic_id)
+        curr_snapshot_list = [current_snapshot] if current_snapshot else []
 
-        curr_snapshot_list = self.db.get_current_snapshots_list(self.folder_num)
         # TODO maybe we dont need snapshots at all. new_folder_summary is enough.
         search_ids = [x.topic_id for x in new_folder_summary]
         prev_searches_list = self.db.get_searches_by_ids(search_ids)
 
-        logging.debug(f'TEMP – len of prev_searches_list = {len(prev_searches_list)}')
         if len(prev_searches_list) > 5000:
             logging.warning('TEMP - you use too big table Searches, it should be optimized')
 
@@ -245,13 +178,7 @@ class FolderUpdater:
 
         self._update_changed_searches(curr_snapshot_list, prev_searches_list)
 
-        # DEBUG - function execution time counter
-        func_finish = datetime.now()
-        func_execution_time_ms = func_finish - func_start
-        logging.info(f'DBG.P.5.process_delta() exec time: {func_execution_time_ms}')
-
-        for search in new_folder_summary:
-            self._update_coordinates_of_search(search)
+        self._update_coordinates_of_search(search_summary)
 
         return change_log_ids
 

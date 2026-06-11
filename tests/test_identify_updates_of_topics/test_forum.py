@@ -119,6 +119,7 @@ class TestForumClient:
         assert search_data.lat == 53.510722
         assert search_data.lon == 33.637365
         assert search_data.coord_type == CoordType.type_3_deleted
+        assert search_data.folder_id == 424
 
 
 def _normallize_text(text: str) -> str:

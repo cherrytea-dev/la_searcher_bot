@@ -151,8 +151,11 @@ class ForumClient:
         return [lat, lon, coord_type, title]
 
     @no_type_check
-    def parse_search(self, search_num: int) -> ForumSearchItem:
+    def parse_search(self, search_num: int) -> ForumSearchItem | None:
         content = self._get_topic_content(search_num)
+        if not is_content_visible(content, search_num):
+            return None
+
         soup = BeautifulSoup(content, features='lxml')
 
         # Parse title from <h2 class="topic-title"><a>...</a></h2>
@@ -182,8 +185,21 @@ class ForumClient:
 
         lat, lon, coord_type, _ = self.parse_coordinates_of_search(search_num)
         # TODO merge functions
+
+        folder_id: int = 0
+        """
+        TODO parse from here (should be 424 in this example):
+
+			<h2 class="topic-title"><a href="./viewtopic.php?f=424&amp;t=83087">Жива (Иванова) Надежда Петровна, 30 лет,
+					д. Никольская Слобода, Жуковский р-он, Брянская обл.</a>
+			</h2>
+        
+
+        """
+
         return ForumSearchItem(
             search_id=search_num,
+            folder_id=folder_id,
             title=title,
             start_datetime=start_datetime,
             replies_count=replies_count,
@@ -198,7 +214,6 @@ class ForumClient:
         only_tag = SoupStrainer('div', {'class': 'forumbg'})
         soup = BeautifulSoup(content, features='lxml', parse_only=only_tag)
         search_code_blocks = soup.find_all('dl', 'row-item')
-        del soup  # trying to free up memory
 
         summaries: list[ForumSearchItem] = []
         for i, data_block in enumerate(search_code_blocks):
@@ -213,22 +228,12 @@ class ForumClient:
             # Current block which contains everything regarding certain search
             search_title_block = data_block.find('a', 'topictitle')
             # rare case: cleaning [size][b]...[/b][/size] tags
-            search_title = re.sub(r'\[/?(b|size.{0,6}|color.{0,10})]', '', search_title_block.next_element)
             search_url = URL(search_title_block['href'])
             search_id = int(search_url.query['t'])
-            start_datetime = define_start_time_of_search(data_block)
 
-            # self.parse_search(search_id) # TODO
-
-            summaries.append(
-                ForumSearchItem(
-                    title=search_title,
-                    search_id=search_id,
-                    start_datetime=start_datetime,
-                )
-            )
-
-        del search_code_blocks
+            search = self.parse_search(search_id)
+            if search:
+                summaries.append(search)
 
         return summaries
 

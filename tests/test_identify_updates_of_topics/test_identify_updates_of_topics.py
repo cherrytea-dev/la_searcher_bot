@@ -18,14 +18,11 @@ def test_main_full_scenario(mock_http_get, patch_app_config):
     context = Mock()
     context.event_id = 123
 
-    class FakeUpdater(main.FolderUpdater):
+    class FakeUpdater(main.SearchUpdater):
         walked_folders = []
 
         def __init__(self, db_client, forum, folder_num):
             self.__class__.walked_folders.append(folder_num)
-
-        def run(self):
-            return (False, [1, 2, 3])
 
     with patch.object(main, 'FolderUpdater', FakeUpdater):
         main.main(get_event_with_data(data), context)

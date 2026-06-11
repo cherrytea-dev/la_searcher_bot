@@ -49,6 +49,7 @@ class SearchSummary:
 @dataclass
 class ForumSearchItem:
     title: str
+    folder_id: int
     search_id: int
     start_datetime: datetime
     replies_count: int = 0

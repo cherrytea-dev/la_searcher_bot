@@ -4,14 +4,14 @@ from pathlib import Path
 import pytest
 
 from _dependencies.commons import ChangeType
-from identify_updates_of_topics._utils.folder_updater import FolderUpdater
+from identify_updates_of_topics._utils.folder_updater import SearchUpdater
 from identify_updates_of_topics._utils.forum import ForumClient
 from tests.common import find_model
 from tests.factories import db_factories, db_models
 from tests.test_identify_updates_of_topics.factories import SearchSummaryFactory, fake
 
 
-class PatchedFolderUpdater(FolderUpdater):
+class PatchedFolderUpdater(SearchUpdater):
     forum: 'FakeForum'
 
 
@@ -29,22 +29,6 @@ class FakeForum(ForumClient):
 
     def _get_topic_content(self, search_num: int) -> bytes:
         return Path('tests/fixtures/forum_topic.html').read_bytes()
-
-
-class TestFolderUpdater:
-    def test_parse_one_folder(self, folder_updater: PatchedFolderUpdater):
-        details = folder_updater._parse_one_folder()
-        summaries = [[x.title, x.num_of_replies] for x in details]
-        assert summaries == [
-            ['Пропала Иванова Лидия 77 лет, г. Моршанск, Тамбовская обл.', 3],
-            ['Жив Иванов Иван 55 лет, Чистые пруды, Тамбовская обл.', 3],
-        ]
-        assert len(details) == 2
-
-    def test_process_one_folder(self, folder_updater: PatchedFolderUpdater):
-        update_trigger, changed_ids = folder_updater.run()
-
-        assert update_trigger is True
 
 
 class TestFolderUpdaterChangeLogCreation:

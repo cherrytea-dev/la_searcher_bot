@@ -263,6 +263,39 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                 curr_snapshot_list.append(snapshot_line)
             return curr_snapshot_list
 
+    def get_current_snapshot(self, search_forum_num: int) -> SearchSummary | None:
+        sql_text = sqlalchemy.text("""
+                SELECT search_forum_num, parsed_time, status, forum_search_title, search_start_time,
+                num_of_replies, family_name, age, id, forum_folder_id, topic_type, display_name, age_min, age_max,
+                status, city_locations, topic_type_id
+                FROM forum_summary_snapshot 
+                WHERE search_forum_num = :search_forum_num; 
+                                """)
+        with self.connect() as conn:
+            rows = conn.execute(sql_text, search_forum_num=search_forum_num).fetchall()
+            if not rows:
+                return None
+            row = rows[0]
+            return SearchSummary(
+                topic_id=row[0],
+                parsed_time=row[1],
+                status=row[2],
+                title=row[3],
+                start_time=row[4],
+                num_of_replies=row[5],
+                name=row[6],
+                age=row[7],
+                searches_table_id=row[8],
+                folder_id=row[9],
+                topic_type=row[10],
+                display_name=row[11],
+                age_min=row[12],
+                age_max=row[13],
+                new_status=row[14],
+                locations=row[15],
+                topic_type_id=row[16],
+            )
+
     def write_search(self, line: SearchSummary) -> int:
         """TODO we cannot update search right here because `search_forum_num` is not unique"""
         stmt = sqlalchemy.text("""
