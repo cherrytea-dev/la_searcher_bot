@@ -118,7 +118,14 @@ def handle_region_toggle(vk_message: VKMessage, state: DialogState | None, user_
         return None
 
     # Build folder_dict: {display_name: (folder_id,)}
-    folder_dict: dict[str, tuple[int, ...]] = {name: (fid,) for fid, name in folders}
+    # Filter out None folder names (can happen if DB has NULL folder_display_name)
+    folder_dict: dict[str, tuple[int, ...]] = {}
+    for fid, name in folders:
+        if name is not None:
+            folder_dict[name] = (fid,)
+
+    if not folder_dict:
+        return None
 
     # Case-insensitive matching
     region_name_lower = text.lower()

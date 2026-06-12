@@ -45,9 +45,11 @@ class VKMessageSender:
         """Generate a unique random_id for VK API messages.send.
 
         VK requires unique random_id per message to prevent duplicates.
-        Using 64-bit random value to minimize collision probability.
+        Must be a signed 64-bit integer (int64).
         """
-        return int.from_bytes(os.urandom(8), 'big', signed=False)
+        raw = int.from_bytes(os.urandom(8), 'big', signed=False)
+        # Mask to signed 64-bit range: [-(2^63), 2^63 - 1]
+        return (raw & ((1 << 63) - 1)) * (-1 if raw & (1 << 63) else 1)
 
     def send_message(
         self,
@@ -77,7 +79,11 @@ class VKMessageSender:
                     attachment=attachment,
                     dont_parse_links=dont_parse_links,
                 )
-                return resp.get('response', {}).get('message_id')
+                # VK API messages.send returns {"response": <message_id_int>}
+                response_data = resp.get('response')
+                if isinstance(response_data, dict):
+                    return response_data.get('message_id')
+                return response_data
 
             except Exception as e:
                 error_str = str(e)
