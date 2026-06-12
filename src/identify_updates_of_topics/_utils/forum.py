@@ -302,7 +302,8 @@ class ForumClient:
         # pagination_text looks like: "3 сообщения•Страница1из1"
         match = re.search(r'(\d+)\s*сообщени', pagination_text)
         if match:
-            return int(match.group(1))
+            replies_count = int(match.group(1))
+            return replies_count - 1  # first message is topic itself, and following are replies
         return 0
 
     def _get_comment_url(self, search_num: int, comment_num: int) -> str:

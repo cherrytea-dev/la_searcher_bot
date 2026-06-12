@@ -70,7 +70,7 @@ class TestForumClient:
 
         comments_count = forum_client.get_replies_count(1)
 
-        assert comments_count == 3
+        assert comments_count == 2
 
     def test_parse_search(self, mock_http_get):
         mock_http_get.return_value.content = Path('tests/fixtures/forum_topic.html').read_bytes()
