@@ -2,8 +2,12 @@ import logging
 import random
 import time
 from functools import lru_cache
+from typing import TYPE_CHECKING, Literal
 
 from _dependencies.vk_api_client import get_default_vk_api_client
+
+if TYPE_CHECKING:
+    from _dependencies.vk_api_client import VKApi
 
 random.seed()
 
@@ -20,6 +24,21 @@ class VKMessageSender:
     """
 
     _daily_limit_remaining: int | None = None
+
+    def __init__(self, api: 'VKApi | None' = None) -> None:
+        """Initialize with optional VKApi client.
+
+        Args:
+            api: VKApi client instance. If None, uses the default cached client.
+                 This allows tests to inject a mock API client.
+        """
+        self._api = api
+
+    def _get_api(self) -> 'VKApi':
+        """Get the VKApi client, using injected one or default."""
+        if self._api is not None:
+            return self._api
+        return get_default_vk_api_client()
 
     def send_message(
         self,
@@ -42,7 +61,7 @@ class VKMessageSender:
 
         for attempt in range(3):
             try:
-                resp = get_default_vk_api_client().send(
+                resp = self._get_api().send(
                     user_id=peer_id,
                     random_id=random_id,
                     message=text,
@@ -81,7 +100,7 @@ class VKMessageSender:
     ) -> bool:
         """Edit a sent message. Returns True on success."""
         try:
-            get_default_vk_api_client().edit_message(
+            self._get_api().edit_message(
                 peer_id=peer_id,
                 message_id=message_id,
                 message=text,
@@ -95,7 +114,7 @@ class VKMessageSender:
     def delete_message(self, peer_id: int, message_ids: list[int]) -> bool:
         """Delete messages. Returns True on success."""
         try:
-            get_default_vk_api_client().delete_message(
+            self._get_api().delete_message(
                 peer_id=peer_id,
                 message_ids=message_ids,
             )
@@ -115,7 +134,7 @@ class VKMessageSender:
         Returns True on success.
         """
         try:
-            get_default_vk_api_client().send_message_event_answer(
+            self._get_api().send_message_event_answer(
                 event_id=event_id,
                 user_id=user_id,
                 peer_id=peer_id,
@@ -130,7 +149,7 @@ class VKMessageSender:
         peer_id: int,
         text: str,
         buttons: list[str],
-        color: str = 'secondary',
+        color: Literal['primary', 'secondary', 'positive', 'negative'] = 'secondary',
     ) -> int | None:
         """Convenience method: text + list of buttons in one column."""
         from .keyboards import VKKeyboard

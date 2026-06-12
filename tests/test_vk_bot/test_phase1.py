@@ -14,14 +14,13 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from _dependencies.services.state_machine import DialogState, set_user_state, clear_user_state
 
-from src.vk_bot._utils.common import VKHandlerResult, VKMessage
-from src.vk_bot._utils.dispatcher import HANDLER_CHAIN, dispatch_event, handle_unknown
-from src.vk_bot._utils.keyboards import VKKeyboard
-from src.vk_bot._utils.message_sending import VKMessageSender, vk_sender
+from _dependencies.services.state_machine import DialogState, clear_user_state, set_user_state
 from tests.factories import db_factories
-
+from vk_bot._utils.common import VKHandlerResult, VKMessage
+from vk_bot._utils.dispatcher import HANDLER_CHAIN, dispatch_event, handle_unknown
+from vk_bot._utils.keyboards import VKKeyboard
+from vk_bot._utils.message_sending import VKMessageSender, vk_sender
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Fixtures
@@ -30,19 +29,17 @@ from tests.factories import db_factories
 
 @pytest.fixture
 def mock_vk_api():
-    """Patch get_default_vk_api_client for message_sending tests.
+    """Create a mock VKApi client for VKMessageSender tests.
 
-    message_sending.py imports get_default_vk_api_client at module level,
-    so we must patch the local reference in that module.
+    VKMessageSender now accepts an optional `api` parameter,
+    so tests can inject a mock directly: VKMessageSender(api=mock_vk_api).
     """
-    from _dependencies.vk_api_client import get_default_vk_api_client
-
-    get_default_vk_api_client.cache_clear()
-
-    with patch('vk_bot._utils.message_sending.get_default_vk_api_client') as mock:
-        api = MagicMock()
-        mock.return_value = api
-        yield api
+    api = MagicMock()
+    api.send.return_value = {'response': {'message_id': 42}}
+    api.edit_message.return_value = {'response': {}}
+    api.delete_message.return_value = {'response': {}}
+    api.send_message_event_answer.return_value = {'response': {}}
+    yield api
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -557,29 +554,23 @@ class TestVKApiErrorHandling:
 
 
 class TestVKMessageSender:
-    """VKMessageSender with mocked VKApi client."""
+    """VKMessageSender with mocked VKApi client.
+
+    VKMessageSender now accepts an optional `api` parameter,
+    so tests inject a mock directly instead of patching get_default_vk_api_client.
+    """
 
     def test_send_message_success(self, mock_vk_api):
         """Successful send returns message_id."""
-        import vk_bot._utils.message_sending as _ms
-
-        print(f'\n[DEBUG] get_default_vk_api_client in module: {_ms.get_default_vk_api_client}')
-        print(f'[DEBUG] mock_vk_api: {mock_vk_api}')
-
-        mock_vk_api.send.return_value = {'response': {'message_id': 42}}
-
-        sender = VKMessageSender()
+        sender = VKMessageSender(api=mock_vk_api)
         result = sender.send_message(peer_id=123, text='hello')
 
-        print(f'[DEBUG] result: {result}')
         assert result == 42
         mock_vk_api.send.assert_called_once()
 
     def test_send_message_with_keyboard(self, mock_vk_api):
         """Send with keyboard parameter."""
-        mock_vk_api.send.return_value = {'response': {'message_id': 1}}
-
-        sender = VKMessageSender()
+        sender = VKMessageSender(api=mock_vk_api)
         keyboard = {'buttons': []}
         sender.send_message(peer_id=1, text='test', keyboard=keyboard)
 
@@ -591,7 +582,7 @@ class TestVKMessageSender:
         """When daily limit is reached, skip sending."""
         mock_vk_api.send.side_effect = Exception('917')
 
-        sender = VKMessageSender()
+        sender = VKMessageSender(api=mock_vk_api)
         result = sender.send_message(peer_id=1, text='test')
 
         assert result is None
@@ -605,7 +596,7 @@ class TestVKMessageSender:
         """Per-minute flood (914) retries up to 3 times."""
         mock_vk_api.send.side_effect = Exception('914')
 
-        sender = VKMessageSender()
+        sender = VKMessageSender(api=mock_vk_api)
         result = sender.send_message(peer_id=1, text='test')
 
         assert result is None
@@ -618,7 +609,7 @@ class TestVKMessageSender:
             {'response': {'message_id': 99}},
         ]
 
-        sender = VKMessageSender()
+        sender = VKMessageSender(api=mock_vk_api)
         result = sender.send_message(peer_id=1, text='test')
 
         assert result == 99
@@ -628,14 +619,14 @@ class TestVKMessageSender:
         """Error 901 (cannot send) returns None without retry."""
         mock_vk_api.send.side_effect = Exception('901')
 
-        sender = VKMessageSender()
+        sender = VKMessageSender(api=mock_vk_api)
         result = sender.send_message(peer_id=1, text='test')
 
         assert result is None
         assert mock_vk_api.send.call_count == 1  # no retry
 
     def test_edit_message_success(self, mock_vk_api):
-        sender = VKMessageSender()
+        sender = VKMessageSender(api=mock_vk_api)
         result = sender.edit_message(peer_id=1, message_id=2, text='new')
 
         assert result is True
@@ -644,13 +635,13 @@ class TestVKMessageSender:
     def test_edit_message_failure(self, mock_vk_api):
         mock_vk_api.edit_message.side_effect = Exception('error')
 
-        sender = VKMessageSender()
+        sender = VKMessageSender(api=mock_vk_api)
         result = sender.edit_message(peer_id=1, message_id=2, text='new')
 
         assert result is False
 
     def test_delete_message_success(self, mock_vk_api):
-        sender = VKMessageSender()
+        sender = VKMessageSender(api=mock_vk_api)
         result = sender.delete_message(peer_id=1, message_ids=[2, 3])
 
         assert result is True
@@ -659,13 +650,13 @@ class TestVKMessageSender:
     def test_delete_message_failure(self, mock_vk_api):
         mock_vk_api.delete_message.side_effect = Exception('error')
 
-        sender = VKMessageSender()
+        sender = VKMessageSender(api=mock_vk_api)
         result = sender.delete_message(peer_id=1, message_ids=[2])
 
         assert result is False
 
     def test_send_callback_answer_success(self, mock_vk_api):
-        sender = VKMessageSender()
+        sender = VKMessageSender(api=mock_vk_api)
         result = sender.send_callback_answer(event_id='evt1', user_id=1, peer_id=2)
 
         assert result is True
@@ -674,19 +665,17 @@ class TestVKMessageSender:
     def test_send_callback_answer_failure(self, mock_vk_api):
         mock_vk_api.send_message_event_answer.side_effect = Exception('error')
 
-        sender = VKMessageSender()
+        sender = VKMessageSender(api=mock_vk_api)
         result = sender.send_callback_answer(event_id='evt1', user_id=1, peer_id=2)
 
         assert result is False
 
     def test_send_with_keyboard_convenience(self, mock_vk_api):
         """send_with_keyboard creates keyboard and sends."""
-        mock_vk_api.send.return_value = {'response': {'message_id': 1}}
-
-        sender = VKMessageSender()
+        sender = VKMessageSender(api=mock_vk_api)
         result = sender.send_with_keyboard(peer_id=1, text='test', buttons=['A', 'B'])
 
-        assert result == 1
+        assert result == 42
         call_kwargs = mock_vk_api.send.call_args[1]
         assert call_kwargs['keyboard'] is not None
         assert call_kwargs['keyboard']['buttons'][0][0]['action']['label'] == 'A'
@@ -822,12 +811,14 @@ class TestDispatcherMessageNew:
         assert result == 'ok'
 
     def test_message_new_unknown_user(self):
-        """New user gets registered and receives welcome."""
-        from vk_bot._utils.dispatcher import vk_sender as dispatcher_vk_sender
+        """New user gets registered and receives welcome.
 
-        dispatcher_vk_sender.cache_clear()
+        Uses random vk_user_id to avoid stale data collisions
+        (DB is not cleaned between test runs).
+        """
+        import random as _random
 
-        vk_user_id = 999888
+        vk_user_id = _random.randint(1000000, 9999999)
         event = {
             'type': 'message_new',
             'object': {
@@ -850,12 +841,10 @@ class TestDispatcherMessageNew:
 
     def test_message_new_existing_user(self, session):
         """Existing user gets handler chain processing."""
-        from vk_bot._utils.dispatcher import vk_sender as dispatcher_vk_sender
-
-        dispatcher_vk_sender.cache_clear()
-
         user = db_factories.UserFactory.create_sync()
-        vk_user_id = 999991
+        import random as _random
+
+        vk_user_id = _random.randint(1000000, 9999999)
 
         event = {
             'type': 'message_new',
@@ -884,12 +873,10 @@ class TestDispatcherMessageNew:
 
     def test_message_new_with_state(self, session):
         """User with active state gets handler chain."""
-        from vk_bot._utils.dispatcher import vk_sender as dispatcher_vk_sender
-
-        dispatcher_vk_sender.cache_clear()
-
         user = db_factories.UserFactory.create_sync()
-        vk_user_id = 999992
+        import random as _random
+
+        vk_user_id = _random.randint(1000000, 9999999)
 
         # Set a state for this user
         set_user_state(user.user_id, DialogState.radius_input)
@@ -926,10 +913,6 @@ class TestDispatcherMessageEvent:
 
     def test_message_event(self):
         """Callback event is acknowledged."""
-        from vk_bot._utils.dispatcher import vk_sender as dispatcher_vk_sender
-
-        dispatcher_vk_sender.cache_clear()
-
         event = {
             'type': 'message_event',
             'object': {
@@ -952,10 +935,6 @@ class TestDispatcherMessageEvent:
 
     def test_message_event_without_event_id(self):
         """Callback without event_id still returns ok."""
-        from vk_bot._utils.dispatcher import vk_sender as dispatcher_vk_sender
-
-        dispatcher_vk_sender.cache_clear()
-
         event = {
             'type': 'message_event',
             'object': {

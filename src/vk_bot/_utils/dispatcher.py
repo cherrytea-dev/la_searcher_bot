@@ -3,8 +3,8 @@ import logging
 from typing import Callable
 
 from _dependencies.commons import get_app_config
+from _dependencies.services.message_formatter import welcome_back_user, welcome_new_user
 from _dependencies.services.state_machine import DialogState, clear_user_state, get_user_state, set_user_state
-from _dependencies.services.message_formatter import welcome_new_user, welcome_back_user
 from _dependencies.users_management import register_new_user
 
 from .common import VKHandlerResult, VKMessage

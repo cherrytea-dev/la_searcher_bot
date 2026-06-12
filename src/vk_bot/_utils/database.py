@@ -3,7 +3,7 @@ from functools import lru_cache
 import sqlalchemy
 
 from _dependencies.db_client import DBClientBase
-from _dependencies.services.user_settings_service import get_user_settings_service, UserSettingsService
+from _dependencies.services.user_settings_service import UserSettingsService, get_user_settings_service
 
 
 class DBClient(DBClientBase):
