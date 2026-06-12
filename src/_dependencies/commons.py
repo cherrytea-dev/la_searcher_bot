@@ -42,6 +42,7 @@ class AppConfig(BaseSettings):
     vk_api_key: str = ''  # TODO SecretStr
     my_vk_id: str = ''
     vk_confirmation_code: str = ''
+    vk_group_id: int = 0
 
     mysql_host: str = ''
     mysql_db: str = ''
