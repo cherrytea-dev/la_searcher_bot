@@ -154,11 +154,24 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
         with self.connect() as conn:
             if not comment_data.comment_text:
                 return
+
+            # Prevent duplicates caused by pagination offset mapping:
+            # multiple comment_num values can resolve to the same forum page,
+            # producing the same comment. Check by global post ID.
+            if comment_data.comment_forum_global_id is not None:
+                existing = conn.execute(
+                    sqlalchemy.text('SELECT id FROM comments WHERE comment_global_num = :g AND search_forum_num = :s'),
+                    g=str(comment_data.comment_forum_global_id),
+                    s=comment_data.search_num,
+                ).fetchone()
+                if existing:
+                    return
+
             stmt = sqlalchemy.text("""
-                INSERT INTO comments 
+                INSERT INTO comments
                     (comment_url, comment_text, comment_author_nickname,
                     comment_author_link, search_forum_num, comment_num, notification_sent, comment_global_num)
-                VALUES (:a, :b, :c, :d, :e, :f, :g, :h); 
+                VALUES (:a, :b, :c, :d, :e, :f, :g, :h);
                                     """)
             conn.execute(
                 stmt,

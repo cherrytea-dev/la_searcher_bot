@@ -137,6 +137,28 @@ class TestDBClient:
         assert comment_model.notification_sent is None
         assert comment_model.comment_global_num == comment.comment_forum_global_id
 
+    def test_write_comment_duplicate_global_id(self, db_client: DBClient, session: Session):
+        """Verify that inserting a comment with the same comment_global_num and search_forum_num
+        does not create a duplicate record (SELECT check before INSERT)."""
+        comment = ForumCommentItemFactory.build(ignore=False)
+
+        # First insert should succeed
+        db_client.write_comment(comment)
+
+        # Second insert with same global_id and search_num should be silently ignored
+        db_client.write_comment(comment)
+
+        # Only one record should exist
+        comments = (
+            session.query(db_models.Comment)
+            .filter(
+                db_models.Comment.comment_global_num == comment.comment_forum_global_id,
+                db_models.Comment.search_forum_num == comment.search_num,
+            )
+            .all()
+        )
+        assert len(comments) == 1
+
     def test_rewrite_snapshot_in_sql(self, db_client: DBClient, session: Session):
         snapshot_to_update = db_factories.ForumSummarySnapshotFactory.create_sync()
         new_snapshot = SearchSummaryFactory.build(folder_id=snapshot_to_update.search_forum_num)
