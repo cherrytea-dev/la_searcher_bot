@@ -26,6 +26,7 @@ class VKApi:
     API_VERSION = '5.199'
 
     def __init__(self, token: str):
+        self._token = token
         headers = {'Authorization': f'Bearer {token}'}
         self._session = httpx.Client(base_url='https://api.vk.ru/', headers=headers)
 
@@ -44,29 +45,29 @@ class VKApi:
 
         https://dev.vk.com/ru/method/messages.send
         """
-        query: dict[str, Any] = {
+        params: dict[str, Any] = {
+            'access_token': self._token,
             'peer_id': user_id,
             'random_id': random_id,
             'v': self.API_VERSION,
             'message': message,
         }
-        payload: dict[str, Any] = {}
-
-        if lat and long:
-            query['lat'] = lat
-            query['long'] = long
 
         if keyboard is not None:
-            payload['keyboard'] = json.dumps(keyboard, ensure_ascii=False)
+            params['keyboard'] = json.dumps(keyboard, ensure_ascii=False)
+
+        if lat and long:
+            params['lat'] = lat
+            params['long'] = long
 
         if attachment:
-            payload['attachment'] = attachment
+            params['attachment'] = attachment
 
         if dont_parse_links:
-            payload['dont_parse_links'] = 1
+            params['dont_parse_links'] = 1
 
         url = '/method/messages.send'
-        resp = self._session.post(url, json=payload, params=query)
+        resp = self._session.post(url, data=params)
         resp.raise_for_status()
         resp_data = resp.json()
         _handle_vk_error(resp_data)
@@ -83,19 +84,19 @@ class VKApi:
 
         https://dev.vk.com/ru/method/messages.edit
         """
-        query: dict[str, Any] = {
+        params: dict[str, Any] = {
+            'access_token': self._token,
             'peer_id': peer_id,
             'message_id': message_id,
             'message': message,
             'v': self.API_VERSION,
         }
-        payload: dict[str, Any] = {}
 
         if keyboard is not None:
-            payload['keyboard'] = json.dumps(keyboard, ensure_ascii=False)
+            params['keyboard'] = json.dumps(keyboard, ensure_ascii=False)
 
         url = '/method/messages.edit'
-        resp = self._session.post(url, json=payload, params=query)
+        resp = self._session.post(url, data=params)
         resp.raise_for_status()
         resp_data = resp.json()
         _handle_vk_error(resp_data)

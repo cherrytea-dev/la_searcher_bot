@@ -254,50 +254,50 @@ class TestHandleRoleChoice:
         self.mock_settings = mock_settings_service
 
     def test_handles_member_role(self, vk_message):
-        """ "я состою в лизаалерт" -> saves role."""
+        """ "я состою в лизаалерт" -> saves role with code 'member'."""
         from src.vk_bot._utils.handlers.button_handlers import handle_role_choice
 
         msg = vk_message(text='я состою в ЛизаАлерт')
         result = handle_role_choice(msg, DialogState.not_defined, 12345)
 
         assert result is not None
-        self.mock_settings.save_user_role.assert_called_once()
-        self.mock_settings.save_onboarding_step.assert_called_once_with(12345, '2')
+        self.mock_settings.save_user_role.assert_called_once_with(12345, 'member')
+        self.mock_settings.save_onboarding_step.assert_called_once_with(12345, 'role_set')
 
     def test_handles_volunteer_role(self, vk_message):
-        """ "я хочу помогать лизаалерт" -> saves role."""
+        """ "я хочу помогать лизаалерт" -> saves role with code 'volunteer'."""
         from src.vk_bot._utils.handlers.button_handlers import handle_role_choice
 
         msg = vk_message(text='я хочу помогать ЛизаАлерт')
         result = handle_role_choice(msg, DialogState.not_defined, 12345)
 
         assert result is not None
-        self.mock_settings.save_user_role.assert_called_once()
-        self.mock_settings.save_onboarding_step.assert_called_once_with(12345, '2')
+        self.mock_settings.save_user_role.assert_called_once_with(12345, 'volunteer')
+        self.mock_settings.save_onboarding_step.assert_called_once_with(12345, 'role_set')
 
     def test_handles_relative_role(self, vk_message):
-        """ "я ищу человека" -> saves role, shows orders_done keyboard."""
+        """ "я ищу человека" -> saves role with code 'relative', shows orders_done keyboard."""
         from src.vk_bot._utils.handlers.button_handlers import handle_role_choice
 
         msg = vk_message(text='я ищу человека')
         result = handle_role_choice(msg, DialogState.not_defined, 12345)
 
         assert result is not None
-        self.mock_settings.save_user_role.assert_called_once()
-        self.mock_settings.save_onboarding_step.assert_called_once_with(12345, '2')
+        self.mock_settings.save_user_role.assert_called_once_with(12345, 'relative')
+        self.mock_settings.save_onboarding_step.assert_called_once_with(12345, 'role_set')
         labels = [btn[0]['action']['label'] for btn in result.keyboard['buttons']]
         assert 'уже заказал(а)' in labels or 'закажу позже' in labels
 
     def test_handles_other_role(self, vk_message):
-        """ "у меня другая задача" -> saves role."""
+        """ "у меня другая задача" -> saves role with code 'other'."""
         from src.vk_bot._utils.handlers.button_handlers import handle_role_choice
 
         msg = vk_message(text='у меня другая задача')
         result = handle_role_choice(msg, DialogState.not_defined, 12345)
 
         assert result is not None
-        self.mock_settings.save_user_role.assert_called_once()
-        self.mock_settings.save_onboarding_step.assert_called_once_with(12345, '2')
+        self.mock_settings.save_user_role.assert_called_once_with(12345, 'other')
+        self.mock_settings.save_onboarding_step.assert_called_once_with(12345, 'role_set')
 
     def test_ignores_unknown_text(self, vk_message):
         """Returns None for non-matching text."""
@@ -308,13 +308,13 @@ class TestHandleRoleChoice:
         assert result is None
 
     def test_saves_onboarding_step(self, vk_message):
-        """Calls save_onboarding_step."""
+        """Calls save_onboarding_step with 'role_set'."""
         from src.vk_bot._utils.handlers.button_handlers import handle_role_choice
 
         msg = vk_message(text='я состою в ЛизаАлерт')
         handle_role_choice(msg, DialogState.not_defined, 12345)
 
-        self.mock_settings.save_onboarding_step.assert_called_once_with(12345, '2')
+        self.mock_settings.save_onboarding_step.assert_called_once_with(12345, 'role_set')
 
 
 class TestHandleIsMoscow:
@@ -326,15 +326,26 @@ class TestHandleIsMoscow:
         self.mock_settings = mock_settings_service
 
     def test_handles_yes(self, vk_message):
-        """ "да, москва – мой регион" (em-dash) -> adds Moscow region."""
+        """ "да, москва – мой регион" (em-dash) -> adds Moscow region, subscribes."""
         from src.vk_bot._utils.handlers.button_handlers import handle_is_moscow
+
+        # Mock geo folders to include Moscow regions
+        # _subscribe_moscow_regions matches 'москв' in name.lower() or 'мо:' in name.lower()
+        self.mock_settings.get_geo_folders.return_value = [
+            (1, 'Москва и МО'),  # 'москв' matches
+            (2, 'МО: Московская обл.'),  # 'мо:' matches
+            (3, 'Калужская область'),  # no match
+        ]
 
         # Note: handler uses EN DASH (U+2013), not regular hyphen
         msg = vk_message(text='да, Москва – мой регион')
         result = handle_is_moscow(msg, DialogState.not_defined, 12345)
 
         assert result is not None
-        self.mock_settings.save_onboarding_step.assert_called_once_with(12345, '4')
+        self.mock_settings.save_onboarding_step.assert_called_once_with(12345, 'finished')
+        # Verify Moscow region subscription was attempted
+        self.mock_settings.add_region.assert_any_call(12345, 1)
+        self.mock_settings.add_region.assert_any_call(12345, 2)
         assert 'отлично' in result.text.lower() or 'завершили' in result.text.lower()
 
     def test_handles_no(self, vk_message):
@@ -828,20 +839,54 @@ class TestHandleRegionToggle:
         """Store mock_settings_service reference for assertions."""
         self.mock_settings = mock_settings_service
 
-    def test_toggles_region_subscription(self, vk_message):
-        """Toggles region via settings service."""
+    def test_subscribes_to_region(self, vk_message):
+        """Subscribes to a new region."""
         from src.vk_bot._utils.handlers.region_select_handlers import handle_region_toggle
 
         self.mock_settings.get_geo_folders.return_value = [
             (1, 'Москва и МО'),
         ]
+        self.mock_settings.get_user_regions.return_value = []  # not subscribed yet
+
+        msg = vk_message(text='Москва и МО')
+        result = handle_region_toggle(msg, DialogState.not_defined, 12345)
+
+        assert result is not None
+        assert 'добавлен' in result.text
+        self.mock_settings.toggle_region_by_name.assert_called_once()
+
+    def test_unsubscribes_from_region(self, vk_message):
+        """Unsubscribes from an existing region."""
+        from src.vk_bot._utils.handlers.region_select_handlers import handle_region_toggle
+
+        self.mock_settings.get_geo_folders.return_value = [
+            (1, 'Москва и МО'),
+        ]
+        self.mock_settings.get_user_regions.return_value = [1]  # already subscribed
         self.mock_settings.toggle_region_by_name.return_value = True
 
         msg = vk_message(text='Москва и МО')
         result = handle_region_toggle(msg, DialogState.not_defined, 12345)
 
         assert result is not None
+        assert 'удален' in result.text
         self.mock_settings.toggle_region_by_name.assert_called_once()
+
+    def test_cant_remove_last_region(self, vk_message):
+        """Can't remove the last remaining region."""
+        from src.vk_bot._utils.handlers.region_select_handlers import handle_region_toggle
+
+        self.mock_settings.get_geo_folders.return_value = [
+            (1, 'Москва и МО'),
+        ]
+        self.mock_settings.get_user_regions.return_value = [1]  # already subscribed
+        self.mock_settings.toggle_region_by_name.return_value = False
+
+        msg = vk_message(text='Москва и МО')
+        result = handle_region_toggle(msg, DialogState.not_defined, 12345)
+
+        assert result is not None
+        assert 'регион' in result.text.lower()
 
     def test_ignores_unknown(self, vk_message):
         """Returns None."""

@@ -6,6 +6,7 @@ or None to pass to the next handler in the chain.
 """
 
 import logging
+import time
 
 from _dependencies.services.message_formatter import (
     compose_settings_completeness_message,
@@ -64,19 +65,26 @@ def handle_role_choice(vk_message: VKMessage, state: DialogState | None, user_id
     text = vk_message.text.strip().lower()
 
     role_map = {
-        'я состою в лизаалерт': ('member', role_volunteer_instructions()),
-        'я хочу помогать лизаалерт': ('volunteer', role_volunteer_instructions()),
-        'я ищу человека': ('relative', None),
-        'у меня другая задача': ('other', role_other_ask_region()),
-        'не хочу говорить': ('other', role_other_ask_region()),
+        'я состою в лизаалерт': 'member',
+        'я хочу помогать лизаалерт': 'volunteer',
+        'я ищу человека': 'relative',
+        'у меня другая задача': 'other',
+        'не хочу говорить': 'other',
     }
 
     if text not in role_map:
         return None
 
-    role_code, instructions = role_map[text]
-    db().settings.save_user_role(user_id, text)
-    db().settings.save_onboarding_step(user_id, '2')
+    role_code = role_map[text]
+    db().settings.save_user_role(user_id, role_code)
+    db().settings.save_onboarding_step(user_id, 'role_set')
+
+    instructions_map = {
+        'member': role_volunteer_instructions(),
+        'volunteer': role_volunteer_instructions(),
+        'other': role_other_ask_region(),
+    }
+    instructions = instructions_map.get(role_code)
 
     if role_code == 'relative':
         return VKHandlerResult(
@@ -103,11 +111,19 @@ def handle_orders_state(vk_message: VKMessage, state: DialogState | None, user_i
     if text not in ('уже заказал(а)', 'закажу позже'):
         return None
 
-    db().settings.save_onboarding_step(user_id, '3')
+    db().settings.save_onboarding_step(user_id, 'region_set')
     return VKHandlerResult(
         text='Спасибо! Давайте настроим регион для поисков.',
         keyboard=VKKeyboard.is_moscow(),
     )
+
+
+def _subscribe_moscow_regions(user_id: int) -> None:
+    """Subscribe user to Moscow and Moscow Oblast regions."""
+    folders = db().settings.get_geo_folders()
+    for fid, name in folders:
+        if 'москв' in name.lower() or 'мо:' in name.lower():
+            db().settings.add_region(user_id, fid)
 
 
 def handle_is_moscow(vk_message: VKMessage, state: DialogState | None, user_id: int) -> VKHandlerResult | None:
@@ -115,10 +131,8 @@ def handle_is_moscow(vk_message: VKMessage, state: DialogState | None, user_id: 
     text = vk_message.text.strip().lower()
 
     if text == 'да, москва – мой регион':
-        # Add Moscow and MO region
-        # toggle_region_by_name requires folder_dict; for onboarding we use
-        # a simplified approach — just save the step
-        db().settings.save_onboarding_step(user_id, '4')
+        _subscribe_moscow_regions(user_id)
+        db().settings.save_onboarding_step(user_id, 'finished')
         return VKHandlerResult(
             text=onboarding_completed_message(),
             keyboard=VKKeyboard.main_menu(),
@@ -139,7 +153,7 @@ def handle_help_needed(vk_message: VKMessage, state: DialogState | None, user_id
     if text not in ('да, помогите мне настроить бот', 'нет, помощь не требуется'):
         return None
 
-    db().settings.save_onboarding_step(user_id, '3')
+    db().settings.save_onboarding_step(user_id, 'region_set')
     return VKHandlerResult(
         text=region_selection_intro(),
         keyboard=VKKeyboard.fed_districts(),
@@ -278,7 +292,7 @@ def handle_settings_menu(vk_message: VKMessage, state: DialogState | None, user_
         if forum_data:
             forum_username, forum_user_id = forum_data
             return VKHandlerResult(
-                text=forum_already_linked(forum_username, forum_user_id),
+                text=forum_already_linked(forum_username, int(forum_user_id)),
                 keyboard=VKKeyboard.settings_menu(),
             )
         return VKHandlerResult(
@@ -559,7 +573,10 @@ def handle_vk_linking(vk_message: VKMessage, state: DialogState | None, user_id:
 
     from _dependencies.services.message_formatter import vk_link_instructions
 
+    import time
+
+    invite_text = f'la_link_{user_id}_{int(time.time())}'
     return VKHandlerResult(
-        text=vk_link_instructions(''),
+        text=vk_link_instructions(invite_text),
         keyboard=VKKeyboard.settings_menu(),
     )

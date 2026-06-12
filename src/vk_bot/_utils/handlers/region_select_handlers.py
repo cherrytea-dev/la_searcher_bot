@@ -56,24 +56,42 @@ def handle_fed_district_select(
     # Build a folder_id → display_name mapping
     folder_map: dict[int, str] = {fid: name for fid, name in folders}
 
-    # Try to find matching regions by name similarity
-    # The district name from the button matches folder names
-    matching_regions: list[str] = []
+    # Build a set of district names that contain 'фо' and match exactly
+    district_names = set()
     for fid, name in folders:
-        name_lower = name.lower()
-        # Match regions that belong to this district
-        # e.g., "Москва и МО" contains "центральный"
-        if text.replace(' фо', '') in name_lower:
-            matching_regions.append(name)
+        if 'фо' in name.lower():
+            district_names.add(name.strip())
 
-    if not matching_regions:
+    matched_district = None
+    for d_name in district_names:
+        if d_name.lower() == text.lower():
+            matched_district = d_name
+            break
+
+    if not matched_district:
+        # Fallback: try to find matching regions by name similarity
+        matching_regions: list[str] = []
+        for fid, name in folders:
+            name_lower = name.lower()
+            if text.replace(' фо', '') in name_lower:
+                matching_regions.append(name)
+
+        if not matching_regions:
+            return VKHandlerResult(
+                text='В этом округе пока нет доступных регионов.',
+                keyboard=VKKeyboard.fed_districts(),
+            )
+
+        region_buttons = list(matching_regions)
+        region_buttons.append('в начало')
         return VKHandlerResult(
-            text='В этом округе пока нет доступных регионов.',
-            keyboard=VKKeyboard.fed_districts(),
+            text=f'Выберите регион в округе "{vk_message.text.strip()}":\n\n'
+            'Нажмите на регион, чтобы подписаться или отписаться.',
+            keyboard=VKKeyboard.one_column(region_buttons),
         )
 
-    # Build region keyboard
-    region_buttons = list(matching_regions)
+    # Build region keyboard from matched district
+    region_buttons = [matched_district]
     region_buttons.append('в начало')
 
     return VKHandlerResult(
@@ -88,9 +106,10 @@ def handle_region_toggle(vk_message: VKMessage, state: DialogState | None, user_
 
     Matches any text that corresponds to a known geo folder name.
     Uses toggle_region_by_name which requires a folder_dict parameter.
+    Checks subscription state before toggling to provide correct feedback.
     """
-    region_name = vk_message.text.strip()
-    if not region_name:
+    text = vk_message.text.strip()
+    if not text:
         return None
 
     # Get all geo folders
@@ -101,29 +120,41 @@ def handle_region_toggle(vk_message: VKMessage, state: DialogState | None, user_
     # Build folder_dict: {display_name: (folder_id,)}
     folder_dict: dict[str, tuple[int, ...]] = {name: (fid,) for fid, name in folders}
 
-    # Check if this text matches a known region
-    if region_name not in folder_dict:
+    # Case-insensitive matching
+    region_name_lower = text.lower()
+    matching = [name for name in folder_dict if name.lower() == region_name_lower]
+    if not matching:
         return None
+    region_name = matching[0]
+    region_folder_ids = folder_dict[region_name]
 
-    try:
-        result = db().settings.toggle_region_by_name(user_id, region_name, folder_dict)
-    except Exception:
-        logger.exception(f'Failed to toggle region for user {user_id}: {region_name}')
-        return None
+    # Check current subscription state by comparing folder IDs
+    user_region_folder_ids = list(db().settings.get_user_regions(user_id))
+    is_subscribed = any(fid in user_region_folder_ids for fid in region_folder_ids)
 
-    if result is False:
-        # Can't remove last region
+    if is_subscribed:
+        try:
+            result = db().settings.toggle_region_by_name(user_id, region_name, folder_dict)
+        except Exception:
+            logger.exception(f'Failed to toggle region for user {user_id}: {region_name}')
+            return None
+
+        if result is False:
+            return VKHandlerResult(
+                text=region_selection_cant_remove_last(),
+                keyboard=VKKeyboard.settings_menu(),
+            )
         return VKHandlerResult(
-            text=region_selection_cant_remove_last(),
+            text=f'Регион "{region_name}" удален.',
             keyboard=VKKeyboard.settings_menu(),
         )
-
-    if result is True:
+    else:
+        try:
+            db().settings.toggle_region_by_name(user_id, region_name, folder_dict)
+        except Exception:
+            logger.exception(f'Failed to toggle region for user {user_id}: {region_name}')
+            return None
         return VKHandlerResult(
             text=f'Регион "{region_name}" добавлен!',
             keyboard=VKKeyboard.settings_menu(),
         )
-
-    # Should not reach here with current toggle_region_by_name implementation
-    # (it returns True on success, False on failure)
-    return None

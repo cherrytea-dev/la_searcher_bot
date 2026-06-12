@@ -349,9 +349,11 @@ class TestVKApiSend:
 
         assert result['response']['message_id'] == 123
         call_kwargs = mock_post.call_args[1]
-        assert call_kwargs['params']['peer_id'] == 456
-        assert call_kwargs['params']['random_id'] == 789
-        assert call_kwargs['params']['message'] == 'hello'
+        data = call_kwargs['data']
+        assert data['peer_id'] == 456
+        assert data['random_id'] == 789
+        assert data['message'] == 'hello'
+        assert data['access_token'] == 'test_token'
 
     def test_send_with_keyboard(self, mock_vk_http):
         """Send with keyboard serialized to JSON."""
@@ -365,9 +367,9 @@ class TestVKApiSend:
         api.send(user_id=1, random_id=1, message='test', keyboard=keyboard)
 
         call_kwargs = mock_post.call_args[1]
-        payload = call_kwargs['json']
-        assert 'keyboard' in payload
-        assert json.loads(payload['keyboard']) == keyboard
+        data = call_kwargs['data']
+        assert 'keyboard' in data
+        assert json.loads(data['keyboard']) == keyboard
 
     def test_send_with_attachment(self, mock_vk_http):
         """Send with attachment."""
@@ -380,7 +382,7 @@ class TestVKApiSend:
         api.send(user_id=1, random_id=1, message='test', attachment='photo123_456')
 
         call_kwargs = mock_post.call_args[1]
-        assert call_kwargs['json']['attachment'] == 'photo123_456'
+        assert call_kwargs['data']['attachment'] == 'photo123_456'
 
     def test_send_dont_parse_links(self, mock_vk_http):
         """Send with dont_parse_links flag."""
@@ -393,7 +395,7 @@ class TestVKApiSend:
         api.send(user_id=1, random_id=1, message='https://example.com', dont_parse_links=True)
 
         call_kwargs = mock_post.call_args[1]
-        assert call_kwargs['json']['dont_parse_links'] == 1
+        assert call_kwargs['data']['dont_parse_links'] == 1
 
     def test_send_with_coords(self, mock_vk_http):
         """Send with lat/long."""
@@ -406,8 +408,8 @@ class TestVKApiSend:
         api.send(user_id=1, random_id=1, message='loc', lat='55.0', long='37.0')
 
         call_kwargs = mock_post.call_args[1]
-        assert call_kwargs['params']['lat'] == '55.0'
-        assert call_kwargs['params']['long'] == '37.0'
+        assert call_kwargs['data']['lat'] == '55.0'
+        assert call_kwargs['data']['long'] == '37.0'
 
 
 class TestVKApiEditMessage:
@@ -423,9 +425,11 @@ class TestVKApiEditMessage:
         api.edit_message(peer_id=1, message_id=2, message='new text')
 
         call_kwargs = mock_post.call_args[1]
-        assert call_kwargs['params']['peer_id'] == 1
-        assert call_kwargs['params']['message_id'] == 2
-        assert call_kwargs['params']['message'] == 'new text'
+        data = call_kwargs['data']
+        assert data['peer_id'] == 1
+        assert data['message_id'] == 2
+        assert data['message'] == 'new text'
+        assert data['access_token'] == 'test_token'
 
     def test_edit_with_keyboard(self, mock_vk_http):
         mock_post = mock_vk_http
@@ -438,7 +442,7 @@ class TestVKApiEditMessage:
         api.edit_message(peer_id=1, message_id=2, message='text', keyboard=keyboard)
 
         call_kwargs = mock_post.call_args[1]
-        assert 'keyboard' in call_kwargs['json']
+        assert 'keyboard' in call_kwargs['data']
 
 
 class TestVKApiDeleteMessage:
