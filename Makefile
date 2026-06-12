@@ -5,10 +5,10 @@ venv:
 	uv sync --all-groups --all-extras --locked
 
 test:
-	uv run pytest . -v -n 4 --dist loadgroup
+	uv run pytest -v -n 4 --dist loadgroup
 
 initdb:
-	uv run python tests/tools/init_testing_db.py --db=TEST
+	PYTHONPATH=src uv run python tests/tools/init_testing_db.py --db=TEST
 
 lint:
 	uv run ruff format src tests
