@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any
 
 from _dependencies.commons import ChangeType, TopicType
 
@@ -19,9 +18,9 @@ class ChangeLogLine:
     change_type: ChangeType
     parsed_time: datetime
     topic_id: int
-    new_value: Any = None
-    changed_field: Any = None  # maybe obsolete too
-    parameters: Any = None  # obsolete
+    new_value: str | int | None = None
+    changed_field: str | None = None  # maybe obsolete too
+    parameters: str | None = None  # obsolete
 
 
 @dataclass
@@ -39,7 +38,7 @@ class SearchSummary:
     name: str | None = None
     display_name: str = ''
     age: int | None = None
-    searches_table_id: Any = None
+    searches_table_id: int | None = None
     age_max: int | None = None
     age_min: int | None = None
     num_of_persons: int | None = None

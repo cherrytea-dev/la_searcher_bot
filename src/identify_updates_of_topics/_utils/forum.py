@@ -258,12 +258,12 @@ class ForumClient:
         """parse topic and get count of comments"""
         content = self._get_topic_content(search_num)
         if not is_content_visible(content, search_num):
-            return None
+            return 0
 
         soup = BeautifulSoup(content, features='lxml')
         pagination_div = soup.find('div', class_='pagination')
         if pagination_div is None:
-            return None
+            return 0
 
         pagination_text = pagination_div.get_text(strip=True)
         # pagination_text looks like: "3 сообщения•Страница1из1"

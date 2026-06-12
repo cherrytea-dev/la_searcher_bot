@@ -440,6 +440,8 @@ CREATE TABLE "comments" (
 	notif_sent_inforg varchar(1) NULL,
 	CONSTRAINT comments_pkey PRIMARY KEY (id)
 );
+CREATE INDEX IF NOT EXISTS idx_comments_global_num_search_forum_num
+ON comments (comment_global_num, search_forum_num);
 
 
 -- public.communications_last_inline_msg определение
