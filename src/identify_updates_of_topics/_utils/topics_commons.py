@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -56,6 +56,7 @@ class ForumSearchItem:
     lat: float | None = None
     lon: float | None = None
     coord_type: CoordType | None = None
+    raw_search_text: str | None = None
 
 
 @dataclass

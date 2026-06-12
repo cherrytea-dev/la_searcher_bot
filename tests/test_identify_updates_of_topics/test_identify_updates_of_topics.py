@@ -23,19 +23,16 @@ def test_main_full_scenario(mock_http_get, patch_app_config):
 
     class FakeForum(ForumClient):
         def parse_search(self, search_num):
-            return ForumSearchItemFactory.build()
-
-        def get_raw_search_text(self, search_num):
-            return 'foo'
+            return ForumSearchItemFactory.build(
+                raw_search_text='foo',
+                replies_count=1,
+                lat=0.0,
+                lon=0.0,
+                coord_type='',
+            )
 
         def get_comment_data(self, search_num, comment_num):
             return ForumCommentItemFactory.build()
-
-        def get_replies_count(self, search_num):
-            return 1
-
-        def parse_coordinates_of_search(self, search_num):
-            return [0.0, 0.0, '', '']
 
     with patch.object(main, 'ForumClient', FakeForum):
         main.main(get_event_with_data(data), Mock())

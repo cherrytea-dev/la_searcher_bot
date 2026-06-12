@@ -4,7 +4,7 @@ import pytest
 
 import identify_updates_of_topics._utils.forum
 from _dependencies.commons import sqlalchemy_get_pool
-from identify_updates_of_topics._utils import folder_updater
+from identify_updates_of_topics._utils import search_parser, topic_updater
 from identify_updates_of_topics._utils.database import DBClient
 from title_recognize.main import recognize_title
 
@@ -16,7 +16,7 @@ def common_patches():
         return {'status': 'ok', 'recognition': reco_data}
 
     with (
-        patch.object(folder_updater, 'recognize_title_via_api', fake_recognize_title_via_api),
+        patch.object(search_parser, 'recognize_title_via_api', fake_recognize_title_via_api),
     ):
         yield
 

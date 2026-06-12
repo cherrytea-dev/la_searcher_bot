@@ -13,8 +13,8 @@ from _dependencies.pubsub import (
 )
 
 from ._utils.database import get_db_client
-from ._utils.folder_updater import SearchUpdater
 from ._utils.forum import ForumClient
+from ._utils.topic_updater import SearchUpdater
 
 setup_logging(__package__)
 
@@ -25,7 +25,6 @@ def main(event: dict[str, bytes], context: Ctx) -> None:  # noqa
     function_id = generate_random_function_id()
 
     list_from_pubsub = process_pubsub_message(event)
-    logging.info(f'received message from pub/sub: {list_from_pubsub}')
     changed_topics = MessageForIdentifyUpdatesOfTopics.model_validate(list_from_pubsub)
 
     change_log_ids: list[int] = []
