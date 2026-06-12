@@ -238,15 +238,18 @@ class SearchUpdater:
     def _parse_comments_and_detect_inforg_comments(
         self, snapshot_line: SearchSummary, searches_line: SearchSummary
     ) -> bool:
+        logging.info(f'parsing comments for search {searches_line.topic_id}. {snapshot_line=}, {searches_line=}')
         if snapshot_line.num_of_replies <= searches_line.num_of_replies:
             return False
 
         there_are_inforg_comments = False
         for comment_number in range(searches_line.num_of_replies + 1, snapshot_line.num_of_replies + 1):
+            logging.info(f'parsing comment {comment_number}')
             comment_data = self.forum.get_comment_data(snapshot_line.topic_id, comment_number)
             if not comment_data:
                 continue
 
+            logging.info(f'Parsed comment: {comment_data=}')
             self.db.write_comment(comment_data)
 
             there_are_inforg_comments = there_are_inforg_comments or comment_data.inforg_comment_present
