@@ -134,7 +134,8 @@ class TestURLConstants:
     def test_hotline_phone(self):
         from vk_bot._utils.common import LA_HOTLINE_PHONE
 
-        assert LA_HOTLINE_PHONE == '8-800-700-54-52'
+        # Phone format comes from shared message_formatter module
+        assert LA_HOTLINE_PHONE == '8 800 700-54-52'
 
     def test_website(self):
         from vk_bot._utils.common import LA_WEBSITE
@@ -491,7 +492,10 @@ class TestVKApiSendMessageEventAnswer:
 
 
 class TestVKApiErrorHandling:
-    """_handle_vk_error with various error codes."""
+    """_handle_vk_error with various error codes.
+
+    Now raises VkApiError instead of silently logging.
+    """
 
     def test_no_error(self, caplog):
         from _dependencies.vk_api_client import _handle_vk_error
@@ -500,51 +504,67 @@ class TestVKApiErrorHandling:
         assert len(caplog.records) == 0
 
     def test_error_code_1(self, caplog):
-        from _dependencies.vk_api_client import _handle_vk_error
+        from _dependencies.vk_api_client import VkApiError, _handle_vk_error
 
-        _handle_vk_error({'error': {'error_code': 1, 'error_msg': 'unknown'}})
+        with pytest.raises(VkApiError) as exc_info:
+            _handle_vk_error({'error': {'error_code': 1, 'error_msg': 'unknown'}})
+        assert exc_info.value.error_code == 1
         assert any('unknown error' in r.message for r in caplog.records)
 
     def test_error_code_100(self, caplog):
-        from _dependencies.vk_api_client import _handle_vk_error
+        from _dependencies.vk_api_client import VkApiError, _handle_vk_error
 
-        _handle_vk_error({'error': {'error_code': 100, 'error_msg': 'param'}})
+        with pytest.raises(VkApiError) as exc_info:
+            _handle_vk_error({'error': {'error_code': 100, 'error_msg': 'param'}})
+        assert exc_info.value.error_code == 100
         assert any('param error' in r.message for r in caplog.records)
 
     def test_error_code_200(self, caplog):
-        from _dependencies.vk_api_client import _handle_vk_error
+        from _dependencies.vk_api_client import VkApiError, _handle_vk_error
 
-        _handle_vk_error({'error': {'error_code': 200, 'error_msg': 'access'}})
+        with pytest.raises(VkApiError) as exc_info:
+            _handle_vk_error({'error': {'error_code': 200, 'error_msg': 'access'}})
+        assert exc_info.value.error_code == 200
         assert any('access denied' in r.message for r in caplog.records)
 
     def test_error_code_901(self, caplog):
-        from _dependencies.vk_api_client import _handle_vk_error
+        from _dependencies.vk_api_client import VkApiError, _handle_vk_error
 
-        _handle_vk_error({'error': {'error_code': 901, 'error_msg': 'cannot'}})
+        with pytest.raises(VkApiError) as exc_info:
+            _handle_vk_error({'error': {'error_code': 901, 'error_msg': 'cannot'}})
+        assert exc_info.value.error_code == 901
         assert any('cannot send' in r.message for r in caplog.records)
 
     def test_error_code_902(self, caplog):
-        from _dependencies.vk_api_client import _handle_vk_error
+        from _dependencies.vk_api_client import VkApiError, _handle_vk_error
 
-        _handle_vk_error({'error': {'error_code': 902, 'error_msg': 'first'}})
+        with pytest.raises(VkApiError) as exc_info:
+            _handle_vk_error({'error': {'error_code': 902, 'error_msg': 'first'}})
+        assert exc_info.value.error_code == 902
         assert any('first message' in r.message for r in caplog.records)
 
     def test_error_code_914(self, caplog):
-        from _dependencies.vk_api_client import _handle_vk_error
+        from _dependencies.vk_api_client import VkApiError, _handle_vk_error
 
-        _handle_vk_error({'error': {'error_code': 914, 'error_msg': 'flood'}})
+        with pytest.raises(VkApiError) as exc_info:
+            _handle_vk_error({'error': {'error_code': 914, 'error_msg': 'flood'}})
+        assert exc_info.value.error_code == 914
         assert any('flood control' in r.message for r in caplog.records)
 
     def test_error_code_917(self, caplog):
-        from _dependencies.vk_api_client import _handle_vk_error
+        from _dependencies.vk_api_client import VkApiError, _handle_vk_error
 
-        _handle_vk_error({'error': {'error_code': 917, 'error_msg': 'daily'}})
+        with pytest.raises(VkApiError) as exc_info:
+            _handle_vk_error({'error': {'error_code': 917, 'error_msg': 'daily'}})
+        assert exc_info.value.error_code == 917
         assert any('per-day' in r.message for r in caplog.records)
 
     def test_unknown_error_code(self, caplog):
-        from _dependencies.vk_api_client import _handle_vk_error
+        from _dependencies.vk_api_client import VkApiError, _handle_vk_error
 
-        _handle_vk_error({'error': {'error_code': 999, 'error_msg': 'weird'}})
+        with pytest.raises(VkApiError) as exc_info:
+            _handle_vk_error({'error': {'error_code': 999, 'error_msg': 'weird'}})
+        assert exc_info.value.error_code == 999
         assert any('error 999' in r.message for r in caplog.records)
 
 
@@ -781,10 +801,14 @@ class TestDispatcherConfirmation:
 
     def test_confirmation_valid(self):
         """Valid confirmation returns vk_confirmation_code."""
-        result = dispatch_event({'type': 'confirmation', 'group_id': 237036024})
-        from _dependencies.commons import get_app_config
+        from unittest.mock import patch
 
-        assert result == get_app_config().vk_confirmation_code
+        from _dependencies.commons import AppConfig
+
+        mock_config = AppConfig(vk_group_id=237036024, vk_confirmation_code='test_code')
+        with patch('vk_bot._utils.dispatcher.get_app_config', return_value=mock_config):
+            result = dispatch_event({'type': 'confirmation', 'group_id': 237036024})
+        assert result == 'test_code'
 
     def test_confirmation_invalid_group(self):
         """Invalid group_id returns 'ok'."""

@@ -51,7 +51,7 @@ def dispatch_event(raw_event: dict) -> str:
     # VK Callback API confirmation handshake
     if event_type == 'confirmation':
         config = get_app_config()
-        expected_group_id = 237036024
+        expected_group_id = config.vk_group_id
         if raw_event.get('group_id') == expected_group_id:
             return config.vk_confirmation_code
         logging.warning(f'Unexpected group_id in confirmation: {raw_event.get("group_id")}')
@@ -67,6 +67,21 @@ def dispatch_event(raw_event: dict) -> str:
         message_data = event_object.get('message', {})
         if not message_data:
             logging.warning('message_new event without message data')
+            return 'ok'
+
+        vk_message = VKMessage(
+            text=message_data.get('text', ''),
+            user_id=message_data.get('from_id', 0),
+            peer_id=message_data.get('peer_id', 0),
+            message_id=message_data.get('id'),
+        )
+        handle_new_message(vk_message)
+
+    elif event_type == 'message_edit':
+        # Edited messages — process same as new (user may have corrected input)
+        message_data = event_object.get('message', {})
+        if not message_data:
+            logging.warning('message_edit event without message data')
             return 'ok'
 
         vk_message = VKMessage(
@@ -118,7 +133,7 @@ def handle_new_message(vk_message: VKMessage) -> None:
     # Get current dialog state
     state = get_user_state(user_id)
 
-    # Run handler chain
+    # Run handler chain — handle_unknown is always last and always returns a result
     for handler in HANDLER_CHAIN:
         try:
             result = handler(vk_message, state)
@@ -131,16 +146,6 @@ def handle_new_message(vk_message: VKMessage) -> None:
 
         _process_vk_result(user_id, peer_id, result)
         return
-
-    # Fallback — unknown command
-    _process_vk_result(
-        user_id,
-        peer_id,
-        VKHandlerResult(
-            text='не понимаю такой команды, пожалуйста, используйте кнопки со стандартными командами ниже',
-            keyboard=VKKeyboard.main_menu(),
-        ),
-    )
 
 
 def handle_callback_event(vk_message: VKMessage) -> None:

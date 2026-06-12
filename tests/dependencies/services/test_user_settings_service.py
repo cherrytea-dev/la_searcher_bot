@@ -508,7 +508,8 @@ class TestGetUserByVkId:
         assert found == user_id
 
     def test_not_found(self, settings_service: UserSettingsService):
-        found = settings_service.get_user_by_vk_id(99999)
+        user_id = randint(0, 1000**3)
+        found = settings_service.get_user_by_vk_id(user_id)
         assert found is None
 
 

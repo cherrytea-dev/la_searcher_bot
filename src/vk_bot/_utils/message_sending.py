@@ -1,15 +1,15 @@
 import logging
-import random
+import os
 import time
 from functools import lru_cache
 from typing import TYPE_CHECKING, Literal
 
 from _dependencies.vk_api_client import get_default_vk_api_client
 
+from .keyboards import VKKeyboard
+
 if TYPE_CHECKING:
     from _dependencies.vk_api_client import VKApi
-
-random.seed()
 
 
 @lru_cache
@@ -40,6 +40,15 @@ class VKMessageSender:
             return self._api
         return get_default_vk_api_client()
 
+    @staticmethod
+    def _make_random_id() -> int:
+        """Generate a unique random_id for VK API messages.send.
+
+        VK requires unique random_id per message to prevent duplicates.
+        Using 64-bit random value to minimize collision probability.
+        """
+        return int.from_bytes(os.urandom(8), 'big', signed=False)
+
     def send_message(
         self,
         peer_id: int,
@@ -57,8 +66,7 @@ class VKMessageSender:
             logging.warning(f'VK daily message limit reached, skipping message to {peer_id}')
             return None
 
-        random_id = random.randint(0, 10_000_000)
-
+        random_id = self._make_random_id()
         for attempt in range(3):
             try:
                 resp = self._get_api().send(
@@ -152,7 +160,5 @@ class VKMessageSender:
         color: Literal['primary', 'secondary', 'positive', 'negative'] = 'secondary',
     ) -> int | None:
         """Convenience method: text + list of buttons in one column."""
-        from .keyboards import VKKeyboard
-
         keyboard = VKKeyboard.one_column(buttons, color=color)
         return self.send_message(peer_id, text, keyboard=keyboard)

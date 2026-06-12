@@ -8,6 +8,20 @@ import httpx
 from _dependencies.commons import get_app_config
 
 
+class VkApiError(Exception):
+    """Raised when VK API returns an error response.
+
+    Attributes:
+        error_code: VK API error code (e.g., 901, 914, 917)
+        error_msg: Human-readable error message from VK API
+    """
+
+    def __init__(self, error_code: int, error_msg: str) -> None:
+        self.error_code = error_code
+        self.error_msg = error_msg
+        super().__init__(f'VK API error {error_code}: {error_msg}')
+
+
 class VKApi:
     API_VERSION = '5.199'
 
@@ -155,9 +169,10 @@ class VKApi:
 
 
 def _handle_vk_error(resp_data: dict) -> None:
-    """Log and handle VK API errors.
+    """Check VK API response for errors and raise VkApiError if found.
 
-    Does NOT raise exceptions — VK API errors should not crash the bot.
+    Raises:
+        VkApiError: If the response contains an error block.
     """
     if 'error' not in resp_data:
         return
@@ -182,6 +197,8 @@ def _handle_vk_error(resp_data: dict) -> None:
         logging.warning(f'VK API flood control (per-day limit): {error_msg}')
     else:
         logging.error(f'VK API error {error_code}: {error_msg}')
+
+    raise VkApiError(error_code=error_code, error_msg=error_msg)
 
 
 @cache
