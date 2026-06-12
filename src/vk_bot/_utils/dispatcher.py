@@ -223,15 +223,52 @@ def handle_new_message(vk_message: VKMessage) -> None:
 def handle_callback_event(vk_message: VKMessage) -> None:
     """Process a callback event from an inline keyboard button.
 
-    VK inline keyboards are limited (URL only), but message_event
-    can be used for interactive elements.
+    VK inline keyboards can have URL buttons (open_link) which don't
+    generate callbacks, and callback buttons (callback) which generate
+    message_event with a payload.
+
+    When a callback is received:
+    1. Acknowledge the event (show snackbar to user)
+    2. Parse the payload to determine the action
+    3. If the payload contains a command (e.g., '+12345', '-12345'),
+       process it through the handler chain as if it were a text message
     """
-    # For now, just acknowledge the event
+    # Always acknowledge the event first
     vk_sender().send_callback_answer(
         event_id=vk_message.event_id or '',
         user_id=vk_message.user_id,
         peer_id=vk_message.peer_id,
     )
+
+    # Parse payload — it may contain a command to execute
+    payload = vk_message.payload
+    if not payload:
+        return
+
+    # Payload can be a JSON string or a plain text command
+    import json
+
+    try:
+        payload_data = json.loads(payload)
+        if isinstance(payload_data, dict):
+            command = payload_data.get('command', '') or payload_data.get('button', '')
+        else:
+            command = str(payload_data)
+    except (json.JSONDecodeError, TypeError):
+        command = str(payload)
+
+    if not command:
+        return
+
+    # Create a synthetic VKMessage with the command as text
+    # and process it through the normal message flow
+    synthetic_message = VKMessage(
+        text=command,
+        user_id=vk_message.user_id,
+        peer_id=vk_message.peer_id,
+        message_id=vk_message.message_id,
+    )
+    handle_new_message(synthetic_message)
 
 
 def _handle_new_vk_user(user_id: int, peer_id: int, vk_message: VKMessage) -> None:

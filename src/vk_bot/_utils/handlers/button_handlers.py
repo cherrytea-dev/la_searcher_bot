@@ -10,14 +10,19 @@ import time
 
 from _dependencies.services.message_formatter import (
     compose_settings_completeness_message,
+    community_intro,
     coords_deleted,
     coords_intro,
     coords_not_set,
+    first_search_intro,
     forum_already_linked,
     forum_link_intro,
+    map_intro,
     notif_settings_current_prefs,
     notif_settings_intro,
     onboarding_completed_message,
+    other_menu_intro,
+    photos_intro,
     radius_intro_no_radius,
     radius_intro_with_radius,
     radius_deleted,
@@ -191,11 +196,16 @@ def handle_main_menu(vk_message: VKMessage, state: DialogState | None, user_id: 
 
     # 'посмотреть актуальные поиски' is now handled by handle_view_search_menu
     # in view_searches_handlers.py (Phase 2B) — let it pass through
-    if text in ('другие возможности', '🔥карта поисков 🔥'):
+    if text == 'другие возможности':
         return VKHandlerResult(
-            text='Выберите раздел:',
+            text=other_menu_intro(),
             keyboard=VKKeyboard.other_menu(),
         )
+
+    # '🔥карта поисков 🔥' — let it pass through to handle_other_menu
+    # which now has a real implementation with map_intro()
+    if text == '🔥карта поисков 🔥':
+        return None
 
     return None
 
@@ -515,26 +525,31 @@ def handle_other_menu(vk_message: VKMessage, state: DialogState | None, user_id:
     text = vk_message.text.strip().lower()
 
     if text == 'посмотреть последние поиски':
-        return VKHandlerResult(
-            text='Функция будет доступна в следующей версии.',
-            keyboard=VKKeyboard.other_menu(),
-        )
+        # Delegate to the latest searches handler in view_searches_handlers
+        # by returning None to let it pass through the handler chain
+        return None
 
     if text == 'написать разработчику бота':
         return VKHandlerResult(
-            text='Связаться с разработчиком можно в чате бота.',
+            text=community_intro(),
             keyboard=VKKeyboard.other_menu(),
         )
 
     if text == 'ознакомиться с информацией для новичка':
         return VKHandlerResult(
-            text='Информация для новичка доступна на сайте lizaalert.org',
+            text=first_search_intro(),
             keyboard=VKKeyboard.other_menu(),
         )
 
     if text == 'посмотреть красивые фото с поисков':
         return VKHandlerResult(
-            text='Функция будет доступна в следующей версии.',
+            text=photos_intro(),
+            keyboard=VKKeyboard.other_menu(),
+        )
+
+    if text == '🔥карта поисков 🔥':
+        return VKHandlerResult(
+            text=map_intro(),
             keyboard=VKKeyboard.other_menu(),
         )
 

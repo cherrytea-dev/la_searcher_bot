@@ -745,14 +745,14 @@ class TestHandleOtherMenu:
     """handle_other_menu — other options menu buttons."""
 
     def test_latest_searches(self, vk_message):
-        """ "посмотреть последние поиски" -> returns placeholder."""
+        """ "посмотреть последние поиски" -> passes through to view_searches_handlers."""
         from src.vk_bot._utils.handlers.button_handlers import handle_other_menu
 
         msg = vk_message(text='посмотреть последние поиски')
         result = handle_other_menu(msg, DialogState.not_defined, 12345)
 
-        assert result is not None
-        assert 'будет доступна' in result.text.lower()
+        # Now delegates to handle_latest_searches in the handler chain
+        assert result is None
 
     def test_community(self, vk_message):
         """ "написать разработчику бота" -> returns info text."""
