@@ -5,7 +5,7 @@ from datetime import datetime
 from functools import lru_cache
 from typing import no_type_check  # no_type_check for BeautifulSoup magic
 
-from bs4 import BeautifulSoup, SoupStrainer
+from bs4 import BeautifulSoup
 from requests import Session
 from retry import retry
 from yarl import URL
@@ -16,16 +16,6 @@ from _dependencies.topic_management import save_visibility_for_topic
 
 from .database import get_db_client
 from .topics_commons import CoordType, ForumCommentItem, ForumSearchItem
-
-
-@no_type_check
-def define_start_time_of_search(blocks):
-    """define search start time & date"""
-
-    start_datetime_as_string = blocks.find('div', 'topic-poster responsive-hide left-box')
-    start_datetime = start_datetime_as_string.time['datetime']
-
-    return datetime.fromisoformat(start_datetime)
 
 
 def is_content_visible(content: bytes, topic_id: int) -> bool:
@@ -62,150 +52,127 @@ class ForumClient:
     def __init__(self) -> None:
         self.session = get_requests_session()
 
+    @classmethod
     @no_type_check
-    def get_raw_search_text(self, search_num: int) -> str | None:
-        """get raw search text"""
-        content = self._get_topic_content(search_num)
-        if not is_content_visible(content, search_num):
-            return None
-        soup = BeautifulSoup(content, features='html.parser')
+    def _parse_title(cls, soup: BeautifulSoup) -> str:
+        """Extract topic title from <h2 class="topic-title"><a>...</a></h2>"""
+        title_tag = soup.find('h2', class_='topic-title')
+        if not title_tag:
+            return ''
+        link_tag = title_tag.find('a')
+        if not link_tag:
+            return ''
+        return re.sub(r'\s+', ' ', link_tag.get_text(strip=True))
 
-        # open the first post
-        code_blocks = soup.find('div', 'content')
-
-        # excluding <line-through> tags
-        for deleted in code_blocks.findAll('span', {'style': 'text-decoration:line-through'}):
-            deleted.extract()
-
-        # add telegram links to text (to be sure next step won't cut these links)
-        for a_tag in code_blocks.find_all('a'):
-            href = a_tag.get('href')
-            if href.startswith('https://telegram.im/') or href.startswith('https://t.me/'):
-                a_tag.replace_with(a_tag['href'])
-
-        left_text = code_blocks.text.strip()
-
-        """DEBUG"""
-        logging.debug('DBG.Profile:' + left_text)
-
-        return left_text
-
+    @classmethod
     @no_type_check
-    def parse_coordinates_of_search(self, search_num: int) -> tuple[float, float, CoordType, str]:
-        """finds coordinates of the search"""
-        url_to_topic = self._get_topic_url(search_num)
+    def _parse_start_datetime(cls, soup: BeautifulSoup) -> datetime | str:
+        """Extract start datetime from first <p class="author"> -> <time datetime="...">"""
+        first_author = soup.find('p', class_='author')
+        if not first_author:
+            return ''
+        time_tag = first_author.find('time')
+        if time_tag and time_tag.has_attr('datetime'):
+            return datetime.fromisoformat(time_tag['datetime'])
+        return ''
+
+    @classmethod
+    @no_type_check
+    def _parse_replies_count(cls, soup: BeautifulSoup) -> int:
+        """Extract replies count from pagination div text (e.g. '123 сообщения')"""
+        pagination_div = soup.find('div', class_='pagination')
+        if not pagination_div:
+            return 0
+        pagination_text = pagination_div.get_text(strip=True)
+        match = re.search(r'(\d+)\s*сообщени', pagination_text)
+        if not match:
+            return 0
+        replies_count = int(match.group(1))
+        return replies_count - 1  # first message is topic itself, and following are replies
+
+    @classmethod
+    @no_type_check
+    def _parse_folder_id(cls, soup: BeautifulSoup) -> int:
+        """Extract folder ID from jumpbox-return link href (e.g. '...?f=42')"""
+        folder_tag = soup.find('p', class_='jumpbox-return')
+        if not folder_tag:
+            return 0
+        link_tag = folder_tag.find('a')
+        if not link_tag or not link_tag.has_attr('href'):
+            return 0
+        match = re.search(r'[?&]f=(\d+)', link_tag['href'])
+        if not match:
+            return 0
+        return int(match.group(1))
+
+    @classmethod
+    @no_type_check
+    def _parse_content_section(cls, soup: BeautifulSoup) -> tuple[float, float, CoordType, str | None]:
+        """Parse coordinates and raw_search_text from the first post content div.
+
+        These are kept together because coordinate parsing mutates the soup
+        (removing <br> tags), which raw_search_text must account for by using a copy.
+        """
+        content_div = soup.find('div', 'content')
+        if not content_div:
+            return 0.0, 0.0, CoordType.unknown, None
+
+        # Remove <br> tags (needed for coordinate parsing)
+        for br in content_div.findAll('br'):
+            br.extract()
+
+        # --- Coordinates (3 cases) ---
         lat, lon, coord_type = 0.0, 0.0, CoordType.unknown
-        search_code_blocks = None
-        title = ''
+        for case_func, case_type in [
+            (_parse_coords_case_1, CoordType.type_1_exact),
+            (_parse_coords_case_2, CoordType.type_2_wo_word),
+            (_parse_coords_case_3, CoordType.type_3_deleted),
+        ]:
+            if not lat:
+                try:
+                    coord_type = case_type
+                    lat, lon = case_func(content_div)
+                except Exception:
+                    logging.exception(f'Error extracting coordinates {case_type}')
 
-        content = self._get_topic_content(search_num)
-        if not is_content_visible(content, search_num):
-            return [0.0, 0.0, CoordType.unknown, '']
+        # --- Raw search text (needs a copy to avoid mutating the soup used above) ---
+        text_soup = copy.copy(content_div)
+        for deleted in text_soup.findAll('span', {'style': 'text-decoration:line-through'}):
+            deleted.extract()
+        for a_tag in text_soup.find_all('a'):
+            href = a_tag.get('href')
+            if href and (href.startswith('https://telegram.im/') or href.startswith('https://t.me/')):
+                a_tag.replace_with(a_tag['href'])
+        raw_search_text = text_soup.text.strip()
+        logging.debug('DBG.Profile:' + raw_search_text)
 
-        try:
-            soup = BeautifulSoup(content, features='html.parser')
-
-            # parse title
-            title_code = soup.find('h2', {'class': 'topic-title'})
-            title = title_code.text
-
-            # open the first post
-            search_code_blocks = soup.find('div', 'content')
-
-            if not search_code_blocks:
-                return [0, 0, CoordType.unknown, title]
-
-            # removing <br> tags
-            for e in search_code_blocks.findAll('br'):
-                e.extract()
-
-        except Exception as e:
-            logging.error(f'unable to parse a specific thread with address {url_to_topic}')
-
-        if not search_code_blocks:
-            return [0, 0, CoordType.unknown, '']
-
-        # FIRST CASE = THERE ARE COORDINATES w/ a WORD Coordinates
-        try:
-            coord_type = CoordType.type_1_exact
-            lat, lon = _parse_coords_case_1(search_code_blocks)
-        except Exception as e:
-            logging.exception('Error extracting coordinates case 1')
-
-        # SECOND CASE = THERE ARE COORDINATES w/o a WORD Coordinates
-        if not lat:
-            try:
-                coord_type = CoordType.type_2_wo_word
-                lat, lon = _parse_coords_case_2(search_code_blocks)
-            except Exception as e:
-                logging.exception('Error extracting coordinates case 2')
-
-        # THIRD CASE = DELETED COORDINATES
-        if not lat:
-            try:
-                coord_type = CoordType.type_3_deleted
-                lat, lon = _parse_coords_case_3(search_code_blocks)
-            except Exception as e:
-                logging.exception('Error extracting coordinates case 3')
-
-        return [lat, lon, coord_type, title]
+        return lat, lon, coord_type, raw_search_text or None
 
     @no_type_check
     def parse_search(self, search_num: int) -> ForumSearchItem | None:
+        """Parse a forum topic page and return all extracted data in one pass.
+
+        Extracts: title, folder_id, start_datetime, replies_count,
+        coordinates (lat/lon/coord_type), and raw_search_text from the first post.
+        """
         content = self._get_topic_content(search_num)
         if not is_content_visible(content, search_num):
             return None
 
         soup = BeautifulSoup(content, features='lxml')
 
-        # Parse title from <h2 class="topic-title"><a>...</a></h2>
-        title_tag = soup.find('h2', class_='topic-title')
-        title = ''
-        if title_tag:
-            link_tag = title_tag.find('a')
-            if link_tag:
-                title = re.sub(r'\s+', ' ', link_tag.get_text(strip=True))
-
-        # Parse start_datetime from first <p class="author"> -> <time datetime="...">
-        start_datetime = ''
-        first_author = soup.find('p', class_='author')
-        if first_author:
-            time_tag = first_author.find('time')
-            if time_tag and time_tag.has_attr('datetime'):
-                start_datetime = datetime.fromisoformat(time_tag['datetime'])
-
-        # Parse replies_count from pagination div (same logic as get_replies_count)
-        replies_count = 0
-        pagination_div = soup.find('div', class_='pagination')
-        if pagination_div:
-            pagination_text = pagination_div.get_text(strip=True)
-            match = re.search(r'(\d+)\s*сообщения', pagination_text)
-            if match:
-                replies_count = int(match.group(1))
-
-        lat, lon, coord_type, _ = self.parse_coordinates_of_search(search_num)
-        # TODO merge functions
-
-        # Parse folder_id from <h2 class="topic-title"><a href="./viewtopic.php?f=424&t=83087">...</a></h2>
-        folder_id: int = 0
-        folder_tag = soup.find('p', class_='jumpbox-return')
-        if folder_tag:
-            link_tag = folder_tag.find('a')
-            if link_tag and link_tag.has_attr('href'):
-                href = link_tag['href']
-                match = re.search(r'[?&]f=(\d+)', href)
-                if match:
-                    folder_id = int(match.group(1))
+        lat, lon, coord_type, raw_search_text = self._parse_content_section(soup)
 
         return ForumSearchItem(
             search_id=search_num,
-            folder_id=folder_id,
-            title=title,
-            start_datetime=start_datetime,
-            replies_count=replies_count,
+            folder_id=self._parse_folder_id(soup),
+            title=self._parse_title(soup),
+            start_datetime=self._parse_start_datetime(soup),
+            replies_count=self._parse_replies_count(soup),
             lat=lat,
             lon=lon,
             coord_type=coord_type,
+            raw_search_text=raw_search_text,
         )
 
     @no_type_check
@@ -291,19 +258,18 @@ class ForumClient:
         """parse topic and get count of comments"""
         content = self._get_topic_content(search_num)
         if not is_content_visible(content, search_num):
-            return None
+            return 0
 
         soup = BeautifulSoup(content, features='lxml')
         pagination_div = soup.find('div', class_='pagination')
         if pagination_div is None:
-            return None
+            return 0
 
         pagination_text = pagination_div.get_text(strip=True)
         # pagination_text looks like: "3 сообщения•Страница1из1"
         match = re.search(r'(\d+)\s*сообщени', pagination_text)
         if match:
-            replies_count = int(match.group(1))
-            return replies_count - 1  # first message is topic itself, and following are replies
+            return int(match.group(1))
         return 0
 
     def _get_comment_url(self, search_num: int, comment_num: int) -> str:
@@ -316,14 +282,8 @@ class ForumClient:
         resp.raise_for_status()
         return resp.content
 
-    @lru_cache
     @retry(Exception, tries=5, delay=1, backoff=2)
     def _get_topic_content(self, search_num: int) -> bytes:
-        """
-        TODO it's better to merge all parsing functions into `parse_search`.
-        But now it's important to release quick.
-        So i'll just cache content to avoid multiple requests to forum.
-        """
         url = self._get_topic_url(search_num)
         resp = self.session.get(url, timeout=self._TIMEOUT)
         resp.raise_for_status()

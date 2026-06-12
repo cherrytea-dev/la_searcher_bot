@@ -40,6 +40,7 @@ class ChangeLog(Base):
 
 class Comment(Base):
     __tablename__ = 'comments'
+    __table_args__ = (Index('idx_comments_global_num_search_forum_num', 'comment_global_num', 'search_forum_num'),)
 
     id = Column(Integer, primary_key=True, server_default=text("nextval('comments_id_seq1'::regclass)"))
     comment_url = Column(String)

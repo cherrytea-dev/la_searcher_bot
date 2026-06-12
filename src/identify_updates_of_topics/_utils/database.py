@@ -411,7 +411,7 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                 WHERE folder_type='events';
                                     """)
 
-            return conn.execute(stmt).fetchall()
+            return [row[0] for row in conn.execute(stmt).fetchall()]
 
 
 @lru_cache
