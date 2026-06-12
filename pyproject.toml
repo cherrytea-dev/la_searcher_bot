@@ -34,6 +34,7 @@ dev = [
     "pytest-xdist==3.*",
     "pytest-benchmark>=5.0",
     "pyannotate==1.2.*",
+    "flask>=3.0.0",
 
     "types-beautifulsoup4",
     "types-psycopg2",
