@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from _dependencies.commons import SearchFollowingMode
-from _dependencies.user_settings_service import (
+from _dependencies.services.user_settings_service import (
     AgePeriod,
     UserSettingsService,
     get_user_settings_service,

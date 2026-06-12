@@ -1,6 +1,6 @@
 """Tests for the platform-independent message formatter module."""
 
-import _dependencies.message_formatter as mf
+import _dependencies.services.message_formatter as mf
 
 
 # =============================================================================

@@ -5,7 +5,7 @@ from random import randint
 import pytest
 from sqlalchemy.engine import Connection
 
-from _dependencies.state_machine import DialogState, clear_user_state, get_user_state, set_user_state
+from _dependencies.services.state_machine import DialogState, clear_user_state, get_user_state, set_user_state
 from tests.common import find_model
 from tests.factories import db_factories, db_models
 
