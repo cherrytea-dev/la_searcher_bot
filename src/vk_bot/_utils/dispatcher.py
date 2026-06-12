@@ -13,10 +13,11 @@ from .keyboards import VKKeyboard
 from .message_sending import vk_sender
 
 # Type alias for handler functions
-HandlerFunc = Callable[[VKMessage, DialogState | None], VKHandlerResult | None]
+# Third parameter (int) is the resolved system user_id.
+HandlerFunc = Callable[[VKMessage, DialogState | None, int], VKHandlerResult | None]
 
 
-def handle_unknown(vk_message: VKMessage, state: DialogState | None) -> VKHandlerResult | None:
+def handle_unknown(vk_message: VKMessage, state: DialogState | None, user_id: int = 0) -> VKHandlerResult | None:
     """Fallback handler — triggered when no other handler matched."""
     return VKHandlerResult(
         text='не понимаю такой команды, пожалуйста, используйте кнопки со стандартными командами ниже',
@@ -25,13 +26,60 @@ def handle_unknown(vk_message: VKMessage, state: DialogState | None) -> VKHandle
 
 
 # ─── Handler chain ───────────────────────────────────────────────────
-# Phase 2 will populate this with actual handlers.
-# For now, it contains only the fallback handler.
+
+from .handlers.state_handlers import (
+    handle_coords_text,
+    handle_forum_username,
+    handle_radius_value,
+)
+from .handlers.button_handlers import (
+    handle_age_settings,
+    handle_back_to_start,
+    handle_command_start,
+    handle_coordinates_action,
+    handle_forum_linking,
+    handle_help_needed,
+    handle_is_moscow,
+    handle_main_menu,
+    handle_notification_toggle,
+    handle_orders_state,
+    handle_other_menu,
+    handle_role_choice,
+    handle_settings_menu,
+    handle_topic_type_settings,
+    handle_vk_linking,
+)
+from .handlers.region_select_handlers import (
+    handle_fed_district_select,
+    handle_region_toggle,
+)
 
 HANDLER_CHAIN: list[HandlerFunc] = [
-    # Phase 2: state handlers will go here
-    # Phase 2: command handlers will go here
-    # Phase 2: button handlers will go here
+    # State-based handlers first (highest priority)
+    handle_radius_value,
+    handle_coords_text,
+    handle_forum_username,
+    # Onboarding
+    handle_command_start,
+    handle_role_choice,
+    handle_orders_state,
+    handle_is_moscow,
+    handle_help_needed,
+    # Navigation
+    handle_back_to_start,
+    handle_main_menu,
+    # Region selection
+    handle_fed_district_select,
+    handle_region_toggle,
+    # Settings
+    handle_settings_menu,
+    handle_notification_toggle,
+    handle_coordinates_action,
+    handle_age_settings,
+    handle_topic_type_settings,
+    handle_forum_linking,
+    handle_vk_linking,
+    handle_other_menu,
     # Fallback
     handle_unknown,
 ]
@@ -125,6 +173,12 @@ def handle_new_message(vk_message: VKMessage) -> None:
 
     logging.info(f'VK message from vk_user={vk_message.user_id}, system_user={user_id}: {vk_message.text}')
 
+    # Log user message to dialog history — wrapped in try/except to not break on DB errors
+    try:
+        db().settings.save_user_message(user_id, vk_message.text)
+    except Exception:
+        logging.exception(f'Failed to save user message to dialog history for user {user_id}')
+
     # Check if user is new
     if db().settings.check_if_new_user(user_id):
         _handle_new_vk_user(user_id, peer_id, vk_message)
@@ -136,7 +190,7 @@ def handle_new_message(vk_message: VKMessage) -> None:
     # Run handler chain — handle_unknown is always last and always returns a result
     for handler in HANDLER_CHAIN:
         try:
-            result = handler(vk_message, state)
+            result = handler(vk_message, state, user_id)
         except Exception:
             logging.exception(f'Handler {handler.__name__} crashed for user {user_id}')
             continue
@@ -201,3 +255,9 @@ def _process_vk_result(user_id: int, peer_id: int, result: VKHandlerResult) -> N
     elif result.text:
         # Any new message resets the dialog state
         clear_user_state(user_id)
+
+    # Log dialog history — wrapped in try/except to not break on DB errors
+    try:
+        db().settings.save_bot_reply(user_id, result.text)
+    except Exception:
+        logging.exception(f'Failed to save bot reply to dialog history for user {user_id}')

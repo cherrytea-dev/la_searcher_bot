@@ -243,3 +243,104 @@ class VKKeyboard:
             ['да, помогите мне настроить бот', 'нет, помощь не требуется'],
             color='primary',
         )
+
+    @classmethod
+    def age_settings(cls) -> dict:
+        """Age group preferences."""
+        return cls.one_column(
+            [
+                'дети (0-10 лет)',
+                'подростки (11-17 лет)',
+                'взрослые (18-50 лет)',
+                'пожилые (51+ лет)',
+                'в начало',
+            ]
+        )
+
+    @classmethod
+    def topic_type_settings(cls) -> dict:
+        """Search type preferences (VK version - simplified, no inline toggles)."""
+        return cls.one_column(
+            [
+                'поисковые работы',
+                'информационный поиск',
+                'в начало',
+            ]
+        )
+
+    @classmethod
+    def region_actions(cls, region_name: str, is_subscribed: bool) -> dict:
+        """Region actions: subscribe/unsubscribe and done."""
+        action_btn = 'отписаться от региона' if is_subscribed else 'подписаться на регион'
+        return cls.one_column(
+            [
+                action_btn,
+                'выбрать другой регион',
+                'в начало',
+            ]
+        )
+
+    @classmethod
+    def radius_settings(cls, has_radius: bool = False) -> dict:
+        """Radius settings menu."""
+        if has_radius:
+            return cls.one_column(
+                [
+                    'изменить радиус',
+                    'отключить ограничение по расстоянию',
+                    'в начало',
+                ]
+            )
+        return cls.one_column(
+            [
+                'включить ограничение по расстоянию',
+                'в начало',
+            ]
+        )
+
+    @classmethod
+    def confirm_delete(cls) -> dict:
+        """Confirmation keyboard for destructive actions."""
+        return cls.two_columns(['да, удалить', 'нет, оставить'], color='positive')
+
+    @classmethod
+    def forum_linking(cls) -> dict:
+        """Forum linking menu."""
+        return cls.one_column(
+            [
+                'ввести ник с форума',
+                'в начало',
+            ]
+        )
+
+    @classmethod
+    def vk_linking(cls) -> dict:
+        """VK linking menu (for Telegram users linking VK)."""
+        return cls.one_column(
+            [
+                'связать аккаунты',
+                'в начало',
+            ]
+        )
+
+    @classmethod
+    def onboarding_region_confirm(cls, region_name: str) -> dict:
+        """Confirm region during onboarding."""
+        return cls.two_columns(
+            [
+                f'да, {region_name}',
+                'нет, выбрать другой',
+            ],
+            color='primary',
+        )
+
+    @classmethod
+    def orders_done(cls) -> dict:
+        """Orders status for relative role."""
+        return cls.two_columns(
+            [
+                'уже заказал(а)',
+                'закажу позже',
+            ],
+            color='primary',
+        )

@@ -446,6 +446,10 @@ The PostgreSQL database is central. Key tables (inferred from code):
 - **IMPORTANT**: The test database is NOT recreated between test runs. Data persists across runs. When writing tests that insert data with specific values (e.g., `vk_id`), always use unique values per test run (e.g., `random.randint()` or `uuid`) to avoid collisions with stale data from previous runs.
 
 ### For AI agents:
+- use `uv run python foo.py` instead of `python foo.py` to avoid ModuleNotFoundError: there is `venv` using in development.
+- remember that `src` should be present in PYTHONPATH for correct import project modules.
+
+### For AI agents:
 - Always use `uv run` prefix (e.g., `uv run python foo.py`, `uv run pytest`) — the venv is managed by `uv`.
 - `src/` is already added to `sys.path` by pytest via `pyproject.toml` (`[tool.pytest.ini_options]`), so `uv run pytest` works out of the box.
 - For non-pytest scripts (e.g., `initdb`), use `PYTHONPATH=src uv run python ...` or simply `make initdb`.
