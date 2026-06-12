@@ -12,7 +12,6 @@ applying its own formatting (e.g., HTML tags for Telegram, links for VK).
 from dataclasses import dataclass
 from typing import Sequence
 
-
 # ─── Constants ───────────────────────────────────────────────────────────────
 
 SEARCH_URL_PREFIX = 'https://lizaalert.org/forum/viewtopic.php?t='

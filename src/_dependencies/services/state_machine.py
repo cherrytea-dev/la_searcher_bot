@@ -74,6 +74,6 @@ def clear_user_state(user_id: int) -> None:
 
 
 @lru_cache
-def get_db_pool():
+def get_db_pool() -> sqlalchemy.engine.Engine:
     """Get the SQLAlchemy connection pool (cached)."""
     return sqlalchemy_get_pool()
