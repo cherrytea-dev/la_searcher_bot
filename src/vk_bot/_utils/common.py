@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import Literal
+from datetime import datetime
+from typing import Literal, Optional
 
 from pydantic import BaseModel
 
@@ -41,6 +42,21 @@ class VKHandlerResult:
     new_state: DialogState | None = None
     edit_message_id: int | None = None
     attachment: str | None = None
+
+
+@dataclass
+class SearchItem:
+    """Formatted search for display in VK messages."""
+
+    topic_id: int
+    display_name: str
+    status: str  # 'Ищем', 'НЖ', 'НП', 'СТОП', etc.
+    status_emoji: str  # 🟠, ⚫, ✅, ⏹️, etc.
+    time_text: str  # "3 дня", "1 неделю"
+    age_text: str  # "45 лет" or ""
+    distance_text: str  # "15 км ↗️" or ""
+    is_followed: bool  # True if user follows this search
+    is_blacklisted: bool  # True if user blacklisted this search
 
 
 ButtonColor = Literal['primary', 'secondary', 'positive', 'negative']

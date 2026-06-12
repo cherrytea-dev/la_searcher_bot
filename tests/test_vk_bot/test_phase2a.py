@@ -425,14 +425,13 @@ class TestHandleMainMenu:
         assert 'настроить виды уведомлений' in labels
 
     def test_view_searches_button(self, vk_message):
-        """ "посмотреть актуальные поиски" -> returns placeholder text."""
+        """ "посмотреть актуальные поиски" -> returns None (handled by Phase 2B handler)."""
         from src.vk_bot._utils.handlers.button_handlers import handle_main_menu
 
         msg = vk_message(text='посмотреть актуальные поиски')
         result = handle_main_menu(msg, DialogState.not_defined, 12345)
 
-        assert result is not None
-        assert 'будет доступна' in result.text.lower()
+        assert result is None
 
     def test_other_menu_button(self, vk_message):
         """ "другие возможности" -> returns other_menu keyboard."""

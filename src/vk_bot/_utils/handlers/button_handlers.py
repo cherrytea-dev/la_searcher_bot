@@ -189,12 +189,8 @@ def handle_main_menu(vk_message: VKMessage, state: DialogState | None, user_id: 
             keyboard=VKKeyboard.settings_menu(),
         )
 
-    if text == 'посмотреть актуальные поиски':
-        return VKHandlerResult(
-            text='Функция просмотра поисков будет доступна в следующей версии.',
-            keyboard=VKKeyboard.main_menu(),
-        )
-
+    # 'посмотреть актуальные поиски' is now handled by handle_view_search_menu
+    # in view_searches_handlers.py (Phase 2B) — let it pass through
     if text in ('другие возможности', '🔥карта поисков 🔥'):
         return VKHandlerResult(
             text='Выберите раздел:',

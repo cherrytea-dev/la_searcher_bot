@@ -53,6 +53,15 @@ from .handlers.region_select_handlers import (
     handle_fed_district_select,
     handle_region_toggle,
 )
+from .handlers.view_searches_handlers import (
+    handle_active_searches,
+    handle_follow_mode_toggle,
+    handle_follow_unfollow_command,
+    handle_latest_searches,
+    handle_more_searches,
+    handle_search_follow_menu,
+    handle_view_search_menu,
+)
 
 HANDLER_CHAIN: list[HandlerFunc] = [
     # State-based handlers first (highest priority)
@@ -68,6 +77,15 @@ HANDLER_CHAIN: list[HandlerFunc] = [
     # Navigation
     handle_back_to_start,
     handle_main_menu,
+    # Search viewing handlers (Phase 2B) — before button_handlers to catch
+    # text commands like +12345 / -12345 and search-related menu items
+    handle_view_search_menu,
+    handle_active_searches,
+    handle_latest_searches,
+    handle_search_follow_menu,
+    handle_follow_mode_toggle,
+    handle_follow_unfollow_command,
+    handle_more_searches,
     # Region selection
     handle_fed_district_select,
     handle_region_toggle,

@@ -344,3 +344,50 @@ class VKKeyboard:
             ],
             color='primary',
         )
+
+    @classmethod
+    def search_view_menu(cls) -> dict:
+        """Search view options menu."""
+        return cls.one_column(
+            [
+                'активные поиски',
+                'последние 20 поисков',
+                'отслеживание поисков',
+                'в начало',
+            ]
+        )
+
+    @classmethod
+    def search_follow_menu(cls) -> dict:
+        """Search follow management menu."""
+        return cls.one_column(
+            [
+                'включить режим отслеживания',
+                'выключить режим отслеживания',
+                'показать отслеживаемые поиски',
+                'в начало',
+            ]
+        )
+
+    @classmethod
+    def search_actions(cls, topic_id: int) -> dict:
+        """Actions for a specific search."""
+        return cls.one_column(
+            [
+                f'+{topic_id} — следить',
+                f'-{topic_id} — игнорировать',
+                'еще поиски',
+                'в начало',
+            ]
+        )
+
+    @classmethod
+    def search_navigation(cls) -> dict:
+        """Navigation after viewing searches."""
+        return cls.one_column(
+            [
+                'еще поиски',
+                'управление отслеживанием',
+                'в начало',
+            ]
+        )
