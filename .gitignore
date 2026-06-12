@@ -14,3 +14,4 @@ type_info.json
 *.pkl
 src/requirements.txt
 *.log
+plans/
