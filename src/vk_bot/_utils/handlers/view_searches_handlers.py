@@ -10,25 +10,25 @@ Handles:
 
 import logging
 import re
-
-import sqlalchemy as sa
 from datetime import datetime, timedelta
 
+import sqlalchemy as sa
+
 from _dependencies.commons import SearchFollowingMode
-from _dependencies.services.state_machine import DialogState
+from _dependencies.misc import age_writer, time_counter_since_search_start
 from _dependencies.services.message_formatter import (
-    active_searches_header,
     active_searches_empty,
+    active_searches_header,
     last_searches_header,
     no_active_searches_found,
     search_follow_intro,
-    search_follow_mode_on,
     search_follow_mode_off,
+    search_follow_mode_on,
 )
-from _dependencies.misc import time_counter_since_search_start, age_writer
-from src.vk_bot._utils.common import VKMessage, VKHandlerResult, SEARCH_URL_PREFIX
-from src.vk_bot._utils.keyboards import VKKeyboard
+from _dependencies.services.state_machine import DialogState
+from src.vk_bot._utils.common import SEARCH_URL_PREFIX, VKHandlerResult, VKMessage
 from src.vk_bot._utils.database import db
+from src.vk_bot._utils.keyboards import VKKeyboard
 
 logger = logging.getLogger(__name__)
 

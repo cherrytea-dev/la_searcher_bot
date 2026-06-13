@@ -74,7 +74,7 @@ def run_flask(host: str = '0.0.0.0', port: int = 8888) -> None:
     logger.info('Then set this URL as VK Callback API in VK App settings.')
     logger.info('Press Ctrl+C to stop.')
 
-    app.run(host, port, debug=False)
+    app.run(host, port, debug=True)
 
 
 def main() -> None:

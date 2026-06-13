@@ -296,14 +296,21 @@ class TestVKKeyboardPresets:
 
     def test_notification_settings(self):
         result = VKKeyboard.notification_settings()
-        labels = [btn[0]['action']['label'] for btn in result['buttons']]
-        assert 'включить: все уведомления' in labels
-        assert 'включить: о новых поисках' in labels
-        assert 'включить: об изменениях статусов' in labels
-        assert 'отключить: о новых поисках' in labels
-        assert 'отключить: об изменениях статусов' in labels
-        assert 'настроить более гибко' in labels
-        assert 'в начало' in labels
+        # Flatten all button labels from all rows
+        all_labels = []
+        for row in result['buttons']:
+            for btn in row:
+                all_labels.append(btn['action']['label'])
+        assert 'включить: все уведомления' in all_labels
+        assert 'включить: о новых поисках' in all_labels
+        assert 'включить: об измен. статусов' in all_labels
+        assert 'отключить: все уведомления' in all_labels
+        assert 'настроить более гибко' in all_labels
+        assert 'в начало' in all_labels
+        # VK API limits: 10 rows max, 40 chars per label
+        assert len(result['buttons']) <= 10
+        for label in all_labels:
+            assert len(label) <= 40, f'Label too long ({len(label)} chars): {label}'
 
     def test_fed_districts(self):
         result = VKKeyboard.fed_districts()

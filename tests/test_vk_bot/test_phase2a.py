@@ -16,7 +16,6 @@ import pytest
 from _dependencies.services.state_machine import DialogState
 from src.vk_bot._utils.common import VKHandlerResult
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. State Handlers
 # ═══════════════════════════════════════════════════════════════════════════════

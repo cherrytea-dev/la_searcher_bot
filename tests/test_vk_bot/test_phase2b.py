@@ -21,7 +21,6 @@ from _dependencies.commons import SearchFollowingMode
 from _dependencies.services.state_machine import DialogState
 from src.vk_bot._utils.common import VKHandlerResult
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. handle_view_search_menu
 # ═══════════════════════════════════════════════════════════════════════════════

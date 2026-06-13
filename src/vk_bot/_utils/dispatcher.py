@@ -27,11 +27,6 @@ def handle_unknown(vk_message: VKMessage, state: DialogState | None, user_id: in
 
 # ─── Handler chain ───────────────────────────────────────────────────
 
-from .handlers.state_handlers import (
-    handle_coords_text,
-    handle_forum_username,
-    handle_radius_value,
-)
 from .handlers.button_handlers import (
     handle_age_settings,
     handle_back_to_start,
@@ -52,6 +47,11 @@ from .handlers.button_handlers import (
 from .handlers.region_select_handlers import (
     handle_fed_district_select,
     handle_region_toggle,
+)
+from .handlers.state_handlers import (
+    handle_coords_text,
+    handle_forum_username,
+    handle_radius_value,
 )
 from .handlers.view_searches_handlers import (
     handle_active_searches,

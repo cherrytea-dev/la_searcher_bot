@@ -9,8 +9,8 @@ import logging
 import time
 
 from _dependencies.services.message_formatter import (
-    compose_settings_completeness_message,
     community_intro,
+    compose_settings_completeness_message,
     coords_deleted,
     coords_intro,
     coords_not_set,
@@ -23,9 +23,9 @@ from _dependencies.services.message_formatter import (
     onboarding_completed_message,
     other_menu_intro,
     photos_intro,
+    radius_deleted,
     radius_intro_no_radius,
     radius_intro_with_radius,
-    radius_deleted,
     region_selection_intro,
     role_other_ask_region,
     role_relative_instructions,
@@ -331,20 +331,22 @@ def handle_notification_toggle(
     text = vk_message.text.strip().lower()
 
     # Map button text to preference names
+    # Labels are shortened to fit VK's 40-char limit for button labels
     notif_map: dict[str, str] = {
         'включить: все уведомления': 'all',
         'включить: о новых поисках': 'new_searches',
-        'включить: об изменениях статусов': 'status_changes',
+        'включить: об измен. статусов': 'status_changes',
         'включить: о всех новых комментариях': 'comments_changes',
-        'включить: о комментариях инфорга': 'inforg_comments',
-        'включить: об изменениях в первом посте': 'first_post_changes',
-        'включить: в отслеживаемых поисках - все уведомления': 'all_in_followed_search',
+        'включить: о комм. инфорга': 'inforg_comments',
+        'включить: об измен. в первом посте': 'first_post_changes',
+        'включить: в отслеж. поисках - все': 'all_in_followed_search',
+        'отключить: все уведомления': 'all',
         'отключить: о новых поисках': 'new_searches',
-        'отключить: об изменениях статусов': 'status_changes',
+        'отключить: об измен. статусов': 'status_changes',
         'отключить: о всех новых комментариях': 'comments_changes',
-        'отключить: о комментариях инфорга': 'inforg_comments',
-        'отключить: об изменениях в первом посте': 'first_post_changes',
-        'отключить: в отслеживаемых поисках - все уведомления': 'all_in_followed_search',
+        'отключить: о комм. инфорга': 'inforg_comments',
+        'отключить: об измен. в первом посте': 'first_post_changes',
+        'отключить: в отслеж. поисках - все': 'all_in_followed_search',
     }
 
     if text not in notif_map:
@@ -582,9 +584,9 @@ def handle_vk_linking(vk_message: VKMessage, state: DialogState | None, user_id:
             keyboard=VKKeyboard.settings_menu(),
         )
 
-    from _dependencies.services.message_formatter import vk_link_instructions
-
     import time
+
+    from _dependencies.services.message_formatter import vk_link_instructions
 
     invite_text = f'la_link_{user_id}_{int(time.time())}'
     return VKHandlerResult(

@@ -188,27 +188,40 @@ class VKKeyboard:
 
     @classmethod
     def notification_settings(cls) -> dict:
-        """Notification settings — enable/disable toggles."""
-        return cls.one_column(
-            [
-                'включить: все уведомления',
-                'включить: о новых поисках',
-                'включить: об изменениях статусов',
-                'включить: о всех новых комментариях',
-                'включить: о комментариях Инфорга',
-                'включить: об изменениях в первом посте',
-                'включить: в отслеживаемых поисках - все уведомления',
-                '---',
-                'настроить более гибко',
-                'отключить: о новых поисках',
-                'отключить: об изменениях статусов',
-                'отключить: о всех новых комментариях',
-                'отключить: о комментариях Инфорга',
-                'отключить: об изменениях в первом посте',
-                'отключить: в отслеживаемых поисках - все уведомления',
-                'в начало',
-            ]
-        )
+        """Notification settings — enable/disable toggles.
+
+        VK API limits:
+        - Non-inline keyboards: 10 rows max
+        - Button labels: 40 characters max
+        """
+        return {
+            'one_time': False,
+            'inline': False,
+            'buttons': [
+                # Row 1: enable all
+                [cls._text_button('включить: все уведомления', 'positive')],
+                # Rows 2-4: enable toggles in pairs (6 items → 3 rows)
+                [
+                    cls._text_button('включить: о новых поисках'),
+                    cls._text_button('включить: об измен. статусов'),
+                ],
+                [
+                    cls._text_button('включить: о всех новых комментариях'),
+                    cls._text_button('включить: о комм. Инфорга'),
+                ],
+                [
+                    cls._text_button('включить: об измен. в первом посте'),
+                    cls._text_button('включить: в отслеж. поисках - все'),
+                ],
+                # Row 5: flexible settings + disable all
+                [
+                    cls._text_button('настроить более гибко'),
+                    cls._text_button('отключить: все уведомления', 'negative'),
+                ],
+                # Row 6: back
+                [cls._text_button('в начало')],
+            ],
+        }
 
     @classmethod
     def fed_districts(cls) -> dict:
