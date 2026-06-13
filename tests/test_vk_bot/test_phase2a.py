@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from _dependencies.services.state_machine import DialogState
-from src.vk_bot._utils.common import VKHandlerResult
+from vk_bot._utils.common import VKHandlerResult
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. State Handlers
@@ -26,7 +26,7 @@ class TestHandleRadiusValue:
 
     def test_accepts_radius_input_state(self, vk_message):
         """Handler handles when state=radius_input."""
-        from src.vk_bot._utils.handlers.state_handlers import handle_radius_value
+        from vk_bot._utils.handlers.state_handlers import handle_radius_value
 
         msg = vk_message(text='50')
         result = handle_radius_value(msg, DialogState.radius_input, 12345)
@@ -35,7 +35,7 @@ class TestHandleRadiusValue:
 
     def test_ignores_other_state(self, vk_message):
         """Returns None for non-matching state."""
-        from src.vk_bot._utils.handlers.state_handlers import handle_radius_value
+        from vk_bot._utils.handlers.state_handlers import handle_radius_value
 
         msg = vk_message(text='50')
         result = handle_radius_value(msg, DialogState.not_defined, 12345)
@@ -43,7 +43,7 @@ class TestHandleRadiusValue:
 
     def test_parses_numeric_input(self, vk_message, mock_settings_service):
         """'50' -> saves radius, returns success text."""
-        from src.vk_bot._utils.handlers.state_handlers import handle_radius_value
+        from vk_bot._utils.handlers.state_handlers import handle_radius_value
 
         msg = vk_message(text='50')
         result = handle_radius_value(msg, DialogState.radius_input, 12345)
@@ -55,7 +55,7 @@ class TestHandleRadiusValue:
 
     def test_parses_number_in_text(self, vk_message, mock_settings_service):
         """ "хочу радиус 100 км" -> saves 100."""
-        from src.vk_bot._utils.handlers.state_handlers import handle_radius_value
+        from vk_bot._utils.handlers.state_handlers import handle_radius_value
 
         msg = vk_message(text='хочу радиус 100 км')
         result = handle_radius_value(msg, DialogState.radius_input, 12345)
@@ -65,7 +65,7 @@ class TestHandleRadiusValue:
 
     def test_rejects_non_numeric(self, vk_message, mock_settings_service):
         """ "привет" -> returns parse error text."""
-        from src.vk_bot._utils.handlers.state_handlers import handle_radius_value
+        from vk_bot._utils.handlers.state_handlers import handle_radius_value
 
         msg = vk_message(text='привет')
         result = handle_radius_value(msg, DialogState.radius_input, 12345)
@@ -76,7 +76,7 @@ class TestHandleRadiusValue:
 
     def test_saves_radius_via_settings(self, vk_message, mock_settings_service):
         """Verifies db().settings.save_radius is called."""
-        from src.vk_bot._utils.handlers.state_handlers import handle_radius_value
+        from vk_bot._utils.handlers.state_handlers import handle_radius_value
 
         msg = vk_message(text='75')
         handle_radius_value(msg, DialogState.radius_input, 12345)
@@ -85,7 +85,7 @@ class TestHandleRadiusValue:
 
     def test_resets_state_to_not_defined(self, vk_message, mock_settings_service):
         """new_state is not_defined after save."""
-        from src.vk_bot._utils.handlers.state_handlers import handle_radius_value
+        from vk_bot._utils.handlers.state_handlers import handle_radius_value
 
         msg = vk_message(text='50')
         result = handle_radius_value(msg, DialogState.radius_input, 12345)
@@ -99,7 +99,7 @@ class TestHandleCoordsText:
 
     def test_accepts_coords_input_state(self, vk_message):
         """Handles when state=input_of_coords_man."""
-        from src.vk_bot._utils.handlers.state_handlers import handle_coords_text
+        from vk_bot._utils.handlers.state_handlers import handle_coords_text
 
         msg = vk_message(text='55.7558, 37.6173')
         result = handle_coords_text(msg, DialogState.input_of_coords_man, 12345)
@@ -108,7 +108,7 @@ class TestHandleCoordsText:
 
     def test_ignores_other_state(self, vk_message):
         """Returns None for non-matching state."""
-        from src.vk_bot._utils.handlers.state_handlers import handle_coords_text
+        from vk_bot._utils.handlers.state_handlers import handle_coords_text
 
         msg = vk_message(text='55.7558, 37.6173')
         result = handle_coords_text(msg, DialogState.not_defined, 12345)
@@ -116,7 +116,7 @@ class TestHandleCoordsText:
 
     def test_parses_valid_coords(self, vk_message, mock_settings_service):
         """ "55.7558, 37.6173" -> saves."""
-        from src.vk_bot._utils.handlers.state_handlers import handle_coords_text
+        from vk_bot._utils.handlers.state_handlers import handle_coords_text
 
         msg = vk_message(text='55.7558, 37.6173')
         result = handle_coords_text(msg, DialogState.input_of_coords_man, 12345)
@@ -127,7 +127,7 @@ class TestHandleCoordsText:
 
     def test_parses_coords_with_space_delimiter(self, vk_message, mock_settings_service):
         """ "55.7558 37.6173" -> saves."""
-        from src.vk_bot._utils.handlers.state_handlers import handle_coords_text
+        from vk_bot._utils.handlers.state_handlers import handle_coords_text
 
         msg = vk_message(text='55.7558 37.6173')
         result = handle_coords_text(msg, DialogState.input_of_coords_man, 12345)
@@ -137,7 +137,7 @@ class TestHandleCoordsText:
 
     def test_rejects_invalid_format(self, vk_message, mock_settings_service):
         """ "abc def" -> parse error."""
-        from src.vk_bot._utils.handlers.state_handlers import handle_coords_text
+        from vk_bot._utils.handlers.state_handlers import handle_coords_text
 
         msg = vk_message(text='abc def')
         result = handle_coords_text(msg, DialogState.input_of_coords_man, 12345)
@@ -148,7 +148,7 @@ class TestHandleCoordsText:
 
     def test_resets_state_after_save(self, vk_message, mock_settings_service):
         """new_state is not_defined."""
-        from src.vk_bot._utils.handlers.state_handlers import handle_coords_text
+        from vk_bot._utils.handlers.state_handlers import handle_coords_text
 
         msg = vk_message(text='55.7558, 37.6173')
         result = handle_coords_text(msg, DialogState.input_of_coords_man, 12345)
@@ -162,7 +162,7 @@ class TestHandleForumUsername:
 
     def test_accepts_forum_username_state(self, vk_message):
         """Handles when state=input_of_forum_username."""
-        from src.vk_bot._utils.handlers.state_handlers import handle_forum_username
+        from vk_bot._utils.handlers.state_handlers import handle_forum_username
 
         msg = vk_message(text='my_forum_nick')
         result = handle_forum_username(msg, DialogState.input_of_forum_username, 12345)
@@ -171,7 +171,7 @@ class TestHandleForumUsername:
 
     def test_ignores_other_state(self, vk_message):
         """Returns None for non-matching state."""
-        from src.vk_bot._utils.handlers.state_handlers import handle_forum_username
+        from vk_bot._utils.handlers.state_handlers import handle_forum_username
 
         msg = vk_message(text='my_forum_nick')
         result = handle_forum_username(msg, DialogState.not_defined, 12345)
@@ -179,7 +179,7 @@ class TestHandleForumUsername:
 
     def test_captures_username(self, vk_message):
         """Passes text as forum username."""
-        from src.vk_bot._utils.handlers.state_handlers import handle_forum_username
+        from vk_bot._utils.handlers.state_handlers import handle_forum_username
 
         msg = vk_message(text='  my_forum_nick  ')
         result = handle_forum_username(msg, DialogState.input_of_forum_username, 12345)
@@ -189,7 +189,7 @@ class TestHandleForumUsername:
 
     def test_resets_state(self, vk_message):
         """new_state is not_defined."""
-        from src.vk_bot._utils.handlers.state_handlers import handle_forum_username
+        from vk_bot._utils.handlers.state_handlers import handle_forum_username
 
         msg = vk_message(text='my_forum_nick')
         result = handle_forum_username(msg, DialogState.input_of_forum_username, 12345)
@@ -208,7 +208,7 @@ class TestHandleCommandStart:
 
     def test_handles_start_command(self, vk_message, mock_settings_service):
         """ "/start" -> returns welcome text."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_command_start
+        from vk_bot._utils.handlers.button_handlers import handle_command_start
 
         mock_settings_service.check_if_new_user.return_value = False
 
@@ -222,7 +222,7 @@ class TestHandleCommandStart:
 
     def test_ignores_other_text(self, vk_message):
         """ "something" -> returns None."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_command_start
+        from vk_bot._utils.handlers.button_handlers import handle_command_start
 
         msg = vk_message(text='something')
         result = handle_command_start(msg, DialogState.not_defined, 12345)
@@ -230,7 +230,7 @@ class TestHandleCommandStart:
 
     def test_returns_main_menu_keyboard(self, vk_message, mock_settings_service):
         """Result has main_menu keyboard."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_command_start
+        from vk_bot._utils.handlers.button_handlers import handle_command_start
 
         mock_settings_service.check_if_new_user.return_value = False
 
@@ -254,7 +254,7 @@ class TestHandleRoleChoice:
 
     def test_handles_member_role(self, vk_message):
         """ "я состою в лизаалерт" -> saves role with code 'member'."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_role_choice
+        from vk_bot._utils.handlers.button_handlers import handle_role_choice
 
         msg = vk_message(text='я состою в ЛизаАлерт')
         result = handle_role_choice(msg, DialogState.not_defined, 12345)
@@ -265,7 +265,7 @@ class TestHandleRoleChoice:
 
     def test_handles_volunteer_role(self, vk_message):
         """ "я хочу помогать лизаалерт" -> saves role with code 'volunteer'."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_role_choice
+        from vk_bot._utils.handlers.button_handlers import handle_role_choice
 
         msg = vk_message(text='я хочу помогать ЛизаАлерт')
         result = handle_role_choice(msg, DialogState.not_defined, 12345)
@@ -276,7 +276,7 @@ class TestHandleRoleChoice:
 
     def test_handles_relative_role(self, vk_message):
         """ "я ищу человека" -> saves role with code 'relative', shows orders_done keyboard."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_role_choice
+        from vk_bot._utils.handlers.button_handlers import handle_role_choice
 
         msg = vk_message(text='я ищу человека')
         result = handle_role_choice(msg, DialogState.not_defined, 12345)
@@ -289,7 +289,7 @@ class TestHandleRoleChoice:
 
     def test_handles_other_role(self, vk_message):
         """ "у меня другая задача" -> saves role with code 'other'."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_role_choice
+        from vk_bot._utils.handlers.button_handlers import handle_role_choice
 
         msg = vk_message(text='у меня другая задача')
         result = handle_role_choice(msg, DialogState.not_defined, 12345)
@@ -300,7 +300,7 @@ class TestHandleRoleChoice:
 
     def test_ignores_unknown_text(self, vk_message):
         """Returns None for non-matching text."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_role_choice
+        from vk_bot._utils.handlers.button_handlers import handle_role_choice
 
         msg = vk_message(text='random text')
         result = handle_role_choice(msg, DialogState.not_defined, 12345)
@@ -308,7 +308,7 @@ class TestHandleRoleChoice:
 
     def test_saves_onboarding_step(self, vk_message):
         """Calls save_onboarding_step with 'role_set'."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_role_choice
+        from vk_bot._utils.handlers.button_handlers import handle_role_choice
 
         msg = vk_message(text='я состою в ЛизаАлерт')
         handle_role_choice(msg, DialogState.not_defined, 12345)
@@ -326,7 +326,7 @@ class TestHandleIsMoscow:
 
     def test_handles_yes(self, vk_message):
         """ "да, москва – мой регион" (em-dash) -> adds Moscow region, subscribes."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_is_moscow
+        from vk_bot._utils.handlers.button_handlers import handle_is_moscow
 
         # Mock geo folders to include Moscow regions
         # _subscribe_moscow_regions matches 'москв' in name.lower() or 'мо:' in name.lower()
@@ -349,7 +349,7 @@ class TestHandleIsMoscow:
 
     def test_handles_no(self, vk_message):
         """ "нет, я из другого региона" -> shows fed_districts keyboard."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_is_moscow
+        from vk_bot._utils.handlers.button_handlers import handle_is_moscow
 
         msg = vk_message(text='нет, я из другого региона')
         result = handle_is_moscow(msg, DialogState.not_defined, 12345)
@@ -361,7 +361,7 @@ class TestHandleIsMoscow:
 
     def test_ignores_other(self, vk_message):
         """Returns None for non-matching text."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_is_moscow
+        from vk_bot._utils.handlers.button_handlers import handle_is_moscow
 
         msg = vk_message(text='random text')
         result = handle_is_moscow(msg, DialogState.not_defined, 12345)
@@ -373,7 +373,7 @@ class TestHandleBackToStart:
 
     def test_handles_back_to_start(self, vk_message):
         """ "в начало" -> returns main_menu keyboard."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_back_to_start
+        from vk_bot._utils.handlers.button_handlers import handle_back_to_start
 
         msg = vk_message(text='в начало')
         result = handle_back_to_start(msg, DialogState.not_defined, 12345)
@@ -386,7 +386,7 @@ class TestHandleBackToStart:
 
     def test_resets_state(self, vk_message):
         """new_state is not_defined."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_back_to_start
+        from vk_bot._utils.handlers.button_handlers import handle_back_to_start
 
         msg = vk_message(text='в начало')
         result = handle_back_to_start(msg, DialogState.radius_input, 12345)
@@ -396,7 +396,7 @@ class TestHandleBackToStart:
 
     def test_ignores_other_text(self, vk_message):
         """Returns None."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_back_to_start
+        from vk_bot._utils.handlers.button_handlers import handle_back_to_start
 
         msg = vk_message(text='random text')
         result = handle_back_to_start(msg, DialogState.not_defined, 12345)
@@ -413,7 +413,7 @@ class TestHandleMainMenu:
 
     def test_settings_button(self, vk_message):
         """ "настроить бот" -> returns settings_menu keyboard."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_main_menu
+        from vk_bot._utils.handlers.button_handlers import handle_main_menu
 
         msg = vk_message(text='настроить бот')
         result = handle_main_menu(msg, DialogState.not_defined, 12345)
@@ -425,7 +425,7 @@ class TestHandleMainMenu:
 
     def test_view_searches_button(self, vk_message):
         """ "посмотреть актуальные поиски" -> returns None (handled by Phase 2B handler)."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_main_menu
+        from vk_bot._utils.handlers.button_handlers import handle_main_menu
 
         msg = vk_message(text='посмотреть актуальные поиски')
         result = handle_main_menu(msg, DialogState.not_defined, 12345)
@@ -434,7 +434,7 @@ class TestHandleMainMenu:
 
     def test_other_menu_button(self, vk_message):
         """ "другие возможности" -> returns other_menu keyboard."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_main_menu
+        from vk_bot._utils.handlers.button_handlers import handle_main_menu
 
         msg = vk_message(text='другие возможности')
         result = handle_main_menu(msg, DialogState.not_defined, 12345)
@@ -446,7 +446,7 @@ class TestHandleMainMenu:
 
     def test_ignores_unknown(self, vk_message):
         """Returns None."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_main_menu
+        from vk_bot._utils.handlers.button_handlers import handle_main_menu
 
         msg = vk_message(text='random text')
         result = handle_main_menu(msg, DialogState.not_defined, 12345)
@@ -463,7 +463,7 @@ class TestHandleSettingsMenu:
 
     def test_notification_settings(self, vk_message):
         """ "настроить виды уведомлений" -> returns notification_settings keyboard."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_settings_menu
+        from vk_bot._utils.handlers.button_handlers import handle_settings_menu
 
         self.mock_settings.get_all_user_preferences.return_value = []
 
@@ -477,7 +477,7 @@ class TestHandleSettingsMenu:
 
     def test_coordinates_menu(self, vk_message):
         """ "настроить "домашние координаты"" -> returns coords_menu keyboard."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_settings_menu
+        from vk_bot._utils.handlers.button_handlers import handle_settings_menu
 
         self.mock_settings.get_coordinates.return_value = None
 
@@ -491,7 +491,7 @@ class TestHandleSettingsMenu:
 
     def test_radius_settings(self, vk_message):
         """ "настроить максимальный радиус" -> returns radius_settings keyboard."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_settings_menu
+        from vk_bot._utils.handlers.button_handlers import handle_settings_menu
 
         self.mock_settings.get_radius.return_value = None
 
@@ -503,7 +503,7 @@ class TestHandleSettingsMenu:
 
     def test_age_settings(self, vk_message):
         """ "настроить возрастные группы бвп" -> returns age_settings keyboard."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_settings_menu
+        from vk_bot._utils.handlers.button_handlers import handle_settings_menu
 
         msg = vk_message(text='настроить возрастные группы БВП')
         result = handle_settings_menu(msg, DialogState.not_defined, 12345)
@@ -515,7 +515,7 @@ class TestHandleSettingsMenu:
 
     def test_topic_type_settings(self, vk_message):
         """ "настроить вид поисков" -> returns topic_type_settings keyboard."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_settings_menu
+        from vk_bot._utils.handlers.button_handlers import handle_settings_menu
 
         msg = vk_message(text='настроить вид поисков')
         result = handle_settings_menu(msg, DialogState.not_defined, 12345)
@@ -527,7 +527,7 @@ class TestHandleSettingsMenu:
 
     def test_forum_linking(self, vk_message):
         """ "связать аккаунты бота и форума" -> returns forum_linking keyboard."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_settings_menu
+        from vk_bot._utils.handlers.button_handlers import handle_settings_menu
 
         self.mock_settings.get_forum_attributes.return_value = None
 
@@ -541,7 +541,7 @@ class TestHandleSettingsMenu:
 
     def test_vk_linking(self, vk_message):
         """ "связать аккаунты бота и vkontakte" -> returns vk_linking keyboard."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_settings_menu
+        from vk_bot._utils.handlers.button_handlers import handle_settings_menu
 
         self.mock_settings.get_user_vk_id.return_value = None
 
@@ -553,7 +553,7 @@ class TestHandleSettingsMenu:
 
     def test_ignores_unknown(self, vk_message):
         """Returns None."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_settings_menu
+        from vk_bot._utils.handlers.button_handlers import handle_settings_menu
 
         msg = vk_message(text='random text')
         result = handle_settings_menu(msg, DialogState.not_defined, 12345)
@@ -571,7 +571,7 @@ class TestHandleNotificationToggle:
 
     def test_toggles_preference_on(self, vk_message):
         """Toggles a preference to enabled."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_notification_toggle
+        from vk_bot._utils.handlers.button_handlers import handle_notification_toggle
 
         msg = vk_message(text='включить: о новых поисках')
         result = handle_notification_toggle(msg, DialogState.not_defined, 12345)
@@ -581,7 +581,7 @@ class TestHandleNotificationToggle:
 
     def test_toggles_preference_off(self, vk_message):
         """Toggles a preference to disabled."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_notification_toggle
+        from vk_bot._utils.handlers.button_handlers import handle_notification_toggle
 
         msg = vk_message(text='отключить: о новых поисках')
         result = handle_notification_toggle(msg, DialogState.not_defined, 12345)
@@ -591,7 +591,7 @@ class TestHandleNotificationToggle:
 
     def test_ignores_unknown_text(self, vk_message):
         """Returns None."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_notification_toggle
+        from vk_bot._utils.handlers.button_handlers import handle_notification_toggle
 
         msg = vk_message(text='random text')
         result = handle_notification_toggle(msg, DialogState.not_defined, 12345)
@@ -608,7 +608,7 @@ class TestHandleCoordinatesAction:
 
     def test_manual_input(self, vk_message):
         """ "ввести координаты" -> sets state to input_of_coords_man."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_coordinates_action
+        from vk_bot._utils.handlers.button_handlers import handle_coordinates_action
 
         msg = vk_message(text='ввести "домашние координаты" вручную')
         result = handle_coordinates_action(msg, DialogState.not_defined, 12345)
@@ -618,7 +618,7 @@ class TestHandleCoordinatesAction:
 
     def test_view_coordinates(self, vk_message):
         """ "посмотреть сохраненные координаты" -> shows 'not set'."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_coordinates_action
+        from vk_bot._utils.handlers.button_handlers import handle_coordinates_action
 
         self.mock_settings.get_coordinates.return_value = None
 
@@ -630,7 +630,7 @@ class TestHandleCoordinatesAction:
 
     def test_view_coordinates_with_data(self, vk_message):
         """ "посмотреть сохраненные координаты" with existing coords."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_coordinates_action
+        from vk_bot._utils.handlers.button_handlers import handle_coordinates_action
 
         self.mock_settings.get_coordinates.return_value = ('55.7558', '37.6173')
 
@@ -642,7 +642,7 @@ class TestHandleCoordinatesAction:
 
     def test_delete_coordinates(self, vk_message):
         """ "удалить координаты" -> deletes and returns success."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_coordinates_action
+        from vk_bot._utils.handlers.button_handlers import handle_coordinates_action
 
         msg = vk_message(text='удалить "домашние координаты"')
         result = handle_coordinates_action(msg, DialogState.not_defined, 12345)
@@ -653,7 +653,7 @@ class TestHandleCoordinatesAction:
 
     def test_ignores_unknown(self, vk_message):
         """Returns None."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_coordinates_action
+        from vk_bot._utils.handlers.button_handlers import handle_coordinates_action
 
         msg = vk_message(text='random text')
         result = handle_coordinates_action(msg, DialogState.not_defined, 12345)
@@ -671,7 +671,7 @@ class TestHandleAgeSettings:
 
     def test_toggles_age_on(self, vk_message):
         """ "дети (0-10 лет)" -> adds age preference."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_age_settings
+        from vk_bot._utils.handlers.button_handlers import handle_age_settings
 
         msg = vk_message(text='дети (0-10 лет)')
         result = handle_age_settings(msg, DialogState.not_defined, 12345)
@@ -681,7 +681,7 @@ class TestHandleAgeSettings:
 
     def test_toggles_age_off(self, vk_message):
         """Toggles existing age preference off."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_age_settings
+        from vk_bot._utils.handlers.button_handlers import handle_age_settings
 
         self.mock_settings.get_age_preferences.return_value = [(0, 10)]
 
@@ -693,7 +693,7 @@ class TestHandleAgeSettings:
 
     def test_ignores_unknown(self, vk_message):
         """Returns None."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_age_settings
+        from vk_bot._utils.handlers.button_handlers import handle_age_settings
 
         msg = vk_message(text='random text')
         result = handle_age_settings(msg, DialogState.not_defined, 12345)
@@ -711,7 +711,7 @@ class TestHandleTopicTypeSettings:
 
     def test_toggles_search_type(self, vk_message):
         """ "поисковые работы" -> toggles search type."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_topic_type_settings
+        from vk_bot._utils.handlers.button_handlers import handle_topic_type_settings
 
         msg = vk_message(text='поисковые работы')
         result = handle_topic_type_settings(msg, DialogState.not_defined, 12345)
@@ -721,7 +721,7 @@ class TestHandleTopicTypeSettings:
 
     def test_toggles_search_type_off(self, vk_message):
         """Toggles existing topic type off."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_topic_type_settings
+        from vk_bot._utils.handlers.button_handlers import handle_topic_type_settings
 
         self.mock_settings.get_topic_types.return_value = [0]
 
@@ -733,7 +733,7 @@ class TestHandleTopicTypeSettings:
 
     def test_ignores_unknown(self, vk_message):
         """Returns None."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_topic_type_settings
+        from vk_bot._utils.handlers.button_handlers import handle_topic_type_settings
 
         msg = vk_message(text='random text')
         result = handle_topic_type_settings(msg, DialogState.not_defined, 12345)
@@ -745,7 +745,7 @@ class TestHandleOtherMenu:
 
     def test_latest_searches(self, vk_message):
         """ "посмотреть последние поиски" -> passes through to view_searches_handlers."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_other_menu
+        from vk_bot._utils.handlers.button_handlers import handle_other_menu
 
         msg = vk_message(text='посмотреть последние поиски')
         result = handle_other_menu(msg, DialogState.not_defined, 12345)
@@ -755,7 +755,7 @@ class TestHandleOtherMenu:
 
     def test_community(self, vk_message):
         """ "написать разработчику бота" -> returns info text."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_other_menu
+        from vk_bot._utils.handlers.button_handlers import handle_other_menu
 
         msg = vk_message(text='написать разработчику бота')
         result = handle_other_menu(msg, DialogState.not_defined, 12345)
@@ -765,7 +765,7 @@ class TestHandleOtherMenu:
 
     def test_ignores_unknown(self, vk_message):
         """Returns None."""
-        from src.vk_bot._utils.handlers.button_handlers import handle_other_menu
+        from vk_bot._utils.handlers.button_handlers import handle_other_menu
 
         msg = vk_message(text='random text')
         result = handle_other_menu(msg, DialogState.not_defined, 12345)
@@ -787,7 +787,7 @@ class TestHandleFedDistrictSelect:
 
     def test_matches_district_name(self, vk_message):
         """Matches federal district button text."""
-        from src.vk_bot._utils.handlers.region_select_handlers import handle_fed_district_select
+        from vk_bot._utils.handlers.region_select_handlers import handle_fed_district_select
 
         self.mock_settings.get_geo_folders.return_value = [
             (1, 'Москва и МО'),
@@ -802,7 +802,7 @@ class TestHandleFedDistrictSelect:
 
     def test_shows_regions(self, vk_message):
         """Returns regions within the district."""
-        from src.vk_bot._utils.handlers.region_select_handlers import handle_fed_district_select
+        from vk_bot._utils.handlers.region_select_handlers import handle_fed_district_select
 
         # The handler matches by checking if district name (without " фо")
         # is contained in the region name (lowercased).
@@ -822,7 +822,7 @@ class TestHandleFedDistrictSelect:
 
     def test_ignores_unknown(self, vk_message):
         """Returns None."""
-        from src.vk_bot._utils.handlers.region_select_handlers import handle_fed_district_select
+        from vk_bot._utils.handlers.region_select_handlers import handle_fed_district_select
 
         msg = vk_message(text='random text')
         result = handle_fed_district_select(msg, DialogState.not_defined, 12345)
@@ -839,7 +839,7 @@ class TestHandleRegionToggle:
 
     def test_subscribes_to_region(self, vk_message):
         """Subscribes to a new region."""
-        from src.vk_bot._utils.handlers.region_select_handlers import handle_region_toggle
+        from vk_bot._utils.handlers.region_select_handlers import handle_region_toggle
 
         self.mock_settings.get_geo_folders.return_value = [
             (1, 'Москва и МО'),
@@ -855,7 +855,7 @@ class TestHandleRegionToggle:
 
     def test_unsubscribes_from_region(self, vk_message):
         """Unsubscribes from an existing region."""
-        from src.vk_bot._utils.handlers.region_select_handlers import handle_region_toggle
+        from vk_bot._utils.handlers.region_select_handlers import handle_region_toggle
 
         self.mock_settings.get_geo_folders.return_value = [
             (1, 'Москва и МО'),
@@ -872,7 +872,7 @@ class TestHandleRegionToggle:
 
     def test_cant_remove_last_region(self, vk_message):
         """Can't remove the last remaining region."""
-        from src.vk_bot._utils.handlers.region_select_handlers import handle_region_toggle
+        from vk_bot._utils.handlers.region_select_handlers import handle_region_toggle
 
         self.mock_settings.get_geo_folders.return_value = [
             (1, 'Москва и МО'),
@@ -888,7 +888,7 @@ class TestHandleRegionToggle:
 
     def test_ignores_unknown(self, vk_message):
         """Returns None."""
-        from src.vk_bot._utils.handlers.region_select_handlers import handle_region_toggle
+        from vk_bot._utils.handlers.region_select_handlers import handle_region_toggle
 
         self.mock_settings.get_geo_folders.return_value = [
             (1, 'Москва и МО'),

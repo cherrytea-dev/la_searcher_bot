@@ -6,7 +6,7 @@ import requests
 from sqlalchemy.orm import Session
 
 from identify_updates_of_first_posts import main
-from src.identify_updates_of_first_posts.main import (
+from identify_updates_of_first_posts.main import (
     process_first_page_comparison,
     split_text_to_deleted_and_regular_parts,
 )
