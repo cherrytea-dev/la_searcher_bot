@@ -48,7 +48,7 @@ def user_id(user_model: db_models.User) -> int:
 @pytest.fixture
 def vk_message():
     """Helper to create VKMessage instances."""
-    from src.vk_bot._utils.common import VKMessage
+    from vk_bot._utils.common import VKMessage
 
     def _create(
         text: str = '/start',
@@ -93,7 +93,7 @@ def mock_settings_service(monkeypatch):
     )
 
     monkeypatch.setattr(
-        'src.vk_bot._utils.database.get_user_settings_service',
+        'vk_bot._utils.database.get_user_settings_service',
         lambda: mock_settings,
     )
     return mock_settings
@@ -102,6 +102,6 @@ def mock_settings_service(monkeypatch):
 @pytest.fixture
 def vk_handler_result():
     """Helper to check VKHandlerResult fields."""
-    from src.vk_bot._utils.common import VKHandlerResult
+    from vk_bot._utils.common import VKHandlerResult
 
     return VKHandlerResult

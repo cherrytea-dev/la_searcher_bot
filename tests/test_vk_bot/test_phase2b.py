@@ -19,7 +19,7 @@ import pytest
 
 from _dependencies.commons import SearchFollowingMode
 from _dependencies.services.state_machine import DialogState
-from src.vk_bot._utils.common import VKHandlerResult
+from vk_bot._utils.common import VKHandlerResult
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. handle_view_search_menu
@@ -31,7 +31,7 @@ class TestHandleViewSearchMenu:
 
     def test_handles_view_search_menu_text(self, vk_message):
         """'посмотреть актуальные поиски' -> shows search view menu."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_view_search_menu
+        from vk_bot._utils.handlers.view_searches_handlers import handle_view_search_menu
 
         msg = vk_message(text='посмотреть актуальные поиски')
         result = handle_view_search_menu(msg, DialogState.not_defined, 12345)
@@ -43,7 +43,7 @@ class TestHandleViewSearchMenu:
 
     def test_ignores_other_text(self, vk_message):
         """Returns None for non-matching text."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_view_search_menu
+        from vk_bot._utils.handlers.view_searches_handlers import handle_view_search_menu
 
         msg = vk_message(text='random text')
         result = handle_view_search_menu(msg, DialogState.not_defined, 12345)
@@ -51,7 +51,7 @@ class TestHandleViewSearchMenu:
 
     def test_returns_search_view_keyboard(self, vk_message):
         """Result has search_view_menu keyboard with expected buttons."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_view_search_menu
+        from vk_bot._utils.handlers.view_searches_handlers import handle_view_search_menu
 
         msg = vk_message(text='посмотреть актуальные поиски')
         result = handle_view_search_menu(msg, DialogState.not_defined, 12345)
@@ -78,7 +78,7 @@ class TestHandleActiveSearches:
 
     def test_handles_active_searches_text(self, vk_message):
         """'активные поиски' -> returns formatted search list."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_active_searches
+        from vk_bot._utils.handlers.view_searches_handlers import handle_active_searches
 
         # Mock user regions
         self.mock_settings.get_user_regions.return_value = [1, 2]
@@ -104,7 +104,7 @@ class TestHandleActiveSearches:
 
     def test_handles_map_searches_text(self, vk_message):
         """'🔥карта поисков 🔥' -> also triggers active searches."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_active_searches
+        from vk_bot._utils.handlers.view_searches_handlers import handle_active_searches
 
         self.mock_settings.get_user_regions.return_value = [1]
 
@@ -123,7 +123,7 @@ class TestHandleActiveSearches:
 
     def test_no_regions(self, vk_message):
         """No subscribed regions -> returns 'no active searches' message."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_active_searches
+        from vk_bot._utils.handlers.view_searches_handlers import handle_active_searches
 
         self.mock_settings.get_user_regions.return_value = []
 
@@ -135,7 +135,7 @@ class TestHandleActiveSearches:
 
     def test_no_active_searches(self, vk_message):
         """No active searches found -> returns empty message."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_active_searches
+        from vk_bot._utils.handlers.view_searches_handlers import handle_active_searches
 
         self.mock_settings.get_user_regions.return_value = [1]
 
@@ -152,7 +152,7 @@ class TestHandleActiveSearches:
 
     def test_ignores_other_text(self, vk_message):
         """Returns None for non-matching text."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_active_searches
+        from vk_bot._utils.handlers.view_searches_handlers import handle_active_searches
 
         msg = vk_message(text='random text')
         result = handle_active_searches(msg, DialogState.not_defined, 12345)
@@ -160,7 +160,7 @@ class TestHandleActiveSearches:
 
     def test_groups_by_folder(self, vk_message):
         """Searches are grouped by forum_folder_id."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_active_searches
+        from vk_bot._utils.handlers.view_searches_handlers import handle_active_searches
 
         self.mock_settings.get_user_regions.return_value = [1, 2]
 
@@ -197,7 +197,7 @@ class TestHandleLatestSearches:
 
     def test_handles_latest_searches_text(self, vk_message):
         """'последние 20 поисков' -> returns formatted list."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_latest_searches
+        from vk_bot._utils.handlers.view_searches_handlers import handle_latest_searches
 
         self.mock_settings.get_user_regions.return_value = [1]
 
@@ -221,7 +221,7 @@ class TestHandleLatestSearches:
 
     def test_no_regions(self, vk_message):
         """No subscribed regions -> returns empty message."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_latest_searches
+        from vk_bot._utils.handlers.view_searches_handlers import handle_latest_searches
 
         self.mock_settings.get_user_regions.return_value = []
 
@@ -233,7 +233,7 @@ class TestHandleLatestSearches:
 
     def test_no_searches(self, vk_message):
         """No searches found -> returns empty message."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_latest_searches
+        from vk_bot._utils.handlers.view_searches_handlers import handle_latest_searches
 
         self.mock_settings.get_user_regions.return_value = [1]
 
@@ -250,7 +250,7 @@ class TestHandleLatestSearches:
 
     def test_ignores_other_text(self, vk_message):
         """Returns None for non-matching text."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_latest_searches
+        from vk_bot._utils.handlers.view_searches_handlers import handle_latest_searches
 
         msg = vk_message(text='random text')
         result = handle_latest_searches(msg, DialogState.not_defined, 12345)
@@ -272,7 +272,7 @@ class TestHandleSearchFollowMenu:
 
     def test_handles_follow_menu_text(self, vk_message):
         """'управление отслеживанием' -> shows follow menu."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_search_follow_menu
+        from vk_bot._utils.handlers.view_searches_handlers import handle_search_follow_menu
 
         self.mock_settings.get_search_follow_mode.return_value = True
 
@@ -286,7 +286,7 @@ class TestHandleSearchFollowMenu:
 
     def test_handles_alt_text(self, vk_message):
         """'отслеживание поисков' -> also shows follow menu."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_search_follow_menu
+        from vk_bot._utils.handlers.view_searches_handlers import handle_search_follow_menu
 
         self.mock_settings.get_search_follow_mode.return_value = False
 
@@ -298,7 +298,7 @@ class TestHandleSearchFollowMenu:
 
     def test_shows_follow_mode_on_status(self, vk_message):
         """When follow mode is on, shows enabled status."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_search_follow_menu
+        from vk_bot._utils.handlers.view_searches_handlers import handle_search_follow_menu
 
         self.mock_settings.get_search_follow_mode.return_value = True
 
@@ -310,7 +310,7 @@ class TestHandleSearchFollowMenu:
 
     def test_shows_follow_mode_off_status(self, vk_message):
         """When follow mode is off, shows disabled status."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_search_follow_menu
+        from vk_bot._utils.handlers.view_searches_handlers import handle_search_follow_menu
 
         self.mock_settings.get_search_follow_mode.return_value = False
 
@@ -322,7 +322,7 @@ class TestHandleSearchFollowMenu:
 
     def test_ignores_other_text(self, vk_message):
         """Returns None for non-matching text."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_search_follow_menu
+        from vk_bot._utils.handlers.view_searches_handlers import handle_search_follow_menu
 
         msg = vk_message(text='random text')
         result = handle_search_follow_menu(msg, DialogState.not_defined, 12345)
@@ -344,7 +344,7 @@ class TestHandleFollowModeToggle:
 
     def test_enables_follow_mode(self, vk_message):
         """'включить режим отслеживания' -> enables follow mode."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_follow_mode_toggle
+        from vk_bot._utils.handlers.view_searches_handlers import handle_follow_mode_toggle
 
         msg = vk_message(text='включить режим отслеживания')
         result = handle_follow_mode_toggle(msg, DialogState.not_defined, 12345)
@@ -355,7 +355,7 @@ class TestHandleFollowModeToggle:
 
     def test_disables_follow_mode(self, vk_message):
         """'выключить режим отслеживания' -> disables follow mode."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_follow_mode_toggle
+        from vk_bot._utils.handlers.view_searches_handlers import handle_follow_mode_toggle
 
         msg = vk_message(text='выключить режим отслеживания')
         result = handle_follow_mode_toggle(msg, DialogState.not_defined, 12345)
@@ -366,7 +366,7 @@ class TestHandleFollowModeToggle:
 
     def test_shows_followed_searches(self, vk_message):
         """'показать отслеживаемые поиски' -> shows list of followed searches."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_follow_mode_toggle
+        from vk_bot._utils.handlers.view_searches_handlers import handle_follow_mode_toggle
 
         # _get_user_followed_ids iterates over execute() result directly (not fetchall)
         # It checks row[1] in (SearchFollowingMode.ON, SearchFollowingMode.OFF)
@@ -405,7 +405,7 @@ class TestHandleFollowModeToggle:
 
     def test_shows_followed_searches_empty(self, vk_message):
         """No followed searches -> shows empty message with instructions."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_follow_mode_toggle
+        from vk_bot._utils.handlers.view_searches_handlers import handle_follow_mode_toggle
 
         # _get_user_followed_ids iterates over execute() result directly
         mock_result = MagicMock()
@@ -425,7 +425,7 @@ class TestHandleFollowModeToggle:
 
     def test_ignores_other_text(self, vk_message):
         """Returns None for non-matching text."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_follow_mode_toggle
+        from vk_bot._utils.handlers.view_searches_handlers import handle_follow_mode_toggle
 
         msg = vk_message(text='random text')
         result = handle_follow_mode_toggle(msg, DialogState.not_defined, 12345)
@@ -474,7 +474,7 @@ class TestHandleFollowUnfollowCommand:
 
     def test_follow_command(self, vk_message):
         """'+12345' -> follows search."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
+        from vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
 
         self._setup_mock_conn(exists=True, current_mode=None)
 
@@ -488,7 +488,7 @@ class TestHandleFollowUnfollowCommand:
 
     def test_unfollow_command(self, vk_message):
         """'-12345' when currently followed -> blacklists."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
+        from vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
 
         self._setup_mock_conn(exists=True, current_mode=SearchFollowingMode.ON)
 
@@ -501,7 +501,7 @@ class TestHandleFollowUnfollowCommand:
 
     def test_blacklist_command(self, vk_message):
         """'-12345' when not followed -> blacklists."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
+        from vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
 
         self._setup_mock_conn(exists=True, current_mode=None)
 
@@ -514,7 +514,7 @@ class TestHandleFollowUnfollowCommand:
 
     def test_blacklist_to_neutral_cycle(self, vk_message):
         """'-12345' when already blacklisted -> removes from whitelist (neutral)."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
+        from vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
 
         self._setup_mock_conn(exists=True, current_mode=SearchFollowingMode.OFF)
 
@@ -527,7 +527,7 @@ class TestHandleFollowUnfollowCommand:
 
     def test_already_following(self, vk_message):
         """'+12345' when already followed -> shows already following message."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
+        from vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
 
         self._setup_mock_conn(exists=True, current_mode=SearchFollowingMode.ON)
 
@@ -540,7 +540,7 @@ class TestHandleFollowUnfollowCommand:
 
     def test_search_not_found(self, vk_message):
         """'+99999' when search doesn't exist -> shows not found message."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
+        from vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
 
         self._setup_mock_conn(exists=False)
 
@@ -553,7 +553,7 @@ class TestHandleFollowUnfollowCommand:
 
     def test_ignores_non_command_text(self, vk_message):
         """Returns None for non-command text."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
+        from vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
 
         msg = vk_message(text='random text')
         result = handle_follow_unfollow_command(msg, DialogState.not_defined, 12345)
@@ -561,7 +561,7 @@ class TestHandleFollowUnfollowCommand:
 
     def test_ignores_text_without_plus_minus(self, vk_message):
         """Returns None for text that doesn't start with + or -."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
+        from vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
 
         msg = vk_message(text='12345')
         result = handle_follow_unfollow_command(msg, DialogState.not_defined, 12345)
@@ -569,7 +569,7 @@ class TestHandleFollowUnfollowCommand:
 
     def test_ignores_plus_without_digits(self, vk_message):
         """Returns None for '+' without digits."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
+        from vk_bot._utils.handlers.view_searches_handlers import handle_follow_unfollow_command
 
         msg = vk_message(text='+abc')
         result = handle_follow_unfollow_command(msg, DialogState.not_defined, 12345)
@@ -586,7 +586,7 @@ class TestHandleMoreSearches:
 
     def test_handles_more_searches_text(self, vk_message):
         """'еще поиски' -> returns search view menu."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_more_searches
+        from vk_bot._utils.handlers.view_searches_handlers import handle_more_searches
 
         msg = vk_message(text='еще поиски')
         result = handle_more_searches(msg, DialogState.not_defined, 12345)
@@ -598,7 +598,7 @@ class TestHandleMoreSearches:
 
     def test_ignores_other_text(self, vk_message):
         """Returns None for non-matching text."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_more_searches
+        from vk_bot._utils.handlers.view_searches_handlers import handle_more_searches
 
         msg = vk_message(text='random text')
         result = handle_more_searches(msg, DialogState.not_defined, 12345)
@@ -606,7 +606,7 @@ class TestHandleMoreSearches:
 
     def test_returns_search_view_keyboard(self, vk_message):
         """Result has search_view_menu keyboard."""
-        from src.vk_bot._utils.handlers.view_searches_handlers import handle_more_searches
+        from vk_bot._utils.handlers.view_searches_handlers import handle_more_searches
 
         msg = vk_message(text='еще поиски')
         result = handle_more_searches(msg, DialogState.not_defined, 12345)

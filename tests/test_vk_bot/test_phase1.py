@@ -237,26 +237,16 @@ class TestVKKeyboardPresets:
     def test_main_menu(self):
         result = VKKeyboard.main_menu()
         labels = [btn[0]['action']['label'] for btn in result['buttons']]
-        assert '🔥Карта Поисков 🔥' in labels
         assert 'посмотреть актуальные поиски' in labels
-        assert 'настроить бот' in labels
         assert 'другие возможности' in labels
         assert result['buttons'][0][0]['color'] == 'primary'
 
     def test_settings_menu(self):
         result = VKKeyboard.settings_menu()
         labels = [btn[0]['action']['label'] for btn in result['buttons']]
-        assert 'настроить виды уведомлений' in labels
-        assert 'настроить "домашние координаты"' in labels
         assert 'связать аккаунты бота и форума' in labels
+        assert 'связать аккаунты бота и VKontakte' in labels
         assert 'в начало' in labels
-
-    def test_coords_menu(self):
-        result = VKKeyboard.coords_menu()
-        labels = [btn[0]['action']['label'] for btn in result['buttons']]
-        assert 'ввести "домашние координаты" вручную' in labels
-        assert 'посмотреть сохраненные "домашние координаты"' in labels
-        assert 'удалить "домашние координаты"' in labels
 
     def test_role_choice(self):
         result = VKKeyboard.role_choice()
@@ -285,55 +275,6 @@ class TestVKKeyboardPresets:
         assert 'посмотреть последние поиски' in labels
         assert 'написать разработчику бота' in labels
         assert 'ознакомиться с информацией для новичка' in labels
-        assert 'посмотреть красивые фото с поисков' in labels
-
-    def test_distance_settings(self):
-        result = VKKeyboard.distance_settings()
-        labels = [btn[0]['action']['label'] for btn in result['buttons']]
-        assert 'включить ограничение по расстоянию' in labels
-        assert 'отключить ограничение по расстоянию' in labels
-        assert 'изменить ограничение по расстоянию' in labels
-
-    def test_notification_settings(self):
-        result = VKKeyboard.notification_settings()
-        # Flatten all button labels from all rows
-        all_labels = []
-        for row in result['buttons']:
-            for btn in row:
-                all_labels.append(btn['action']['label'])
-        assert 'включить: все уведомления' in all_labels
-        assert 'включить: о новых поисках' in all_labels
-        assert 'включить: об измен. статусов' in all_labels
-        assert 'отключить: все уведомления' in all_labels
-        assert 'настроить более гибко' in all_labels
-        assert 'в начало' in all_labels
-        # VK API limits: 10 rows max, 40 chars per label
-        assert len(result['buttons']) <= 10
-        for label in all_labels:
-            assert len(label) <= 40, f'Label too long ({len(label)} chars): {label}'
-
-    def test_fed_districts(self):
-        result = VKKeyboard.fed_districts()
-        labels = [btn[0]['action']['label'] for btn in result['buttons']]
-        assert 'Центральный ФО' in labels
-        assert 'Северо-Западный ФО' in labels
-        assert 'Южный ФО' in labels
-        assert 'Северо-Кавказский ФО' in labels
-        assert 'Приволжский ФО' in labels
-        assert 'Уральский ФО' in labels
-        assert 'Сибирский ФО' in labels
-        assert 'Дальневосточный ФО' in labels
-        assert 'Прочие поиски по РФ' in labels
-
-    def test_is_moscow(self):
-        result = VKKeyboard.is_moscow()
-        assert result['buttons'][0][0]['action']['label'] == 'да, Москва – мой регион'
-        assert result['buttons'][0][1]['action']['label'] == 'нет, я из другого региона'
-
-    def test_help_needed(self):
-        result = VKKeyboard.help_needed()
-        assert result['buttons'][0][0]['action']['label'] == 'да, помогите мне настроить бот'
-        assert result['buttons'][0][1]['action']['label'] == 'нет, помощь не требуется'
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

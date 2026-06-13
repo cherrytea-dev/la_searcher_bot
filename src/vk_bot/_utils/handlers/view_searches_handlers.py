@@ -26,9 +26,9 @@ from _dependencies.services.message_formatter import (
     search_follow_mode_on,
 )
 from _dependencies.services.state_machine import DialogState
-from src.vk_bot._utils.common import SEARCH_URL_PREFIX, VKHandlerResult, VKMessage
-from src.vk_bot._utils.database import db
-from src.vk_bot._utils.keyboards import VKKeyboard
+from vk_bot._utils.common import SEARCH_URL_PREFIX, VKHandlerResult, VKMessage
+from vk_bot._utils.database import db
+from vk_bot._utils.keyboards import VKKeyboard
 
 logger = logging.getLogger(__name__)
 

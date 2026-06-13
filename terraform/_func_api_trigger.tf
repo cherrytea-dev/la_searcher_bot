@@ -11,6 +11,7 @@ variable "api-funcs" {
     "title-recognize" = { memory = "1024", entrypoint = "foo.main.main" }
     "user-provide-info" = { memory = "256", entrypoint = "foo.main.main" }
     "vk-bot" = { memory = "256", entrypoint = "foo.main.main" }
+    "vk-admin-api" = { memory = "256", entrypoint = "foo.main.main" }
   }
 }
 

@@ -6,6 +6,7 @@ from urllib.parse import quote, urlencode
 import pytest
 
 from _dependencies.commons import TopicType
+from _dependencies.misc import verify_telegram_data_string
 from tests.common import get_http_request
 from tests.factories.db_factories import (
     ChangeLogFactory,
@@ -26,8 +27,8 @@ from user_provide_info import main
 def test_verify_telegram_data_string():
     hash_for_foo = '58e12c073b212a320f893933f1d62cbbef82c9df6a6a6d061a37a1a1c3ad861d'
     token = 'token'
-    assert main.verify_telegram_data_string(f'foo&hash={hash_for_foo}', token) is True
-    assert main.verify_telegram_data_string(f'bar&hash={hash_for_foo}', token) is False
+    assert verify_telegram_data_string(f'foo&hash={hash_for_foo}', token) is True
+    assert verify_telegram_data_string(f'bar&hash={hash_for_foo}', token) is False
 
 
 class TestMain:

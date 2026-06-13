@@ -101,9 +101,8 @@ class VKKeyboard:
         """Main menu."""
         return cls.one_column(
             [
-                '🔥Карта Поисков 🔥',
                 'посмотреть актуальные поиски',
-                'настроить бот',
+                'панель управления',
                 'другие возможности',
             ],
             color='primary',
@@ -111,28 +110,11 @@ class VKKeyboard:
 
     @classmethod
     def settings_menu(cls) -> dict:
-        """Settings menu."""
+        """Settings menu — now links to the web admin panel."""
         return cls.one_column(
             [
-                'настроить виды уведомлений',
-                'настроить "домашние координаты"',
-                'настроить максимальный радиус',
-                'настроить возрастные группы БВП',
-                'настроить вид поисков',
                 'связать аккаунты бота и форума',
                 'связать аккаунты бота и VKontakte',
-                'в начало',
-            ]
-        )
-
-    @classmethod
-    def coords_menu(cls) -> dict:
-        """Coordinate settings menu."""
-        return cls.one_column(
-            [
-                'ввести "домашние координаты" вручную',
-                'посмотреть сохраненные "домашние координаты"',
-                'удалить "домашние координаты"',
                 'в начало',
             ]
         )
@@ -169,144 +151,6 @@ class VKKeyboard:
                 'посмотреть последние поиски',
                 'написать разработчику бота',
                 'ознакомиться с информацией для новичка',
-                'посмотреть красивые фото с поисков',
-                'в начало',
-            ]
-        )
-
-    @classmethod
-    def distance_settings(cls) -> dict:
-        """Radius/distance settings menu."""
-        return cls.one_column(
-            [
-                'включить ограничение по расстоянию',
-                'отключить ограничение по расстоянию',
-                'изменить ограничение по расстоянию',
-                'в начало',
-            ]
-        )
-
-    @classmethod
-    def notification_settings(cls) -> dict:
-        """Notification settings — enable/disable toggles.
-
-        VK API limits:
-        - Non-inline keyboards: 10 rows max
-        - Button labels: 40 characters max
-        """
-        return {
-            'one_time': False,
-            'inline': False,
-            'buttons': [
-                # Row 1: enable all
-                [cls._text_button('включить: все уведомления', 'positive')],
-                # Rows 2-4: enable toggles in pairs (6 items → 3 rows)
-                [
-                    cls._text_button('включить: о новых поисках'),
-                    cls._text_button('включить: об измен. статусов'),
-                ],
-                [
-                    cls._text_button('включить: о всех новых комментариях'),
-                    cls._text_button('включить: о комм. Инфорга'),
-                ],
-                [
-                    cls._text_button('включить: об измен. в первом посте'),
-                    cls._text_button('включить: в отслеж. поисках - все'),
-                ],
-                # Row 5: flexible settings + disable all
-                [
-                    cls._text_button('настроить более гибко'),
-                    cls._text_button('отключить: все уведомления', 'negative'),
-                ],
-                # Row 6: back
-                [cls._text_button('в начало')],
-            ],
-        }
-
-    @classmethod
-    def fed_districts(cls) -> dict:
-        """Federal districts selection."""
-        return cls.one_column(
-            [
-                'Центральный ФО',
-                'Северо-Западный ФО',
-                'Южный ФО',
-                'Северо-Кавказский ФО',
-                'Приволжский ФО',
-                'Уральский ФО',
-                'Сибирский ФО',
-                'Дальневосточный ФО',
-                'Прочие поиски по РФ',
-                'в начало',
-            ]
-        )
-
-    @classmethod
-    def is_moscow(cls) -> dict:
-        """Moscow region confirmation."""
-        return cls.two_columns(
-            ['да, Москва – мой регион', 'нет, я из другого региона'],
-            color='primary',
-        )
-
-    @classmethod
-    def help_needed(cls) -> dict:
-        """Help needed confirmation."""
-        return cls.two_columns(
-            ['да, помогите мне настроить бот', 'нет, помощь не требуется'],
-            color='primary',
-        )
-
-    @classmethod
-    def age_settings(cls) -> dict:
-        """Age group preferences."""
-        return cls.one_column(
-            [
-                'дети (0-10 лет)',
-                'подростки (11-17 лет)',
-                'взрослые (18-50 лет)',
-                'пожилые (51+ лет)',
-                'в начало',
-            ]
-        )
-
-    @classmethod
-    def topic_type_settings(cls) -> dict:
-        """Search type preferences (VK version - simplified, no inline toggles)."""
-        return cls.one_column(
-            [
-                'поисковые работы',
-                'информационный поиск',
-                'в начало',
-            ]
-        )
-
-    @classmethod
-    def region_actions(cls, region_name: str, is_subscribed: bool) -> dict:
-        """Region actions: subscribe/unsubscribe and done."""
-        action_btn = 'отписаться от региона' if is_subscribed else 'подписаться на регион'
-        return cls.one_column(
-            [
-                action_btn,
-                'выбрать другой регион',
-                'в начало',
-            ]
-        )
-
-    @classmethod
-    def radius_settings(cls, has_radius: bool = False) -> dict:
-        """Radius settings menu."""
-        if has_radius:
-            return cls.one_column(
-                [
-                    'изменить радиус',
-                    'отключить ограничение по расстоянию',
-                    'в начало',
-                ]
-            )
-        return cls.one_column(
-            [
-                'включить ограничение по расстоянию',
                 'в начало',
             ]
         )

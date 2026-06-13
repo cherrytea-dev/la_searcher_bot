@@ -66,3 +66,6 @@ prepare-environment:
 
 recreate-local-db:
 	docker compose run --build --rm bot uv run python tests/tools/init_testing_db.py --db=PROD
+
+deploy-frontend:
+	uv run python scripts/deploy_frontend.py
