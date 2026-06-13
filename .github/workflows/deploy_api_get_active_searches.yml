@@ -2,12 +2,12 @@ name: Deploy-API-Get-Active-Searches
 
 on:
   push:
-    branches: [ main ]
+    branches: [temp-old-update-checking-scheme]
     paths:
-      - 'src/_dependencies/*'
-      - 'src/api_get_active_searches/**'
-      - '.github/workflows/deploy_api_get_active_searches.yml'
-      - '.github/workflows/_reusable_wf_yc.yml'
+      - "src/_dependencies/*"
+      - "src/api_get_active_searches/**"
+      - ".github/workflows/deploy_api_get_active_searches.yml"
+      - ".github/workflows/_reusable_wf_yc.yml"
 
 jobs:
   deploy:

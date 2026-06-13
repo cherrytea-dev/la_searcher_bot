@@ -2,12 +2,12 @@ name: Deploy-Users-Activate
 
 on:
   push:
-    branches: [ main ]
+    branches: [temp-old-update-checking-scheme]
     paths:
-      - 'src/users_activate/**'
-      - '.github/workflows/deploy_users_activate.yml'
-      - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_yc.yml'
+      - "src/users_activate/**"
+      - ".github/workflows/deploy_users_activate.yml"
+      - "src/_dependencies/*"
+      - ".github/workflows/_reusable_wf_yc.yml"
 
 jobs:
   deploy:
@@ -15,4 +15,3 @@ jobs:
     secrets: inherit
     with:
       function_name: users_activate
-      

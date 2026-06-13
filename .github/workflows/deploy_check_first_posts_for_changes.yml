@@ -2,12 +2,12 @@ name: Deploy-Check-First-Posts-For-Changes
 
 on:
   push:
-    branches: [ main ]
+    branches: [temp-old-update-checking-scheme]
     paths:
-      - 'src/check_first_posts_for_changes/**'
-      - '.github/workflows/deploy_check_first_posts_for_changes.yml'
-      - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_yc.yml'
+      - "src/check_first_posts_for_changes/**"
+      - ".github/workflows/deploy_check_first_posts_for_changes.yml"
+      - "src/_dependencies/*"
+      - ".github/workflows/_reusable_wf_yc.yml"
 
 jobs:
   deploy:
@@ -16,4 +16,3 @@ jobs:
     with:
       function_name: check_first_posts_for_changes
       # timeout: '540'
-      

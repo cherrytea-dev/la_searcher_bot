@@ -2,12 +2,12 @@ name: Deploy-Check-Topics-By-Upd-Time
 
 on:
   push:
-    branches: [ main ]
+    branches: [temp-old-update-checking-scheme]
     paths:
-      - 'src/check_topics_by_upd_time/**'
-      - '.github/workflows/deploy_check_topics_by_upd_time.yml'
-      - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_yc.yml'
+      - "src/check_topics_by_upd_time/**"
+      - ".github/workflows/deploy_check_topics_by_upd_time.yml"
+      - "src/_dependencies/*"
+      - ".github/workflows/_reusable_wf_yc.yml"
 
 jobs:
   deploy:
@@ -15,4 +15,3 @@ jobs:
     secrets: inherit
     with:
       function_name: check_topics_by_upd_time
-      

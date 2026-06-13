@@ -2,12 +2,12 @@ name: Deploy-Compose-Notifications
 
 on:
   push:
-    branches: [ main ]
+    branches: [temp-old-update-checking-scheme]
     paths:
-      - 'src/compose_notifications/**'
-      - '.github/workflows/deploy_compose_notifications.yml'
-      - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_yc.yml'
+      - "src/compose_notifications/**"
+      - ".github/workflows/deploy_compose_notifications.yml"
+      - "src/_dependencies/*"
+      - ".github/workflows/_reusable_wf_yc.yml"
 
 jobs:
   deploy:
@@ -15,5 +15,5 @@ jobs:
     secrets: inherit
     with:
       function_name: compose_notifications
-      
-      timeout: '540'
+
+      timeout: "540"

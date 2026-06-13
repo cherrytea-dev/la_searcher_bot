@@ -2,12 +2,12 @@ name: Deploy-Archive-Notifications
 
 on:
   push:
-    branches: [ main ]
+    branches: [temp-old-update-checking-scheme]
     paths:
-      - 'src/_dependencies/*'
-      - 'src/archive_notifications/**'
-      - '.github/workflows/deploy_archive_notifications.yml'
-      - '.github/workflows/_reusable_wf_yc.yml'
+      - "src/_dependencies/*"
+      - "src/archive_notifications/**"
+      - ".github/workflows/deploy_archive_notifications.yml"
+      - ".github/workflows/_reusable_wf_yc.yml"
 
 jobs:
   deploy:
@@ -15,4 +15,4 @@ jobs:
     secrets: inherit
     with:
       function_name: archive_notifications
-      timeout: '540'
+      timeout: "540"

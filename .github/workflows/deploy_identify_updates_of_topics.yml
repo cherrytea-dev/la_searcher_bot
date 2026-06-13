@@ -2,12 +2,12 @@ name: Deploy-Identify-Updates-Of-Topics
 
 on:
   push:
-    branches: [ main ]
+    branches: [temp-old-update-checking-scheme]
     paths:
-      - 'src/identify_updates_of_topics/**'
-      - '.github/workflows/deploy_identify_updates_of_topics.yml'
-      - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_yc.yml'
+      - "src/identify_updates_of_topics/**"
+      - ".github/workflows/deploy_identify_updates_of_topics.yml"
+      - "src/_dependencies/*"
+      - ".github/workflows/_reusable_wf_yc.yml"
 
 jobs:
   deploy:
@@ -15,6 +15,6 @@ jobs:
     secrets: inherit
     with:
       function_name: identify_updates_of_topics
-      
-      timeout: '540'
-      memory: '512Mb'
+
+      timeout: "540"
+      memory: "512Mb"

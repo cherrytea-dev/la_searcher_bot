@@ -2,12 +2,12 @@ name: Deploy-Connect-To-Forum
 
 on:
   push:
-    branches: [ main ]
+    branches: [temp-old-update-checking-scheme]
     paths:
-      - 'src/connect_to_forum/**'
-      - '.github/workflows/deploy_connect_to_forum.yml'
-      - 'src/_dependencies/*'
-      - '.github/workflows/_reusable_wf_yc.yml'
+      - "src/connect_to_forum/**"
+      - ".github/workflows/deploy_connect_to_forum.yml"
+      - "src/_dependencies/*"
+      - ".github/workflows/_reusable_wf_yc.yml"
 
 jobs:
   deploy:
@@ -15,5 +15,5 @@ jobs:
     secrets: inherit
     with:
       function_name: connect_to_forum
-      
+
       # timeout: '540'
