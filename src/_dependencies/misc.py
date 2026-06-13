@@ -110,6 +110,7 @@ def calc_bearing(lat_2: float, lon_2: float, lat_1: float, lon_1: float) -> floa
 @dataclass
 class RequestWrapper:
     method: str
+    path: str
     data: bytes
     headers: dict[str, str] = field(default_factory=dict)
     json_: dict[str, Any] | None = None
@@ -143,6 +144,7 @@ def convert_yc_request(request_data: dict) -> RequestWrapper:
 
     return RequestWrapper(
         method=request_data.get('httpMethod'),  # type: ignore[arg-type]
+        path=request_data.get('path', request_data.get('requestContext', {}).get('path', '/')),
         json_=json_,
         headers=request_data.get('headers', {}),
         data=request_data.get('body', b''),

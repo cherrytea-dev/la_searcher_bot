@@ -108,45 +108,76 @@ def _auth_tg(data: dict) -> int | None:
 def _auth_vk(data: dict) -> int | None:
     """Authenticate via VK.
 
-    Supports two modes:
-    1. Mini Apps (legacy): {vk_user_id: int} — direct user ID
-    2. OAuth 2.0 (browser): {code: str, redirect_uri: str} — code exchange
+    Supports three modes:
+    1. Re-auth by internal user_id: {user_id: int} — fast re-auth for subsequent requests
+    2. Mini Apps (legacy): {vk_user_id: int} — direct VK platform user ID
+    3. VK ID OAuth 2.0 with PKCE (browser):
+       {code, code_verifier, device_id, redirect_uri} — code exchange
 
     For OAuth mode, exchanges the code for an access_token via
-    VK OAuth API, then resolves vk_user_id → internal user_id.
+    VK ID API (https://id.vk.com/oauth2/auth), then resolves
+    vk_user_id → internal user_id.
     """
-    # Mode 1: Mini Apps (direct vk_user_id)
+    service = get_user_settings_service()
+
+    # Mode 1: Re-auth by internal user_id (stored after initial VK OAuth)
+    user_id = data.get('user_id')
+    if user_id is not None:
+        # Verify the user still exists in the database
+        summary = service.get_settings_summary(int(user_id))
+        if summary is not None:
+            return int(user_id)
+        return None
+
+    # Mode 2: Mini Apps (direct vk_user_id)
     vk_id = data.get('vk_user_id')
     if vk_id:
-        service = get_user_settings_service()
         return service.get_user_by_vk_id(int(vk_id))
 
-    # Mode 2: OAuth 2.0 code exchange
+    # Mode 3: VK ID OAuth 2.0 with PKCE code exchange
     code = data.get('code')
+    code_verifier = data.get('code_verifier')
+    device_id = data.get('device_id', '')
     redirect_uri = data.get('redirect_uri')
-    if code and redirect_uri and VK_OAUTH_CLIENT_ID and VK_OAUTH_CLIENT_SECRET:
+    if code and code_verifier and redirect_uri and VK_OAUTH_CLIENT_ID:
         try:
             import httpx
 
+            # Build token exchange payload.
+            # Per VK ID docs (Step 5): device_id is REQUIRED for token exchange.
+            # It comes from the callback payload (Step 3-4).
+            if not device_id:
+                logger.warning('VK ID OAuth code exchange: device_id is empty, request will likely fail')
+            payload: dict[str, str] = {
+                'grant_type': 'authorization_code',
+                'code': code,
+                'code_verifier': code_verifier,
+                'client_id': VK_OAUTH_CLIENT_ID,
+                'redirect_uri': redirect_uri,
+                'device_id': device_id,
+            }
+
+            logger.info(
+                'VK ID OAuth code exchange: client_id=%s redirect_uri=%s device_id=%s',
+                VK_OAUTH_CLIENT_ID,
+                redirect_uri,
+                device_id,
+            )
             resp = httpx.post(
-                'https://oauth.vk.com/access_token',
-                data={
-                    'client_id': VK_OAUTH_CLIENT_ID,
-                    'client_secret': VK_OAUTH_CLIENT_SECRET,
-                    'code': code,
-                    'redirect_uri': redirect_uri,
-                },
+                'https://id.vk.com/oauth2/auth',
+                data=payload,
                 timeout=10,
             )
+            logger.info('VK ID response status=%s body=%s', resp.status_code, resp.text)
             resp.raise_for_status()
             token_data = resp.json()
             vk_user_id = token_data.get('user_id')
             if not vk_user_id:
+                logger.warning('VK ID returned no user_id in: %s', token_data)
                 return None
-            service = get_user_settings_service()
             return service.get_user_by_vk_id(int(vk_user_id))
         except Exception:
-            logger.exception('VK OAuth code exchange failed')
+            logger.exception('VK ID OAuth code exchange failed')
             return None
 
     return None
@@ -221,9 +252,10 @@ def main(request: RequestWrapper) -> ResponseWrapper:
         return _cors_response()
 
     body = request.json_ or {}
+    path = request.path
 
     # Auth endpoints (no auth required)
-    auth_handler = AUTH_ROUTES.get((request.method, body.get('path', '')))
+    auth_handler = AUTH_ROUTES.get((request.method, path))
     if auth_handler:
         return auth_handler(body)
 
@@ -234,7 +266,6 @@ def main(request: RequestWrapper) -> ResponseWrapper:
 
     # Create service once and inject into handlers
     service = get_user_settings_service()
-    path = body.get('path', '')
     method = request.method
 
     if method == 'GET':

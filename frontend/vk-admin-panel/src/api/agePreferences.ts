@@ -7,15 +7,12 @@ export interface AgePeriod {
 }
 
 export async function getAgePreferences(): Promise<ApiResponse<AgePeriod[]>> {
-    const { data } = await apiClient.post<ApiResponse<AgePeriod[]>>('/', {
-        path: '/api/v1/age-preferences',
-    })
+    const { data } = await apiClient.get<ApiResponse<AgePeriod[]>>('/api/v1/age-preferences')
     return data
 }
 
 export async function saveAgePeriod(period: AgePeriod): Promise<ApiResponse<null>> {
-    const { data } = await apiClient.post<ApiResponse<null>>('/', {
-        path: '/api/v1/age-preferences',
+    const { data } = await apiClient.post<ApiResponse<null>>('/api/v1/age-preferences', {
         min_age: period.min_age,
         max_age: period.max_age,
     })
@@ -23,9 +20,8 @@ export async function saveAgePeriod(period: AgePeriod): Promise<ApiResponse<null
 }
 
 export async function deleteAgePeriod(period: AgePeriod): Promise<ApiResponse<null>> {
-    const { data } = await apiClient.delete<ApiResponse<null>>('/', {
+    const { data } = await apiClient.delete<ApiResponse<null>>('/api/v1/age-preferences', {
         data: {
-            path: '/api/v1/age-preferences',
             min_age: period.min_age,
             max_age: period.max_age,
         },

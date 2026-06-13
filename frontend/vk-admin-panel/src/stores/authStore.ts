@@ -59,16 +59,23 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    /** Authenticate via VK OAuth code exchange. */
-    async function loginVk(code: string, redirectUri: string) {
+    /** Authenticate via VK ID OAuth code exchange (PKCE flow). */
+    async function loginVk(params: {
+        code: string
+        code_verifier: string
+        device_id: string
+        redirect_uri: string
+    }) {
         loading.value = true
         error.value = null
         try {
-            const res = await authVk(code, redirectUri)
+            const res = await authVk(params)
             if (res.ok && res.data) {
                 method.value = 'VK'
                 userId.value = res.data.user_id
-                payload.value = { code, redirect_uri: redirectUri }
+                // Store internal user_id for re-authentication on subsequent requests.
+                // Backend _auth_vk Mode 1 accepts {user_id: int} and verifies user exists.
+                payload.value = { user_id: res.data.user_id }
                 _persist()
             } else {
                 error.value = res.error || 'VK authentication failed'
