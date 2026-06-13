@@ -79,8 +79,13 @@ class SearchFirstPostFactory(BaseFactory[db_models.SearchFirstPost]):
     pass
 
 
+class GeoDivisionFactory(BaseFactory[db_models.GeoDivision]):
+    __set_primary_key__ = True
+
+
 class GeoFolderFactory(BaseFactory[db_models.GeoFolder]):
     __set_primary_key__ = True
+    folder_id = Use(BaseFactory.__random__.randint, 10000, 90000)
 
 
 class GeoRegionFactory(BaseFactory[db_models.GeoRegion]):

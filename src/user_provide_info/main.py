@@ -2,8 +2,6 @@
 The current script checks Telegram authentication and retrieves user's key data and list of searches"""
 
 import ast
-import hashlib
-import hmac
 import json
 import logging
 import re
@@ -21,6 +19,7 @@ from _dependencies.misc import (
     ResponseWrapper,
     request_response_converter,
     time_counter_since_search_start,
+    verify_telegram_data,
 )
 
 setup_logging(__package__)
@@ -98,62 +97,6 @@ class OptionsResponse(FlaskResponseBase):
 
         logging.info(f'{headers=}')
         return ResponseWrapper('', 204, headers)
-
-
-def verify_telegram_data_json(user_input: dict, token: str) -> bool:
-    """verify the received dict is issued by telegram, which means user is authenticated with telegram"""
-
-    if not user_input or not isinstance(user_input, dict) or 'hash' not in user_input.keys() or not token:
-        return False
-
-    hash_from_telegram = user_input['hash']
-    sorted_dict = {key: value for key, value in sorted(user_input.items())}
-
-    data_array = []
-    for key, value in sorted_dict.items():
-        if key != 'hash':
-            data_array.append(f'{key}={value}')
-    data_check_string = '\n'.join(data_array)
-
-    # Convert bot_token to bytes and compute its SHA256 hash
-    secret_key = hashlib.sha256(token.encode()).digest()
-
-    # Compute the HMAC-SHA-256 signature of the data_check_string
-    hmac_signature = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-
-    # Compare the computed signature with the received hash
-    return hmac_signature == hash_from_telegram
-
-
-def verify_telegram_data_string(user_input: str, token: str) -> bool:
-    """verify the received dict is issued by telegram, which means user is authenticated with telegram"""
-
-    data_check_string = unquote(user_input)
-
-    data_check_arr = data_check_string.split('&')
-    needle = 'hash='
-    hash_item = ''
-    telegram_hash = ''
-    for item in data_check_arr:
-        if item[0 : len(needle)] == needle:
-            telegram_hash = item[len(needle) :]
-            hash_item = item
-    data_check_arr.remove(hash_item)
-    data_check_arr.sort()
-    data_check_string = '\n'.join(data_check_arr)
-    secret_key = hmac.new('WebAppData'.encode(), token.encode(), hashlib.sha256).digest()
-    calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-
-    return calculated_hash == telegram_hash
-
-
-def verify_telegram_data(user_input: str | dict) -> bool:
-    """verify the authority of user input with hash"""
-    bot_token = get_app_config().bot_api_token__prod
-    if isinstance(user_input, str):
-        return verify_telegram_data_string(user_input, bot_token)
-    else:
-        return verify_telegram_data_json(user_input, bot_token)
 
 
 def get_user_data_from_db(user_id: int) -> BaseUserParams:

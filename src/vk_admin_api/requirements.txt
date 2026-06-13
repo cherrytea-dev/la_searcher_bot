@@ -1,0 +1,2 @@
+# Dependencies are provided by _dependencies/ package
+# No additional external dependencies required

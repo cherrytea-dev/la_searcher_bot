@@ -1,0 +1,17 @@
+name: Deploy-VK-Admin-API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/vk_admin_api/**"
+      - ".github/workflows/deploy_vk_admin_api.yml"
+      - "src/_dependencies/*"
+      - ".github/workflows/_reusable_wf_yc.yml"
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/_reusable_wf_yc.yml
+    secrets: inherit
+    with:
+      function_name: vk_admin_api
