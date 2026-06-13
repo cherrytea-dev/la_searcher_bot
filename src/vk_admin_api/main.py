@@ -1,15 +1,16 @@
 """VK Admin Panel API — REST endpoints for managing user notification settings.
 
-This function provides a JSON API for a future web front-end (admin panel)
+This function provides a JSON API for a web front-end (admin panel)
 that replaces VK Bot's keyboard-based settings UI.
 
 Authentication:
   - Telegram Login Widget (HMAC-SHA256 verification)
-  - VK OAuth / VK Mini Apps (resolve vk_id → user_id)
+  - VK OAuth 2.0 (code exchange, works in any browser)
+  - VK Mini Apps (legacy, direct vk_user_id)
 
 Endpoints:
   POST /api/v1/auth/tg       — Authenticate via Telegram Login Widget
-  POST /api/v1/auth/vk       — Authenticate via VK user ID
+  POST /api/v1/auth/vk       — Authenticate via VK (OAuth code or Mini Apps)
   GET  /api/v1/settings      — Full settings summary for a user
   GET  /api/v1/preferences   — List notification preferences
   POST /api/v1/preferences   — Toggle a notification preference
@@ -36,6 +37,7 @@ Endpoints:
 
 import json
 import logging
+import os
 from typing import Any
 
 from _dependencies.commons import setup_logging
@@ -58,6 +60,10 @@ logger = logging.getLogger(__name__)
 # ─── Constants ──────────────────────────────────────────────────────────
 
 ALLOWED_ORIGINS = ['*']  # TODO: restrict in production
+
+# VK OAuth 2.0 credentials (for code exchange)
+VK_OAUTH_CLIENT_ID: str | None = os.getenv('VK_OAUTH_CLIENT_ID')
+VK_OAUTH_CLIENT_SECRET: str | None = os.getenv('VK_OAUTH_CLIENT_SECRET')
 
 # ─── Response Helpers ───────────────────────────────────────────────────
 
@@ -100,16 +106,50 @@ def _auth_tg(data: dict) -> int | None:
 
 
 def _auth_vk(data: dict) -> int | None:
-    """Authenticate via VK user ID.
+    """Authenticate via VK.
 
-    Expects: {vk_user_id: int}
-    Resolves vk_id → internal user_id via UserSettingsService.
+    Supports two modes:
+    1. Mini Apps (legacy): {vk_user_id: int} — direct user ID
+    2. OAuth 2.0 (browser): {code: str, redirect_uri: str} — code exchange
+
+    For OAuth mode, exchanges the code for an access_token via
+    VK OAuth API, then resolves vk_user_id → internal user_id.
     """
+    # Mode 1: Mini Apps (direct vk_user_id)
     vk_id = data.get('vk_user_id')
-    if not vk_id:
-        return None
-    service = get_user_settings_service()
-    return service.get_user_by_vk_id(int(vk_id))
+    if vk_id:
+        service = get_user_settings_service()
+        return service.get_user_by_vk_id(int(vk_id))
+
+    # Mode 2: OAuth 2.0 code exchange
+    code = data.get('code')
+    redirect_uri = data.get('redirect_uri')
+    if code and redirect_uri and VK_OAUTH_CLIENT_ID and VK_OAUTH_CLIENT_SECRET:
+        try:
+            import httpx
+
+            resp = httpx.post(
+                'https://oauth.vk.com/access_token',
+                data={
+                    'client_id': VK_OAUTH_CLIENT_ID,
+                    'client_secret': VK_OAUTH_CLIENT_SECRET,
+                    'code': code,
+                    'redirect_uri': redirect_uri,
+                },
+                timeout=10,
+            )
+            resp.raise_for_status()
+            token_data = resp.json()
+            vk_user_id = token_data.get('user_id')
+            if not vk_user_id:
+                return None
+            service = get_user_settings_service()
+            return service.get_user_by_vk_id(int(vk_user_id))
+        except Exception:
+            logger.exception('VK OAuth code exchange failed')
+            return None
+
+    return None
 
 
 def _authenticate(request: RequestWrapper) -> int | None:
