@@ -55,6 +55,10 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+h3 {
+  color: var(--app-text-color);
+}
+
 .text-secondary {
   color: #888;
   margin-bottom: 1rem;
@@ -65,5 +69,6 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 0;
+  color: var(--app-text-color);
 }
 </style>

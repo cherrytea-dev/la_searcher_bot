@@ -36,6 +36,9 @@ app.use(router)
 app.use(PrimeVue, {
     theme: {
         preset: Aura,
+        options: {
+            darkModeSelector: false,
+        },
     },
 })
 

@@ -81,5 +81,6 @@ onMounted(async () => {
 }
 .pref-name {
   font-weight: 500;
+  color: var(--app-text-color);
 }
 </style>

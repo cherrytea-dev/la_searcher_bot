@@ -83,6 +83,10 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+h3 {
+  color: var(--app-text-color);
+}
+
 .text-secondary {
   color: #888;
   margin-bottom: 1rem;

@@ -77,6 +77,7 @@ onMounted(() => {
 }
 .region-name {
   font-weight: 500;
+  color: var(--app-text-color);
 }
 .empty-state {
   text-align: center;
