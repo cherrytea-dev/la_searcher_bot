@@ -7,7 +7,13 @@
       <Card>
         <template #content>
           <div class="radius-control">
-            <label>Радиус уведомлений: <strong>{{ radius }} км</strong></label>
+            <div v-if="!hasRadius" class="radius-empty">
+              <p class="radius-empty-text">Радиус уведомлений не установлен.</p>
+              <p class="radius-empty-hint">Укажите расстояние от дома, в пределах которого вы готовы выезжать на поиски.</p>
+            </div>
+            <div v-else class="radius-current">
+              <label>Радиус уведомлений: <strong>{{ radius }} км</strong></label>
+            </div>
             <Slider
               v-model="radius"
               :min="1"
@@ -25,7 +31,12 @@
               />
             </div>
             <div class="radius-actions">
-              <Button label="Сохранить" icon="pi pi-check" @click="save" :loading="saving" />
+              <Button
+                :label="hasRadius ? 'Сохранить' : 'Установить'"
+                icon="pi pi-check"
+                @click="save"
+                :loading="saving"
+              />
               <Button
                 v-if="hasRadius"
                 label="Удалить"
@@ -80,8 +91,8 @@ async function remove() {
 
 onMounted(async () => {
   const res = await getRadius()
-  if (res.ok && res.data !== null) {
-    radius.value = res.data
+  if (res.ok && res.data && res.data.radius !== null) {
+    radius.value = res.data.radius
     hasRadius.value = true
   }
   loading.value = false
@@ -94,6 +105,21 @@ onMounted(async () => {
   flex-direction: column;
   gap: 1rem;
   max-width: 400px;
+}
+.radius-empty-text {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+  color: var(--app-text-color);
+}
+.radius-empty-hint {
+  margin: 0;
+  color: var(--p-text-muted-color, #6c757d);
+  font-size: 0.9rem;
+}
+.radius-current label {
+  font-size: 1.1rem;
+  color: var(--app-text-color);
 }
 .radius-slider {
   width: 100%;

@@ -1,8 +1,12 @@
 import apiClient from './client'
 import type { ApiResponse } from '@/types/api'
 
-export async function getRadius(): Promise<ApiResponse<number | null>> {
-    const { data } = await apiClient.get<ApiResponse<number | null>>('/api/v1/radius')
+export interface RadiusResponse {
+    radius: number | null
+}
+
+export async function getRadius(): Promise<ApiResponse<RadiusResponse>> {
+    const { data } = await apiClient.get<ApiResponse<RadiusResponse>>('/api/v1/radius')
     return data
 }
 
