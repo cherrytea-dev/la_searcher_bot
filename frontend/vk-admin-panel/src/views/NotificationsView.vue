@@ -28,13 +28,16 @@ const error = ref<string | null>(null)
 const enabledPreferences = ref<string[]>([])
 
 const allPreferences = [
+  { key: 'new_searches', label: 'Новые поиски' },
   { key: 'status_changes', label: 'Изменение статуса' },
+  { key: 'title_changes', label: 'Изменение заголовка' },
+  { key: 'comments_changes', label: 'Все комментарии' },
+  { key: 'inforg_comments', label: 'Комментарии Инфорга' },
   { key: 'first_post_changes', label: 'Изменение первого поста' },
-  { key: 'field_trip_inspected', label: 'Выезд осмотрен' },
-  { key: 'all_in_followed_search', label: 'Все в избранных поисках' },
-  { key: 'tactic_on_search', label: 'Тактика на поиске' },
-  { key: 'informator_request', label: 'Запрос информатору' },
-  { key: 'comments_updates', label: 'Обновления в комментариях' },
+  { key: 'field_trips_new', label: 'Новый выезд' },
+  { key: 'field_trips_change', label: 'Изменение выезда' },
+  { key: 'coords_change', label: 'Изменение координат' },
+  { key: 'all_in_followed_search', label: 'Всё в избранных поисках' },
 ]
 
 async function togglePreference(key: string, enabled: boolean) {
