@@ -116,7 +116,8 @@ def _auth_vk(data: dict) -> int | None:
 
     For OAuth mode, exchanges the code for an access_token via
     VK ID API (https://id.vk.com/oauth2/auth), then resolves
-    vk_user_id → internal user_id.
+    vk_user_id → internal user_id. If the VK user is not yet linked
+    to any internal user, auto-registers a new user and links the VK ID.
     """
     service = get_user_settings_service()
 
@@ -175,7 +176,24 @@ def _auth_vk(data: dict) -> int | None:
             if not vk_user_id:
                 logger.warning('VK ID returned no user_id in: %s', token_data)
                 return None
-            return service.get_user_by_vk_id(int(vk_user_id))
+
+            # Try to find existing internal user linked to this VK ID
+            internal_user_id = service.get_user_by_vk_id(int(vk_user_id))
+            if internal_user_id is not None:
+                return internal_user_id
+
+            # First-time VK user: auto-register with a negative user_id
+            # to avoid collision with Telegram user IDs.
+
+            new_user_id = -abs(int(vk_user_id))
+            logger.info(
+                'VK user %s not found in DB, auto-registering as internal user_id=%s',
+                vk_user_id,
+                new_user_id,
+            )
+            service.register_user(new_user_id, username=None)
+            service.set_user_vk_id(new_user_id, str(vk_user_id))
+            return new_user_id
         except Exception:
             logger.exception('VK ID OAuth code exchange failed')
             return None

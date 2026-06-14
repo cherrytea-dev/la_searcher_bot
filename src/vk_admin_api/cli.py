@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  # must be before importing main, so os.getenv() sees .env vars
 
-from flask import Flask
+from flask import Flask, Response
 from flask import request as flask_request
 
 from .main import main
@@ -21,7 +21,7 @@ app = Flask(__name__)
 
 @app.route('/', defaults={'path': '/'}, methods=['GET', 'POST', 'OPTIONS', 'DELETE'])
 @app.route('/<path:path>', methods=['GET', 'POST', 'OPTIONS', 'DELETE'])
-def handler(path: str = '/'):
+def handler(path: str = '/') -> Response:
     """Pass the raw YC-format dict to main(); the @request_response_converter
     decorator on main() handles conversion to RequestWrapper."""
     yc_request = {
@@ -32,7 +32,7 @@ def handler(path: str = '/'):
         'queryStringParameters': {},
     }
     result = main(yc_request)
-    return result['body'], result['statusCode'], result.get('headers', {})
+    return Response(result['body'], result['statusCode'], result.get('headers', {}))
 
 
 if __name__ == '__main__':
