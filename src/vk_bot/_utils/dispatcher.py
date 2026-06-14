@@ -28,30 +28,18 @@ def handle_unknown(vk_message: VKMessage, state: DialogState | None, user_id: in
 # ─── Handler chain ───────────────────────────────────────────────────
 
 from .handlers.button_handlers import (
-    handle_age_settings,
     handle_back_to_start,
     handle_command_start,
-    handle_coordinates_action,
     handle_forum_linking,
-    handle_help_needed,
-    handle_is_moscow,
     handle_main_menu,
-    handle_notification_toggle,
     handle_orders_state,
     handle_other_menu,
     handle_role_choice,
     handle_settings_menu,
-    handle_topic_type_settings,
     handle_vk_linking,
 )
-from .handlers.region_select_handlers import (
-    handle_fed_district_select,
-    handle_region_toggle,
-)
 from .handlers.state_handlers import (
-    handle_coords_text,
     handle_forum_username,
-    handle_radius_value,
 )
 from .handlers.view_searches_handlers import (
     handle_active_searches,
@@ -65,19 +53,15 @@ from .handlers.view_searches_handlers import (
 
 HANDLER_CHAIN: list[HandlerFunc] = [
     # State-based handlers first (highest priority)
-    handle_radius_value,
-    handle_coords_text,
     handle_forum_username,
     # Onboarding
     handle_command_start,
     handle_role_choice,
     handle_orders_state,
-    handle_is_moscow,
-    handle_help_needed,
     # Navigation
     handle_back_to_start,
     handle_main_menu,
-    # Search viewing handlers (Phase 2B) — before button_handlers to catch
+    # Search viewing handlers — before button_handlers to catch
     # text commands like +12345 / -12345 and search-related menu items
     handle_view_search_menu,
     handle_active_searches,
@@ -86,15 +70,8 @@ HANDLER_CHAIN: list[HandlerFunc] = [
     handle_follow_mode_toggle,
     handle_follow_unfollow_command,
     handle_more_searches,
-    # Region selection
-    handle_fed_district_select,
-    handle_region_toggle,
-    # Settings
+    # Settings (account linking only)
     handle_settings_menu,
-    handle_notification_toggle,
-    handle_coordinates_action,
-    handle_age_settings,
-    handle_topic_type_settings,
     handle_forum_linking,
     handle_vk_linking,
     handle_other_menu,
