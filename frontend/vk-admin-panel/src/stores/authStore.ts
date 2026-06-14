@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { AUTH_STORAGE_KEY } from '@/api/client'
-import { authTg, authVk } from '@/api/auth'
+import { authTg, authVk, authVkMiniApp } from '@/api/auth'
 
 export const useAuthStore = defineStore('auth', () => {
-    const method = ref<'TG' | 'VK' | null>(null)
+    const method = ref<'TG' | 'VK' | 'VK_MINI_APP' | null>(null)
     const userId = ref<number | null>(null)
     const payload = ref<Record<string, unknown> | null>(null)
     const loading = ref(false)
@@ -87,6 +87,32 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
+    /**
+     * Authenticate via VK Mini Apps launch params.
+     * Sends all launch params (vk_user_id, sign, vk_app_id, etc.) to backend
+     * which verifies the HMAC-SHA256 signature.
+     */
+    async function loginVkMiniApp(launchParams: Record<string, string>) {
+        loading.value = true
+        error.value = null
+        try {
+            const res = await authVkMiniApp(launchParams)
+            if (res.ok && res.data) {
+                method.value = 'VK_MINI_APP'
+                userId.value = res.data.user_id
+                // Store internal user_id for re-authentication on subsequent requests.
+                payload.value = { user_id: res.data.user_id }
+                _persist()
+            } else {
+                error.value = res.error || 'VK Mini Apps authentication failed'
+            }
+        } catch (e) {
+            error.value = 'Network error during VK Mini Apps authentication'
+        } finally {
+            loading.value = false
+        }
+    }
+
     /** Log out — clear state and localStorage. */
     function logout() {
         method.value = null
@@ -106,6 +132,7 @@ export const useAuthStore = defineStore('auth', () => {
         init,
         loginTg,
         loginVk,
+        loginVkMiniApp,
         logout,
     }
 })

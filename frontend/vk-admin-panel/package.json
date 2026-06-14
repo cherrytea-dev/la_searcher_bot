@@ -10,6 +10,7 @@
     },
     "dependencies": {
         "@primevue/themes": "^4.5.4",
+        "@vkontakte/vk-bridge": "^3.0.2",
         "axios": "^1.7.0",
         "pinia": "^2.2.0",
         "primeicons": "^7.0.0",

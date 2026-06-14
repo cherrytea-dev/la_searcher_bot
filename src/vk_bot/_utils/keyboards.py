@@ -102,6 +102,7 @@ class VKKeyboard:
         return cls.one_column(
             [
                 'посмотреть актуальные поиски',
+                'панель управления',
                 'другие возможности',
             ],
             color='primary',

@@ -1,5 +1,8 @@
 """Tests for VK Admin Panel API (vk_admin_api)."""
 
+import base64
+import hashlib
+import hmac
 import json
 from datetime import datetime
 from unittest.mock import patch
@@ -143,6 +146,112 @@ class TestAuth:
         )
 
         assert resp['statusCode'] == 401
+
+    # ── VK Mini Apps (signed) ──────────────────────────────────────────
+
+    def test_auth_vk_mini_app_sign_success(self, session, monkeypatch):
+        """POST /api/v1/auth/vk with valid signed launch params returns user_id."""
+        import random
+
+        monkeypatch.setenv('VK_MINI_APP_SECRET', 'test_secret_key')
+        # Re-import to pick up the env var
+        import importlib
+
+        importlib.reload(main)
+
+        vk_user_id = str(random.randint(1000000, 9999999))
+        vk_app_id = '123456'
+
+        # Build the full body dict that will be sent.
+        # NOTE: 'path' is included because it's part of the body JSON
+        # that gets passed to _auth_vk → _verify_vk_mini_app_sign.
+        # We must sign ALL params except 'sign' itself.
+        body = {
+            'path': '/api/v1/auth/vk',
+            'vk_app_id': vk_app_id,
+            'vk_user_id': vk_user_id,
+        }
+        # Sort by key (alphabetically) and build params_string
+        sorted_keys = sorted(k for k in body if k != 'sign')
+        params_string = '&'.join(f'{k}={body[k]}' for k in sorted_keys)
+
+        # Compute expected sign
+        expected_sign = base64.b64encode(
+            hmac.new(
+                b'test_secret_key',
+                params_string.encode(),
+                hashlib.sha256,
+            ).digest()
+        ).decode()
+
+        # Create user with this VK ID
+        user = UserFactory.create_sync(vk_id=vk_user_id)
+
+        body['sign'] = expected_sign
+        resp = _call_main(
+            method='POST',
+            data=body,
+        )
+
+        assert resp['statusCode'] == 200
+        assert resp['body_parsed']['ok'] is True
+        assert resp['body_parsed']['data']['user_id'] == user.user_id
+
+    def test_auth_vk_mini_app_sign_failure(self, monkeypatch):
+        """POST /api/v1/auth/vk with invalid sign returns 401."""
+        monkeypatch.setenv('VK_MINI_APP_SECRET', 'test_secret_key')
+        import importlib
+
+        importlib.reload(main)
+
+        resp = _call_main(
+            method='POST',
+            data={
+                'path': '/api/v1/auth/vk',
+                'vk_user_id': '999999',
+                'vk_app_id': '123456',
+                'sign': 'invalid_sign',
+            },
+        )
+
+        assert resp['statusCode'] == 401
+        assert resp['body_parsed']['ok'] is False
+
+    def test_auth_vk_mini_app_no_secret(self):
+        """VK Mini Apps auth without VK_MINI_APP_SECRET set returns 401."""
+        # Ensure env var is not set
+        resp = _call_main(
+            method='POST',
+            data={
+                'path': '/api/v1/auth/vk',
+                'vk_user_id': '999999',
+                'vk_app_id': '123456',
+                'sign': 'some_sign',
+            },
+        )
+
+        assert resp['statusCode'] == 401
+        assert resp['body_parsed']['ok'] is False
+
+    def test_auth_vk_mini_app_no_sign_param(self, session):
+        """VK Mini Apps auth without 'sign' param falls through to legacy mode."""
+        import random
+
+        vk_id = str(random.randint(1000000, 9999999))
+        user = UserFactory.create_sync(vk_id=vk_id)
+
+        # No 'sign' param — should use Mode 3 (legacy unsigned)
+        resp = _call_main(
+            method='POST',
+            data={
+                'path': '/api/v1/auth/vk',
+                'vk_user_id': int(vk_id),
+            },
+        )
+
+        assert resp['statusCode'] == 200
+        assert resp['body_parsed']['ok'] is True
+        assert resp['body_parsed']['data']['user_id'] == user.user_id
 
     def test_no_auth_returns_401(self):
         """GET endpoint without auth returns 401."""

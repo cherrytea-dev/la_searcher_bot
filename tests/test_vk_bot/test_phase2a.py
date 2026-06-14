@@ -256,6 +256,36 @@ class TestHandleMainMenu:
         labels = [btn[0]['action']['label'] for btn in result.keyboard['buttons']]
         assert 'посмотреть последние поиски' in labels
 
+    def test_admin_panel_button_with_url(self, vk_message, monkeypatch):
+        """ "панель управления" with VK_ADMIN_PANEL_URL set returns inline URL button."""
+        from vk_bot._utils.handlers import button_handlers
+
+        monkeypatch.setattr(button_handlers, 'VK_ADMIN_PANEL_URL', 'https://admin.example.com')
+
+        msg = vk_message(text='панель управления')
+        result = button_handlers.handle_main_menu(msg, DialogState.not_defined, 12345)
+
+        assert result is not None
+        assert result.keyboard is not None
+        # Should be an inline URL keyboard
+        buttons = result.keyboard['buttons']
+        assert len(buttons) == 1
+        action = buttons[0][0]['action']
+        assert action['type'] == 'open_link'
+        assert action['label'] == 'Открыть панель управления'
+        assert action['link'] == 'https://admin.example.com'
+
+    def test_admin_panel_button_without_url(self, vk_message):
+        """ "панель управления" without VK_ADMIN_PANEL_URL returns fallback message."""
+        from vk_bot._utils.handlers.button_handlers import handle_main_menu
+
+        msg = vk_message(text='панель управления')
+        result = handle_main_menu(msg, DialogState.not_defined, 12345)
+
+        assert result is not None
+        assert 'не настроена' in result.text
+        assert result.keyboard is not None
+
     def test_ignores_unknown(self, vk_message):
         """Returns None."""
         from vk_bot._utils.handlers.button_handlers import handle_main_menu

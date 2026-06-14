@@ -23,3 +23,13 @@ export async function authVk(params: {
     const { data: response } = await apiClient.post<ApiResponse<AuthResult>>('/api/v1/auth/vk', params)
     return response
 }
+
+/**
+ * Authenticate via VK Mini Apps launch params.
+ * Sends {vk_user_id, sign, ...} — backend verifies the HMAC-SHA256 signature.
+ * Used when the admin panel is opened inside VK Mini Apps (iframe).
+ */
+export async function authVkMiniApp(launchParams: Record<string, string>): Promise<ApiResponse<AuthResult>> {
+    const { data: response } = await apiClient.post<ApiResponse<AuthResult>>('/api/v1/auth/vk', launchParams)
+    return response
+}

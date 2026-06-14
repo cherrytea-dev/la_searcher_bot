@@ -6,6 +6,7 @@ or None to pass to the next handler in the chain.
 """
 
 import logging
+import os
 import time
 
 from _dependencies.services.message_formatter import (
@@ -31,6 +32,9 @@ from ..database import db
 from ..keyboards import VKKeyboard
 
 logger = logging.getLogger(__name__)
+
+# Admin panel URL — configured via env var, falls back to empty string
+VK_ADMIN_PANEL_URL = os.getenv('VK_ADMIN_PANEL_URL', '')
 
 
 # ── Onboarding ─────────────────────────────────────────────────────
@@ -120,6 +124,17 @@ def handle_orders_state(vk_message: VKMessage, state: DialogState | None, user_i
 def handle_main_menu(vk_message: VKMessage, state: DialogState | None, user_id: int) -> VKHandlerResult | None:
     """Handle main menu navigation buttons."""
     text = vk_message.text.strip().lower()
+
+    if text == 'панель управления':
+        if VK_ADMIN_PANEL_URL:
+            return VKHandlerResult(
+                text='⚙️ Панель управления настройками уведомлений',
+                keyboard=VKKeyboard.inline_url([('Открыть панель управления', VK_ADMIN_PANEL_URL)]),
+            )
+        return VKHandlerResult(
+            text='Панель управления пока не настроена. Обратитесь к администратору.',
+            keyboard=VKKeyboard.main_menu(),
+        )
 
     if text == 'другие возможности':
         return VKHandlerResult(

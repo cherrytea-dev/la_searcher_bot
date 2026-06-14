@@ -5,12 +5,12 @@ that replaces VK Bot's keyboard-based settings UI.
 
 Authentication:
   - Telegram Login Widget (HMAC-SHA256 verification)
-  - VK OAuth 2.0 (code exchange, works in any browser)
-  - VK Mini Apps (legacy, direct vk_user_id)
+  - VK ID OAuth 2.0 with PKCE (browser flow)
+  - VK Mini Apps (signed launch params — sign verification)
 
 Endpoints:
   POST /api/v1/auth/tg       — Authenticate via Telegram Login Widget
-  POST /api/v1/auth/vk       — Authenticate via VK (OAuth code or Mini Apps)
+  POST /api/v1/auth/vk       — Authenticate via VK (OAuth code, Mini Apps, or re-auth)
   GET  /api/v1/settings      — Full settings summary for a user
   GET  /api/v1/preferences   — List notification preferences
   POST /api/v1/preferences   — Toggle a notification preference
@@ -35,6 +35,9 @@ Endpoints:
   GET  /api/v1/user/info     — Get basic user info (role, regions, forum)
 """
 
+import base64
+import hashlib
+import hmac
 import json
 import logging
 import os
@@ -64,6 +67,9 @@ ALLOWED_ORIGINS = ['*']  # TODO: restrict in production
 # VK OAuth 2.0 credentials (for code exchange)
 VK_OAUTH_CLIENT_ID: str | None = os.getenv('VK_OAUTH_CLIENT_ID')
 VK_OAUTH_CLIENT_SECRET: str | None = os.getenv('VK_OAUTH_CLIENT_SECRET')
+
+# VK Mini App credentials (for sign verification)
+VK_MINI_APP_SECRET: str | None = os.getenv('VK_MINI_APP_SECRET')
 
 # ─── Response Helpers ───────────────────────────────────────────────────
 
@@ -105,13 +111,52 @@ def _auth_tg(data: dict) -> int | None:
     return user_id
 
 
+def _verify_vk_mini_app_sign(launch_params: dict) -> bool:
+    """Verify VK Mini Apps launch params signature.
+
+    VK passes signed launch params in the URL when opening a Mini App:
+    ?vk_user_id=123&vk_app_id=456&sign=abc...
+
+    The sign is HMAC-SHA256 of sorted key=value pairs (excluding sign)
+    using the VK Mini App secret key, then base64 encoded.
+
+    See: https://dev.vk.com/en/mini-apps/development/launch-params
+    """
+    if not VK_MINI_APP_SECRET:
+        logger.warning('VK_MINI_APP_SECRET not set, skipping sign verification')
+        return False
+
+    sign = launch_params.get('sign', '')
+    if not sign:
+        return False
+
+    # Take all params except sign, sort alphabetically by key
+    params_to_verify = {k: v for k, v in launch_params.items() if k != 'sign'}
+    sorted_keys = sorted(params_to_verify.keys())
+
+    # Build params string: key=value&key=value (alphabetical order)
+    params_string = '&'.join(f'{k}={params_to_verify[k]}' for k in sorted_keys)
+
+    # HMAC-SHA256 with VK Mini App secret
+    expected_sign = base64.b64encode(
+        hmac.new(
+            VK_MINI_APP_SECRET.encode(),
+            params_string.encode(),
+            hashlib.sha256,
+        ).digest()
+    ).decode()
+
+    return hmac.compare_digest(expected_sign, sign)
+
+
 def _auth_vk(data: dict) -> int | None:
     """Authenticate via VK.
 
-    Supports three modes:
+    Supports four modes:
     1. Re-auth by internal user_id: {user_id: int} — fast re-auth for subsequent requests
-    2. Mini Apps (legacy): {vk_user_id: int} — direct VK platform user ID
-    3. VK ID OAuth 2.0 with PKCE (browser):
+    2. VK Mini Apps (signed): {vk_user_id, sign, ...} — sign-verified launch params
+    3. Mini Apps (legacy, unsigned): {vk_user_id: int} — direct VK platform user ID
+    4. VK ID OAuth 2.0 with PKCE (browser):
        {code, code_verifier, device_id, redirect_uri} — code exchange
 
     For OAuth mode, exchanges the code for an access_token via
@@ -130,12 +175,22 @@ def _auth_vk(data: dict) -> int | None:
             return int(user_id)
         return None
 
-    # Mode 2: Mini Apps (direct vk_user_id)
+    # Mode 2: VK Mini Apps with sign verification
+    vk_user_id = data.get('vk_user_id')
+    sign = data.get('sign')
+    if vk_user_id and sign:
+        if not _verify_vk_mini_app_sign(data):
+            logger.warning('VK Mini Apps sign verification failed for vk_user_id=%s', vk_user_id)
+            return None
+        return service.get_user_by_vk_id(int(vk_user_id))
+
+    # Mode 3: Mini Apps without sign (legacy, kept for backward compat)
     vk_id = data.get('vk_user_id')
     if vk_id:
+        logger.debug('VK auth without sign verification (legacy mode)')
         return service.get_user_by_vk_id(int(vk_id))
 
-    # Mode 3: VK ID OAuth 2.0 with PKCE code exchange
+    # Mode 4: VK ID OAuth 2.0 with PKCE code exchange
     code = data.get('code')
     code_verifier = data.get('code_verifier')
     device_id = data.get('device_id', '')
@@ -270,7 +325,11 @@ def main(request: RequestWrapper) -> ResponseWrapper:
         return _cors_response()
 
     body = request.json_ or {}
-    path = request.path
+
+    # Path is embedded in the body for YC HTTP-triggered functions
+    # (the YC gateway puts the original request path in the body JSON).
+    # Fall back to request.path for non-YC environments (e.g., CLI).
+    path = body.get('path') or request.path
 
     # Auth endpoints (no auth required)
     auth_handler = AUTH_ROUTES.get((request.method, path))

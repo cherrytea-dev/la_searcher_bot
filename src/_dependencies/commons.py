@@ -43,6 +43,7 @@ class AppConfig(BaseSettings):
     my_vk_id: str = ''
     vk_confirmation_code: str = ''
     vk_group_id: int = 0
+    vk_admin_panel_url: str = ''
 
     mysql_host: str = ''
     mysql_db: str = ''

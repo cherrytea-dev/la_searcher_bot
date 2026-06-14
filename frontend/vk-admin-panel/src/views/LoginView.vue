@@ -224,6 +224,32 @@ function loadTgWidget() {
   }
 }
 
+// ── VK Mini Apps Auto-Login ────────────────────────────────────────
+/**
+ * Detect VK Mini Apps launch params in the URL and auto-authenticate.
+ *
+ * VK passes launch params as URL fragment (hash) when opening a Mini App:
+ * #vk_user_id=123&vk_app_id=456&sign=abc&...
+ *
+ * The backend verifies the HMAC-SHA256 signature before trusting vk_user_id.
+ */
+function detectVkMiniAppLaunchParams(): Record<string, string> | null {
+  const hash = window.location.hash.replace(/^#/, '')
+  if (!hash || !hash.includes('vk_user_id=')) return null
+
+  const params: Record<string, string> = {}
+  for (const part of hash.split('&')) {
+    const eqIdx = part.indexOf('=')
+    if (eqIdx === -1) continue
+    params[decodeURIComponent(part.slice(0, eqIdx))] = decodeURIComponent(part.slice(eqIdx + 1))
+  }
+
+  // Must have vk_user_id and sign to be valid Mini Apps launch params
+  if (!params['vk_user_id'] || !params['sign']) return null
+
+  return params
+}
+
 // ── Lifecycle ───────────────────────────────────────────────────────
 onMounted(async () => {
   // Check for VK OAuth callback first
@@ -234,6 +260,18 @@ onMounted(async () => {
   if (auth.isAuthenticated) {
     router.push('/')
     return
+  }
+
+  // Try VK Mini Apps auto-login (launch params in URL hash)
+  const miniAppParams = detectVkMiniAppLaunchParams()
+  if (miniAppParams) {
+    await auth.loginVkMiniApp(miniAppParams)
+    if (auth.isAuthenticated) {
+      // Clean the hash from URL after successful auth
+      window.history.replaceState({}, '', window.location.pathname)
+      router.push('/')
+      return
+    }
   }
 
   // Load TG widget
