@@ -29,7 +29,12 @@ def recreate_db(config: AppConfig) -> None:
     with connection.cursor() as cursor:
         cursor.execute(script)
 
-    connection.close()
+        # Execute initial data scripts (geo divisions, folders, regions)
+        initial_data_dir = Path('tests/tools/db_initial_data')
+        sql_files = sorted(initial_data_dir.glob('*.sql'))
+        for sql_file in sql_files:
+            script = sql_file.read_text()
+            cursor.execute(script)
 
 
 if __name__ == '__main__':
