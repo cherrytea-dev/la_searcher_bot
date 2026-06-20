@@ -176,7 +176,7 @@ def get_user_data(data: Tag | NavigableString) -> ForumUser:
 
     for attr in dict:
         try:
-            value = data.find('dt', text=dict[attr]).findNext('dd').text  # type:ignore
+            value = data.find('dt', string=dict[attr]).find_next('dd').text  # type:ignore
             setattr(user, attr, value)
         except Exception as e1:
             logging.warning('Attribute {%s} is not defined', attr)

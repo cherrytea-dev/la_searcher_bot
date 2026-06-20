@@ -77,7 +77,7 @@ compose_notifications = [
     "certifi==2024.7.4", # SSL certificates
     "chardet==4.0.0",    # encoding detector
     "python-dateutil",   # extension to datetime module
-    "pytz>=2021.1",      # timezone
+    "pytz>=2024.2",      # timezone
 ]
 
 connect_to_forum = []
@@ -116,6 +116,7 @@ vk_bot = ["vk-api>=11.10.0", "click>=8.0"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+filterwarnings = ["ignore::sqlalchemy.exc.RemovedIn20Warning"]
 
 [tool.ruff]
 line-length = 120
