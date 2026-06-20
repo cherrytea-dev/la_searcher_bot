@@ -17,6 +17,7 @@ from bs4 import BeautifulSoup
 from _dependencies.commons import (
     ChangeLogSavedValue,
     ChangeType,
+    get_app_config,
     get_forum_proxies,
     setup_logging,
     sqlalchemy_get_pool,
@@ -293,6 +294,11 @@ def _get_actual_and_previous_page_content(conn: sqlalchemy.engine.Connection, se
 
 
 def main(event: dict, context: Ctx) -> str:  # noqa
+    if get_app_config().forum_legacy_data_source:
+        from ._legacy.main import main as legacy_main
+
+        return legacy_main(event, context)
+
     """key function"""
 
     function_id = generate_random_function_id()

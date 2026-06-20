@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from itertools import repeat
 
-from _dependencies.commons import setup_logging
+from _dependencies.commons import get_app_config, setup_logging
 from _dependencies.pubsub import Ctx, MessageForIdentifyUpdatesOfTopics, pubsub_check_first_posts, pubsub_parse_searches
 from check_first_posts_for_changes._utils.database import get_phpbb_db_client
 
@@ -181,6 +181,11 @@ def _send_update_first_posts(topics_with_updated_first_posts: list[int]) -> None
 
 
 def main(event: dict, context: Ctx) -> None:
+    if get_app_config().forum_legacy_data_source:
+        from ._legacy.main import main as legacy_main
+
+        return legacy_main(event, context)
+
     # BLOCK 1. for checking if the first posts were changed
     send_updates_to_parse()
 

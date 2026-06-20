@@ -23,6 +23,10 @@ certifi==2024.7.4
     #   requests
 charset-normalizer==3.4.4
     # via requests
+click==8.4.1
+    # via la-searcher-bot
+colorama==0.4.6 ; sys_platform == 'win32'
+    # via click
 decorator==5.2.1
     # via retry2
 greenlet==3.2.4 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
