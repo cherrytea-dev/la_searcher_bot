@@ -153,9 +153,119 @@ These functions process `change_log` records and create/send notifications.
 
 ### 6. VK Bot
 
+The VK bot provides a full-featured VKontakte interface for the LA Searcher Bot. Users can manage all their settings and view searches directly from VK, without needing to use the Telegram bot (except for initial account linking).
+
 #### [`vk_bot`](src/vk_bot/main.py)
-- **Trigger**: HTTP (VK Callback API) or polling mode
-- **Purpose**: Allows users to link their Telegram and VK accounts. When a user sends the invite text to the VK bot, it validates the hash and saves `vk_id` in the `users` table.
+- **Trigger**: HTTP (VK Callback API webhook) or LongPoll polling mode
+- **Purpose**: Full-featured VKontakte bot for user settings management, search viewing, and account linking. Shares the same PostgreSQL database as the Telegram bot — all changes made in VK are immediately reflected in Telegram and vice versa.
+
+**Deployment modes** (via [`cli.py`](src/vk_bot/cli.py)):
+- **Flask web server** (default): Receives VK Callback API events via HTTP POST. Designed to run behind ngrok/localhost.run for local development, or as a Yandex Cloud Function in production.
+- **LongPoll polling** (legacy): Uses VK LongPoll API for testing without a webhook. Launched with `--polling` flag.
+
+**Architecture**:
+```
+┌──────────────────────────────────────────────────────┐
+│  vk_bot/main.py (entry point)                        │
+│  └─ @request_response_converter                      │
+│     └─ dispatch_event(raw_event)                     │
+│        ├─ message_new → handle_new_message()         │
+│        ├─ message_event → handle_callback_event()    │
+│        ├─ confirmation → return VK confirmation code │
+│        ├─ message_edit → ignored                     │
+│        └─ message_reply → ignored                    │
+└──────────────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────┐
+│  Handler Chain (dispatcher.py:90-104)                 │
+│  ┌─ state_handlers (radius, coords, forum username)  │
+│  ├─ onboarding_handlers (start, role, moscow, ...)   │
+│  ├─ view_searches_handlers (active/latest/follow)    │
+│  ├─ region_select_handlers (districts, toggle)       │
+│  ├─ settings_handlers (notifs, coords, age, ...)     │
+│  └─ handle_unknown (fallback)                        │
+└──────────────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────┐
+│  DBClient (database.py) — composed from 13 mixins    │
+│  Shared DB tables: users, user_preferences,           │
+│  user_regional_preferences, user_coordinates,         │
+│  user_pref_radius, searches, geo_folders, ...         │
+└──────────────────────────────────────────────────────┘
+```
+
+**Features offered to users**:
+
+| Feature                  | Handler Module                         | Description                                                                                         |
+| ------------------------ | -------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Account linking          | `dispatcher._handle_unregistered_user` | Link VK to Telegram via SHA256 invite hash                                                          |
+| Onboarding               | `onboarding_handlers.py`               | Role selection (member/volunteer/relative/other), Moscow region subscription                        |
+| Region management        | `region_select_handlers.py`            | Federal district selection, region subscribe/unsubscribe with inline pagination for large districts |
+| Search viewing           | `view_searches_handlers.py`            | Active searches, latest 20 searches, search follow/unfollow with `+12345`/`-12345` text commands    |
+| Notification preferences | `settings_handlers.py`                 | Toggle notification types (new searches, status changes, comments, inforg, first post, followed)    |
+| Coordinates              | `settings_handlers.py`                 | Enter/view/delete home coordinates (manual input or via map)                                        |
+| Radius                   | `settings_handlers.py`                 | Set/edit/delete notification radius in km                                                           |
+| Age preferences          | `settings_handlers.py`                 | Toggle age groups (children, teens, adults, elderly)                                                |
+| Topic type preferences   | `settings_handlers.py`                 | Toggle topic types (search works, informational search)                                             |
+| Forum linking            | `state_handlers.py`                    | Link forum account — triggers `connect_to_forum` via `pubsub_parse_user_profile`                    |
+| VK linking               | `settings_handlers.py`                 | Generate invite text for linking Telegram ↔ VK accounts                                             |
+
+#### Key Sub-components
+
+##### `dispatcher.py`
+- **Event handling**: `dispatch_event()` is the main entry point. Returns `'ok'` immediately (VK requires response within ~8 seconds), then processes in a background thread.
+- **Deduplication**: Maintains an LRU cache (`_event_cache`) to prevent duplicate event processing from VK resends.
+- **Callback handling**: Inline keyboard callbacks (`message_event`) are parsed via JSON payload with `cmd` field. Supports: `paginate_nav`, `paginate_toggle`, `paginate_back`, `paginate_finish`, `district_select`.
+- **Account linking flow**: Unregistered users can only send an invite text. The bot validates the SHA256 hash of `{telegram_user_id}{bot_api_token__prod}` against `make_invite_text_for_user()` from Telegram bot.
+
+##### `database.py` — DBClient
+- Composed from 13 domain-specific mixins (see list below), all sharing a single DB connection pool via `DBClientBase`.
+- Mixins: `VKIdentityMixin`, `DialogStateMixin`, `UserMixin`, `RegionMixin`, `NotificationPrefMixin`, `GeoPrefMixin`, `AgePrefMixin`, `TopicTypeMixin`, `SearchFollowingMixin`, `ForumAttributeMixin`, `SystemRoleMixin`, `DialogHistoryMixin`, `SettingsSummaryMixin`.
+- `VKIdentityMixin` provides `resolve_user_id(vk_user_id)` — returns Telegram ID if linked, or negative VK ID for VK-only users.
+
+##### `message_sending.py` — VKMessageSender
+- Wraps `VKApi` client with rate limiting and error handling.
+- Handles per-minute flood control (914) with automatic retry after 1 second.
+- Handles per-day flood control (917) by stopping all sends for the session.
+- Handles `cannot_send_to_user` (901) and `cannot_send_first_message` (902) gracefully.
+- Supports `send_message()`, `edit_message()`, `delete_message()`, `send_callback_answer()` (snackbar/popup).
+
+##### `keyboards.py` — VK Keyboard Layout Engine
+- `VKKeyboardButtons`: Centralized constants for all button labels (single source of truth shared between keyboard builder and handlers).
+- `VKKeyboardBase`: Low-level building blocks with VK API limit enforcement (max 40 chars per button, max 10 rows for regular keyboard, max 6 rows for inline).
+- `VKKeyboardPresets`: High-level presets — `main_menu()`, `settings_menu()`, `coords_menu()`, `notification_settings()`, `fed_districts()`, `fed_districts_inline()`, `paginated_regions_inline()`, `age_settings()`, `topic_type_settings()`, etc.
+- Supports inline keyboards (callback-based) for paginated region selection.
+
+##### `services/message_formatter.py`
+- Formatted text templates for all bot responses (onboarding messages, settings descriptions, error messages, search display, etc.).
+- Contains constants for LA organization links (website, forum, newbie article, photos channel, hotline phone, etc.).
+
+##### `bot_polling.py`
+- Alternative entry point using VK LongPoll API (vk_api library).
+- Transforms LongPoll events into the same format as Callback API events and delegates to `dispatch_event()`.
+
+##### `cli.py`
+- CLI launcher with `--polling`, `--port`, `--host` options.
+- Default: Flask web server on `0.0.0.0:8888`.
+
+#### Integration with the rest of the system
+
+```
+Telegram Bot (communicate)                    VK Bot (vk_bot)
+        │                                           │
+        ├─ Settings → users table ←── VK bot reads/writes same DB tables
+        │                                           │
+        ├─ VK linking: generates hash ──────────→ user copies to VK bot
+        │                                           │
+        └─ Forum linking:                          │
+           pubsub_parse_user_profile ────→ connect_to_forum (same for both)
+```
+
+- **Shared database**: Both bots read/write the same `users`, `user_preferences`, `user_regional_preferences`, `user_coordinates`, `user_pref_radius`, `user_pref_search_whitelist`, etc. tables. Changes in one bot are immediately visible in the other.
+- **Forum linking**: VK bot triggers `pubsub_parse_user_profile()` — the same `connect_to_forum` function that Telegram uses.
+- **VK notifications**: The `send_notifications` function also sends notifications to VK users (via `vk_api_client.VKApi.send()`) for users who have linked their VK account.
 
 ---
 
@@ -204,6 +314,12 @@ LA Forum (phpBB)
                                              │ Logs into forum
                                              │ Scrapes user profile
                                              │ Saves to user_forum_attributes
+
+[vk_bot]  ← HTTP (VK Callback API)
+    │ Full settings management, search viewing, account linking
+    │ Shares PostgreSQL DB with Telegram bot
+    └──▶ parse_user_profile_from_forum ──▶ [connect_to_forum]
+                                             (same forum linking as Telegram)
 
 [title_recognize]  ← HTTP (internal)
     │ Called by identify_updates_of_topics
@@ -420,6 +536,14 @@ The PostgreSQL database is central. Key tables (inferred from code):
 - **Response**: `{ "status": "ok", "recognition": { "topic_type": ..., "persons": ..., "locations": ... } }`
 - **Called by**: `identify_updates_of_topics` via internal HTTP
 
+### `vk_bot` (VK Callback API Webhook)
+- **Method**: POST
+- **Body**: VK Callback API JSON event (`message_new`, `message_event`, `confirmation`, etc.)
+- **Response**: `"ok"` or VK confirmation code (string)
+- **Note**: Returns `"ok"` immediately within ~8 seconds to prevent VK event resends. Heavy processing runs in a background thread.
+- **Confirmation**: VK sends a `confirmation` event with `group_id`; the bot returns `vk_confirmation_code` from config.
+- **Event types handled**: `message_new` (new user message), `message_event` (inline keyboard callback), `confirmation` (VK server handshake). `message_edit` and `message_reply` are ignored.
+
 ---
 
 ## Development Guidelines
@@ -429,6 +553,8 @@ The PostgreSQL database is central. Key tables (inferred from code):
 - Formatted with `ruff` (line length 120, single quotes)
 - SQLAlchemy 1.4 (Core, not ORM) for DB access
 - Pydantic v2 for data models and validation
+- **All imports must be at the top of the file** (PEP 8). Do not place `import` or `from ... import` statements inside functions, methods, or classes.
+- **Exception**: A lazy import inside a function is allowed **only** to break a circular dependency between two modules in `_dependencies/` (e.g., [`yandex_tools.py`](src/_dependencies/yandex_tools.py:79) imports `get_app_config` from [`commons.py`](src/_dependencies/commons.py) inside `make_api_call_cloud()` because [`commons.py`](src/_dependencies/commons.py) imports `setup_logging_cloud` from [`yandex_tools.py`](src/_dependencies/yandex_tools.py)). In all other cases, refactor to avoid circular imports.
 
 ### Adding a New Feature
 1. Identify which function(s) need changes
@@ -446,10 +572,10 @@ The PostgreSQL database is central. Key tables (inferred from code):
 - **IMPORTANT**: The test database is NOT recreated between test runs. Data persists across runs. When writing tests that insert data with specific values (e.g., `vk_id`), always use unique values per test run (e.g., `random.randint()` or `uuid`) to avoid collisions with stale data from previous runs.
 
 ### For AI agents:
+- NEVER read, reference, or output `.env`, `.env.test` files or hardcoded credentials, directly or via cli tools.
 - Always use `uv run` prefix (e.g., `uv run python foo.py`, `uv run pytest`) — the venv is managed by `uv`.
 - `src/` is already added to `sys.path` by pytest via `pyproject.toml` (`[tool.pytest.ini_options]`), so `uv run pytest` works out of the box.
 - For non-pytest scripts (e.g., `initdb`), use `PYTHONPATH=src uv run python ...` or simply `make initdb`.
 - Prefer `make test` / `make mypy` / `make lint` — they handle all paths correctly.
-
----
+- **Comments**: Keep them minimal. Section-separator comments like `# ─── Section Name ───` are useless — good function/variable names should make the structure obvious. Only add comments where the logic genuinely needs explanation (non-obvious edge cases, API quirks, design rationale). Module-level docstrings explaining the file's purpose are fine.
 

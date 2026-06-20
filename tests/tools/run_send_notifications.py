@@ -13,7 +13,6 @@ def generate_messages(count: int):
             content = f'test message {i}'
             NotSentNotificationFactory.create_sync(
                 user_id=get_dotenv_config().my_telegram_id,
-                # vk_id=get_dotenv_config().my_vk_id,
                 message_type='text',
                 message_content=content,
                 message_text=content,
@@ -21,7 +20,6 @@ def generate_messages(count: int):
             )
             NotSentNotificationFactory.create_sync(
                 user_id=get_dotenv_config().my_telegram_id,
-                # vk_id=get_dotenv_config().my_vk_id,
                 message_content=None,
                 message_text=None,
                 message_type='coords',

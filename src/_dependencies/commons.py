@@ -40,8 +40,8 @@ class AppConfig(BaseSettings):
     aws_secret_access_key: str = ''
     aws_backup_bucket_name: str = 'la-backup-notifications'
     vk_api_key: str = ''  # TODO SecretStr
-    my_vk_id: str = ''
     vk_confirmation_code: str = ''
+    vk_group_id: int = 0
 
     mysql_host: str = ''
     mysql_db: str = ''
@@ -171,6 +171,39 @@ class SearchFollowingMode(str, Enum):
     # TODO replace values in 'communicate' to this enum later
     ON = '👀 '
     OFF = '❌ '
+
+
+# Notification preference IDs — shared between Telegram and VK bots.
+# Maps preference name (used in code) to its integer ID in the DB.
+# NOTE: Both snake_case (topic_new) and legacy (new_searches) keys are
+# included for backward compatibility. When both are present, they must
+# map to the same ID.
+PREF_DICT: dict[str, int] = {
+    'topic_new': 0,
+    'topic_status_change': 1,
+    'topic_title_change': 2,
+    'topic_comment_new': 3,
+    'topic_inforg_comment_new': 4,
+    'topic_field_trip_new': 5,
+    'topic_field_trip_change': 6,
+    'topic_coords_change': 7,
+    'topic_first_post_change': 8,
+    'topic_all_in_followed_search': 9,
+    'bot_news': 20,
+    'all': 30,
+    'not_defined': 99,
+    # Legacy keys (used by communicate bot)
+    'new_searches': 0,
+    'status_changes': 1,
+    'title_changes': 2,
+    'comments_changes': 3,
+    'inforg_comments': 4,
+    'field_trips_new': 5,
+    'field_trips_change': 6,
+    'coords_change': 7,
+    'first_post_changes': 8,
+    'all_in_followed_search': 9,
+}
 
 
 def add_tel_link(incoming_text: str) -> str:

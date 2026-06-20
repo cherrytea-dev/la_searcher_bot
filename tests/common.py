@@ -12,6 +12,12 @@ from sqlalchemy.orm import Session
 
 from _dependencies.commons import AppConfig
 from _dependencies.pubsub import Topics
+from compose_notifications.main import main as compose_notifications_main
+from connect_to_forum.main import main as connect_to_forum_main
+from identify_updates_of_first_posts.main import main as identify_updates_of_first_posts_main
+from identify_updates_of_topics.main import main as identify_updates_of_topics_main
+from send_debug_to_admin.main import main as send_debug_to_admin_main
+from send_notifications.main import main as send_notifications_main
 
 T = TypeVar('T')
 
@@ -54,29 +60,17 @@ def patched_send_topic(topic_name: Topics, data: dict) -> None:
 def topic_to_receiver_function(topic_name: Topics):
     # TODO rewrite to decorator
     if topic_name == Topics.parse_user_profile_from_forum:
-        from connect_to_forum.main import main
-
-        return main
+        return connect_to_forum_main
     elif topic_name == Topics.topic_for_first_post_processing:
-        from identify_updates_of_first_posts.main import main
-
-        return main
+        return identify_updates_of_first_posts_main
     elif topic_name == Topics.topic_for_notification:
-        from compose_notifications.main import main
-
-        return main
+        return compose_notifications_main
     elif topic_name == Topics.topic_notify_admin:
-        from send_debug_to_admin.main import main
-
-        return main
+        return send_debug_to_admin_main
     elif topic_name == Topics.topic_to_run_parsing_script:
-        from identify_updates_of_topics.main import main
-
-        return main
+        return identify_updates_of_topics_main
     elif topic_name == Topics.topic_to_send_notifications:
-        from send_notifications.main import main
-
-        return main
+        return send_notifications_main
 
     else:
         raise ValueError(f'Unknown topic {topic_name}')

@@ -12,7 +12,7 @@ from tests.common import find_model, get_event_with_data
 from tests.factories.db_factories import NotifByUserFactory, UserFactory, get_session
 from tests.factories.db_models import User
 from vk_bot import main
-from vk_bot._utils import bot_polling
+from vk_bot._utils import bot_polling, common
 
 
 @pytest.fixture(scope='session')
@@ -37,7 +37,7 @@ def db_client():
     ],
 )
 def test_receive_message_ok(msg: str, tg_id: int, hash: str):
-    assert bot_polling.get_invite_from_message(msg) == (tg_id, hash)
+    assert common.get_invite_from_message(msg) == (tg_id, hash)
 
 
 def test_parse_event():

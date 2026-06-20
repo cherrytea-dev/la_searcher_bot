@@ -1,4 +1,6 @@
 import datetime
+import os
+import random
 from contextlib import suppress
 from random import randint
 from unittest.mock import MagicMock, patch
@@ -166,9 +168,6 @@ def test_get_notifications_1():
 @pytest.mark.skip(reason='Real run')
 class TestSendVKReal:
     def test_send_via_client(self):
-        import os
-        import random
-
         message_html = 'НЖ – изменение статуса по <a href="https://lizaalert.org/forum/viewtopic.php?t=123">Иванова ж40 лет</a> (Москва и МО – Активные поиски)'
         message_md = 'hello!\nsecond string - **bold**\n[link here](vk.com/foo)'
 

@@ -1,0 +1,12 @@
+.env
+.env.test
+build/
+*.pyc
+.coverage
+.idea/
+venv/
+.sandbox/
+.DS_Store
+*.log
+frontend/
+node_modules

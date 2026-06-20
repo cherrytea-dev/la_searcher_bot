@@ -34,6 +34,7 @@ dev = [
     "pytest-xdist==3.*",
     "pytest-benchmark>=5.0",
     "pyannotate==1.2.*",
+    "flask>=3.0.0",
 
     "types-beautifulsoup4",
     "types-psycopg2",
@@ -110,7 +111,7 @@ users_activate = []
 
 test_func = []
 
-vk_bot = ["vk-api>=11.10.0"]
+vk_bot = ["vk-api>=11.10.0", "click>=8.0"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
@@ -140,3 +141,6 @@ plugins = ["pydantic.mypy"]
 init_forbid_extra = true
 init_typed = true
 warn_required_dynamic_aliases = true
+
+[tool.pyright]
+typeCheckingMode = "basic"
