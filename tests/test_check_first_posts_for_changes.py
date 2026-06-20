@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, Mock, patch
 from uuid import uuid4
 
 import pytest
+from freezegun import freeze_time
 from requests_mock.mocker import Mocker
 from sqlalchemy.orm import Session
 
@@ -33,13 +34,13 @@ def db_client(connection_pool) -> DBClient:
 
 class TestMain:
     @pytest.mark.skip(reason="don't have mysql db yet")
-    @pytest.mark.freeze_time('2025-02-13 14:25:00')
     def test_main(self, requests_mock: Mocker, mock_topic_management):
         # TODO mock http back or remove this test
         text = Path('tests/fixtures/forum_viewtopic_first_post.html').read_text()
         requests_mock.get(f'https://lizaalert.org/forum/viewtopic.php', text=text)  # mocking any topic
 
-        main.main(MagicMock(), 'context')
+        with freeze_time('2025-02-13 14:25:00'):
+            main.main(MagicMock(), 'context')
 
     def test_update_one_topic_visibility(self, session):
         search_health_check = db_factories.SearchHealthCheckFactory.create_sync()
