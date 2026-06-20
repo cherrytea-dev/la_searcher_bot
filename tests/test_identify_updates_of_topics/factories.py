@@ -15,7 +15,7 @@ class SearchSummaryFactory(DataclassFactory[SearchSummary]):
 
 
 class ChangeLogLineFactory(DataclassFactory[ChangeLogLine]):
-    pass
+    new_value = Use(fake.pystr, max_chars=20)
 
 
 class ForumCommentItemFactory(DataclassFactory[ForumCommentItem]):
