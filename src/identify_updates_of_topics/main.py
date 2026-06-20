@@ -3,7 +3,7 @@ and saves into PSQL if there are any updates"""
 
 import logging
 
-from _dependencies.commons import setup_logging
+from _dependencies.commons import get_app_config, setup_logging
 from _dependencies.misc import generate_random_function_id
 from _dependencies.pubsub import (
     Ctx,
@@ -21,6 +21,11 @@ setup_logging(__package__)
 
 def main(event: dict[str, bytes], context: Ctx) -> None:  # noqa
     """main function triggered by pub/sub"""
+
+    if get_app_config().forum_legacy_data_source:
+        from ._legacy.main import main as legacy_main
+
+        return legacy_main(event, context)
 
     function_id = generate_random_function_id()
 

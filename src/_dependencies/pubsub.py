@@ -31,6 +31,10 @@ def pubsub_parse_user_profile(user_id: int, got_message: str) -> None:
     publish_to_pubsub(Topics.parse_user_profile_from_forum, message_for_pubsub)
 
 
+def pubsub_parse_folders(folders_list: list) -> None:
+    publish_to_pubsub(Topics.topic_to_run_parsing_script, folders_list)
+
+
 def pubsub_parse_searches(topic_ids: MessageForIdentifyUpdatesOfTopics) -> None:
     publish_to_pubsub(Topics.topic_to_run_parsing_script, topic_ids)
 

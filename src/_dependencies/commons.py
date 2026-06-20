@@ -48,6 +48,8 @@ class AppConfig(BaseSettings):
     mysql_user: str = ''
     mysql_pass: str = ''
 
+    forum_legacy_data_source: bool = False
+
     @property
     def phpbb_db_url(self) -> str:
         return f'mysql+pymysql://{self.mysql_user}:{self.mysql_pass}@{self.mysql_host}:3306/{self.mysql_db}'

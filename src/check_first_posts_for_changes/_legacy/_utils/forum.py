@@ -1,0 +1,234 @@
+import hashlib
+import logging
+import re
+import urllib.parse
+from dataclasses import dataclass
+from functools import lru_cache
+
+import requests
+from retry import retry
+
+from _dependencies.commons import get_forum_proxies
+from _dependencies.content import content_is_unaccessible, cook_soup, is_forum_unavailable
+from _dependencies.pubsub import recognize_title_via_api
+from _dependencies.recognition_schema import RecognitionResult
+from _dependencies.topic_management import save_status_for_topic
+
+from .database import get_db_client
+
+
+class ForumUnavailable(Exception):
+    pass
+
+
+@dataclass
+class FirstPostData:
+    hash_num: str
+    raw_content: str
+    prettified_content: str
+    not_found: bool
+    topic_visibility: str
+
+
+@lru_cache
+def get_requests_session() -> requests.Session:
+    session = requests.Session()
+    session.proxies.update(get_forum_proxies())
+    return session
+
+
+def _define_topic_visibility_by_content(content: str) -> str:
+    """define visibility for the topic's content: regular, hidden or deleted"""
+
+    if content.find('Запрошенной темы не существует.') > -1:
+        return 'deleted'
+
+    if content_is_unaccessible(content):
+        return 'hidden'
+
+    return 'regular'
+
+
+@retry((ForumUnavailable, requests.HTTPError), tries=3, delay=2, backoff=2)
+def _get_search_raw_content(search_num: int) -> str:
+    """parse the whole search page"""
+
+    logging.debug(f'Fetching changes for first post of search {search_num}')
+    url = f'https://lizaalert.org/forum/viewtopic.php?t={search_num}'
+    try:
+        response = get_requests_session().get(url, timeout=10)  # seconds – not sure if it is efficient in this case
+    except requests.exceptions.RequestException as exc:
+        raise ForumUnavailable() from exc
+
+    if response.status_code == 404:
+        return response.content.decode('utf-8')  # dummy hack to use `_define_topic_visibility_by_content` later
+
+    if response.status_code == 429:
+        raise ForumUnavailable()
+
+    response.raise_for_status()
+    str_content = response.content.decode('utf-8')
+    if is_forum_unavailable(str_content):
+        raise ForumUnavailable()
+
+    logging.debug(f'Content of first post of search {search_num} is: \n{str_content}')
+
+    return str_content
+
+
+def get_search_id_by_comment(comment_url: str) -> int:
+    response = get_requests_session().get(comment_url, timeout=10)
+    response.raise_for_status()
+
+    return _get_search_id_from_comment_html(response.text)
+
+
+def _get_search_id_from_comment_html(text: str) -> int:
+    """
+    find in page tag like this:
+    <h2 class="topic-title"><a href="./viewtopic.php?t=366377">г. Екатеринбург и Свердловская обл. 25.02.2026 год</a></h2>
+    and extract url param `t` (366377 in this example)
+    """
+
+    soup = cook_soup(text)
+    topic_title_element = soup.find('h2', class_='topic-title')
+    if not topic_title_element:
+        raise ValueError('Could not find topic title element')
+
+    anchor_tag = topic_title_element.find('a')
+    if not anchor_tag or not anchor_tag.get('href'):  # type:ignore [union-attr]
+        raise ValueError('Could not find anchor tag with href in topic title')
+
+    href = anchor_tag['href']  # type:ignore [index]
+
+    parsed_url = urllib.parse.urlparse(href)  # type:ignore [arg-type]
+    query_params = urllib.parse.parse_qs(parsed_url.query)
+
+    if 't' not in query_params:
+        raise ValueError("Could not find 't' parameter in URL")
+
+    return int(query_params['t'][0])
+
+
+def _recognize_status_with_title_recognize(title: str) -> str | None:
+    title_reco_response = recognize_title_via_api(title, status_only=True)
+
+    if title_reco_response and 'status' in title_reco_response.keys() and title_reco_response['status'] == 'ok':
+        title_reco_dict = RecognitionResult.model_validate(title_reco_response['recognition'])
+        return title_reco_dict.status
+        # TODO validate whole response
+    return None
+
+
+def _change_topic_status(topic_id: int, topic_content: str) -> None:
+    """block to check if Status of the search has changed – if so send a pub/sub to topic_management"""
+
+    # get the Title out of page content (intentionally avoid BS4 to make pack slimmer)
+    title = _parse_title(topic_content)
+
+    if not title:
+        return
+
+    status = _parse_status_from_title(title)
+
+    if not status:
+        status = _recognize_status_with_title_recognize(title)
+
+    if not status or status == 'Ищем':
+        return
+
+    db = get_db_client()
+    with db.connect() as conn:
+        save_status_for_topic(conn, topic_id, status)
+
+
+def _parse_status_from_title(title: str) -> str | None:
+    patterns = [[r'(?i)(^\W{0,2}|(?<=\W))(пропал[аи]?\W{1,3})', 'Ищем']]
+
+    for pattern in patterns:
+        if re.search(pattern[0], title):
+            return pattern[1]
+    return None
+
+
+def _parse_title(act_content: str) -> str | None:
+    pre_title = re.search(r'<h2 class="topic-title"><a href=.{1,500}</a>', act_content)
+    pre_title_1 = pre_title.group() if pre_title else None
+    pre_title_2 = re.search(r'">.{1,500}</a>', pre_title_1[32:]) if pre_title_1 else None
+    title = pre_title_2.group()[2:-4] if pre_title_2 else None
+    return title
+
+
+def prettify_content(content: str) -> str:
+    """remove the irrelevant code from the first page content"""
+
+    # TODO - seems can be much simplified with regex
+    # cut the wording of the first post
+    start = content.find('<div class="content">')
+    content = content[(start + 21) :]
+
+    # find the next block and limit the content till this block
+    next_block = content.find('<div class="back2top">')
+    content = content[: (next_block - 12)]
+
+    # cut out div closure
+    fin_div = content.rfind('</div>')
+    content = content[:fin_div]
+
+    # cut blank symbols in the end of code
+    finish = content.rfind('>')
+    content = content[: (finish + 1)]
+
+    # exclude dynamic info – views of the pictures
+    patterns = re.findall(r'\) \d+ просмотр(?:а|ов)?', content)
+    if patterns:
+        for word in patterns:
+            content = content.replace(word, ')')
+
+    # exclude dynamic info - token / creation time / sid / etc / footer
+    patterns_list = [
+        r'value="\S{10}"',
+        r'value="\S{32}"',
+        r'value="\S{40}"',
+        r'sid=\S{32}&amp;',
+        r'всего редактировалось \d+ раз.',  # AK:issue#9
+        r'<span class="footer-info"><span title="SQL time:.{120,130}</span></span>',
+    ]
+
+    patterns = []
+    for pat in patterns_list:
+        patterns += re.findall(pat, content)
+
+    for word in patterns:
+        content = content.replace(word, '')
+
+    return content
+
+
+def get_first_post(search_num: int) -> FirstPostData | None:
+    """parse the first post of search"""
+
+    raw_content = _get_search_raw_content(search_num)
+    not_found = True if raw_content and re.search(r'Запрошенной темы не существует', raw_content) else False
+    # the same as status 404
+
+    if not_found:
+        return None
+
+    # FIXME – deactivated on Feb 6 2023 because seems it's not correct that this script should check status
+    # FIXME – activated on Feb 7 2023 –af far as there were 2 searches w/o status updated
+    _change_topic_status(search_num, raw_content)
+    topic_visibility = _define_topic_visibility_by_content(raw_content)
+
+    prettified_content = prettify_content(raw_content)
+
+    # craft a hash for this content
+    hash_num = hashlib.md5(prettified_content.encode()).hexdigest()
+
+    return FirstPostData(
+        hash_num=hash_num,
+        raw_content=raw_content,
+        prettified_content=prettified_content,
+        not_found=not_found,
+        topic_visibility=topic_visibility,
+    )
