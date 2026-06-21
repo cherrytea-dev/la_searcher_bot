@@ -128,15 +128,6 @@ CREATE SEQUENCE notif_functions_registry_id_seq
 	START 1
 	CACHE 1
 	NO CYCLE;
--- DROP SEQUENCE notif_mailings_mailing_id_seq;
-
-CREATE SEQUENCE notif_mailings_mailing_id_seq
-	INCREMENT BY 1
-	MINVALUE 1
-	MAXVALUE 2147483647
-	START 1
-	CACHE 1
-	NO CYCLE;
 -- DROP SEQUENCE notif_stat_sending_speed_id_seq;
 
 CREATE SEQUENCE notif_stat_sending_speed_id_seq
@@ -678,7 +669,6 @@ CREATE TABLE news (
 
 CREATE TABLE notif_by_user__history (
 	message_id int8 NULL,
-	mailing_id int4 NULL,
 	user_id int8 NULL,
 	message_content varchar NULL,
 	message_text varchar NULL,
@@ -1151,19 +1141,6 @@ CREATE TABLE users (
 CREATE UNIQUE INDEX users_user_id ON public.users USING btree (user_id);
 
 
--- public.notif_mailings определение
-
--- Drop table
-
--- DROP TABLE notif_mailings;
-
-CREATE TABLE notif_mailings (
-	mailing_id serial4 NOT NULL,
-	change_log_id int4 NOT NULL,
-	CONSTRAINT notif_mailings_pkey PRIMARY KEY (mailing_id)
-);
-
-
 -- public.user_pref_search_whitelist определение
 
 -- Drop table
@@ -1190,7 +1167,6 @@ CREATE UNIQUE INDEX idx_user_search_unique ON public.user_pref_search_whitelist 
 
 CREATE TABLE notif_by_user (
 	message_id bigserial NOT NULL,
-	mailing_id int4 NULL,
 	user_id int8 NOT NULL,
 	message_content varchar NULL,
 	message_text varchar NULL,
@@ -1203,8 +1179,7 @@ CREATE TABLE notif_by_user (
 	cancelled timestamp NULL,
 	failed timestamp NULL,
 	num_of_fails int4 NULL,
-	CONSTRAINT notif_by_user_pkey PRIMARY KEY (message_id),
-	CONSTRAINT notif_by_user_mailing FOREIGN KEY (mailing_id) REFERENCES notif_mailings(mailing_id)
+	CONSTRAINT notif_by_user_pkey PRIMARY KEY (message_id)
 );
 
 

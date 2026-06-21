@@ -235,7 +235,6 @@ t_notif_by_user__history = Table(
     'notif_by_user__history',
     metadata,
     Column('message_id', BigInteger),
-    Column('mailing_id', Integer),
     Column('user_id', BigInteger),
     Column('message_content', String),
     Column('message_text', String),
@@ -616,15 +615,6 @@ class User(Base):
     vk_id = Column(String(20), nullable=True)
 
 
-class NotifMailing(Base):
-    __tablename__ = 'notif_mailings'
-
-    mailing_id = Column(
-        Integer, primary_key=True, server_default=text("nextval('notif_mailings_mailing_id_seq1'::regclass)")
-    )
-    change_log_id = Column(Integer, nullable=False)
-
-
 class UserPrefSearchWhitelist(Base):
     __tablename__ = 'user_pref_search_whitelist'
     __table_args__ = (Index('idx_user_search_unique', 'user_id', 'search_id', unique=True),)
@@ -646,7 +636,6 @@ class NotifByUser(Base):
     message_id = Column(
         BigInteger, primary_key=True, server_default=text("nextval('notif_by_user_message_id_seq1'::regclass)")
     )
-    mailing_id = Column(ForeignKey('notif_mailings.mailing_id'))
     user_id = Column(BigInteger, nullable=False)
     message_content = Column(String)
     message_text = Column(String)
@@ -659,5 +648,3 @@ class NotifByUser(Base):
     cancelled = Column(DateTime)
     failed = Column(DateTime)
     num_of_fails = Column(Integer)
-
-    mailing = relationship('NotifMailing')

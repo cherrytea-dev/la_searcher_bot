@@ -29,9 +29,8 @@ class TestNotificationMaker:
         record = LineInChangeLogFactory.build(ignore=False, change_type=ChangeType.topic_status_change, processed=False)
         user = UserFactory.build()
         composer = NotificationMaker(connection, record, [user])
-        mailing_id = composer.create_new_mailing_id()
 
-        composer.generate_notification_for_user(mailing_id, user)
+        composer.generate_notification_for_user(record.change_log_id, user)
         composer.flush_batch()
 
         query = session.query(db_models.NotifByUser).filter(
@@ -60,9 +59,8 @@ class TestNotificationMaker:
             user_longitude='55.0000',
         )
         composer = NotificationMaker(connection, record, [user])
-        mailing_id = composer.create_new_mailing_id()
 
-        composer.generate_notification_for_user(mailing_id, user)
+        composer.generate_notification_for_user(record.change_log_id, user)
         composer.flush_batch()
 
         query = session.query(db_models.NotifByUser).filter(
@@ -91,9 +89,8 @@ class TestNotificationMaker:
             user_longitude='55.0000',
         )
         composer = NotificationMaker(connection, record, [user])
-        mailing_id = composer.create_new_mailing_id()
 
-        composer.generate_notification_for_user(mailing_id, user)
+        composer.generate_notification_for_user(record.change_log_id, user)
         composer.flush_batch()
 
         query = session.query(db_models.NotifByUser).filter(
