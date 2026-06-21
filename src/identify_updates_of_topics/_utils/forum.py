@@ -118,7 +118,7 @@ class ForumClient:
             return 0.0, 0.0, CoordType.unknown, None
 
         # Remove <br> tags (needed for coordinate parsing)
-        for br in content_div.findAll('br'):
+        for br in content_div.find_all('br'):
             br.extract()
 
         # --- Coordinates (3 cases) ---
@@ -137,7 +137,7 @@ class ForumClient:
 
         # --- Raw search text (needs a copy to avoid mutating the soup used above) ---
         text_soup = copy.copy(content_div)
-        for deleted in text_soup.findAll('span', {'style': 'text-decoration:line-through'}):
+        for deleted in text_soup.find_all('span', {'style': 'text-decoration:line-through'}):
             deleted.extract()
         for a_tag in text_soup.find_all('a'):
             href = a_tag.get('href')
@@ -221,7 +221,7 @@ class ForumClient:
                 comment_author_link = 'unidentified_link'
 
         # finding the global comment id
-        comment_link = search_code_blocks.find('p', 'author').findNext('a')['href']
+        comment_link = search_code_blocks.find('p', 'author').find_next('a')['href']
         url = URL(comment_link)
         comment_forum_global_id = int(url.query.get('p'))
 
@@ -337,19 +337,19 @@ def _parse_coords_case_2(search_code_blocks: BeautifulSoup) -> tuple[float, floa
         b[i].decompose()
 
         # removing <span> tags
-    for e in a.findAll('span'):
+    for e in a.find_all('span'):
         e.replace_with(e.text)
 
         # removing <img> tags
-    for e in a.findAll('img'):
+    for e in a.find_all('img'):
         e.extract()
 
         # removing <a> tags
-    for e in a.findAll('a'):
+    for e in a.find_all('a'):
         e.extract()
 
         # removing <strong> tags
-    for e in a.findAll('strong'):
+    for e in a.find_all('strong'):
         e.replace_with(e.text)
 
         # converting to string

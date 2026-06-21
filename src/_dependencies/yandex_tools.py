@@ -8,7 +8,7 @@ import boto3
 import requests
 from botocore.client import BaseClient
 from pydantic_core import to_json
-from pythonjsonlogger import jsonlogger
+from pythonjsonlogger.json import JsonFormatter
 from retry import retry
 
 Ctx = dict
@@ -17,7 +17,7 @@ Ctx = dict
 def setup_logging_cloud(package_name: str | None = None) -> None:
     handler = logging.StreamHandler(sys.stdout)
 
-    formatter = jsonlogger.JsonFormatter(
+    formatter = JsonFormatter(
         '{levelname}{message}{name}{asctime}{exc_info}',
         style='{',
         rename_fields={'levelname': 'level'},
