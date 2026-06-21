@@ -29,24 +29,24 @@ def move_notifications_to_history_in_psql(conn: Connection) -> None:
 
     # DEBUG 1
     stmt = sqlalchemy.text("""
-                SELECT MIN(mailing_id) FROM notif_by_user;
+                SELECT MIN(change_log_id) FROM notif_by_user;
                 """)
     query_result = conn.execute(stmt).fetchone()
-    mailing_id = query_result[0]
+    change_log_id = query_result[0]
 
-    logging.info(f'The mailing_id to be updated in nbu: {query_result[0]}')
+    logging.info(f'The change_log_id to be updated in nbu: {query_result[0]}')
 
-    # migrate all records with "lowest" mailing_id from notif_by_user to notif_by_user__history
+    # migrate all records with "lowest" change_log_id from notif_by_user to notif_by_user__history
     stmt = sqlalchemy.text("""
         INSERT INTO notif_by_user__history
             SELECT  * FROM notif_by_user
-            WHERE mailing_id = :mailing_id
+            WHERE change_log_id = :change_log_id
             FOR UPDATE;
         --
         DELETE FROM notif_by_user
-            WHERE mailing_id = :mailing_id
+            WHERE change_log_id = :change_log_id
         """)
-    conn.execute(stmt, mailing_id=mailing_id)
+    conn.execute(stmt, change_log_id=change_log_id)
 
     pubsub_archive_notifications()
 

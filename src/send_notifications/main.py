@@ -54,7 +54,6 @@ class MessageToSend:
     message_params: str
     message_group_id: int | None
     change_log_id: int
-    mailing_id: int
     failed: datetime.datetime | None
     vk_id: str | None = None
 
@@ -81,14 +80,13 @@ class DBClient(DBClientBase):
                     user_id,
                     created,
                     completed,
-                    cancelled, 
-                    message_content, 
-                    message_type, 
-                    message_params, 
+                    cancelled,
+                    message_content,
+                    message_type,
+                    message_params,
                     message_group_id,
                     change_log_id,
-                    mailing_id,
-                    failed 
+                    failed
                 FROM
                     notif_by_user
                 WHERE 

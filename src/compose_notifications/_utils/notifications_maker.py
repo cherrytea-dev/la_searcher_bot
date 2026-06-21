@@ -22,7 +22,6 @@ from .message_composer import MessageComposer
 class NotificationRecord:
     """Dataclass representing a notification record for batch insertion."""
 
-    mailing_id: int
     user_id: int
     message: str | None
     message_without_html: str | None
@@ -61,12 +60,12 @@ class NotificationMaker:
             logging.info('Iterations over all Users and Updates are done (record Ignored)')
             return
 
-        mailing_id = self.create_new_mailing_id()
+        change_log_id = new_record.change_log_id
 
         pubsub_send_notifications(function_id, 'initiate notifs send out')
 
         for user in self.list_of_users:
-            self.generate_notification_for_user(mailing_id, user)
+            self.generate_notification_for_user(change_log_id, user)
 
         self.flush_batch()
 
@@ -74,27 +73,9 @@ class NotificationMaker:
         new_record.processed = True
         logging.info('Iterations over all Users and Updates are done')
 
-    def create_new_mailing_id(self) -> int:
-        # record into SQL table notif_mailings
-
-        sql_text = sqlalchemy.text("""
-            INSERT INTO notif_mailings (change_log_id)
-            VALUES (:change_log_id)
-            RETURNING mailing_id;
-                        """)
-        raw_data = self.conn.execute(
-            sql_text,
-            change_log_id=self.new_record.change_log_id,
-        ).fetchone()
-
-        mail_id = raw_data[0]
-        logging.info(f'mailing_id = {mail_id}')
-
-        return mail_id
-
     def generate_notification_for_user(
         self,
-        mailing_id: int,
+        change_log_id: int,
         user: User,
     ) -> None:
         change_type = self.new_record.change_type
@@ -105,19 +86,19 @@ class NotificationMaker:
         if not user_message:
             return
 
-        self._send_main_text_message(mailing_id, user, user_message)
+        self._send_main_text_message(change_log_id, user, user_message)
 
         # save to SQL the sendLocation notification for "new search"
         if change_type == ChangeType.topic_new and topic_type_id in SEARCH_TOPIC_TYPES:
             # for user tips in "new search" notifs – to increase sent messages counter
             self.stat_list_of_recipients.append(user.user_id)
-            self._send_coordinates_for_new_search(mailing_id, user)
+            self._send_coordinates_for_new_search(change_log_id, user)
         elif change_type == ChangeType.topic_first_post_change:
-            self._send_coordinates_for_first_post_change(mailing_id, user, user_message)
+            self._send_coordinates_for_first_post_change(change_log_id, user, user_message)
 
     def _send_main_text_message(
         self,
-        mailing_id: int,
+        change_log_id: int,
         user: User,
         user_message: str,
     ) -> None:
@@ -132,7 +113,7 @@ class NotificationMaker:
 
             # record into SQL table notif_by_user
         self._save_to_sql_notif_by_user(
-            mailing_id,
+            change_log_id,
             user.user_id,
             user_message,
             message_without_html,
@@ -142,7 +123,7 @@ class NotificationMaker:
 
     def _send_coordinates_for_new_search(
         self,
-        mailing_id: int,
+        change_log_id: int,
         user: User,
     ) -> None:
         new_record = self.new_record
@@ -151,7 +132,7 @@ class NotificationMaker:
         message_params = {'latitude': new_record.search_latitude, 'longitude': new_record.search_longitude}
         # record into SQL table notif_by_user (not text, but coords only)
         self._save_to_sql_notif_by_user(
-            mailing_id,
+            change_log_id,
             user.user_id,
             None,
             None,
@@ -161,7 +142,7 @@ class NotificationMaker:
 
     def _send_coordinates_for_first_post_change(
         self,
-        mailing_id: int,
+        change_log_id: int,
         user: User,
         user_message: str,
     ) -> None:
@@ -171,7 +152,7 @@ class NotificationMaker:
         new_lat, new_lon = coords
         message_params = {'latitude': new_lat, 'longitude': new_lon}
         self._save_to_sql_notif_by_user(
-            mailing_id,
+            change_log_id,
             user.user_id,
             None,
             None,
@@ -212,7 +193,7 @@ class NotificationMaker:
 
     def _save_to_sql_notif_by_user(
         self,
-        mailing_id_: int,
+        change_log_id: int,
         user_id: int,
         message: str | None,
         message_without_html: str | None,
@@ -222,13 +203,12 @@ class NotificationMaker:
         """save to sql table notif_by_user the new message"""
 
         record = NotificationRecord(
-            mailing_id=mailing_id_,
             user_id=user_id,
             message=message,
             message_without_html=message_without_html,
             message_type=message_type,
             message_params=str(message_params),
-            change_log_id=self.new_record.change_log_id,
+            change_log_id=change_log_id,
             created=datetime.datetime.now(),
         )
 
@@ -244,7 +224,6 @@ class NotificationMaker:
 
         sql_text = sqlalchemy.text("""
             INSERT INTO notif_by_user (
-                mailing_id,
                 user_id,
                 message_content,
                 message_text,
@@ -254,12 +233,11 @@ class NotificationMaker:
                 change_log_id,
                 created)
             VALUES (
-                :mailing_id,
                 :user_id,
-                :message, 
+                :message,
                 :message_without_html,
                 :message_type,
-                :message_params, 
+                :message_params,
                 :message_group,
                 :change_log_id,
                 :created

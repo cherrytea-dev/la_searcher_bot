@@ -278,9 +278,8 @@ class TestUsersFilter:
         line_in_change_log = LineInChangeLogFactory.build()
         user = UserFactory.build()
         user_model = db_factories.UserFactory.create_sync(user_id=user.user_id)
-        mailing = db_factories.NotifMailingFactory.create_sync()
         db_factories.NotifByUserFactory.create_sync(
-            user_id=user.user_id, change_log_id=line_in_change_log.change_log_id, mailing=mailing
+            user_id=user.user_id, change_log_id=line_in_change_log.change_log_id
         )
 
         filterer = UserListFilter(connection, line_in_change_log, [user])

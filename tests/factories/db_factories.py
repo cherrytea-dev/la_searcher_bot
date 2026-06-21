@@ -44,14 +44,9 @@ class DictNotifTypeFactory(BaseFactory[db_models.DictNotifType]):
     # type_id = Use(BaseFactory.__random__.choice, [1, 2, 3, 4])
 
 
-class NotifMailingFactory(BaseFactory[db_models.NotifMailing]):
-    pass
-
-
 class NotifByUserFactory(BaseFactory[db_models.NotifByUser]):
     message_params = '{"foo":1}'
     message_type = 'text'
-    mailing = Use(NotifMailingFactory.create_sync)
 
 
 class NotifByUserHistory(db_models.Base):
