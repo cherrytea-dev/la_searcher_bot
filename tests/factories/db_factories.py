@@ -45,7 +45,7 @@ class DictNotifTypeFactory(BaseFactory[db_models.DictNotifType]):
 
 
 class NotifMailingFactory(BaseFactory[db_models.NotifMailing]):
-    pass
+    dict_notif_type = Use(DictNotifTypeFactory.create_sync)
 
 
 class NotifByUserFactory(BaseFactory[db_models.NotifByUser]):
