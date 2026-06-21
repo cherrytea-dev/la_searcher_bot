@@ -81,10 +81,12 @@ class SearchFirstPostFactory(BaseFactory[db_models.SearchFirstPost]):
 
 class GeoFolderFactory(BaseFactory[db_models.GeoFolder]):
     __set_primary_key__ = True
+    folder_id = Use(faker.pyint, min_value=10000, max_value=99999)
 
 
 class GeoRegionFactory(BaseFactory[db_models.GeoRegion]):
     __set_primary_key__ = True
+    region_id = Use(faker.bothify, text='??-???')
 
 
 class SearchHealthCheckFactory(BaseFactory[db_models.SearchHealthCheck]):

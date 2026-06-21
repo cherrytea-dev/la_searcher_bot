@@ -1,10 +1,21 @@
 import pytest
+import sqlalchemy
 
 from _dependencies.commons import SearchFollowingMode
 from communicate._utils.common import AgePeriod, SearchSummary, UserInputState
 from communicate._utils.database import DBClient, UserSettingsSummary
 from tests.common import fake, find_model
 from tests.factories import db_factories, db_models
+
+
+def _cleanup_searches(session, searches: list) -> None:
+    """Delete created searches to avoid polluting subsequent test runs."""
+    search_forum_nums = [s.search_forum_num for s in searches]
+    session.execute(
+        sqlalchemy.text('DELETE FROM searches WHERE search_forum_num = ANY(:nums)'),
+        {'nums': search_forum_nums},
+    )
+    session.commit()
 
 
 def test_save_user_message_to_bot(session, db_client: DBClient, user_id: int):
@@ -553,6 +564,8 @@ def test_get_all_active_searches_in_one_region_2(session, db_client: DBClient, u
     for search_model, search_result in zip(searches, active_searches):
         _assert_search_summary_equals_to_search_model(search_model, search_result)
 
+    _cleanup_searches(session, searches)
+
 
 def test_get_all_searches_in_one_region(session, db_client: DBClient):
     # Add searches for a region
@@ -570,9 +583,13 @@ def test_get_all_searches_in_one_region(session, db_client: DBClient):
     for search_model, search_result in zip(searches, all_searches):
         _assert_search_summary_equals_to_search_model(search_model, search_result)
 
+    _cleanup_searches(session, searches)
+
 
 def test_get_all_last_searches_in_region(session, db_client: DBClient, user_id: int):
     # Add searches for a region
+    # Use a unique negative region_id to avoid collisions with stale data from previous test runs
+    # region_id = -abs(fake.pyint())
     region_id = fake.pyint()
     searches = db_factories.SearchFactory.create_batch_sync(2, forum_folder_id=region_id)
 
@@ -585,6 +602,8 @@ def test_get_all_last_searches_in_region(session, db_client: DBClient, user_id: 
     last_searches.sort(key=lambda x: x.topic_id)
     for search_model, search_result in zip(searches, last_searches):
         _assert_search_summary_equals_to_search_model(search_model, search_result)
+
+    _cleanup_searches(session, searches)
 
 
 def test_get_active_searches_in_one_region(session, db_client: DBClient):
@@ -604,6 +623,8 @@ def test_get_active_searches_in_one_region(session, db_client: DBClient):
     active_searches.sort(key=lambda x: x.topic_id)
     for search_model, search_result in zip(searches, active_searches):
         _assert_search_summary_equals_to_search_model(search_model, search_result)
+
+    _cleanup_searches(session, searches)
 
 
 def test_write_user_forum_attributes_db(session, db_client: DBClient, user_id: int):
