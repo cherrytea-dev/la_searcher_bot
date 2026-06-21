@@ -10,6 +10,9 @@ test:
 initdb:
 	PYTHONPATH=.:src uv run python tests/tools/init_testing_db.py --db=TEST
 
+initdb-data:
+	PYTHONPATH=.:src uv run python tests/tools/init_testing_db.py --db=TEST --init-data-only
+
 lint:
 	uv run ruff format src tests
 	uv run ruff check src tests --select I --fix
@@ -20,6 +23,8 @@ lint-check:
 
 mypy:
 	uv run mypy
+
+precommit: lint mypy
 
 requirements:
 	for d in $$(ls -1 src | grep -E ${SRC_FUNCTIONS_REGEX}); do \
