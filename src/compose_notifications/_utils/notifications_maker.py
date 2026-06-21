@@ -78,16 +78,13 @@ class NotificationMaker:
         # record into SQL table notif_mailings
 
         sql_text = sqlalchemy.text("""
-            INSERT INTO notif_mailings (topic_id, source_script, mailing_type, change_log_id)
-            VALUES (:a, :b, :c, :d)
+            INSERT INTO notif_mailings (change_log_id)
+            VALUES (:change_log_id)
             RETURNING mailing_id;
                         """)
         raw_data = self.conn.execute(
             sql_text,
-            a=self.new_record.forum_search_num,
-            b='notifications_script',
-            c=self.new_record.change_type,
-            d=self.new_record.change_log_id,
+            change_log_id=self.new_record.change_log_id,
         ).fetchone()
 
         mail_id = raw_data[0]

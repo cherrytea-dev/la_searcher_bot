@@ -128,15 +128,6 @@ CREATE SEQUENCE notif_functions_registry_id_seq
 	START 1
 	CACHE 1
 	NO CYCLE;
--- DROP SEQUENCE notif_mailing_status_id_seq;
-
-CREATE SEQUENCE notif_mailing_status_id_seq
-	INCREMENT BY 1
-	MINVALUE 1
-	MAXVALUE 2147483647
-	START 1
-	CACHE 1
-	NO CYCLE;
 -- DROP SEQUENCE notif_mailings_mailing_id_seq;
 
 CREATE SEQUENCE notif_mailings_mailing_id_seq
@@ -1168,12 +1159,8 @@ CREATE UNIQUE INDEX users_user_id ON public.users USING btree (user_id);
 
 CREATE TABLE notif_mailings (
 	mailing_id serial4 NOT NULL,
-	topic_id int4 NOT NULL,
-	source_script varchar(200) NULL,
-	mailing_type int4 NULL,
 	change_log_id int4 NOT NULL,
-	CONSTRAINT notif_mailings_pkey PRIMARY KEY (mailing_id),
-	CONSTRAINT notif_mail_type FOREIGN KEY (mailing_type) REFERENCES dict_notif_types(type_id)
+	CONSTRAINT notif_mailings_pkey PRIMARY KEY (mailing_id)
 );
 
 
@@ -1218,22 +1205,6 @@ CREATE TABLE notif_by_user (
 	num_of_fails int4 NULL,
 	CONSTRAINT notif_by_user_pkey PRIMARY KEY (message_id),
 	CONSTRAINT notif_by_user_mailing FOREIGN KEY (mailing_id) REFERENCES notif_mailings(mailing_id)
-);
-
-
--- public.notif_mailing_status определение
-
--- Drop table
-
--- DROP TABLE notif_mailing_status;
-
-CREATE TABLE notif_mailing_status (
-	id serial4 NOT NULL,
-	mailing_id int4 NULL,
-	"event" varchar(100) NULL,
-	event_timestamp timestamp NULL,
-	CONSTRAINT notif_mailing_status_pkey PRIMARY KEY (id),
-	CONSTRAINT notif_mail_status FOREIGN KEY (mailing_id) REFERENCES notif_mailings(mailing_id)
 );
 
 

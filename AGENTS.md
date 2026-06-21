@@ -578,4 +578,5 @@ The PostgreSQL database is central. Key tables (inferred from code):
 - For non-pytest scripts (e.g., `initdb`), use `PYTHONPATH=src uv run python ...` or simply `make initdb`.
 - Prefer `make test` / `make mypy` / `make lint` — they handle all paths correctly.
 - **Comments**: Keep them minimal. Section-separator comments like `# ─── Section Name ───` are useless — good function/variable names should make the structure obvious. Only add comments where the logic genuinely needs explanation (non-obvious edge cases, API quirks, design rationale). Module-level docstrings explaining the file's purpose are fine.
+- **Schema changes**: If you modify a table's columns in code or tests, also update the corresponding `CREATE TABLE` in [`tests/tools/db.sql`](tests/tools/db.sql) and the SQLAlchemy model in [`tests/factories/db_models.py`](tests/factories/db_models.py). These files must stay in sync with the actual DB schema used in production.
 

@@ -622,12 +622,7 @@ class NotifMailing(Base):
     mailing_id = Column(
         Integer, primary_key=True, server_default=text("nextval('notif_mailings_mailing_id_seq1'::regclass)")
     )
-    topic_id = Column(Integer, nullable=False)
-    source_script = Column(String(200))
-    mailing_type = Column(ForeignKey('dict_notif_types.type_id'))
     change_log_id = Column(Integer, nullable=False)
-
-    dict_notif_type = relationship('DictNotifType')
 
 
 class UserPrefSearchWhitelist(Base):
@@ -664,16 +659,5 @@ class NotifByUser(Base):
     cancelled = Column(DateTime)
     failed = Column(DateTime)
     num_of_fails = Column(Integer)
-
-    mailing = relationship('NotifMailing')
-
-
-class NotifMailingStatu(Base):
-    __tablename__ = 'notif_mailing_status'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('notif_mailing_status_id_seq1'::regclass)"))
-    mailing_id = Column(ForeignKey('notif_mailings.mailing_id'))
-    event = Column(String(100))
-    event_timestamp = Column(DateTime)
 
     mailing = relationship('NotifMailing')
