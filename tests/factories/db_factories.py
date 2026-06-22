@@ -47,6 +47,7 @@ class DictNotifTypeFactory(BaseFactory[db_models.DictNotifType]):
 class NotifByUserFactory(BaseFactory[db_models.NotifByUser]):
     message_params = '{"foo":1}'
     message_type = 'text'
+    messenger = 'telegram'
 
 
 class NotifByUserHistory(db_models.Base):

@@ -659,3 +659,4 @@ class NotifByUser(Base):
     cancelled = Column(DateTime)
     failed = Column(DateTime)
     num_of_fails = Column(Integer)
+    messenger = Column(String(20), nullable=False, server_default=text("'telegram'"))

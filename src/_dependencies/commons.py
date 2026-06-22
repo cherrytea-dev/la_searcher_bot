@@ -1,6 +1,8 @@
 import ast
 import re
-from enum import Enum, IntEnum
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from enum import Enum, IntEnum, StrEnum
 from functools import lru_cache
 
 import sqlalchemy
@@ -256,3 +258,46 @@ def _move_phone_links_outside_href_tags(outcome_text: str) -> str:
             new_inner_a.string = inner_a_text
             outer_a.insert_after(new_inner_a)
     return str(soup)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Messenger abstraction layer (Phase 2)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class Messenger(StrEnum):
+    """Supported messengers."""
+
+    TELEGRAM = 'telegram'
+    VK = 'vk'
+    # FUTURE: WHATSAPP = 'whatsapp'
+
+
+@dataclass(frozen=True)
+class UserIdentity:
+    """Identifies a user within a specific messenger."""
+
+    internal_user_id: int
+    messenger: Messenger
+    messenger_user_id: str
+
+
+@dataclass(frozen=True)
+class SendResult:
+    """Result of sending a message."""
+
+    success: bool
+    status: str  # 'completed', 'cancelled', 'failed', 'cancelled_bad_request', 'failed_flood_control'
+    status_code: int | None = None
+
+
+class MessengerClient(ABC):
+    """Abstract interface for sending messages via any messenger."""
+
+    messenger: Messenger
+
+    @abstractmethod
+    def send_message(self, user_identity: UserIdentity, text: str, **kwargs: object) -> SendResult: ...
+
+    @abstractmethod
+    def send_coordinates(self, user_identity: UserIdentity, lat: float, lng: float) -> SendResult: ...

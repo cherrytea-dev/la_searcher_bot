@@ -680,7 +680,8 @@ CREATE TABLE notif_by_user__history (
 	completed timestamp NULL,
 	cancelled timestamp NULL,
 	failed timestamp NULL,
-	num_of_fails int4 NULL
+	num_of_fails int4 NULL,
+	messenger varchar(20) DEFAULT 'telegram'::character varying NOT NULL
 );
 
 
@@ -1198,6 +1199,7 @@ CREATE TABLE notif_by_user (
 	cancelled timestamp NULL,
 	failed timestamp NULL,
 	num_of_fails int4 NULL,
+	messenger varchar(20) DEFAULT 'telegram'::character varying NOT NULL,
 	CONSTRAINT notif_by_user_pkey PRIMARY KEY (message_id)
 );
 
