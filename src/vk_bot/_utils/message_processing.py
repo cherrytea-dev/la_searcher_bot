@@ -27,29 +27,50 @@ def handle_new_message(
     """Process a new message from a user.
 
     Flow:
-    1. Check if VK user is linked to a Telegram account via get_user_by_vk_id()
-    2. If NOT linked → handle_unregistered_user() (only invite processing)
-    3. If linked → resolve system user_id, get state, run handler chain
-    4. Send response
+    1. Resolve identity via ``user_identity_map`` (new path)
+    2. If not found, fall back to ``users.vk_id`` column (legacy path)
+    3. If still not found, try invite linking first; if that fails,
+       register as a VK-only user so they can use the bot immediately
+    4. Once identity is resolved → run handler chain
 
     Args:
         vk_message: The incoming VK message.
         sender: VKMessageSender instance for sending messages.
     """
+    import datetime
+
+    from .account_linking import handle_unregistered_user, register_vk_only_user
+
     vk_user_id = vk_message.user_id
     peer_id = vk_message.peer_id
 
     logging.info(f'handle_new_message: vk_user={vk_user_id}, text="{vk_message.text}"')
 
-    linked_user_id = db().get_user_by_vk_id(vk_user_id)
+    # 1. Try new path: user_identity_map
+    identity = db().get_identity_by_messenger_user_id(vk_user_id)
+    if identity is not None:
+        user_id = identity.internal_user_id
+        logging.info(f'handle_new_message: resolved from identity_map, internal_user={user_id}')
 
-    if linked_user_id is None:
-        # User is not linked — only allow invite processing
-        handle_unregistered_user(vk_message, peer_id, sender=sender)
-        return
+    # 2. Fall back to legacy path: users.vk_id
+    else:
+        linked_user_id = db().get_user_by_vk_id(vk_user_id)
+        if linked_user_id is not None:
+            user_id = linked_user_id
+            logging.info(f'handle_new_message: resolved from legacy vk_id, system_user={user_id}')
+        else:
+            # 3. Check if message is an invite attempt
+            from .common import get_invite_from_message
 
-    user_id = linked_user_id
-    logging.info(f'handle_new_message: linked system_user={user_id}')
+            telegram_user_id, invite_hash = get_invite_from_message(vk_message.text)
+            if telegram_user_id and invite_hash:
+                # Let account_linking handle the invite validation
+                handle_unregistered_user(vk_message, peer_id, sender=sender)
+                return
+
+            # 4. Register as VK-only user
+            logging.info(f'handle_new_message: registering VK-only user {vk_user_id}')
+            user_id = register_vk_only_user(vk_user_id)
 
     try:
         db().save_user_message(user_id, vk_message.text)
