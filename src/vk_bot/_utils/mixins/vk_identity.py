@@ -1,5 +1,7 @@
 """VK identity mixin — user resolution by VK ID."""
 
+from types import SimpleNamespace
+
 import sqlalchemy
 
 
@@ -82,13 +84,12 @@ class VKIdentityMixin:
             return telegram_id
         return -vk_user_id
 
-    def get_identity_by_messenger_user_id(self, messenger_user_id: int | str) -> object | None:
+    def get_identity_by_messenger_user_id(self, messenger_user_id: int | str) -> SimpleNamespace | None:
         """Resolve ``UserIdentity`` from ``user_identity_map`` by VK user ID.
 
         Returns a simple namespace with ``internal_user_id``, ``messenger``,
         ``messenger_user_id`` or None if not found.
         """
-        from types import SimpleNamespace
 
         with self.connect() as connection:  # type: ignore[attr-defined]
             stmt = sqlalchemy.text("""

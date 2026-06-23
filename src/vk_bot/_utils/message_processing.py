@@ -11,7 +11,7 @@ and use :func:`result_processing.process_vk_result` to send responses.
 import json
 import logging
 
-from .account_linking import handle_unregistered_user
+from .account_linking import handle_unregistered_user, register_vk_only_user
 from .common import VKMessage
 from .database import db
 from .handler_chain import HANDLER_CHAIN
@@ -37,9 +37,6 @@ def handle_new_message(
         vk_message: The incoming VK message.
         sender: VKMessageSender instance for sending messages.
     """
-    import datetime
-
-    from .account_linking import handle_unregistered_user, register_vk_only_user
 
     vk_user_id = vk_message.user_id
     peer_id = vk_message.peer_id
