@@ -55,8 +55,8 @@ class MessageToSend:
     message_group_id: int | None
     change_log_id: int
     failed: datetime.datetime | None
-    vk_id: str | None = None
     messenger: str = 'telegram'
+    vk_id: str | None = None
 
 
 class DBClient(DBClientBase):
