@@ -136,18 +136,19 @@ def _save_new_user(conn: sqlalchemy.engine.Connection, user_id: int, username: s
     """if the user is new – save to users table"""
 
     # add the New User into table users
+    # internal_user_id = user_id for telegram users (1:1 mapping)
     result = conn.execute(
         sqlalchemy.text("""
             WITH rows AS
             (
-                INSERT INTO users (user_id, username_telegram, reg_date) 
-                VALUES (:user_id, :username, :reg_date)
+                INSERT INTO users (user_id, internal_user_id, username_telegram, reg_date)
+                VALUES (:user_id, :internal_user_id, :username, :reg_date)
                 ON CONFLICT (user_id) DO NOTHING
                 RETURNING 1
             )
             SELECT count(*) FROM rows;
         """),
-        {'user_id': user_id, 'username': username, 'reg_date': timestamp},
+        {'user_id': user_id, 'internal_user_id': user_id, 'username': username, 'reg_date': timestamp},
     )
     num_of_updates = result.scalar()
 
@@ -155,11 +156,21 @@ def _save_new_user(conn: sqlalchemy.engine.Connection, user_id: int, username: s
         logging.info(f'New user {user_id}, username {username} HAVE NOT BEEN SAVED due to duplication')
     else:
         logging.info(f'New user with id: {user_id}, username {username} saved.')
+        # save in user_identity_map (only for truly new users, not duplicates)
+        # For telegram users, internal_user_id = user_id (1:1 mapping)
+        conn.execute(
+            sqlalchemy.text("""
+                INSERT INTO user_identity_map (internal_user_id, messenger, messenger_user_id)
+                VALUES (:internal_user_id, 'telegram', :messenger_user_id)
+                ON CONFLICT (messenger, messenger_user_id) DO NOTHING
+            """),
+            {'internal_user_id': user_id, 'messenger_user_id': str(user_id)},
+        )
 
     # save onboarding start
     conn.execute(
         sqlalchemy.text("""
-            INSERT INTO user_onboarding (user_id, step_id, step_name, timestamp) 
+            INSERT INTO user_onboarding (user_id, step_id, step_name, timestamp)
             VALUES (:user_id, :step_id, :step_name, :timestamp)
         """),
         {'user_id': user_id, 'step_id': 0, 'step_name': 'start', 'timestamp': datetime.now()},

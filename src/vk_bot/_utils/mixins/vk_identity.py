@@ -50,17 +50,45 @@ class VKIdentityMixin:
     def set_user_vk_id(self, telegram_user_id: int, vk_id: int | str) -> bool:
         """Link VK ID to an existing Telegram user.
 
+        Writes to both ``users.vk_id`` (legacy) and ``user_identity_map`` (new path).
+
         Returns True if the user was found and updated, False if no user
         with the given telegram_user_id exists.
         """
         with self.connect() as connection:  # type: ignore[attr-defined]
+            # 1. Update legacy vk_id column
             stmt = sqlalchemy.text("""
                 UPDATE users
                 SET vk_id = :vk_id
                 WHERE user_id = :user_id;
             """)
             result = connection.execute(stmt, user_id=telegram_user_id, vk_id=str(vk_id))
-            return result.rowcount > 0
+            if result.rowcount == 0:
+                return False
+
+            # 2. Write to user_identity_map (new path)
+            #    Resolve internal_user_id from users table
+            resolve = connection.execute(
+                sqlalchemy.text("""
+                    SELECT internal_user_id FROM users
+                    WHERE user_id = :user_id
+                    LIMIT 1;
+                """),
+                {'user_id': telegram_user_id},
+            )
+            row = resolve.fetchone()
+            if row is not None:
+                internal_user_id = row[0]
+                connection.execute(
+                    sqlalchemy.text("""
+                        INSERT INTO user_identity_map (internal_user_id, messenger, messenger_user_id)
+                        VALUES (:internal_user_id, 'vk', :vk_user_id)
+                        ON CONFLICT (messenger, messenger_user_id) DO NOTHING
+                    """),
+                    {'internal_user_id': internal_user_id, 'vk_user_id': str(vk_id)},
+                )
+
+            return True
 
     def is_user_registered_in_vk(self, vk_id: int | str) -> bool:
         """Check if a user with this vk_id exists in the system."""
