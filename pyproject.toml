@@ -5,7 +5,7 @@ description = "Liza Alert searcher bot"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "pydantic-settings==2.*",
+    "pydantic-settings>=2.14.2",
     "psycopg2-binary==2.9.11",
     "SQLAlchemy==1.4.54",
     "python-telegram-bot[rate-limiter, job-queue]==21.*",
@@ -116,9 +116,7 @@ vk_bot = ["vk-api>=11.10.0", "click>=8.0"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-markers = [
-    "xdist_group(name): group tests for parallel execution isolation",
-]
+markers = ["xdist_group(name): group tests for parallel execution isolation"]
 filterwarnings = ["ignore::sqlalchemy.exc.RemovedIn20Warning"]
 
 [tool.ruff]
