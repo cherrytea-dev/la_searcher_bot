@@ -8,9 +8,10 @@ import logging
 import re
 
 from _dependencies.common.pubsub import pubsub_parse_user_profile
+from _dependencies.models import DialogState
 
 from ..common import VKHandlerResult, VKMessage
-from ..database import DialogState, db
+from ..database import db
 from ..keyboards import VKKeyboardPresets
 from ..services.message_formatter import (
     coords_parse_error,

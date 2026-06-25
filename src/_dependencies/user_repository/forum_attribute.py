@@ -1,14 +1,16 @@
-"""Forum attribute management mixin."""
+"""Forum attribute management mixin — consolidated."""
 
 import sqlalchemy
 
+from _dependencies.common.db_client import DBClientMixinBase
 
-class ForumAttributeMixin:
+
+class ForumAttributeMixin(DBClientMixinBase):
     """User forum attribute operations (linking forum account)."""
 
     def get_forum_attributes(self, user_id: int) -> tuple[str, str] | None:
         """Get user's linked forum username and ID."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """SELECT forum_username, forum_user_id
                    FROM user_forum_attributes
@@ -21,7 +23,7 @@ class ForumAttributeMixin:
 
     def verify_forum_attributes(self, user_id: int) -> None:
         """Mark the latest forum attributes as verified."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """UPDATE user_forum_attributes SET status='verified'
                    WHERE user_id=:user_id and timestamp =

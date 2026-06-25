@@ -21,10 +21,11 @@ from sqlalchemy.pool import Pool
 
 from _dependencies.bot.telegram_api_wrapper import make_invite_text_for_user
 from _dependencies.common.commons import AppConfig
+from _dependencies.models import DialogState
 from tests.factories import db_factories
 from vk_bot._utils.account_linking import _validate_invite_hash
 from vk_bot._utils.common import VKMessage
-from vk_bot._utils.database import DBClient, DialogState, db
+from vk_bot._utils.database import DBClient, db
 from vk_bot._utils.event_dispatcher import (
     HANDLER_CHAIN,
     dispatch_event,

@@ -7,16 +7,18 @@ These tests cover:
 - get_invite_from_message() invite text parser
 """
 
+from _dependencies.models import DialogState
 from vk_bot._utils.common import (
-    FORUM_FOLDER_PREFIX,
-    LA_HOTLINE_PHONE,
-    LA_WEBSITE,
-    SEARCH_URL_PREFIX,
     VKHandlerResult,
     VKMessage,
     get_invite_from_message,
 )
-from vk_bot._utils.database import DialogState
+from vk_bot._utils.services.message_formatter import (
+    FORUM_FOLDER_PREFIX,
+    LA_HOTLINE_PHONE,
+    LA_WEBSITE,
+    SEARCH_URL_PREFIX,
+)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # VKMessage

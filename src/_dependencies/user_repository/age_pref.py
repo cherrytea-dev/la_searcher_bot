@@ -1,18 +1,19 @@
-"""Age preference management mixin."""
+"""Age preference management mixin — consolidated."""
 
 import datetime
 
 import sqlalchemy
 
-from ..database_common import AgePeriod
+from _dependencies.common.db_client import DBClientMixinBase
+from _dependencies.models import AgePeriod
 
 
-class AgePrefMixin:
+class AgePrefMixin(DBClientMixinBase):
     """User age period preference operations."""
 
     def save_age_preference(self, user_id: int, period: AgePeriod) -> None:
         """Save an age period preference for a user."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max)
                    values (:user_id, :period_name, :period_set_date, :period_min, :period_max)
@@ -29,7 +30,7 @@ class AgePrefMixin:
 
     def delete_age_preference(self, user_id: int, period: AgePeriod) -> None:
         """Delete an age period preference for a user."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """DELETE FROM user_pref_age
                    WHERE user_id=:user_id AND period_min=:period_min AND period_max=:period_max;"""
@@ -43,7 +44,7 @@ class AgePrefMixin:
 
     def get_age_preferences(self, user_id: int) -> list[tuple[int, int]]:
         """Get user's age period preferences as (min_age, max_age) tuples."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text("""SELECT period_min, period_max FROM user_pref_age WHERE user_id=:user_id;""")
             result = connection.execute(stmt, user_id=user_id)
             return result.fetchall()

@@ -1,5 +1,6 @@
 import json
-from typing import TYPE_CHECKING, Any
+from abc import ABC, abstractmethod
+from typing import Any
 
 import sqlalchemy
 from sqlalchemy.engine import Connection
@@ -16,11 +17,18 @@ class DBClientBase:
         return self._db.connect()
 
 
-class DBKeyValueStorageMixin:
-    if TYPE_CHECKING:
+class DBClientMixinBase(ABC):
+    """Base class for all DB mixins that require a ``connect()`` method.
 
-        def connect(self) -> Connection: ...
+    Declares ``connect()`` as abstract so mixins can call ``self.connect()``
+    without ``# type: ignore[attr-defined]`` or ``TYPE_CHECKING`` stubs.
+    """
 
+    @abstractmethod
+    def connect(self) -> Connection: ...
+
+
+class DBKeyValueStorageMixin(DBClientMixinBase):
     def get_key_value_item(self, key: str) -> Any:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
@@ -32,17 +40,17 @@ class DBKeyValueStorageMixin:
     def set_key_value_item(self, key: str, value: Any) -> None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
-                INSERT INTO key_value_storage 
-                (key, value) 
-                VALUES (:key, :value) 
-                ON CONFLICT (key) DO UPDATE SET value = :value ; 
+                INSERT INTO key_value_storage
+                (key, value)
+                VALUES (:key, :value)
+                ON CONFLICT (key) DO UPDATE SET value = :value ;
                                    """)
             conn.execute(stmt, key=key, value=json.dumps(value))
 
     def delete_key_value_item(self, key: str) -> None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
-                DELETE FROM key_value_storage 
-                WHERE key=:key; 
+                DELETE FROM key_value_storage
+                WHERE key=:key;
                                    """)
             conn.execute(stmt, key=key)

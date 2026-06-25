@@ -14,8 +14,10 @@ Pagination (inline callback-based):
 
 import logging
 
+from _dependencies.models import DialogState
+
 from ..common import VKHandlerResult, VKMessage
-from ..database import DialogState, db
+from ..database import db
 from ..keyboards import VKKeyboardButtons, VKKeyboardPresets
 from ..message_sending import VKMessageSender
 from ..services.message_formatter import (
