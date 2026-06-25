@@ -12,7 +12,7 @@ import json
 import logging
 
 from .account_linking import handle_unregistered_user, register_vk_only_user
-from .common import VKMessage
+from .common import VKMessage, get_invite_from_message
 from .database import db
 from .handler_chain import HANDLER_CHAIN
 from .handlers import region_select_handlers
@@ -57,7 +57,6 @@ def handle_new_message(
             logging.info(f'handle_new_message: resolved from legacy vk_id, system_user={user_id}')
         else:
             # 3. Check if message is an invite attempt
-            from .common import get_invite_from_message
 
             telegram_user_id, invite_hash = get_invite_from_message(vk_message.text)
             if telegram_user_id and invite_hash:

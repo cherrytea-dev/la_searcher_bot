@@ -4,19 +4,10 @@ Wraps existing low-level API clients (``TGApiBase``, ``VKApi``)
 into the abstract ``MessengerClient`` interface defined in
 ``_dependencies.commons``.
 
-Usage::
-
-    from _dependencies.messenger_clients import messenger_clients
-
-    client = messenger_clients[Messenger.TELEGRAM]
-    result = client.send_message(user_identity, 'Hello!')
 """
-
-import logging
 
 from _dependencies.commons import Messenger, MessengerClient, SendResult, UserIdentity, get_app_config
 from _dependencies.telegram_api_wrapper import TGApiBase
-from _dependencies.users_management import ManageUserAction, update_user_status
 from _dependencies.vk_api_client import VKApi, VkApiError
 
 
@@ -116,30 +107,3 @@ class VKClient(MessengerClient):
             return SendResult(success=False, status='failed')
         except Exception:
             return SendResult(success=False, status='failed')
-
-
-def get_telegram_client() -> TelegramClient:
-    return TelegramClient()
-
-
-def get_vk_client() -> VKClient:
-    return VKClient()
-
-
-# Reusable instances
-_telegram_client: TelegramClient | None = None
-_vk_client: VKClient | None = None
-
-
-def get_messenger_client(messenger: Messenger) -> MessengerClient:
-    """Get the singleton client for the given messenger."""
-    global _telegram_client, _vk_client
-    if messenger == Messenger.TELEGRAM:
-        if _telegram_client is None:
-            _telegram_client = TelegramClient()
-        return _telegram_client
-    elif messenger == Messenger.VK:
-        if _vk_client is None:
-            _vk_client = VKClient()
-        return _vk_client
-    raise ValueError(f'Unknown messenger: {messenger}')

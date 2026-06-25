@@ -12,7 +12,7 @@ from typing import Any
 
 import sqlalchemy
 
-from _dependencies.commons import setup_logging, sqlalchemy_get_pool
+from _dependencies.commons import Messenger, setup_logging, sqlalchemy_get_pool
 from _dependencies.db_client import DBClientBase
 from _dependencies.lock_manager import FunctionLockError, lock_manager
 from _dependencies.misc import generate_random_function_id, tg_api_main_account
@@ -118,7 +118,7 @@ class DBClient(DBClientBase):
         Uses user_identity_map (new path) with fallback to users.vk_id (legacy).
         """
         with self.connect() as conn:
-            vk_messages = [m for m in messages if m.messenger == 'vk']
+            vk_messages = [m for m in messages if m.messenger == Messenger.VK]
             if not vk_messages:
                 return
 
@@ -232,13 +232,10 @@ class DBClient(DBClientBase):
                 pass
 
 
-def send_single_message(tg_api: TGApiBase, vk_api: VKApi, message_to_send: MessageToSend) -> str | None:
-    """send one message to the appropriate messenger"""
-
+def _prepare_message(message_to_send: MessageToSend) -> tuple[str, dict[str, Any]]:
+    """Truncate long content and parse message_params from string."""
     message_content = message_to_send.message_content
     message_params_str = message_to_send.message_params
-    user_id = message_to_send.user_id
-    messenger = message_to_send.messenger
 
     # limitation to avoid telegram "message too long"
     if message_content and len(message_content) > 3000:
@@ -250,75 +247,93 @@ def send_single_message(tg_api: TGApiBase, vk_api: VKApi, message_to_send: Messa
         if 'disable_web_page_preview' in message_params:
             message_params['disable_web_page_preview'] = message_params['disable_web_page_preview'] == 'True'
 
-    if messenger == 'vk':
-        # Send via VK API only
-        vk_recipient = message_to_send.vk_id or user_id
-        if message_to_send.message_type == 'text':
-            try:
-                logging.info(f'Sending message to VK: {vk_recipient=} {message_to_send=}')
-                vk_api.send(
-                    vk_recipient,
-                    message_to_send.message_id,
-                    format_mesage_for_vk(message_content),
-                )
-                return 'completed'
-            except Exception:
-                logging.exception(f'Sending message to VK: failed {vk_recipient=} {message_to_send=}')
-                return 'failed'
-        elif message_to_send.message_type == 'coords':
-            try:
-                logging.info(f'Sending coordinates to VK: {vk_recipient=} {message_to_send=}')
-                vk_api.send(
-                    vk_recipient,
-                    message_to_send.message_id,
-                    '',
-                    lat=message_params['latitude'],
-                    long=message_params['longitude'],
-                )
-                return 'completed'
-            except Exception:
-                logging.exception(f'Sending coordinates to VK: failed {vk_recipient=} {message_to_send=}')
-                return 'failed'
-        else:
-            raise ValueError(f'unknown message_type for VK: {message_to_send.message_type}')
+    return message_content, message_params
 
-    # messenger == 'telegram' (default)
+
+def _send_vk_text(vk_api: VKApi, recipient: str | int, message_to_send: MessageToSend, content: str) -> str | None:
+    """Send a text message via VK API."""
+    try:
+        logging.info(f'Sending message to VK: {recipient=} {message_to_send=}')
+        vk_api.send(recipient, message_to_send.message_id, format_mesage_for_vk(content))
+        return 'completed'
+    except Exception:
+        logging.exception(f'Sending message to VK: failed {recipient=} {message_to_send=}')
+        return 'failed'
+
+
+def _send_vk_coords(
+    vk_api: VKApi, recipient: str | int, message_to_send: MessageToSend, message_params: dict[str, Any]
+) -> str | None:
+    """Send coordinates via VK API."""
+    try:
+        logging.info(f'Sending coordinates to VK: {recipient=} {message_to_send=}')
+        vk_api.send(
+            recipient,
+            message_to_send.message_id,
+            '',
+            lat=message_params['latitude'],
+            long=message_params['longitude'],
+        )
+        return 'completed'
+    except Exception:
+        logging.exception(f'Sending coordinates to VK: failed {recipient=} {message_to_send=}')
+        return 'failed'
+
+
+def _dispatch_vk(
+    vk_api: VKApi, message_to_send: MessageToSend, content: str, message_params: dict[str, Any]
+) -> str | None:
+    """Dispatch a message exclusively via VK (messenger == VK)."""
+    recipient = message_to_send.vk_id or message_to_send.user_id
+
+    if message_to_send.message_type == 'text':
+        return _send_vk_text(vk_api, recipient, message_to_send, content)
+    elif message_to_send.message_type == 'coords':
+        return _send_vk_coords(vk_api, recipient, message_to_send, message_params)
+    else:
+        raise ValueError(f'unknown message_type for VK: {message_to_send.message_type}')
+
+
+def _try_send_vk_fallback(
+    vk_api: VKApi, message_to_send: MessageToSend, content: str, message_params: dict[str, Any]
+) -> None:
+    """Legacy fallback: also send to VK if user has linked a VK account."""
+    if not USE_VK_API or not message_to_send.vk_id:
+        return
+
+    if message_to_send.message_type == 'text':
+        _send_vk_text(vk_api, message_to_send.vk_id, message_to_send, content)
+    elif message_to_send.message_type == 'coords':
+        _send_vk_coords(vk_api, message_to_send.vk_id, message_to_send, message_params)
+
+
+def _dispatch_telegram(
+    tg_api: TGApiBase, vk_api: VKApi, message_to_send: MessageToSend, content: str, message_params: dict[str, Any]
+) -> str | None:
+    """Dispatch a message via Telegram, with optional legacy VK fallback."""
+    user_id = message_to_send.user_id
+
     if message_to_send.message_type == 'text':
         message_params['chat_id'] = user_id
-        message_params['text'] = message_content
-
-        # Legacy: also send to VK if user has linked VK account
-        if USE_VK_API and message_to_send.vk_id:
-            try:
-                logging.info(f'Sending message to VK: {message_to_send.vk_id=} {message_to_send=}')
-                vk_api.send(
-                    message_to_send.vk_id,
-                    message_to_send.message_id,
-                    format_mesage_for_vk(message_content),
-                )
-            except Exception:
-                logging.exception(f'Sending message to VK: failed {message_to_send.vk_id=} {message_to_send=}')
-
+        message_params['text'] = content
+        _try_send_vk_fallback(vk_api, message_to_send, content, message_params)
         return tg_api.send_message(message_params)
 
     elif message_to_send.message_type == 'coords':
-        # Legacy: also send to VK if user has linked VK account
-        if USE_VK_API and message_to_send.vk_id:
-            try:
-                logging.info(f'Sending coordinates to VK: {message_to_send.vk_id=} {message_to_send=}')
-                vk_api.send(
-                    message_to_send.vk_id,
-                    message_to_send.message_id,
-                    '',
-                    lat=message_params['latitude'],
-                    long=message_params['longitude'],
-                )
-            except Exception:
-                logging.exception(f'Sending coordinates to VK: failed {message_to_send.vk_id=} {message_to_send=}')
-
+        _try_send_vk_fallback(vk_api, message_to_send, content, message_params)
         return tg_api.send_location(user_id, message_params['latitude'], message_params['longitude'])
     else:
         raise ValueError(f'unknown message_type: {message_to_send.message_type}')
+
+
+def send_single_message(tg_api: TGApiBase, vk_api: VKApi, message_to_send: MessageToSend) -> str | None:
+    """Send one message to the appropriate messenger."""
+    content, message_params = _prepare_message(message_to_send)
+
+    if message_to_send.messenger == Messenger.VK:
+        return _dispatch_vk(vk_api, message_to_send, content, message_params)
+
+    return _dispatch_telegram(tg_api, vk_api, message_to_send, content, message_params)
 
 
 def seconds_between(datetime1: datetime.datetime, datetime2: datetime.datetime | None = None) -> float:
