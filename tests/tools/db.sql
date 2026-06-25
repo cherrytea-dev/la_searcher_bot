@@ -485,22 +485,6 @@ CREATE TABLE dict_search_activities (
 );
 
 
--- public.feedback определение
-
--- Drop table
-
--- DROP TABLE feedback;
-
-CREATE TABLE feedback (
-	id serial4 NOT NULL,
-	username varchar NULL,
-	feedback_text varchar NULL,
-	feedback_time timestamp NULL,
-	user_id varchar NULL,
-	message_id int4 NULL,
-	CONSTRAINT feedback_pkey PRIMARY KEY (id)
-);
-
 
 -- public.forum_summary_snapshot определение
 
@@ -646,21 +630,6 @@ CREATE TABLE msg_from_bot (
 );
 
 
--- public.news определение
-
--- Drop table
-
--- DROP TABLE news;
-
-CREATE TABLE news (
-	id serial4 NOT NULL,
-	stage varchar NULL,
-	"text" varchar NULL,
-	status varchar NULL,
-	CONSTRAINT news_pkey PRIMARY KEY (id)
-);
-
-
 -- public.notif_by_user__history определение
 
 -- Drop table
@@ -700,17 +669,6 @@ CREATE TABLE notif_stat_sending_speed (
 	CONSTRAINT notif_stat_sending_speed_pkey PRIMARY KEY (id)
 );
 
-
--- public.old_dict_regions определение
-
--- Drop table
-
--- DROP TABLE old_dict_regions;
-
-CREATE TABLE old_dict_regions (
-	id int4 DEFAULT nextval('my_serial'::regclass) NOT NULL,
-	region_name varchar NULL
-);
 
 
 -- public.search_activities определение
@@ -1285,11 +1243,11 @@ AS WITH reg_and_status AS (
                     ELSE 'no'::text
                 END AS last_msg_moscow,
                 CASE
-                    WHEN d.message_text::text = 'да, Москва – мой регион'::text OR r.id IS NOT NULL THEN 'yes'::text
+                    WHEN d.message_text::text = 'да, Москва – мой регион'::text OR r.division_id IS NOT NULL THEN 'yes'::text
                     ELSE 'no'::text
                 END AS last_msg_reg
            FROM dialogs d
-             LEFT JOIN old_dict_regions r ON d.message_text::text = r.region_name::text
+             LEFT JOIN geo_divisions r ON d.message_text::text = r.division_name::text
           WHERE d.author::text = 'user'::text
           ORDER BY d.user_id, d."timestamp" DESC
         )
@@ -1313,58 +1271,6 @@ AS WITH reg_and_status AS (
      LEFT JOIN summary_receipt sr ON u.user_id = sr.user_id
      LEFT JOIN onboard_step o ON u.user_id = o.user_id
      LEFT JOIN last_user_msg l_u_m ON u.user_id = l_u_m.user_id;
-
-
--- public.user_view_21 исходный текст
-
-CREATE OR REPLACE VIEW user_view_21
-AS WITH reg_setting AS (
-         SELECT DISTINCT user_regional_preferences.user_id,
-            'yes'::text AS folder_setting
-           FROM user_regional_preferences
-        ), onboard_step AS (
-         SELECT user_onboarding.user_id,
-            max(user_onboarding.step_id) AS onb_step
-           FROM user_onboarding
-          GROUP BY user_onboarding.user_id
-        ), last_user_msg AS (
-         SELECT DISTINCT ON (d.user_id) d.user_id,
-            d."timestamp",
-            "substring"(d.message_text::text, 1, 50) AS last_msg,
-                CASE
-                    WHEN d.message_text::text = '/start'::text THEN 'yes'::text
-                    ELSE 'no'::text
-                END AS last_msg_start,
-                CASE
-                    WHEN d.message_text::text = 'я состою в ЛизаАлерт'::text OR d.message_text::text = 'я хочу помогать ЛизаАлерт'::text OR d.message_text::text = 'я ищу человека'::text OR d.message_text::text = 'не хочу говорить'::text OR d.message_text::text = 'у меня другая задача'::text THEN 'yes'::text
-                    ELSE 'no'::text
-                END AS last_msg_role,
-                CASE
-                    WHEN d.message_text::text = 'нет, я из другого региона'::text THEN 'yes'::text
-                    ELSE 'no'::text
-                END AS last_msg_moscow,
-                CASE
-                    WHEN d.message_text::text = 'да, Москва – мой регион'::text OR r.id IS NOT NULL THEN 'yes'::text
-                    ELSE 'no'::text
-                END AS last_msg_reg
-           FROM dialogs d
-             LEFT JOIN old_dict_regions r ON d.message_text::text = r.region_name::text
-          WHERE d.author::text = 'user'::text
-          ORDER BY d.user_id, d."timestamp" DESC
-        )
- SELECT u.user_id,
-    rs.folder_setting,
-    o.onb_step,
-    l_u_m.last_msg,
-    l_u_m.last_msg_start,
-    l_u_m.last_msg_role,
-    l_u_m.last_msg_moscow,
-    l_u_m.last_msg_reg
-   FROM users u
-     LEFT JOIN reg_setting rs ON u.user_id = rs.user_id
-     LEFT JOIN onboard_step o ON u.user_id = o.user_id
-     LEFT JOIN last_user_msg l_u_m ON u.user_id = l_u_m.user_id
-  WHERE u.reg_date < '2023-05-14 12:40:00'::timestamp without time zone;
 
 
 -- public.user_view_21_new исходный текст
@@ -1396,11 +1302,11 @@ AS WITH reg_setting AS (
                     ELSE 'no'::text
                 END AS last_msg_moscow,
                 CASE
-                    WHEN d.message_text::text = 'да, Москва – мой регион'::text OR r.id IS NOT NULL THEN 'yes'::text
+                    WHEN d.message_text::text = 'да, Москва – мой регион'::text OR r.division_id IS NOT NULL THEN 'yes'::text
                     ELSE 'no'::text
                 END AS last_msg_reg
            FROM dialogs d
-             LEFT JOIN old_dict_regions r ON d.message_text::text = r.region_name::text
+             LEFT JOIN geo_divisions r ON d.message_text::text = r.division_name::text
           WHERE d.author::text = 'user'::text
           ORDER BY d.user_id, d."timestamp" DESC
         )
