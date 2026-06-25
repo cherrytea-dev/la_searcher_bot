@@ -160,20 +160,27 @@ jobs:
           - function: users_activate
             memory: 256Mb
             timeout: 60
-    if: ${{ needs.changes.outputs[matrix.function] == 'true' }}
     steps:
+      - name: Skip if no changes
+        if: ${{ needs.changes.outputs[matrix.function] != 'true' }}
+        run: echo "No changes for ${{ matrix.function }}, skipping."
+
       - uses: actions/checkout@v3
+        if: ${{ needs.changes.outputs[matrix.function] == 'true' }}
 
       - name: make requirements
+        if: ${{ needs.changes.outputs[matrix.function] == 'true' }}
         run: cp src/${{ matrix.function }}/requirements.txt src/requirements.txt
 
       - name: Process function name
+        if: ${{ needs.changes.outputs[matrix.function] == 'true' }}
         id: process-name
         run: |
           KEBAB_NAME=$(echo "${{ matrix.function }}" | tr '_' '-')
           echo "kebab-name=$KEBAB_NAME" >> $GITHUB_OUTPUT
 
       - name: Deploy to Yandex Cloud Function
+        if: ${{ needs.changes.outputs[matrix.function] == 'true' }}
         uses: yc-actions/yc-sls-function@v4
         with:
           yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
