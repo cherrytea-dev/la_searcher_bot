@@ -5,7 +5,8 @@ venv:
 	uv sync --all-groups --all-extras --locked
 
 test:
-	uv run pytest -v -n 4 --dist loadgroup
+	uv run pytest -v -n 4 --dist loadgroup --ignore=tests/test_migration_004_user_identity_map.py
+	uv run pytest tests/test_migration_004_user_identity_map.py -v -p no:xdist
 
 initdb:
 	PYTHONPATH=.:src uv run python tests/tools/init_testing_db.py --db=TEST
@@ -53,7 +54,7 @@ sqlalchemy-models:
 
 
 prepare-environment:
-	
+
 	# Apply initial settings (.env, VSCode):
 	cp -n .vscode/launch.template.json .vscode/launch.json
 	cp -n .vscode/settings.template.json .vscode/settings.json
@@ -61,11 +62,11 @@ prepare-environment:
 	# create .env files for running tests and for local debug
 	cp -n .env.example .env
 	cp -n .env.example .env.test
-	
+
 	# create venv
 	pip install uv
 	make venv
-	
+
 	# prepare test database
 	docker compose run --build --rm bot make initdb
 

@@ -177,12 +177,12 @@ class TestDispatcherMessageNew:
         # Wait for background thread to execute
 
         time.sleep(0.3)
-        # Should have called send_message with invite instructions
+        # VK-only user is now auto-registered and goes through handler chain
+        # Since the text is not /start, it falls through to handle_unknown
         mock_vk_sender.return_value.send_message.assert_called_once()
-        # Verify it's the invite instructions, not the onboarding welcome
         call_args = mock_vk_sender.return_value.send_message.call_args
         text = call_args[1].get('text', '') if 'text' in call_args[1] else call_args[0][1]
-        assert 'Добро пожаловать' in text or 'привязать' in text
+        assert 'понимаю' in text  # handle_unknown message
 
     def test_message_new_existing_user(
         self, session: Session, mock_vk_sender: MagicMock | AsyncMock, mock_dispatcher_db: MagicMock | AsyncMock

@@ -30,6 +30,7 @@ class NotificationRecord:
     change_log_id: int
     created: datetime.datetime
     message_group: int = 0
+    messenger: str = 'telegram'
 
 
 CLEANER_RE = re.compile('<.*?>')
@@ -48,6 +49,7 @@ class NotificationMaker:
         self.list_of_users = list_of_users
         self._batch_buffer: list[NotificationRecord] = []
         self._BATCH_SIZE = 100
+        self._messenger_map: dict[int, list[str]] = {}  # user_id -> list of messengers
 
     def generate_notifications_for_users(self, function_id: int) -> None:
         """initiates a full cycle for all messages composition for all the users"""
@@ -63,6 +65,9 @@ class NotificationMaker:
         change_log_id = new_record.change_log_id
 
         pubsub_send_notifications(function_id, 'initiate notifs send out')
+
+        # Batch-resolve messengers for all users in a single query
+        self._resolve_messengers_batch()
 
         for user in self.list_of_users:
             self.generate_notification_for_user(change_log_id, user)
@@ -200,22 +205,68 @@ class NotificationMaker:
         message_type: str,
         message_params: dict,
     ) -> None:
-        """save to sql table notif_by_user the new message"""
+        """save to sql table notif_by_user the new message
 
-        record = NotificationRecord(
-            user_id=user_id,
-            message=message,
-            message_without_html=message_without_html,
-            message_type=message_type,
-            message_params=str(message_params),
-            change_log_id=change_log_id,
-            created=datetime.datetime.now(),
+        Creates one NotificationRecord per messenger for this user,
+        so a user with both Telegram and VK gets two records.
+        """
+
+        messengers = self._messenger_map.get(user_id, ['telegram'])
+
+        for messenger in messengers:
+            record = NotificationRecord(
+                user_id=user_id,
+                message=message,
+                message_without_html=message_without_html,
+                message_type=message_type,
+                message_params=str(message_params),
+                change_log_id=change_log_id,
+                created=datetime.datetime.now(),
+                messenger=messenger,
+            )
+
+            self._batch_buffer.append(record)
+
+            if len(self._batch_buffer) >= self._BATCH_SIZE:
+                self.flush_batch()
+
+    def _resolve_messengers_batch(self) -> None:
+        """Batch-resolve messengers for all users in a single query.
+
+        Builds self._messenger_map: user_id -> list of messenger strings.
+        Users with no identity_map entry get ['telegram'] as default.
+        """
+        if not self.list_of_users:
+            self._messenger_map = {}
+            return
+
+        user_ids = [user.user_id for user in self.list_of_users]
+
+        result = self.conn.execute(
+            sqlalchemy.text("""
+                SELECT internal_user_id, messenger
+                FROM user_identity_map
+                WHERE internal_user_id = ANY(:user_ids)
+            """),
+            {'user_ids': user_ids},
         )
 
-        self._batch_buffer.append(record)
+        # Build map: user_id -> set of messengers
+        temp: dict[int, set[str]] = {}
+        for row in result.fetchall():
+            uid = row[0]
+            messenger = row[1]
+            if uid not in temp:
+                temp[uid] = set()
+            temp[uid].add(messenger)
 
-        if len(self._batch_buffer) >= self._BATCH_SIZE:
-            self.flush_batch()
+        # Ensure every user has at least 'telegram' as fallback
+        self._messenger_map = {}
+        for uid in user_ids:
+            messengers = temp.get(uid, set())
+            if not messengers:
+                messengers = {'telegram'}
+            self._messenger_map[uid] = list(messengers)
 
     def flush_batch(self) -> None:
         """Flush the batch buffer to the database"""
@@ -231,7 +282,8 @@ class NotificationMaker:
                 message_params,
                 message_group_id,
                 change_log_id,
-                created)
+                created,
+                messenger)
             VALUES (
                 :user_id,
                 :message,
@@ -240,7 +292,8 @@ class NotificationMaker:
                 :message_params,
                 :message_group,
                 :change_log_id,
-                :created
+                :created,
+                :messenger
                     );
         """)
 

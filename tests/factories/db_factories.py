@@ -47,6 +47,7 @@ class DictNotifTypeFactory(BaseFactory[db_models.DictNotifType]):
 class NotifByUserFactory(BaseFactory[db_models.NotifByUser]):
     message_params = '{"foo":1}'
     message_type = 'text'
+    messenger = 'telegram'
 
 
 class NotifByUserHistory(db_models.Base):
@@ -92,6 +93,7 @@ class UserFactory(BaseFactory[db_models.User]):
     status = None
     role = 'new_member'
     user_id = Use(BaseFactory.__random__.randint, 1000000000, 9000000000)
+    internal_user_id = Use(BaseFactory.__random__.randint, 1000000000, 9000000000)
 
 
 class UserPreferenceFactory(BaseFactory[db_models.UserPreference]):

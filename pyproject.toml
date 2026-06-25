@@ -116,6 +116,9 @@ vk_bot = ["vk-api>=11.10.0", "click>=8.0"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+markers = [
+    "xdist_group(name): group tests for parallel execution isolation",
+]
 filterwarnings = ["ignore::sqlalchemy.exc.RemovedIn20Warning"]
 
 [tool.ruff]

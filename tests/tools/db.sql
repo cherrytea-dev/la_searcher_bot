@@ -680,7 +680,8 @@ CREATE TABLE notif_by_user__history (
 	completed timestamp NULL,
 	cancelled timestamp NULL,
 	failed timestamp NULL,
-	num_of_fails int4 NULL
+	num_of_fails int4 NULL,
+	messenger varchar(20) DEFAULT 'telegram'::character varying NOT NULL
 );
 
 
@@ -1136,9 +1137,28 @@ CREATE TABLE users (
 	user_id int8 NULL,
 	"role" varchar(255) NULL,
 	vk_id varchar(20) NULL,
+	internal_user_id BIGINT NULL,
 	CONSTRAINT users_pkey PRIMARY KEY (id)
 );
 CREATE UNIQUE INDEX users_user_id ON public.users USING btree (user_id);
+CREATE UNIQUE INDEX users_internal_user_id ON public.users USING btree (internal_user_id);
+
+
+-- public.user_identity_map определение
+
+-- Drop table
+
+-- DROP TABLE user_identity_map;
+
+CREATE TABLE user_identity_map (
+    id BIGSERIAL PRIMARY KEY,
+    internal_user_id BIGINT NOT NULL,
+    messenger VARCHAR(20) NOT NULL,
+    messenger_user_id VARCHAR(100) NOT NULL,
+    linked_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(messenger, messenger_user_id),
+    UNIQUE(internal_user_id, messenger)
+);
 
 
 -- public.user_pref_search_whitelist определение
@@ -1179,6 +1199,7 @@ CREATE TABLE notif_by_user (
 	cancelled timestamp NULL,
 	failed timestamp NULL,
 	num_of_fails int4 NULL,
+	messenger varchar(20) DEFAULT 'telegram'::character varying NOT NULL,
 	CONSTRAINT notif_by_user_pkey PRIMARY KEY (message_id)
 );
 
@@ -1488,13 +1509,13 @@ BEGIN
           ORDER BY c.relname
     LOOP
 
-        FOR column_record IN 
-            SELECT 
+        FOR column_record IN
+            SELECT
                 b.nspname as schema_name,
                 b.relname as table_name,
                 a.attname as column_name,
                 pg_catalog.format_type(a.atttypid, a.atttypmod) as column_type,
-                CASE WHEN 
+                CASE WHEN
                     (SELECT substring(pg_catalog.pg_get_expr(d.adbin, d.adrelid) for 128)
                      FROM pg_catalog.pg_attrdef d
                      WHERE d.adrelid = a.attrelid AND d.adnum = a.attnum AND a.atthasdef) IS NOT NULL THEN
@@ -1504,16 +1525,16 @@ BEGIN
                 ELSE
                     ''
                 END as column_default_value,
-                CASE WHEN a.attnotnull = true THEN 
+                CASE WHEN a.attnotnull = true THEN
                     'NOT NULL'
                 ELSE
                     'NULL'
                 END as column_not_null,
                 a.attnum as attnum,
                 e.max_attnum as max_attnum
-            FROM 
+            FROM
                 pg_catalog.pg_attribute a
-                INNER JOIN 
+                INNER JOIN
                  (SELECT c.oid,
                     n.nspname,
                     c.relname
@@ -1523,16 +1544,16 @@ BEGIN
                     AND pg_catalog.pg_table_is_visible(c.oid)
                   ORDER BY 2, 3) b
                 ON a.attrelid = b.oid
-                INNER JOIN 
-                 (SELECT 
+                INNER JOIN
+                 (SELECT
                       a.attrelid,
                       max(a.attnum) as max_attnum
                   FROM pg_catalog.pg_attribute a
-                  WHERE a.attnum > 0 
+                  WHERE a.attnum > 0
                     AND NOT a.attisdropped
                   GROUP BY a.attrelid) e
                 ON a.attrelid=e.attrelid
-            WHERE a.attnum > 0 
+            WHERE a.attnum > 0
               AND NOT a.attisdropped
             ORDER BY a.attnum
         LOOP
@@ -1550,8 +1571,8 @@ BEGIN
 
         firstrec := TRUE;
         FOR constraint_rec IN
-            SELECT conname, pg_get_constraintdef(c.oid) as constrainddef 
-                FROM pg_constraint c 
+            SELECT conname, pg_get_constraintdef(c.oid) as constrainddef
+                FROM pg_constraint c
                     WHERE conrelid=(
                         SELECT attrelid FROM pg_attribute
                         WHERE attrelid = (

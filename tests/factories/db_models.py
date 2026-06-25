@@ -404,6 +404,16 @@ class UserCoordinate(Base):
     user_id = Column(BigInteger)
 
 
+class UserIdentityMap(Base):
+    __tablename__ = 'user_identity_map'
+
+    id = Column(BigInteger, primary_key=True, server_default=text("nextval('user_identity_map_id_seq'::regclass)"))
+    internal_user_id = Column(BigInteger, nullable=False)
+    messenger = Column(String(20), nullable=False)
+    messenger_user_id = Column(String(100), nullable=False)
+    linked_at = Column(DateTime, server_default=text('NOW()'))
+
+
 class UserForumAttribute(Base):
     __tablename__ = 'user_forum_attributes'
 
@@ -613,6 +623,7 @@ class User(Base):
     user_id = Column(BigInteger, unique=True)
     role = Column(String(255))
     vk_id = Column(String(20), nullable=True)
+    internal_user_id = Column(BigInteger, nullable=True)
 
 
 class UserPrefSearchWhitelist(Base):
@@ -648,3 +659,4 @@ class NotifByUser(Base):
     cancelled = Column(DateTime)
     failed = Column(DateTime)
     num_of_fails = Column(Integer)
+    messenger = Column(String(20), nullable=False, server_default=text("'telegram'"))
