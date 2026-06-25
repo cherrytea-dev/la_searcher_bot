@@ -65,13 +65,13 @@ class DBClient(DBClientBase):
         with self.connect() as conn:
             duplicated_notifications_query = """
                 SELECT
-                    change_log_id, user_id, message_type
+                    change_log_id, user_id, message_type, messenger
                 FROM
                     notif_by_user
-                WHERE 
+                WHERE
                     completed IS NULL AND
                     cancelled IS null
-                group by change_log_id, user_id, message_type 
+                group by change_log_id, user_id, message_type, messenger
                 having count(message_id) > 1
             """
 
@@ -95,7 +95,7 @@ class DBClient(DBClientBase):
                     completed IS NULL AND
                     cancelled IS NULL AND
                     (failed IS NULL OR failed < :retry_delay) AND
-                    (change_log_id, user_id, message_type) {"IN" if select_doubling else "NOT IN"} (
+                    (change_log_id, user_id, message_type, COALESCE(messenger, 'telegram')) {"IN" if select_doubling else "NOT IN"} (
                         {duplicated_notifications_query}
                     )
                 ORDER BY user_id
@@ -453,7 +453,7 @@ def _process_doubling_messages() -> None:
     already_marked = set()
     for message in messages:
         # TODO mark only first message in tuple
-        key = (message.change_log_id, message.message_type, message.user_id)
+        key = (message.change_log_id, message.message_type, message.user_id, message.messenger)
         if key in already_marked:
             continue
         already_marked.add(key)
