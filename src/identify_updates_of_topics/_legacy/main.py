@@ -3,9 +3,9 @@ and saves into PSQL if there are any updates"""
 
 import logging
 
-from _dependencies.commons import setup_logging
-from _dependencies.misc import generate_random_function_id
-from _dependencies.pubsub import Ctx, notify_admin, process_pubsub_message, pubsub_compose_notifications
+from _dependencies.common.commons import setup_logging
+from _dependencies.common.misc import generate_random_function_id
+from _dependencies.common.pubsub import Ctx, notify_admin, process_pubsub_message, pubsub_compose_notifications
 
 from ._utils.database import get_db_client
 from ._utils.folder_updater import FolderUpdater

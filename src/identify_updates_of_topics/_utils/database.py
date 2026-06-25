@@ -4,7 +4,7 @@ from functools import lru_cache
 
 import sqlalchemy
 
-from _dependencies.db_client import DBClientBase, DBKeyValueStorageMixin
+from _dependencies.common.db_client import DBClientBase, DBKeyValueStorageMixin
 
 from .topics_commons import (
     ChangeLogLine,

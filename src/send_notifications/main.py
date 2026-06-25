@@ -12,13 +12,14 @@ from typing import Any
 
 import sqlalchemy
 
-from _dependencies.commons import Messenger, setup_logging, sqlalchemy_get_pool
-from _dependencies.db_client import DBClientBase
-from _dependencies.lock_manager import FunctionLockError, lock_manager
-from _dependencies.misc import generate_random_function_id, tg_api_main_account
-from _dependencies.pubsub import Ctx, notify_admin, pubsub_send_notifications
-from _dependencies.telegram_api_wrapper import TGApiBase
-from _dependencies.vk_api_client import VKApi, get_default_vk_api_client
+from _dependencies.bot.messaging import tg_api_main_account
+from _dependencies.bot.telegram_api_wrapper import TGApiBase
+from _dependencies.bot.vk_api_client import VKApi, get_default_vk_api_client
+from _dependencies.common.commons import Messenger, setup_logging, sqlalchemy_get_pool
+from _dependencies.common.db_client import DBClientBase
+from _dependencies.common.lock_manager import FunctionLockError, lock_manager
+from _dependencies.common.misc import generate_random_function_id
+from _dependencies.common.pubsub import Ctx, notify_admin, pubsub_send_notifications
 
 setup_logging(__package__)
 

@@ -7,8 +7,8 @@ import sqlalchemy.ext
 import sqlalchemy.pool
 from sqlalchemy.engine.base import Connection
 
-from _dependencies.commons import ChangeType
-from _dependencies.misc import age_writer
+from _dependencies.common.commons import ChangeType
+from _dependencies.common.misc import age_writer
 
 from .commons import SEARCH_TOPIC_TYPES, WINDOW_FOR_NOTIFICATIONS_DAYS, Comment, LineInChangeLog
 

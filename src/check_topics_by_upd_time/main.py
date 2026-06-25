@@ -3,8 +3,8 @@ which contain updates – and makes a pub/sub call for other script to parse con
 
 from typing import Any
 
-from _dependencies.commons import get_app_config, setup_logging
-from _dependencies.pubsub import Ctx
+from _dependencies.common.commons import get_app_config, setup_logging
+from _dependencies.common.pubsub import Ctx
 
 setup_logging(__package__)
 

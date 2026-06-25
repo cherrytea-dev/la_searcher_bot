@@ -14,8 +14,8 @@ from datetime import datetime, timedelta
 
 import sqlalchemy as sa
 
-from _dependencies.commons import SearchFollowingMode
-from _dependencies.misc import age_writer, time_counter_since_search_start
+from _dependencies.common.commons import SearchFollowingMode
+from _dependencies.common.misc import age_writer, time_counter_since_search_start
 
 from ..common import SEARCH_URL_PREFIX, VKHandlerResult, VKMessage
 from ..database import DialogState, db

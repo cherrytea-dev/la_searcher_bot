@@ -4,8 +4,8 @@ from functools import lru_cache
 import requests
 from requests.models import Response
 
-from _dependencies.commons import get_app_config
-from _dependencies.telegram_api_wrapper import TGApiBase
+from _dependencies.bot.telegram_api_wrapper import TGApiBase
+from _dependencies.common.commons import get_app_config
 
 from .database import db
 

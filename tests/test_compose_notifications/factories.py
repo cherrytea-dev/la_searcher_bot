@@ -3,7 +3,7 @@ from datetime import datetime
 from polyfactory import Use
 from polyfactory.factories import DataclassFactory
 
-from _dependencies.commons import TopicType
+from _dependencies.common.commons import TopicType
 from compose_notifications._utils.commons import LineInChangeLog, User
 
 

@@ -5,7 +5,7 @@ from random import randint
 import pytest
 from sqlalchemy.orm import Session
 
-from _dependencies.commons import SearchFollowingMode
+from _dependencies.common.commons import SearchFollowingMode
 from tests.common import fake, find_model
 from tests.factories import db_factories, db_models
 from vk_bot._utils.database import DBClient, db

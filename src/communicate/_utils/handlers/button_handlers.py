@@ -11,10 +11,10 @@ from telegram import (
     WebAppInfo,
 )
 
-from _dependencies.commons import add_tel_link, get_app_config
-from _dependencies.pubsub import notify_admin
-from _dependencies.telegram_api_wrapper import make_invite_text_for_user
-from _dependencies.users_management import save_onboarding_step
+from _dependencies.bot.telegram_api_wrapper import make_invite_text_for_user
+from _dependencies.bot.users_management import save_onboarding_step
+from _dependencies.common.commons import add_tel_link, get_app_config
+from _dependencies.common.pubsub import notify_admin
 
 from ..buttons import (
     Commands,

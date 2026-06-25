@@ -3,23 +3,8 @@ import json
 import math
 import random
 from dataclasses import dataclass, field
-from functools import lru_cache, wraps
+from functools import wraps
 from typing import Any, Callable, Mapping, Sequence
-
-from _dependencies.commons import get_app_config
-from _dependencies.telegram_api_wrapper import TGApiBase
-
-
-@lru_cache
-def tg_api_service_account() -> TGApiBase:
-    config = get_app_config()
-    return TGApiBase(token=config.bot_api_token, host=config.bot_api_host)
-
-
-@lru_cache
-def tg_api_main_account() -> TGApiBase:
-    config = get_app_config()
-    return TGApiBase(token=config.bot_api_token__prod, host=config.bot_api_host)
 
 
 def time_counter_since_search_start(start_time: datetime.datetime) -> tuple[str, int]:

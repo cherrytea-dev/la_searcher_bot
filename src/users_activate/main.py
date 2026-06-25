@@ -2,8 +2,8 @@ import logging
 
 import sqlalchemy
 
-from _dependencies.commons import setup_logging, sqlalchemy_get_pool
-from _dependencies.pubsub import process_pubsub_message
+from _dependencies.common.commons import setup_logging, sqlalchemy_get_pool
+from _dependencies.common.pubsub import process_pubsub_message
 
 setup_logging(__package__)
 

@@ -8,7 +8,7 @@ from faker import Faker
 from polyfactory import Use
 from polyfactory.factories.sqlalchemy_factory import SQLAlchemyFactory, T
 
-from _dependencies.commons import sqlalchemy_get_pool
+from _dependencies.common.commons import sqlalchemy_get_pool
 from tests.factories import db_models
 
 faker = Faker('ru_RU')

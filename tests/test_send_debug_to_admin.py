@@ -2,7 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from _dependencies.telegram_api_wrapper import TGApiBase
+from _dependencies.bot.telegram_api_wrapper import TGApiBase
 from send_debug_to_admin import main
 from tests.common import get_event_with_data
 

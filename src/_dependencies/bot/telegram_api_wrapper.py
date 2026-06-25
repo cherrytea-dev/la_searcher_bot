@@ -9,8 +9,8 @@ from retry.api import retry_call
 from telegram import TelegramObject
 from yarl import URL
 
-from _dependencies.commons import get_app_config
-from _dependencies.users_management import ManageUserAction, update_user_status
+from _dependencies.bot.users_management import ManageUserAction, update_user_status
+from _dependencies.common.commons import get_app_config
 
 
 class TGApiBase:

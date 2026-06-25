@@ -5,7 +5,7 @@ from typing import Any
 
 import httpx
 
-from _dependencies.commons import get_app_config
+from _dependencies.common.commons import get_app_config
 
 
 class VkApiError(Exception):

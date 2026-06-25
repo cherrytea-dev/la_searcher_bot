@@ -10,9 +10,9 @@ from requests import Session
 from retry import retry
 from yarl import URL
 
-from _dependencies.commons import get_forum_proxies
-from _dependencies.content import content_is_unaccessible, is_forum_unavailable
-from _dependencies.topic_management import save_visibility_for_topic
+from _dependencies.common.commons import get_forum_proxies
+from _dependencies.forum.content import content_is_unaccessible, is_forum_unavailable
+from _dependencies.forum.topic_management import save_visibility_for_topic
 
 from .database import get_db_client
 from .topics_commons import CoordType, ForumCommentItem, ForumSearchItem

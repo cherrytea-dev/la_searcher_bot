@@ -2,7 +2,7 @@ import logging
 import time
 from datetime import datetime, timedelta, timezone
 
-from _dependencies.pubsub import notify_admin
+from _dependencies.common.pubsub import notify_admin
 
 from .database import DBClient
 from .external_api import (

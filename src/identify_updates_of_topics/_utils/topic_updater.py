@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 
-from _dependencies.commons import ChangeType
+from _dependencies.common.commons import ChangeType
 
 from .change_detector import ChangeDetector
 from .coordinates import CoordinatesResolver

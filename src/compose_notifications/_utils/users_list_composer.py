@@ -5,7 +5,7 @@ from ast import literal_eval
 import sqlalchemy
 from sqlalchemy.engine.base import Connection
 
-from _dependencies.commons import ChangeType, SearchFollowingMode
+from _dependencies.common.commons import ChangeType, SearchFollowingMode
 
 from .commons import LineInChangeLog, User, define_dist_and_dir_to_search
 

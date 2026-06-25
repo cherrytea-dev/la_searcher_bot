@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings
 
-from _dependencies.yandex_tools import setup_logging_cloud
+from _dependencies.common.yandex_tools import setup_logging_cloud
 
 PHONE_RE = re.compile(r'(?:\+7|7|8)\s?[\s\-(]?\s?\d{3}[\s\-)]?\s?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}')
 

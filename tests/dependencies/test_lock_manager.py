@@ -3,8 +3,8 @@ from uuid import uuid4
 
 import pytest
 
-from _dependencies.commons import sqlalchemy_get_pool
-from _dependencies.lock_manager import FunctionLockError, lock_manager
+from _dependencies.common.commons import sqlalchemy_get_pool
+from _dependencies.common.lock_manager import FunctionLockError, lock_manager
 
 TIMEOUT = 1
 

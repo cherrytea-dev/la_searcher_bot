@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from _dependencies.commons import ChangeType, TopicType
+from _dependencies.common.commons import ChangeType, TopicType
 
 
 class CoordType(str, Enum):

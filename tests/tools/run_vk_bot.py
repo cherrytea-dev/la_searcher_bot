@@ -9,7 +9,7 @@ if __name__ == '__main__':
     logging.info('hello')
 
     with (
-        patch('_dependencies.commons._get_config', get_dotenv_config),
+        patch('_dependencies.common.commons._get_config', get_dotenv_config),
         # patch('_dependencies.pubsub.send_topic_google', patched_send_topic),
     ):
         print('run following command to create temporal external address for your host')

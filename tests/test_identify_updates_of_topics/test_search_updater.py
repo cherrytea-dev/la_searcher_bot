@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from _dependencies.commons import ChangeType
+from _dependencies.common.commons import ChangeType
 from identify_updates_of_topics._utils.change_detector import ChangeDetector
 from identify_updates_of_topics._utils.coordinates import CoordinatesResolver
 from identify_updates_of_topics._utils.forum import ForumClient

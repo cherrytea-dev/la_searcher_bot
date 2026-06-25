@@ -13,8 +13,13 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from itertools import repeat
 
-from _dependencies.commons import get_app_config, setup_logging
-from _dependencies.pubsub import Ctx, MessageForIdentifyUpdatesOfTopics, pubsub_check_first_posts, pubsub_parse_searches
+from _dependencies.common.commons import get_app_config, setup_logging
+from _dependencies.common.pubsub import (
+    Ctx,
+    MessageForIdentifyUpdatesOfTopics,
+    pubsub_check_first_posts,
+    pubsub_parse_searches,
+)
 from check_first_posts_for_changes._utils.database import get_phpbb_db_client
 
 from ._utils.database import DBClient, get_db_client

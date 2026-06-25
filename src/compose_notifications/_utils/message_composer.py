@@ -3,7 +3,7 @@ import logging
 import re
 from functools import lru_cache
 
-from _dependencies.commons import ChangeLogSavedValue, ChangeType, TopicType, add_tel_link
+from _dependencies.common.commons import ChangeLogSavedValue, ChangeType, TopicType, add_tel_link
 
 from .commons import (
     COORD_FORMAT,

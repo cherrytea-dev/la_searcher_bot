@@ -4,12 +4,12 @@ import time
 from functools import lru_cache
 from typing import TYPE_CHECKING, Literal
 
-from _dependencies.vk_api_client import VkApiError, get_default_vk_api_client
+from _dependencies.bot.vk_api_client import VkApiError, get_default_vk_api_client
 
 from .keyboards import VKKeyboardLayouts
 
 if TYPE_CHECKING:
-    from _dependencies.vk_api_client import VKApi
+    from _dependencies.bot.vk_api_client import VKApi
 
 
 @lru_cache

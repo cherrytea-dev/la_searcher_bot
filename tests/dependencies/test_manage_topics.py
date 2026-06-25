@@ -2,7 +2,7 @@ from random import randint
 
 import pytest
 
-from _dependencies.topic_management import save_status_for_topic
+from _dependencies.forum.topic_management import save_status_for_topic
 from tests.common import find_model
 from tests.factories.db_factories import SearchFactory, get_session
 from tests.factories.db_models import ChangeLog, Search

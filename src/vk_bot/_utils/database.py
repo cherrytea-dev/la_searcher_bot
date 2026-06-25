@@ -7,7 +7,7 @@ Now all DB operations are mixed into a single DBClient class.
 
 from functools import lru_cache
 
-from _dependencies.db_client import DBClientBase
+from _dependencies.common.db_client import DBClientBase
 
 from .database_common import AgePeriod, DialogState, UserSettingsSummary
 from .mixins.age_pref import AgePrefMixin

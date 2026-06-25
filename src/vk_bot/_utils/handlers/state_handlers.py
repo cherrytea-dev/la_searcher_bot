@@ -7,7 +7,7 @@ These handlers check DialogState first and handle specific input states
 import logging
 import re
 
-from _dependencies.pubsub import pubsub_parse_user_profile
+from _dependencies.common.pubsub import pubsub_parse_user_profile
 
 from ..common import VKHandlerResult, VKMessage
 from ..database import DialogState, db

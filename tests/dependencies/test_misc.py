@@ -2,14 +2,14 @@ from datetime import datetime, timedelta
 
 import pytest
 
-import _dependencies.pubsub
+import _dependencies.common.pubsub as pubsub
 from _dependencies import misc
 from tests.common import get_event_with_data
 
 
 def test_make_api_call():
     # TODO mock requests
-    _dependencies.pubsub.recognize_title_via_api('test title', False)
+    pubsub.recognize_title_via_api('test title', False)
 
 
 def test_convert_request():
@@ -45,7 +45,7 @@ def test_age_writer(age: int, result: str):
 
 
 def test_process_pubsub_message():
-    res = _dependencies.pubsub.process_pubsub_message(get_event_with_data('foo'))
+    res = pubsub.process_pubsub_message(get_event_with_data('foo'))
     assert res == 'foo'
 
 

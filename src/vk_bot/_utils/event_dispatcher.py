@@ -17,7 +17,7 @@ import time
 from collections import OrderedDict
 from typing import Callable
 
-from _dependencies.commons import get_app_config
+from _dependencies.common.commons import get_app_config
 
 from .common import VKMessage
 from .handler_chain import HANDLER_CHAIN, handle_unknown  # noqa: F401 — re-exported via dispatcher

@@ -19,8 +19,8 @@ from sqlalchemy import text as sa_text
 from sqlalchemy.orm.session import Session
 from sqlalchemy.pool import Pool
 
-from _dependencies.commons import AppConfig
-from _dependencies.telegram_api_wrapper import make_invite_text_for_user
+from _dependencies.bot.telegram_api_wrapper import make_invite_text_for_user
+from _dependencies.common.commons import AppConfig
 from tests.factories import db_factories
 from vk_bot._utils.account_linking import _validate_invite_hash
 from vk_bot._utils.common import VKMessage

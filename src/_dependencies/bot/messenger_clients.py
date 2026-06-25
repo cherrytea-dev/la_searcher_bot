@@ -6,9 +6,9 @@ into the abstract ``MessengerClient`` interface defined in
 
 """
 
-from _dependencies.commons import Messenger, MessengerClient, SendResult, UserIdentity, get_app_config
-from _dependencies.telegram_api_wrapper import TGApiBase
-from _dependencies.vk_api_client import VKApi, VkApiError
+from _dependencies.bot.telegram_api_wrapper import TGApiBase
+from _dependencies.bot.vk_api_client import VKApi, VkApiError
+from _dependencies.common.commons import Messenger, MessengerClient, SendResult, UserIdentity, get_app_config
 
 
 class TelegramClient(MessengerClient):

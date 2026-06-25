@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fakes import FakeVKMessageSender
 
-from _dependencies.commons import AppConfig
-from _dependencies.vk_api_client import VKApi
+from _dependencies.bot.vk_api_client import VKApi
+from _dependencies.common.commons import AppConfig
 from src.vk_bot._utils.common import VKHandlerResult, VKMessage
 from tests.factories import db_factories, db_models
 
@@ -219,7 +219,7 @@ def mock_app_config():
     vk_group_id, vk_confirmation_code, and bot_api_token__prod.
 
     Patches account_linking and event_dispatcher since both import
-    get_app_config from _dependencies.commons directly.
+    get_app_config from _dependencies.common.commons directly.
     (dispatcher.py is now a re-export module and no longer imports it.)
     """
     config = AppConfig(

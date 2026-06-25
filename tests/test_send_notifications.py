@@ -11,9 +11,9 @@ import sqlalchemy
 from polyfactory.factories import DataclassFactory
 from sqlalchemy.engine import Connection
 
-from _dependencies.commons import sqlalchemy_get_pool
-from _dependencies.telegram_api_wrapper import TGApiBase
-from _dependencies.vk_api_client import VKApi
+from _dependencies.bot.telegram_api_wrapper import TGApiBase
+from _dependencies.bot.vk_api_client import VKApi
+from _dependencies.common.commons import sqlalchemy_get_pool
 from send_notifications import main
 from tests.common import find_model, get_event_with_data
 from tests.factories.db_factories import NotifByUserFactory, UserFactory, get_session

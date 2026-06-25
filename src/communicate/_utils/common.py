@@ -13,8 +13,8 @@ from telegram import (
     ReplyKeyboardRemove,
 )
 
-from _dependencies.commons import SearchFollowingMode
-from _dependencies.misc import calc_bearing
+from _dependencies.common.commons import SearchFollowingMode
+from _dependencies.common.misc import calc_bearing
 
 SEARCH_URL_PREFIX = 'https://lizaalert.org/forum/viewtopic.php?t='
 FORUM_FOLDER_PREFIX = 'https://lizaalert.org/forum/viewforum.php?f='
