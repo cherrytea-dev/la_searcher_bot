@@ -110,6 +110,7 @@ jobs:
     needs: changes
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - function: communicate
