@@ -17,8 +17,8 @@ from retry.api import retry_call
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.base import Engine
 
-from _dependencies.commons import get_forum_proxies, setup_logging, sqlalchemy_get_pool
-from _dependencies.pubsub import Ctx, pubsub_parse_folders
+from _dependencies.common.commons import get_forum_proxies, setup_logging, sqlalchemy_get_pool
+from _dependencies.common.pubsub import Ctx, pubsub_parse_folders
 
 setup_logging(__package__)
 

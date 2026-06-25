@@ -19,7 +19,7 @@ def fake_recognize_title_via_api(title: str, status_only: bool):
 if __name__ == '__main__':
     setup_logging_to_console()
     with (
-        patch('_dependencies.commons._get_config', get_dotenv_config),
+        patch('_dependencies.common.commons._get_config', get_dotenv_config),
         patch.object(pubsub, 'publish_to_pubsub', fake_publish_to_pubsub),
         patch.object(search_parser, 'recognize_title_via_api', fake_recognize_title_via_api),
     ):

@@ -3,7 +3,7 @@ from pathlib import Path
 import click
 import psycopg2
 
-from _dependencies.commons import AppConfig
+from _dependencies.common.commons import AppConfig
 from tests.common import get_dotenv_config, get_test_config
 
 

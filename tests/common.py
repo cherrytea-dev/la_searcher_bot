@@ -10,8 +10,8 @@ from faker import Faker
 from pydantic_settings import SettingsConfigDict
 from sqlalchemy.orm import Session
 
-from _dependencies.commons import AppConfig
-from _dependencies.pubsub import Topics
+from _dependencies.common.commons import AppConfig
+from _dependencies.common.pubsub import Topics
 from compose_notifications.main import main as compose_notifications_main
 from connect_to_forum.main import main as connect_to_forum_main
 from identify_updates_of_first_posts.main import main as identify_updates_of_first_posts_main

@@ -1,6 +1,6 @@
 import logging
 
-from _dependencies.commons import ChangeType
+from _dependencies.common.commons import ChangeType
 
 from .topics_commons import ChangeLogLine, SearchSummary
 

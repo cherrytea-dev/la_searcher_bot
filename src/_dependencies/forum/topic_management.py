@@ -3,8 +3,8 @@ import logging
 
 import sqlalchemy
 
-from _dependencies.misc import generate_random_function_id
-from _dependencies.pubsub import notify_admin, pubsub_compose_notifications
+from _dependencies.common.misc import generate_random_function_id
+from _dependencies.common.pubsub import notify_admin, pubsub_compose_notifications
 
 
 def save_status_for_topic(conn: sqlalchemy.engine.Connection, topic_id: int, status: str) -> int | None:

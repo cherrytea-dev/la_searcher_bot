@@ -12,8 +12,8 @@ import boto3
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
-from _dependencies.commons import get_app_config, setup_logging, sqlalchemy_get_pool
-from _dependencies.pubsub import Ctx
+from _dependencies.common.commons import get_app_config, setup_logging, sqlalchemy_get_pool
+from _dependencies.common.pubsub import Ctx
 
 setup_logging(__package__)
 

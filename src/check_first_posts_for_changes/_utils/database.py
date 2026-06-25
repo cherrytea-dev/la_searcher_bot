@@ -5,8 +5,8 @@ from typing import NamedTuple
 import sqlalchemy
 from sqlalchemy.engine import Connection, create_engine
 
-from _dependencies.commons import get_app_config
-from _dependencies.db_client import DBClientBase, DBKeyValueStorageMixin
+from _dependencies.common.commons import get_app_config
+from _dependencies.common.db_client import DBClientBase, DBKeyValueStorageMixin
 
 
 class DBClient(DBClientBase, DBKeyValueStorageMixin):

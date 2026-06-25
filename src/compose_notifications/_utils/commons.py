@@ -5,8 +5,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from _dependencies.commons import ChangeType, TopicType
-from _dependencies.misc import calc_bearing
+from _dependencies.common.commons import ChangeType, TopicType
+from _dependencies.common.misc import calc_bearing
 
 WINDOW_FOR_NOTIFICATIONS_DAYS = 60
 COORD_FORMAT = '{0:.5f}'

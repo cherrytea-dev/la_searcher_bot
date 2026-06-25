@@ -6,7 +6,7 @@ import pytest
 # from tests.factories.db_models import ChangeLog, User
 from sqlalchemy.engine import Connection
 
-from _dependencies.commons import ChangeType, TopicType
+from _dependencies.common.commons import ChangeType, TopicType
 from compose_notifications import main
 from compose_notifications.main import LineInChangeLog
 from tests.common import fake, get_event_with_data

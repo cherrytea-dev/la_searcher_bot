@@ -3,8 +3,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from _dependencies.commons import setup_logging
-from _dependencies.misc import RequestWrapper, ResponseWrapper, request_response_converter
+from _dependencies.common.commons import setup_logging
+from _dependencies.common.misc import RequestWrapper, ResponseWrapper, request_response_converter
 
 from ._utils.recognizer import recognize_title
 

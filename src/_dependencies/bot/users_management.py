@@ -4,7 +4,7 @@ from enum import Enum
 
 import sqlalchemy
 
-from _dependencies.commons import sqlalchemy_get_pool
+from _dependencies.common.commons import sqlalchemy_get_pool
 
 
 class ManageUserAction(str, Enum):

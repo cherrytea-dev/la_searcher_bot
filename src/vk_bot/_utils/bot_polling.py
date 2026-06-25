@@ -5,7 +5,7 @@ import vk_api
 from pydantic import BaseModel
 from vk_api.longpoll import VkEventType, VkLongPoll
 
-from _dependencies.commons import get_app_config
+from _dependencies.common.commons import get_app_config
 
 from .event_dispatcher import dispatch_event
 

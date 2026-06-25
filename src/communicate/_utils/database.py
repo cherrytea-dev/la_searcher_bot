@@ -5,8 +5,8 @@ from functools import lru_cache
 
 import sqlalchemy
 
-from _dependencies.commons import SearchFollowingMode
-from _dependencies.db_client import DBClientBase
+from _dependencies.common.commons import SearchFollowingMode
+from _dependencies.common.db_client import DBClientBase
 
 from .common import PREF_DICT, AgePeriod, SearchSummary, UserInputState
 

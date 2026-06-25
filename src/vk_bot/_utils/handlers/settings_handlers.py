@@ -17,7 +17,7 @@ or None to pass to the next handler in the chain.
 
 import logging
 
-from _dependencies.telegram_api_wrapper import make_invite_text_for_user
+from _dependencies.bot.telegram_api_wrapper import make_invite_text_for_user
 from vk_bot._utils.services.message_formatter import (
     community_intro,
     coords_deleted,

@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from _dependencies.commons import ChangeType
+from _dependencies.common.commons import ChangeType
 from tests.factories import db_factories, db_models
 
 

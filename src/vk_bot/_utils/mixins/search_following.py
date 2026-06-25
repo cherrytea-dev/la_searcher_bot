@@ -4,7 +4,7 @@ import datetime
 
 import sqlalchemy
 
-from _dependencies.commons import SearchFollowingMode
+from _dependencies.common.commons import SearchFollowingMode
 
 
 class SearchFollowingMixin:

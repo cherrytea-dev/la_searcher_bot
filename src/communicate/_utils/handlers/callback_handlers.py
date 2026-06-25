@@ -3,7 +3,7 @@ from ast import literal_eval
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from _dependencies.commons import SearchFollowingMode
+from _dependencies.common.commons import SearchFollowingMode
 
 from ..buttons import TopicTypeInlineKeyboardBuilder, reply_markup_main
 from ..common import (

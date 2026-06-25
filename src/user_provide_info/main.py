@@ -14,14 +14,14 @@ from urllib.parse import unquote
 import sqlalchemy
 from pydantic import BaseModel
 
-from _dependencies.commons import TopicType, get_app_config, setup_logging, sqlalchemy_get_pool
-from _dependencies.content import clean_up_content
-from _dependencies.misc import (
+from _dependencies.common.commons import TopicType, get_app_config, setup_logging, sqlalchemy_get_pool
+from _dependencies.common.misc import (
     RequestWrapper,
     ResponseWrapper,
     request_response_converter,
     time_counter_since_search_start,
 )
+from _dependencies.forum.content import clean_up_content
 
 setup_logging(__package__)
 

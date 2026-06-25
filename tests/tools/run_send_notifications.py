@@ -36,7 +36,7 @@ def timed_main():
 if __name__ == '__main__':
     setup_logging_to_console()
     with (
-        patch('_dependencies.commons._get_config', get_dotenv_config),
+        patch('_dependencies.common.commons._get_config', get_dotenv_config),
         # patch('_dependencies.pubsub.send_topic_google'),
         patch('send_notifications.main.SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS', 0),
     ):

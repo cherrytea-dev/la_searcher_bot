@@ -13,8 +13,8 @@ from typing import Any
 
 import feedparser
 
-from _dependencies.commons import setup_logging
-from _dependencies.pubsub import Ctx, pubsub_check_first_posts
+from _dependencies.common.commons import setup_logging
+from _dependencies.common.pubsub import Ctx, pubsub_check_first_posts
 
 from ._utils.commons import PercentGroup, RSSItem, Search
 from ._utils.database import DBClient, get_db_client

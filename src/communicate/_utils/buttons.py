@@ -3,7 +3,7 @@ from enum import Enum
 
 from telegram import InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
 
-from _dependencies.commons import TopicType
+from _dependencies.common.commons import TopicType
 
 from .common import InlineButtonCallbackData
 

@@ -2,8 +2,8 @@ import logging
 import random
 from typing import Any
 
-from _dependencies.commons import setup_logging
-from _dependencies.misc import (
+from _dependencies.common.commons import setup_logging
+from _dependencies.common.misc import (
     RequestWrapper,
     ResponseWrapper,
     request_response_converter,

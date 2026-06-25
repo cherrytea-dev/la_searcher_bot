@@ -75,7 +75,7 @@ def send_topic_cloud(topic_name: str, message: Any) -> None:
 @retry(Exception, tries=3, delay=3)
 def make_api_call_cloud(function: str, data: dict) -> dict:
     # TODO make more clear
-    from _dependencies.commons import get_app_config
+    from _dependencies.common.commons import get_app_config
 
     headers = {
         'Content-Type': 'application/json',

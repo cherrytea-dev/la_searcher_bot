@@ -14,7 +14,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from _dependencies.vk_api_client import VKApi, VkApiError, _handle_vk_error
+from _dependencies.bot.vk_api_client import VKApi, VkApiError, _handle_vk_error
 from vk_bot._utils.message_sending import VKMessageSender
 
 # ═══════════════════════════════════════════════════════════════════════════════

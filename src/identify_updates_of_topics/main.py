@@ -3,9 +3,9 @@ and saves into PSQL if there are any updates"""
 
 import logging
 
-from _dependencies.commons import get_app_config, setup_logging
-from _dependencies.misc import generate_random_function_id
-from _dependencies.pubsub import (
+from _dependencies.common.commons import get_app_config, setup_logging
+from _dependencies.common.misc import generate_random_function_id
+from _dependencies.common.pubsub import (
     Ctx,
     MessageForIdentifyUpdatesOfTopics,
     process_pubsub_message,

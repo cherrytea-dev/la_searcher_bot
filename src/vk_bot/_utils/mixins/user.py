@@ -5,7 +5,7 @@ import logging
 
 import sqlalchemy
 
-from _dependencies.users_management import register_new_user, save_onboarding_step
+from _dependencies.bot.users_management import register_new_user, save_onboarding_step
 
 
 class UserMixin:

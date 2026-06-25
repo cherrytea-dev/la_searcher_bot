@@ -3,8 +3,8 @@ import logging
 import sqlalchemy
 from sqlalchemy.engine.base import Connection
 
-from _dependencies.commons import setup_logging, sqlalchemy_get_pool
-from _dependencies.pubsub import Ctx, pubsub_archive_notifications
+from _dependencies.common.commons import setup_logging, sqlalchemy_get_pool
+from _dependencies.common.pubsub import Ctx, pubsub_archive_notifications
 
 setup_logging(__package__)
 

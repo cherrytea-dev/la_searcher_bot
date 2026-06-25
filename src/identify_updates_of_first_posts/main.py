@@ -14,7 +14,7 @@ import requests
 import sqlalchemy
 from bs4 import BeautifulSoup
 
-from _dependencies.commons import (
+from _dependencies.common.commons import (
     ChangeLogSavedValue,
     ChangeType,
     get_app_config,
@@ -22,15 +22,15 @@ from _dependencies.commons import (
     setup_logging,
     sqlalchemy_get_pool,
 )
-from _dependencies.content import clean_up_content_2
-from _dependencies.misc import generate_random_function_id
-from _dependencies.pubsub import (
+from _dependencies.common.misc import generate_random_function_id
+from _dependencies.common.pubsub import (
     Ctx,
     notify_admin,
     process_pubsub_message,
     pubsub_compose_notifications,
     pubsub_parse_searches,
 )
+from _dependencies.forum.content import clean_up_content_2
 
 setup_logging(__package__)
 

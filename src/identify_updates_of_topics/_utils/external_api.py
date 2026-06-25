@@ -3,8 +3,8 @@ import logging
 from geopy.geocoders import Nominatim
 from yandex_geocoder import Client, exceptions
 
-from _dependencies.commons import get_app_config
-from _dependencies.pubsub import notify_admin
+from _dependencies.common.commons import get_app_config
+from _dependencies.common.pubsub import notify_admin
 
 
 def get_coordinates_from_address_by_osm(address_string: str) -> tuple[float, float]:

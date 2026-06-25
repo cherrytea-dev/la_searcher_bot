@@ -7,8 +7,8 @@ from typing import Any
 import sqlalchemy
 from sqlalchemy.engine.base import Connection
 
-from _dependencies.commons import ChangeType, get_app_config
-from _dependencies.pubsub import notify_admin, pubsub_send_notifications
+from _dependencies.common.commons import ChangeType, get_app_config
+from _dependencies.common.pubsub import notify_admin, pubsub_send_notifications
 
 from .commons import (
     SEARCH_TOPIC_TYPES,

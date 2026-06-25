@@ -6,9 +6,9 @@ from typing import Any
 
 from sqlalchemy.exc import OperationalError
 
-from _dependencies.commons import ChangeType, TopicType
-from _dependencies.pubsub import notify_admin, recognize_title_via_api
-from _dependencies.recognition_schema import RecognitionResult, RecognitionTopicType
+from _dependencies.common.commons import ChangeType, TopicType
+from _dependencies.common.pubsub import notify_admin, recognize_title_via_api
+from _dependencies.forum.recognition_schema import RecognitionResult, RecognitionTopicType
 
 from .database import DBClient
 from .external_api import (

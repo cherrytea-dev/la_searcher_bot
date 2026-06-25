@@ -19,7 +19,7 @@ from datetime import datetime
 import pytest
 import sqlalchemy
 
-from _dependencies.commons import sqlalchemy_get_pool
+from _dependencies.common.commons import sqlalchemy_get_pool
 
 # No xdist_group — these tests are executed serially via Makefile
 

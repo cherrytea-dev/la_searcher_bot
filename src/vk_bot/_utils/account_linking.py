@@ -13,8 +13,8 @@ import logging
 
 import sqlalchemy
 
-from _dependencies.commons import get_app_config
-from _dependencies.users_management import save_onboarding_step
+from _dependencies.bot.users_management import save_onboarding_step
+from _dependencies.common.commons import get_app_config
 
 from .common import VKMessage, get_invite_from_message
 from .database import db
@@ -39,7 +39,7 @@ def register_vk_only_user(vk_user_id: int, vk_user_name: str | None = None) -> i
     Returns:
         The new ``internal_user_id``.
     """
-    from _dependencies.commons import sqlalchemy_get_pool
+    from _dependencies.common.commons import sqlalchemy_get_pool
 
     pool = sqlalchemy_get_pool()
     with pool.connect() as conn:

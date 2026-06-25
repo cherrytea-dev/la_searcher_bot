@@ -1,0 +1,219 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      communicate: ${{ steps.filter.outputs.communicate }}
+      vk_bot: ${{ steps.filter.outputs.vk_bot }}
+      send_notifications: ${{ steps.filter.outputs.send_notifications }}
+      connect_to_forum: ${{ steps.filter.outputs.connect_to_forum }}
+      send_debug_to_admin: ${{ steps.filter.outputs.send_debug_to_admin }}
+      compose_notifications: ${{ steps.filter.outputs.compose_notifications }}
+      check_first_posts_for_changes: ${{ steps.filter.outputs.check_first_posts_for_changes }}
+      identify_updates_of_topics: ${{ steps.filter.outputs.identify_updates_of_topics }}
+      identify_updates_of_first_posts: ${{ steps.filter.outputs.identify_updates_of_first_posts }}
+      title_recognize: ${{ steps.filter.outputs.title_recognize }}
+      api_get_active_searches: ${{ steps.filter.outputs.api_get_active_searches }}
+      user_provide_info: ${{ steps.filter.outputs.user_provide_info }}
+      archive_notifications: ${{ steps.filter.outputs.archive_notifications }}
+      archive_to_bigquery: ${{ steps.filter.outputs.archive_to_bigquery }}
+      check_topics_by_upd_time: ${{ steps.filter.outputs.check_topics_by_upd_time }}
+      users_activate: ${{ steps.filter.outputs.users_activate }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            communicate:
+              - '.github/workflows/deploy.yml'
+              - 'src/communicate/**'
+              - 'src/_dependencies/common/**'
+              - 'src/_dependencies/bot/**'
+            vk_bot:
+              - '.github/workflows/deploy.yml'
+              - 'src/vk_bot/**'
+              - 'src/_dependencies/common/**'
+              - 'src/_dependencies/bot/**'
+            send_notifications:
+              - '.github/workflows/deploy.yml'
+              - 'src/send_notifications/**'
+              - 'src/_dependencies/common/**'
+              - 'src/_dependencies/bot/**'
+            connect_to_forum:
+              - '.github/workflows/deploy.yml'
+              - 'src/connect_to_forum/**'
+              - 'src/_dependencies/common/**'
+              - 'src/_dependencies/bot/**'
+            send_debug_to_admin:
+              - '.github/workflows/deploy.yml'
+              - 'src/send_debug_to_admin/**'
+              - 'src/_dependencies/common/**'
+              - 'src/_dependencies/bot/**'
+            compose_notifications:
+              - '.github/workflows/deploy.yml'
+              - 'src/compose_notifications/**'
+              - 'src/_dependencies/common/**'
+            check_first_posts_for_changes:
+              - '.github/workflows/deploy.yml'
+              - 'src/check_first_posts_for_changes/**'
+              - 'src/_dependencies/common/**'
+              - 'src/_dependencies/forum/**'
+            identify_updates_of_topics:
+              - '.github/workflows/deploy.yml'
+              - 'src/identify_updates_of_topics/**'
+              - 'src/_dependencies/common/**'
+              - 'src/_dependencies/forum/**'
+            identify_updates_of_first_posts:
+              - '.github/workflows/deploy.yml'
+              - 'src/identify_updates_of_first_posts/**'
+              - 'src/_dependencies/common/**'
+              - 'src/_dependencies/forum/**'
+            title_recognize:
+              - '.github/workflows/deploy.yml'
+              - 'src/title_recognize/**'
+              - 'src/_dependencies/common/**'
+              - 'src/_dependencies/forum/**'
+            api_get_active_searches:
+              - '.github/workflows/deploy.yml'
+              - 'src/api_get_active_searches/**'
+              - 'src/_dependencies/common/**'
+              - 'src/_dependencies/forum/**'
+            user_provide_info:
+              - '.github/workflows/deploy.yml'
+              - 'src/user_provide_info/**'
+              - 'src/_dependencies/common/**'
+              - 'src/_dependencies/forum/**'
+            archive_notifications:
+              - '.github/workflows/deploy.yml'
+              - 'src/archive_notifications/**'
+              - 'src/_dependencies/common/**'
+            archive_to_bigquery:
+              - '.github/workflows/deploy.yml'
+              - 'src/archive_to_bigquery/**'
+              - 'src/_dependencies/common/**'
+            check_topics_by_upd_time:
+              - '.github/workflows/deploy.yml'
+              - 'src/check_topics_by_upd_time/**'
+              - 'src/_dependencies/common/**'
+            users_activate:
+              - '.github/workflows/deploy.yml'
+              - 'src/users_activate/**'
+              - 'src/_dependencies/common/**'
+
+  deploy:
+    needs: changes
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - function: communicate
+            memory: 256Mb
+            timeout: 60
+          - function: vk_bot
+            memory: 256Mb
+            timeout: 60
+          - function: send_notifications
+            memory: 256Mb
+            timeout: 540
+          - function: connect_to_forum
+            memory: 256Mb
+            timeout: 60
+          - function: send_debug_to_admin
+            memory: 256Mb
+            timeout: 60
+          - function: compose_notifications
+            memory: 256Mb
+            timeout: 540
+          - function: check_first_posts_for_changes
+            memory: 256Mb
+            timeout: 60
+          - function: identify_updates_of_topics
+            memory: 512Mb
+            timeout: 540
+          - function: identify_updates_of_first_posts
+            memory: 256Mb
+            timeout: 540
+          - function: title_recognize
+            memory: 1024Mb
+            timeout: 60
+          - function: api_get_active_searches
+            memory: 256Mb
+            timeout: 60
+          - function: user_provide_info
+            memory: 256Mb
+            timeout: 60
+          - function: archive_notifications
+            memory: 256Mb
+            timeout: 540
+          - function: archive_to_bigquery
+            memory: 1024Mb
+            timeout: 1800
+          - function: check_topics_by_upd_time
+            memory: 256Mb
+            timeout: 60
+          - function: users_activate
+            memory: 256Mb
+            timeout: 60
+    if: ${{ needs.changes.outputs[matrix.function] == 'true' }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: make requirements
+        run: cp src/${{ matrix.function }}/requirements.txt src/requirements.txt
+
+      - name: Process function name
+        id: process-name
+        run: |
+          KEBAB_NAME=$(echo "${{ matrix.function }}" | tr '_' '-')
+          echo "kebab-name=$KEBAB_NAME" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Yandex Cloud Function
+        uses: yc-actions/yc-sls-function@v4
+        with:
+          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
+          folder-id: ${{ secrets.YC_FOLDER_ID }}
+          runtime: "python312"
+          function-name: ${{ steps.process-name.outputs.kebab-name }}
+          memory: ${{ matrix.memory }}
+          entrypoint: ${{ matrix.function }}.main.main
+          source-root: src
+          execution-timeout: ${{ matrix.timeout }}
+          service-account-name: "la-searcher-bot"
+          include: |
+            ${{ matrix.function }}
+            _dependencies
+            requirements.txt
+          environment: |
+            POSTGRES_HOST=${{ secrets.YC_POSTGRES_HOST }}
+            POSTGRES_PORT=${{ secrets.YC_POSTGRES_PORT }}
+            POSTGRES_DB=${{ secrets.YC_POSTGRES_DB }}
+            POSTGRES_USER=${{ secrets.YC_POSTGRES_USER }}
+            POSTGRES_PASSWORD=${{ secrets.YC_POSTGRES_PASSWORD }}
+            BOT_API_TOKEN__PROD=${{ secrets.YC_BOT_API_TOKEN__PROD }}
+            BOT_API_TOKEN=${{ secrets.YC_BOT_API_TOKEN }}
+            MY_TELEGRAM_ID=${{ secrets.YC_MY_TELEGRAM_ID }}
+            FORUM_BOT_LOGIN=${{ secrets.YC_FORUM_BOT_LOGIN }}
+            FORUM_BOT_PASSWORD=${{ secrets.YC_FORUM_BOT_PASSWORD }}
+            OSM_IDENTIFIER=${{ secrets.YC_OSM_IDENTIFIER }}
+            YANDEX_API_KEY=${{ secrets.YC_YANDEX_API_KEY }}
+            WEB_APP_URL_TEST=${{ secrets.YC_WEB_APP_URL_TEST }}
+            WEB_APP_URL=${{ secrets.YC_WEB_APP_URL }}
+            AWS_ACCESS_KEY_ID=${{ secrets.YC_AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.YC_AWS_SECRET_ACCESS_KEY }}
+            TITLE_RECOGNIZE_URL=${{ secrets.YC_TITLE_RECOGNIZE_URL }}
+            VK_API_KEY=${{ secrets.VK_API_KEY }}
+            VK_CONFIRMATION_CODE=${{ secrets.VK_CONFIRMATION_CODE }}
+            VK_GROUP_ID=${{ secrets.VK_GROUP_ID }}
+            BOT_API_HOST=${{ secrets.BOT_API_HOST }}
+            FORUM_LEGACY_DATA_SOURCE=True
+          secrets: |
+            MYSQL_HOST=e6qsc5sqd7db7gk4m9u8/latest/MYSQL_HOST
+            MYSQL_DB=e6qsc5sqd7db7gk4m9u8/latest/MYSQL_DB
+            MYSQL_USER=e6qsc5sqd7db7gk4m9u8/latest/MYSQL_USER
+            MYSQL_PASS=e6qsc5sqd7db7gk4m9u8/latest/MYSQL_PASS

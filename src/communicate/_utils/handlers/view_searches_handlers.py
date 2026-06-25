@@ -4,7 +4,7 @@ from enum import Enum
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from _dependencies.misc import age_writer, time_counter_since_search_start
+from _dependencies.common.misc import age_writer, time_counter_since_search_start
 
 from ..buttons import Commands, MainMenu, OtherOptionsMenu, reply_markup_main
 from ..common import (

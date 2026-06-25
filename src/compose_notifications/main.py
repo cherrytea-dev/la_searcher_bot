@@ -6,10 +6,10 @@ import logging
 import sqlalchemy
 from sqlalchemy.engine.base import Connection
 
-from _dependencies.commons import ChangeType, setup_logging, sqlalchemy_get_pool
-from _dependencies.lock_manager import FunctionLockError, lock_manager
-from _dependencies.misc import generate_random_function_id
-from _dependencies.pubsub import Ctx, pubsub_compose_notifications
+from _dependencies.common.commons import ChangeType, setup_logging, sqlalchemy_get_pool
+from _dependencies.common.lock_manager import FunctionLockError, lock_manager
+from _dependencies.common.misc import generate_random_function_id
+from _dependencies.common.pubsub import Ctx, pubsub_compose_notifications
 
 from ._utils.commons import LineInChangeLog, User
 from ._utils.log_record_composer import LogRecordComposer

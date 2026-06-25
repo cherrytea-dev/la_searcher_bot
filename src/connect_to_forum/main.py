@@ -12,9 +12,9 @@ import sqlalchemy
 from bs4 import BeautifulSoup, NavigableString, Tag
 from telegram import ReplyKeyboardMarkup
 
-from _dependencies.commons import get_app_config, get_forum_proxies, setup_logging, sqlalchemy_get_pool
-from _dependencies.misc import tg_api_main_account
-from _dependencies.pubsub import Ctx, process_pubsub_message
+from _dependencies.bot.messaging import tg_api_main_account
+from _dependencies.common.commons import get_app_config, get_forum_proxies, setup_logging, sqlalchemy_get_pool
+from _dependencies.common.pubsub import Ctx, process_pubsub_message
 
 COOKIE_FILE_NAME = 'session_cookies.pkl'
 

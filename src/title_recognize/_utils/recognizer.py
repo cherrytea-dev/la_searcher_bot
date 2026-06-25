@@ -4,7 +4,13 @@ from typing import Any, Dict, Optional, Union
 
 from pydantic import ConfigDict, ValidationError
 
-from _dependencies.recognition_schema import Location, Person, PersonsSummary, RecognitionResult, RecognitionTopicType
+from _dependencies.forum.recognition_schema import (
+    Location,
+    Person,
+    PersonsSummary,
+    RecognitionResult,
+    RecognitionTopicType,
+)
 
 from .pattern_collections import BlockTypePatternCollection, get_mistype_patterns
 from .person import recognize_one_person_group

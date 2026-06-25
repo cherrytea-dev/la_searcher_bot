@@ -2,9 +2,9 @@ import logging
 import re
 from datetime import datetime
 
-from _dependencies.commons import TopicType
-from _dependencies.pubsub import recognize_title_via_api
-from _dependencies.recognition_schema import RecognitionResult, RecognitionTopicType
+from _dependencies.common.commons import TopicType
+from _dependencies.common.pubsub import recognize_title_via_api
+from _dependencies.forum.recognition_schema import RecognitionResult, RecognitionTopicType
 
 from .coordinates import CoordinatesResolver
 from .topics_commons import ForumSearchItem, SearchSummary

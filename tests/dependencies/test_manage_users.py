@@ -4,7 +4,7 @@ from random import randint
 import pytest
 from sqlalchemy.engine import Connection
 
-from _dependencies.users_management import (
+from _dependencies.bot.users_management import (
     ManageUserAction,
     _save_default_notif_settings,
     _save_new_user,

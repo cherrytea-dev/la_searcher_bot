@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import Pool
 
 from _dependencies import pubsub
-from _dependencies.commons import sqlalchemy_get_pool
+from _dependencies.common.commons import sqlalchemy_get_pool
 from tests.common import get_test_config
 from tests.factories import db_factories
 
@@ -15,7 +15,7 @@ from tests.factories import db_factories
 def patch_app_config():
     """Connect to local DB"""
 
-    with patch('_dependencies.commons._get_config', get_test_config):
+    with patch('_dependencies.common.commons._get_config', get_test_config):
         yield
 
 

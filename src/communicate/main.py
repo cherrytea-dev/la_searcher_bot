@@ -7,10 +7,15 @@ from typing import Any, Callable
 
 from telegram import Bot, CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 
-from _dependencies.commons import get_app_config, setup_logging
-from _dependencies.misc import RequestWrapper, ResponseWrapper, request_response_converter
-from _dependencies.pubsub import notify_admin
-from _dependencies.users_management import ManageUserAction, register_new_user, save_onboarding_step, update_user_status
+from _dependencies.bot.users_management import (
+    ManageUserAction,
+    register_new_user,
+    save_onboarding_step,
+    update_user_status,
+)
+from _dependencies.common.commons import get_app_config, setup_logging
+from _dependencies.common.misc import RequestWrapper, ResponseWrapper, request_response_converter
+from _dependencies.common.pubsub import notify_admin
 
 from ._utils.buttons import reply_markup_main
 from ._utils.common import (

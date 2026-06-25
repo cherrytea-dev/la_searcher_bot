@@ -2,7 +2,7 @@
 
 import sqlalchemy
 
-from _dependencies.commons import PREF_DICT
+from _dependencies.common.commons import PREF_DICT
 
 
 class NotificationPrefMixin:

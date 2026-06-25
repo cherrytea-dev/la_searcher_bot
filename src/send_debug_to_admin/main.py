@@ -3,9 +3,9 @@ To receive notifications one should be marked as Admin in PSQL"""
 
 from retry import retry
 
-from _dependencies.commons import get_app_config, setup_logging
-from _dependencies.misc import tg_api_service_account
-from _dependencies.pubsub import Ctx, process_pubsub_message
+from _dependencies.bot.messaging import tg_api_service_account
+from _dependencies.common.commons import get_app_config, setup_logging
+from _dependencies.common.pubsub import Ctx, process_pubsub_message
 
 setup_logging(__package__)
 

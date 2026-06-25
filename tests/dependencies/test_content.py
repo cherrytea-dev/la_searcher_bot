@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from _dependencies import content
-from _dependencies.commons import _move_phone_links_outside_href_tags, add_tel_link, unify_phone_format
+from _dependencies.common.commons import _move_phone_links_outside_href_tags, add_tel_link, unify_phone_format
 
 
 def test_clean_up_content():

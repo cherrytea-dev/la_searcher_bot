@@ -11,9 +11,9 @@ import sqlalchemy
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.engine.base import Connection
 
-from _dependencies.commons import get_app_config, setup_logging, sqlalchemy_get_pool
-from _dependencies.content import clean_up_content
-from _dependencies.misc import RequestWrapper, ResponseWrapper, request_response_converter
+from _dependencies.common.commons import get_app_config, setup_logging, sqlalchemy_get_pool
+from _dependencies.common.misc import RequestWrapper, ResponseWrapper, request_response_converter
+from _dependencies.forum.content import clean_up_content
 
 setup_logging(__package__)
 

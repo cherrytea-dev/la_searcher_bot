@@ -5,7 +5,7 @@ from urllib.parse import quote, urlencode
 
 import pytest
 
-from _dependencies.commons import TopicType
+from _dependencies.common.commons import TopicType
 from tests.common import get_http_request
 from tests.factories.db_factories import (
     ChangeLogFactory,
