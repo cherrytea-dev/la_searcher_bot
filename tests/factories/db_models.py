@@ -96,17 +96,6 @@ class DictSearchActivity(Base):
     activity_name = Column(String)
 
 
-class Feedback(Base):
-    __tablename__ = 'feedback'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('feedback_id_seq1'::regclass)"))
-    username = Column(String)
-    feedback_text = Column(String)
-    feedback_time = Column(DateTime)
-    user_id = Column(String)
-    message_id = Column(Integer)
-
-
 class ForumSummarySnapshot(Base):
     __tablename__ = 'forum_summary_snapshot'
 
@@ -222,15 +211,6 @@ class MsgFromBot(Base):
     user_id = Column(BigInteger)
 
 
-class News(Base):
-    __tablename__ = 'news'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('news_id_seq1'::regclass)"))
-    stage = Column(String)
-    text = Column(String)
-    status = Column(String)
-
-
 t_notif_by_user__history = Table(
     'notif_by_user__history',
     metadata,
@@ -258,14 +238,6 @@ class NotifStatSendingSpeed(Base):
     num_of_msgs = Column(Integer)
     speed = Column(Float)
     ttl_time = Column(Float)
-
-
-t_old_dict_regions = Table(
-    'old_dict_regions',
-    metadata,
-    Column('id', Integer, nullable=False, server_default=text("nextval('my_serial'::regclass)")),
-    Column('region_name', String),
-)
 
 
 class SearchActivity(Base):
@@ -558,20 +530,6 @@ t_user_view = Table(
     Column('notif_setting', Text),
     Column('folder_setting', Text),
     Column('receives_summaries', Text),
-    Column('onb_step', Integer),
-    Column('last_msg', Text),
-    Column('last_msg_start', Text),
-    Column('last_msg_role', Text),
-    Column('last_msg_moscow', Text),
-    Column('last_msg_reg', Text),
-)
-
-
-t_user_view_21 = Table(
-    'user_view_21',
-    metadata,
-    Column('user_id', BigInteger),
-    Column('folder_setting', Text),
     Column('onb_step', Integer),
     Column('last_msg', Text),
     Column('last_msg_start', Text),
