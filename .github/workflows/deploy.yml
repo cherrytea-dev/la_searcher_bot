@@ -35,11 +35,15 @@ jobs:
               - 'src/communicate/**'
               - 'src/_dependencies/common/**'
               - 'src/_dependencies/bot/**'
+              - 'src/_dependencies/models.py'
+              - 'src/_dependencies/user_repository/**'
             vk_bot:
               - '.github/workflows/deploy.yml'
               - 'src/vk_bot/**'
               - 'src/_dependencies/common/**'
               - 'src/_dependencies/bot/**'
+              - 'src/_dependencies/models.py'
+              - 'src/_dependencies/user_repository/**'
             send_notifications:
               - '.github/workflows/deploy.yml'
               - 'src/send_notifications/**'
