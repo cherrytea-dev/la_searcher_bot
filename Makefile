@@ -5,8 +5,7 @@ venv:
 	uv sync --all-groups --all-extras --locked
 
 test:
-	uv run pytest -v -n 4 --dist loadgroup --ignore=tests/test_migration_004_user_identity_map.py
-	uv run pytest tests/test_migration_004_user_identity_map.py -v -p no:xdist
+	uv run pytest -v -n 4 --dist loadgroup
 
 initdb:
 	PYTHONPATH=.:src uv run python tests/tools/init_testing_db.py --db=TEST
