@@ -37,8 +37,6 @@ class TGApiBase:
             url = url.with_query(query_params)
 
             response = self._session.get(str(url))
-            logging.info(f'send_callback_answer_to_api..{response.json()=}')
-
             self._process_response_of_api_call(user_id, response)
         except Exception:
             logging.exception('Error in getting response from Telegram')
@@ -119,8 +117,24 @@ class TGApiBase:
             return 'failed'
 
         try:
-            if 'ok' not in response.json():
-                logging.error(f'ALARM! "ok" is not in response: {response.json()}, user {user_id}')
+            response_json = response.json()
+        except Exception:
+            # Diagnostic logging: capture response details before the JSON parse fails
+            logging.exception(
+                'Response JSON parse failed. '
+                f'status_code={response.status_code}, '
+                f'reason={response.reason!r}, '
+                f'headers={dict(response.headers)!r}, '
+                f'content_length={len(response.content)}, '
+                f'text_preview={response.text[:500]!r}, '
+                f'user_id={user_id}, '
+                f'call_context={call_context}'
+            )
+            return 'failed'
+
+        try:
+            if 'ok' not in response_json:
+                logging.error(f'ALARM! "ok" is not in response: {response_json}, user {user_id}')
                 return 'failed'
 
             if response.ok:
@@ -128,7 +142,7 @@ class TGApiBase:
                 return 'completed'
 
             elif response.status_code == 400:  # Bad Request
-                logging.exception(f'Bad Request: message to {user_id} was not sent, {response.json()=}')
+                logging.exception(f'Bad Request: message to {user_id} was not sent, {response_json=}')
                 return 'cancelled_bad_request'
 
             elif response.status_code == 403:  # FORBIDDEN
@@ -155,7 +169,7 @@ class TGApiBase:
                 return 'cancelled'
 
         except Exception:
-            logging.exception(f'Response is corrupted. {response.json()=}')
+            logging.exception(f'Response is corrupted. {response_json=}')
             return 'failed'
 
 
