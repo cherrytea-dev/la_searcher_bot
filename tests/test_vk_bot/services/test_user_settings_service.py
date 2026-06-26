@@ -20,7 +20,7 @@ def settings_service() -> DBClient:
 
 @pytest.fixture
 def user_id() -> int:
-    return randint(1, 1_000_000)
+    return randint(1_000_000_000, 9_000_000_000)
 
 
 # =============================================================================
