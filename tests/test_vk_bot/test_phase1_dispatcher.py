@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy import text as sa_text
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm.session import Session
 from sqlalchemy.pool import Pool
 
@@ -42,7 +43,7 @@ class TestDBClient:
     """DBClient with real PostgreSQL connection."""
 
     @pytest.fixture
-    def db_client(self, connection_pool: Pool) -> DBClient:
+    def db_client(self, connection_pool: Engine) -> DBClient:
         return DBClient(connection_pool)
 
     def test_get_user_by_vk_id_not_found(self, db_client: DBClient):
