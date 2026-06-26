@@ -123,6 +123,14 @@ filterwarnings = ["ignore::sqlalchemy.exc.RemovedIn20Warning"]
 line-length = 120
 format.quote-style = 'single'
 
+[tool.ruff.lint]
+#select = ["I"]
+select = ["F", "I"]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
 [tool.coverage.run]
 omit = ["*/tests/*"]
 

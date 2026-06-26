@@ -1,12 +1,7 @@
 import pytest
 from sqlalchemy.engine import Connection
 
-from _dependencies.common.commons import ChangeType, SearchFollowingMode, TopicType
-from compose_notifications._utils.commons import LineInChangeLog, User
-from compose_notifications._utils.message_composer import MessageComposer
-from compose_notifications._utils.notifications_maker import (
-    NotificationMaker,
-)
+from _dependencies.common.commons import ChangeType, SearchFollowingMode
 from compose_notifications._utils.users_list_composer import (
     UserListFilter,
     UsersListComposer,
@@ -118,7 +113,7 @@ class TestUsersListComposer:
     def test_another_change_type(self, connection: Connection):
         record = LineInChangeLogFactory.build(change_type=ChangeType.topic_first_post_change)
 
-        user = create_user_with_preferences(
+        create_user_with_preferences(
             pref_ids=[ChangeType.bot_news],
             region_ids=[1],
             topic_type_ids=[record.topic_type_id],
@@ -277,7 +272,7 @@ class TestUsersFilter:
     def test_filter_users_with_prepared_messages_2(self, connection, dict_notif_type_status_change):
         line_in_change_log = LineInChangeLogFactory.build()
         user = UserFactory.build()
-        user_model = db_factories.UserFactory.create_sync(user_id=user.user_id)
+        db_factories.UserFactory.create_sync(user_id=user.user_id)
         db_factories.NotifByUserFactory.create_sync(
             user_id=user.user_id, change_log_id=line_in_change_log.change_log_id
         )
@@ -327,7 +322,7 @@ class TestUsersFilter:
         line_in_change_log = LineInChangeLogFactory.build(forum_search_num=search.search_forum_num)
 
         user = UserFactory.build()
-        user_model = db_factories.UserFactory.create_sync(user_id=user.user_id)
+        db_factories.UserFactory.create_sync(user_id=user.user_id)
 
         db_factories.UserPrefSearchFilteringFactory.create_sync(user_id=user.user_id, filter_name=['whitelist'])
 
@@ -420,7 +415,7 @@ class TestUsersFilter:
             city_locations='', search_latitude='54.1234', search_longitude='55.1234'
         )
         user = UserFactory.build(user_latitude='', user_longitude='', radius=0, age_periods=[])
-        user_model = db_factories.UserFactory.create_sync(user_id=user.user_id)
+        db_factories.UserFactory.create_sync(user_id=user.user_id)
 
         filterer = UserListFilter(connection, line_in_change_log, [user])
         cropped_users = filterer.apply()
@@ -433,7 +428,7 @@ class TestUsersFilter:
             city_locations='', search_latitude='60.1234', search_longitude='60.1234'
         )
         user = UserFactory.build(user_latitude='54.0000', user_longitude='55.0000', radius=1, age_periods=[])
-        user_model = db_factories.UserFactory.create_sync(user_id=user.user_id)
+        db_factories.UserFactory.create_sync(user_id=user.user_id)
 
         filterer = UserListFilter(connection, line_in_change_log, [user])
         cropped_users = filterer.apply()

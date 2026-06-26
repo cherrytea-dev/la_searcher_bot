@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from _dependencies.common.commons import SearchFollowingMode
 from _dependencies.models import AgePeriod
-from tests.common import fake, find_model
-from tests.factories import db_factories, db_models
+from tests.common import fake
+from tests.factories import db_factories
 from vk_bot._utils.database import DBClient, db
 
 

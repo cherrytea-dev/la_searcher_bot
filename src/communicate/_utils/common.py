@@ -15,7 +15,6 @@ from telegram import (
 
 from _dependencies.common.commons import SearchFollowingMode
 from _dependencies.common.misc import calc_bearing
-from _dependencies.models import AgePeriod, DialogState
 
 SEARCH_URL_PREFIX = 'https://lizaalert.org/forum/viewtopic.php?t='
 FORUM_FOLDER_PREFIX = 'https://lizaalert.org/forum/viewforum.php?f='

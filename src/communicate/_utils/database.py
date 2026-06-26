@@ -1,13 +1,10 @@
 import datetime
-import logging
-from dataclasses import dataclass
 from functools import lru_cache
 
 import sqlalchemy
 
-from _dependencies.common.commons import SearchFollowingMode
 from _dependencies.common.db_client import DBClientBase
-from _dependencies.models import AgePeriod, DialogState, UserSettingsSummary
+from _dependencies.models import AgePeriod, UserSettingsSummary
 from _dependencies.user_repository import (
     AgePrefMixin,
     DialogHistoryMixin,
@@ -24,7 +21,7 @@ from _dependencies.user_repository import (
     VKIdentityMixin,
 )
 
-from .common import PREF_DICT, SearchSummary, UserInputState
+from .common import SearchSummary, UserInputState
 from .inline_dialogue import InlineDialogueMixin
 from .role_mixin import TelegramRoleMixin
 from .search_queries import (

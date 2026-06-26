@@ -13,7 +13,7 @@ Each handler follows the pattern:
     def handler(vk_message, state, user_id) -> VKHandlerResult | None
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 

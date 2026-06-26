@@ -15,6 +15,7 @@ from _dependencies.bot.telegram_api_wrapper import make_invite_text_for_user
 from _dependencies.bot.users_management import save_onboarding_step
 from _dependencies.common.commons import add_tel_link, get_app_config
 from _dependencies.common.pubsub import notify_admin
+from _dependencies.models import AgePeriod
 
 from ..buttons import (
     Commands,
@@ -41,7 +42,6 @@ from ..buttons import (
 )
 from ..common import (
     LA_BOT_CHAT_URL,
-    AgePeriod,
     HandlerResult,
     HandlerResultWithState,
     UpdateBasicParams,

@@ -1,8 +1,6 @@
 import logging
 import re
-from typing import Any, Dict, Optional, Union
-
-from pydantic import ConfigDict, ValidationError
+from typing import Dict, Union
 
 from _dependencies.forum.recognition_schema import (
     Location,

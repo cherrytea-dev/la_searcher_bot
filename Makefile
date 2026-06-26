@@ -15,11 +15,11 @@ initdb-data:
 
 lint:
 	uv run ruff format src tests
-	uv run ruff check src tests --select I --fix
+	uv run ruff check src tests --fix
 
 lint-check:
 	uv run ruff format src tests --check --diff
-	uv run ruff check src tests --select I --diff
+	uv run ruff check src tests --diff
 
 mypy:
 	uv run mypy

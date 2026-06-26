@@ -1,6 +1,4 @@
 from datetime import datetime
-from typing import TypeVar
-from unittest.mock import Mock, patch
 
 import pytest
 from sqlalchemy.orm import Session
@@ -8,7 +6,6 @@ from sqlalchemy.orm import Session
 from identify_updates_of_topics._utils.database import DBClient
 from identify_updates_of_topics._utils.topics_commons import (
     CoordType,
-    ForumSearchItem,
 )
 from tests.common import find_model
 from tests.factories import db_factories, db_models

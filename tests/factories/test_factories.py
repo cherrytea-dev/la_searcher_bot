@@ -15,5 +15,5 @@ class TestCreateModel:
         assert model
 
     def test_create_user(self):
-        res = UserFactory.create_sync()
+        UserFactory.create_sync()
         pass

@@ -1,7 +1,6 @@
 import logging
 import re
 from itertools import chain
-from typing import Any
 
 from .pattern_collections import BlockTypePatternCollection, PatternCollectionbyBlockType
 from .title_commons import Block, BlockType, PatternType, check_word_by_natasha

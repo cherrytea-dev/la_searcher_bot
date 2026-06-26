@@ -1,5 +1,3 @@
-import pytest
-
 from communicate import main
 from tests.common import get_http_request
 

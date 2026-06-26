@@ -82,7 +82,7 @@ def get_list_of_allowed_apps() -> list[str]:
         data_string = get_app_config().api_clients
         approved_app_ids = ast.literal_eval(data_string)
 
-    except Exception as e:
+    except Exception:
         logging.exception('exception happened in getting list of allowed app_ids')
         # but we cannot check app_id later
 
@@ -171,7 +171,7 @@ def save_user_statistics_to_db(conn: Connection, user_input: Any, response: dict
             VALUES (:request, CURRENT_TIMESTAMP, :response)
         """)
         conn.execute(stmt, request=str(user_input), response=json_to_save)
-    except Exception as e:
+    except Exception:
         logging.exception('Cannot save statistics to DB')
 
 

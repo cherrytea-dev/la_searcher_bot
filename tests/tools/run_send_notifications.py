@@ -1,5 +1,3 @@
-from functools import wraps
-from time import time
 from unittest.mock import Mock, patch
 
 from send_notifications.main import main
@@ -25,7 +23,7 @@ def generate_messages(count: int):
                 message_type='coords',
                 message_params='{"latitude": "68.970663", "longitude": "33.074918"}',
             )
-        except Exception as e:
+        except Exception:
             pass
 
 

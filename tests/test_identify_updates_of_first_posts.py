@@ -1,8 +1,7 @@
 import datetime
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
-import requests
 from sqlalchemy.orm import Session
 
 from identify_updates_of_first_posts import main
@@ -139,9 +138,7 @@ class TestProcessOneUpdate:
         search_first_post = db_factories.SearchFirstPostFactory.create_sync(
             actual=True, timestamp=datetime.datetime.now(), search_id=prev_search_first_post.search_id
         )
-        search = db_factories.SearchFactory.create_sync(
-            search_forum_num=prev_search_first_post.search_id, status='Ищем'
-        )
+        db_factories.SearchFactory.create_sync(search_forum_num=prev_search_first_post.search_id, status='Ищем')
         change_log_ids = []
 
         main._process_one_update(

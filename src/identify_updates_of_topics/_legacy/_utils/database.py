@@ -9,7 +9,6 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.engine.base import Engine
 
 from _dependencies.common.commons import sqlalchemy_get_pool
-from _dependencies.common.pubsub import notify_admin
 
 from .topics_commons import (
     ChangeLogLine,

@@ -3,8 +3,7 @@ from unittest.mock import patch
 import pytest
 
 import identify_updates_of_topics._utils.forum
-from _dependencies.common.commons import sqlalchemy_get_pool
-from identify_updates_of_topics._utils import search_parser, topic_updater
+from identify_updates_of_topics._utils import search_parser
 from identify_updates_of_topics._utils.database import DBClient
 from title_recognize.main import recognize_title
 

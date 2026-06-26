@@ -1,7 +1,6 @@
 import datetime
 import os
 import random
-from contextlib import suppress
 from random import randint
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -17,7 +16,7 @@ from _dependencies.common.commons import sqlalchemy_get_pool
 from send_notifications import main
 from tests.common import find_model, get_event_with_data
 from tests.factories.db_factories import NotifByUserFactory, UserFactory, get_session
-from tests.factories.db_models import NotifByUser, User, UserIdentityMap
+from tests.factories.db_models import NotifByUser
 from tests.factories.schemas import MessageFactory
 
 
@@ -674,7 +673,6 @@ def test_get_notifications_1():
 class TestSendVKReal:
     def test_send_via_client(self):
         message_html = 'НЖ – изменение статуса по <a href="https://lizaalert.org/forum/viewtopic.php?t=123">Иванова ж40 лет</a> (Москва и МО – Активные поиски)'
-        message_md = 'hello!\nsecond string - **bold**\n[link here](vk.com/foo)'
 
         apikey = os.getenv('VK_API_KEY')
         my_user_id = os.getenv('VK_USER_ID')  # TODO

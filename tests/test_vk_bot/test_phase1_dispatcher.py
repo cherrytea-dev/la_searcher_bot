@@ -18,7 +18,6 @@ import pytest
 from sqlalchemy import text as sa_text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm.session import Session
-from sqlalchemy.pool import Pool
 
 from _dependencies.bot.telegram_api_wrapper import make_invite_text_for_user
 from _dependencies.common.commons import AppConfig
@@ -79,7 +78,7 @@ class TestDBClient:
 
     def test_is_user_registered_in_vk_true(self, db_client: DBClient, session: Session):
         test_vk_id = _random.randint(100000, 999999)
-        user = db_factories.UserFactory.create_sync(vk_id=str(test_vk_id))
+        db_factories.UserFactory.create_sync(vk_id=str(test_vk_id))
         assert db_client.is_user_registered_in_vk(test_vk_id) is True
 
     def test_is_user_registered_in_vk_false(self, db_client: DBClient):
@@ -600,7 +599,7 @@ class TestHandleInlinePagination:
         mock_get_folders = dispatcher_mocks['folders']
         mock_get_selected = dispatcher_mocks['selected']
         fake_sender = dispatcher_mocks['sender']
-        mock_keyboard = dispatcher_mocks['keyboard']
+        dispatcher_mocks['keyboard']
 
         mock_get_folders.return_value = [(1, 'Московская область'), (2, 'Тверская область')]
         mock_get_selected.return_value = ['Московская область']
@@ -647,7 +646,7 @@ class TestHandleInlinePagination:
         payload = {'cmd': 'paginate_back'}
 
         fake_sender = dispatcher_mocks['sender']
-        mock_keyboard = dispatcher_mocks['keyboard']
+        dispatcher_mocks['keyboard']
 
         handle_inline_pagination(msg, payload, sender=fake_sender)
 
@@ -677,7 +676,7 @@ class TestHandleInlinePagination:
         payload = {'cmd': 'paginate_finish'}
 
         fake_sender = dispatcher_mocks['sender']
-        mock_keyboard = dispatcher_mocks['keyboard']
+        dispatcher_mocks['keyboard']
 
         handle_inline_pagination(msg, payload, sender=fake_sender)
 
@@ -712,7 +711,7 @@ class TestHandleInlinePagination:
         mock_get_folders = dispatcher_mocks['folders']
         mock_get_selected = dispatcher_mocks['selected']
         fake_sender = dispatcher_mocks['sender']
-        mock_keyboard = dispatcher_mocks['keyboard']
+        dispatcher_mocks['keyboard']
 
         mock_get_folders.return_value = [(1, 'Московская область')]
         mock_get_selected.return_value = []
@@ -740,7 +739,7 @@ class TestHandleInlinePagination:
         mock_get_folders = dispatcher_mocks['folders']
         mock_get_selected = dispatcher_mocks['selected']
         fake_sender = dispatcher_mocks['sender']
-        mock_keyboard = dispatcher_mocks['keyboard']
+        dispatcher_mocks['keyboard']
 
         mock_get_folders.return_value = [(1, 'Московская область')]
         mock_get_selected.return_value = []

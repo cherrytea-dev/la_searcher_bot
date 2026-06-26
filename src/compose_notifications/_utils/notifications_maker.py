@@ -368,7 +368,7 @@ class NotificationMaker:
             logging.info(f'The Update {self.new_record.change_log_id} with Comments that are processed and not ignored')
             logging.info('All Comments are marked as processed')
 
-        except Exception as e:
+        except Exception:
             # TODO – seems a vary vague solution: to mark all
             sql_text = sqlalchemy.text("""
                 UPDATE comments SET notification_sent = 'y' WHERE notification_sent is Null

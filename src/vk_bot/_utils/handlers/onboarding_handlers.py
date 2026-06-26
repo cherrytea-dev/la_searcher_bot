@@ -13,8 +13,6 @@ button click or command. Returns VKHandlerResult if it handles the message,
 or None to pass to the next handler in the chain.
 """
 
-import logging
-
 from _dependencies.models import DialogState
 
 from ..common import VKHandlerResult, VKMessage

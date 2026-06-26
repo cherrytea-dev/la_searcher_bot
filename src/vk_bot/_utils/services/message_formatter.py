@@ -10,7 +10,6 @@ applying its own formatting (e.g., HTML tags for Telegram, links for VK).
 """
 
 from dataclasses import dataclass
-from typing import Sequence
 
 SEARCH_URL_PREFIX = 'https://lizaalert.org/forum/viewtopic.php?t='
 FORUM_FOLDER_PREFIX = 'https://lizaalert.org/forum/viewforum.php?f='

@@ -1,9 +1,8 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.orm import Session
-from sqlalchemy.pool import Pool
 
 from _dependencies import pubsub
 from _dependencies.common.commons import sqlalchemy_get_pool

@@ -37,7 +37,7 @@ class TestMain:
     def test_main(self, requests_mock: Mocker, mock_topic_management):
         # TODO mock http back or remove this test
         text = Path('tests/fixtures/forum_viewtopic_first_post.html').read_text()
-        requests_mock.get(f'https://lizaalert.org/forum/viewtopic.php', text=text)  # mocking any topic
+        requests_mock.get('https://lizaalert.org/forum/viewtopic.php', text=text)  # mocking any topic
 
         with freeze_time('2025-02-13 14:25:00'):
             main.main(MagicMock(), 'context')
@@ -59,9 +59,7 @@ class TestMain:
 class TestDBClient:
     def test_get_random_hidden_topic(self, db_client: DBClient, session: Session):
         search = db_factories.SearchFactory.create_sync(status='Ищем')
-        search_health_check = db_factories.SearchHealthCheckFactory.create_sync(
-            search_forum_num=search.search_forum_num, status='hidden'
-        )
+        db_factories.SearchHealthCheckFactory.create_sync(search_forum_num=search.search_forum_num, status='hidden')
         assert db_client.get_random_hidden_topic_id()
 
     def test_delete_search_health_check(self, db_client: DBClient, session: Session):
@@ -80,11 +78,11 @@ class TestDBClient:
 
     def test_get_list_of_topics(self, db_client: DBClient, session: Session):
         search = db_factories.SearchFactory.create_sync(status='Ищем')
-        geofolder = db_factories.GeoFolderFactory.create_sync(
+        db_factories.GeoFolderFactory.create_sync(
             folder_type='searches',
             folder_id=search.forum_folder_id,
         )
-        search_health_check = db_factories.SearchHealthCheckFactory.create_sync(
+        db_factories.SearchHealthCheckFactory.create_sync(
             search_forum_num=search.search_forum_num,
         )
 

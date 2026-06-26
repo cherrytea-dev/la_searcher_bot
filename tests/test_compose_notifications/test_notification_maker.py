@@ -1,18 +1,14 @@
 import random
 
-import pytest
 import sqlalchemy
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
-from _dependencies.common.commons import ChangeType, SearchFollowingMode, TopicType
-from compose_notifications._utils.commons import LineInChangeLog, User
-from compose_notifications._utils.message_composer import MessageComposer
+from _dependencies.common.commons import ChangeType, TopicType
 from compose_notifications._utils.notifications_maker import (
     NotificationMaker,
 )
-from compose_notifications._utils.users_list_composer import UserListFilter, check_if_age_requirements_met
-from tests.factories import db_factories, db_models
+from tests.factories import db_models
 from tests.test_compose_notifications.factories import LineInChangeLogFactory, UserFactory
 
 

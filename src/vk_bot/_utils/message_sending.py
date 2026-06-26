@@ -92,7 +92,7 @@ class VKMessageSender:
                     continue
                 if e.error_code == VkApiError.FLOOD_CONTROL_PER_DAY:
                     self._daily_limit_remaining = 0
-                    logging.error(f'VK daily limit reached (917), stopping sends')
+                    logging.error('VK daily limit reached (917), stopping sends')
                     return None
                 if e.error_code in (VkApiError.CANNOT_SEND_TO_USER, VkApiError.CANNOT_SEND_FIRST_MESSAGE):
                     logging.warning(f'VK cannot send to user {peer_id}: {e.error_msg}')
@@ -168,7 +168,7 @@ class VKMessageSender:
             )
             return True
         except Exception:
-            logging.exception(f'VK send_callback_answer failed')
+            logging.exception('VK send_callback_answer failed')
             return False
 
     def send_with_keyboard(

@@ -253,7 +253,7 @@ class FolderDecomposer:
                         continue
 
                     page_summary_folders.append(Subfolder(folder_num=folder_num, change_time_str=folder_time_str))
-            except Exception as e:
+            except Exception:
                 logging.exception(f'Error in folder code blocks identification for {start_folder_num}')
         return page_summary_folders
 
@@ -288,7 +288,7 @@ class FolderDecomposer:
                 for i in range(len(searches) - 1):
                     search_title, search_time_str = self._extract_search_info(searches[i + 1])
                     page_summary_searches.append(Search(title=search_title, change_time_str=search_time_str))
-        except Exception as e:
+        except Exception:
             logging.exception(f'Searches code blocks identification for {start_folder_num} was not successful')
         return page_summary_searches
 

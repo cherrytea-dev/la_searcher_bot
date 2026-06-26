@@ -7,7 +7,7 @@ import sqlalchemy
 # from communicate._utils import compose_messages
 from communicate._utils.database import DBClient
 from communicate._utils.handlers import view_searches_handlers
-from tests.common import fake, find_model
+from tests.common import fake
 from tests.factories import db_factories, db_models
 
 

@@ -1,16 +1,5 @@
-import datetime
-from contextlib import suppress
-from random import randint
-from unittest.mock import MagicMock, patch
-
 import pytest
-from polyfactory.factories import DataclassFactory
-from sqlalchemy.engine import Connection
 
-from _dependencies.bot.vk_api_client import VKApi
-from tests.common import find_model, get_event_with_data
-from tests.factories.db_factories import NotifByUserFactory, UserFactory, get_session
-from tests.factories.db_models import User
 from vk_bot import main
 from vk_bot._utils import bot_polling, common
 

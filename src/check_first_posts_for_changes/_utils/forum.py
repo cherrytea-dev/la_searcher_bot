@@ -1,7 +1,6 @@
 import hashlib
 import logging
 import re
-import urllib.parse
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -10,7 +9,7 @@ from retry import retry
 
 from _dependencies.common.commons import get_forum_proxies
 from _dependencies.common.pubsub import recognize_title_via_api
-from _dependencies.forum.content import content_is_unaccessible, cook_soup, is_forum_unavailable
+from _dependencies.forum.content import content_is_unaccessible, is_forum_unavailable
 from _dependencies.forum.recognition_schema import RecognitionResult
 from _dependencies.forum.topic_management import save_status_for_topic
 

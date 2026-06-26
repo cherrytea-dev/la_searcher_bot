@@ -400,7 +400,7 @@ def iterate_over_notifications(
             wait(futures)
             for future in futures:
                 try:
-                    res = future.result()
+                    future.result()
                 except:
                     logging.exception("can't send message")
 

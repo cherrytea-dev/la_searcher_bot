@@ -66,5 +66,5 @@ def _get_last_bot_message_id(response: requests.Response) -> int | None:
 
     try:
         return response.json()['result']['message_id']
-    except Exception as e:
+    except Exception:
         return None

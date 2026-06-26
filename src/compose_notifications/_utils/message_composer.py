@@ -344,7 +344,7 @@ def _get_managers_from_text(managers: str) -> str:
             manager_line = add_tel_link(manager)
             managers_str += f'\n &#8226; {manager_line}'
 
-    except Exception as e:
+    except Exception:
         logging.exception('Not able to compose New Search Message text with Managers')
 
     return managers_str  # 1 - person, 2 - activities, 3 - managers

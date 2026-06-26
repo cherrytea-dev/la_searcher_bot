@@ -1,6 +1,5 @@
 import datetime
 
-import pytest
 from polyfactory import Use
 from sqlalchemy.engine.base import Connection
 

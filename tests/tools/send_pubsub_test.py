@@ -1,8 +1,4 @@
-import json
-from datetime import datetime
-
 from _dependencies.common.pubsub import Topics, publish_to_pubsub
-from _dependencies.common.yandex_tools import _send_serialized_message
 
 if __name__ == '__main__':
     message = [(276, None)]
