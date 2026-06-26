@@ -25,6 +25,14 @@ from _dependencies.user_repository import (
 )
 
 from .common import PREF_DICT, SearchSummary, UserInputState
+from .inline_dialogue import InlineDialogueMixin
+from .role_mixin import TelegramRoleMixin
+from .search_queries import (
+    get_active_searches_in_one_region,
+    get_active_searches_in_region_limit_20,
+    get_all_last_searches_in_region_limit_20,
+    get_all_searches_in_one_region_limit_20,
+)
 
 
 class DBClient(
@@ -42,11 +50,14 @@ class DBClient(
     SystemRoleMixin,
     DialogHistoryMixin,
     SettingsSummaryMixin,
+    InlineDialogueMixin,
+    TelegramRoleMixin,
 ):
     """Telegram bot DB client.
 
-    Inherits shared methods from consolidated mixins in ``_dependencies.user_repository``.
-    Telegram-specific methods (search queries, inline dialogue tracking) remain here.
+    Inherits shared methods from consolidated mixins in ``_dependencies.user_repository``,
+    plus Telegram-specific mixins (InlineDialogueMixin, TelegramRoleMixin).
+    Search queries are delegated to module-level functions in ``search_queries.py``.
     """
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -183,243 +194,27 @@ class DBClient(
     # Communicate-specific methods (not in shared mixins)
     # ═══════════════════════════════════════════════════════════════════════
 
-    def delete_last_user_inline_dialogue(self, user_id: int) -> None:
-        """Delete form DB the user's last interaction via inline buttons"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""DELETE FROM communications_last_inline_msg WHERE user_id=:user_id;""")
-            connection.execute(stmt, user_id=user_id)
-
-    def get_last_user_inline_dialogue(self, user_id: int) -> list[int]:
-        """Get from DB the user's last interaction via inline buttons"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""SELECT message_id FROM communications_last_inline_msg WHERE user_id=:user_id;""")
-            result = connection.execute(stmt, user_id=user_id)
-            message_id_lines = result.fetchall()
-            message_id_list = []
-            if message_id_lines and len(message_id_lines) > 0:
-                for message_id_line in message_id_lines:
-                    message_id_list.append(message_id_line[0])
-            return message_id_list
-
-    def save_last_user_inline_dialogue(self, user_id: int, message_id: int) -> None:
-        """Save to DB the user's last interaction via inline buttons"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """INSERT INTO communications_last_inline_msg 
-                            (user_id, timestamp, message_id) values (:user_id, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', :message_id)
-                            ON CONFLICT (user_id, message_id) DO 
-                            UPDATE SET timestamp=CURRENT_TIMESTAMP AT TIME ZONE 'UTC';"""
-            )
-            connection.execute(stmt, user_id=user_id, message_id=message_id)
-
-    def save_user_pref_role(self, user_id: int, role_desc: str) -> str:
-        """save user role"""
-        role_dict = {
-            'я состою в ЛизаАлерт': 'member',
-            'я хочу помогать ЛизаАлерт': 'new_member',
-            'я ищу человека': 'relative',
-            'у меня другая задача': 'other',
-            'не хочу говорить': 'no_answer',
-        }
-        try:
-            role = role_dict[role_desc]
-        except:  # noqa
-            role = 'unidentified'
-
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""UPDATE users SET role=:role where user_id=:user_id;""")
-            connection.execute(stmt, role=role, user_id=user_id)
-            logging.info(f'[comm]: user {user_id} selected role {role}')
-            return role
-
-    def _save_user_pref_topic_type(self, user_id: int, pref_type_id: int) -> None:
-        self.save_topic_type(user_id, pref_type_id)
-
-    def save_user_pref_topic_type(self, user_id: int, user_role: str | None) -> None:
-        if not user_id:
-            return
-        if user_role in {'member', 'new_member'}:
-            default_topic_type_id = [0, 3, 4, 5]
-        else:
-            default_topic_type_id = [0, 4, 5]
-        for type_id in default_topic_type_id:
-            self._save_user_pref_topic_type(user_id, type_id)
-
-    def delete_search_follow_marks(self, user_id: int) -> None:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """DELETE FROM user_pref_search_whitelist 
-                   WHERE user_id=:user_id;"""
-            )
-            connection.execute(stmt, user_id=user_id)
-
-    def add_region_to_user_settings(self, user_id: int, region_id: int) -> None:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """INSERT INTO user_pref_region (user_id, region_id) values
-                   (:user_id, :region_id);"""
-            )
-            connection.execute(stmt, user_id=user_id, region_id=region_id)
-
     # ═══════════════════════════════════════════════════════════════════════
-    # Search-related queries (Telegram-specific, not shared with VK bot)
+    # Search-related queries — delegate to module-level functions
     # ═══════════════════════════════════════════════════════════════════════
 
     def get_active_searches_in_region_limit_20(self, region: int, user_id: int) -> list[SearchSummary]:
         with self.connect() as connection:
-            stmt = sqlalchemy.text("""
-                SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
-                s.topic_type, s.family_name, s.age, upswl.search_following_mode
-                FROM searches s 
-                LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
-                LEFT JOIN search_health_check shc ON s.search_forum_num=shc.search_forum_num
-                LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s.search_forum_num and upswl.user_id=:user_id
-                WHERE s.forum_folder_id=:region
-                AND (
-                        (
-                            (s.status='Ищем' OR s.status='Возобновлен')
-                        and (shc.status is NULL or shc.status='ok' or shc.status='regular')
-                        )
-                    or (upswl.search_following_mode=:search_follow_on
-                        and s.status in('Ищем', 'Возобновлен', 'СТОП')
-                        )
-                    )
-                ORDER BY s.search_start_time DESC
-                LIMIT 20;""")
-
-            result = connection.execute(
-                stmt,
-                region=region,
-                user_id=user_id,
-                search_follow_on=SearchFollowingMode.ON,
-            )
-            return [
-                SearchSummary(
-                    topic_id=row[0],
-                    start_time=row[1],
-                    display_name=row[2],
-                    search_lat=row[3],
-                    search_lon=row[4],
-                    topic_type=row[5],
-                    name=row[6],
-                    age=row[7],
-                    following_mode=row[8],
-                )
-                for row in result.fetchall()
-            ]
+            return get_active_searches_in_region_limit_20(connection, region, user_id)
 
     def get_all_last_searches_in_region_limit_20(
         self, region: int, user_id: int, only_followed: bool
     ) -> list[SearchSummary]:
         with self.connect() as connection:
-            sql_text = """
-                SELECT DISTINCT search_forum_num, search_start_time, display_name, status, status, family_name, age, search_following_mode
-                FROM(   -- q
-                        SELECT s21.*, upswl.search_following_mode FROM 
-                            (SELECT search_forum_num, search_start_time, display_name, s01.status as new_status, s01.status, family_name, age 
-                            FROM searches s01
-                            WHERE forum_folder_id=:region 
-                            ) s21 
-                        INNER JOIN user_pref_search_whitelist upswl 
-                            ON upswl.search_id=s21.search_forum_num and upswl.user_id=:user_id
-                                and upswl.search_following_mode=:search_follow_on 
-                        """
-            if not only_followed:
-                sql_text += """
-                    UNION
-                        SELECT s2.*, upswl.search_following_mode FROM 
-                            (SELECT search_forum_num, search_start_time, display_name, s00.status as new_status, s00.status, family_name, age 
-                            FROM searches s00
-                            WHERE forum_folder_id=:region 
-                            ORDER BY search_start_time DESC 
-                            LIMIT 20) s2 
-                        LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
-                        LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=:user_id
-                        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
-                    """
-            sql_text += """
-                    )q
-                ORDER BY search_start_time DESC
-                LIMIT 20
-                ;"""
-
-            stmt = sqlalchemy.text(sql_text)
-            result = connection.execute(
-                stmt,
-                region=region,
-                user_id=user_id,
-                search_follow_on=SearchFollowingMode.ON,
-            )
-            return [
-                SearchSummary(
-                    topic_id=row[0],
-                    start_time=row[1],
-                    display_name=row[2],
-                    new_status=row[3],
-                    status=row[4],
-                    name=row[5],
-                    age=row[6],
-                    following_mode=row[7],
-                )
-                for row in result.fetchall()
-            ]
+            return get_all_last_searches_in_region_limit_20(connection, region, user_id, only_followed)
 
     def get_active_searches_in_one_region(self, region: int) -> list[SearchSummary]:
         with self.connect() as connection:
-            stmt = sqlalchemy.text("""
-                SELECT s2.* FROM 
-                    (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
-                    s.topic_type, s.family_name, s.age 
-                    FROM searches s 
-                    LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
-                    WHERE (s.status='Ищем' OR s.status='Возобновлен') 
-                        AND s.forum_folder_id=:region ORDER BY s.search_start_time DESC) s2 
-                LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
-                WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
-                ORDER BY s2.search_start_time DESC;""")
-
-            result = connection.execute(stmt, region=region)
-            return [
-                SearchSummary(
-                    topic_id=row[0],
-                    start_time=row[1],
-                    display_name=row[2],
-                    search_lat=row[3],
-                    search_lon=row[4],
-                    topic_type=row[5],
-                    name=row[6],
-                    age=row[7],
-                )
-                for row in result.fetchall()
-            ]
+            return get_active_searches_in_one_region(connection, region)
 
     def get_all_searches_in_one_region_limit_20(self, region: int) -> list[SearchSummary]:
         with self.connect() as connection:
-            stmt = sqlalchemy.text("""
-                SELECT s2.* FROM 
-                    (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
-                    FROM searches 
-                    WHERE forum_folder_id=:region 
-                    ORDER BY search_start_time DESC 
-                    LIMIT 20) s2 
-                LEFT JOIN search_health_check shc 
-                ON s2.search_forum_num=shc.search_forum_num 
-                WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
-                ORDER BY s2.search_start_time DESC;""")
-
-            result = connection.execute(stmt, region=region)
-            return [
-                SearchSummary(
-                    topic_id=row[0],
-                    start_time=row[1],
-                    display_name=row[2],
-                    new_status=row[3],
-                    status=row[4],
-                    name=row[5],
-                    age=row[6],
-                )
-                for row in result.fetchall()
-            ]
+            return get_all_searches_in_one_region_limit_20(connection, region)
 
 
 @lru_cache

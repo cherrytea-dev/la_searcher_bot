@@ -1,5 +1,7 @@
 """Region (forum folder) subscription management mixin — consolidated."""
 
+import datetime
+
 import sqlalchemy
 
 from _dependencies.common.db_client import DBClientMixinBase
@@ -39,6 +41,24 @@ class RegionMixin(DBClientMixinBase):
             stmt = sqlalchemy.text("""SELECT user_id FROM user_regional_preferences WHERE user_id=:user_id LIMIT 1;""")
             result = connection.execute(stmt, user_id=user_id)
             return result.fetchone() is None
+
+    def add_user_region_setting(self, user_id: int, region_id: int) -> None:
+        """Record that the user has configured a region setting.
+
+        Writes to ``user_pref_region`` — a flag table used by
+        ``settings_summary`` to determine if the user has set up regions.
+        """
+        with self.connect() as connection:
+            stmt = sqlalchemy.text(
+                """INSERT INTO user_pref_region (user_id, region_id, timestamp)
+                   VALUES (:user_id, :region_id, :timestamp);"""
+            )
+            connection.execute(
+                stmt,
+                user_id=user_id,
+                region_id=region_id,
+                timestamp=datetime.datetime.now(),
+            )
 
     def get_geo_folders(self) -> list[tuple[int, str]]:
         """Get all geographic folders from the database."""
