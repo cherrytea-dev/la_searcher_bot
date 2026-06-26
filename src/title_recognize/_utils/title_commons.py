@@ -6,8 +6,6 @@ from typing import Any
 
 from natasha import Doc, NewsEmbedding, NewsNERTagger, Segmenter
 
-from _dependencies.common.misc import age_writer
-
 
 class BlockType(str, Enum):
     AVIA = 'AVIA'

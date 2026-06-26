@@ -28,7 +28,6 @@ from _dependencies.common.pubsub import (
     notify_admin,
     process_pubsub_message,
     pubsub_compose_notifications,
-    pubsub_parse_searches,
 )
 from _dependencies.forum.content import clean_up_content_2
 
@@ -243,7 +242,7 @@ def _process_one_update(
         )
         change_log_ids.append(change_log_id)
 
-    except Exception as e:
+    except Exception:
         logging.exception('[ide_posts]: Error fired during output_dict creation.')
         notify_admin('[ide_posts]: Error fired during output_dict creation.')
 

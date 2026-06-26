@@ -23,7 +23,7 @@ def user_id() -> int:
 
 class TestSaveUpdatedStatusForUser:
     def test_block_user(self, user_id: int):
-        user = UserFactory.create_sync(user_id=user_id, status='active')
+        UserFactory.create_sync(user_id=user_id, status='active')
 
         update_user_status(ManageUserAction.block_user, user_id)
 
@@ -31,7 +31,7 @@ class TestSaveUpdatedStatusForUser:
         assert find_model(get_session(), UserStatusesHistory, user_id=user_id, status='blocked')
 
     def test_unblock_user(self, user_id: int):
-        user = UserFactory.create_sync(user_id=user_id, status='blocked')
+        UserFactory.create_sync(user_id=user_id, status='blocked')
 
         update_user_status(ManageUserAction.unblock_user, user_id)
 

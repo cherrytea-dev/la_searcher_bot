@@ -1,4 +1,3 @@
-import logging
 import random
 
 import vk_api

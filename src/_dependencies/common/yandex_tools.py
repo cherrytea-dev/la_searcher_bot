@@ -53,7 +53,7 @@ def _send_serialized_message(topic_name: str, message_text: str) -> None:
     client = _get_boto3_client()
 
     queue_url = _get_queue_url(client, topic_name)
-    resp = client.send_message(QueueUrl=queue_url, MessageBody=message_text)
+    client.send_message(QueueUrl=queue_url, MessageBody=message_text)
     pass
 
 

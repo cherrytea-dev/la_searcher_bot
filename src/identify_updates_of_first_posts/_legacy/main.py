@@ -282,7 +282,7 @@ def _process_one_update(
         )
         change_log_ids.append(change_log_id)
 
-    except Exception as e:
+    except Exception:
         logging.exception('[ide_posts]: Error fired during output_dict creation.')
         notify_admin('[ide_posts]: Error fired during output_dict creation.')
 
@@ -356,7 +356,7 @@ def main(event: dict, context: Ctx) -> str:  # noqa
                 context, function_id, analytics_func_start, list_of_updated_searches, change_log_ids, conn
             )
 
-        except Exception as e:
+        except Exception:
             logging.exception('exception in main function')
 
     pool.dispose()

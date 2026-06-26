@@ -15,8 +15,6 @@ button click or command. Returns VKHandlerResult if it handles the message,
 or None to pass to the next handler in the chain.
 """
 
-import logging
-
 from _dependencies.bot.telegram_api_wrapper import make_invite_text_for_user
 from _dependencies.models import AgePeriod, DialogState
 from vk_bot._utils.services.message_formatter import (

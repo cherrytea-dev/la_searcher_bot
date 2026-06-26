@@ -2,7 +2,8 @@ import pytest
 import sqlalchemy
 
 from _dependencies.common.commons import SearchFollowingMode
-from communicate._utils.common import AgePeriod, SearchSummary, UserInputState
+from _dependencies.models import AgePeriod
+from communicate._utils.common import SearchSummary, UserInputState
 from communicate._utils.database import DBClient, UserSettingsSummary
 from tests.common import fake, find_model
 from tests.factories import db_factories, db_models

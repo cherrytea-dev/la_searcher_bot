@@ -1,9 +1,8 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.orm import Session
-from sqlalchemy.pool import Pool
 
 from _dependencies import pubsub
 from _dependencies.common.commons import sqlalchemy_get_pool
@@ -41,12 +40,12 @@ def patch_http():
 
 
 @pytest.fixture(scope='session')
-def connection_pool() -> Pool:
+def connection_pool() -> Engine:
     return sqlalchemy_get_pool()
 
 
 @pytest.fixture()
-def connection(connection_pool: Pool) -> Connection:
+def connection(connection_pool: Engine) -> Connection:
     with connection_pool.connect() as conn:
         yield conn
 

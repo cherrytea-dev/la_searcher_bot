@@ -104,7 +104,7 @@ class TGApiBase:
                 tries=3,
             )
             logging.debug(f'After session.post: {response=}; {call_context=}')
-        except Exception as e:
+        except Exception:
             response = None
             logging.exception('Error in getting response from Telegram')
 
@@ -154,7 +154,7 @@ class TGApiBase:
                 logging.exception(f'UNKNOWN ERROR: message to {user_id} was not sent, {response.reason=}')
                 return 'cancelled'
 
-        except Exception as e:
+        except Exception:
             logging.exception(f'Response is corrupted. {response.json()=}')
             return 'failed'
 

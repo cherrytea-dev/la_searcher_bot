@@ -1,9 +1,9 @@
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
 from identify_updates_of_topics import main
-from identify_updates_of_topics._utils.forum import ForumClient, ForumSearchItem
+from identify_updates_of_topics._utils.forum import ForumClient
 from tests.common import get_event_with_data
 
 from .factories import ForumCommentItemFactory, ForumSearchItemFactory

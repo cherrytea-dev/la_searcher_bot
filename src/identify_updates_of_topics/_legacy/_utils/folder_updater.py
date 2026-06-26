@@ -2,9 +2,6 @@ import logging
 import re
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any
-
-from sqlalchemy.exc import OperationalError
 
 from _dependencies.common.commons import ChangeType, TopicType
 from _dependencies.common.pubsub import notify_admin, recognize_title_via_api
@@ -99,7 +96,7 @@ class FolderUpdater:
             try:
                 self._parse_one_search(current_datetime, folder_summary, forum_search_item)
 
-            except Exception as e:
+            except Exception:
                 logging.exception(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
                 notify_admin(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
 

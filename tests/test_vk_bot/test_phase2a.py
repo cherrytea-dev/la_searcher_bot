@@ -10,7 +10,6 @@ Each handler follows the pattern:
 """
 
 import json
-from unittest.mock import MagicMock
 
 import pytest
 

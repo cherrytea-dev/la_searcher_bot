@@ -218,7 +218,7 @@ def add_tel_link(incoming_text: str) -> str:
         try:
             outcome_text = outcome_text.replace(num, _make_phone_link(normalized_phone))
             outcome_text = _move_phone_links_outside_href_tags(outcome_text)
-        except Exception as e:
+        except Exception:
             ### logging here is not needed untill we have strange behaviour
             ## logging.exception(f'add_tel_link..{e=} on {num=} in {outcome_text=}')
             outcome_text = outcome_text.replace(num, '<code>' + str(num) + '</code>')

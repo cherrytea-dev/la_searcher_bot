@@ -2,7 +2,7 @@ from unittest.mock import Mock, patch
 
 from _dependencies import pubsub
 from identify_updates_of_topics import main
-from identify_updates_of_topics._utils import search_parser, topic_updater
+from identify_updates_of_topics._utils import search_parser
 from tests.common import get_dotenv_config, get_event_with_data, setup_logging_to_console
 from title_recognize.main import recognize_title
 

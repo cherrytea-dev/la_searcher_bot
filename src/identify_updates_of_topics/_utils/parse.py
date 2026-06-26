@@ -379,7 +379,7 @@ def profile_get_managers(text_of_managers: str) -> list[str]:
         for manager in managers:
             logging.debug(manager)
 
-    except Exception as e:
+    except Exception:
         logging.exception('DBG.P.102.EXC:')
 
     return managers

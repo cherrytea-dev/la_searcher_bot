@@ -3,7 +3,6 @@ import logging
 import sqlalchemy
 
 from _dependencies.common.commons import setup_logging, sqlalchemy_get_pool
-from _dependencies.common.pubsub import process_pubsub_message
 
 setup_logging(__package__)
 
@@ -530,7 +529,7 @@ def main(event, context):  # noqa
     # FIXME ^^^
 
     pool = sqlalchemy_get_pool()
-    with pool.connect() as conn:
+    with pool.connect():
         try:
             # mark_up_onboarding_status_0(conn)
             # mark_up_onboarding_status_10(conn)

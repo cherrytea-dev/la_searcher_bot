@@ -141,7 +141,7 @@ def handle_callback_event(
             region_select_handlers.handle_district_select(vk_message, payload_data, sender=sender)
             return
 
-    logging.info(f'handle_callback_event: non-pagination callback, processing as text command')
+    logging.info('handle_callback_event: non-pagination callback, processing as text command')
     sender.send_callback_answer(
         event_id=vk_message.event_id or '',
         user_id=vk_message.user_id,

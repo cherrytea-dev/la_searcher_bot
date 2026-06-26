@@ -129,7 +129,7 @@ class ForumClient:
         try:
             coord_type = CoordType.type_1_exact
             lat, lon = _parse_coords_case_1(search_code_blocks)
-        except Exception as e:
+        except Exception:
             logging.exception('Error extracting coordinates case 1')
 
         # SECOND CASE = THERE ARE COORDINATES w/o a WORD Coordinates
@@ -137,7 +137,7 @@ class ForumClient:
             try:
                 coord_type = CoordType.type_2_wo_word
                 lat, lon = _parse_coords_case_2(search_code_blocks)
-            except Exception as e:
+            except Exception:
                 logging.exception('Error extracting coordinates case 2')
 
         # THIRD CASE = DELETED COORDINATES
@@ -145,7 +145,7 @@ class ForumClient:
             try:
                 coord_type = CoordType.type_3_deleted
                 lat, lon = _parse_coords_case_3(search_code_blocks)
-            except Exception as e:
+            except Exception:
                 logging.exception('Error extracting coordinates case 3')
 
         return [lat, lon, coord_type, title]
@@ -200,7 +200,7 @@ class ForumClient:
             comment_author_block = search_code_blocks.find('a', 'username-coloured')
         try:
             comment_author_nickname = comment_author_block.text
-        except Exception as e:
+        except Exception:
             logging.exception(f'exception for search={search_num} and comment={comment_num}')
             comment_author_nickname = 'unidentified_username'
 
@@ -238,7 +238,7 @@ class ForumClient:
         try:
             # external_span = comment_text_0.blockquote.extract()
             comment_text_1 = comment_text_0.text
-        except Exception as e:
+        except Exception:
             logging.exception(f'exception for search={search_num} and comment={comment_num}')
             comment_text_1 = comment_text_0.text
         comment_text = ' '.join(comment_text_1.split())

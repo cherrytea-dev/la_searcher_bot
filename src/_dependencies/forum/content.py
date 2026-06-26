@@ -1,7 +1,7 @@
 import logging
 import re
 
-from bs4 import BeautifulSoup, NavigableString, PageElement, Tag
+from bs4 import BeautifulSoup, NavigableString, Tag
 
 PATTERNS_TO_CLEANUP = [
     r'(?i)Всем выезжающим иметь СИЗ',

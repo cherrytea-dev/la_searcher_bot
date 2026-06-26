@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -118,7 +118,7 @@ class TestChangeLogExtractor:
         search_record: db_models.Search,
     ):
         dict_activity_record = db_factories.DictSearchActivityFactory.create_sync()
-        search_activity_record = db_factories.SearchActivityFactory.create_sync(
+        db_factories.SearchActivityFactory.create_sync(
             search_forum_num=search_record.search_forum_num, activity_type=dict_activity_record.activity_id
         )
         record = main.LogRecordComposer(conn=connection, record_id=change_log_db_record_status_change.id).get_line()
@@ -132,7 +132,7 @@ class TestChangeLogExtractor:
         comment: db_models.Comment,
     ):
         dict_activity_record = db_factories.DictSearchActivityFactory.create_sync()
-        search_activity_record = db_factories.SearchActivityFactory.create_sync(
+        db_factories.SearchActivityFactory.create_sync(
             search_forum_num=search_record.search_forum_num, activity_type=dict_activity_record.activity_id
         )
         record = main.LogRecordComposer(conn=connection, record_id=change_log_db_record_topic_comment_new.id).get_line()

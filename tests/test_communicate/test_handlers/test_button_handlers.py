@@ -1,4 +1,3 @@
-import datetime
 from unittest.mock import Mock, patch
 
 import pytest
@@ -6,7 +5,6 @@ import pytest
 # from communicate._utils import compose_messages
 from communicate._utils.database import DBClient
 from communicate._utils.handlers import button_handlers, notification_settings_handlers
-from tests.common import fake, find_model
 from tests.factories import db_factories, db_models
 
 

@@ -55,7 +55,7 @@ class TestFolderUpdaterChangeLogCreation:
         search_summary = SearchSummaryFactory.build(
             num_of_replies=start_replies + 1,
         )
-        existed_search = db_factories.SearchFactory.create_sync(
+        db_factories.SearchFactory.create_sync(
             search_forum_num=search_summary.topic_id,
             forum_folder_id=search_summary.folder_id,
             num_of_replies=start_replies,

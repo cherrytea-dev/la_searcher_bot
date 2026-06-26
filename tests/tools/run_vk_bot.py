@@ -1,7 +1,7 @@
 import logging
 from unittest.mock import patch
 
-from tests.common import get_dotenv_config, patched_send_topic, setup_logging_to_console
+from tests.common import get_dotenv_config, setup_logging_to_console
 from vk_bot.cli import run_flask
 
 if __name__ == '__main__':
