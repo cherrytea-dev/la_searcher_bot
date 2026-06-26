@@ -465,12 +465,12 @@ def test_record_search_whiteness(session, db_client: DBClient, user_id: int):
     assert recorded_whiteness.search_following_mode == search_following_mode
 
 
-def test_add_region_to_user_settings(session, db_client: DBClient, user_id: int):
+def test_add_user_region_setting(session, db_client: DBClient, user_id: int):
     # Define a region ID
     region_id = fake.pyint()
 
     # Call the method to add the region to user settings
-    db_client.add_region_to_user_settings(user_id, region_id)
+    db_client.add_user_region_setting(user_id, region_id)
 
     # Retrieve the added region
     assert find_model(session, db_models.UserPrefRegion, user_id=user_id, region_id=region_id)

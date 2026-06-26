@@ -15,8 +15,10 @@ or None to pass to the next handler in the chain.
 
 import logging
 
+from _dependencies.models import DialogState
+
 from ..common import VKHandlerResult, VKMessage
-from ..database import DialogState, db
+from ..database import db
 from ..keyboards import VKKeyboardButtons, VKKeyboardPresets
 from ..services.message_formatter import (
     onboarding_completed_message,

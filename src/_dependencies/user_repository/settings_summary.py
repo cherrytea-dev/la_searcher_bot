@@ -1,16 +1,17 @@
-"""Settings summary mixin."""
+"""Settings summary mixin — consolidated."""
 
 import sqlalchemy
 
-from ..database_common import UserSettingsSummary
+from _dependencies.common.db_client import DBClientMixinBase
+from _dependencies.models import UserSettingsSummary
 
 
-class SettingsSummaryMixin:
+class SettingsSummaryMixin(DBClientMixinBase):
     """User settings summary operations."""
 
     def get_settings_summary(self, user_id: int) -> UserSettingsSummary | None:
         """Get a summary of which settings the user has configured."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text("""
                 SELECT
                    user_id

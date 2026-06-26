@@ -18,8 +18,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from _dependencies.common.commons import SearchFollowingMode
+from _dependencies.models import DialogState
 from src.vk_bot._utils.common import VKHandlerResult
-from src.vk_bot._utils.database import DialogState
 from src.vk_bot._utils.handlers.view_searches_handlers import (
     handle_active_searches,
     handle_follow_mode_toggle,

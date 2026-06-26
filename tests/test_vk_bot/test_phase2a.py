@@ -14,8 +14,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from _dependencies.models import DialogState
 from src.vk_bot._utils.common import VKHandlerResult
-from src.vk_bot._utils.database import DialogState
 from src.vk_bot._utils.handlers.onboarding_handlers import (
     handle_back_to_start,
     handle_command_start,

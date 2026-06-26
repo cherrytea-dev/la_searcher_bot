@@ -1,16 +1,18 @@
-"""Topic type preference management mixin."""
+"""Topic type preference management mixin — consolidated."""
 
 import datetime
 
 import sqlalchemy
 
+from _dependencies.common.db_client import DBClientMixinBase
 
-class TopicTypeMixin:
+
+class TopicTypeMixin(DBClientMixinBase):
     """User topic type preference operations."""
 
     def save_topic_type(self, user_id: int, topic_type_id: int) -> None:
         """Save a topic type preference for a user."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp)
                    VALUES (:user_id, :type_id, :timestamp)
@@ -25,7 +27,7 @@ class TopicTypeMixin:
 
     def delete_topic_type(self, user_id: int, topic_type_id: int) -> None:
         """Delete a topic type preference for a user."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """DELETE FROM user_pref_topic_type WHERE user_id=:user_id AND topic_type_id=:type_id;"""
             )
@@ -33,7 +35,7 @@ class TopicTypeMixin:
 
     def get_topic_types(self, user_id: int) -> list[int]:
         """Get user's saved topic type preferences."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """SELECT topic_type_id FROM user_pref_topic_type WHERE user_id=:user_id ORDER BY 1;"""
             )

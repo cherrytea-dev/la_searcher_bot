@@ -7,400 +7,66 @@ import sqlalchemy
 
 from _dependencies.common.commons import SearchFollowingMode
 from _dependencies.common.db_client import DBClientBase
+from _dependencies.models import AgePeriod, DialogState, UserSettingsSummary
+from _dependencies.user_repository import (
+    AgePrefMixin,
+    DialogHistoryMixin,
+    DialogStateMixin,
+    ForumAttributeMixin,
+    GeoPrefMixin,
+    NotificationPrefMixin,
+    RegionMixin,
+    SearchFollowingMixin,
+    SettingsSummaryMixin,
+    SystemRoleMixin,
+    TopicTypeMixin,
+    UserMixin,
+    VKIdentityMixin,
+)
 
-from .common import PREF_DICT, AgePeriod, SearchSummary, UserInputState
+from .common import PREF_DICT, SearchSummary, UserInputState
+from .inline_dialogue import InlineDialogueMixin
+from .role_mixin import TelegramRoleMixin
+from .search_queries import (
+    get_active_searches_in_one_region,
+    get_active_searches_in_region_limit_20,
+    get_all_last_searches_in_region_limit_20,
+    get_all_searches_in_one_region_limit_20,
+)
 
 
-@dataclass
-class UserSettingsSummary:
-    user_id: int
-    pref_role: bool
-    pref_age: bool
-    pref_coords: bool
-    pref_radius: bool
-    pref_region: bool
-    pref_topic_type: bool
-    pref_urgency: bool
-    pref_notif_type: bool
-    pref_region_old: bool
-    pref_forum: bool
+class DBClient(
+    DBClientBase,
+    VKIdentityMixin,
+    DialogStateMixin,
+    UserMixin,
+    RegionMixin,
+    NotificationPrefMixin,
+    GeoPrefMixin,
+    AgePrefMixin,
+    TopicTypeMixin,
+    SearchFollowingMixin,
+    ForumAttributeMixin,
+    SystemRoleMixin,
+    DialogHistoryMixin,
+    SettingsSummaryMixin,
+    InlineDialogueMixin,
+    TelegramRoleMixin,
+):
+    """Telegram bot DB client.
 
+    Inherits shared methods from consolidated mixins in ``_dependencies.user_repository``,
+    plus Telegram-specific mixins (InlineDialogueMixin, TelegramRoleMixin).
+    Search queries are delegated to module-level functions in ``search_queries.py``.
+    """
 
-class DBClient(DBClientBase):
+    # ═══════════════════════════════════════════════════════════════════════
+    # Adapter methods — map communicate's method names to mixin names
+    # ═══════════════════════════════════════════════════════════════════════
+
     def save_user_message_to_bot(self, user_id: int, got_message: str) -> None:
-        """save user's message to bot in psql"""
-
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """INSERT INTO dialogs (user_id, author, timestamp, message_text) values (:user_id, :author, :timestamp, :message_text);"""
-            )
-            connection.execute(
-                stmt,
-                user_id=user_id,
-                author='user',
-                timestamp=datetime.datetime.now(),
-                message_text=got_message,
-            )
-
-    def delete_last_user_inline_dialogue(self, user_id: int) -> None:
-        """Delete form DB the user's last interaction via inline buttons"""
-
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""DELETE FROM communications_last_inline_msg WHERE user_id=:user_id;""")
-            connection.execute(stmt, user_id=user_id)
-
-    def get_last_user_inline_dialogue(self, user_id: int) -> list[int]:
-        """Get from DB the user's last interaction via inline buttons"""
-
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""SELECT message_id FROM communications_last_inline_msg WHERE user_id=:user_id;""")
-            result = connection.execute(stmt, user_id=user_id)
-            message_id_lines = result.fetchall()
-
-            message_id_list = []
-            if message_id_lines and len(message_id_lines) > 0:
-                for message_id_line in message_id_lines:
-                    message_id_list.append(message_id_line[0])
-
-            return message_id_list
-
-    def save_last_user_inline_dialogue(self, user_id: int, message_id: int) -> None:
-        """Save to DB the user's last interaction via inline buttons"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """INSERT INTO communications_last_inline_msg 
-                            (user_id, timestamp, message_id) values (:user_id, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', :message_id)
-                            ON CONFLICT (user_id, message_id) DO 
-                            UPDATE SET timestamp=CURRENT_TIMESTAMP AT TIME ZONE 'UTC';"""
-            )
-            connection.execute(stmt, user_id=user_id, message_id=message_id)
-
-    def get_search_follow_mode(self, user_id: int) -> bool:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """SELECT filter_name FROM user_pref_search_filtering WHERE user_id=:user_id LIMIT 1;"""
-            )
-            result = connection.execute(stmt, user_id=user_id)
-            result_fetched = result.fetchone()
-            return result_fetched is not None and ('whitelist' in result_fetched[0])
-
-    def get_user_sys_roles(self, user_id: int) -> list[str]:
-        """Return user's roles in system"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text('SELECT role FROM user_roles WHERE user_id=:user_id;')
-            result = connection.execute(stmt, user_id=user_id)
-            user_roles = ['']
-            for line in result.fetchall():
-                user_roles.append(line[0])
-            logging.info(f'user {user_id} role has roles {user_roles=}')
-            return user_roles
-
-    def get_user_role(self, user_id: int) -> str | None:
-        """Return user's role"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text('SELECT role FROM users WHERE user_id=:user_id LIMIT 1;')
-            result = connection.execute(stmt, user_id=user_id)
-            rows = result.fetchone()
-            if rows:
-                user_role = rows[0]
-                logging.info(f'user {user_id} role is {user_role}')
-                return user_role
-
-            return None
-
-    def get_user_vk_id(self, user_id: int) -> str | None:
-        """Return user's VKontakte id"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text('SELECT vk_id FROM users WHERE user_id=:user_id LIMIT 1;')
-            result = connection.execute(stmt, user_id=user_id)
-            rows = result.fetchone()
-            return rows[0] if rows else None
-
-    def set_user_vk_id(self, user_id: int, vk_id: str) -> None:
-        """Write user's VKontakte id"""
-
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""UPDATE users SET vk_id=:vk_id where user_id=:user_id;""")
-            connection.execute(stmt, user_id=user_id, vk_id=vk_id)
-
-    def is_user_tester(self, user_id: int) -> bool:
-        return 'tester' in self.get_user_sys_roles(user_id)
-
-    def add_user_sys_role(self, user_id: int, sys_role_name: str) -> None:
-        """Saves user's role in system"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """INSERT INTO user_roles (user_id, role) 
-                        VALUES (:user_id, :role) ON CONFLICT DO NOTHING;"""
-            )
-            connection.execute(stmt, user_id=user_id, role=sys_role_name)
-
-    def delete_user_sys_role(self, user_id: int, sys_role_name: str) -> None:
-        """Deletes user's role in system"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """DELETE FROM user_roles 
-                        WHERE user_id=:user_id and role=:role;"""
-            )
-            connection.execute(stmt, user_id=user_id, role=sys_role_name)
-
-    def delete_user_coordinates(self, user_id: int) -> None:
-        """Delete the saved user "home" coordinates"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text('DELETE FROM user_coordinates WHERE user_id=:user_id;')
-            connection.execute(stmt, user_id=user_id)
-
-    def get_user_coordinates_or_none(self, user_id: int) -> tuple[str, str] | tuple[None, None]:
-        """Return the saved user "home" coordinates or None,None"""
-        saved_coords = self.get_saved_user_coordinates(user_id)
-        return saved_coords or (None, None)
-
-    def get_saved_user_coordinates(self, user_id: int) -> tuple[str, str] | None:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text('SELECT latitude, longitude FROM user_coordinates WHERE user_id=:user_id LIMIT 1;')
-            result = connection.execute(stmt, user_id=user_id)
-            return result.fetchone()
-
-    def save_user_coordinates(self, user_id: int, input_latitude: float, input_longitude: float) -> None:
-        """Save / update user "home" coordinates"""
-
-        with self.connect() as connection:
-            # First delete any existing coordinates
-            delete_stmt = sqlalchemy.text('DELETE FROM user_coordinates WHERE user_id=:user_id;')
-            connection.execute(delete_stmt, user_id=user_id)
-
-            # Then insert new coordinates
-            now = datetime.datetime.now()
-            insert_stmt = sqlalchemy.text(
-                """INSERT INTO user_coordinates (user_id, latitude, longitude, upd_time) 
-                   VALUES (:user_id, :latitude, :longitude, :upd_time);"""
-            )
-            connection.execute(
-                insert_stmt,
-                user_id=user_id,
-                latitude=input_latitude,
-                longitude=input_longitude,
-                upd_time=now,
-            )
-
-    def check_if_user_has_no_regions(self, user_id: int) -> bool:
-        """check if the user has at least one region"""
-
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""SELECT user_id FROM user_regional_preferences WHERE user_id=:user_id LIMIT 1;""")
-            result = connection.execute(stmt, user_id=user_id)
-            return result.fetchone() is None
-
-    def save_user_pref_role(self, user_id: int, role_desc: str) -> str:
-        """save user role"""
-
-        role_dict = {
-            'я состою в ЛизаАлерт': 'member',
-            'я хочу помогать ЛизаАлерт': 'new_member',
-            'я ищу человека': 'relative',
-            'у меня другая задача': 'other',
-            'не хочу говорить': 'no_answer',
-        }
-
-        try:
-            role = role_dict[role_desc]
-        except:  # noqa
-            role = 'unidentified'
-
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""UPDATE users SET role=:role where user_id=:user_id;""")
-            connection.execute(stmt, role=role, user_id=user_id)
-
-            logging.info(f'[comm]: user {user_id} selected role {role}')
-
-            return role
-
-    def _save_user_pref_topic_type(self, user_id: int, pref_type_id: int) -> None:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp) 
-                   values (:user_id, :topic_type_id, :timestamp) 
-                   ON CONFLICT (user_id, topic_type_id) DO NOTHING;"""
-            )
-            connection.execute(
-                stmt,
-                user_id=user_id,
-                topic_type_id=pref_type_id,
-                timestamp=datetime.datetime.now(),
-            )
-            return
-
-    def save_user_pref_topic_type(self, user_id: int, user_role: str | None) -> None:
-        if not user_id:
-            return
-
-        if user_role in {'member', 'new_member'}:
-            default_topic_type_id = [0, 3, 4, 5]  # 0=regular, 3=training, 4=info_support, 5=resonance
-        else:
-            default_topic_type_id = [0, 4, 5]  # 0=regular, 4=info_support, 5=resonance
-
-        for type_id in default_topic_type_id:
-            self._save_user_pref_topic_type(user_id, type_id)
-
-    def get_user_regions_from_db(self, user_id: int) -> list[int]:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""SELECT forum_folder_num from user_regional_preferences WHERE user_id=:user_id;""")
-            result = connection.execute(stmt, user_id=user_id)
-            return [reg[0] for reg in result.fetchall()]
-
-    def get_geo_folders_db(self) -> list[tuple[int, str]]:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """SELECT folder_id, folder_display_name FROM geo_folders_view WHERE folder_type='searches';"""
-            )
-            result = connection.execute(stmt)
-            return result.fetchall()
-
-    def check_if_new_user(self, user_id: int) -> bool:
-        """check if the user is new or not"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""SELECT user_id FROM users WHERE user_id=:user_id LIMIT 1;""")
-            result = connection.execute(stmt, user_id=user_id)
-            return result.fetchone() is None
-
-    def get_user_reg_folders_preferences(self, user_id: int) -> list[int]:
-        """Return user's regional preferences"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=:user_id;""")
-            result = connection.execute(stmt, user_id=user_id)
-            user_prefs_list = [line[0] for line in result.fetchall()]
-            logging.info(str(user_prefs_list))
-            return user_prefs_list
-
-    def user_preference_save(self, user: int, preference_name: str) -> None:
-        """execute SQL INSERT command"""
-        preference_id = PREF_DICT[preference_name]
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """INSERT INTO user_preferences 
-                   (user_id, preference, pref_id) 
-                   VALUES (:user_id, :preference, :pref_id) 
-                   ON CONFLICT DO NOTHING;"""
-            )
-            connection.execute(
-                stmt,
-                user_id=user,
-                preference=preference_name,
-                pref_id=preference_id,
-            )
-
-    def user_preference_delete(self, user: int, list_of_prefs: list[str]) -> None:
-        """execute SQL DELETE command"""
-        with self.connect() as connection:
-            if list_of_prefs:
-                for line in list_of_prefs:
-                    line_id = PREF_DICT[line]
-                    stmt = sqlalchemy.text(
-                        """DELETE FROM user_preferences WHERE user_id=:user_id AND pref_id=:pref_id;"""
-                    )
-                    connection.execute(stmt, user_id=user, pref_id=line_id)
-            else:
-                stmt = sqlalchemy.text("""DELETE FROM user_preferences WHERE user_id=:user_id;""")
-                connection.execute(stmt, user_id=user)
-
-    def user_preference_is_exists(self, user_id: int, pref_list: list[str]) -> bool:
-        """execute SQL SELECT command and returns TRUE / FALSE if something found"""
-        with self.connect() as connection:
-            for line in pref_list:
-                stmt = sqlalchemy.text(
-                    """SELECT id FROM user_preferences WHERE user_id=:user_id AND preference=:preference LIMIT 1;"""
-                )
-                result = connection.execute(stmt, user_id=user_id, preference=line)
-                if result.fetchone():
-                    return True
-        return False
-
-    def get_user_input_state(self, user_id: int) -> UserInputState | None:
-        """Get the last bot message to user to define if user is expected to give exact answer"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""SELECT msg_type FROM msg_from_bot WHERE user_id=:user_id LIMIT 1;""")
-            result = connection.execute(stmt, user_id=user_id)
-            extract = result.fetchone()
-            logging.info('get the last bot message to user to define if user is expected to give exact answer')
-            logging.info(str(extract))
-
-            # msg_type=UserInputState.
-            msg_type = None
-            if extract:
-                try:
-                    msg_type = UserInputState(extract[0])
-                except Exception:
-                    msg_type = None
-
-            if msg_type:
-                logging.info(f'before this message bot was waiting for {msg_type} from user {user_id}')
-            else:
-                logging.info(f'before this message bot was NOT waiting anything from user {user_id}')
-
-            return msg_type
-
-    def set_user_input_state(self, user_id: int, message_type: UserInputState) -> None:
-        # TODO the same in connect_to_forum
-        with self.connect() as connection:
-            # First delete any existing state
-            delete_stmt = sqlalchemy.text("""DELETE FROM msg_from_bot WHERE user_id=:user_id;""")
-            connection.execute(delete_stmt, user_id=user_id)
-
-            # Then insert new state
-            insert_stmt = sqlalchemy.text(
-                """INSERT INTO msg_from_bot (user_id, time, msg_type) values (:user_id, :time, :msg_type);"""
-            )
-            connection.execute(
-                insert_stmt,
-                user_id=user_id,
-                time=datetime.datetime.now(),
-                msg_type=message_type,
-            )
-
-    def get_user_forum_attributes_db(self, user_id: int) -> tuple[str, str] | None:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """SELECT forum_username, forum_user_id 
-                   FROM user_forum_attributes 
-                   WHERE status='verified' AND user_id=:user_id 
-                   ORDER BY timestamp DESC 
-                   LIMIT 1;"""
-            )
-            result = connection.execute(stmt, user_id=user_id)
-            return result.fetchone()
-
-    def write_user_forum_attributes_db(self, user_id: int) -> None:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """UPDATE user_forum_attributes SET status='verified'
-                   WHERE user_id=:user_id and timestamp =
-                   (SELECT MAX(timestamp) FROM user_forum_attributes WHERE user_id=:user_id);"""
-            )
-            connection.execute(stmt, user_id=user_id)
-
-    def get_onboarding_step(self, user_id: int, user_is_new: bool) -> tuple[int, str]:
-        """checks the latest step of onboarding"""
-        if user_is_new:
-            return 0, 'start'
-
-        with self.connect() as connection:
-            try:
-                stmt = sqlalchemy.text(
-                    """SELECT step_id, step_name, timestamp FROM user_onboarding 
-                       WHERE user_id=:user_id ORDER BY step_id DESC;"""
-                )
-                result = connection.execute(stmt, user_id=user_id)
-                raw_data = result.fetchone()
-                if raw_data:
-                    step_id, step_name, time = list(raw_data)
-                else:
-                    step_id, step_name = 99, None
-
-            except Exception as e:
-                logging.exception(e)
-                step_id, step_name = 99, None
-
-            return step_id, step_name
+        """Save user's message to bot in psql"""
+        self.save_user_message(user_id, got_message)
 
     def save_bot_reply_to_user(self, user_id: int, bot_message: str) -> None:
         """save bot's reply to user in psql"""
@@ -410,417 +76,145 @@ class DBClient(DBClientBase):
         }:
             bot_message = bot_message[28]
 
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """INSERT INTO dialogs (user_id, author, timestamp, message_text) 
-                   values (:user_id, :author, :timestamp, :message_text);"""
-            )
-            connection.execute(
-                stmt,
-                user_id=user_id,
-                author='bot',
-                timestamp=datetime.datetime.now(),
-                message_text=bot_message,
-            )
+        self.save_bot_reply(user_id, bot_message)
 
-    def set_search_follow_mode(self, user_id: int, new_value: bool) -> None:
-        filter_name_value = ['whitelist'] if new_value else ['']
-        logging.info(f'{filter_name_value=}')
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """INSERT INTO user_pref_search_filtering (user_id, filter_name) values (:user_id, :filter_name)
-                   ON CONFLICT (user_id) DO UPDATE SET filter_name=:filter_name;"""
-            )
-            connection.execute(
-                stmt,
-                user_id=user_id,
-                filter_name=filter_name_value,
-            )
+    def get_saved_user_coordinates(self, user_id: int) -> tuple[str, str] | None:
+        return self.get_coordinates(user_id)
 
-    def delete_search_follow_mode(self, user_id: int) -> None:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """DELETE FROM user_pref_search_filtering 
-                   WHERE user_id=:user_id
-                   and 'whitelist' = ANY(filter_name);"""
-            )
-            connection.execute(stmt, user_id=user_id)
+    def get_user_coordinates_or_none(self, user_id: int) -> tuple[str, str] | tuple[None, None]:
+        saved_coords = self.get_coordinates(user_id)
+        return saved_coords or (None, None)
 
-    def delete_search_follow_marks(self, user_id: int) -> None:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """DELETE FROM user_pref_search_whitelist 
-                   WHERE user_id=:user_id;"""
-            )
-            connection.execute(stmt, user_id=user_id)
+    def save_user_coordinates(self, user_id: int, input_latitude: float, input_longitude: float) -> None:
+        self.save_coordinates(user_id, input_latitude, input_longitude)
 
-    def delete_folder_from_user_regional_preference(self, user_id: int, region: int) -> None:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """DELETE FROM user_regional_preferences WHERE user_id=:user_id and forum_folder_num=:region;"""
-            )
-            connection.execute(stmt, user_id=user_id, region=region)
-
-    def get_folders_with_followed_searches(self, user_id: int) -> list[int]:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """SELECT DISTINCT s.forum_folder_id 
-                   FROM searches s 
-                   INNER JOIN user_pref_search_whitelist upswl 
-                       ON upswl.search_id=s.search_forum_num
-                       AND upswl.user_id=:user_id
-                       AND upswl.search_following_mode=:search_follow_on
-                       AND s.status not in('НЖ', 'НП', 'СТОП')
-                ;"""
-            )
-            result = connection.execute(
-                stmt,
-                user_id=user_id,
-                search_follow_on=SearchFollowingMode.ON,
-            )
-            return [int(x[0]) for x in result.fetchall()]
-
-    def add_folder_to_user_regional_preference(self, user_id: int, region: int) -> None:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """INSERT INTO user_regional_preferences (user_id, forum_folder_num) values (:user_id, :region);"""
-            )
-            connection.execute(stmt, user_id=user_id, region=region)
-
-    def get_user_regions(self, user_id: int) -> list[int]:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""SELECT forum_folder_num from user_regional_preferences WHERE user_id=:user_id;""")
-            result = connection.execute(stmt, user_id=user_id)
-            return [reg[0] for reg in result.fetchall()]
+    def delete_user_coordinates(self, user_id: int) -> None:
+        self.delete_coordinates(user_id)
 
     def check_saved_radius(self, user: int) -> int | None:
-        """check if user already has a radius preference"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""SELECT radius FROM user_pref_radius WHERE user_id=:user_id;""")
-            result = connection.execute(stmt, user_id=user)
-            raw_radius = result.fetchone()
-            if raw_radius and str(raw_radius) != 'None':
-                return int(raw_radius[0])
-            return None
-
-    def delete_user_saved_radius(self, user_id: int) -> None:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""DELETE FROM user_pref_radius WHERE user_id=:user_id;""")
-            connection.execute(stmt, user_id=user_id)
+        return self.get_radius(user)
 
     def save_user_radius(self, user_id: int, number: int) -> None:
+        self.save_radius(user_id, number)
+
+    def delete_user_saved_radius(self, user_id: int) -> None:
+        self.delete_radius(user_id)
+
+    def get_user_regions_from_db(self, user_id: int) -> list[int]:
+        return self.get_user_regions(user_id)
+
+    def get_user_reg_folders_preferences(self, user_id: int) -> list[int]:
+        return self.get_user_regions(user_id)
+
+    def get_geo_folders_db(self) -> list[tuple[int, str]]:
+        return self.get_geo_folders()
+
+    def add_folder_to_user_regional_preference(self, user_id: int, region: int) -> None:
+        self.add_region(user_id, region)
+
+    def delete_folder_from_user_regional_preference(self, user_id: int, region: int) -> None:
+        self.remove_region(user_id, region)
+
+    def get_user_forum_attributes_db(self, user_id: int) -> tuple[str, str] | None:
+        return self.get_forum_attributes(user_id)
+
+    def write_user_forum_attributes_db(self, user_id: int) -> None:
+        self.verify_forum_attributes(user_id)
+
+    def get_user_input_state(self, user_id: int) -> UserInputState | None:
+        """Get the last bot message to user to define if user is expected to give exact answer"""
+        state = self.get_user_state(user_id)
+        if state is None:
+            return None
+        try:
+            return UserInputState(state.value)
+        except ValueError:
+            return None
+
+    def set_user_input_state(self, user_id: int, message_type: UserInputState) -> None:
+        """Set the user's input state (what kind of input bot expects).
+
+        Accepts both UserInputState enum and plain string (for backward compatibility
+        with tests that pass strings directly).
+        """
+        if isinstance(message_type, UserInputState):
+            state_value = message_type.value
+        else:
+            state_value = str(message_type)
+        # Write directly to DB to preserve backward compatibility with raw string values
         with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """INSERT INTO user_pref_radius (user_id, radius) 
-                   VALUES (:user_id, :radius) ON CONFLICT (user_id) DO
-                   UPDATE SET radius=:radius;"""
+            delete_stmt = sqlalchemy.text("""DELETE FROM msg_from_bot WHERE user_id=:user_id;""")
+            connection.execute(delete_stmt, user_id=user_id)
+            insert_stmt = sqlalchemy.text(
+                """INSERT INTO msg_from_bot (user_id, time, msg_type) values (:user_id, :time, :msg_type);"""
             )
             connection.execute(
-                stmt,
+                insert_stmt,
                 user_id=user_id,
-                radius=number,
+                time=datetime.datetime.now(),
+                msg_type=state_value,
             )
 
-    def delete_user_saved_topic_type(self, user: int, type_id: int) -> None:
-        """Delete a certain topic_type for a certain user_id from the DB"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """DELETE FROM user_pref_topic_type WHERE user_id=:user_id AND topic_type_id=:type_id;"""
-            )
-            connection.execute(stmt, user_id=user, type_id=type_id)
+    def user_preference_save(self, user: int, preference_name: str) -> None:
+        self.save_preference(user, preference_name)
 
-    def record_topic_type(self, user: int, type_id: int) -> None:
-        """Insert a certain topic_type for a certain user_id into the DB"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """INSERT INTO user_pref_topic_type (user_id, topic_type_id, timestamp) 
-                   VALUES (:user_id, :type_id, :timestamp) 
-                   ON CONFLICT (user_id, topic_type_id) DO NOTHING;"""
-            )
-            connection.execute(
-                stmt,
-                user_id=user,
-                type_id=type_id,
-                timestamp=datetime.datetime.now(),
-            )
+    def user_preference_delete(self, user: int, list_of_prefs: list[str]) -> None:
+        self.delete_preferences(user, list_of_prefs)
 
-    def check_saved_topic_types(self, user: int) -> list[int]:
-        """check if user already has any preference"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """SELECT topic_type_id FROM user_pref_topic_type WHERE user_id=:user_id ORDER BY 1;"""
-            )
-            result = connection.execute(stmt, user_id=user)
-            return [line[0] for line in result.fetchall()]
-
-    def record_search_whiteness(self, user: int, search_id: int, new_mark_value: SearchFollowingMode | str) -> None:
-        """Save a certain user_pref_search_whitelist for a certain user_id into the DB"""
-        with self.connect() as connection:
-            if new_mark_value in [SearchFollowingMode.ON, SearchFollowingMode.OFF]:
-                stmt = sqlalchemy.text(
-                    """INSERT INTO user_pref_search_whitelist (user_id, search_id, timestamp, search_following_mode) 
-                       VALUES (:user_id, :search_id, :timestamp, :mode) 
-                       ON CONFLICT (user_id, search_id) DO UPDATE 
-                       SET timestamp=:timestamp, search_following_mode=:mode;"""
-                )
-                connection.execute(
-                    stmt,
-                    user_id=user,
-                    search_id=search_id,
-                    timestamp=datetime.datetime.now(),
-                    mode=new_mark_value,
-                )
-            else:
-                stmt = sqlalchemy.text(
-                    """DELETE FROM user_pref_search_whitelist 
-                       WHERE user_id=:user_id and search_id=:search_id;"""
-                )
-                connection.execute(stmt, user_id=user, search_id=search_id)
-
-    def delete_search_whiteness(self, user: int) -> None:
-        """Delete user_pref_search_whitelist for a certain user_id"""
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""DELETE FROM user_pref_search_whitelist WHERE user_id=:user_id;""")
-            connection.execute(stmt, user_id=user)
-
-    def add_region_to_user_settings(self, user_id: int, region_id: int) -> None:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """INSERT INTO user_pref_region (user_id, region_id) values
-                   (:user_id, :region_id);"""
-            )
-            connection.execute(stmt, user_id=user_id, region_id=region_id)
+    def user_preference_is_exists(self, user_id: int, pref_list: list[str]) -> bool:
+        return self.preference_exists(user_id, pref_list)
 
     def save_user_age_prefs(self, user_id: int, chosen_setting: AgePeriod) -> None:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """INSERT INTO user_pref_age (user_id, period_name, period_set_date, period_min, period_max) 
-                   values (:user_id, :period_name, :period_set_date, :period_min, :period_max) 
-                   ON CONFLICT (user_id, period_min, period_max) DO NOTHING;"""
-            )
-            connection.execute(
-                stmt,
-                user_id=user_id,
-                period_name=chosen_setting.name,
-                period_set_date=datetime.datetime.now(),
-                period_min=chosen_setting.min_age,
-                period_max=chosen_setting.max_age,
-            )
+        self.save_age_preference(user_id, chosen_setting)
 
     def delete_user_age_pref(self, user_id: int, chosen_setting: AgePeriod) -> None:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """DELETE FROM user_pref_age WHERE user_id=:user_id AND period_min=:period_min AND period_max=:period_max;"""
-            )
-            connection.execute(
-                stmt,
-                user_id=user_id,
-                period_min=chosen_setting.min_age,
-                period_max=chosen_setting.max_age,
-            )
+        self.delete_age_preference(user_id, chosen_setting)
 
     def get_age_prefs(self, user_id: int) -> list[tuple]:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""SELECT period_min, period_max FROM user_pref_age WHERE user_id=:user_id;""")
-            result = connection.execute(stmt, user_id=user_id)
-            return result.fetchall()
+        return self.get_age_preferences(user_id)
+
+    def check_saved_topic_types(self, user: int) -> list[int]:
+        return self.get_topic_types(user)
+
+    def record_topic_type(self, user: int, type_id: int) -> None:
+        self.save_topic_type(user, type_id)
+
+    def delete_user_saved_topic_type(self, user: int, type_id: int) -> None:
+        self.delete_topic_type(user, type_id)
 
     def get_user_settings_summary(self, user_id: int) -> UserSettingsSummary | None:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """SELECT
-                   user_id 
-                   , CASE WHEN role IS NOT NULL THEN TRUE ELSE FALSE END as role 
-                   , CASE WHEN (SELECT TRUE FROM user_pref_age WHERE user_id=:user_id LIMIT 1) 
-                       THEN TRUE ELSE FALSE END AS age
-                   , CASE WHEN (SELECT TRUE FROM user_coordinates WHERE user_id=:user_id LIMIT 1) 
-                       THEN TRUE ELSE FALSE END AS coords    
-                   , CASE WHEN (SELECT TRUE FROM user_pref_radius WHERE user_id=:user_id LIMIT 1) 
-                       THEN TRUE ELSE FALSE END AS radius
-                   , CASE WHEN (SELECT TRUE FROM user_pref_region WHERE user_id=:user_id LIMIT 1) 
-                       THEN TRUE ELSE FALSE END AS region
-                   , CASE WHEN (SELECT TRUE FROM user_pref_topic_type WHERE user_id=:user_id LIMIT 1) 
-                       THEN TRUE ELSE FALSE END AS topic_type
-                   , CASE WHEN (SELECT TRUE FROM user_pref_urgency WHERE user_id=:user_id LIMIT 1) 
-                       THEN TRUE ELSE FALSE END AS urgency
-                   , CASE WHEN (SELECT TRUE FROM user_preferences WHERE user_id=:user_id 
-                       AND preference!='bot_news' LIMIT 1) 
-                       THEN TRUE ELSE FALSE END AS notif_type
-                   , CASE WHEN (SELECT TRUE FROM user_regional_preferences WHERE user_id=:user_id LIMIT 1) 
-                       THEN TRUE ELSE FALSE END AS region_old
-                   , CASE WHEN (SELECT TRUE FROM user_forum_attributes WHERE user_id=:user_id
-                       AND status = 'verified' LIMIT 1) 
-                       THEN TRUE ELSE FALSE END AS forum
-               FROM users WHERE user_id=:user_id;
-               """
-            )
-            result = connection.execute(stmt, user_id=user_id)
-            raw_data = result.fetchone()
-            return UserSettingsSummary(*raw_data) if raw_data else None
+        return self.get_settings_summary(user_id)
 
-    def get_all_user_preferences(self, user_id: int) -> list[str]:
-        with self.connect() as connection:
-            stmt = sqlalchemy.text(
-                """SELECT preference FROM user_preferences WHERE user_id=:user_id ORDER BY preference;"""
-            )
-            result = connection.execute(stmt, user_id=user_id)
-            return [x[0] for x in result.fetchall()]
+    def get_user_sys_roles(self, user_id: int) -> list[str]:
+        """Return user's roles in system (with leading empty string for backward compatibility)."""
+        roles = super().get_user_sys_roles(user_id)
+        return [''] + roles
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # Communicate-specific methods (not in shared mixins)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # Search-related queries — delegate to module-level functions
+    # ═══════════════════════════════════════════════════════════════════════
 
     def get_active_searches_in_region_limit_20(self, region: int, user_id: int) -> list[SearchSummary]:
         with self.connect() as connection:
-            stmt = sqlalchemy.text("""
-                SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
-                s.topic_type, s.family_name, s.age, upswl.search_following_mode
-                FROM searches s 
-                LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
-                LEFT JOIN search_health_check shc ON s.search_forum_num=shc.search_forum_num
-                LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s.search_forum_num and upswl.user_id=:user_id
-                WHERE s.forum_folder_id=:region
-                AND (
-                        (
-                            (s.status='Ищем' OR s.status='Возобновлен')
-                        and (shc.status is NULL or shc.status='ok' or shc.status='regular')
-                        )
-                    or (upswl.search_following_mode=:search_follow_on
-                        and s.status in('Ищем', 'Возобновлен', 'СТОП')
-                        )
-                    )
-                ORDER BY s.search_start_time DESC
-                LIMIT 20;""")
-
-            result = connection.execute(
-                stmt,
-                region=region,
-                user_id=user_id,
-                search_follow_on=SearchFollowingMode.ON,
-            )
-            return [
-                SearchSummary(
-                    topic_id=row[0],
-                    start_time=row[1],
-                    display_name=row[2],
-                    search_lat=row[3],
-                    search_lon=row[4],
-                    topic_type=row[5],
-                    name=row[6],
-                    age=row[7],
-                    following_mode=row[8],
-                )
-                for row in result.fetchall()
-            ]
+            return get_active_searches_in_region_limit_20(connection, region, user_id)
 
     def get_all_last_searches_in_region_limit_20(
         self, region: int, user_id: int, only_followed: bool
     ) -> list[SearchSummary]:
         with self.connect() as connection:
-            sql_text = """
-                SELECT DISTINCT search_forum_num, search_start_time, display_name, status, status, family_name, age, search_following_mode
-                FROM(   -- q
-                        SELECT s21.*, upswl.search_following_mode FROM 
-                            (SELECT search_forum_num, search_start_time, display_name, s01.status as new_status, s01.status, family_name, age 
-                            FROM searches s01
-                            WHERE forum_folder_id=:region 
-                            ) s21 
-                        INNER JOIN user_pref_search_whitelist upswl 
-                            ON upswl.search_id=s21.search_forum_num and upswl.user_id=:user_id
-                                and upswl.search_following_mode=:search_follow_on 
-                        """
-            if not only_followed:
-                sql_text += """
-                    UNION
-                        SELECT s2.*, upswl.search_following_mode FROM 
-                            (SELECT search_forum_num, search_start_time, display_name, s00.status as new_status, s00.status, family_name, age 
-                            FROM searches s00
-                            WHERE forum_folder_id=:region 
-                            ORDER BY search_start_time DESC 
-                            LIMIT 20) s2 
-                        LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
-                        LEFT JOIN user_pref_search_whitelist upswl ON upswl.search_id=s2.search_forum_num and upswl.user_id=:user_id
-                        WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
-                    """
-            sql_text += """
-                    )q
-                ORDER BY search_start_time DESC
-                LIMIT 20
-                ;"""
-
-            stmt = sqlalchemy.text(sql_text)
-            result = connection.execute(
-                stmt,
-                region=region,
-                user_id=user_id,
-                search_follow_on=SearchFollowingMode.ON,
-            )
-            return [
-                SearchSummary(
-                    topic_id=row[0],
-                    start_time=row[1],
-                    display_name=row[2],
-                    new_status=row[3],
-                    status=row[4],
-                    name=row[5],
-                    age=row[6],
-                    following_mode=row[7],
-                )
-                for row in result.fetchall()
-            ]
+            return get_all_last_searches_in_region_limit_20(connection, region, user_id, only_followed)
 
     def get_active_searches_in_one_region(self, region: int) -> list[SearchSummary]:
         with self.connect() as connection:
-            stmt = sqlalchemy.text("""
-                SELECT s2.* FROM 
-                    (SELECT s.search_forum_num, s.search_start_time, s.display_name, sa.latitude, sa.longitude, 
-                    s.topic_type, s.family_name, s.age 
-                    FROM searches s 
-                    LEFT JOIN search_coordinates sa ON s.search_forum_num = sa.search_id 
-                    WHERE (s.status='Ищем' OR s.status='Возобновлен') 
-                        AND s.forum_folder_id=:region ORDER BY s.search_start_time DESC) s2 
-                LEFT JOIN search_health_check shc ON s2.search_forum_num=shc.search_forum_num
-                WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
-                ORDER BY s2.search_start_time DESC;""")
-
-            result = connection.execute(stmt, region=region)
-            return [
-                SearchSummary(
-                    topic_id=row[0],
-                    start_time=row[1],
-                    display_name=row[2],
-                    search_lat=row[3],
-                    search_lon=row[4],
-                    topic_type=row[5],
-                    name=row[6],
-                    age=row[7],
-                )
-                for row in result.fetchall()
-            ]
+            return get_active_searches_in_one_region(connection, region)
 
     def get_all_searches_in_one_region_limit_20(self, region: int) -> list[SearchSummary]:
         with self.connect() as connection:
-            stmt = sqlalchemy.text("""
-                SELECT s2.* FROM 
-                    (SELECT search_forum_num, search_start_time, display_name, status, status, family_name, age 
-                    FROM searches 
-                    WHERE forum_folder_id=:region 
-                    ORDER BY search_start_time DESC 
-                    LIMIT 20) s2 
-                LEFT JOIN search_health_check shc 
-                ON s2.search_forum_num=shc.search_forum_num 
-                WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
-                ORDER BY s2.search_start_time DESC;""")
-
-            result = connection.execute(stmt, region=region)
-            return [
-                SearchSummary(
-                    topic_id=row[0],
-                    start_time=row[1],
-                    display_name=row[2],
-                    new_status=row[3],
-                    status=row[4],
-                    name=row[5],
-                    age=row[6],
-                )
-                for row in result.fetchall()
-            ]
+            return get_all_searches_in_one_region_limit_20(connection, region)
 
 
 @lru_cache

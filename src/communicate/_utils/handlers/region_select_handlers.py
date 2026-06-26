@@ -46,7 +46,7 @@ def handle_if_moscow(update_params: UpdateBasicParams, extra_params: UpdateExtra
             # region is Moscow for Active Searches & InfoPod
             db().add_folder_to_user_regional_preference(user_id, 276)
             db().add_folder_to_user_regional_preference(user_id, 41)
-            db().add_region_to_user_settings(user_id, 1)
+            db().add_user_region_setting(user_id, 1)
 
         return WELCOME_MESSAGE_AFTER_ONBOARDING, reply_markup_main
 

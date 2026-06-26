@@ -18,6 +18,7 @@ or None to pass to the next handler in the chain.
 import logging
 
 from _dependencies.bot.telegram_api_wrapper import make_invite_text_for_user
+from _dependencies.models import AgePeriod, DialogState
 from vk_bot._utils.services.message_formatter import (
     community_intro,
     coords_deleted,
@@ -37,8 +38,7 @@ from vk_bot._utils.services.message_formatter import (
 )
 
 from ..common import VKHandlerResult, VKMessage
-from ..database import DialogState, db
-from ..database_common import AgePeriod
+from ..database import db
 from ..keyboards import VKKeyboardButtons, VKKeyboardPresets
 
 

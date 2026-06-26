@@ -1,21 +1,25 @@
-"""Region (forum folder) subscription management mixin."""
+"""Region (forum folder) subscription management mixin — consolidated."""
+
+import datetime
 
 import sqlalchemy
 
+from _dependencies.common.db_client import DBClientMixinBase
 
-class RegionMixin:
+
+class RegionMixin(DBClientMixinBase):
     """User region (forum folder) subscription operations."""
 
     def get_user_regions(self, user_id: int) -> list[int]:
         """Get list of forum folder IDs the user is subscribed to."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text("""SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=:user_id;""")
             result = connection.execute(stmt, user_id=user_id)
             return [reg[0] for reg in result.fetchall()]
 
     def add_region(self, user_id: int, forum_folder_num: int) -> None:
         """Subscribe user to a region (forum folder)."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """INSERT INTO user_regional_preferences (user_id, forum_folder_num)
                    VALUES (:user_id, :region);"""
@@ -24,7 +28,7 @@ class RegionMixin:
 
     def remove_region(self, user_id: int, forum_folder_num: int) -> None:
         """Unsubscribe user from a region (forum folder)."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """DELETE FROM user_regional_preferences
                    WHERE user_id=:user_id and forum_folder_num=:region;"""
@@ -33,14 +37,32 @@ class RegionMixin:
 
     def check_if_user_has_no_regions(self, user_id: int) -> bool:
         """Check if user has at least one region subscribed."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text("""SELECT user_id FROM user_regional_preferences WHERE user_id=:user_id LIMIT 1;""")
             result = connection.execute(stmt, user_id=user_id)
             return result.fetchone() is None
 
+    def add_user_region_setting(self, user_id: int, region_id: int) -> None:
+        """Record that the user has configured a region setting.
+
+        Writes to ``user_pref_region`` — a flag table used by
+        ``settings_summary`` to determine if the user has set up regions.
+        """
+        with self.connect() as connection:
+            stmt = sqlalchemy.text(
+                """INSERT INTO user_pref_region (user_id, region_id, timestamp)
+                   VALUES (:user_id, :region_id, :timestamp);"""
+            )
+            connection.execute(
+                stmt,
+                user_id=user_id,
+                region_id=region_id,
+                timestamp=datetime.datetime.now(),
+            )
+
     def get_geo_folders(self) -> list[tuple[int, str]]:
         """Get all geographic folders from the database."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """SELECT folder_id, folder_display_name FROM geo_folders_view
                    WHERE folder_type='searches';"""
@@ -49,12 +71,8 @@ class RegionMixin:
             return result.fetchall()
 
     def get_geo_folders_by_district(self, federal_district_name: str) -> list[tuple[int, str]]:
-        """Get geographic folders for regions in a given federal district.
-
-        Uses geo_regions.federal_district to find all regions belonging to the
-        specified federal district, then returns the corresponding folders.
-        """
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        """Get geographic folders for regions in a given federal district."""
+        with self.connect() as connection:
             stmt = sqlalchemy.text("""
                 SELECT fv.folder_id, fv.folder_display_name
                 FROM geo_folders_view fv

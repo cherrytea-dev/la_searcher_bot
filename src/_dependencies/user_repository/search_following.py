@@ -1,18 +1,19 @@
-"""Search following (whitelist/blacklist) management mixin."""
+"""Search following (whitelist/blacklist) management mixin — consolidated."""
 
 import datetime
 
 import sqlalchemy
 
 from _dependencies.common.commons import SearchFollowingMode
+from _dependencies.common.db_client import DBClientMixinBase
 
 
-class SearchFollowingMixin:
+class SearchFollowingMixin(DBClientMixinBase):
     """Search following (whitelist/blacklist) operations."""
 
     def get_search_follow_mode(self, user_id: int) -> bool:
         """Check if search following mode is enabled for user."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """SELECT filter_name FROM user_pref_search_filtering WHERE user_id=:user_id LIMIT 1;"""
             )
@@ -23,7 +24,7 @@ class SearchFollowingMixin:
     def set_search_follow_mode(self, user_id: int, enabled: bool) -> None:
         """Enable or disable search following mode."""
         filter_name = ['whitelist'] if enabled else ['']
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """INSERT INTO user_pref_search_filtering (user_id, filter_name)
                    VALUES (:user_id, :filter_name)
@@ -33,7 +34,7 @@ class SearchFollowingMixin:
 
     def delete_search_follow_mode(self, user_id: int) -> None:
         """Disable search following mode."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """DELETE FROM user_pref_search_filtering
                    WHERE user_id=:user_id and 'whitelist' = ANY(filter_name);"""
@@ -42,7 +43,7 @@ class SearchFollowingMixin:
 
     def record_search_whiteness(self, user_id: int, search_id: int, mode: SearchFollowingMode | str) -> None:
         """Save or remove a search whitelist entry."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             if mode in [SearchFollowingMode.ON, SearchFollowingMode.OFF]:
                 stmt = sqlalchemy.text(
                     """INSERT INTO user_pref_search_whitelist (user_id, search_id, timestamp, search_following_mode)
@@ -66,13 +67,13 @@ class SearchFollowingMixin:
 
     def delete_search_whiteness(self, user_id: int) -> None:
         """Delete all search whitelist entries for a user."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text("""DELETE FROM user_pref_search_whitelist WHERE user_id=:user_id;""")
             connection.execute(stmt, user_id=user_id)
 
     def get_folders_with_followed_searches(self, user_id: int) -> list[int]:
         """Get forum folder IDs that contain searches the user is following."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """SELECT DISTINCT s.forum_folder_id
                    FROM searches s

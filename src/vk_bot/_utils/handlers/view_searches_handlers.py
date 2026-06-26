@@ -16,11 +16,13 @@ import sqlalchemy as sa
 
 from _dependencies.common.commons import SearchFollowingMode
 from _dependencies.common.misc import age_writer, time_counter_since_search_start
+from _dependencies.models import DialogState
 
-from ..common import SEARCH_URL_PREFIX, VKHandlerResult, VKMessage
-from ..database import DialogState, db
+from ..common import VKHandlerResult, VKMessage
+from ..database import db
 from ..keyboards import VKKeyboardButtons, VKKeyboardPresets
 from ..services.message_formatter import (
+    SEARCH_URL_PREFIX,
     no_active_searches_found,
     search_follow_intro,
     search_follow_mode_off,

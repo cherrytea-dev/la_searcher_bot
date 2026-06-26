@@ -15,6 +15,7 @@ from telegram import (
 
 from _dependencies.common.commons import SearchFollowingMode
 from _dependencies.common.misc import calc_bearing
+from _dependencies.models import AgePeriod, DialogState
 
 SEARCH_URL_PREFIX = 'https://lizaalert.org/forum/viewtopic.php?t='
 FORUM_FOLDER_PREFIX = 'https://lizaalert.org/forum/viewforum.php?f='
@@ -36,17 +37,12 @@ class InlineButtonCallbackData(BaseModel):
         return res
 
 
-@dataclass
-class AgePeriod:
-    description: str
-    name: str
-    min_age: int
-    max_age: int
-    order: int
-    active: bool = False  # TODO don't need
-
-
 class UserInputState(str, Enum):
+    """User input state — alias for DialogState for backward compatibility.
+
+    ``AgePeriod`` is now imported from ``_dependencies.models``.
+    """
+
     radius_input = 'radius_input'
     input_of_coords_man = 'input_of_coords_man'
     input_of_forum_username = 'input_of_forum_username'

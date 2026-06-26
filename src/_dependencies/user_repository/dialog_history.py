@@ -1,16 +1,18 @@
-"""Dialog history mixin."""
+"""Dialog history mixin — consolidated."""
 
 import datetime
 
 import sqlalchemy
 
+from _dependencies.common.db_client import DBClientMixinBase
 
-class DialogHistoryMixin:
+
+class DialogHistoryMixin(DBClientMixinBase):
     """User-bot dialog history operations."""
 
     def save_user_message(self, user_id: int, text: str) -> None:
         """Save user's message to dialog history."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """INSERT INTO dialogs (user_id, author, timestamp, message_text)
                    values (:user_id, :author, :timestamp, :message_text);"""
@@ -25,7 +27,7 @@ class DialogHistoryMixin:
 
     def save_bot_reply(self, user_id: int, text: str) -> None:
         """Save bot's reply to dialog history."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """INSERT INTO dialogs (user_id, author, timestamp, message_text)
                    values (:user_id, :author, :timestamp, :message_text);"""

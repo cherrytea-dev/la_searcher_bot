@@ -1,16 +1,17 @@
-"""Notification preference management mixin."""
+"""Notification preference management mixin — consolidated."""
 
 import sqlalchemy
 
 from _dependencies.common.commons import PREF_DICT
+from _dependencies.common.db_client import DBClientMixinBase
 
 
-class NotificationPrefMixin:
+class NotificationPrefMixin(DBClientMixinBase):
     """User notification preference operations."""
 
     def get_all_user_preferences(self, user_id: int) -> list[str]:
         """Get all notification preferences for a user."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """SELECT preference FROM user_preferences WHERE user_id=:user_id ORDER BY preference;"""
             )
@@ -20,7 +21,7 @@ class NotificationPrefMixin:
     def save_preference(self, user_id: int, preference_name: str) -> None:
         """Enable a notification preference for a user."""
         preference_id = PREF_DICT[preference_name]
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """INSERT INTO user_preferences
                    (user_id, preference, pref_id)
@@ -36,7 +37,7 @@ class NotificationPrefMixin:
 
     def delete_preferences(self, user_id: int, preferences: list[str]) -> None:
         """Disable notification preferences for a user."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             if preferences:
                 for pref in preferences:
                     pref_id = PREF_DICT[pref]
@@ -50,7 +51,7 @@ class NotificationPrefMixin:
 
     def preference_exists(self, user_id: int, preferences: list[str]) -> bool:
         """Check if any of the given preferences exist for a user."""
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             for pref in preferences:
                 stmt = sqlalchemy.text(
                     """SELECT id FROM user_preferences

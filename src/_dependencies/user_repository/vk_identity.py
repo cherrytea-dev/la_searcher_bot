@@ -1,11 +1,17 @@
-"""VK identity mixin — user resolution by VK ID."""
+"""VK identity mixin — user resolution by VK ID, consolidated.
+
+This mixin fixes the Phase 3 gap: ``set_user_vk_id()`` writes to both
+``users.vk_id`` (legacy) and ``user_identity_map`` (new path).
+"""
 
 from types import SimpleNamespace
 
 import sqlalchemy
 
+from _dependencies.common.db_client import DBClientMixinBase
 
-class VKIdentityMixin:
+
+class VKIdentityMixin(DBClientMixinBase):
     """User resolution by VK ID.
 
     Methods for finding/linking users by their VKontakte ID.
@@ -19,9 +25,8 @@ class VKIdentityMixin:
         """Find telegram user_id by vk_id.
 
         Returns None if not found (user hasn't linked VK account yet).
-        The vk_id column is varchar, so we pass the value as string.
         """
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text("""
                 SELECT user_id FROM users
                 WHERE vk_id = :vk_id
@@ -32,12 +37,11 @@ class VKIdentityMixin:
             return row[0] if row else None
 
     def get_user_vk_id(self, user_id: int) -> str | None:
-        """Get the VK ID linked to a Telegram user.
+        """Get the VK ID linked to a user.
 
         Returns None if the user hasn't linked a VK account.
-        The vk_id column is varchar, so we return it as string.
         """
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text("""
                 SELECT vk_id FROM users
                 WHERE user_id = :user_id
@@ -55,7 +59,7 @@ class VKIdentityMixin:
         Returns True if the user was found and updated, False if no user
         with the given telegram_user_id exists.
         """
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             # 1. Update legacy vk_id column
             stmt = sqlalchemy.text("""
                 UPDATE users
@@ -100,7 +104,7 @@ class VKIdentityMixin:
         Resolution logic:
         1. Check ``user_identity_map`` for a VK identity first (new path)
         2. Fall back to ``users.vk_id`` column (legacy path)
-        3. If not found → return -vk_user_id (negative, to avoid collision with Telegram IDs)
+        3. If not found -> return -vk_user_id (negative, to avoid collision with Telegram IDs)
 
         This allows VK-only users to exist without a Telegram account.
         """
@@ -118,8 +122,7 @@ class VKIdentityMixin:
         Returns a simple namespace with ``internal_user_id``, ``messenger``,
         ``messenger_user_id`` or None if not found.
         """
-
-        with self.connect() as connection:  # type: ignore[attr-defined]
+        with self.connect() as connection:
             stmt = sqlalchemy.text("""
                 SELECT internal_user_id, messenger, messenger_user_id
                 FROM user_identity_map

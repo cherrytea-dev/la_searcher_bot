@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 from urllib.parse import quote, urlencode
 
 import pytest
+import sqlalchemy
 
 from _dependencies.common.commons import TopicType
 from tests.common import get_http_request
@@ -180,9 +181,8 @@ class TestGetUserDataFromDb:
             'search_is_old': False,
         }
 
-    def test_get_user_data_from_db_valid_user_without_radius(self):
+    def test_get_user_data_from_db_valid_user_without_radius(self, session):
         # Create user and related data using factories
-        # ToDo Make this test stable, now it fails sometimes
         user = UserFactory.create_sync()
         user_id = user.user_id
         UserCoordinateFactory.create_sync(user_id=user_id, latitude='55.7558', longitude='37.6173')
@@ -206,6 +206,17 @@ class TestGetUserDataFromDb:
             'regions': [geo_region.polygon_id],
             'searches': [],
         }
+
+        # Clean up created data to avoid polluting subsequent test runs
+        session.execute(
+            sqlalchemy.text("""
+                DELETE FROM user_regional_preferences WHERE user_id=:uid;
+                DELETE FROM user_coordinates WHERE user_id=:uid;
+                DELETE FROM users WHERE user_id=:uid;
+            """),
+            {'uid': user_id},
+        )
+        session.commit()
 
 
 def test_evaluate_city_locations_success():

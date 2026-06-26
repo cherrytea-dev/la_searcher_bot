@@ -6,22 +6,7 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, field_validator
 
-from .database import DialogState
-from .services.message_formatter import (
-    FORUM_FOLDER_PREFIX,
-    LA_BOT_CHAT_URL,
-    LA_BOT_DEV_CHAT,
-    LA_DEV_CHAT_URL,
-    LA_FORUM_URL,
-    LA_HOTLINE_PHONE,
-    LA_HOW_TO_HELP_ARTICLE,
-    LA_NEWBIE_ARTICLE,
-    LA_NEWBIE_FORUM_TOPIC,
-    LA_PHOTOS_CHANNEL_URL,
-    LA_SEARCH_REQUEST_FORM,
-    LA_WEBSITE,
-    SEARCH_URL_PREFIX,
-)
+from _dependencies.models import DialogState
 
 
 class VKMessage(BaseModel):

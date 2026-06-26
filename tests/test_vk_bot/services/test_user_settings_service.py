@@ -6,10 +6,10 @@ import pytest
 from sqlalchemy.orm import Session
 
 from _dependencies.common.commons import SearchFollowingMode
+from _dependencies.models import AgePeriod
 from tests.common import fake, find_model
 from tests.factories import db_factories, db_models
 from vk_bot._utils.database import DBClient, db
-from vk_bot._utils.database_common import AgePeriod
 
 
 @pytest.fixture(scope='session')
@@ -20,7 +20,7 @@ def settings_service() -> DBClient:
 
 @pytest.fixture
 def user_id() -> int:
-    return randint(1, 1_000_000)
+    return randint(1_000_000_000, 9_000_000_000)
 
 
 # =============================================================================

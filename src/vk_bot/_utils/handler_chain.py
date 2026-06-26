@@ -7,8 +7,9 @@ that is invoked when no other handler matches.
 
 from typing import Callable
 
+from _dependencies.models import DialogState
+
 from .common import VKHandlerResult, VKMessage
-from .database import DialogState
 from .handlers import (
     onboarding_handlers,
     region_select_handlers,
