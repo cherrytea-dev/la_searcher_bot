@@ -33,6 +33,7 @@ dev = [
     "uv>=0.5.15",
     "pytest-xdist==3.*",
     "pytest-benchmark>=5.0",
+    "pytest-timeout>=2.4.0",
     "pyannotate==1.2.*",
     "flask>=3.0.0",
 

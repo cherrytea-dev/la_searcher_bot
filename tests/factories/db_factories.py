@@ -68,7 +68,7 @@ class ChangeLogFactory(BaseFactory[db_models.ChangeLog]):
 
 
 class SearchFactory(BaseFactory[db_models.Search]):
-    pass
+    search_forum_num = Use(faker.pyint, min_value=1_000_000_000, max_value=2_000_000_000)
 
 
 class SearchFirstPostFactory(BaseFactory[db_models.SearchFirstPost]):

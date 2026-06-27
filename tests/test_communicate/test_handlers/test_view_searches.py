@@ -8,15 +8,16 @@ import sqlalchemy
 from communicate._utils.database import DBClient
 from communicate._utils.handlers import view_searches_handlers
 from tests.common import fake
-from tests.factories import db_factories, db_models
+from tests.factories import db_factories
 
 
-def _cleanup_searches(session, searches: list) -> None:
-    """Delete created searches to avoid polluting subsequent test runs."""
-    search_forum_nums = [s.search_forum_num for s in searches]
+@pytest.fixture
+def region_id(session):
+    _region_id = fake.pyint(min_value=1_000_000_000, max_value=2_000_000_000)
+    yield _region_id
     session.execute(
-        sqlalchemy.text('DELETE FROM searches WHERE search_forum_num = ANY(:nums)'),
-        {'nums': search_forum_nums},
+        sqlalchemy.text('DELETE FROM searches WHERE forum_folder_id = :region_id'),
+        {'region_id': _region_id},
     )
     session.commit()
 
@@ -29,8 +30,7 @@ def patch_db(db_client: DBClient):
         yield
 
 
-def test__compose_text_message_of_all_searches(session, db_client: DBClient, user_id: int, user_model: db_models.User):
-    region_id = fake.pyint()
+def test__compose_text_message_of_all_searches(db_client: DBClient, user_id: int, region_id: int):
     count = 3
     searches = db_factories.SearchFactory.create_batch_sync(
         count,
@@ -48,13 +48,8 @@ def test__compose_text_message_of_all_searches(session, db_client: DBClient, use
     for search in searches:
         assert search.display_name in message
 
-    _cleanup_searches(session, searches)
 
-
-def test__compose_text_message_on_active_searches(
-    session, db_client: DBClient, user_id: int, user_model: db_models.User
-):
-    region_id = fake.pyint()
+def test__compose_text_message_on_active_searches(db_client: DBClient, user_id: int, region_id: int):
     count = 3
     searches = db_factories.SearchFactory.create_batch_sync(
         count,
@@ -72,11 +67,8 @@ def test__compose_text_message_on_active_searches(
     for search in searches:
         assert search.display_name in message
 
-    _cleanup_searches(session, searches)
 
-
-def test__compose_ikb_of_last_searches(session, db_client: DBClient, user_id: int, user_model: db_models.User):
-    region_id = fake.pyint()
+def test__compose_ikb_of_last_searches(db_client: DBClient, user_id: int, region_id: int):
     count = 3
     searches = db_factories.SearchFactory.create_batch_sync(
         count,
@@ -91,11 +83,8 @@ def test__compose_ikb_of_last_searches(session, db_client: DBClient, user_id: in
 
     assert len(ikb_data.rows) == count
 
-    _cleanup_searches(session, searches)
 
-
-def test__compose_ikb_of_active_searches(session, db_client: DBClient, user_id: int, user_model: db_models.User):
-    region_id = fake.pyint()
+def test__compose_ikb_of_active_searches(db_client: DBClient, user_id: int, region_id: int):
     count = 3
     searches = db_factories.SearchFactory.create_batch_sync(
         count,
@@ -109,5 +98,3 @@ def test__compose_ikb_of_active_searches(session, db_client: DBClient, user_id: 
     ikb_data = view_searches_handlers._compose_ikb_of_active_searches(user_id, region_id, 'name of region')
 
     assert len(ikb_data.rows) == count
-
-    _cleanup_searches(session, searches)
