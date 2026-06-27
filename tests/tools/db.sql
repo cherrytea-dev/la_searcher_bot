@@ -762,6 +762,9 @@ CREATE TABLE search_first_posts__history (
 	content_compact varchar NULL
 );
 
+CREATE INDEX idx_search_first_posts__history_timestamp
+	   ON search_first_posts__history ("timestamp");
+
 
 -- public.search_health_check определение
 

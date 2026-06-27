@@ -8,6 +8,10 @@ from _dependencies.common.pubsub import Ctx, pubsub_archive_notifications
 
 setup_logging(__package__)
 
+# How long to keep records in search_first_posts__history before purging them.
+# Data older than this is deleted after each archivation cycle.
+SEARCH_FIRST_POSTS_HISTORY_TTL_DAYS = 30
+
 
 def move_notifications_to_history_in_psql(conn: Connection) -> None:
     """move all "completed" notifications to psql table __history"""
@@ -52,7 +56,7 @@ def move_notifications_to_history_in_psql(conn: Connection) -> None:
 
 
 def move_first_posts_to_history_in_psql(conn: Connection) -> None:
-    """move all first posts for "completed" searches to psql table __history"""
+    """move first posts for completed searches to __history, then purge old history records"""
 
     # 1. COMPLETED SEARCHES
     # take all the first_posts for "completed" searches and copy it to __history table
@@ -114,6 +118,20 @@ def move_first_posts_to_history_in_psql(conn: Connection) -> None:
 
     logging.info('first_posts for elder snapshots are copied to __history and deleted from search_first_posts')
 
+    # 3. TTL PURGE
+    # delete records older than TTL from search_first_posts__history
+    # to prevent unbounded growth (the table is never read by any code)
+    stmt = sqlalchemy.text("""
+        DELETE FROM search_first_posts__history
+        WHERE timestamp < NOW() - INTERVAL :ttl_days DAYS
+        """)
+    conn.execute(stmt, ttl_days=SEARCH_FIRST_POSTS_HISTORY_TTL_DAYS)
+
+    logging.info(
+        'purged records older than %d days from search_first_posts__history',
+        SEARCH_FIRST_POSTS_HISTORY_TTL_DAYS,
+    )
+
 
 def main(event: dict[str, bytes], context: Ctx) -> None:
     """main function"""
@@ -125,7 +143,7 @@ def main(event: dict[str, bytes], context: Ctx) -> None:
             tr.commit()
 
         with conn.begin() as tr:
-            move_first_posts_to_history_in_psql(conn)  # TODO
+            move_first_posts_to_history_in_psql(conn)
             tr.commit()
 
     pool.dispose()
