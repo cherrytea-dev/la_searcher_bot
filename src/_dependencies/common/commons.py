@@ -52,6 +52,11 @@ class AppConfig(BaseSettings):
 
     forum_legacy_data_source: bool = False
 
+    # Database connection pool settings
+    db_pool_size: int = 2
+    db_max_overflow: int = 4
+    db_pool_timeout: int = 10  # seconds
+
     @property
     def phpbb_db_url(self) -> str:
         return f'mysql+pymysql://{self.mysql_user}:{self.mysql_pass}@{self.mysql_host}:3306/{self.mysql_db}'
@@ -91,9 +96,9 @@ def sqlalchemy_get_pool_inner() -> sqlalchemy.engine.Engine:
     config = get_app_config()
 
     db_config = {
-        'pool_size': 2,
-        'max_overflow': 4,
-        'pool_timeout': 10,  # seconds
+        'pool_size': config.db_pool_size,
+        'max_overflow': config.db_max_overflow,
+        'pool_timeout': config.db_pool_timeout,  # seconds
         'pool_recycle': 1,  # seconds
         'pool_pre_ping': True,
     }

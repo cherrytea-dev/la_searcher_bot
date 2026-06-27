@@ -25,6 +25,11 @@ T = TypeVar('T')
 class AppTestConfig(AppConfig):
     model_config = SettingsConfigDict(extra='ignore')
 
+    # Increase pool size for tests — the connection fixture + multiple get_session()
+    # calls can exhaust the default pool_size=2, causing TimeoutError.
+    db_pool_size: int = 10
+    db_max_overflow: int = 10
+
 
 @lru_cache
 def get_test_config() -> AppTestConfig:
