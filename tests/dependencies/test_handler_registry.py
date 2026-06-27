@@ -101,6 +101,51 @@ class TestMatchCallbackData:
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# match_conditions — callback_keyboard
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestMatchCallbackKeyboard:
+    def test_keyboard_name_matches(self) -> None:
+        assert match_conditions(
+            HandlerConditions(callback_keyboard='geo_keyboard'),
+            callback_keyboard='geo_keyboard',
+        )
+
+    def test_keyboard_name_does_not_match(self) -> None:
+        assert not match_conditions(
+            HandlerConditions(callback_keyboard='geo_keyboard'),
+            callback_keyboard='topic_type_keyboard',
+        )
+
+    def test_missing_callback_keyboard_returns_false(self) -> None:
+        assert not match_conditions(
+            HandlerConditions(callback_keyboard='geo_keyboard'),
+            text='hello',
+        )
+
+    def test_none_callback_keyboard_returns_false(self) -> None:
+        assert not match_conditions(
+            HandlerConditions(callback_keyboard='geo_keyboard'),
+            callback_keyboard=None,
+        )
+
+    def test_callback_keyboard_combined_with_callback_data(self) -> None:
+        assert match_conditions(
+            HandlerConditions(callback_keyboard='geo_keyboard', callback_data='close'),
+            callback_keyboard='geo_keyboard',
+            callback_data='close',
+        )
+
+    def test_callback_keyboard_matches_but_callback_data_does_not(self) -> None:
+        assert not match_conditions(
+            HandlerConditions(callback_keyboard='geo_keyboard', callback_data='close'),
+            callback_keyboard='geo_keyboard',
+            callback_data='open',
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # match_conditions — state
 # ═══════════════════════════════════════════════════════════════════════
 
