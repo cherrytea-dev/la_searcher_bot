@@ -16,7 +16,7 @@ async def main_bot() -> None:
     updater = Updater(bot, update_queue)
     async with updater:
         with db().connect():
-            queue = await updater.start_polling(timeout=60)
+            queue = await updater.start_polling(timeout=60, allowed_updates=['message', 'callback_query'])
             while True:
                 update = await queue.get()
                 print(update)
