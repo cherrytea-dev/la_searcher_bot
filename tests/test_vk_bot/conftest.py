@@ -129,8 +129,6 @@ def vk_handler_context(vk_message, mock_settings_service):
         assert 'привет' in ctx._sender.last_sent.text
     """
 
-    from fakes import FakeVKMessageSender
-
     def _create(
         text: str = '/start',
         user_id: int = 12345,

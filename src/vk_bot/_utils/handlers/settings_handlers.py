@@ -310,16 +310,6 @@ def handle_topic_type_settings(ctx: VKHandlerContext) -> None:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-@vk_handle(text=VKKeyboardButtons.BTN_OTHER_LAST_SEARCHES)
-def handle_other_last_searches(ctx: VKHandlerContext) -> None:
-    """Handle 'посмотреть последние поиски' — pass through to view_searches.
-
-    Returns without consuming, letting it pass through the handler chain
-    to the view_searches_handlers.
-    """
-    return
-
-
 @vk_handle(text=VKKeyboardButtons.BTN_OTHER_FEEDBACK)
 def handle_other_feedback(ctx: VKHandlerContext) -> None:
     """Handle 'написать разработчику бота' button."""

@@ -18,7 +18,6 @@ from ..common import VKHandlerContext
 from ..decorators import vk_handle
 from ..keyboards import VKKeyboardButtons, VKKeyboardPresets
 from ..services.message_formatter import (
-    region_selection_cant_remove_last,
     region_selection_intro,
     settings_menu_intro,
 )
@@ -118,105 +117,6 @@ def handle_fed_district_select(ctx: VKHandlerContext) -> None:
             keyboard=VKKeyboardPresets.paginated_regions_inline(
                 region_buttons, 0, district_name, selected_regions=selected_regions
             ),
-        )
-
-
-def handle_region_toggle(ctx: VKHandlerContext) -> None:
-    """Handle region toggle (subscribe/unsubscribe).
-
-    Matches any text that corresponds to a known geo folder name.
-    Uses toggle_region_by_name which requires a folder_dict parameter.
-    Checks subscription state before toggling to provide correct feedback.
-
-    Note: This handler is NOT registered via @vk_handle because it needs
-    to match dynamically against geo folder names from the database.
-    It is called from the handler chain as a fallback after all registered
-    handlers have been tried.
-    """
-    text = ctx.message.text.strip()
-    if not text:
-        return
-
-    # Get all geo folders
-    folders = ctx.db.get_geo_folders()
-    if not folders:
-        return
-
-    # Build folder_dict: {display_name: (folder_id,)}
-    # Filter out None folder names (can happen if DB has NULL folder_display_name)
-    folder_dict: dict[str, tuple[int, ...]] = {}
-    for fid, name in folders:
-        if name is not None:
-            folder_dict[name] = (fid,)
-
-    if not folder_dict:
-        return
-
-    # Case-insensitive matching
-    region_name_lower = text.lower()
-    matching = [name for name in folder_dict if name.lower() == region_name_lower]
-    if not matching:
-        return
-    region_name = matching[0]
-    region_folder_ids = folder_dict[region_name]
-
-    _toggle_region(ctx, region_name, region_folder_ids, folder_dict)
-
-
-def _toggle_region(
-    ctx: VKHandlerContext,
-    region_name: str,
-    region_folder_ids: tuple[int, ...] | None = None,
-    folder_dict: dict[str, tuple[int, ...]] | None = None,
-) -> None:
-    """Toggle region subscription for a user.
-
-    If region_folder_ids and folder_dict are provided, uses them directly.
-    Otherwise, looks up the region from the database.
-    """
-    if region_folder_ids is None or folder_dict is None:
-        # Look up from DB
-        folders = ctx.db.get_geo_folders()
-        if not folders:
-            return
-        folder_dict = {}
-        for fid, name in folders:
-            if name is not None:
-                folder_dict[name] = (fid,)
-        if region_name not in folder_dict:
-            return
-        region_folder_ids = folder_dict[region_name]
-
-    # Check current subscription state by comparing folder IDs
-    user_region_folder_ids = list(ctx.db.get_user_regions(ctx.user_id))
-    is_subscribed = any(fid in user_region_folder_ids for fid in region_folder_ids)
-
-    if is_subscribed:
-        try:
-            result = ctx.db.toggle_region_by_name(ctx.user_id, region_name, folder_dict)
-        except Exception:
-            logging.exception(f'Failed to toggle region for user {ctx.user_id}: {region_name}')
-            return
-
-        if result is False:
-            ctx.reply(
-                text=region_selection_cant_remove_last(),
-                keyboard=VKKeyboardPresets.settings_menu(),
-            )
-            return
-        ctx.reply(
-            text=f'Регион "{region_name}" удален.',
-            keyboard=VKKeyboardPresets.settings_menu(),
-        )
-    else:
-        try:
-            ctx.db.toggle_region_by_name(ctx.user_id, region_name, folder_dict)
-        except Exception:
-            logging.exception(f'Failed to toggle region for user {ctx.user_id}: {region_name}')
-            return
-        ctx.reply(
-            text=f'Регион "{region_name}" добавлен!',
-            keyboard=VKKeyboardPresets.settings_menu(),
         )
 
 

@@ -15,7 +15,6 @@ from .common import VKHandlerContext, VKMessage, get_invite_from_message
 from .database import db
 from .decorators import vk_registry
 from .handler_chain import handle_unknown
-from .handlers.region_select_handlers import handle_region_toggle
 from .message_sending import VKMessageSender
 
 
@@ -131,20 +130,15 @@ def handle_new_message(
     if _run_registered_handlers(ctx, text=text, state=state):
         return
 
-    # 2. Try registered handlers with text-only matching
-    if _run_registered_handlers(ctx, text=text):
-        return
-
-    # 3. Try registered handlers with state-only matching
+    # 2. Try registered handlers with state-only matching
     if state and _run_registered_handlers(ctx, state=state):
         return
 
-    # 4. Fallback: dynamic region toggle (matches against geo folder names from DB)
-    handle_region_toggle(ctx)
-    if ctx.is_consumed:
+    # 3. Try registered handlers with text-only matching
+    if _run_registered_handlers(ctx, text=text):
         return
 
-    # 5. Unknown command
+    # 4. Unknown command
     handle_unknown(ctx)
 
 

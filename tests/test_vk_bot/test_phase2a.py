@@ -22,7 +22,6 @@ from src.vk_bot._utils.handlers.onboarding_handlers import (
 from src.vk_bot._utils.handlers.region_select_handlers import (
     _toggle_region_inline,
     handle_fed_district_select,
-    handle_region_toggle,
 )
 from src.vk_bot._utils.handlers.settings_handlers import (
     handle_age_settings,
@@ -31,7 +30,6 @@ from src.vk_bot._utils.handlers.settings_handlers import (
     handle_coords_view,
     handle_notification_toggle,
     handle_other_feedback,
-    handle_other_last_searches,
     handle_settings_coords,
     handle_settings_radius,
     handle_settings_region,
@@ -568,19 +566,6 @@ class TestHandleTopicTypeSettings:
         self.mock_settings.delete_topic_type.assert_called_once_with(12345, 0)
 
 
-class TestHandleOtherLastSearches:
-    """handle_other_last_searches — other menu 'latest searches' button."""
-
-    def test_latest_searches(self, vk_handler_context):
-        """ "посмотреть последние поиски" -> passes through to view_searches_handlers."""
-
-        ctx = vk_handler_context(text='посмотреть последние поиски', state=DialogState.not_defined)
-        handle_other_last_searches(ctx)
-
-        # Now delegates to handle_latest_searches in the handler chain
-        assert not ctx.is_consumed
-
-
 class TestHandleOtherFeedback:
     """handle_other_feedback — 'write to developer' button."""
 
@@ -670,61 +655,6 @@ class TestHandleFedDistrictSelect:
         labels = ctx._sender.last_sent_keyboard_labels
         assert 'Москва и МО' in labels
         assert 'Калужская обл.' in labels
-
-
-class TestHandleRegionToggle:
-    """handle_region_toggle — region subscribe/unsubscribe."""
-
-    @pytest.fixture(autouse=True)
-    def _setup_mocks(self, mock_settings_service):
-        """Store mock_settings_service reference for assertions."""
-        self.mock_settings = mock_settings_service
-
-    def test_subscribes_to_region(self, vk_handler_context):
-        """Subscribes to a new region."""
-
-        self.mock_settings.get_geo_folders.return_value = [
-            (1, 'Москва и МО'),
-        ]
-        self.mock_settings.get_user_regions.return_value = []  # not subscribed yet
-
-        ctx = vk_handler_context(text='Москва и МО', state=DialogState.not_defined)
-        handle_region_toggle(ctx)
-
-        assert ctx.is_consumed
-        ctx._sender.assert_sent_text('добавлен')
-        self.mock_settings.toggle_region_by_name.assert_called_once()
-
-    def test_unsubscribes_from_region(self, vk_handler_context):
-        """Unsubscribes from an existing region."""
-
-        self.mock_settings.get_geo_folders.return_value = [
-            (1, 'Москва и МО'),
-        ]
-        self.mock_settings.get_user_regions.return_value = [1]  # already subscribed
-        self.mock_settings.toggle_region_by_name.return_value = True
-
-        ctx = vk_handler_context(text='Москва и МО', state=DialogState.not_defined)
-        handle_region_toggle(ctx)
-
-        assert ctx.is_consumed
-        ctx._sender.assert_sent_text('удален')
-        self.mock_settings.toggle_region_by_name.assert_called_once()
-
-    def test_cant_remove_last_region(self, vk_handler_context):
-        """Can't remove the last remaining region."""
-
-        self.mock_settings.get_geo_folders.return_value = [
-            (1, 'Москва и МО'),
-        ]
-        self.mock_settings.get_user_regions.return_value = [1]  # already subscribed
-        self.mock_settings.toggle_region_by_name.return_value = False
-
-        ctx = vk_handler_context(text='Москва и МО', state=DialogState.not_defined)
-        handle_region_toggle(ctx)
-
-        assert ctx.is_consumed
-        ctx._sender.assert_sent_text('регион')
 
 
 class TestToggleRegionInline:
