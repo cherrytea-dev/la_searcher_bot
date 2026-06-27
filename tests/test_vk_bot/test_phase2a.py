@@ -26,10 +26,15 @@ from src.vk_bot._utils.handlers.region_select_handlers import (
 )
 from src.vk_bot._utils.handlers.settings_handlers import (
     handle_age_settings,
-    handle_coordinates_action,
+    handle_coords_delete,
+    handle_coords_enter,
+    handle_coords_view,
     handle_notification_toggle,
-    handle_other_menu,
-    handle_settings_menu,
+    handle_other_feedback,
+    handle_other_last_searches,
+    handle_settings_coords,
+    handle_settings_radius,
+    handle_settings_region,
     handle_topic_type_settings,
 )
 from src.vk_bot._utils.handlers.state_handlers import handle_coords_text, handle_forum_username, handle_radius_value
@@ -48,13 +53,6 @@ class TestHandleRadiusValue:
         ctx = vk_handler_context(text='50', state=DialogState.radius_input)
         handle_radius_value(ctx)
         assert ctx.is_consumed
-
-    def test_ignores_other_state(self, vk_handler_context):
-        """Does nothing for non-matching state."""
-
-        ctx = vk_handler_context(text='50', state=DialogState.not_defined)
-        handle_radius_value(ctx)
-        assert not ctx.is_consumed
 
     def test_parses_numeric_input(self, vk_handler_context, mock_settings_service):
         """'50' -> saves radius, returns success text."""
@@ -113,13 +111,6 @@ class TestHandleCoordsText:
         handle_coords_text(ctx)
         assert ctx.is_consumed
 
-    def test_ignores_other_state(self, vk_handler_context):
-        """Does nothing for non-matching state."""
-
-        ctx = vk_handler_context(text='55.7558, 37.6173', state=DialogState.not_defined)
-        handle_coords_text(ctx)
-        assert not ctx.is_consumed
-
     def test_parses_valid_coords(self, vk_handler_context, mock_settings_service):
         """ "55.7558, 37.6173" -> saves."""
 
@@ -169,13 +160,6 @@ class TestHandleForumUsername:
         handle_forum_username(ctx)
         assert ctx.is_consumed
 
-    def test_ignores_other_state(self, vk_handler_context):
-        """Does nothing for non-matching state."""
-
-        ctx = vk_handler_context(text='my_forum_nick', state=DialogState.not_defined)
-        handle_forum_username(ctx)
-        assert not ctx.is_consumed
-
     def test_captures_username(self, vk_handler_context):
         """Passes text as forum username."""
 
@@ -214,13 +198,6 @@ class TestHandleCommandStart:
         assert ctx.is_consumed
         ctx._sender.assert_sent_text('привет')
         ctx._sender.assert_sent_with_keyboard()
-
-    def test_ignores_other_text(self, vk_handler_context):
-        """ "something" -> does nothing."""
-
-        ctx = vk_handler_context(text='something')
-        handle_command_start(ctx)
-        assert not ctx.is_consumed
 
     def test_returns_main_menu_keyboard(self, vk_handler_context, mock_settings_service):
         """Result has main_menu keyboard."""
@@ -288,13 +265,6 @@ class TestHandleRoleChoice:
         self.mock_settings.save_user_role.assert_called_once_with(12345, 'other')
         self.mock_settings.save_onboarding_step.assert_called_once_with(12345, 'role_set')
 
-    def test_ignores_unknown_text(self, vk_handler_context):
-        """Does nothing for non-matching text."""
-
-        ctx = vk_handler_context(text='random text')
-        handle_role_choice(ctx)
-        assert not ctx.is_consumed
-
     def test_saves_onboarding_step(self, vk_handler_context):
         """Calls save_onboarding_step with 'role_set'."""
 
@@ -345,13 +315,6 @@ class TestHandleIsMoscow:
         labels = ctx._sender.last_sent_keyboard_labels
         assert 'Центральный ФО' in labels
 
-    def test_ignores_other(self, vk_handler_context):
-        """Does nothing for non-matching text."""
-
-        ctx = vk_handler_context(text='random text')
-        handle_is_moscow(ctx)
-        assert not ctx.is_consumed
-
 
 class TestHandleBackToStart:
     """handle_back_to_start — 'в начало' button handler."""
@@ -375,13 +338,6 @@ class TestHandleBackToStart:
 
         assert ctx.is_consumed
         mock_settings_service.clear_user_state.assert_called_once_with(12345)
-
-    def test_ignores_other_text(self, vk_handler_context):
-        """Does nothing."""
-
-        ctx = vk_handler_context(text='random text')
-        handle_back_to_start(ctx)
-        assert not ctx.is_consumed
 
 
 class TestHandleMainMenu:
@@ -407,45 +363,27 @@ class TestHandleMainMenu:
         assert labels[2] == 'настроить максимальный радиус'
         assert labels[3] == 'в начало'
 
-    def test_view_searches_button(self, vk_handler_context):
-        """ "посмотреть актуальные поиски" -> does nothing (handled by Phase 2B handler)."""
 
-        ctx = vk_handler_context(text='посмотреть актуальные поиски')
-        handle_main_menu(ctx)
+class TestHandleSettingsRegion:
+    """handle_settings_region — settings region button."""
 
-        assert not ctx.is_consumed
+    def test_region_settings(self, vk_handler_context):
+        """ "настроить регионы" -> sends keyboard."""
 
-    def test_other_menu_button(self, vk_handler_context):
-        """ "другие возможности" -> does nothing (hidden from main menu)."""
+        ctx = vk_handler_context(text='настроить регионы', state=DialogState.not_defined)
+        handle_settings_region(ctx)
 
-        ctx = vk_handler_context(text='другие возможности')
-        handle_main_menu(ctx)
-
-        assert not ctx.is_consumed
-
-    def test_ignores_unknown(self, vk_handler_context):
-        """Does nothing."""
-
-        ctx = vk_handler_context(text='random text')
-        handle_main_menu(ctx)
-        assert not ctx.is_consumed
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_with_keyboard()
 
 
-class TestHandleSettingsMenu:
-    """handle_settings_menu — settings sub-menu navigation."""
+class TestHandleSettingsCoords:
+    """handle_settings_coords — settings coords button."""
 
     @pytest.fixture(autouse=True)
     def _setup_mocks(self, mock_settings_service):
         """Store mock_settings_service reference for assertions."""
         self.mock_settings = mock_settings_service
-
-    def test_notification_settings(self, vk_handler_context):
-        """ "настроить виды уведомлений" -> does not consume (hidden from settings menu)."""
-
-        ctx = vk_handler_context(text='настроить виды уведомлений', state=DialogState.not_defined)
-        handle_settings_menu(ctx)
-
-        assert not ctx.is_consumed
 
     def test_coordinates_menu(self, vk_handler_context):
         """ "настроить "домашние координаты"" -> sends coords_menu keyboard."""
@@ -453,10 +391,19 @@ class TestHandleSettingsMenu:
         self.mock_settings.get_coordinates.return_value = None
 
         ctx = vk_handler_context(text='настроить "домашние координаты"', state=DialogState.not_defined)
-        handle_settings_menu(ctx)
+        handle_settings_coords(ctx)
 
         assert ctx.is_consumed
         ctx._sender.assert_sent_with_keyboard()
+
+
+class TestHandleSettingsRadius:
+    """handle_settings_radius — settings radius button."""
+
+    @pytest.fixture(autouse=True)
+    def _setup_mocks(self, mock_settings_service):
+        """Store mock_settings_service reference for assertions."""
+        self.mock_settings = mock_settings_service
 
     def test_radius_settings(self, vk_handler_context):
         """ "настроить максимальный радиус" -> sends radius_settings keyboard."""
@@ -464,49 +411,10 @@ class TestHandleSettingsMenu:
         self.mock_settings.get_radius.return_value = None
 
         ctx = vk_handler_context(text='настроить максимальный радиус', state=DialogState.not_defined)
-        handle_settings_menu(ctx)
+        handle_settings_radius(ctx)
 
         assert ctx.is_consumed
         ctx._sender.assert_sent_with_keyboard()
-
-    def test_age_settings(self, vk_handler_context):
-        """ "настроить возрастные группы бвп" -> does not consume (hidden from settings menu)."""
-
-        ctx = vk_handler_context(text='настроить возрастные группы БВП', state=DialogState.not_defined)
-        handle_settings_menu(ctx)
-
-        assert not ctx.is_consumed
-
-    def test_topic_type_settings(self, vk_handler_context):
-        """ "настроить вид поисков" -> does not consume (hidden from settings menu)."""
-
-        ctx = vk_handler_context(text='настроить вид поисков', state=DialogState.not_defined)
-        handle_settings_menu(ctx)
-
-        assert not ctx.is_consumed
-
-    def test_forum_linking(self, vk_handler_context):
-        """ "связать аккаунты бота и форума" -> does not consume (hidden from settings menu)."""
-
-        ctx = vk_handler_context(text='связать аккаунты бота и форума', state=DialogState.not_defined)
-        handle_settings_menu(ctx)
-
-        assert not ctx.is_consumed
-
-    def test_vk_linking(self, vk_handler_context):
-        """ "связать аккаунты бота и vkontakte" -> does not consume (hidden from settings menu)."""
-
-        ctx = vk_handler_context(text='связать аккаунты бота и VKontakte', state=DialogState.not_defined)
-        handle_settings_menu(ctx)
-
-        assert not ctx.is_consumed
-
-    def test_ignores_unknown(self, vk_handler_context):
-        """Does not consume."""
-
-        ctx = vk_handler_context(text='random text', state=DialogState.not_defined)
-        handle_settings_menu(ctx)
-        assert not ctx.is_consumed
 
 
 class TestHandleNotificationToggle:
@@ -536,30 +444,27 @@ class TestHandleNotificationToggle:
         assert ctx.is_consumed
         self.mock_settings.delete_preferences.assert_called_once_with(12345, ['new_searches'])
 
-    def test_ignores_unknown_text(self, vk_handler_context):
-        """Does not consume."""
 
-        ctx = vk_handler_context(text='random text', state=DialogState.not_defined)
-        handle_notification_toggle(ctx)
-        assert not ctx.is_consumed
-
-
-class TestHandleCoordinatesAction:
-    """handle_coordinates_action — coordinates sub-menu actions."""
-
-    @pytest.fixture(autouse=True)
-    def _setup_mocks(self, mock_settings_service):
-        """Store mock_settings_service reference for assertions."""
-        self.mock_settings = mock_settings_service
+class TestHandleCoordsEnter:
+    """handle_coords_enter — manual coordinate input."""
 
     def test_manual_input(self, vk_handler_context):
         """ "ввести координаты" -> sets state to input_of_coords_man."""
 
         ctx = vk_handler_context(text='ввести "домашние координаты" вручную', state=DialogState.not_defined)
-        handle_coordinates_action(ctx)
+        handle_coords_enter(ctx)
 
         assert ctx.is_consumed
         assert ctx.state == DialogState.input_of_coords_man
+
+
+class TestHandleCoordsView:
+    """handle_coords_view — view saved coordinates."""
+
+    @pytest.fixture(autouse=True)
+    def _setup_mocks(self, mock_settings_service):
+        """Store mock_settings_service reference for assertions."""
+        self.mock_settings = mock_settings_service
 
     def test_view_coordinates(self, vk_handler_context):
         """ "посмотреть сохраненные координаты" -> shows 'not set'."""
@@ -567,7 +472,7 @@ class TestHandleCoordinatesAction:
         self.mock_settings.get_coordinates.return_value = None
 
         ctx = vk_handler_context(text='посмотреть сохраненные координаты', state=DialogState.not_defined)
-        handle_coordinates_action(ctx)
+        handle_coords_view(ctx)
 
         assert ctx.is_consumed
         ctx._sender.assert_sent_text('не сохранены')
@@ -578,27 +483,29 @@ class TestHandleCoordinatesAction:
         self.mock_settings.get_coordinates.return_value = ('55.7558', '37.6173')
 
         ctx = vk_handler_context(text='посмотреть сохраненные координаты', state=DialogState.not_defined)
-        handle_coordinates_action(ctx)
+        handle_coords_view(ctx)
 
         assert ctx.is_consumed
         ctx._sender.assert_sent_text('55.7558')
+
+
+class TestHandleCoordsDelete:
+    """handle_coords_delete — delete saved coordinates."""
+
+    @pytest.fixture(autouse=True)
+    def _setup_mocks(self, mock_settings_service):
+        """Store mock_settings_service reference for assertions."""
+        self.mock_settings = mock_settings_service
 
     def test_delete_coordinates(self, vk_handler_context):
         """ "удалить координаты" -> deletes and returns success."""
 
         ctx = vk_handler_context(text='удалить "домашние координаты"', state=DialogState.not_defined)
-        handle_coordinates_action(ctx)
+        handle_coords_delete(ctx)
 
         assert ctx.is_consumed
         self.mock_settings.delete_coordinates.assert_called_once_with(12345)
         ctx._sender.assert_sent_text('удалены')
-
-    def test_ignores_unknown(self, vk_handler_context):
-        """Does not consume."""
-
-        ctx = vk_handler_context(text='random text', state=DialogState.not_defined)
-        handle_coordinates_action(ctx)
-        assert not ctx.is_consumed
 
 
 class TestHandleAgeSettings:
@@ -630,13 +537,6 @@ class TestHandleAgeSettings:
         assert ctx.is_consumed
         self.mock_settings.delete_age_preference.assert_called_once()
 
-    def test_ignores_unknown(self, vk_handler_context):
-        """Does not consume."""
-
-        ctx = vk_handler_context(text='random text', state=DialogState.not_defined)
-        handle_age_settings(ctx)
-        assert not ctx.is_consumed
-
 
 class TestHandleTopicTypeSettings:
     """handle_topic_type_settings — topic type preference toggles."""
@@ -667,41 +567,31 @@ class TestHandleTopicTypeSettings:
         assert ctx.is_consumed
         self.mock_settings.delete_topic_type.assert_called_once_with(12345, 0)
 
-    def test_ignores_unknown(self, vk_handler_context):
-        """Does not consume."""
 
-        ctx = vk_handler_context(text='random text', state=DialogState.not_defined)
-        handle_topic_type_settings(ctx)
-        assert not ctx.is_consumed
-
-
-class TestHandleOtherMenu:
-    """handle_other_menu — other options menu buttons."""
+class TestHandleOtherLastSearches:
+    """handle_other_last_searches — other menu 'latest searches' button."""
 
     def test_latest_searches(self, vk_handler_context):
         """ "посмотреть последние поиски" -> passes through to view_searches_handlers."""
 
         ctx = vk_handler_context(text='посмотреть последние поиски', state=DialogState.not_defined)
-        handle_other_menu(ctx)
+        handle_other_last_searches(ctx)
 
         # Now delegates to handle_latest_searches in the handler chain
         assert not ctx.is_consumed
+
+
+class TestHandleOtherFeedback:
+    """handle_other_feedback — 'write to developer' button."""
 
     def test_community(self, vk_handler_context):
         """ "написать разработчику бота" -> sends info text."""
 
         ctx = vk_handler_context(text='написать разработчику бота', state=DialogState.not_defined)
-        handle_other_menu(ctx)
+        handle_other_feedback(ctx)
 
         assert ctx.is_consumed
         ctx._sender.assert_sent_with_keyboard()
-
-    def test_ignores_unknown(self, vk_handler_context):
-        """Does not consume."""
-
-        ctx = vk_handler_context(text='random text', state=DialogState.not_defined)
-        handle_other_menu(ctx)
-        assert not ctx.is_consumed
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -747,13 +637,6 @@ class TestHandleFedDistrictSelect:
         labels = ctx._sender.last_sent_keyboard_labels
         assert 'Москва и МО' in labels
         assert 'Московская область' in labels
-
-    def test_ignores_unknown(self, vk_handler_context):
-        """Does not consume."""
-
-        ctx = vk_handler_context(text='random text', state=DialogState.not_defined)
-        handle_fed_district_select(ctx)
-        assert not ctx.is_consumed
 
     def test_triggers_pagination_for_many_regions(self, vk_handler_context):
         """District with >6 regions triggers inline pagination."""
@@ -842,17 +725,6 @@ class TestHandleRegionToggle:
 
         assert ctx.is_consumed
         ctx._sender.assert_sent_text('регион')
-
-    def test_ignores_unknown(self, vk_handler_context):
-        """Does not consume."""
-
-        self.mock_settings.get_geo_folders.return_value = [
-            (1, 'Москва и МО'),
-        ]
-
-        ctx = vk_handler_context(text='random text', state=DialogState.not_defined)
-        handle_region_toggle(ctx)
-        assert not ctx.is_consumed
 
 
 class TestToggleRegionInline:

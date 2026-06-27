@@ -20,7 +20,7 @@ from typing import Callable
 from _dependencies.common.commons import get_app_config
 
 from .common import VKMessage
-from .handler_chain import HANDLER_CHAIN, handle_unknown  # noqa: F401 — re-exported via dispatcher
+from .handler_chain import handle_unknown  # noqa: F401 — re-exported via dispatcher
 from .message_processing import handle_callback_event, handle_new_message
 from .message_sending import vk_sender
 

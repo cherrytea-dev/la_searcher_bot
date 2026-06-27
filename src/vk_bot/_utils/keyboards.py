@@ -99,11 +99,11 @@ class VKKeyboardButtons:
     BTN_ONBOARD_MOSCOW_NO: str = 'нет, я из другого региона'
     BTN_ONBOARD_HELP_YES: str = 'да, помогите мне настроить бот'
     BTN_ONBOARD_HELP_NO: str = 'нет, помощь не требуется'
-    BTN_ONBOARD_LIZA_MEMBER: str = 'я состою в ЛизаАлерт'
-    BTN_ONBOARD_LIZA_HELPER: str = 'я хочу помогать ЛизаАлерт'
-    BTN_ONBOARD_SEEKER: str = 'я ищу человека'
-    BTN_ONBOARD_OTHER_TASK: str = 'у меня другая задача'
-    BTN_ONBOARD_DONT_SAY: str = 'не хочу говорить'
+    BTN_ONBOARD_ROLE_LIZA_MEMBER: str = 'я состою в ЛизаАлерт'
+    BTN_ONBOARD_ROLE_LIZA_HELPER: str = 'я хочу помогать ЛизаАлерт'
+    BTN_ONBOARD_ROLE_SEEKER: str = 'я ищу человека'
+    BTN_ONBOARD_ROLE_OTHER_TASK: str = 'у меня другая задача'
+    BTN_ONBOARD_ROLE_DONT_SAY: str = 'не хочу говорить'
 
     # Confirm / delete
     BTN_CONFIRM_DELETE: str = 'да, удалить'
@@ -368,11 +368,11 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
         """Role selection during onboarding."""
         return cls.one_column(
             [
-                cls.BTN_ONBOARD_LIZA_MEMBER,
-                cls.BTN_ONBOARD_LIZA_HELPER,
-                cls.BTN_ONBOARD_SEEKER,
-                cls.BTN_ONBOARD_OTHER_TASK,
-                cls.BTN_ONBOARD_DONT_SAY,
+                cls.BTN_ONBOARD_ROLE_LIZA_MEMBER,
+                cls.BTN_ONBOARD_ROLE_LIZA_HELPER,
+                cls.BTN_ONBOARD_ROLE_SEEKER,
+                cls.BTN_ONBOARD_ROLE_OTHER_TASK,
+                cls.BTN_ONBOARD_ROLE_DONT_SAY,
             ],
             color='primary',
         )

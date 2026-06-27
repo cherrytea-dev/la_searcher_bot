@@ -1,5 +1,4 @@
-"""
-Phase 2B: VK Bot search viewing handlers.
+"""VK Bot search viewing handlers.
 
 Handles:
 - Viewing active searches (per region)
@@ -11,6 +10,8 @@ Each handler takes a VKHandlerContext and returns None.
 Uses ctx.reply() to send responses and ctx.is_consumed to signal handling.
 """
 
+from __future__ import annotations
+
 import logging
 import re
 from datetime import datetime, timedelta
@@ -21,6 +22,7 @@ from _dependencies.common.commons import SearchFollowingMode
 from _dependencies.common.misc import age_writer, time_counter_since_search_start
 
 from ..common import VKHandlerContext
+from ..decorators import vk_handle
 from ..keyboards import VKKeyboardButtons, VKKeyboardPresets
 from ..services.message_formatter import (
     SEARCH_URL_PREFIX,
@@ -41,16 +43,11 @@ STATUS_EMOJI = {
 
 
 def _fetch_active_searches(ctx: VKHandlerContext) -> list[dict]:
-    """Fetch active searches for user's subscribed regions.
-
-    Returns list of dicts with keys: search_forum_num, display_name, status,
-    search_start_time, age, latitude, longitude, forum_folder_id.
-    """
+    """Fetch active searches for user's subscribed regions."""
     regions = ctx.db.get_user_regions(ctx.user_id)
     if not regions:
         return []
 
-    # regions is a list of folder_id values from user_regional_preferences
     folder_ids = list(regions)
     if not folder_ids:
         return []
@@ -184,26 +181,23 @@ def _group_searches_by_folder(searches: list[dict]) -> dict[int, list[dict]]:
     return groups
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Search view handlers
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@vk_handle(text='посмотреть актуальные поиски')
 def handle_view_search_menu(ctx: VKHandlerContext) -> None:
     """Handle 'посмотреть актуальные поиски' main menu button — show search view menu."""
-    text = ctx.message.text.strip().lower()
-    if text != 'посмотреть актуальные поиски':
-        return
-
     ctx.reply(
         text='Выберите режим просмотра поисков:',
         keyboard=VKKeyboardPresets.search_view_menu(),
     )
 
 
+@vk_handle(text=[VKKeyboardButtons.BTN_SEARCH_ACTIVE])
 def handle_active_searches(ctx: VKHandlerContext) -> None:
     """Show active searches for user's subscribed regions."""
-    text = ctx.message.text.strip().lower()
-    if text != VKKeyboardButtons.BTN_SEARCH_ACTIVE.lower():
-        # Also check if it's the main menu "🔥 карта поисков 🔥" button
-        if 'карта поисков' not in text:
-            return
-
     searches = _fetch_active_searches(ctx)
     followed_ids = _get_user_followed_ids(ctx)
 
@@ -214,22 +208,18 @@ def handle_active_searches(ctx: VKHandlerContext) -> None:
         )
         return
 
-    # Group by folder and format
     groups = _group_searches_by_folder(searches)
 
-    # Format message
     lines = ['🔍 Активные поиски:', '']
     for fid, folder_searches in groups.items():
         lines.append(f'📁 Регион #{fid}:')
         for s in folder_searches:
             is_followed = s['search_forum_num'] in followed_ids
-            is_blacklisted = False  # We only track followed set for simplicity
-            lines.append(_format_search_text(s, is_followed, is_blacklisted))
+            lines.append(_format_search_text(s, is_followed, False))
         lines.append('')
 
     text_result = '\n'.join(lines)
 
-    # If too long, truncate
     if len(text_result) > 4000:
         text_result = text_result[:3997] + '...'
 
@@ -239,12 +229,9 @@ def handle_active_searches(ctx: VKHandlerContext) -> None:
     )
 
 
+@vk_handle(text=VKKeyboardButtons.BTN_SEARCH_LAST_20)
 def handle_latest_searches(ctx: VKHandlerContext) -> None:
     """Show latest 20 searches across all regions."""
-    text = ctx.message.text.strip().lower()
-    if text != VKKeyboardButtons.BTN_SEARCH_LAST_20.lower():
-        return
-
     searches = _fetch_latest_searches(ctx)
     followed_ids = _get_user_followed_ids(ctx)
 
@@ -271,12 +258,9 @@ def handle_latest_searches(ctx: VKHandlerContext) -> None:
     )
 
 
+@vk_handle(text=[VKKeyboardButtons.BTN_FOLLOW_MANAGE, VKKeyboardButtons.BTN_SEARCH_FOLLOW_MGMT])
 def handle_search_follow_menu(ctx: VKHandlerContext) -> None:
     """Handle 'управление отслеживанием' or 'отслеживание поисков' button."""
-    text = ctx.message.text.strip().lower()
-    if text not in (VKKeyboardButtons.BTN_FOLLOW_MANAGE.lower(), VKKeyboardButtons.BTN_SEARCH_FOLLOW_MGMT.lower()):
-        return
-
     follow_mode = ctx.db.get_search_follow_mode(ctx.user_id)
     status = search_follow_mode_on() if follow_mode else search_follow_mode_off()
 
@@ -286,70 +270,71 @@ def handle_search_follow_menu(ctx: VKHandlerContext) -> None:
     )
 
 
-def handle_follow_mode_toggle(ctx: VKHandlerContext) -> None:
-    """Toggle search follow mode on/off."""
-    text = ctx.message.text.strip().lower()
+@vk_handle(text=VKKeyboardButtons.BTN_FOLLOW_ENABLE)
+def handle_follow_enable(ctx: VKHandlerContext) -> None:
+    """Handle 'включить режим отслеживания' button."""
+    ctx.db.set_search_follow_mode(ctx.user_id, True)
+    ctx.reply(
+        text=search_follow_mode_on(),
+        keyboard=VKKeyboardPresets.search_follow_menu(),
+    )
 
-    if text == VKKeyboardButtons.BTN_FOLLOW_ENABLE.lower():
-        ctx.db.set_search_follow_mode(ctx.user_id, True)
+
+@vk_handle(text=VKKeyboardButtons.BTN_FOLLOW_DISABLE)
+def handle_follow_disable(ctx: VKHandlerContext) -> None:
+    """Handle 'выключить режим отслеживания' button."""
+    ctx.db.set_search_follow_mode(ctx.user_id, False)
+    ctx.reply(
+        text=search_follow_mode_off(),
+        keyboard=VKKeyboardPresets.search_follow_menu(),
+    )
+
+
+@vk_handle(text=VKKeyboardButtons.BTN_FOLLOW_SHOW)
+def handle_follow_show(ctx: VKHandlerContext) -> None:
+    """Handle 'показать отслеживаемые поиски' button."""
+    followed_ids = _get_user_followed_ids(ctx)
+    if not followed_ids:
         ctx.reply(
-            text=search_follow_mode_on(),
+            text='У вас нет отслеживаемых поисков.\n\n'
+            'Чтобы начать отслеживать поиск, отправьте:\n'
+            '+<номер поиска>\n\n'
+            'Например: +12345',
             keyboard=VKKeyboardPresets.search_follow_menu(),
         )
         return
 
-    elif text == VKKeyboardButtons.BTN_FOLLOW_DISABLE.lower():
-        ctx.db.set_search_follow_mode(ctx.user_id, False)
-        ctx.reply(
-            text=search_follow_mode_off(),
-            keyboard=VKKeyboardPresets.search_follow_menu(),
-        )
-        return
+    with ctx.db.connect() as conn:
+        stmt = sa.text("""
+            SELECT search_forum_num, display_name, status
+            FROM searches
+            WHERE search_forum_num IN :ids
+            ORDER BY search_start_time DESC
+        """)
+        result = conn.execute(stmt, ids=tuple(followed_ids))
+        rows = result.fetchall()
 
-    elif text == VKKeyboardButtons.BTN_FOLLOW_SHOW.lower():
-        # Get searches that user follows
-        followed_ids = _get_user_followed_ids(ctx)
-        if not followed_ids:
-            ctx.reply(
-                text='У вас нет отслеживаемых поисков.\n\n'
-                'Чтобы начать отслеживать поиск, отправьте:\n'
-                '+<номер поиска>\n\n'
-                'Например: +12345',
-                keyboard=VKKeyboardPresets.search_follow_menu(),
-            )
-            return
+    lines = ['👀 Отслеживаемые поиски:', '']
+    for row in rows:
+        sid, name, status = row
+        name = name or f'Поиск #{sid}'
+        link = f'{SEARCH_URL_PREFIX}{sid}'
+        lines.append(f'{STATUS_EMOJI.get(status, "❓")} {name}')
+        lines.append(link)
+        lines.append(f'  Чтобы отписаться: -{sid}')
+        lines.append('')
 
-        with ctx.db.connect() as conn:
-            stmt = sa.text("""
-                SELECT search_forum_num, display_name, status
-                FROM searches
-                WHERE search_forum_num IN :ids
-                ORDER BY search_start_time DESC
-            """)
-            result = conn.execute(stmt, ids=tuple(followed_ids))
-            rows = result.fetchall()
+    text_result = '\n'.join(lines)
+    if len(text_result) > 4000:
+        text_result = text_result[:3997] + '...'
 
-        lines = ['👀 Отслеживаемые поиски:', '']
-        for row in rows:
-            sid, name, status = row
-            name = name or f'Поиск #{sid}'
-            link = f'{SEARCH_URL_PREFIX}{sid}'
-            lines.append(f'{STATUS_EMOJI.get(status, "❓")} {name}')
-            lines.append(link)
-            lines.append(f'  Чтобы отписаться: -{sid}')
-            lines.append('')
-
-        text_result = '\n'.join(lines)
-        if len(text_result) > 4000:
-            text_result = text_result[:3997] + '...'
-
-        ctx.reply(
-            text=text_result,
-            keyboard=VKKeyboardPresets.search_follow_menu(),
-        )
-        return
+    ctx.reply(
+        text=text_result,
+        keyboard=VKKeyboardPresets.search_follow_menu(),
+    )
 
 
+@vk_handle(text_regex=r'^[+-]\d+$')
 def handle_follow_unfollow_command(ctx: VKHandlerContext) -> None:
     """Handle +<topic_id> (follow) and -<topic_id> (unfollow/blacklist) commands.
 
@@ -358,16 +343,13 @@ def handle_follow_unfollow_command(ctx: VKHandlerContext) -> None:
     - -12345 → if followed → unfollow; if not followed → blacklist (❌)
     """
     text = ctx.message.text.strip()
-
-    # Match +<number> or -<number>
     match = re.match(r'^([+-])(\d+)$', text)
     if not match:
         return
 
-    action = match.group(1)  # '+' or '-'
+    action = match.group(1)
     topic_id = int(match.group(2))
 
-    # Check if search exists
     with ctx.db.connect() as conn:
         stmt = sa.text('SELECT search_forum_num FROM searches WHERE search_forum_num = :sid')
         result = conn.execute(stmt, sid=topic_id)
@@ -378,7 +360,6 @@ def handle_follow_unfollow_command(ctx: VKHandlerContext) -> None:
             )
             return
 
-    # Get current follow state for this search
     current_mode = None
     try:
         with ctx.db.connect() as conn:
@@ -394,7 +375,6 @@ def handle_follow_unfollow_command(ctx: VKHandlerContext) -> None:
         logging.exception('Error checking follow state')
 
     if action == '+':
-        # Follow
         if current_mode == SearchFollowingMode.ON:
             ctx.reply(
                 text=f'Вы уже следите за поиском #{topic_id} 👀',
@@ -410,7 +390,6 @@ def handle_follow_unfollow_command(ctx: VKHandlerContext) -> None:
 
     else:  # action == '-'
         if current_mode == SearchFollowingMode.OFF:
-            # Already blacklisted — remove from whitelist entirely (cycle back to neutral)
             ctx.db.record_search_whiteness(ctx.user_id, topic_id, '  ')
             ctx.reply(
                 text=f'Отслеживание поиска #{topic_id} сброшено.',
@@ -418,7 +397,6 @@ def handle_follow_unfollow_command(ctx: VKHandlerContext) -> None:
             )
             return
         elif current_mode == SearchFollowingMode.ON:
-            # Was following → blacklist
             ctx.db.record_search_whiteness(ctx.user_id, topic_id, SearchFollowingMode.OFF)
             ctx.reply(
                 text=f'⛔ Вы больше не будете получать уведомления по поиску #{topic_id}.',
@@ -426,7 +404,6 @@ def handle_follow_unfollow_command(ctx: VKHandlerContext) -> None:
             )
             return
         else:
-            # Not followed → blacklist
             ctx.db.record_search_whiteness(ctx.user_id, topic_id, SearchFollowingMode.OFF)
             ctx.reply(
                 text=f'⛔ Поиск #{topic_id} добавлен в игнорируемые.',
@@ -435,24 +412,10 @@ def handle_follow_unfollow_command(ctx: VKHandlerContext) -> None:
             return
 
 
+@vk_handle(text=VKKeyboardButtons.BTN_MORE_SEARCHES)
 def handle_more_searches(ctx: VKHandlerContext) -> None:
     """Handle 'еще поиски' button — return to search view menu."""
-    text = ctx.message.text.strip().lower()
-    if text != VKKeyboardButtons.BTN_MORE_SEARCHES.lower():
-        return
-
     ctx.reply(
         text='Выберите режим просмотра поисков:',
         keyboard=VKKeyboardPresets.search_view_menu(),
     )
-
-
-router: list = [
-    handle_view_search_menu,
-    handle_active_searches,
-    handle_latest_searches,
-    handle_search_follow_menu,
-    handle_follow_mode_toggle,
-    handle_follow_unfollow_command,
-    handle_more_searches,
-]

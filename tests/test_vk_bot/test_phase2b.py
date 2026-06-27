@@ -21,7 +21,9 @@ from _dependencies.common.commons import SearchFollowingMode
 from _dependencies.models import DialogState
 from src.vk_bot._utils.handlers.view_searches_handlers import (
     handle_active_searches,
-    handle_follow_mode_toggle,
+    handle_follow_disable,
+    handle_follow_enable,
+    handle_follow_show,
     handle_follow_unfollow_command,
     handle_latest_searches,
     handle_more_searches,
@@ -46,13 +48,6 @@ class TestHandleViewSearchMenu:
         assert ctx.is_consumed
         ctx._sender.assert_sent_text('режим просмотра')
         ctx._sender.assert_sent_with_keyboard()
-
-    def test_ignores_other_text(self, vk_handler_context):
-        """Does not consume for non-matching text."""
-
-        ctx = vk_handler_context(text='random text', state=DialogState.not_defined)
-        handle_view_search_menu(ctx)
-        assert not ctx.is_consumed
 
     def test_returns_search_view_keyboard(self, vk_handler_context):
         """Result has search_view_menu keyboard with expected buttons."""
@@ -150,13 +145,6 @@ class TestHandleActiveSearches:
         assert ctx.is_consumed
         ctx._sender.assert_sent_text('не найдены')
 
-    def test_ignores_other_text(self, vk_handler_context):
-        """Does not consume for non-matching text."""
-
-        ctx = vk_handler_context(text='random text', state=DialogState.not_defined)
-        handle_active_searches(ctx)
-        assert not ctx.is_consumed
-
     def test_groups_by_folder(self, vk_handler_context):
         """Searches are grouped by forum_folder_id."""
 
@@ -242,13 +230,6 @@ class TestHandleLatestSearches:
         assert ctx.is_consumed
         ctx._sender.assert_sent_text('нет завершенных')
 
-    def test_ignores_other_text(self, vk_handler_context):
-        """Does not consume for non-matching text."""
-
-        ctx = vk_handler_context(text='random text', state=DialogState.not_defined)
-        handle_latest_searches(ctx)
-        assert not ctx.is_consumed
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 4. handle_search_follow_menu
@@ -308,21 +289,14 @@ class TestHandleSearchFollowMenu:
         assert ctx.is_consumed
         ctx._sender.assert_sent_text('выключен')
 
-    def test_ignores_other_text(self, vk_handler_context):
-        """Does not consume for non-matching text."""
-
-        ctx = vk_handler_context(text='random text', state=DialogState.not_defined)
-        handle_search_follow_menu(ctx)
-        assert not ctx.is_consumed
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 5. handle_follow_mode_toggle
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class TestHandleFollowModeToggle:
-    """handle_follow_mode_toggle — toggles follow mode on/off."""
+class TestHandleFollowEnable:
+    """handle_follow_enable — enables follow mode."""
 
     @pytest.fixture(autouse=True)
     def _setup_mocks(self, mock_settings_service):
@@ -333,21 +307,39 @@ class TestHandleFollowModeToggle:
         """'включить режим отслеживания' -> enables follow mode."""
 
         ctx = vk_handler_context(text='включить режим отслеживания', state=DialogState.not_defined)
-        handle_follow_mode_toggle(ctx)
+        handle_follow_enable(ctx)
 
         assert ctx.is_consumed
         self.mock_settings.set_search_follow_mode.assert_called_once_with(12345, True)
         ctx._sender.assert_sent_with_keyboard()
 
+
+class TestHandleFollowDisable:
+    """handle_follow_disable — disables follow mode."""
+
+    @pytest.fixture(autouse=True)
+    def _setup_mocks(self, mock_settings_service):
+        """Store mock_settings_service reference for assertions."""
+        self.mock_settings = mock_settings_service
+
     def test_disables_follow_mode(self, vk_handler_context):
         """'выключить режим отслеживания' -> disables follow mode."""
 
         ctx = vk_handler_context(text='выключить режим отслеживания', state=DialogState.not_defined)
-        handle_follow_mode_toggle(ctx)
+        handle_follow_disable(ctx)
 
         assert ctx.is_consumed
         self.mock_settings.set_search_follow_mode.assert_called_once_with(12345, False)
         ctx._sender.assert_sent_with_keyboard()
+
+
+class TestHandleFollowShow:
+    """handle_follow_show — shows followed searches list."""
+
+    @pytest.fixture(autouse=True)
+    def _setup_mocks(self, mock_settings_service):
+        """Store mock_settings_service reference for assertions."""
+        self.mock_settings = mock_settings_service
 
     def test_shows_followed_searches(self, vk_handler_context):
         """'показать отслеживаемые поиски' -> shows list of followed searches."""
@@ -379,7 +371,7 @@ class TestHandleFollowModeToggle:
         self.mock_settings.connect.return_value = mock_conn
 
         ctx = vk_handler_context(text='показать отслеживаемые поиски', state=DialogState.not_defined)
-        handle_follow_mode_toggle(ctx)
+        handle_follow_show(ctx)
 
         assert ctx.is_consumed
         ctx._sender.assert_sent_text('Отслеживаемые поиски')
@@ -400,17 +392,10 @@ class TestHandleFollowModeToggle:
         self.mock_settings.connect.return_value = mock_conn
 
         ctx = vk_handler_context(text='показать отслеживаемые поиски', state=DialogState.not_defined)
-        handle_follow_mode_toggle(ctx)
+        handle_follow_show(ctx)
 
         assert ctx.is_consumed
         ctx._sender.assert_sent_text('нет отслеживаемых')
-
-    def test_ignores_other_text(self, vk_handler_context):
-        """Does not consume for non-matching text."""
-
-        ctx = vk_handler_context(text='random text', state=DialogState.not_defined)
-        handle_follow_mode_toggle(ctx)
-        assert not ctx.is_consumed
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -564,13 +549,6 @@ class TestHandleMoreSearches:
         assert ctx.is_consumed
         ctx._sender.assert_sent_text('режим просмотра')
         ctx._sender.assert_sent_with_keyboard()
-
-    def test_ignores_other_text(self, vk_handler_context):
-        """Does not consume for non-matching text."""
-
-        ctx = vk_handler_context(text='random text', state=DialogState.not_defined)
-        handle_more_searches(ctx)
-        assert not ctx.is_consumed
 
     def test_returns_search_view_keyboard(self, vk_handler_context):
         """Result has search_view_menu keyboard."""

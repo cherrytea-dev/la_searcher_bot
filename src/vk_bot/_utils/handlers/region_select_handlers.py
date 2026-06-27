@@ -15,6 +15,7 @@ Pagination (inline callback-based):
 import logging
 
 from ..common import VKHandlerContext
+from ..decorators import vk_handle
 from ..keyboards import VKKeyboardButtons, VKKeyboardPresets
 from ..services.message_formatter import (
     region_selection_cant_remove_last,
@@ -71,6 +72,7 @@ def _get_selected_region_names(ctx: VKHandlerContext) -> set[str]:
     return selected
 
 
+@vk_handle(text=_KNOWN_DISTRICTS)
 def handle_fed_district_select(ctx: VKHandlerContext) -> None:
     """Handle federal district selection — show regions in that district.
 
@@ -125,6 +127,11 @@ def handle_region_toggle(ctx: VKHandlerContext) -> None:
     Matches any text that corresponds to a known geo folder name.
     Uses toggle_region_by_name which requires a folder_dict parameter.
     Checks subscription state before toggling to provide correct feedback.
+
+    Note: This handler is NOT registered via @vk_handle because it needs
+    to match dynamically against geo folder names from the database.
+    It is called from the handler chain as a fallback after all registered
+    handlers have been tried.
     """
     text = ctx.message.text.strip()
     if not text:
@@ -255,23 +262,12 @@ def _toggle_region_inline(ctx: VKHandlerContext, region_name: str) -> str:
         return f'Регион "{region_name}" добавлен!'
 
 
-def handle_inline_pagination(ctx: VKHandlerContext) -> None:
-    """Handle inline pagination callbacks for region selection.
+@vk_handle(callback_data='paginate_nav')
+def handle_inline_pagination_nav(ctx: VKHandlerContext) -> None:
+    """Handle inline pagination navigation callback.
 
-    Parses ``ctx.message.payload`` for the command and parameters.
-    Processes four command types:
-    - paginate_nav: Navigate to a different page (edit message in-place)
-    - paginate_toggle: Toggle region subscription (show snackbar)
-    - paginate_back: Return to federal district selection (edit message in-place)
-    - paginate_finish: Finish region selection — remove inline keyboard
-      and send a new message with the settings menu keyboard.
-
-    Uses conversation_message_id for messages.edit (matching VK Callback API
-    best practice — the demo at inline_keyboard_demo.py uses this pattern).
-    Falls back to send_message if no message identifier is available.
-
-    Args:
-        ctx: Handler context with message data and response methods.
+    Parses ``ctx.message.payload`` for the page and district parameters
+    and edits the message in-place to show the requested page.
     """
     payload = ctx.message.payload_as_dict
     if not payload:
@@ -282,93 +278,126 @@ def handle_inline_pagination(ctx: VKHandlerContext) -> None:
     conversation_message_id = ctx.message.conversation_message_id
 
     logging.info(
-        f'handle_inline_pagination: cmd="{cmd}", user_id={ctx.user_id}, '
+        f'handle_inline_pagination_nav: cmd="{cmd}", user_id={ctx.user_id}, '
         f'message_id={message_id}, conversation_message_id={conversation_message_id}, '
         f'payload={payload}'
     )
 
-    if cmd == 'paginate_nav':
-        district = payload.get('district', '')
-        page = payload.get('page', 0)
-        folders = _get_folders_for_district(ctx, district)
-        if not folders:
-            ctx.answer_callback(
-                event_data={'type': 'show_snackbar', 'text': 'В этом округе пока нет доступных регионов.'},
-            )
-            return
-
-        region_buttons = [name for fid, name in folders]
-        selected_regions = _get_selected_region_names(ctx)
-        keyboard = VKKeyboardPresets.paginated_regions_inline(
-            region_buttons, page, district, selected_regions=selected_regions
-        )
-
-        ctx.answer_callback()
-
-        text = f'Выберите регион в округе "{district} ФО":\n\n' 'Нажмите на регион, чтобы подписаться или отписаться.'
-        ctx.edit(
-            text=text,
-            keyboard=keyboard,
-            conversation_message_id=conversation_message_id,
-            message_id=message_id,
-        )
-
-    elif cmd == 'paginate_toggle':
-        region = payload.get('region', '')
-        if not region:
-            return
-
-        snackbar_text = _toggle_region_inline(ctx, region)
+    district = payload.get('district', '')
+    page = payload.get('page', 0)
+    folders = _get_folders_for_district(ctx, district)
+    if not folders:
         ctx.answer_callback(
-            event_data={'type': 'show_snackbar', 'text': snackbar_text},
+            event_data={'type': 'show_snackbar', 'text': 'В этом округе пока нет доступных регионов.'},
         )
+        return
 
-        district = payload.get('district', '')
-        page = payload.get('page', 0)
-        if district:
-            folders = _get_folders_for_district(ctx, district)
-            if folders:
-                region_buttons = [name for fid, name in folders]
-                selected_regions = _get_selected_region_names(ctx)
-                text = (
-                    f'Выберите регион в округе "{district} ФО":\n\n'
-                    'Нажмите на регион, чтобы подписаться или отписаться.'
-                )
-                keyboard = VKKeyboardPresets.paginated_regions_inline(
-                    region_buttons, page, district, selected_regions=selected_regions
-                )
-                ctx.edit(
-                    text=text,
-                    keyboard=keyboard,
-                    conversation_message_id=conversation_message_id,
-                    message_id=message_id,
-                )
+    region_buttons = [name for fid, name in folders]
+    selected_regions = _get_selected_region_names(ctx)
+    keyboard = VKKeyboardPresets.paginated_regions_inline(
+        region_buttons, page, district, selected_regions=selected_regions
+    )
 
-    elif cmd == 'paginate_back':
-        ctx.answer_callback()
-        text = region_selection_intro()
-        ctx.edit(
-            text=text,
-            keyboard=VKKeyboardPresets.fed_districts(),
-            conversation_message_id=conversation_message_id,
-            message_id=message_id,
-        )
+    ctx.answer_callback()
 
-    elif cmd == 'paginate_finish':
-        ctx.answer_callback()
-        empty_keyboard = {'inline': True, 'buttons': []}
-        ctx.edit(
-            text='✅ Выбор региона завершён.',
-            keyboard=empty_keyboard,
-            conversation_message_id=conversation_message_id,
-            message_id=message_id,
-        )
-        ctx.send_message(
-            text=settings_menu_intro(),
-            keyboard=VKKeyboardPresets.settings_menu(),
-        )
+    text = f'Выберите регион в округе "{district} ФО":\n\n' 'Нажмите на регион, чтобы подписаться или отписаться.'
+    ctx.edit(
+        text=text,
+        keyboard=keyboard,
+        conversation_message_id=conversation_message_id,
+        message_id=message_id,
+    )
 
 
+@vk_handle(callback_data='paginate_toggle')
+def handle_inline_pagination_toggle(ctx: VKHandlerContext) -> None:
+    """Handle inline pagination region toggle callback.
+
+    Parses ``ctx.message.payload`` for the region name, toggles subscription,
+    and shows a snackbar with the result.
+    """
+    payload = ctx.message.payload_as_dict
+    if not payload:
+        return
+
+    region = payload.get('region', '')
+    if not region:
+        return
+
+    snackbar_text = _toggle_region_inline(ctx, region)
+    ctx.answer_callback(
+        event_data={'type': 'show_snackbar', 'text': snackbar_text},
+    )
+
+    district = payload.get('district', '')
+    page = payload.get('page', 0)
+    message_id = ctx.message.message_id
+    conversation_message_id = ctx.message.conversation_message_id
+
+    if district:
+        folders = _get_folders_for_district(ctx, district)
+        if folders:
+            region_buttons = [name for fid, name in folders]
+            selected_regions = _get_selected_region_names(ctx)
+            text = (
+                f'Выберите регион в округе "{district} ФО":\n\n' 'Нажмите на регион, чтобы подписаться или отписаться.'
+            )
+            keyboard = VKKeyboardPresets.paginated_regions_inline(
+                region_buttons, page, district, selected_regions=selected_regions
+            )
+            ctx.edit(
+                text=text,
+                keyboard=keyboard,
+                conversation_message_id=conversation_message_id,
+                message_id=message_id,
+            )
+
+
+@vk_handle(callback_data='paginate_back')
+def handle_inline_pagination_back(ctx: VKHandlerContext) -> None:
+    """Handle inline pagination back callback — return to federal district selection."""
+    payload = ctx.message.payload_as_dict
+    if not payload:
+        return
+
+    message_id = ctx.message.message_id
+    conversation_message_id = ctx.message.conversation_message_id
+
+    ctx.answer_callback()
+    text = region_selection_intro()
+    ctx.edit(
+        text=text,
+        keyboard=VKKeyboardPresets.fed_districts(),
+        conversation_message_id=conversation_message_id,
+        message_id=message_id,
+    )
+
+
+@vk_handle(callback_data='paginate_finish')
+def handle_inline_pagination_finish(ctx: VKHandlerContext) -> None:
+    """Handle inline pagination finish callback — end region selection."""
+    payload = ctx.message.payload_as_dict
+    if not payload:
+        return
+
+    message_id = ctx.message.message_id
+    conversation_message_id = ctx.message.conversation_message_id
+
+    ctx.answer_callback()
+    empty_keyboard = {'inline': True, 'buttons': []}
+    ctx.edit(
+        text='✅ Выбор региона завершён.',
+        keyboard=empty_keyboard,
+        conversation_message_id=conversation_message_id,
+        message_id=message_id,
+    )
+    ctx.send_message(
+        text=settings_menu_intro(),
+        keyboard=VKKeyboardPresets.settings_menu(),
+    )
+
+
+@vk_handle(callback_data='district_select')
 def handle_district_select(ctx: VKHandlerContext) -> None:
     """Handle federal district selection via inline callback.
 
@@ -434,11 +463,3 @@ def handle_district_select(ctx: VKHandlerContext) -> None:
         conversation_message_id=conversation_message_id,
         message_id=message_id,
     )
-
-
-router: list = [
-    handle_inline_pagination,
-    handle_district_select,
-    handle_fed_district_select,
-    handle_region_toggle,
-]

@@ -4,7 +4,8 @@ This module contains the core logic for processing:
 - ``handle_new_message`` — new user messages (text commands)
 - ``handle_callback_event`` — inline keyboard callback events
 
-Both functions delegate to the handler chain for actual command handling.
+Both functions use vk_registry.match() to find the right handler
+based on extracted conditions (text, state, callback_data).
 """
 
 import logging
@@ -12,8 +13,46 @@ import logging
 from .account_linking import handle_unregistered_user, register_vk_only_user
 from .common import VKHandlerContext, VKMessage, get_invite_from_message
 from .database import db
-from .handler_chain import HANDLER_CHAIN
+from .decorators import vk_registry
+from .handler_chain import handle_unknown
+from .handlers.region_select_handlers import handle_region_toggle
 from .message_sending import VKMessageSender
+
+
+def _run_registered_handlers(
+    ctx: VKHandlerContext,
+    *,
+    text: str | None = None,
+    state: str | None = None,
+    callback_data: str | None = None,
+) -> bool:
+    """Run handlers from vk_registry that match the given conditions.
+
+    Returns True if a handler consumed the message, False otherwise.
+    """
+    kwargs: dict[str, str] = {}
+    if text is not None:
+        kwargs['text'] = text
+    if state is not None:
+        kwargs['state'] = state
+    if callback_data is not None:
+        kwargs['callback_data'] = callback_data
+
+    for handler in vk_registry.match(**kwargs):
+        try:
+            handler.func(ctx)
+        except Exception:
+            logging.exception(f'Handler {handler.func.__name__} crashed for user {ctx.user_id}')
+            continue
+
+        if ctx.is_consumed:
+            logging.info(
+                f'Handler {handler.func.__name__} matched for '
+                f'text="{text}", state="{state}", callback_data="{callback_data}"'
+            )
+            return True
+
+    return False
 
 
 def handle_new_message(
@@ -27,7 +66,7 @@ def handle_new_message(
     2. If not found, fall back to ``users.vk_id`` column (legacy path)
     3. If still not found, try invite linking first; if that fails,
        register as a VK-only user so they can use the bot immediately
-    4. Once identity is resolved → run handler chain
+    4. Once identity is resolved → run registered handlers via vk_registry.match()
 
     Args:
         vk_message: The incoming VK message.
@@ -85,16 +124,28 @@ def handle_new_message(
         db=db(),
     )
 
-    for handler in HANDLER_CHAIN:
-        try:
-            handler(ctx)
-        except Exception:
-            logging.exception(f'Handler {handler.__name__} crashed for user {user_id}')
-            continue
+    # Normalize text for matching
+    text = vk_message.text.strip().lower()
 
-        if ctx.is_consumed:
-            logging.info(f'handle_new_message: handler {handler.__name__} matched for text="{vk_message.text}"')
-            return
+    # 1. Try registered handlers with text + state matching
+    if _run_registered_handlers(ctx, text=text, state=state):
+        return
+
+    # 2. Try registered handlers with text-only matching
+    if _run_registered_handlers(ctx, text=text):
+        return
+
+    # 3. Try registered handlers with state-only matching
+    if state and _run_registered_handlers(ctx, state=state):
+        return
+
+    # 4. Fallback: dynamic region toggle (matches against geo folder names from DB)
+    handle_region_toggle(ctx)
+    if ctx.is_consumed:
+        return
+
+    # 5. Unknown command
+    handle_unknown(ctx)
 
 
 def handle_callback_event(
@@ -110,9 +161,7 @@ def handle_callback_event(
     When a callback is received:
     1. Resolve user identity
     2. Acknowledge the callback event
-    3. Create a VKHandlerContext and run through the handler chain
-       — pagination/district_select handlers now parse payload from
-       ``ctx.message.payload_as_dict`` themselves.
+    3. Extract callback_data from payload and use vk_registry.match()
 
     Args:
         vk_message: The incoming VK message (with payload for callbacks).
@@ -152,15 +201,15 @@ def handle_callback_event(
         db=db(),
     )
 
-    # Run through the handler chain — pagination/district_select handlers
-    # will match based on ctx.message.payload_as_dict
-    for handler in HANDLER_CHAIN:
-        try:
-            handler(ctx)
-        except Exception:
-            logging.exception(f'Handler {handler.__name__} crashed for user {user_id}')
-            continue
+    # Extract callback_data from payload
+    payload_dict = ctx.message.payload_as_dict
+    if not payload_dict:
+        return
 
-        if ctx.is_consumed:
-            logging.info(f'handle_callback_event: handler {handler.__name__} matched for payload="{payload}"')
-            return
+    callback_data = payload_dict.get('cmd', '')
+
+    # Run registered handlers matching callback_data
+    if _run_registered_handlers(ctx, callback_data=callback_data):
+        return
+
+    logging.info(f'handle_callback_event: no handler matched for cmd="{callback_data}"')

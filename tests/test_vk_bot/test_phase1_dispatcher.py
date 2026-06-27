@@ -4,9 +4,8 @@ These tests cover:
 - DBClient (user resolution, VK ID management)
 - dispatch_event (confirmation, message_new, message_event, other events)
 - handle_unknown fallback handler
-- HANDLER_CHAIN configuration
 - _validate_invite_hash (from account_linking)
-- handle_inline_pagination (from region_select_handlers)
+- Inline pagination handlers (from region_select_handlers)
 """
 
 import hashlib
@@ -29,11 +28,15 @@ from vk_bot._utils.account_linking import _validate_invite_hash
 from vk_bot._utils.common import VKHandlerContext, VKMessage
 from vk_bot._utils.database import DBClient, db
 from vk_bot._utils.event_dispatcher import (
-    HANDLER_CHAIN,
     dispatch_event,
     handle_unknown,
 )
-from vk_bot._utils.handlers.region_select_handlers import handle_inline_pagination
+from vk_bot._utils.handlers.region_select_handlers import (
+    handle_inline_pagination_back,
+    handle_inline_pagination_finish,
+    handle_inline_pagination_nav,
+    handle_inline_pagination_toggle,
+)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # DBClient (with real DB)
@@ -461,21 +464,6 @@ class TestHandleUnknown:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class TestHandlerChain:
-    """HANDLER_CHAIN configuration."""
-
-    def test_handler_chain_has_unknown(self):
-        """Handler chain contains handle_unknown as fallback."""
-
-        assert handle_unknown in HANDLER_CHAIN
-        assert len(HANDLER_CHAIN) >= 1
-
-    def test_handler_chain_last_is_unknown(self):
-        """The last handler in chain is handle_unknown."""
-
-        assert HANDLER_CHAIN[-1] is handle_unknown
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # _validate_invite_hash
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -525,7 +513,7 @@ class TestValidateInviteHash:
 
 
 class TestHandleInlinePagination:
-    """handle_inline_pagination — inline pagination callback handler."""
+    """Inline pagination callback handlers."""
 
     def _make_ctx(
         self,
@@ -567,7 +555,7 @@ class TestHandleInlinePagination:
             event_id='evt_001',
         )
 
-        handle_inline_pagination(ctx)
+        handle_inline_pagination_nav(ctx)
 
         # Should acknowledge the event
         fake_sender.assert_callback_answered(1)
@@ -596,7 +584,7 @@ class TestHandleInlinePagination:
             event_id='evt_001',
         )
 
-        handle_inline_pagination(ctx)
+        handle_inline_pagination_nav(ctx)
 
         # Should show snackbar with error message
         fake_sender.assert_callback_answered(1)
@@ -631,7 +619,7 @@ class TestHandleInlinePagination:
         with patch('vk_bot._utils.handlers.region_select_handlers._toggle_region_inline') as mock_toggle:
             mock_toggle.return_value = '✅ Московская область добавлена'
 
-            handle_inline_pagination(ctx)
+            handle_inline_pagination_toggle(ctx)
 
         # Should show snackbar with toggle result
         fake_sender.assert_callback_answered(1)
@@ -653,7 +641,7 @@ class TestHandleInlinePagination:
             payload={'cmd': 'paginate_toggle', 'region': ''},
         )
 
-        handle_inline_pagination(ctx)
+        handle_inline_pagination_toggle(ctx)
 
         # Should not call anything
         fake_sender.assert_no_calls()
@@ -671,7 +659,7 @@ class TestHandleInlinePagination:
             event_id='evt_003',
         )
 
-        handle_inline_pagination(ctx)
+        handle_inline_pagination_back(ctx)
 
         # Should acknowledge the event
         fake_sender.assert_callback_answered(1)
@@ -699,7 +687,7 @@ class TestHandleInlinePagination:
             event_id='evt_004',
         )
 
-        handle_inline_pagination(ctx)
+        handle_inline_pagination_finish(ctx)
 
         # Should acknowledge the event
         fake_sender.assert_callback_answered(1)
@@ -735,7 +723,7 @@ class TestHandleInlinePagination:
             event_id='evt_005',
         )
 
-        handle_inline_pagination(ctx)
+        handle_inline_pagination_nav(ctx)
 
         # Should edit with message_id fallback
         fake_sender.assert_edited(1)
@@ -760,7 +748,7 @@ class TestHandleInlinePagination:
             event_id='evt_006',
         )
 
-        handle_inline_pagination(ctx)
+        handle_inline_pagination_nav(ctx)
 
         # ctx.edit() always calls sender.edit_message() even when IDs are None
         fake_sender.assert_edited(1)
