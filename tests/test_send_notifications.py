@@ -10,9 +10,10 @@ import sqlalchemy
 from polyfactory.factories import DataclassFactory
 from sqlalchemy.engine import Connection
 
+from _dependencies.bot.messenger_clients import MaxClient
 from _dependencies.bot.telegram_api_wrapper import TGApiBase
 from _dependencies.bot.vk_api_client import VKApi
-from _dependencies.common.commons import sqlalchemy_get_pool
+from _dependencies.common.commons import SendResult, sqlalchemy_get_pool
 from send_notifications import main
 from tests.common import find_model, get_event_with_data
 from tests.factories.db_factories import NotifByUserFactory, UserFactory, get_session
@@ -261,6 +262,95 @@ class TestFillVkUserIds:
         assert msgs[2].vk_id is None
 
 
+# ─── Category 2b: fill_max_user_ids() — new path via user_identity_map ───
+
+
+@pytest.mark.xdist_group(name='send_notifications')
+class TestFillMaxUserIds:
+    """Tests for fill_max_user_ids() — identity_map resolution."""
+
+    def _make_max_notification(self, user_id: int) -> main.MessageToSend:
+        """Create a MAX-destined MessageToSend (not persisted)."""
+        return main.MessageToSend(
+            message_id=randint(1_000_000, 9_999_999),
+            user_id=user_id,
+            created=datetime.datetime.now(),
+            completed=None,
+            cancelled=None,
+            message_content='test',
+            message_type='text',
+            message_params='{}',
+            message_group_id=None,
+            change_log_id=randint(1, 9999),
+            failed=None,
+            vk_id=None,
+            max_id=None,
+            messenger='max',
+        )
+
+    def _make_telegram_notification(self, user_id: int) -> main.MessageToSend:
+        """Create a Telegram-destined MessageToSend (not persisted)."""
+        return main.MessageToSend(
+            message_id=randint(1_000_000, 9_999_999),
+            user_id=user_id,
+            created=datetime.datetime.now(),
+            completed=None,
+            cancelled=None,
+            message_content='test',
+            message_type='text',
+            message_params='{}',
+            message_group_id=None,
+            change_log_id=randint(1, 9999),
+            failed=None,
+            vk_id=None,
+            max_id=None,
+            messenger='telegram',
+        )
+
+    def test_no_max_messages(self, db_client: main.DBClient):
+        """No MAX messages → early return, max_id stays None for all messages."""
+        tg_msg = self._make_telegram_notification(user_id=12345)
+        db_client.fill_max_user_ids([tg_msg])
+        assert tg_msg.max_id is None
+
+    def test_from_identity_map(self, db_client: main.DBClient):
+        """MAX message, user in user_identity_map → max_id filled."""
+        user_id = randint(10_000_000, 99_999_999)
+        max_user_id = str(randint(100_000, 999_999))
+        pool = sqlalchemy_get_pool()
+        with pool.connect() as conn:
+            _ensure_identity_map(conn, user_id, 'max', max_user_id)
+
+        msg = self._make_max_notification(user_id=user_id)
+        db_client.fill_max_user_ids([msg])
+        assert msg.max_id == max_user_id
+
+    def test_not_found(self, db_client: main.DBClient):
+        """MAX message, user not in identity_map → max_id stays None."""
+        user_id = randint(10_000_000, 99_999_999)
+        msg = self._make_max_notification(user_id=user_id)
+        db_client.fill_max_user_ids([msg])
+        assert msg.max_id is None
+
+    def test_multiple_users_mixed(self, db_client: main.DBClient):
+        """Multiple MAX messages: some from identity_map, some not found."""
+        user_a = randint(10_000_000, 99_999_999)
+        user_b = randint(10_000_000, 99_999_999)
+        max_a = str(randint(100_000, 999_999))
+
+        pool = sqlalchemy_get_pool()
+        with pool.connect() as conn:
+            _ensure_identity_map(conn, user_a, 'max', max_a)
+
+        msgs = [
+            self._make_max_notification(user_id=user_a),
+            self._make_max_notification(user_id=user_b),
+        ]
+        db_client.fill_max_user_ids(msgs)
+        assert msgs[0].max_id == max_a
+        assert msgs[1].max_id is None
+
+
 # ─── Category 3: send_single_message() — dispatch by messenger ───
 
 
@@ -281,6 +371,7 @@ class TestSendSingleMessage:
             change_log_id=randint(1, 9999),
             failed=None,
             vk_id=None,
+            max_id=None,
             messenger='telegram',
         )
         defaults.update(kwargs)
@@ -365,6 +456,106 @@ class TestSendSingleMessage:
             res = main.send_single_message(tg_api, vk_api, msg)
         assert res == 'failed'
         tg_mock.assert_not_called()
+
+    # ── MAX messenger ──
+
+    def test_max_text(self):
+        """messenger='max', message_type='text' → calls MaxClient.send_message() with html, returns 'completed'."""
+        msg = self._make_msg(messenger='max', message_type='text', message_content='hello max')
+        tg_api = TGApiBase(token='token')
+        vk_api = VKApi('token')
+        max_client = MagicMock(spec=MaxClient)
+        max_client.send_message.return_value = SendResult(success=True, status='completed')
+        with (
+            patch.object(TGApiBase, 'send_message') as tg_mock,
+            patch.object(VKApi, 'send') as vk_mock,
+            patch('send_notifications.main.get_default_max_client', return_value=max_client),
+        ):
+            res = main.send_single_message(tg_api, vk_api, msg)
+        assert res == 'completed'
+        max_client.send_message.assert_called_once()
+        args, kwargs = max_client.send_message.call_args
+        assert kwargs.get('parse_mode') == 'html'
+        assert 'hello max' in args[1]  # text is the second positional arg
+        tg_mock.assert_not_called()
+        vk_mock.assert_not_called()
+
+    def test_max_text_with_max_id(self):
+        """messenger='max', max_id set → uses max_id as recipient."""
+        msg = self._make_msg(messenger='max', message_type='text', max_id='54321')
+        tg_api = TGApiBase(token='token')
+        vk_api = VKApi('token')
+        max_client = MagicMock(spec=MaxClient)
+        max_client.send_message.return_value = SendResult(success=True, status='completed')
+        with (
+            patch.object(TGApiBase, 'send_message') as tg_mock,
+            patch.object(VKApi, 'send') as vk_mock,
+            patch('send_notifications.main.get_default_max_client', return_value=max_client),
+        ):
+            main.send_single_message(tg_api, vk_api, msg)
+        max_client.send_message.assert_called_once()
+        args, _ = max_client.send_message.call_args
+        # The UserIdentity should have messenger_user_id = '54321'
+        user_identity = args[0]
+        assert user_identity.messenger_user_id == '54321'
+        tg_mock.assert_not_called()
+        vk_mock.assert_not_called()
+
+    def test_max_coords(self):
+        """messenger='max', message_type='coords' → calls MaxClient.send_coordinates() with lat/lng."""
+        msg = self._make_msg(
+            messenger='max',
+            message_type='coords',
+            message_params='{"latitude": 55.75, "longitude": 37.62}',
+        )
+        tg_api = TGApiBase(token='token')
+        vk_api = VKApi('token')
+        max_client = MagicMock(spec=MaxClient)
+        max_client.send_coordinates.return_value = SendResult(success=True, status='completed')
+        with (
+            patch.object(TGApiBase, 'send_location') as tg_mock,
+            patch.object(VKApi, 'send') as vk_mock,
+            patch('send_notifications.main.get_default_max_client', return_value=max_client),
+        ):
+            res = main.send_single_message(tg_api, vk_api, msg)
+        assert res == 'completed'
+        max_client.send_coordinates.assert_called_once()
+        _, kwargs = max_client.send_coordinates.call_args
+        assert kwargs.get('lat') == 55.75
+        assert kwargs.get('lng') == 37.62
+        tg_mock.assert_not_called()
+        vk_mock.assert_not_called()
+
+    def test_max_unknown_type(self):
+        """messenger='max', unknown message_type → ValueError."""
+        msg = self._make_msg(messenger='max', message_type='unknown_type')
+        tg_api = TGApiBase(token='token')
+        vk_api = VKApi('token')
+        max_client = MagicMock(spec=MaxClient)
+        with (
+            patch.object(TGApiBase, 'send_message'),
+            patch.object(VKApi, 'send'),
+            patch('send_notifications.main.get_default_max_client', return_value=max_client),
+        ):
+            with pytest.raises(ValueError, match='unknown message_type for MAX'):
+                main.send_single_message(tg_api, vk_api, msg)
+
+    def test_max_failure(self):
+        """messenger='max', MaxClient.send_message() raises → returns 'failed'."""
+        msg = self._make_msg(messenger='max', message_type='text')
+        tg_api = TGApiBase(token='token')
+        vk_api = VKApi('token')
+        max_client = MagicMock(spec=MaxClient)
+        max_client.send_message.side_effect = Exception('API error')
+        with (
+            patch.object(TGApiBase, 'send_message') as tg_mock,
+            patch.object(VKApi, 'send') as vk_mock,
+            patch('send_notifications.main.get_default_max_client', return_value=max_client),
+        ):
+            res = main.send_single_message(tg_api, vk_api, msg)
+        assert res == 'failed'
+        tg_mock.assert_not_called()
+        vk_mock.assert_not_called()
 
     # ── Telegram messenger (default) ──
 
@@ -572,6 +763,38 @@ class TestIntegration:
         vk_calls = vk_send.call_args_list
         vk_user_calls = [c for c in vk_calls if c[0][0] == vk_uid_str]
         assert len(vk_user_calls) >= 1
+
+    def test_iterate_over_notifications_with_max_messenger(self):
+        """NotifByUser with messenger='max' + user_identity_map → sent via MaxClient."""
+        time_analytics = TimeAnalyticsFactory.build()
+        user_id = randint(10_000_000, 99_999_999)
+        max_user_id = str(randint(100_000, 999_999))
+
+        pool = sqlalchemy_get_pool()
+        with pool.connect() as conn:
+            _ensure_identity_map(conn, user_id, 'max', max_user_id)
+
+        NotSentNotificationFactory.create_sync(
+            user_id=user_id,
+            messenger='max',
+            message_type='text',
+        )
+
+        max_client = MagicMock(spec=MaxClient)
+        max_client.send_message.return_value = SendResult(success=True, status='completed')
+
+        with (
+            patch.object(TGApiBase, '_process_response_of_api_call', MagicMock(return_value='completed')),
+            patch.object(VKApi, 'send', MagicMock(return_value={})),
+            patch('send_notifications.main.get_default_max_client', return_value=max_client),
+        ):
+            main.iterate_over_notifications(1, time_analytics)
+
+        max_client.send_message.assert_called()
+        # Verify at least one call was for our user
+        max_calls = max_client.send_message.call_args_list
+        user_calls = [c for c in max_calls if c[0][0].messenger_user_id == max_user_id]
+        assert len(user_calls) >= 1
 
 
 def test_main_no_message():

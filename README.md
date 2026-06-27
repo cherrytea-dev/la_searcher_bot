@@ -8,7 +8,12 @@ rescue lost people across Russian Federation.
 LizaAlert volunteers work hard on daily basis to **save lives** by arranging and
 speeding up lost-people searches.
 
-This repo covers [LA Searcher Bot](https://t.me/LizaAlert_Searcher_Bot). The bot officially is
+This repo covers LA Searcher Bot in following messengers:
+- [telegram](https://t.me/LizaAlert_Searcher_Bot)
+- [vk](https://vk.com/club237036024)
+- [max](https://max.ru/la_searcher_bot)
+
+The bot officially is
 not a part of LA central IT solutions, however it is developed from the scratch
 & maintained by [one of LA Searchers](https://t.me/MikeMikeT).
 
@@ -44,7 +49,7 @@ notification for every user.
 
 ## Technological stack
 
-* UI: Telegram + Web-app [LA Map](https://github.com/cherrytea-dev/la_map)
+* UI: Telegram + VKontakte + Max + Web-app [LA Map](https://github.com/cherrytea-dev/la_map)
 * Language: Python 3.12+
 * Git: GitHub
 * CI/CD: GitHub Actions
@@ -53,6 +58,8 @@ notification for every user.
 * Message Broker: Yandex Message Queue (YMQ, SQS-compatible)
 * Storage: Yandex Managed Service for PostgreSQL, Yandex Object Storage (S3-compatible)
 * Monitoring: Yandex Cloud Logging
+* VK API: vk-api library
+* Max API: maxapi 1.2.0 (native Python SDK)
 
 ## Repository
 

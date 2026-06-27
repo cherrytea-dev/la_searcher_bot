@@ -16,3 +16,6 @@ src/requirements.txt
 *.log
 plans/
 frontend/
+
+# --- for sources of libs ---
+.vendor

@@ -44,6 +44,7 @@ class AppConfig(BaseSettings):
     vk_api_key: str = ''  # TODO SecretStr
     vk_confirmation_code: str = ''
     vk_group_id: int = 0
+    max_bot_token: str = ''
 
     mysql_host: str = ''
     mysql_db: str = ''
@@ -275,7 +276,7 @@ class Messenger(StrEnum):
 
     TELEGRAM = 'telegram'
     VK = 'vk'
-    # FUTURE: WHATSAPP = 'whatsapp'
+    MAX = 'max'
 
 
 @dataclass(frozen=True)
