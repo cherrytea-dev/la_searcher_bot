@@ -80,11 +80,11 @@ def handle_settings_menu(ctx: VKHandlerContext) -> None:
     if text in (VKKeyboardButtons.BTN_RADIUS_ENABLE.lower(), VKKeyboardButtons.BTN_RADIUS_EDIT.lower()):
         radius = ctx.db.get_radius(ctx.user_id)
         current = f'Текущий радиус: {radius} км. ' if radius else ''
-        ctx.set_state(DialogState.radius_input)
         ctx.reply(
             text=f'{current}Введите новый радиус в километрах (только число).',
             keyboard=VKKeyboardPresets.back_to_start(),
         )
+        ctx.set_state(DialogState.radius_input)
         return
 
     if text == VKKeyboardButtons.BTN_RADIUS_DISABLE.lower():
@@ -159,11 +159,11 @@ def handle_coordinates_action(ctx: VKHandlerContext) -> None:
     text = ctx.message.text.strip().lower()
 
     if text == VKKeyboardButtons.BTN_COORDS_ENTER.lower():
-        ctx.set_state(DialogState.input_of_coords_man)
         ctx.reply(
             text='Введите координаты в формате: широта, долгота (например: 55.7558, 37.6173)',
             keyboard=VKKeyboardPresets.back_to_start(),
         )
+        ctx.set_state(DialogState.input_of_coords_man)
         return
 
     if text == VKKeyboardButtons.BTN_COORDS_VIEW.lower():
@@ -329,11 +329,11 @@ def handle_forum_linking(ctx: VKHandlerContext) -> None:
     if text != VKKeyboardButtons.BTN_FORUM_ENTER_NICK.lower():
         return
 
-    ctx.set_state(DialogState.input_of_forum_username)
     ctx.reply(
         text='Введите ваш логин (ник) на форуме lizaalert.org:',
         keyboard=VKKeyboardPresets.back_to_start(),
     )
+    ctx.set_state(DialogState.input_of_forum_username)
 
 
 def handle_vk_linking(ctx: VKHandlerContext) -> None:

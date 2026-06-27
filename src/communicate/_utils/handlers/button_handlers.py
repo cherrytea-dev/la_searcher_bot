@@ -537,8 +537,8 @@ def handle_radius_menu(ctx: TGHandlerContext) -> None:
                 'Введите расстояние в километрах по прямой в формате простого числа '
                 '(например: 150) и нажмите обычную кнопку отправки сообщения'
             )
-        ctx.set_state(UserInputState.radius_input)
         ctx.reply(text=bot_message, reply_markup=ReplyKeyboardRemove())
+        ctx.set_state(UserInputState.radius_input)
     else:
         list_of_buttons = [
             DistanceSettings.b_pref_radius_act,
@@ -753,8 +753,8 @@ def handle_coordinates_menu_manual_input(ctx: TGHandlerContext) -> None:
         'может быть различным. Широта (первое число) должна быть между 30 '
         'и 80, Долгота (второе число) – между 10 и 190.'
     )
-    ctx.set_state(UserInputState.input_of_coords_man)
     ctx.reply(text=bot_message, reply_markup=ReplyKeyboardRemove())
+    ctx.set_state(UserInputState.input_of_coords_man)
 
 
 @button_handler(buttons=[ItsMe.b_yes_its_me])
@@ -780,8 +780,8 @@ def handle_linking_to_forum_not_me(ctx: TGHandlerContext) -> None:
         '(кириллица/латиница, без пробела в конце) и введите его заново'
     )
     keyboard = [MainSettingsMenu.b_set_forum_nick, b_back_to_start]
-    ctx.set_state(UserInputState.input_of_forum_username)
     ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
+    ctx.set_state(UserInputState.input_of_forum_username)
 
 
 @button_handler(buttons=[MainSettingsMenu.b_set_forum_nick])
@@ -801,8 +801,8 @@ def handle_linking_to_forum_show_menu(ctx: TGHandlerContext) -> None:
         )
         keyboard = [b_back_to_start]
         reply_markup = create_one_column_reply_markup(keyboard)
-        ctx.set_state(UserInputState.input_of_forum_username)
         ctx.reply(text=bot_message, reply_markup=reply_markup)
+        ctx.set_state(UserInputState.input_of_forum_username)
     else:
         saved_forum_username, saved_forum_user_id = list(saved_forum_user)
 
