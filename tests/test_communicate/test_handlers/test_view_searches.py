@@ -1,8 +1,8 @@
 import datetime
 
+import pytest
 import sqlalchemy
 
-# from communicate._utils import compose_messages
 from communicate._utils.database import DBClient
 from communicate._utils.handlers import view_searches_handlers
 from tests.common import fake
@@ -18,14 +18,6 @@ def region_id(session):
         {'region_id': _region_id},
     )
     session.commit()
-
-
-@pytest.fixture(autouse=True)
-def patch_db(db_client: DBClient):
-    with (
-        patch.object(view_searches_handlers, 'db', Mock(return_value=db_client)),
-    ):
-        yield
 
 
 def test__compose_text_message_of_all_searches(db_client: DBClient, user_id: int, region_id: int):
