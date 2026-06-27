@@ -5,6 +5,7 @@ venv:
 	uv sync --all-groups --all-extras --locked
 
 test:
+	make initdb
 	uv run pytest -v -n 4 --dist loadgroup
 
 initdb:
@@ -35,7 +36,7 @@ root-requirements:
 	uv export --all-extras --no-hashes --no-dev > src/requirements.txt
 
 ci-test:
-	docker compose run --build --rm bot make initdb
+	# docker compose run --build --rm bot make initdb
 	docker compose run --rm bot make test
 
 dependencies:

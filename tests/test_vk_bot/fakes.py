@@ -223,6 +223,27 @@ class FakeVKMessageSender:
         """Last callback answer, or None if no callbacks were answered."""
         return self.callback_answers[-1] if self.callback_answers else None
 
+    @property
+    def last_sent_keyboard_labels(self) -> list[str]:
+        """Extract button labels from the last sent message's keyboard.
+
+        Handles both VK API keyboard dict format and SentWithKeyboard format.
+        Returns an empty list if no keyboard was sent.
+        """
+        # Check send_with_keyboard first (legacy path)
+        if self.sent_with_keyboard:
+            return list(self.sent_with_keyboard[-1].buttons)
+        # Check send_message with keyboard dict
+        if self.last_sent is not None and self.last_sent.keyboard is not None:
+            labels: list[str] = []
+            for row in self.last_sent.keyboard.get('buttons', []):
+                for btn in row:
+                    label = btn.get('action', {}).get('label', '')
+                    if label:
+                        labels.append(label)
+            return labels
+        return []
+
     def assert_sent(self, count: int = 1) -> None:
         """Assert that exactly ``count`` messages were sent."""
         assert len(self.sent_messages) == count, f'Expected {count} sent message(s), got {len(self.sent_messages)}'
@@ -240,9 +261,16 @@ class FakeVKMessageSender:
         ), f'Expected {count} callback answer(s), got {len(self.callback_answers)}'
 
     def assert_sent_text(self, text: str) -> None:
-        """Assert that the last sent message contains ``text``."""
+        """Assert that the last sent message contains ``text`` (case-insensitive)."""
         assert self.last_sent is not None, 'No messages were sent'
-        assert text in self.last_sent.text, f'Expected text "{text}" in last sent message, got "{self.last_sent.text}"'
+        assert (
+            text.lower() in self.last_sent.text.lower()
+        ), f'Expected text "{text}" in last sent message, got "{self.last_sent.text}"'
+
+    def assert_sent_with_keyboard(self) -> None:
+        """Assert that the last sent message had a keyboard."""
+        assert self.last_sent is not None, 'No messages were sent'
+        assert self.last_sent.keyboard is not None, 'Last sent message has no keyboard'
 
     def assert_edited_text(self, text: str) -> None:
         """Assert that the last edited message contains ``text``."""

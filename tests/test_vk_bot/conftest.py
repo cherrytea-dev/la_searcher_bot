@@ -7,7 +7,8 @@ from fakes import FakeVKMessageSender
 
 from _dependencies.bot.vk_api_client import VKApi
 from _dependencies.common.commons import AppConfig
-from src.vk_bot._utils.common import VKHandlerResult, VKMessage
+from _dependencies.models import DialogState
+from src.vk_bot._utils.common import VKHandlerContext, VKMessage
 from tests.factories import db_factories, db_models
 
 
@@ -108,29 +109,44 @@ def mock_settings_service(monkeypatch):
         pref_forum=False,
     )
 
-    # Patch in the source module
+    # Patch in the source module (handlers use ctx.db, not direct import)
     monkeypatch.setattr(
         'src.vk_bot._utils.database.db',
         lambda: mock_db,
     )
-    # Also patch in all handler modules that import db at module level
-    handler_modules = [
-        'src.vk_bot._utils.handlers.onboarding_handlers',
-        'src.vk_bot._utils.handlers.region_select_handlers',
-        'src.vk_bot._utils.handlers.settings_handlers',
-        'src.vk_bot._utils.handlers.state_handlers',
-        'src.vk_bot._utils.handlers.view_searches_handlers',
-    ]
-    for mod_name in handler_modules:
-        monkeypatch.setattr(f'{mod_name}.db', lambda: mock_db)
     return mock_db
 
 
 @pytest.fixture
-def vk_handler_result():
-    """Helper to check VKHandlerResult fields."""
+def vk_handler_context(vk_message, mock_settings_service):
+    """Create a VKHandlerContext with FakeVKMessageSender for testing.
 
-    return VKHandlerResult
+    Usage::
+
+        ctx = vk_handler_context(text='/start', state=DialogState.not_defined)
+        handle_command_start(ctx)
+        assert ctx._sender.last_sent is not None
+        assert 'привет' in ctx._sender.last_sent.text
+    """
+
+    def _create(
+        text: str = '/start',
+        user_id: int = 12345,
+        state: DialogState | None = None,
+        payload: str | None = None,
+        event_id: str | None = None,
+    ) -> VKHandlerContext:
+        msg = vk_message(text=text, user_id=user_id, payload=payload, event_id=event_id)
+        sender = FakeVKMessageSender()
+        return VKHandlerContext(
+            message=msg,
+            user_id=user_id,
+            state=state,
+            sender=sender,  # type: ignore[arg-type]
+            db=mock_settings_service,
+        )
+
+    return _create
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -186,28 +202,18 @@ def mock_vk_sender():
 
 @pytest.fixture
 def mock_dispatcher_db():
-    """Patch db() in all modules that import it directly.
+    """Patch db() in modules that still import it directly.
 
     Provides a pre-configured mock with resolve_user_id returning 42.
     Tests can override by accessing mock_db().xxx.return_value = ...
 
-    Since account_linking, region_select_handlers, message_processing,
-    and result_processing all do ``from .database import db``
-    (creating local references), we must patch each module's namespace
-    individually.
-
-    All patches use the SAME MagicMock instance so that tests
-    can check ``mock_dispatcher_db().xxx`` regardless of which module's
-    ``db`` was actually called.
+    Only patches modules that still do ``from .database import db``
+    (creating local references). account_linking and region_select_handlers
+    no longer import db directly — they use ctx.db instead.
     """
     db_mock = MagicMock()
     db_mock().resolve_user_id.return_value = 42
-    with (
-        patch('vk_bot._utils.account_linking.db', db_mock),
-        patch('vk_bot._utils.handlers.region_select_handlers.db', db_mock),
-        patch('vk_bot._utils.message_processing.db', db_mock),
-        patch('vk_bot._utils.result_processing.db', db_mock),
-    ):
+    with patch('vk_bot._utils.message_processing.db', db_mock):
         yield db_mock
 
 
@@ -243,30 +249,25 @@ def dispatcher_mocks():
     """Patch all dependencies for inline pagination tests.
 
     Provides a dict with pre-configured mocks:
-    - db: mock_db (resolve_user_id returns 42)
-    - sender: FakeVKMessageSender instance (inject via ``sender=fake_sender``)
+    - sender: FakeVKMessageSender instance
     - folders: _get_folders_for_district
     - selected: _get_selected_region_names
     - keyboard: VKKeyboardPresets (paginated_regions_inline, fed_districts, settings_menu)
 
-    Tests should inject the sender via DI::
-
-        handle_inline_pagination(msg, payload, sender=fake_sender)
+    Tests create a VKHandlerContext with the fake_sender and pass it to
+    handle_inline_pagination(ctx).
     """
     fake_sender = FakeVKMessageSender()
     with (
-        patch('vk_bot._utils.handlers.region_select_handlers.db') as mock_db,
         patch('vk_bot._utils.handlers.region_select_handlers._get_folders_for_district') as mock_get_folders,
         patch('vk_bot._utils.handlers.region_select_handlers._get_selected_region_names') as mock_get_selected,
         patch('vk_bot._utils.handlers.region_select_handlers.VKKeyboardPresets') as mock_keyboard,
     ):
-        mock_db().resolve_user_id.return_value = 42
         mock_keyboard.paginated_regions_inline.return_value = {'inline': True, 'buttons': []}
         mock_keyboard.fed_districts.return_value = {'inline': True, 'buttons': []}
         mock_keyboard.settings_menu.return_value = {'buttons': []}
 
         yield {
-            'db': mock_db,
             'sender': fake_sender,
             'folders': mock_get_folders,
             'selected': mock_get_selected,

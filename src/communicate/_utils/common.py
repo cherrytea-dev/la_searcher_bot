@@ -7,10 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from telegram import (
     CallbackQuery,
     InlineKeyboardButton,
-    InlineKeyboardMarkup,
     KeyboardButton,
     ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
 )
 
 from _dependencies.common.commons import SearchFollowingMode
@@ -197,9 +195,3 @@ def define_dist_and_dir_to_search(
 def create_one_column_reply_markup(buttons: Sequence[str | KeyboardButton]) -> ReplyKeyboardMarkup:
     """Creates keyboard with buttons in one column"""
     return ReplyKeyboardMarkup([[x] for x in buttons], resize_keyboard=True)
-
-
-HandlerResult = tuple[str, ReplyKeyboardMarkup | InlineKeyboardMarkup | ReplyKeyboardRemove | None]
-HandlerResultWithState = tuple[
-    str, ReplyKeyboardMarkup | InlineKeyboardMarkup | ReplyKeyboardRemove | None, UserInputState
-]

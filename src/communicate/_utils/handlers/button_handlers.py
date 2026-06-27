@@ -42,17 +42,12 @@ from ..buttons import (
 )
 from ..common import (
     LA_BOT_CHAT_URL,
-    HandlerResult,
-    HandlerResultWithState,
-    UpdateBasicParams,
-    UpdateExtraParams,
     UserInputState,
     create_one_column_reply_markup,
     generate_yandex_maps_place_link,
 )
-from ..database import db
-from ..decorators import button_handler
-from ..message_sending import tg_api
+from ..decorators import tg_handle
+from ..handler_context import TGHandlerContext
 
 WELCOME_MESSAGE_AFTER_ONBOARDING = (
     '🎉 Отлично, вы завершили базовую настройку Бота.\n\n'
@@ -77,27 +72,28 @@ WELCOME_MESSAGE_AFTER_ONBOARDING = (
 )
 
 
-@button_handler(buttons=['go'])
-def handle_test_admin_check(update_params: UpdateBasicParams) -> HandlerResult:
+@tg_handle(text='go')
+def handle_test_admin_check(ctx: TGHandlerContext) -> None:
     # DEBUG: for debugging purposes only
     notify_admin('test_admin_check')
-    return '', reply_markup_main
+    ctx.reply(text='', reply_markup=reply_markup_main)
 
 
-@button_handler(buttons=[b_back_to_start])
-def handle_back_to_main_menu(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
-    return 'возвращаемся в главное меню', reply_markup_main
+@tg_handle(text=b_back_to_start)
+def handle_back_to_main_menu(ctx: TGHandlerContext) -> None:
+    ctx.reply(text='возвращаемся в главное меню', reply_markup=reply_markup_main)
 
 
-@button_handler(buttons=[c_start])
-def handle_command_start(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
-    if not extra_params.user_is_new:
+@tg_handle(text=c_start)
+def handle_command_start(ctx: TGHandlerContext) -> None:
+    if not ctx.extra_params.user_is_new:
         bot_message = 'Привет! Бот управляется кнопками, которые заменяют обычную клавиатуру.'
-        return bot_message, reply_markup_main
+        ctx.reply(text=bot_message, reply_markup=reply_markup_main)
+        return
 
     # FIXME – 02.12.2023 – hiding menu button for the newcomers
     #  (in the future it should be done in manage_user script)
-    tg_api().set_my_commands(update_params.user_id, [], 'if user_is_new')
+    ctx.tg_api.set_my_commands(ctx.user_id, [], 'if user_is_new')
     # FIXME ^^^
 
     bot_message = (
@@ -111,12 +107,11 @@ def handle_command_start(update_params: UpdateBasicParams, extra_params: UpdateE
         'укажите вашу роль сейчас?'
     )
     reply_markup = create_one_column_reply_markup(RoleChoice.list())
+    ctx.reply(text=bot_message, reply_markup=reply_markup)
 
-    return bot_message, reply_markup
 
-
-@button_handler(buttons=[MainMenu.b_other, Commands.c_other])
-def handle_command_other(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
+@tg_handle(text=[MainMenu.b_other, Commands.c_other])
+def handle_command_other(ctx: TGHandlerContext) -> None:
     bot_message = (
         'Здесь можно посмотреть статистику по 20 последним поискам, перейти в '
         'канал Коммъюнити или Прочитать важную информацию для Новичка и посмотреть '
@@ -129,11 +124,11 @@ def handle_command_other(update_params: UpdateBasicParams, extra_params: UpdateE
         OtherOptionsMenu.b_goto_photos,
         b_back_to_start,
     ]
-    return bot_message, create_one_column_reply_markup(keyboard_other)
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard_other))
 
 
-@button_handler(
-    buttons=[
+@tg_handle(
+    text=[
         b_admin_menu,
         b_test_menu,
         'notest',
@@ -143,23 +138,22 @@ def handle_command_other(update_params: UpdateBasicParams, extra_params: UpdateE
         'test msg 2',
     ]
 )
-def handle_admin_experimental_settings(
-    update_params: UpdateBasicParams, extra_params: UpdateExtraParams
-) -> HandlerResult:
+def handle_admin_experimental_settings(ctx: TGHandlerContext) -> None:
     # TODO split to separate handlers
     # FIXME - WIP
-    got_message = update_params.got_message
-    user_id = update_params.user_id
+    got_message = ctx.update_params.got_message
+    user_id = ctx.user_id
 
     # Admin mode
     if got_message.lower() == b_admin_menu:
         bot_message = 'Вы вошли в специальный тестовый админ-раздел'
         keyboard_coordinates_admin = [b_back_to_start, b_back_to_start]
         reply_markup = create_one_column_reply_markup(keyboard_coordinates_admin)
-        return bot_message, reply_markup
+        ctx.reply(text=bot_message, reply_markup=reply_markup)
+        return
 
     if got_message.lower() == b_test_menu:
-        db().add_user_sys_role(user_id, 'tester')
+        ctx.db.add_user_sys_role(user_id, 'tester')
         bot_message = (
             'Вы в секретном тестовом разделе, где всё может работать не так :) '
             'Если что – пишите, пожалуйста, в телеграм-чат '
@@ -173,19 +167,22 @@ def handle_admin_experimental_settings(
         )
 
         keyboard = [[map_button]]
-        return bot_message, InlineKeyboardMarkup(keyboard)
+        ctx.reply(text=bot_message, reply_markup=InlineKeyboardMarkup(keyboard))
+        return
 
     if got_message.lower() == 'notest':
-        db().delete_user_sys_role(user_id, 'tester')
-        db().delete_search_whiteness(user_id)
-        db().delete_search_follow_mode(user_id)
+        ctx.db.delete_user_sys_role(user_id, 'tester')
+        ctx.db.delete_search_whiteness(user_id)
+        ctx.db.delete_search_follow_mode(user_id)
         bot_message = 'Роль tester удалена. Приходите еще! :-) Возвращаемся в главное меню.'
-        return bot_message, reply_markup_main
+        ctx.reply(text=bot_message, reply_markup=reply_markup_main)
+        return
 
     if got_message == 'test msg 1':
         bot_message = """Ответственные:\n &#8226; Инфорг: Арина (Арина) 89001234567 \n\n"""
         bot_message = add_tel_link(bot_message)
-        return bot_message, reply_markup_main
+        ctx.reply(text=bot_message, reply_markup=reply_markup_main)
+        return
 
     if got_message == 'test msg 2':
         bot_message = """🔀Изменения в первом посте по <a href="https://lizaalert.org/forum/viewtopic.php?t=94862">Иванов 33 года</a> (Москва и МО – Активные поиски):
@@ -196,35 +193,38 @@ def handle_admin_experimental_settings(
 Инфорг: Герда (Арина) 89001234567 Написать Герда (Арина) в Telegram
 </s>
 ➕Добавлено:
-С 7 мая 2025 года нет данных о его местонахождении. 
+С 7 мая 2025 года нет данных о его местонахождении.
 рост 170 см,  худощавого телосложения, волосы седые, глаза карие.
 Одежда: темно-синяя с лампасами на рукавах или темно-серая кофта, темно-синяя футболка, темно-синие брюки, темно-синие шлепанцы.
 Внимание, выезд!
 Штаб начинает работу 7 мая 2025 года в  23:00
 Координаты штаба: <code>55.153047, 37.461095</code>
 Адрес штаба: Московская обл, г Чехов, ул Московская, д 86
-Форма одежды: город.  
+Форма одежды: город.
 Маркиза
 Дуглас
 Герда (Арина) 89001234567 """
         bot_message = add_tel_link(bot_message)
-        return bot_message, reply_markup_main
+        ctx.reply(text=bot_message, reply_markup=reply_markup_main)
+        return
 
     if got_message.lower() == b_test_search_follow_mode_on:  # issue425
-        db().set_search_follow_mode(user_id, True)
+        ctx.db.set_search_follow_mode(user_id, True)
         bot_message = 'Возможность отслеживания поисков включена. Возвращаемся в главное меню.'
-        return bot_message, reply_markup_main
+        ctx.reply(text=bot_message, reply_markup=reply_markup_main)
+        return
 
     if got_message.lower() == b_test_search_follow_mode_off:  ##remains for some time for emrgency case
-        db().set_search_follow_mode(user_id, False)
+        ctx.db.set_search_follow_mode(user_id, False)
         bot_message = 'Возможность отслеживания поисков вЫключена. Возвращаемся в главное меню.'
-        return bot_message, reply_markup_main
+        ctx.reply(text=bot_message, reply_markup=reply_markup_main)
+        return
 
-    return 'Неизвестная команда', reply_markup_main
+    ctx.reply(text='Неизвестная команда', reply_markup=reply_markup_main)
 
 
-@button_handler(buttons=[MainMenu.b_map, Commands.c_map])
-def handle_show_map(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
+@tg_handle(text=[MainMenu.b_map, Commands.c_map])
+def handle_show_map(ctx: TGHandlerContext) -> None:
     bot_message = (
         'В Боте Поисковика теперь можно посмотреть 🗺️Карту Поисков📍.\n\n'
         'На карте вы сможете увидеть все активные поиски, '
@@ -246,7 +246,7 @@ def handle_show_map(update_params: UpdateBasicParams, extra_params: UpdateExtraP
 
     keyboard = [[map_button]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    return bot_message, reply_markup
+    ctx.reply(text=bot_message, reply_markup=reply_markup)
 
 
 def _get_default_age_period_list() -> list[AgePeriod]:
@@ -260,7 +260,7 @@ def _get_default_age_period_list() -> list[AgePeriod]:
     ]
 
 
-def _manage_age(user_id: int, got_message: str | None) -> tuple[list[list[str]], bool]:
+def _manage_age(ctx: TGHandlerContext, user_id: int, got_message: str | None) -> tuple[list[list[str]], bool]:
     """Save user Age preference and generate the list of updated Are preferences"""
 
     if got_message:
@@ -270,19 +270,19 @@ def _manage_age(user_id: int, got_message: str | None) -> tuple[list[list[str]],
         for line in _get_default_age_period_list():
             if user_new_setting == line.description:
                 if user_want_activate:
-                    db().save_user_age_prefs(user_id, line)
+                    ctx.db.save_user_age_prefs(user_id, line)
                 else:
-                    db().delete_user_age_pref(user_id, line)
+                    ctx.db.delete_user_age_pref(user_id, line)
                 break
 
-    return _get_user_age_prefs_params(user_id)
+    return _get_user_age_prefs_params(ctx, user_id)
 
 
-def _get_user_age_prefs_params(user_id: int) -> tuple[list[list[str]], bool]:
+def _get_user_age_prefs_params(ctx: TGHandlerContext, user_id: int) -> tuple[list[list[str]], bool]:
     # Block for Generating a list of Buttons
     age_list = _get_default_age_period_list()
 
-    raw_list_of_periods = db().get_age_prefs(user_id)
+    raw_list_of_periods = ctx.db.get_age_prefs(user_id)
     first_visit = False
 
     if raw_list_of_periods and str(raw_list_of_periods) != 'None':
@@ -295,7 +295,7 @@ def _get_user_age_prefs_params(user_id: int) -> tuple[list[list[str]], bool]:
         first_visit = True
         for line in age_list:
             line.active = True
-            db().save_user_age_prefs(user_id, line)
+            ctx.db.save_user_age_prefs(user_id, line)
 
     list_of_buttons = []
 
@@ -314,11 +314,11 @@ def _get_age_buttons() -> list[str]:
     return age_buttons
 
 
-@button_handler(buttons=[MainSettingsMenu.b_set_pref_age, *_get_age_buttons()])
-def handle_age_settings(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
-    got_message = update_params.got_message
+@tg_handle(text=[MainSettingsMenu.b_set_pref_age, *_get_age_buttons()])
+def handle_age_settings(ctx: TGHandlerContext) -> None:
+    got_message = ctx.update_params.got_message
     input_data = None if got_message == MainSettingsMenu.b_set_pref_age else got_message
-    keyboard, first_visit = _manage_age(update_params.user_id, input_data)
+    keyboard, first_visit = _manage_age(ctx, ctx.user_id, input_data)
     keyboard.append([b_back_to_start])
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
@@ -339,12 +339,12 @@ def handle_age_settings(update_params: UpdateBasicParams, extra_params: UpdateEx
             )
     else:
         bot_message = 'Спасибо, записали.'
-    return bot_message, reply_markup
+    ctx.reply(text=bot_message, reply_markup=reply_markup)
 
 
-@button_handler(buttons=HelpNeeded.list())
-def handle_help_needed(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
-    if update_params.got_message == HelpNeeded.b_help_no:
+@tg_handle(text=HelpNeeded.list())
+def handle_help_needed(ctx: TGHandlerContext) -> None:
+    if ctx.update_params.got_message == HelpNeeded.b_help_no:
         bot_message = (
             'Спасибо, понятно. Мы записали. Тогда бот более не будет вас беспокоить, '
             'пока вы сами не напишите в бот.\n\n'
@@ -361,9 +361,10 @@ def handle_help_needed(update_params: UpdateBasicParams, extra_params: UpdateExt
             'Обнимаем:)'
         )
         keyboard = [b_back_to_start]
-        return bot_message, create_one_column_reply_markup(keyboard)
+        ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
+        return
 
-    if update_params.got_message == HelpNeeded.b_help_yes:
+    if ctx.update_params.got_message == HelpNeeded.b_help_yes:
         bot_message = (
             'Супер! Тогда давайте посмотрим, что у вас не настроено.\n\n'
             'У вас не настроен Регион поисков – без него Бот не может определить, '
@@ -374,19 +375,20 @@ def handle_help_needed(update_params: UpdateBasicParams, extra_params: UpdateExt
             'Федеральный Округ, где находится ваш регион, а потом кликнуть на сам регион. '
             '\n\n'
         )
-        return bot_message, reply_markup_main
+        ctx.reply(text=bot_message, reply_markup=reply_markup_main)
+        return
 
-    return '', reply_markup_main
+    ctx.reply(text='', reply_markup=reply_markup_main)
 
 
-def _compose_msg_on_user_setting_fullness(user_id: int) -> str | None:
+def _compose_msg_on_user_setting_fullness(ctx: TGHandlerContext, user_id: int) -> str | None:
     """Create a text of message, which describes the degree on how complete user's profile is.
     More settings set – more complete profile it. It's done to motivate users to set the most tailored settings."""
 
     if not user_id:
         return None
 
-    settings_summary = db().get_user_settings_summary(user_id)
+    settings_summary = ctx.db.get_user_settings_summary(user_id)
 
     if not settings_summary:
         return None
@@ -431,8 +433,8 @@ def _compose_msg_on_user_setting_fullness(user_id: int) -> str | None:
     return '\n'.join(message_parts)
 
 
-@button_handler(buttons=[MainMenu.b_settings, Commands.c_settings])
-def handle_main_settings(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
+@tg_handle(text=[MainMenu.b_settings, Commands.c_settings])
+def handle_main_settings(ctx: TGHandlerContext) -> None:
     bot_message = (
         'Это раздел с настройками. Здесь вы можете выбрать удобные для вас '
         'уведомления, а также ввести свои "домашние координаты", на основе которых '
@@ -440,7 +442,7 @@ def handle_main_settings(update_params: UpdateBasicParams, extra_params: UpdateE
         'момент сможете изменить эти настройки.'
     )
 
-    message_prefix = _compose_msg_on_user_setting_fullness(update_params.user_id)
+    message_prefix = _compose_msg_on_user_setting_fullness(ctx, ctx.user_id)
     if message_prefix:
         bot_message = f'{bot_message}\n\n{message_prefix}'
 
@@ -455,11 +457,11 @@ def handle_main_settings(update_params: UpdateBasicParams, extra_params: UpdateE
         MainSettingsMenu.b_set_vkontakte_nick,
         b_back_to_start,
     ]  # #AK added b_set_forum_nick for issue #6
-    return bot_message, create_one_column_reply_markup(keyboard)
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
 
 
-@button_handler(buttons=[MainSettingsMenu.b_set_topic_type])
-def handle_topic_type_show_menu(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
+@tg_handle(text=MainSettingsMenu.b_set_topic_type)
+def handle_topic_type_show_menu(ctx: TGHandlerContext) -> None:
     """Save user Topic Type preference and generate the actual topic type preference message"""
 
     # when user just enters the MENU for topic types
@@ -468,19 +470,19 @@ def handle_topic_type_show_menu(update_params: UpdateBasicParams, extra_params: 
         'мероприятий бот должен присылать уведомления.'
     )
 
-    list_of_current_setting_ids = db().check_saved_topic_types(update_params.user_id)
+    list_of_current_setting_ids = ctx.db.check_saved_topic_types(ctx.user_id)
 
     keyboard = TopicTypeInlineKeyboardBuilder.get_keyboard(list_of_current_setting_ids, [])
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    return bot_message, reply_markup
+    ctx.reply(text=bot_message, reply_markup=reply_markup)
 
 
-@button_handler(buttons=[MainSettingsMenu.b_set_pref_radius])
-def handle_radius_menu_show(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
+@tg_handle(text=MainSettingsMenu.b_set_pref_radius)
+def handle_radius_menu_show(ctx: TGHandlerContext) -> None:
     """Show menu for radius setting"""
 
-    saved_radius = db().check_saved_radius(update_params.user_id)
+    saved_radius = ctx.db.check_saved_radius(ctx.user_id)
     if saved_radius:
         list_of_buttons = [
             DistanceSettings.b_pref_radius_change,
@@ -515,17 +517,15 @@ def handle_radius_menu_show(update_params: UpdateBasicParams, extra_params: Upda
             'населенного пункта (или топонима), указанного в теме поиска. '
             'Расстояние считается по прямой.'
         )
-    return bot_message, create_one_column_reply_markup(list_of_buttons)
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(list_of_buttons))
 
 
-@button_handler(buttons=[*DistanceSettings.list()])
-def handle_radius_menu(
-    update_params: UpdateBasicParams, extra_params: UpdateExtraParams
-) -> tuple[str, ReplyKeyboardMarkup | ReplyKeyboardRemove, UserInputState | None]:
+@tg_handle(text=[*DistanceSettings.list()])
+def handle_radius_menu(ctx: TGHandlerContext) -> None:
     """Save user Radius preference and generate the actual radius preference"""
 
-    if update_params.got_message in {DistanceSettings.b_pref_radius_act, DistanceSettings.b_pref_radius_change}:
-        saved_radius = db().check_saved_radius(update_params.user_id)
+    if ctx.update_params.got_message in {DistanceSettings.b_pref_radius_act, DistanceSettings.b_pref_radius_change}:
+        saved_radius = ctx.db.check_saved_radius(ctx.user_id)
         if saved_radius:
             bot_message = (
                 f'У вас установлено максимальное расстояние до поиска {saved_radius}.'
@@ -537,26 +537,26 @@ def handle_radius_menu(
                 'Введите расстояние в километрах по прямой в формате простого числа '
                 '(например: 150) и нажмите обычную кнопку отправки сообщения'
             )
-        return bot_message, ReplyKeyboardRemove(), UserInputState.radius_input
-
+        ctx.reply(text=bot_message, reply_markup=ReplyKeyboardRemove())
+        ctx.set_state(UserInputState.radius_input)
     else:
         list_of_buttons = [
             DistanceSettings.b_pref_radius_act,
             MainSettingsMenu.b_set_pref_radius,
             b_back_to_start,
         ]
-        db().delete_user_saved_radius(update_params.user_id)
+        ctx.db.delete_user_saved_radius(ctx.user_id)
         bot_message = 'Ограничение на расстояние по поискам снято!'
-        return bot_message, create_one_column_reply_markup(list_of_buttons), None
+        ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(list_of_buttons))
 
 
-@button_handler(buttons=[*RoleChoice.list(), OrdersState.b_orders_done, OrdersState.b_orders_tbd])
-def handle_user_role(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
-    got_message = update_params.got_message
-    user_id = update_params.user_id
+@tg_handle(text=[*RoleChoice.list(), OrdersState.b_orders_done, OrdersState.b_orders_tbd])
+def handle_user_role(ctx: TGHandlerContext) -> None:
+    got_message = ctx.update_params.got_message
+    user_id = ctx.user_id
 
     if got_message in RoleChoice.list():
-        db().save_user_pref_role(user_id, got_message)
+        ctx.db.save_user_pref_role(user_id, got_message)
         save_onboarding_step(user_id, 'role_set')
 
     if got_message == RoleChoice.b_role_looking_for_person:
@@ -593,7 +593,8 @@ def handle_user_role(update_params: UpdateBasicParams, extra_params: UpdateExtra
         )
 
         keyboard_orders = [OrdersState.b_orders_done, OrdersState.b_orders_tbd]
-        return bot_message, create_one_column_reply_markup(keyboard_orders)
+        ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard_orders))
+        return
 
     if got_message == RoleChoice.b_role_want_to_be_la:
         # get user role = potential LA volunteer
@@ -617,16 +618,17 @@ def handle_user_role(update_params: UpdateBasicParams, extra_params: UpdateExtra
             'ваш основной регион – это Москва и Московская Область?'
         )
         keyboard_coordinates_admin = [IsMoscow.b_reg_moscow, IsMoscow.b_reg_not_moscow]
-        return bot_message, create_one_column_reply_markup(keyboard_coordinates_admin)
+        ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard_coordinates_admin))
+        return
 
     # all other cases
     bot_message = 'Спасибо. Теперь уточните, пожалуйста, ваш основной регион – это ' 'Москва и Московская Область?'
     keyboard_coordinates_admin = [IsMoscow.b_reg_moscow, IsMoscow.b_reg_not_moscow]
-    return bot_message, create_one_column_reply_markup(keyboard_coordinates_admin)
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard_coordinates_admin))
 
 
-@button_handler(buttons=[OtherOptionsMenu.b_goto_photos])
-def handle_goto_photos(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
+@tg_handle(text=OtherOptionsMenu.b_goto_photos)
+def handle_goto_photos(ctx: TGHandlerContext) -> None:
     bot_message = (
         'Если вам хочется окунуться в атмосферу ПСР, приглашаем в замечательный '
         '<a href="https://t.me/+6LYNNEy8BeI1NGUy">телеграм-канал с красивыми фото с '
@@ -638,11 +640,11 @@ def handle_goto_photos(update_params: UpdateBasicParams, extra_params: UpdateExt
         OtherOptionsMenu.b_goto_first_search,
         b_back_to_start,
     ]
-    return bot_message, create_one_column_reply_markup(keyboard)
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
 
 
-@button_handler(buttons=[OtherOptionsMenu.b_goto_first_search])
-def handle_goto_first_search(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
+@tg_handle(text=OtherOptionsMenu.b_goto_first_search)
+def handle_goto_first_search(ctx: TGHandlerContext) -> None:
     bot_message = (
         'Если вы хотите стать добровольцем ДПСО «ЛизаАлерт», пожалуйста, '
         '<a href="https://lizaalert.org/forum/viewtopic.php?t=56934">'
@@ -661,11 +663,11 @@ def handle_goto_first_search(update_params: UpdateBasicParams, extra_params: Upd
         OtherOptionsMenu.b_goto_photos,
         b_back_to_start,
     ]
-    return bot_message, create_one_column_reply_markup(keyboard)
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
 
 
-@button_handler(buttons=[OtherOptionsMenu.b_goto_community])
-def handle_goto_community(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
+@tg_handle(text=OtherOptionsMenu.b_goto_community)
+def handle_goto_community(ctx: TGHandlerContext) -> None:
     bot_message = (
         'Бот можно обсудить с соотрядниками в '
         f'<a href="{LA_BOT_CHAT_URL}">Специальном Чате '
@@ -678,11 +680,11 @@ def handle_goto_community(update_params: UpdateBasicParams, extra_params: Update
         OtherOptionsMenu.b_goto_photos,
         b_back_to_start,
     ]
-    return bot_message, create_one_column_reply_markup(keyboard)
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
 
 
-@button_handler(buttons=[MainSettingsMenu.b_set_pref_coords])
-def handle_coordinates_show_menu(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
+@tg_handle(text=MainSettingsMenu.b_set_pref_coords)
+def handle_coordinates_show_menu(ctx: TGHandlerContext) -> None:
     bot_message = (
         'АВТОМАТИЧЕСКОЕ ОПРЕДЕЛЕНИЕ координат работает только для носимых устройств'
         ' (для настольных компьютеров – НЕ работает: используйте, пожалуйста, '
@@ -700,12 +702,12 @@ def handle_coordinates_show_menu(update_params: UpdateBasicParams, extra_params:
         CoordinateSettingsMenu.b_coords_del,
         b_back_to_start,
     ]
-    return bot_message, create_one_column_reply_markup(keyboard)
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
 
 
-@button_handler(buttons=[CoordinateSettingsMenu.b_coords_del])
-def handle_coordinates_delete(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
-    db().delete_user_coordinates(update_params.user_id)
+@tg_handle(text=CoordinateSettingsMenu.b_coords_del)
+def handle_coordinates_delete(ctx: TGHandlerContext) -> None:
+    ctx.db.delete_user_coordinates(ctx.user_id)
     bot_message = (
         'Ваши "домашние координаты" удалены. Теперь расстояние и направление '
         'до поисков не будет отображаться.\n'
@@ -720,12 +722,12 @@ def handle_coordinates_delete(update_params: UpdateBasicParams, extra_params: Up
         CoordinateSettingsMenu.b_coords_check,
         b_back_to_start,
     ]
-    return bot_message, create_one_column_reply_markup(keyboard)
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
 
 
-@button_handler(buttons=[CoordinateSettingsMenu.b_coords_check])
-def handle_coordinates_show_saved(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
-    lat, lon = db().get_user_coordinates_or_none(update_params.user_id)
+@tg_handle(text=CoordinateSettingsMenu.b_coords_check)
+def handle_coordinates_show_saved(ctx: TGHandlerContext) -> None:
+    lat, lon = ctx.db.get_user_coordinates_or_none(ctx.user_id)
 
     if lat and lon:
         bot_message = f'Ваши "домашние координаты" {generate_yandex_maps_place_link(lat, lon, "coords")}'
@@ -740,27 +742,26 @@ def handle_coordinates_show_saved(update_params: UpdateBasicParams, extra_params
         b_back_to_start,
     ]
 
-    return bot_message, create_one_column_reply_markup(keyboard)
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
 
 
-@button_handler(buttons=[CoordinateSettingsMenu.b_coords_man_def])
-def handle_coordinates_menu_manual_input(
-    update_params: UpdateBasicParams, extra_params: UpdateExtraParams
-) -> HandlerResultWithState:
+@tg_handle(text=CoordinateSettingsMenu.b_coords_man_def)
+def handle_coordinates_menu_manual_input(ctx: TGHandlerContext) -> None:
     bot_message = (
         'Введите координаты вашего дома вручную в теле сообщения и просто '
         'отправьте. Формат: XX.XXXХХ, XX.XXXХХ, где количество цифр после точки '
         'может быть различным. Широта (первое число) должна быть между 30 '
         'и 80, Долгота (второе число) – между 10 и 190.'
     )
-    return bot_message, ReplyKeyboardRemove(), UserInputState.input_of_coords_man
+    ctx.reply(text=bot_message, reply_markup=ReplyKeyboardRemove())
+    ctx.set_state(UserInputState.input_of_coords_man)
 
 
-@button_handler(buttons=[ItsMe.b_yes_its_me])
-def handle_linking_to_forum_its_me(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
+@tg_handle(text=ItsMe.b_yes_its_me)
+def handle_linking_to_forum_its_me(ctx: TGHandlerContext) -> None:
     """Write "verified" for user"""
 
-    db().write_user_forum_attributes_db(update_params.user_id)
+    ctx.db.write_user_forum_attributes_db(ctx.user_id)
 
     bot_message = (
         'Отлично, мы записали: теперь бот будет понимать, кто вы на форуме.\nЭто поможет '
@@ -768,30 +769,27 @@ def handle_linking_to_forum_its_me(update_params: UpdateBasicParams, extra_param
         'комментарии на форуме.'
     )
     keyboard = [MainMenu.b_settings, b_back_to_start]
-    return bot_message, create_one_column_reply_markup(keyboard)
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
 
 
-@button_handler(buttons=[ItsMe.b_no_its_not_me])
-def handle_linking_to_forum_not_me(
-    update_params: UpdateBasicParams, extra_params: UpdateExtraParams
-) -> HandlerResultWithState:
+@tg_handle(text=ItsMe.b_no_its_not_me)
+def handle_linking_to_forum_not_me(ctx: TGHandlerContext) -> None:
     """suggest user to correct nicname"""
     bot_message = (
         'Пожалуйста, тщательно проверьте написание вашего ника на форуме '
         '(кириллица/латиница, без пробела в конце) и введите его заново'
     )
     keyboard = [MainSettingsMenu.b_set_forum_nick, b_back_to_start]
-    return bot_message, create_one_column_reply_markup(keyboard), UserInputState.input_of_forum_username
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
+    ctx.set_state(UserInputState.input_of_forum_username)
 
 
-@button_handler(buttons=[MainSettingsMenu.b_set_forum_nick])
-def handle_linking_to_forum_show_menu(
-    update_params: UpdateBasicParams, extra_params: UpdateExtraParams
-) -> HandlerResult | HandlerResultWithState:
+@tg_handle(text=MainSettingsMenu.b_set_forum_nick)
+def handle_linking_to_forum_show_menu(ctx: TGHandlerContext) -> None:
     """manage all interactions regarding connection of telegram and forum user accounts"""
 
     # TODO: if user_is linked to forum so
-    saved_forum_user = db().get_user_forum_attributes_db(update_params.user_id)
+    saved_forum_user = ctx.db.get_user_forum_attributes_db(ctx.user_id)
 
     if not saved_forum_user:
         bot_message = (
@@ -803,8 +801,8 @@ def handle_linking_to_forum_show_menu(
         )
         keyboard = [b_back_to_start]
         reply_markup = create_one_column_reply_markup(keyboard)
-        return bot_message, reply_markup, UserInputState.input_of_forum_username
-
+        ctx.reply(text=bot_message, reply_markup=reply_markup)
+        ctx.set_state(UserInputState.input_of_forum_username)
     else:
         saved_forum_username, saved_forum_user_id = list(saved_forum_user)
 
@@ -815,46 +813,44 @@ def handle_linking_to_forum_show_menu(
             f'на форуме ЛизаАлерт. Больше никаких действий касательно аккаунта на форуме не требуется:)'
         )
         keyboard = [MainMenu.b_settings, b_back_to_start]
-        return bot_message, create_one_column_reply_markup(keyboard)
+        ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
 
 
-@button_handler(buttons=[MainSettingsMenu.b_set_vkontakte_nick])
-def handle_linking_to_vk_show_menu(
-    update_params: UpdateBasicParams, extra_params: UpdateExtraParams
-) -> HandlerResult | HandlerResultWithState:
+@tg_handle(text=MainSettingsMenu.b_set_vkontakte_nick)
+def handle_linking_to_vk_show_menu(ctx: TGHandlerContext) -> None:
     """manage all interactions regarding connection of telegram and VKontakte user accounts"""
 
-    saved_vk_user_id = db().get_user_vk_id(update_params.user_id)
+    saved_vk_user_id = ctx.db.get_user_vk_id(ctx.user_id)
 
     if not saved_vk_user_id:
-        send_invite_vk_message_to_user(update_params.user_id)
+        send_invite_vk_message_to_user(ctx)
         keyboard = [b_back_to_start]
         reply_markup = create_one_column_reply_markup(keyboard)
 
-        return (
-            'После того, как вы отправите скопированный текст в чате VK,'
+        ctx.reply(
+            text='После того, как вы отправите скопированный текст в чате VK,'
             ' бот начнет присылать вам уведомления по текущим настройкам.',
-            reply_markup,
+            reply_markup=reply_markup,
         )
-
     else:
         bot_message = 'Ваши аккаунты в Telegram и в VK уже связаны'
         keyboard = [MainMenu.b_settings, b_back_to_start]
-        return bot_message, create_one_column_reply_markup(keyboard)
+        ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
 
 
-def send_invite_vk_message_to_user(user_id: int) -> None:
-    user_invite_text = make_invite_text_for_user(user_id)
+def send_invite_vk_message_to_user(ctx: TGHandlerContext) -> None:
+    user_invite_text = make_invite_text_for_user(ctx.user_id)
 
     bot_message = f'Откройте чат в VK по кнопке ниже \n и вставьте туда следующий текст: `{user_invite_text}`'
     btn_open_vk_chat = InlineKeyboardButton(text='Чат в VK', url='https://m.vk.com/write-237036024')
     inline_markup = InlineKeyboardMarkup([[btn_open_vk_chat]])
 
-    params = {
-        'chat_id': user_id,
-        'text': bot_message,
-        'parse_mode': 'markdown',
-        'disable_web_page_preview': True,
-        'reply_markup': inline_markup,
-    }
-    tg_api().send_message(params)
+    ctx.tg_api.send_message(
+        {
+            'chat_id': ctx.user_id,
+            'text': bot_message,
+            'parse_mode': 'markdown',
+            'disable_web_page_preview': True,
+            'reply_markup': inline_markup,
+        }
+    )

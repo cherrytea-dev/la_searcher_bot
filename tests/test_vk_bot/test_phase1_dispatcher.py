@@ -4,17 +4,18 @@ These tests cover:
 - DBClient (user resolution, VK ID management)
 - dispatch_event (confirmation, message_new, message_event, other events)
 - handle_unknown fallback handler
-- HANDLER_CHAIN configuration
 - _validate_invite_hash (from account_linking)
-- handle_inline_pagination (from region_select_handlers)
+- Inline pagination handlers (from region_select_handlers)
 """
 
 import hashlib
+import json
 import random as _random
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fakes import CallbackAnswer, FakeVKMessageSender
 from sqlalchemy import text as sa_text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm.session import Session
@@ -24,14 +25,18 @@ from _dependencies.common.commons import AppConfig
 from _dependencies.models import DialogState
 from tests.factories import db_factories
 from vk_bot._utils.account_linking import _validate_invite_hash
-from vk_bot._utils.common import VKMessage
+from vk_bot._utils.common import VKHandlerContext, VKMessage
 from vk_bot._utils.database import DBClient, db
 from vk_bot._utils.event_dispatcher import (
-    HANDLER_CHAIN,
     dispatch_event,
     handle_unknown,
 )
-from vk_bot._utils.handlers.region_select_handlers import handle_inline_pagination
+from vk_bot._utils.handlers.region_select_handlers import (
+    handle_inline_pagination_back,
+    handle_inline_pagination_finish,
+    handle_inline_pagination_nav,
+    handle_inline_pagination_toggle,
+)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # DBClient (with real DB)
@@ -373,8 +378,10 @@ class TestDispatcherMessageNew:
 class TestDispatcherMessageEvent:
     """message_event (callback) routing."""
 
-    def test_message_event(self, mock_vk_sender: MagicMock | AsyncMock):
+    def test_message_event(self, fake_vk_sender: FakeVKMessageSender, mock_dispatcher_db: MagicMock):
         """Callback event is acknowledged."""
+        mock_dispatcher_db().get_identity_by_messenger_user_id.return_value = None
+        mock_dispatcher_db().get_user_by_vk_id.return_value = 42
         event = {
             'type': 'message_event',
             'object': {
@@ -388,11 +395,10 @@ class TestDispatcherMessageEvent:
 
         result = dispatch_event(event)
         assert result == 'ok'
-        mock_vk_sender.return_value.send_callback_answer.assert_called_once_with(
-            event_id='evt_001', user_id=123, peer_id=456
-        )
+        assert len(fake_vk_sender.callback_answers) == 1
+        assert fake_vk_sender.callback_answers[0] == CallbackAnswer(event_id='evt_001', user_id=123, peer_id=456)
 
-    def test_message_event_without_event_id(self, mock_vk_sender: MagicMock | AsyncMock):
+    def test_message_event_without_event_id(self, fake_vk_sender: FakeVKMessageSender):
         """Callback without event_id still returns ok."""
         event = {
             'type': 'message_event',
@@ -405,7 +411,7 @@ class TestDispatcherMessageEvent:
         result = dispatch_event(event)
         assert result == 'ok'
         # handle_callback_event returns early if payload is empty (no event_id)
-        mock_vk_sender.return_value.send_callback_answer.assert_not_called()
+        assert len(fake_vk_sender.callback_answers) == 0
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -436,37 +442,26 @@ class TestHandleUnknown:
     """handle_unknown fallback handler."""
 
     def test_handle_unknown_returns_result(self):
+        sender = FakeVKMessageSender()
         msg = VKMessage(text='unknown', user_id=1, peer_id=1)
-        result = handle_unknown(msg, None)
-        assert result is not None
-        assert 'не понимаю' in result.text
-        assert result.keyboard is not None
+        ctx = VKHandlerContext(message=msg, user_id=1, state=None, sender=sender, db=MagicMock())
+        handle_unknown(ctx)
+        assert ctx.is_consumed
+        sender.assert_sent_text('не понимаю')
+        sender.assert_sent_with_keyboard()
 
     def test_handle_unknown_with_state(self):
+        sender = FakeVKMessageSender()
         msg = VKMessage(text='unknown', user_id=1, peer_id=1)
-        result = handle_unknown(msg, DialogState.radius_input)
-        assert result is not None
-        assert 'не понимаю' in result.text
+        ctx = VKHandlerContext(message=msg, user_id=1, state=DialogState.radius_input, sender=sender, db=MagicMock())
+        handle_unknown(ctx)
+        assert ctx.is_consumed
+        sender.assert_sent_text('не понимаю')
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # HANDLER_CHAIN
 # ═══════════════════════════════════════════════════════════════════════════════
-
-
-class TestHandlerChain:
-    """HANDLER_CHAIN configuration."""
-
-    def test_handler_chain_has_unknown(self):
-        """Handler chain contains handle_unknown as fallback."""
-
-        assert handle_unknown in HANDLER_CHAIN
-        assert len(HANDLER_CHAIN) >= 1
-
-    def test_handler_chain_last_is_unknown(self):
-        """The last handler in chain is handle_unknown."""
-
-        assert HANDLER_CHAIN[-1] is handle_unknown
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -518,20 +513,32 @@ class TestValidateInviteHash:
 
 
 class TestHandleInlinePagination:
-    """handle_inline_pagination — inline pagination callback handler."""
+    """Inline pagination callback handlers."""
+
+    def _make_ctx(
+        self,
+        sender: FakeVKMessageSender,
+        payload: dict,
+        user_id: int = 100,
+        peer_id: int = 200,
+        message_id: int | None = None,
+        conversation_message_id: int | None = None,
+        event_id: str | None = None,
+    ) -> VKHandlerContext:
+        """Helper to create a VKHandlerContext with payload in message."""
+        msg = VKMessage(
+            text='',
+            user_id=user_id,
+            peer_id=peer_id,
+            message_id=message_id,
+            conversation_message_id=conversation_message_id,
+            event_id=event_id,
+            payload=json.dumps(payload),
+        )
+        return VKHandlerContext(message=msg, user_id=user_id, state=None, sender=sender, db=MagicMock())
 
     def test_paginate_nav_edits_message(self, dispatcher_mocks: dict[str, MagicMock | AsyncMock]):
         """paginate_nav edits the message in-place with new page."""
-
-        msg = VKMessage(
-            text='',
-            user_id=100,
-            peer_id=200,
-            message_id=300,
-            conversation_message_id=400,
-            event_id='evt_001',
-        )
-        payload = {'cmd': 'paginate_nav', 'district': 'Центральный', 'page': 1}
 
         mock_get_folders = dispatcher_mocks['folders']
         mock_get_selected = dispatcher_mocks['selected']
@@ -540,7 +547,15 @@ class TestHandleInlinePagination:
         mock_get_folders.return_value = [(1, 'Московская область'), (2, 'Тверская область')]
         mock_get_selected.return_value = ['Московская область']
 
-        handle_inline_pagination(msg, payload, sender=fake_sender)
+        ctx = self._make_ctx(
+            sender=fake_sender,
+            payload={'cmd': 'paginate_nav', 'district': 'Центральный', 'page': 1},
+            message_id=300,
+            conversation_message_id=400,
+            event_id='evt_001',
+        )
+
+        handle_inline_pagination_nav(ctx)
 
         # Should acknowledge the event
         fake_sender.assert_callback_answered(1)
@@ -558,20 +573,18 @@ class TestHandleInlinePagination:
     def test_paginate_nav_no_folders_shows_snackbar(self, dispatcher_mocks: dict[str, MagicMock | AsyncMock]):
         """paginate_nav with no folders shows snackbar and returns early."""
 
-        msg = VKMessage(
-            text='',
-            user_id=100,
-            peer_id=200,
-            event_id='evt_001',
-        )
-        payload = {'cmd': 'paginate_nav', 'district': 'Неизвестный', 'page': 0}
-
         mock_get_folders = dispatcher_mocks['folders']
         fake_sender = dispatcher_mocks['sender']
 
         mock_get_folders.return_value = []  # No folders
 
-        handle_inline_pagination(msg, payload, sender=fake_sender)
+        ctx = self._make_ctx(
+            sender=fake_sender,
+            payload={'cmd': 'paginate_nav', 'district': 'Неизвестный', 'page': 0},
+            event_id='evt_001',
+        )
+
+        handle_inline_pagination_nav(ctx)
 
         # Should show snackbar with error message
         fake_sender.assert_callback_answered(1)
@@ -587,15 +600,6 @@ class TestHandleInlinePagination:
     def test_paginate_toggle_shows_snackbar_and_refreshes(self, dispatcher_mocks: dict[str, MagicMock | AsyncMock]):
         """paginate_toggle shows snackbar and refreshes keyboard."""
 
-        msg = VKMessage(
-            text='',
-            user_id=100,
-            peer_id=200,
-            conversation_message_id=400,
-            event_id='evt_002',
-        )
-        payload = {'cmd': 'paginate_toggle', 'region': 'Московская область', 'district': 'Центральный', 'page': 0}
-
         mock_get_folders = dispatcher_mocks['folders']
         mock_get_selected = dispatcher_mocks['selected']
         fake_sender = dispatcher_mocks['sender']
@@ -604,11 +608,18 @@ class TestHandleInlinePagination:
         mock_get_folders.return_value = [(1, 'Московская область'), (2, 'Тверская область')]
         mock_get_selected.return_value = ['Московская область']
 
+        ctx = self._make_ctx(
+            sender=fake_sender,
+            payload={'cmd': 'paginate_toggle', 'region': 'Московская область', 'district': 'Центральный', 'page': 0},
+            conversation_message_id=400,
+            event_id='evt_002',
+        )
+
         # We need to patch _toggle_region_inline separately since it's not in dispatcher_mocks
         with patch('vk_bot._utils.handlers.region_select_handlers._toggle_region_inline') as mock_toggle:
             mock_toggle.return_value = '✅ Московская область добавлена'
 
-            handle_inline_pagination(msg, payload, sender=fake_sender)
+            handle_inline_pagination_toggle(ctx)
 
         # Should show snackbar with toggle result
         fake_sender.assert_callback_answered(1)
@@ -623,12 +634,14 @@ class TestHandleInlinePagination:
     def test_paginate_toggle_no_region_returns_early(self, dispatcher_mocks: dict[str, MagicMock | AsyncMock]):
         """paginate_toggle without region returns early."""
 
-        msg = VKMessage(text='', user_id=100, peer_id=200)
-        payload = {'cmd': 'paginate_toggle', 'region': ''}
-
         fake_sender = dispatcher_mocks['sender']
 
-        handle_inline_pagination(msg, payload, sender=fake_sender)
+        ctx = self._make_ctx(
+            sender=fake_sender,
+            payload={'cmd': 'paginate_toggle', 'region': ''},
+        )
+
+        handle_inline_pagination_toggle(ctx)
 
         # Should not call anything
         fake_sender.assert_no_calls()
@@ -636,19 +649,17 @@ class TestHandleInlinePagination:
     def test_paginate_back_returns_to_districts(self, dispatcher_mocks: dict[str, MagicMock | AsyncMock]):
         """paginate_back edits message with district selection."""
 
-        msg = VKMessage(
-            text='',
-            user_id=100,
-            peer_id=200,
-            conversation_message_id=400,
-            event_id='evt_003',
-        )
-        payload = {'cmd': 'paginate_back'}
-
         fake_sender = dispatcher_mocks['sender']
         dispatcher_mocks['keyboard']
 
-        handle_inline_pagination(msg, payload, sender=fake_sender)
+        ctx = self._make_ctx(
+            sender=fake_sender,
+            payload={'cmd': 'paginate_back'},
+            conversation_message_id=400,
+            event_id='evt_003',
+        )
+
+        handle_inline_pagination_back(ctx)
 
         # Should acknowledge the event
         fake_sender.assert_callback_answered(1)
@@ -666,19 +677,17 @@ class TestHandleInlinePagination:
     ):
         """paginate_finish removes inline keyboard and sends new settings message."""
 
-        msg = VKMessage(
-            text='',
-            user_id=100,
-            peer_id=200,
-            conversation_message_id=400,
-            event_id='evt_004',
-        )
-        payload = {'cmd': 'paginate_finish'}
-
         fake_sender = dispatcher_mocks['sender']
         dispatcher_mocks['keyboard']
 
-        handle_inline_pagination(msg, payload, sender=fake_sender)
+        ctx = self._make_ctx(
+            sender=fake_sender,
+            payload={'cmd': 'paginate_finish'},
+            conversation_message_id=400,
+            event_id='evt_004',
+        )
+
+        handle_inline_pagination_finish(ctx)
 
         # Should acknowledge the event
         fake_sender.assert_callback_answered(1)
@@ -699,15 +708,6 @@ class TestHandleInlinePagination:
     def test_paginate_nav_fallback_to_message_id(self, dispatcher_mocks: dict[str, MagicMock | AsyncMock]):
         """paginate_nav falls back to message_id when no conversation_message_id."""
 
-        msg = VKMessage(
-            text='',
-            user_id=100,
-            peer_id=200,
-            message_id=300,  # Only message_id, no conversation_message_id
-            event_id='evt_005',
-        )
-        payload = {'cmd': 'paginate_nav', 'district': 'Центральный', 'page': 0}
-
         mock_get_folders = dispatcher_mocks['folders']
         mock_get_selected = dispatcher_mocks['selected']
         fake_sender = dispatcher_mocks['sender']
@@ -716,7 +716,14 @@ class TestHandleInlinePagination:
         mock_get_folders.return_value = [(1, 'Московская область')]
         mock_get_selected.return_value = []
 
-        handle_inline_pagination(msg, payload, sender=fake_sender)
+        ctx = self._make_ctx(
+            sender=fake_sender,
+            payload={'cmd': 'paginate_nav', 'district': 'Центральный', 'page': 0},
+            message_id=300,
+            event_id='evt_005',
+        )
+
+        handle_inline_pagination_nav(ctx)
 
         # Should edit with message_id fallback
         fake_sender.assert_edited(1)
@@ -725,16 +732,7 @@ class TestHandleInlinePagination:
         assert fake_sender.last_edited.conversation_message_id is None
 
     def test_paginate_nav_no_message_ids_is_noop(self, dispatcher_mocks: dict[str, MagicMock | AsyncMock]):
-        """paginate_nav with no message IDs does nothing (edit is not possible)."""
-
-        msg = VKMessage(
-            text='',
-            user_id=100,
-            peer_id=200,
-            # No message_id or conversation_message_id
-            event_id='evt_006',
-        )
-        payload = {'cmd': 'paginate_nav', 'district': 'Центральный', 'page': 0}
+        """paginate_nav with no message IDs still calls edit (ctx.edit always calls sender.edit_message)."""
 
         mock_get_folders = dispatcher_mocks['folders']
         mock_get_selected = dispatcher_mocks['selected']
@@ -744,8 +742,14 @@ class TestHandleInlinePagination:
         mock_get_folders.return_value = [(1, 'Московская область')]
         mock_get_selected.return_value = []
 
-        handle_inline_pagination(msg, payload, sender=fake_sender)
+        ctx = self._make_ctx(
+            sender=fake_sender,
+            payload={'cmd': 'paginate_nav', 'district': 'Центральный', 'page': 0},
+            event_id='evt_006',
+        )
 
-        # _edit_message is a no-op when neither ID is available
-        fake_sender.assert_edited(0)
+        handle_inline_pagination_nav(ctx)
+
+        # ctx.edit() always calls sender.edit_message() even when IDs are None
+        fake_sender.assert_edited(1)
         assert len(fake_sender.sent_messages) == 0

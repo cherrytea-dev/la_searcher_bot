@@ -6,23 +6,22 @@ from _dependencies.common.pubsub import notify_admin
 
 from ..buttons import CoordinateSettingsMenu, b_back_to_start, b_menu_set_region
 from ..common import (
-    HandlerResult,
     UpdateBasicParams,
-    UpdateExtraParams,
     create_one_column_reply_markup,
     generate_yandex_maps_place_link,
 )
-from ..database import db
+from ..handler_context import TGHandlerContext
 from ..message_sending import tg_api
 
 
-def handle_user_geolocation(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
+def handle_user_geolocation(ctx: TGHandlerContext) -> None:
     """process coordinates which user sent to bot"""
-
-    db().save_user_coordinates(update_params.user_id, update_params.user_latitude, update_params.user_longitude)
+    ctx.db.save_user_coordinates(ctx.user_id, ctx.update_params.user_latitude, ctx.update_params.user_longitude)
 
     bot_message = 'Ваши "домашние координаты" сохранены:\n'
-    bot_message += generate_yandex_maps_place_link(update_params.user_latitude, update_params.user_longitude, 'coords')
+    bot_message += generate_yandex_maps_place_link(
+        ctx.update_params.user_latitude, ctx.update_params.user_longitude, 'coords'
+    )
     bot_message += (
         '\nТеперь для всех поисков, где удастся распознать координаты штаба или '
         'населенного пункта, будет указываться направление и расстояние по '
@@ -34,11 +33,11 @@ def handle_user_geolocation(update_params: UpdateBasicParams, extra_params: Upda
         b_back_to_start,
     ]
 
-    return bot_message, create_one_column_reply_markup(keyboard_settings)
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard_settings))
 
 
-def handle_force_user_to_set_region(user_id: int) -> HandlerResult:
-    logging.info(f'user {user_id} is forced to fill in the region')
+def handle_force_user_to_set_region(ctx: TGHandlerContext) -> None:
+    logging.info(f'user {ctx.user_id} is forced to fill in the region')
     bot_message = (
         'Для корректной работы бота, пожалуйста, задайте свой регион. Для этого '
         'с помощью кнопок меню выберите сначала ФО (федеральный округ), а затем и '
@@ -47,7 +46,7 @@ def handle_force_user_to_set_region(user_id: int) -> HandlerResult:
         'Функционал бота не будет активирован, пока не выбран хотя бы один регион.'
     )
 
-    return bot_message, create_one_column_reply_markup([b_menu_set_region])
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup([b_menu_set_region]))
 
 
 def process_unneeded_messages(update: Update, update_params: UpdateBasicParams) -> bool:

@@ -10,7 +10,7 @@ These tests cover:
 - handle_more_searches — returns to search view menu
 
 Each handler follows the pattern:
-    def handler(vk_message, state, user_id) -> VKHandlerResult | None
+    def handler(ctx: VKHandlerContext) -> None
 """
 
 from unittest.mock import MagicMock
@@ -19,10 +19,11 @@ import pytest
 
 from _dependencies.common.commons import SearchFollowingMode
 from _dependencies.models import DialogState
-from src.vk_bot._utils.common import VKHandlerResult
 from src.vk_bot._utils.handlers.view_searches_handlers import (
     handle_active_searches,
-    handle_follow_mode_toggle,
+    handle_follow_disable,
+    handle_follow_enable,
+    handle_follow_show,
     handle_follow_unfollow_command,
     handle_latest_searches,
     handle_more_searches,
@@ -38,32 +39,25 @@ from src.vk_bot._utils.handlers.view_searches_handlers import (
 class TestHandleViewSearchMenu:
     """handle_view_search_menu — shows search view menu."""
 
-    def test_handles_view_search_menu_text(self, vk_message):
+    def test_handles_view_search_menu_text(self, vk_handler_context):
         """'посмотреть актуальные поиски' -> shows search view menu."""
 
-        msg = vk_message(text='посмотреть актуальные поиски')
-        result = handle_view_search_menu(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='посмотреть актуальные поиски', state=DialogState.not_defined)
+        handle_view_search_menu(ctx)
 
-        assert result is not None
-        assert isinstance(result, VKHandlerResult)
-        assert 'режим просмотра' in result.text.lower()
-        assert result.keyboard is not None
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_text('режим просмотра')
+        ctx._sender.assert_sent_with_keyboard()
 
-    def test_ignores_other_text(self, vk_message):
-        """Returns None for non-matching text."""
-
-        msg = vk_message(text='random text')
-        result = handle_view_search_menu(msg, DialogState.not_defined, 12345)
-        assert result is None
-
-    def test_returns_search_view_keyboard(self, vk_message):
+    def test_returns_search_view_keyboard(self, vk_handler_context):
         """Result has search_view_menu keyboard with expected buttons."""
 
-        msg = vk_message(text='посмотреть актуальные поиски')
-        result = handle_view_search_menu(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='посмотреть актуальные поиски', state=DialogState.not_defined)
+        handle_view_search_menu(ctx)
 
-        assert result is not None
-        labels = [btn[0]['action']['label'] for btn in result.keyboard['buttons']]
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_with_keyboard()
+        labels = ctx._sender.last_sent_keyboard_labels
         assert 'активные поиски' in labels
         assert 'последние 20 поисков' in labels
         assert 'отслеживание поисков' in labels
@@ -82,7 +76,7 @@ class TestHandleActiveSearches:
         """Store mock_settings_service reference for assertions."""
         self.mock_settings = mock_settings_service
 
-    def test_handles_active_searches_text(self, vk_message):
+    def test_handles_active_searches_text(self, vk_handler_context):
         """'активные поиски' -> returns formatted search list."""
 
         # Mock user regions
@@ -97,17 +91,16 @@ class TestHandleActiveSearches:
         ]
         self.mock_settings.connect.return_value = mock_conn
 
-        msg = vk_message(text='активные поиски')
-        result = handle_active_searches(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='активные поиски', state=DialogState.not_defined)
+        handle_active_searches(ctx)
 
-        assert result is not None
-        assert isinstance(result, VKHandlerResult)
-        assert 'Активные поиски' in result.text
-        assert 'Иванов Иван' in result.text
-        assert 'Петров Петр' in result.text
-        assert result.keyboard is not None
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_text('Активные поиски')
+        ctx._sender.assert_sent_text('Иванов Иван')
+        ctx._sender.assert_sent_text('Петров Петр')
+        ctx._sender.assert_sent_with_keyboard()
 
-    def test_handles_map_searches_text(self, vk_message):
+    def test_handles_map_searches_text(self, vk_handler_context):
         """'🔥карта поисков 🔥' -> also triggers active searches."""
 
         self.mock_settings.get_user_regions.return_value = [1]
@@ -119,24 +112,24 @@ class TestHandleActiveSearches:
         ]
         self.mock_settings.connect.return_value = mock_conn
 
-        msg = vk_message(text='🔥Карта Поисков 🔥')
-        result = handle_active_searches(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='🔥Карта Поисков 🔥', state=DialogState.not_defined)
+        handle_active_searches(ctx)
 
-        assert result is not None
-        assert 'Активные поиски' in result.text
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_text('Активные поиски')
 
-    def test_no_regions(self, vk_message):
+    def test_no_regions(self, vk_handler_context):
         """No subscribed regions -> returns 'no active searches' message."""
 
         self.mock_settings.get_user_regions.return_value = []
 
-        msg = vk_message(text='активные поиски')
-        result = handle_active_searches(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='активные поиски', state=DialogState.not_defined)
+        handle_active_searches(ctx)
 
-        assert result is not None
-        assert result.keyboard is not None
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_with_keyboard()
 
-    def test_no_active_searches(self, vk_message):
+    def test_no_active_searches(self, vk_handler_context):
         """No active searches found -> returns empty message."""
 
         self.mock_settings.get_user_regions.return_value = [1]
@@ -146,20 +139,13 @@ class TestHandleActiveSearches:
         mock_conn.execute.return_value.fetchall.return_value = []
         self.mock_settings.connect.return_value = mock_conn
 
-        msg = vk_message(text='активные поиски')
-        result = handle_active_searches(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='активные поиски', state=DialogState.not_defined)
+        handle_active_searches(ctx)
 
-        assert result is not None
-        assert 'не найдены' in result.text.lower() or 'активные поиски' in result.text
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_text('не найдены')
 
-    def test_ignores_other_text(self, vk_message):
-        """Returns None for non-matching text."""
-
-        msg = vk_message(text='random text')
-        result = handle_active_searches(msg, DialogState.not_defined, 12345)
-        assert result is None
-
-    def test_groups_by_folder(self, vk_message):
+    def test_groups_by_folder(self, vk_handler_context):
         """Searches are grouped by forum_folder_id."""
 
         self.mock_settings.get_user_regions.return_value = [1, 2]
@@ -173,13 +159,13 @@ class TestHandleActiveSearches:
         ]
         self.mock_settings.connect.return_value = mock_conn
 
-        msg = vk_message(text='активные поиски')
-        result = handle_active_searches(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='активные поиски', state=DialogState.not_defined)
+        handle_active_searches(ctx)
 
-        assert result is not None
+        assert ctx.is_consumed
         # Both folder IDs should appear in the output
-        assert 'Регион #1' in result.text
-        assert 'Регион #2' in result.text
+        ctx._sender.assert_sent_text('Регион #1')
+        ctx._sender.assert_sent_text('Регион #2')
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -195,7 +181,7 @@ class TestHandleLatestSearches:
         """Store mock_settings_service reference for assertions."""
         self.mock_settings = mock_settings_service
 
-    def test_handles_latest_searches_text(self, vk_message):
+    def test_handles_latest_searches_text(self, vk_handler_context):
         """'последние 20 поисков' -> returns formatted list."""
 
         self.mock_settings.get_user_regions.return_value = [1]
@@ -208,28 +194,27 @@ class TestHandleLatestSearches:
         ]
         self.mock_settings.connect.return_value = mock_conn
 
-        msg = vk_message(text='последние 20 поисков')
-        result = handle_latest_searches(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='последние 20 поисков', state=DialogState.not_defined)
+        handle_latest_searches(ctx)
 
-        assert result is not None
-        assert isinstance(result, VKHandlerResult)
-        assert 'Последние 20 поисков' in result.text
-        assert 'Иванов Иван' in result.text
-        assert 'Петров Петр' in result.text
-        assert result.keyboard is not None
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_text('Последние 20 поисков')
+        ctx._sender.assert_sent_text('Иванов Иван')
+        ctx._sender.assert_sent_text('Петров Петр')
+        ctx._sender.assert_sent_with_keyboard()
 
-    def test_no_regions(self, vk_message):
+    def test_no_regions(self, vk_handler_context):
         """No subscribed regions -> returns empty message."""
 
         self.mock_settings.get_user_regions.return_value = []
 
-        msg = vk_message(text='последние 20 поисков')
-        result = handle_latest_searches(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='последние 20 поисков', state=DialogState.not_defined)
+        handle_latest_searches(ctx)
 
-        assert result is not None
-        assert result.keyboard is not None
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_with_keyboard()
 
-    def test_no_searches(self, vk_message):
+    def test_no_searches(self, vk_handler_context):
         """No searches found -> returns empty message."""
 
         self.mock_settings.get_user_regions.return_value = [1]
@@ -239,18 +224,11 @@ class TestHandleLatestSearches:
         mock_conn.execute.return_value.fetchall.return_value = []
         self.mock_settings.connect.return_value = mock_conn
 
-        msg = vk_message(text='последние 20 поисков')
-        result = handle_latest_searches(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='последние 20 поисков', state=DialogState.not_defined)
+        handle_latest_searches(ctx)
 
-        assert result is not None
-        assert 'нет завершенных' in result.text.lower() or 'последние' in result.text.lower()
-
-    def test_ignores_other_text(self, vk_message):
-        """Returns None for non-matching text."""
-
-        msg = vk_message(text='random text')
-        result = handle_latest_searches(msg, DialogState.not_defined, 12345)
-        assert result is None
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_text('нет завершенных')
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -266,58 +244,50 @@ class TestHandleSearchFollowMenu:
         """Store mock_settings_service reference for assertions."""
         self.mock_settings = mock_settings_service
 
-    def test_handles_follow_menu_text(self, vk_message):
+    def test_handles_follow_menu_text(self, vk_handler_context):
         """'управление отслеживанием' -> shows follow menu."""
 
         self.mock_settings.get_search_follow_mode.return_value = True
 
-        msg = vk_message(text='управление отслеживанием')
-        result = handle_search_follow_menu(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='управление отслеживанием', state=DialogState.not_defined)
+        handle_search_follow_menu(ctx)
 
-        assert result is not None
-        assert isinstance(result, VKHandlerResult)
-        assert 'отслеживания' in result.text.lower()
-        assert result.keyboard is not None
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_text('отслеживания')
+        ctx._sender.assert_sent_with_keyboard()
 
-    def test_handles_alt_text(self, vk_message):
+    def test_handles_alt_text(self, vk_handler_context):
         """'отслеживание поисков' -> also shows follow menu."""
 
         self.mock_settings.get_search_follow_mode.return_value = False
 
-        msg = vk_message(text='отслеживание поисков')
-        result = handle_search_follow_menu(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='отслеживание поисков', state=DialogState.not_defined)
+        handle_search_follow_menu(ctx)
 
-        assert result is not None
-        assert result.keyboard is not None
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_with_keyboard()
 
-    def test_shows_follow_mode_on_status(self, vk_message):
+    def test_shows_follow_mode_on_status(self, vk_handler_context):
         """When follow mode is on, shows enabled status."""
 
         self.mock_settings.get_search_follow_mode.return_value = True
 
-        msg = vk_message(text='управление отслеживанием')
-        result = handle_search_follow_menu(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='управление отслеживанием', state=DialogState.not_defined)
+        handle_search_follow_menu(ctx)
 
-        assert result is not None
-        assert 'включен' in result.text.lower()
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_text('включен')
 
-    def test_shows_follow_mode_off_status(self, vk_message):
+    def test_shows_follow_mode_off_status(self, vk_handler_context):
         """When follow mode is off, shows disabled status."""
 
         self.mock_settings.get_search_follow_mode.return_value = False
 
-        msg = vk_message(text='управление отслеживанием')
-        result = handle_search_follow_menu(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='управление отслеживанием', state=DialogState.not_defined)
+        handle_search_follow_menu(ctx)
 
-        assert result is not None
-        assert 'выключен' in result.text.lower()
-
-    def test_ignores_other_text(self, vk_message):
-        """Returns None for non-matching text."""
-
-        msg = vk_message(text='random text')
-        result = handle_search_follow_menu(msg, DialogState.not_defined, 12345)
-        assert result is None
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_text('выключен')
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -325,35 +295,53 @@ class TestHandleSearchFollowMenu:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class TestHandleFollowModeToggle:
-    """handle_follow_mode_toggle — toggles follow mode on/off."""
+class TestHandleFollowEnable:
+    """handle_follow_enable — enables follow mode."""
 
     @pytest.fixture(autouse=True)
     def _setup_mocks(self, mock_settings_service):
         """Store mock_settings_service reference for assertions."""
         self.mock_settings = mock_settings_service
 
-    def test_enables_follow_mode(self, vk_message):
+    def test_enables_follow_mode(self, vk_handler_context):
         """'включить режим отслеживания' -> enables follow mode."""
 
-        msg = vk_message(text='включить режим отслеживания')
-        result = handle_follow_mode_toggle(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='включить режим отслеживания', state=DialogState.not_defined)
+        handle_follow_enable(ctx)
 
-        assert result is not None
+        assert ctx.is_consumed
         self.mock_settings.set_search_follow_mode.assert_called_once_with(12345, True)
-        assert result.keyboard is not None
+        ctx._sender.assert_sent_with_keyboard()
 
-    def test_disables_follow_mode(self, vk_message):
+
+class TestHandleFollowDisable:
+    """handle_follow_disable — disables follow mode."""
+
+    @pytest.fixture(autouse=True)
+    def _setup_mocks(self, mock_settings_service):
+        """Store mock_settings_service reference for assertions."""
+        self.mock_settings = mock_settings_service
+
+    def test_disables_follow_mode(self, vk_handler_context):
         """'выключить режим отслеживания' -> disables follow mode."""
 
-        msg = vk_message(text='выключить режим отслеживания')
-        result = handle_follow_mode_toggle(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='выключить режим отслеживания', state=DialogState.not_defined)
+        handle_follow_disable(ctx)
 
-        assert result is not None
+        assert ctx.is_consumed
         self.mock_settings.set_search_follow_mode.assert_called_once_with(12345, False)
-        assert result.keyboard is not None
+        ctx._sender.assert_sent_with_keyboard()
 
-    def test_shows_followed_searches(self, vk_message):
+
+class TestHandleFollowShow:
+    """handle_follow_show — shows followed searches list."""
+
+    @pytest.fixture(autouse=True)
+    def _setup_mocks(self, mock_settings_service):
+        """Store mock_settings_service reference for assertions."""
+        self.mock_settings = mock_settings_service
+
+    def test_shows_followed_searches(self, vk_handler_context):
         """'показать отслеживаемые поиски' -> shows list of followed searches."""
 
         # _get_user_followed_ids iterates over execute() result directly (not fetchall)
@@ -382,16 +370,16 @@ class TestHandleFollowModeToggle:
         ]
         self.mock_settings.connect.return_value = mock_conn
 
-        msg = vk_message(text='показать отслеживаемые поиски')
-        result = handle_follow_mode_toggle(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='показать отслеживаемые поиски', state=DialogState.not_defined)
+        handle_follow_show(ctx)
 
-        assert result is not None
-        assert 'Отслеживаемые поиски' in result.text
-        assert 'Иванов Иван' in result.text
-        assert 'Петров Петр' in result.text
-        assert result.keyboard is not None
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_text('Отслеживаемые поиски')
+        ctx._sender.assert_sent_text('Иванов Иван')
+        ctx._sender.assert_sent_text('Петров Петр')
+        ctx._sender.assert_sent_with_keyboard()
 
-    def test_shows_followed_searches_empty(self, vk_message):
+    def test_shows_followed_searches_empty(self, vk_handler_context):
         """No followed searches -> shows empty message with instructions."""
 
         # _get_user_followed_ids iterates over execute() result directly
@@ -403,19 +391,11 @@ class TestHandleFollowModeToggle:
         mock_conn.execute.return_value = mock_result
         self.mock_settings.connect.return_value = mock_conn
 
-        msg = vk_message(text='показать отслеживаемые поиски')
-        result = handle_follow_mode_toggle(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='показать отслеживаемые поиски', state=DialogState.not_defined)
+        handle_follow_show(ctx)
 
-        assert result is not None
-        assert 'нет отслеживаемых' in result.text.lower()
-        assert '+12345' in result.text or '+' in result.text
-
-    def test_ignores_other_text(self, vk_message):
-        """Returns None for non-matching text."""
-
-        msg = vk_message(text='random text')
-        result = handle_follow_mode_toggle(msg, DialogState.not_defined, 12345)
-        assert result is None
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_text('нет отслеживаемых')
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -458,99 +438,98 @@ class TestHandleFollowUnfollowCommand:
         self.mock_settings.connect.return_value = mock_conn
         return mock_conn
 
-    def test_follow_command(self, vk_message):
+    def test_follow_command(self, vk_handler_context):
         """'+12345' -> follows search."""
 
         self._setup_mock_conn(exists=True, current_mode=None)
 
-        msg = vk_message(text='+12345')
-        result = handle_follow_unfollow_command(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='+12345', state=DialogState.not_defined)
+        handle_follow_unfollow_command(ctx)
 
-        assert result is not None
-        assert isinstance(result, VKHandlerResult)
+        assert ctx.is_consumed
         self.mock_settings.record_search_whiteness.assert_called_once_with(12345, 12345, SearchFollowingMode.ON)
-        assert 'следите' in result.text.lower()
+        ctx._sender.assert_sent_text('следите')
 
-    def test_unfollow_command(self, vk_message):
+    def test_unfollow_command(self, vk_handler_context):
         """'-12345' when currently followed -> blacklists."""
 
         self._setup_mock_conn(exists=True, current_mode=SearchFollowingMode.ON)
 
-        msg = vk_message(text='-12345')
-        result = handle_follow_unfollow_command(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='-12345', state=DialogState.not_defined)
+        handle_follow_unfollow_command(ctx)
 
-        assert result is not None
+        assert ctx.is_consumed
         self.mock_settings.record_search_whiteness.assert_called_once_with(12345, 12345, SearchFollowingMode.OFF)
-        assert 'не будете' in result.text.lower()
+        ctx._sender.assert_sent_text('не будете')
 
-    def test_blacklist_command(self, vk_message):
+    def test_blacklist_command(self, vk_handler_context):
         """'-12345' when not followed -> blacklists."""
 
         self._setup_mock_conn(exists=True, current_mode=None)
 
-        msg = vk_message(text='-12345')
-        result = handle_follow_unfollow_command(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='-12345', state=DialogState.not_defined)
+        handle_follow_unfollow_command(ctx)
 
-        assert result is not None
+        assert ctx.is_consumed
         self.mock_settings.record_search_whiteness.assert_called_once_with(12345, 12345, SearchFollowingMode.OFF)
-        assert 'игнорируемые' in result.text.lower() or 'добавлен' in result.text.lower()
+        ctx._sender.assert_sent_text('игнорируемые')
 
-    def test_blacklist_to_neutral_cycle(self, vk_message):
+    def test_blacklist_to_neutral_cycle(self, vk_handler_context):
         """'-12345' when already blacklisted -> removes from whitelist (neutral)."""
 
         self._setup_mock_conn(exists=True, current_mode=SearchFollowingMode.OFF)
 
-        msg = vk_message(text='-12345')
-        result = handle_follow_unfollow_command(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='-12345', state=DialogState.not_defined)
+        handle_follow_unfollow_command(ctx)
 
-        assert result is not None
+        assert ctx.is_consumed
         self.mock_settings.record_search_whiteness.assert_called_once_with(12345, 12345, '  ')
-        assert 'сброшено' in result.text.lower()
+        ctx._sender.assert_sent_text('сброшено')
 
-    def test_already_following(self, vk_message):
+    def test_already_following(self, vk_handler_context):
         """'+12345' when already followed -> shows already following message."""
 
         self._setup_mock_conn(exists=True, current_mode=SearchFollowingMode.ON)
 
-        msg = vk_message(text='+12345')
-        result = handle_follow_unfollow_command(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='+12345', state=DialogState.not_defined)
+        handle_follow_unfollow_command(ctx)
 
-        assert result is not None
-        assert 'уже следите' in result.text.lower()
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_text('уже следите')
         self.mock_settings.record_search_whiteness.assert_not_called()
 
-    def test_search_not_found(self, vk_message):
+    def test_search_not_found(self, vk_handler_context):
         """'+99999' when search doesn't exist -> shows not found message."""
 
         self._setup_mock_conn(exists=False)
 
-        msg = vk_message(text='+99999')
-        result = handle_follow_unfollow_command(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='+99999', state=DialogState.not_defined)
+        handle_follow_unfollow_command(ctx)
 
-        assert result is not None
-        assert 'не найден' in result.text.lower()
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_text('не найден')
         self.mock_settings.record_search_whiteness.assert_not_called()
 
-    def test_ignores_non_command_text(self, vk_message):
-        """Returns None for non-command text."""
+    def test_ignores_non_command_text(self, vk_handler_context):
+        """Does not consume for non-command text."""
 
-        msg = vk_message(text='random text')
-        result = handle_follow_unfollow_command(msg, DialogState.not_defined, 12345)
-        assert result is None
+        ctx = vk_handler_context(text='random text', state=DialogState.not_defined)
+        handle_follow_unfollow_command(ctx)
+        assert not ctx.is_consumed
 
-    def test_ignores_text_without_plus_minus(self, vk_message):
-        """Returns None for text that doesn't start with + or -."""
+    def test_ignores_text_without_plus_minus(self, vk_handler_context):
+        """Does not consume for text that doesn't start with + or -."""
 
-        msg = vk_message(text='12345')
-        result = handle_follow_unfollow_command(msg, DialogState.not_defined, 12345)
-        assert result is None
+        ctx = vk_handler_context(text='12345', state=DialogState.not_defined)
+        handle_follow_unfollow_command(ctx)
+        assert not ctx.is_consumed
 
-    def test_ignores_plus_without_digits(self, vk_message):
-        """Returns None for '+' without digits."""
+    def test_ignores_plus_without_digits(self, vk_handler_context):
+        """Does not consume for '+' without digits."""
 
-        msg = vk_message(text='+abc')
-        result = handle_follow_unfollow_command(msg, DialogState.not_defined, 12345)
-        assert result is None
+        ctx = vk_handler_context(text='+abc', state=DialogState.not_defined)
+        handle_follow_unfollow_command(ctx)
+        assert not ctx.is_consumed
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -561,31 +540,24 @@ class TestHandleFollowUnfollowCommand:
 class TestHandleMoreSearches:
     """handle_more_searches — returns to search view menu."""
 
-    def test_handles_more_searches_text(self, vk_message):
+    def test_handles_more_searches_text(self, vk_handler_context):
         """'еще поиски' -> returns search view menu."""
 
-        msg = vk_message(text='еще поиски')
-        result = handle_more_searches(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='еще поиски', state=DialogState.not_defined)
+        handle_more_searches(ctx)
 
-        assert result is not None
-        assert isinstance(result, VKHandlerResult)
-        assert 'режим просмотра' in result.text.lower()
-        assert result.keyboard is not None
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_text('режим просмотра')
+        ctx._sender.assert_sent_with_keyboard()
 
-    def test_ignores_other_text(self, vk_message):
-        """Returns None for non-matching text."""
-
-        msg = vk_message(text='random text')
-        result = handle_more_searches(msg, DialogState.not_defined, 12345)
-        assert result is None
-
-    def test_returns_search_view_keyboard(self, vk_message):
+    def test_returns_search_view_keyboard(self, vk_handler_context):
         """Result has search_view_menu keyboard."""
 
-        msg = vk_message(text='еще поиски')
-        result = handle_more_searches(msg, DialogState.not_defined, 12345)
+        ctx = vk_handler_context(text='еще поиски', state=DialogState.not_defined)
+        handle_more_searches(ctx)
 
-        assert result is not None
-        labels = [btn[0]['action']['label'] for btn in result.keyboard['buttons']]
+        assert ctx.is_consumed
+        ctx._sender.assert_sent_with_keyboard()
+        labels = ctx._sender.last_sent_keyboard_labels
         assert 'активные поиски' in labels
         assert 'последние 20 поисков' in labels

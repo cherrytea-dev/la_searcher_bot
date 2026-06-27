@@ -119,12 +119,12 @@ def convert_yc_request(request_data: dict) -> RequestWrapper:
     """Convert Yandex Cloud Functions request format to RequestWrapper object"""
 
     try:
-        json_ = json.loads(request_data.get('body'))  # type: ignore[arg-type]
+        json_ = json.loads(request_data.get('body', 'null'))
     except:
         json_ = None
 
     return RequestWrapper(
-        method=request_data.get('httpMethod'),  # type: ignore[arg-type]
+        method=request_data.get('httpMethod', ''),
         json_=json_,
         headers=request_data.get('headers', {}),
         data=request_data.get('body', b''),

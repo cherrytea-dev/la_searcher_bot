@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -12,16 +13,15 @@ from ..common import (
     LA_BOT_CHAT_URL,
     NOT_FOLLOWING_MARK,
     SEARCH_URL_PREFIX,
-    HandlerResult,
     InlineButtonCallbackData,
     SearchSummary,
-    UpdateBasicParams,
-    UpdateExtraParams,
     define_dist_and_dir_to_search,
 )
-from ..database import db
-from ..decorators import button_handler
-from ..message_sending import tg_api
+from ..decorators import tg_handle
+from ..handler_context import TGHandlerContext
+
+if TYPE_CHECKING:
+    from ..database import DBClient
 
 InlineKeyboardRow = list[InlineKeyboardButton]  # type alias
 
@@ -74,7 +74,7 @@ def _format_searches_for_display(searches: list[SearchSummary]) -> None:
 
 
 def _compose_ikb_of_last_searches(
-    user_id: int, forum_folder_num: int, region_name: str, only_followed: bool
+    db_client: 'DBClient', user_id: int, forum_folder_num: int, region_name: str, only_followed: bool
 ) -> SearchesIKBData:
     """Compose a Final message on the list of searches in the given region"""
     # issue#425 This variant of the above function returns data in format used to compose inline keyboard
@@ -83,7 +83,7 @@ def _compose_ikb_of_last_searches(
 
     folder_url = f'{FORUM_FOLDER_PREFIX}{forum_folder_num}'
 
-    searches = db().get_all_last_searches_in_region_limit_20(forum_folder_num, user_id, only_followed)
+    searches = db_client.get_all_last_searches_in_region_limit_20(forum_folder_num, user_id, only_followed)
     if not searches:
         msg = _get_message_last_searches_not_found(region_name, forum_folder_num)
         return SearchesIKBData(msg, folder_url, [])
@@ -113,13 +113,15 @@ def _get_message_last_searches_not_found(region_name: str, folder_id: int) -> st
     return msg
 
 
-def _compose_ikb_of_active_searches(user_id: int, forum_folder_num: int, region_name: str) -> SearchesIKBData:
+def _compose_ikb_of_active_searches(
+    db_client: 'DBClient', user_id: int, forum_folder_num: int, region_name: str
+) -> SearchesIKBData:
     """Compose a Final message on the list of searches in the given region"""
     # Combine the list of the latest active searches
     folder_url = f'{FORUM_FOLDER_PREFIX}{forum_folder_num}'
-    user_lat, user_lon = db().get_user_coordinates_or_none(user_id)
+    user_lat, user_lon = db_client.get_user_coordinates_or_none(user_id)
 
-    searches = db().get_active_searches_in_region_limit_20(forum_folder_num, user_id)
+    searches = db_client.get_active_searches_in_region_limit_20(forum_folder_num, user_id)
     if not searches:
         msg = f'Нет акт. поисков за 60 дней в {region_name}'
         return SearchesIKBData(msg, folder_url, [])
@@ -150,11 +152,11 @@ def _compose_ikb_of_active_searches(user_id: int, forum_folder_num: int, region_
     return SearchesIKBData(msg, folder_url, rows)
 
 
-def _compose_text_message_of_all_searches(forum_folder_num: int, region_name: str) -> str:
+def _compose_text_message_of_all_searches(db_client: 'DBClient', forum_folder_num: int, region_name: str) -> str:
     """Compose a Final message on the list of ALL searches in the given region"""
 
     # download the list from SEARCHES sql table
-    searches = db().get_all_searches_in_one_region_limit_20(forum_folder_num)
+    searches = db_client.get_all_searches_in_one_region_limit_20(forum_folder_num)
 
     _format_searches_for_display(searches)
     lines = [
@@ -172,16 +174,18 @@ def _compose_text_message_of_all_searches(forum_folder_num: int, region_name: st
         return _get_message_last_searches_not_found(region_name, forum_folder_num)
 
 
-def _compose_text_message_on_active_searches(forum_folder_num: int, region_name: str, user_id: int) -> str:
+def _compose_text_message_on_active_searches(
+    db_client: 'DBClient', forum_folder_num: int, region_name: str, user_id: int
+) -> str:
     """Compose a Final message on the list of ACTIVE searches in the given region"""
 
     folder_url = f'{FORUM_FOLDER_PREFIX}{forum_folder_num}'
-    user_lat, user_lon = db().get_user_coordinates_or_none(user_id)
+    user_lat, user_lon = db_client.get_user_coordinates_or_none(user_id)
     # Combine the list of the latest active searches
 
     lines: list[str] = []
 
-    searches_list = db().get_active_searches_in_one_region(forum_folder_num)
+    searches_list = db_client.get_active_searches_in_one_region(forum_folder_num)
 
     for search in searches_list:
         if time_counter_since_search_start(search.start_time)[1] >= 60:
@@ -213,10 +217,11 @@ def _compose_text_message_on_active_searches(forum_folder_num: int, region_name:
     return msg
 
 
-def _handle_view_searches_usual_view(user_id: int, search_list_type: SearchListType) -> HandlerResult:
-    folders_list = db().get_geo_folders_db()
+def _handle_view_searches_usual_view(ctx: TGHandlerContext, search_list_type: SearchListType) -> None:
+    user_id = ctx.user_id
+    folders_list = ctx.db.get_geo_folders_db()
 
-    for forum_folder_num in db().get_user_reg_folders_preferences(user_id):
+    for forum_folder_num in ctx.db.get_user_reg_folders_preferences(user_id):
         region_name = _get_region_name(folders_list, forum_folder_num)
 
         # check if region – is an archive folder: if so – it can be sent only to 'all'
@@ -225,26 +230,16 @@ def _handle_view_searches_usual_view(user_id: int, search_list_type: SearchListT
             continue
 
         if search_list_type == SearchListType.ALL:
-            bot_message = _compose_text_message_of_all_searches(forum_folder_num, region_name)
+            bot_message = _compose_text_message_of_all_searches(ctx.db, forum_folder_num, region_name)
         else:
-            bot_message = _compose_text_message_on_active_searches(forum_folder_num, region_name, user_id)
+            bot_message = _compose_text_message_on_active_searches(ctx.db, forum_folder_num, region_name, user_id)
 
-        reply_markup = reply_markup_main
-        data = {
-            'text': bot_message,
-            'reply_markup': reply_markup,
-            'chat_id': user_id,
-            'parse_mode': 'HTML',
-            'disable_web_page_preview': True,
-        }
-        tg_api().send_message(data)
+        ctx.send_message(text=bot_message, reply_markup=reply_markup_main)
 
-    _show_button_to_turn_on_following_searches(user_id)
-
-    return '', None
+    _show_button_to_turn_on_following_searches(ctx)
 
 
-def _show_button_to_turn_on_following_searches(user_id: int) -> None:
+def _show_button_to_turn_on_following_searches(ctx: TGHandlerContext) -> None:
     # issue425 add Button for turn on search following mode
     search_follow_mode_ikb = [
         [
@@ -255,30 +250,32 @@ def _show_button_to_turn_on_following_searches(user_id: int) -> None:
         ]
     ]
     reply_markup = InlineKeyboardMarkup(search_follow_mode_ikb)
-    params = {
-        'parse_mode': 'HTML',
-        'disable_web_page_preview': True,
-        'reply_markup': reply_markup.to_dict(),
-        'chat_id': user_id,
-        'text': (
-            'Вы можете включить возможность выбора поисков для отслеживания, '
-            'чтобы получать уведомления не со всех актуальных поисков, '
-            'а только с выбранных Вами.'
-        ),
-    }
-    context = f'{user_id=}, context_step=a01'
-    tg_api().send_message(params, context)
+    ctx.tg_api.send_message(
+        {
+            'parse_mode': 'HTML',
+            'disable_web_page_preview': True,
+            'reply_markup': reply_markup.to_dict(),
+            'chat_id': ctx.user_id,
+            'text': (
+                'Вы можете включить возможность выбора поисков для отслеживания, '
+                'чтобы получать уведомления не со всех актуальных поисков, '
+                'а только с выбранных Вами.'
+            ),
+        },
+        f'{ctx.user_id=}, context_step=a01',
+    )
 
 
-def _handle_view_searches_experimental_view(user_id: int, search_list_type: SearchListType) -> HandlerResult:
+def _handle_view_searches_experimental_view(ctx: TGHandlerContext, search_list_type: SearchListType) -> None:
     # issue#425 make inline keyboard - list of searches
-    user_regions = db().get_user_reg_folders_preferences(user_id)
+    user_id = ctx.user_id
+    user_regions = ctx.db.get_user_reg_folders_preferences(user_id)
 
     region_keyboards: list[SearchesIKBData] = []  # to combine monolit ikb for all user's regions
 
-    folders_with_user_followed_searches = db().get_folders_with_followed_searches(user_id)
+    folders_with_user_followed_searches = ctx.db.get_folders_with_followed_searches(user_id)
 
-    folders_list = db().get_geo_folders_db()
+    folders_list = ctx.db.get_geo_folders_db()
     for region in set(user_regions + folders_with_user_followed_searches):
         region_name = _get_region_name(folders_list, region)
 
@@ -289,9 +286,9 @@ def _handle_view_searches_experimental_view(user_id: int, search_list_type: Sear
 
         if search_list_type == SearchListType.ALL:
             only_followed = region not in user_regions
-            region_data = _compose_ikb_of_last_searches(user_id, region, region_name, only_followed)
+            region_data = _compose_ikb_of_last_searches(ctx.db, user_id, region, region_name, only_followed)
         else:
-            region_data = _compose_ikb_of_active_searches(user_id, region, region_name)
+            region_data = _compose_ikb_of_active_searches(ctx.db, user_id, region, region_name)
 
         region_keyboards.append(region_data)
         logging.info(f'After += compose_full_message_on_list_of_searches_ikb: {region_keyboards=}')
@@ -300,16 +297,8 @@ def _handle_view_searches_experimental_view(user_id: int, search_list_type: Sear
 
     if not all_searches_count:
         bot_message = 'Незавершенные поиски в соответствии с Вашей настройкой видов поисков не найдены.'
-        data = {
-            'parse_mode': 'HTML',
-            'disable_web_page_preview': True,
-            'reply_markup': reply_markup_main,
-            'chat_id': user_id,
-            'text': bot_message,
-        }
-        context = f'{user_id=}, context_step=b1'
-        tg_api().send_message(data, context)
-        return '', None
+        ctx.send_message(text=bot_message, reply_markup=reply_markup_main)
+        return
 
     # issue#425 show the inline keyboard
     for i, region_data in enumerate(region_keyboards):
@@ -348,28 +337,27 @@ def _handle_view_searches_experimental_view(user_id: int, search_list_type: Sear
         reply_markup_inline = InlineKeyboardMarkup(region_data.rows)
         logging.info(f'{bot_message=}; {region_data.rows=}; context_step=b00')
 
-        data = {
-            'parse_mode': 'HTML',
-            'disable_web_page_preview': True,
-            'reply_markup': reply_markup_inline,
-            'chat_id': user_id,
-            'text': bot_message,
-        }
-        context = f'{user_id=}, context_step=b03'
-        tg_api().send_message(data, context)
+        ctx.tg_api.send_message(
+            {
+                'parse_mode': 'HTML',
+                'disable_web_page_preview': True,
+                'reply_markup': reply_markup_inline,
+                'chat_id': user_id,
+                'text': bot_message,
+            },
+            f'{user_id=}, context_step=b03',
+        )
 
-    return '', None
 
-
-@button_handler(
-    buttons=[
+@tg_handle(
+    text=[
         OtherOptionsMenu.b_view_latest_searches,
         MainMenu.b_view_act_searches,
         Commands.c_view_latest_searches,
         Commands.c_view_act_searches,
     ]
 )
-def handle_view_searches(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
+def handle_view_searches(ctx: TGHandlerContext) -> None:
     # issue#425
 
     temp_dict = {
@@ -378,12 +366,10 @@ def handle_view_searches(update_params: UpdateBasicParams, extra_params: UpdateE
         Commands.c_view_latest_searches: SearchListType.ALL,
         Commands.c_view_act_searches: SearchListType.ACTIVE,
     }
-    search_list_type = temp_dict[update_params.got_message]
+    search_list_type = temp_dict[ctx.update_params.got_message]
 
-    use_experimental_view = db().get_search_follow_mode(update_params.user_id) and (
-        db().is_user_tester(update_params.user_id)
-    )
+    use_experimental_view = ctx.db.get_search_follow_mode(ctx.user_id) and (ctx.db.is_user_tester(ctx.user_id))
     if use_experimental_view:
-        return _handle_view_searches_experimental_view(update_params.user_id, search_list_type)
+        _handle_view_searches_experimental_view(ctx, search_list_type)
     else:
-        return _handle_view_searches_usual_view(update_params.user_id, search_list_type)
+        _handle_view_searches_usual_view(ctx, search_list_type)

@@ -6,6 +6,9 @@ into the abstract ``MessengerClient`` interface defined in
 
 """
 
+import random
+from typing import cast
+
 from _dependencies.bot.telegram_api_wrapper import TGApiBase
 from _dependencies.bot.vk_api_client import VKApi, VkApiError
 from _dependencies.common.commons import Messenger, MessengerClient, SendResult, UserIdentity, get_app_config
@@ -26,7 +29,7 @@ class TelegramClient(MessengerClient):
         self._api = tg_api or TGApiBase(prod_token, config.bot_api_host)
 
     def send_message(self, user_identity: UserIdentity, text: str, **kwargs: object) -> SendResult:
-        params: dict = {
+        params: dict[str, object] = {
             'chat_id': user_identity.messenger_user_id,
             'text': text,
         }
@@ -35,7 +38,7 @@ class TelegramClient(MessengerClient):
         if disable_preview is not None:
             params['disable_web_page_preview'] = bool(disable_preview)
 
-        params.update(kwargs)  # type: ignore[typeddict-item]
+        params.update(kwargs)
 
         status = self._api.send_message(params)
         return self._to_send_result(status)
@@ -66,19 +69,19 @@ class VKClient(MessengerClient):
     messenger = Messenger.VK
 
     def __init__(self, vk_api: VKApi | None = None) -> None:
-        import random
-
         self._random = random
         self._api = vk_api or VKApi(get_app_config().vk_api_key)
 
     def send_message(self, user_identity: UserIdentity, text: str, **kwargs: object) -> SendResult:
         try:
+            keyboard = cast('dict | None', kwargs.get('keyboard'))
+            attachment = cast('str', kwargs.get('attachment', ''))
             self._api.send(
                 user_id=user_identity.messenger_user_id,
                 random_id=self._random.randint(0, 2**31),
                 message=text,
-                keyboard=kwargs.get('keyboard'),  # type: ignore[arg-type]
-                attachment=kwargs.get('attachment', ''),  # type: ignore[arg-type]
+                keyboard=keyboard,
+                attachment=attachment,
                 dont_parse_links=bool(kwargs.get('dont_parse_links', False)),
             )
             return SendResult(success=True, status='completed')
