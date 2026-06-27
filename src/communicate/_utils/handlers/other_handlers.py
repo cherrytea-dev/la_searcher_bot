@@ -11,13 +11,12 @@ from ..common import (
     create_one_column_reply_markup,
     generate_yandex_maps_place_link,
 )
-from ..database import db
 from ..message_sending import tg_api
 
 
 def handle_user_geolocation(ctx: TGHandlerContext) -> None:
     """process coordinates which user sent to bot"""
-    db().save_user_coordinates(ctx.user_id, ctx.update_params.user_latitude, ctx.update_params.user_longitude)
+    ctx.db.save_user_coordinates(ctx.user_id, ctx.update_params.user_latitude, ctx.update_params.user_longitude)
 
     bot_message = 'Ваши "домашние координаты" сохранены:\n'
     bot_message += generate_yandex_maps_place_link(

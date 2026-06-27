@@ -1,7 +1,7 @@
 import logging
 from ast import literal_eval
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from _dependencies.common.commons import SearchFollowingMode
 
@@ -145,12 +145,20 @@ def manage_search_whiteness(ctx: TGHandlerContext) -> None:
         ctx.edit(text='Не удалось обработать смену пометки', reply_markup=InlineKeyboardMarkup([]))
         return
 
+    message = callback_query.message if callback_query is not None else None
+    if not isinstance(message, Message):
+        ctx.edit(text='Не удалось обработать смену пометки', reply_markup=InlineKeyboardMarkup([]))
+        return
+
     # get inline keyboard from previous message to update it
-    source_reply_markup = callback_query.message.reply_markup  # type:ignore [union-attr]
-    source_keyboard = source_reply_markup.inline_keyboard  # type:ignore [union-attr]
+    source_reply_markup = message.reply_markup
+    if source_reply_markup is None:
+        ctx.edit(text='Не удалось обработать смену пометки', reply_markup=InlineKeyboardMarkup([]))
+        return
+    source_keyboard = source_reply_markup.inline_keyboard
 
     search_num = int(user_callback.hash) if user_callback.hash else 0
-    pushed_row_index = _get_pressed_button_row_index(source_reply_markup, search_num)  # type:ignore [union-attr, arg-type]
+    pushed_row_index = _get_pressed_button_row_index(source_reply_markup, search_num)
     if pushed_row_index is None:
         logging.error(f'cannot find pressed button. {search_num=} {source_keyboard=}')
         ctx.edit(text='Не удалось обработать смену пометки', reply_markup=InlineKeyboardMarkup([]))
@@ -163,7 +171,7 @@ def manage_search_whiteness(ctx: TGHandlerContext) -> None:
         text=new_mark_value + old_button.text[2:],
         callback_data=old_button.callback_data,
     )
-    new_ikb[pushed_row_index] = [new_button, new_ikb[pushed_row_index][1]]
+    new_ikb[pushed_row_index] = (new_button, new_ikb[pushed_row_index][1])
 
     ctx.db.record_search_whiteness(ctx.user_id, search_num, new_mark_value)
     ctx.answer_callback(flash_message)
@@ -172,7 +180,7 @@ def manage_search_whiteness(ctx: TGHandlerContext) -> None:
     #            api_callback_edit_inline_keyboard(bot_token, callback_query, reply_markup, user_id)
 
     # TODO should we remove old message and keyboard?
-    bot_message = callback_query.message.text  # type:ignore [assignment,union-attr]
+    bot_message = message.text or ''
     ctx.edit(text=bot_message, reply_markup=InlineKeyboardMarkup(new_ikb))
 
 

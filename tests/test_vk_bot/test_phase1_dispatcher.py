@@ -16,7 +16,7 @@ import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fakes import FakeVKMessageSender
+from fakes import CallbackAnswer, FakeVKMessageSender
 from sqlalchemy import text as sa_text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm.session import Session
@@ -375,8 +375,10 @@ class TestDispatcherMessageNew:
 class TestDispatcherMessageEvent:
     """message_event (callback) routing."""
 
-    def test_message_event(self, mock_vk_sender: MagicMock | AsyncMock):
+    def test_message_event(self, fake_vk_sender: FakeVKMessageSender, mock_dispatcher_db: MagicMock):
         """Callback event is acknowledged."""
+        mock_dispatcher_db().get_identity_by_messenger_user_id.return_value = None
+        mock_dispatcher_db().get_user_by_vk_id.return_value = 42
         event = {
             'type': 'message_event',
             'object': {
@@ -390,11 +392,10 @@ class TestDispatcherMessageEvent:
 
         result = dispatch_event(event)
         assert result == 'ok'
-        mock_vk_sender.return_value.send_callback_answer.assert_called_once_with(
-            event_id='evt_001', user_id=123, peer_id=456
-        )
+        assert len(fake_vk_sender.callback_answers) == 1
+        assert fake_vk_sender.callback_answers[0] == CallbackAnswer(event_id='evt_001', user_id=123, peer_id=456)
 
-    def test_message_event_without_event_id(self, mock_vk_sender: MagicMock | AsyncMock):
+    def test_message_event_without_event_id(self, fake_vk_sender: FakeVKMessageSender):
         """Callback without event_id still returns ok."""
         event = {
             'type': 'message_event',
@@ -407,7 +408,7 @@ class TestDispatcherMessageEvent:
         result = dispatch_event(event)
         assert result == 'ok'
         # handle_callback_event returns early if payload is empty (no event_id)
-        mock_vk_sender.return_value.send_callback_answer.assert_not_called()
+        assert len(fake_vk_sender.callback_answers) == 0
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

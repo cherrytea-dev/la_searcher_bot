@@ -39,7 +39,7 @@ def handle_radius_value(ctx: VKHandlerContext) -> None:
         return
 
     radius_km = int(match.group())
-    ctx._db.save_radius(ctx.user_id, radius_km)
+    ctx.db.save_radius(ctx.user_id, radius_km)
     ctx.reply(
         text=radius_saved(radius_km),
         keyboard=VKKeyboardPresets.settings_menu(),
@@ -65,7 +65,7 @@ def handle_coords_text(ctx: VKHandlerContext) -> None:
         return
 
     lat, lon = float(match.group(1)), float(match.group(2))
-    ctx._db.save_coordinates(ctx.user_id, lat, lon)
+    ctx.db.save_coordinates(ctx.user_id, lat, lon)
     ctx.reply(
         text=coords_saved(),
         keyboard=VKKeyboardPresets.settings_menu(),

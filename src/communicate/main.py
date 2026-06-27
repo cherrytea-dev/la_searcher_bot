@@ -141,7 +141,7 @@ def _get_basic_update_parameters(update: Update) -> UpdateBasicParams:
     callback_query_id = _get_param_if_exists(update, lambda update: update.callback_query.id)
 
     logging.info(f'get_basic_update_parameters..callback_query==, {str(callback_query)}')
-    got_callback = None
+    got_callback: InlineButtonCallbackData | None = None
     if callback_query:
         callback_data_text = callback_query.data
         try:
@@ -166,7 +166,7 @@ def _get_basic_update_parameters(update: Update) -> UpdateBasicParams:
         channel_type=channel_type,
         username=username,
         user_id=user_id,
-        got_callback=got_callback,  # type:ignore[arg-type]
+        got_callback=got_callback,
         callback_query_id=callback_query_id,
         callback_query=callback_query,
     )
@@ -358,7 +358,9 @@ def main(request: RequestWrapper, *args: Any, **kwargs: Any) -> ResponseWrapper:
         return ResponseWrapper(data='no request data', status_code=400)
 
     update = Update.de_json(request.json_, bot)
+    if update is None:
+        return ResponseWrapper(data='failed to parse update', status_code=400)
 
     with db().connect():
-        result = process_update(update)  # type: ignore[arg-type]
+        result = process_update(update)
         return ResponseWrapper(data=result)

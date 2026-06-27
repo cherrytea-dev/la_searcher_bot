@@ -1,7 +1,5 @@
 import datetime
-from unittest.mock import Mock, patch
 
-import pytest
 import sqlalchemy
 
 # from communicate._utils import compose_messages
@@ -41,7 +39,7 @@ def test__compose_text_message_of_all_searches(db_client: DBClient, user_id: int
     for search in searches:
         db_factories.SearchHealthCheckFactory.create_sync(search_forum_num=search.search_forum_num, status='ok')
 
-    message = view_searches_handlers._compose_text_message_of_all_searches(region_id, 'name of region')
+    message = view_searches_handlers._compose_text_message_of_all_searches(db_client, region_id, 'name of region')
 
     lines = message.splitlines()
     assert len(lines) == count + 1
@@ -60,7 +58,9 @@ def test__compose_text_message_on_active_searches(db_client: DBClient, user_id: 
     for search in searches:
         db_factories.SearchHealthCheckFactory.create_sync(search_forum_num=search.search_forum_num, status='ok')
 
-    message = view_searches_handlers._compose_text_message_on_active_searches(region_id, 'name of region', user_id)
+    message = view_searches_handlers._compose_text_message_on_active_searches(
+        db_client, region_id, 'name of region', user_id
+    )
 
     lines = message.splitlines()
     assert len(lines) == count + 1
@@ -79,7 +79,9 @@ def test__compose_ikb_of_last_searches(db_client: DBClient, user_id: int, region
     for search in searches:
         db_factories.SearchHealthCheckFactory.create_sync(search_forum_num=search.search_forum_num, status='ok')
 
-    ikb_data = view_searches_handlers._compose_ikb_of_last_searches(user_id, region_id, 'name of region', False)
+    ikb_data = view_searches_handlers._compose_ikb_of_last_searches(
+        db_client, user_id, region_id, 'name of region', False
+    )
 
     assert len(ikb_data.rows) == count
 
@@ -95,6 +97,6 @@ def test__compose_ikb_of_active_searches(db_client: DBClient, user_id: int, regi
     for search in searches:
         db_factories.SearchHealthCheckFactory.create_sync(search_forum_num=search.search_forum_num, status='ok')
 
-    ikb_data = view_searches_handlers._compose_ikb_of_active_searches(user_id, region_id, 'name of region')
+    ikb_data = view_searches_handlers._compose_ikb_of_active_searches(db_client, user_id, region_id, 'name of region')
 
     assert len(ikb_data.rows) == count

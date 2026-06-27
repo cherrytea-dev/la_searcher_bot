@@ -15,7 +15,7 @@ import logging
 
 import click
 from dotenv import load_dotenv
-from flask import Flask, request  # type:ignore[import-not-found]
+from flask import Flask, request
 
 from ._utils.bot_polling import run_polling
 from ._utils.event_dispatcher import dispatch_event

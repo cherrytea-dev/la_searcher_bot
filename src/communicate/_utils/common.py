@@ -10,6 +10,7 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     KeyboardButton,
+    Message,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
 )
@@ -364,21 +365,17 @@ class TGHandlerContext:
         replied_with_inline_markup = got_callback and isinstance(reply_markup, InlineKeyboardMarkup)
         if replied_with_inline_markup:
             # Edit the message where the inline button was pushed
-            try:
-                if (
-                    callback_query
-                    and callback_query.message  # type: ignore[attr-defined]
-                    and callback_query.message.reply_markup == reply_markup  # type: ignore[attr-defined]
-                    and callback_query.message.text == text  # type: ignore[attr-defined]
-                ):
-                    # Same content — just acknowledge the callback
-                    self.answer_callback('')
-                    return
-            except AttributeError:
-                logging.warning(f'no reply_markup or text in {callback_query=}')
+            message = callback_query.message if callback_query is not None else None
+            if isinstance(message, Message):
+                try:
+                    if message.reply_markup == reply_markup and message.text == text:
+                        # Same content — just acknowledge the callback
+                        self.answer_callback('')
+                        return
+                except AttributeError:
+                    logging.warning(f'no reply_markup or text in {callback_query=}')
 
-            if callback_query and callback_query.message:  # type: ignore[attr-defined]
-                last_user_message_id = callback_query.message.id  # type: ignore[attr-defined]
+                last_user_message_id = message.id
                 params = {
                     'chat_id': self.user_id,
                     'text': text,
