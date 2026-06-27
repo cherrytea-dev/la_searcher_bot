@@ -2,8 +2,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from communicate._utils.common import TGHandlerContext
 from communicate._utils.database import DBClient
+from communicate._utils.handler_context import TGHandlerContext
 from communicate._utils.handlers import button_handlers, notification_settings_handlers
 from tests.factories import db_factories, db_models
 

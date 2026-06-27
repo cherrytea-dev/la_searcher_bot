@@ -42,12 +42,12 @@ from ..buttons import (
 )
 from ..common import (
     LA_BOT_CHAT_URL,
-    TGHandlerContext,
     UserInputState,
     create_one_column_reply_markup,
     generate_yandex_maps_place_link,
 )
 from ..decorators import button_handler
+from ..handler_context import TGHandlerContext
 
 WELCOME_MESSAGE_AFTER_ONBOARDING = (
     '🎉 Отлично, вы завершили базовую настройку Бота.\n\n'

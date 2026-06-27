@@ -21,11 +21,11 @@ from ._utils.buttons import reply_markup_main
 from ._utils.common import (
     LA_BOT_CHAT_URL,
     InlineButtonCallbackData,
-    TGHandlerContext,
     UpdateBasicParams,
     UpdateExtraParams,
 )
 from ._utils.database import db
+from ._utils.handler_context import TGHandlerContext
 from ._utils.handlers import (
     button_handlers,
     callback_handlers,

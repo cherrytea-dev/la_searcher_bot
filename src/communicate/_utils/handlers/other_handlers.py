@@ -6,11 +6,11 @@ from _dependencies.common.pubsub import notify_admin
 
 from ..buttons import CoordinateSettingsMenu, b_back_to_start, b_menu_set_region
 from ..common import (
-    TGHandlerContext,
     UpdateBasicParams,
     create_one_column_reply_markup,
     generate_yandex_maps_place_link,
 )
+from ..handler_context import TGHandlerContext
 from ..message_sending import tg_api
 
 

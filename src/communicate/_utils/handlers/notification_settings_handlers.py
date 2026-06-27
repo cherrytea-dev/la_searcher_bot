@@ -2,10 +2,10 @@ from enum import Enum
 
 from ..buttons import MainSettingsMenu, NotificationSettingsMenu, b_act_titles, b_back_to_start
 from ..common import (
-    TGHandlerContext,
     create_one_column_reply_markup,
 )
 from ..decorators import button_handler
+from ..handler_context import TGHandlerContext
 
 
 class NotificationSettingsMenuOptions(str, Enum):

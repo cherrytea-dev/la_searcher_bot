@@ -14,12 +14,12 @@ from ..buttons import (
     reply_markup_main,
 )
 from ..common import (
-    TGHandlerContext,
     UserInputState,
     create_one_column_reply_markup,
     generate_yandex_maps_place_link,
 )
 from ..decorators import state_handler
+from ..handler_context import TGHandlerContext
 
 
 @state_handler(UserInputState.radius_input)

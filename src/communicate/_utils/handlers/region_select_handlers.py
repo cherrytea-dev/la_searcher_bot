@@ -13,10 +13,10 @@ from ..buttons import (
     reply_markup_main,
 )
 from ..common import (
-    TGHandlerContext,
     create_one_column_reply_markup,
 )
 from ..decorators import button_handler, callback_handler
+from ..handler_context import TGHandlerContext
 from ..regions import GEO_KEYBOARD_NAME, geography
 from .button_handlers import WELCOME_MESSAGE_AFTER_ONBOARDING
 

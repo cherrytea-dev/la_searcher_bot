@@ -15,10 +15,10 @@ from ..common import (
     SEARCH_URL_PREFIX,
     InlineButtonCallbackData,
     SearchSummary,
-    TGHandlerContext,
     define_dist_and_dir_to_search,
 )
 from ..decorators import button_handler
+from ..handler_context import TGHandlerContext
 
 if TYPE_CHECKING:
     from ..database import DBClient

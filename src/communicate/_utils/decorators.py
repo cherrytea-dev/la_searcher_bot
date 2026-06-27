@@ -1,7 +1,8 @@
 from functools import wraps
 from typing import Callable
 
-from .common import TGHandlerContext, UserInputState
+from .common import UserInputState
+from .handler_context import TGHandlerContext
 
 
 def callback_handler(actions: list[str] = [], keyboard_name: str = '') -> Callable:

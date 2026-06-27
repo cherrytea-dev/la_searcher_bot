@@ -8,9 +8,9 @@ from _dependencies.common.commons import SearchFollowingMode
 from ..buttons import TopicTypeInlineKeyboardBuilder, reply_markup_main
 from ..common import (
     NOT_FOLLOWING_MARK,
-    TGHandlerContext,
 )
 from ..decorators import callback_handler
+from ..handler_context import TGHandlerContext
 
 
 @callback_handler(keyboard_name=TopicTypeInlineKeyboardBuilder.keyboard_code)
