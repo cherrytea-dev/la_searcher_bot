@@ -18,11 +18,11 @@ from ..common import (
     create_one_column_reply_markup,
     generate_yandex_maps_place_link,
 )
-from ..decorators import state_handler
+from ..decorators import tg_handle
 from ..handler_context import TGHandlerContext
 
 
-@state_handler(UserInputState.radius_input)
+@tg_handle(state=UserInputState.radius_input.value)
 def handle_radius_value(ctx: TGHandlerContext) -> None:
     number = _parse_radius(ctx.update_params.got_message)
 
@@ -63,7 +63,7 @@ def _parse_radius(got_message: str) -> int | None:
     return None
 
 
-@state_handler(UserInputState.input_of_forum_username)
+@tg_handle(state=UserInputState.input_of_forum_username.value)
 def handle_linking_to_forum_user_input(ctx: TGHandlerContext) -> None:
     """manage all interactions regarding connection of telegram and forum user accounts"""
 
@@ -83,7 +83,7 @@ def handle_linking_to_forum_user_input(ctx: TGHandlerContext) -> None:
     ctx.reply(text=bot_message, reply_markup=reply_markup)
 
 
-@state_handler(UserInputState.input_of_coords_man)
+@tg_handle(state=UserInputState.input_of_coords_man.value)
 def handle_user_coordinates_from_text(ctx: TGHandlerContext) -> None:
     """process coordinates which user sent to bot"""
     user_latitude, user_longitude = _get_coordinates_from_string(ctx.update_params.got_message)

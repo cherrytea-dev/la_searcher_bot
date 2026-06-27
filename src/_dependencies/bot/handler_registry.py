@@ -48,6 +48,14 @@ class HandlerConditions(BaseModel):
     callback_data: str | list[str] | None = None
     """Callback data match (e.g. VK ``payload.cmd`` or TG ``callback_query.data``)."""
 
+    callback_keyboard: str | None = None
+    """Callback keyboard name match (e.g. TG inline keyboard identifier).
+
+    Some Telegram inline keyboards identify themselves by a ``keyboard_name``
+    field in the callback payload. This field allows matching on that name
+    independently of the callback action/data.
+    """
+
     state: str | None = None
     """Dialog state match. Uses the string value of :class:`DialogState`."""
 
@@ -127,6 +135,14 @@ def match_conditions(conditions: HandlerConditions, **values: Any) -> bool:
             conditions.callback_data if isinstance(conditions.callback_data, list) else [conditions.callback_data]
         )
         if incoming not in expected:
+            return False
+
+    # ── Callback keyboard name match ─────────────────────────────────
+    if conditions.callback_keyboard is not None:
+        incoming = values.get('callback_keyboard')
+        if incoming is None:
+            return False
+        if incoming != conditions.callback_keyboard:
             return False
 
     # ── State match ──────────────────────────────────────────────────

@@ -4,7 +4,7 @@ from ..buttons import MainSettingsMenu, NotificationSettingsMenu, b_act_titles, 
 from ..common import (
     create_one_column_reply_markup,
 )
-from ..decorators import button_handler
+from ..decorators import tg_handle
 from ..handler_context import TGHandlerContext
 
 
@@ -140,7 +140,7 @@ def _compose_user_preferences_message(ctx: TGHandlerContext, user_id: int) -> tu
     return '\n'.join(x for x in prefs_word_list if x), user_prefs
 
 
-@button_handler(buttons=[MainSettingsMenu.b_set_pref_notif_type])
+@tg_handle(text=MainSettingsMenu.b_set_pref_notif_type)
 def handle_notification_settings_show_menu(ctx: TGHandlerContext) -> None:
     user_id = ctx.user_id
 
@@ -157,7 +157,7 @@ def handle_notification_settings_show_menu(ctx: TGHandlerContext) -> None:
     ctx.reply(bot_message, reply_markup=reply_markup)
 
 
-@button_handler(buttons=[b_act_titles, *NotificationSettingsMenu.list()])
+@tg_handle(text=[b_act_titles, *NotificationSettingsMenu.list()])
 def handle_notification_settings(ctx: TGHandlerContext) -> None:
     got_message = ctx.update_params.got_message
     user_id = ctx.user_id

@@ -15,7 +15,7 @@ from ..buttons import (
 from ..common import (
     create_one_column_reply_markup,
 )
-from ..decorators import button_handler, callback_handler
+from ..decorators import tg_handle
 from ..handler_context import TGHandlerContext
 from ..regions import GEO_KEYBOARD_NAME, geography
 from .button_handlers import WELCOME_MESSAGE_AFTER_ONBOARDING
@@ -24,7 +24,7 @@ REGION_SELECTION_HELP_TEXT = """Выберите регионы, по котор
 Чтобы ОТПИСАТЬСЯ от какого-либо региона – нажмите на его кнопку еще раз."""
 
 
-@button_handler(buttons=IsMoscow.b_reg_not_moscow.list())
+@tg_handle(text=IsMoscow.b_reg_not_moscow.list())
 def handle_if_moscow(ctx: TGHandlerContext) -> None:
     """act if user replied either user from Moscow region or from another one"""
 
@@ -55,7 +55,7 @@ def handle_if_moscow(ctx: TGHandlerContext) -> None:
     ctx.reply('', reply_markup=reply_markup_main)
 
 
-@callback_handler(keyboard_name=GEO_KEYBOARD_NAME)
+@tg_handle(callback_keyboard=GEO_KEYBOARD_NAME)
 def handle_region_selection_callback(ctx: TGHandlerContext) -> None:
     assert ctx.update_params.got_callback
     selected_button = str(ctx.update_params.got_callback.action)
@@ -94,7 +94,7 @@ def handle_region_selection_callback(ctx: TGHandlerContext) -> None:
     ctx.edit(REGION_SELECTION_HELP_TEXT, reply_markup=reply_keyboard)
 
 
-@button_handler(buttons=[b_menu_set_region, b_fed_dist_pick_other])
+@tg_handle(text=[b_menu_set_region, b_fed_dist_pick_other])
 def handle_set_region(ctx: TGHandlerContext) -> None:
     _handle_region_selection_inline_menu(ctx)
 

@@ -23,10 +23,12 @@ from ._utils.common import (
     InlineButtonCallbackData,
     UpdateBasicParams,
     UpdateExtraParams,
+    UserInputState,
 )
 from ._utils.database import db
+from ._utils.decorators import tg_registry
 from ._utils.handler_context import TGHandlerContext
-from ._utils.handlers import (
+from ._utils.handlers import (  # noqa: F401 — import to trigger @tg_handle registration
     button_handlers,
     callback_handlers,
     notification_settings_handlers,
@@ -42,48 +44,6 @@ setup_logging(__package__)
 # To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
 # Important – these are not errors, but jest informational warnings that there were retries, that's why we exclude them
 logging.getLogger('telegram.vendor.ptb_urllib3.urllib3').setLevel(logging.ERROR)
-
-COMMON_HANDLERS = [
-    callback_handlers.manage_search_whiteness,
-    callback_handlers.handle_search_follow_mode,
-    callback_handlers.handle_topic_type_user_changed,
-    ###
-    state_handlers.handle_radius_value,
-    state_handlers.handle_linking_to_forum_user_input,
-    state_handlers.handle_user_coordinates_from_text,
-    ###
-    button_handlers.handle_command_start,
-    button_handlers.handle_user_role,
-    button_handlers.handle_help_needed,
-    button_handlers.handle_admin_experimental_settings,
-    button_handlers.handle_show_map,
-    button_handlers.handle_topic_type_show_menu,
-    button_handlers.handle_age_settings,
-    button_handlers.handle_radius_menu,
-    button_handlers.handle_radius_menu_show,
-    button_handlers.handle_linking_to_forum_show_menu,
-    button_handlers.handle_linking_to_vk_show_menu,
-    button_handlers.handle_linking_to_forum_its_me,
-    button_handlers.handle_linking_to_forum_not_me,
-    button_handlers.handle_test_admin_check,
-    button_handlers.handle_command_other,
-    button_handlers.handle_main_settings,
-    button_handlers.handle_coordinates_show_menu,
-    button_handlers.handle_coordinates_show_saved,
-    button_handlers.handle_coordinates_delete,
-    button_handlers.handle_coordinates_menu_manual_input,
-    button_handlers.handle_back_to_main_menu,
-    button_handlers.handle_goto_community,
-    button_handlers.handle_goto_first_search,
-    button_handlers.handle_goto_photos,
-    notification_settings_handlers.handle_notification_settings,
-    notification_settings_handlers.handle_notification_settings_show_menu,
-    view_searches_handlers.handle_view_searches,
-    ###
-    region_select_handlers.handle_if_moscow,
-    region_select_handlers.handle_set_region,
-    region_select_handlers.handle_region_selection_callback,
-]
 
 
 def _get_param_if_exists(upd: Update, func_input: Callable) -> Any:
@@ -294,6 +254,28 @@ def process_update(update: Update) -> str:
     return 'finished successfully. in was a regular conversational message'
 
 
+def _run_registered_handlers(
+    ctx: TGHandlerContext,
+    **kwargs: Any,
+) -> bool:
+    """Try registered handlers matching the given conditions.
+
+    Returns True if a handler consumed the context.
+    """
+    for handler in tg_registry.match(**kwargs):
+        try:
+            handler.func(ctx)
+        except Exception:
+            logging.exception(f'Handler {handler.func.__name__} crashed for user {ctx.user_id}')
+            continue
+
+        if ctx.is_consumed:
+            logging.info(f'triggered handler: {handler.func.__name__}')
+            return True
+
+    return False
+
+
 def _run_handlers(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> None:
     """Run the handler chain with a TGHandlerContext.
 
@@ -307,17 +289,36 @@ def _run_handlers(update_params: UpdateBasicParams, extra_params: UpdateExtraPar
         db=db(),
     )
 
-    ### COMMON HANDLERS ###
-    logging.info(f'start checking handlers with {update_params=}, {extra_params=}')
-    for handler in COMMON_HANDLERS:
-        try:
-            handler(ctx)
-        except Exception:
-            logging.exception(f'Handler {handler.__name__} crashed for user {update_params.user_id}')
-            continue
+    got_message = update_params.got_message
+    got_callback = update_params.got_callback
+    user_input_state = extra_params.user_input_state
 
-        if ctx.is_consumed:
-            logging.info(f'triggered handler: {handler.__name__}')
+    logging.info(f'start checking handlers with {update_params=}, {extra_params=}')
+
+    ### CALLBACK HANDLERS ###
+    if got_callback:
+        callback_data = str(got_callback.action)
+        callback_keyboard = got_callback.keyboard_name
+        if _run_registered_handlers(ctx, callback_data=callback_data, callback_keyboard=callback_keyboard):
+            return
+
+    ### TEXT + STATE HANDLERS ###
+    if got_message and user_input_state and user_input_state != UserInputState.not_defined:
+        text = got_message.strip().lower()
+        state = user_input_state.value
+        if _run_registered_handlers(ctx, text=text, state=state):
+            return
+
+    ### STATE-ONLY HANDLERS ###
+    if user_input_state and user_input_state != UserInputState.not_defined:
+        state = user_input_state.value
+        if _run_registered_handlers(ctx, state=state):
+            return
+
+    ### TEXT-ONLY HANDLERS ###
+    if got_message:
+        text = got_message.strip().lower()
+        if _run_registered_handlers(ctx, text=text):
             return
 
     ### AUTO COORDINATES BY BUTTON ###

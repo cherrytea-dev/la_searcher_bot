@@ -9,11 +9,11 @@ from ..buttons import TopicTypeInlineKeyboardBuilder, reply_markup_main
 from ..common import (
     NOT_FOLLOWING_MARK,
 )
-from ..decorators import callback_handler
+from ..decorators import tg_handle
 from ..handler_context import TGHandlerContext
 
 
-@callback_handler(keyboard_name=TopicTypeInlineKeyboardBuilder.keyboard_code)
+@tg_handle(callback_keyboard=TopicTypeInlineKeyboardBuilder.keyboard_code)
 def handle_topic_type_user_changed(ctx: TGHandlerContext) -> None:
     """Save user Topic Type preference and generate the actual topic type preference message"""
 
@@ -105,7 +105,7 @@ def _handle_topic_type_pressed_about(ctx: TGHandlerContext, welcome_message: str
     ctx.edit(text=bot_message, reply_markup=InlineKeyboardMarkup(keyboard))
 
 
-@callback_handler(actions=['search_follow_mode_on', 'search_follow_mode_off', 'search_follow_clear'])
+@tg_handle(callback_data=['search_follow_mode_on', 'search_follow_mode_off', 'search_follow_clear'])
 def handle_search_follow_mode(ctx: TGHandlerContext) -> None:
     """Switches search following mode on/off, or clears search following marks"""
 
@@ -131,7 +131,7 @@ def handle_search_follow_mode(ctx: TGHandlerContext) -> None:
     ctx.reply(text=bot_message, reply_markup=reply_markup_main)
 
 
-@callback_handler(actions=['search_follow_mode'])
+@tg_handle(callback_data='search_follow_mode')
 def manage_search_whiteness(ctx: TGHandlerContext) -> None:
     """Saves search_whiteness (accordingly to user's choice of search to follow) and regenerates the search list keyboard"""
     user_callback = ctx.update_params.got_callback

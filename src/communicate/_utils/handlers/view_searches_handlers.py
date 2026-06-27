@@ -17,7 +17,7 @@ from ..common import (
     SearchSummary,
     define_dist_and_dir_to_search,
 )
-from ..decorators import button_handler
+from ..decorators import tg_handle
 from ..handler_context import TGHandlerContext
 
 if TYPE_CHECKING:
@@ -349,8 +349,8 @@ def _handle_view_searches_experimental_view(ctx: TGHandlerContext, search_list_t
         )
 
 
-@button_handler(
-    buttons=[
+@tg_handle(
+    text=[
         OtherOptionsMenu.b_view_latest_searches,
         MainMenu.b_view_act_searches,
         Commands.c_view_latest_searches,
