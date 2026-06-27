@@ -13,6 +13,11 @@ from _dependencies.bot.users_management import ManageUserAction, update_user_sta
 from _dependencies.common.commons import get_app_config
 
 
+class TelegramTransientError(Exception):
+    """Raised when Telegram API returns a transient error (503, connection reset, etc.)
+    that should be retried."""
+
+
 class TGApiBase:
     def __init__(self, token: str, host: str = '') -> None:
         self._token = token
@@ -42,9 +47,21 @@ class TGApiBase:
             logging.exception('Error in getting response from Telegram')
 
     def send_message(self, params: dict, call_context: str = '') -> str:
-        response = self._make_api_call('sendMessage', params, call_context)
         user_id = params['chat_id']
-        return self._process_response_of_api_call(user_id, response)
+        try:
+            response = retry_call(
+                self._make_api_call,
+                fkwargs=dict(method='sendMessage', params=params, call_context=call_context),
+                exceptions=TelegramTransientError,
+                tries=3,
+                delay=1,
+                backoff=2,
+                jitter=(0, 1),
+            )
+            return self._process_response_of_api_call(user_id, response)
+        except TelegramTransientError:
+            logging.exception(f'All retries exhausted for sendMessage to user {user_id}')
+            return 'failed'
 
     def send_location(self, user_id: int, latitude: str, longitude: str) -> str:
         params = {'chat_id': user_id, 'latitude': latitude, 'longitude': longitude}
@@ -107,6 +124,13 @@ class TGApiBase:
             logging.exception('Error in getting response from Telegram')
 
         logging.debug(f'Before return: {response=}; {call_context=}')
+
+        # Detect transient errors (503, connection resets) for upper-level retry
+        if response is not None and response.status_code == 503:
+            raise TelegramTransientError(
+                f'Telegram API returned 503: {response.reason}. ' f'body={response.text[:500]!r}'
+            )
+
         return response
 
     def _process_response_of_api_call(self, user_id: int, response: Response | None, call_context: str = '') -> str:
