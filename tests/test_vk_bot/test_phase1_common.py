@@ -2,14 +2,18 @@
 
 These tests cover:
 - VKMessage Pydantic model
-- VKHandlerResult dataclass
+- VKHandlerContext class
 - URL constants (SEARCH_URL_PREFIX, FORUM_FOLDER_PREFIX, etc.)
 - get_invite_from_message() invite text parser
 """
 
+from unittest.mock import MagicMock
+
+from fakes import FakeVKMessageSender
+
 from _dependencies.models import DialogState
 from vk_bot._utils.common import (
-    VKHandlerResult,
+    VKHandlerContext,
     VKMessage,
     get_invite_from_message,
 )
@@ -98,40 +102,149 @@ class TestGetInviteFromMessage:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# VKHandlerResult
+# VKHandlerContext
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class TestVKHandlerResult:
-    """VKHandlerResult dataclass."""
+class TestVKHandlerContext:
+    """VKHandlerContext — context object passed to every handler."""
 
-    def test_minimal(self):
-        result = VKHandlerResult(text='hello')
-        assert result.text == 'hello'
-        assert result.keyboard is None
-        assert result.new_state is None
-        assert result.edit_message_id is None
-        assert result.attachment is None
-
-    def test_full(self):
-        keyboard = {'one_time': False, 'inline': False, 'buttons': []}
-        result = VKHandlerResult(
-            text='hello',
-            keyboard=keyboard,
-            new_state=DialogState.radius_input,
-            edit_message_id=42,
-            attachment='photo123',
+    def test_creates_with_minimal_args(self, vk_message):
+        """Can create a context with minimal required args."""
+        msg = vk_message(text='hello')
+        sender = FakeVKMessageSender()
+        ctx = VKHandlerContext(
+            message=msg,
+            user_id=12345,
+            state=None,
+            sender=sender,  # type: ignore[arg-type]
+            db=MagicMock(),
         )
-        assert result.keyboard == keyboard
-        assert result.new_state == DialogState.radius_input
-        assert result.edit_message_id == 42
-        assert result.attachment == 'photo123'
+        assert ctx.message.text == 'hello'
+        assert ctx.user_id == 12345
+        assert ctx.state is None
+        assert ctx.is_consumed is False
 
-    def test_default_factory(self):
-        r1 = VKHandlerResult(text='a')
-        r2 = VKHandlerResult(text='b')
-        assert r1.keyboard is None
-        assert r2.keyboard is None
+    def test_creates_with_state(self, vk_message):
+        """Can create a context with a dialog state."""
+        msg = vk_message(text='50')
+        sender = FakeVKMessageSender()
+        ctx = VKHandlerContext(
+            message=msg,
+            user_id=12345,
+            state=DialogState.radius_input,
+            sender=sender,  # type: ignore[arg-type]
+            db=MagicMock(),
+        )
+        assert ctx.state == DialogState.radius_input
+
+    def test_reply_marks_as_consumed(self, vk_message):
+        """Calling .reply() sets is_consumed to True."""
+        msg = vk_message(text='hello', user_id=12345, peer_id=12345)
+        sender = FakeVKMessageSender()
+        ctx = VKHandlerContext(
+            message=msg,
+            user_id=12345,
+            state=None,
+            sender=sender,  # type: ignore[arg-type]
+            db=MagicMock(),
+        )
+        ctx.reply(text='Hello!')
+        assert ctx.is_consumed is True
+        assert len(sender.sent_messages) == 1
+        assert sender.sent_messages[0].text == 'Hello!'
+
+    def test_edit_marks_as_consumed(self, vk_message):
+        """Calling .edit() sets is_consumed to True."""
+        msg = vk_message(text='hello', user_id=12345, peer_id=12345)
+        sender = FakeVKMessageSender()
+        ctx = VKHandlerContext(
+            message=msg,
+            user_id=12345,
+            state=None,
+            sender=sender,  # type: ignore[arg-type]
+            db=MagicMock(),
+        )
+        ctx.edit(text='Edited!', conversation_message_id=42)
+        assert ctx.is_consumed is True
+        assert len(sender.edited_messages) == 1
+        assert sender.edited_messages[0].text == 'Edited!'
+
+    def test_answer_callback_does_not_mark_consumed(self, vk_message):
+        """Calling .answer_callback() does NOT set is_consumed."""
+        msg = vk_message(text='hello', user_id=12345, peer_id=12345, event_id='evt_001')
+        sender = FakeVKMessageSender()
+        ctx = VKHandlerContext(
+            message=msg,
+            user_id=12345,
+            state=None,
+            sender=sender,  # type: ignore[arg-type]
+            db=MagicMock(),
+        )
+        ctx.answer_callback(event_data={'type': 'show_snackbar', 'text': 'OK'})
+        assert ctx.is_consumed is False
+        assert len(sender.callback_answers) == 1
+
+    def test_send_message_does_not_mark_consumed(self, vk_message):
+        """Calling .send_message() does NOT set is_consumed."""
+        msg = vk_message(text='hello', user_id=12345, peer_id=12345)
+        sender = FakeVKMessageSender()
+        ctx = VKHandlerContext(
+            message=msg,
+            user_id=12345,
+            state=None,
+            sender=sender,  # type: ignore[arg-type]
+            db=MagicMock(),
+        )
+        ctx.send_message(text='Extra message')
+        assert ctx.is_consumed is False
+        assert len(sender.sent_messages) == 1
+
+    def test_set_state_and_clear_state(self, vk_message):
+        """Can set and clear dialog state."""
+        msg = vk_message(text='hello')
+        sender = FakeVKMessageSender()
+        db = MagicMock()
+        ctx = VKHandlerContext(
+            message=msg,
+            user_id=12345,
+            state=None,
+            sender=sender,  # type: ignore[arg-type]
+            db=db,
+        )
+        ctx.set_state(DialogState.radius_input)
+        db.set_user_state.assert_called_once_with(12345, DialogState.radius_input)
+        ctx.clear_state()
+        db.clear_user_state.assert_called_once_with(12345)
+
+    def test_delete_message(self, vk_message):
+        """Can delete messages."""
+        msg = vk_message(text='hello', user_id=12345, peer_id=12345)
+        sender = FakeVKMessageSender()
+        ctx = VKHandlerContext(
+            message=msg,
+            user_id=12345,
+            state=None,
+            sender=sender,  # type: ignore[arg-type]
+            db=MagicMock(),
+        )
+        ctx.delete_message(message_ids=[42, 43])
+        assert len(sender.deleted_messages) == 1
+        assert sender.deleted_messages[0].message_ids == [42, 43]
+
+    def test_db_property(self, vk_message):
+        """.db property returns the db instance."""
+        msg = vk_message(text='hello')
+        sender = FakeVKMessageSender()
+        db = MagicMock()
+        ctx = VKHandlerContext(
+            message=msg,
+            user_id=12345,
+            state=None,
+            sender=sender,  # type: ignore[arg-type]
+            db=db,
+        )
+        assert ctx.db is db
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

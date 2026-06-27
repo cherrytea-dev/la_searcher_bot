@@ -1,25 +1,27 @@
 from functools import wraps
 from typing import Callable
 
-from .common import HandlerResult, UpdateBasicParams, UpdateExtraParams, UserInputState
+from .common import TGHandlerContext, UserInputState
 
 
 def callback_handler(actions: list[str] = [], keyboard_name: str = '') -> Callable:
     def decorator(
-        func: Callable[[UpdateBasicParams, UpdateExtraParams], HandlerResult],
-    ) -> Callable[[UpdateBasicParams, UpdateExtraParams], HandlerResult | None]:
+        func: Callable[[TGHandlerContext], None],
+    ) -> Callable[[TGHandlerContext], None]:
         @wraps(func)
-        def wrapper(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult | None:
-            if not update_params.got_callback:
-                return None
+        def wrapper(ctx: TGHandlerContext) -> None:
+            if not ctx.update_params.got_callback:
+                return
 
-            if update_params.got_callback.action in actions:
-                return func(update_params, extra_params)
+            if ctx.update_params.got_callback.action in actions:
+                func(ctx)
+                return
 
-            if update_params.got_callback.keyboard_name == keyboard_name:
-                return func(update_params, extra_params)
+            if ctx.update_params.got_callback.keyboard_name == keyboard_name:
+                func(ctx)
+                return
 
-            return None
+            return
 
         return wrapper
 
@@ -28,17 +30,18 @@ def callback_handler(actions: list[str] = [], keyboard_name: str = '') -> Callab
 
 def button_handler(buttons: list[str] = []) -> Callable:
     def decorator(
-        func: Callable[[UpdateBasicParams, UpdateExtraParams], HandlerResult],
-    ) -> Callable[[UpdateBasicParams, UpdateExtraParams], HandlerResult | None]:
+        func: Callable[[TGHandlerContext], None],
+    ) -> Callable[[TGHandlerContext], None]:
         @wraps(func)
-        def wrapper(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult | None:
-            if not update_params.got_message:
-                return None
+        def wrapper(ctx: TGHandlerContext) -> None:
+            if not ctx.update_params.got_message:
+                return
 
-            if update_params.got_message in buttons:
-                return func(update_params, extra_params)
+            if ctx.update_params.got_message in buttons:
+                func(ctx)
+                return
 
-            return None
+            return
 
         return wrapper
 
@@ -49,14 +52,15 @@ def state_handler(
     state: UserInputState,
 ) -> Callable:
     def decorator(
-        func: Callable[[UpdateBasicParams, UpdateExtraParams], HandlerResult],
-    ) -> Callable[[UpdateBasicParams, UpdateExtraParams], HandlerResult | None]:
+        func: Callable[[TGHandlerContext], None],
+    ) -> Callable[[TGHandlerContext], None]:
         @wraps(func)
-        def wrapper(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult | None:
-            if state == extra_params.user_input_state:
-                return func(update_params, extra_params)
+        def wrapper(ctx: TGHandlerContext) -> None:
+            if state == ctx.extra_params.user_input_state:
+                func(ctx)
+                return
 
-            return None
+            return
 
         return wrapper
 

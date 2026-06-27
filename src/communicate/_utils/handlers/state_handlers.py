@@ -14,20 +14,17 @@ from ..buttons import (
     reply_markup_main,
 )
 from ..common import (
-    HandlerResult,
-    UpdateBasicParams,
-    UpdateExtraParams,
+    TGHandlerContext,
     UserInputState,
     create_one_column_reply_markup,
     generate_yandex_maps_place_link,
 )
-from ..database import db
 from ..decorators import state_handler
 
 
 @state_handler(UserInputState.radius_input)
-def handle_radius_value(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> HandlerResult:
-    number = _parse_radius(update_params.got_message)
+def handle_radius_value(ctx: TGHandlerContext) -> None:
+    number = _parse_radius(ctx.update_params.got_message)
 
     if not number:
         bot_message = 'Не могу разобрать цифры. Давайте еще раз попробуем?'
@@ -37,10 +34,11 @@ def handle_radius_value(update_params: UpdateBasicParams, extra_params: UpdateEx
             b_back_to_start,
         ]
         reply_markup = create_one_column_reply_markup(list_of_buttons_1)
-        return bot_message, reply_markup
+        ctx.reply(text=bot_message, reply_markup=reply_markup)
+        return
 
-    db().save_user_radius(update_params.user_id, number)
-    saved_radius = db().check_saved_radius(update_params.user_id)
+    ctx.db.save_user_radius(ctx.user_id, number)
+    saved_radius = ctx.db.check_saved_radius(ctx.user_id)
     bot_message = (
         f'Сохранили! Теперь поиски, у которых расстояние до штаба, '
         f'либо до ближайшего населенного пункта (топонима) превосходит '
@@ -55,8 +53,7 @@ def handle_radius_value(update_params: UpdateBasicParams, extra_params: UpdateEx
     )
 
     reply_markup = create_one_column_reply_markup(list_of_buttons)
-
-    return bot_message, reply_markup
+    ctx.reply(text=bot_message, reply_markup=reply_markup)
 
 
 def _parse_radius(got_message: str) -> int | None:
@@ -67,28 +64,29 @@ def _parse_radius(got_message: str) -> int | None:
 
 
 @state_handler(UserInputState.input_of_forum_username)
-def handle_linking_to_forum_user_input(
-    update_params: UpdateBasicParams, extra_params: UpdateExtraParams
-) -> HandlerResult:
+def handle_linking_to_forum_user_input(ctx: TGHandlerContext) -> None:
     """manage all interactions regarding connection of telegram and forum user accounts"""
 
-    if not update_params.got_message or update_params.got_message in {b_admin_menu, b_back_to_start, b_test_menu}:
-        return 'Неправильный логин, попробуйте еще раз', reply_markup_main
+    if not ctx.update_params.got_message or ctx.update_params.got_message in {
+        b_admin_menu,
+        b_back_to_start,
+        b_test_menu,
+    }:
+        ctx.reply(text='Неправильный логин, попробуйте еще раз', reply_markup=reply_markup_main)
+        return
 
-    pubsub_parse_user_profile(update_params.user_id, update_params.got_message)
+    pubsub_parse_user_profile(ctx.user_id, ctx.update_params.got_message)
 
     bot_message = 'Сейчас посмотрю, это может занять до 10 секунд...'
     keyboard = [b_back_to_start]
     reply_markup = create_one_column_reply_markup(keyboard)
-    return bot_message, reply_markup
+    ctx.reply(text=bot_message, reply_markup=reply_markup)
 
 
 @state_handler(UserInputState.input_of_coords_man)
-def handle_user_coordinates_from_text(
-    update_params: UpdateBasicParams, extra_params: UpdateExtraParams
-) -> HandlerResult:
+def handle_user_coordinates_from_text(ctx: TGHandlerContext) -> None:
     """process coordinates which user sent to bot"""
-    user_latitude, user_longitude = _get_coordinates_from_string(update_params.got_message)
+    user_latitude, user_longitude = _get_coordinates_from_string(ctx.update_params.got_message)
     if not user_latitude or not user_longitude:
         keyboard_coordinates_1 = (
             b_coords_auto_def,
@@ -98,10 +96,10 @@ def handle_user_coordinates_from_text(
             b_back_to_start,
         )
         reply_markup = create_one_column_reply_markup(keyboard_coordinates_1)
+        ctx.reply(text='Координаты не распознаны.', reply_markup=reply_markup)
+        return
 
-        return 'Координаты не распознаны.', reply_markup
-
-    db().save_user_coordinates(update_params.user_id, user_latitude, user_longitude)
+    ctx.db.save_user_coordinates(ctx.user_id, user_latitude, user_longitude)
 
     bot_message = 'Ваши "домашние координаты" сохранены:\n'
     bot_message += generate_yandex_maps_place_link(user_latitude, user_longitude, 'coords')
@@ -116,8 +114,7 @@ def handle_user_coordinates_from_text(
         b_back_to_start,
     )
     reply_markup = create_one_column_reply_markup(keyboard_settings)
-
-    return bot_message, reply_markup
+    ctx.reply(text=bot_message, reply_markup=reply_markup)
 
 
 def _get_coordinates_from_string(got_message: str) -> tuple[float, float] | tuple[None, None]:

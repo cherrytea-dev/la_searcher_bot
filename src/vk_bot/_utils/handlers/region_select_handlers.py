@@ -14,12 +14,8 @@ Pagination (inline callback-based):
 
 import logging
 
-from _dependencies.models import DialogState
-
-from ..common import VKHandlerResult, VKMessage
-from ..database import db
+from ..common import VKHandlerContext
 from ..keyboards import VKKeyboardButtons, VKKeyboardPresets
-from ..message_sending import VKMessageSender
 from ..services.message_formatter import (
     region_selection_cant_remove_last,
     region_selection_intro,
@@ -53,21 +49,21 @@ def _get_district_name(text: str) -> str | None:
     return text_lower.replace(' фо', '').strip().title()
 
 
-def _get_folders_for_district(district_name: str) -> list[tuple[int, str]]:
+def _get_folders_for_district(ctx: VKHandlerContext, district_name: str) -> list[tuple[int, str]]:
     """Get geo folders for a given federal district name."""
-    return db().get_geo_folders_by_district(district_name)
+    return ctx.db.get_geo_folders_by_district(district_name)
 
 
-def _get_selected_region_names(user_id: int) -> set[str]:
+def _get_selected_region_names(ctx: VKHandlerContext) -> set[str]:
     """Get set of region display names that the user is subscribed to.
 
     Matches user's subscribed folder IDs against geo folder display names.
     """
-    user_folder_ids = set(db().get_user_regions(user_id))
+    user_folder_ids = set(ctx.db.get_user_regions(ctx.user_id))
     if not user_folder_ids:
         return set()
 
-    all_folders = db().get_geo_folders()
+    all_folders = ctx.db.get_geo_folders()
     selected: set[str] = set()
     for fid, name in all_folders:
         if name is not None and fid in user_folder_ids:
@@ -75,9 +71,7 @@ def _get_selected_region_names(user_id: int) -> set[str]:
     return selected
 
 
-def handle_fed_district_select(
-    vk_message: VKMessage, state: DialogState | None, user_id: int
-) -> VKHandlerResult | None:
+def handle_fed_district_select(ctx: VKHandlerContext) -> None:
     """Handle federal district selection — show regions in that district.
 
     Matches button text from VKKeyboardPresets.fed_districts().
@@ -86,20 +80,21 @@ def handle_fed_district_select(
 
     Already-subscribed regions are highlighted with 'primary' (green) color.
     """
-    district_name = _get_district_name(vk_message.text)
+    district_name = _get_district_name(ctx.message.text)
     if district_name is None:
-        return None
+        return
 
     # Query folders by federal district from the database
-    folders = _get_folders_for_district(district_name)
+    folders = _get_folders_for_district(ctx, district_name)
     if not folders:
-        return VKHandlerResult(
+        ctx.reply(
             text='В этом округе пока нет доступных регионов.',
             keyboard=VKKeyboardPresets.fed_districts(),
         )
+        return
 
     region_buttons = [name for fid, name in folders]
-    selected_regions = _get_selected_region_names(user_id)
+    selected_regions = _get_selected_region_names(ctx)
 
     # Check if pagination is needed
     total_pages = (len(region_buttons) + _PAGE_SIZE - 1) // _PAGE_SIZE
@@ -108,15 +103,15 @@ def handle_fed_district_select(
         # Single page — show all regions as regular text buttons
         buttons = list(region_buttons)
         buttons.append(VKKeyboardButtons.BTN_FINISH)
-        return VKHandlerResult(
-            text=f'Выберите регион в округе "{vk_message.text.strip()}":\n\n'
+        ctx.reply(
+            text=f'Выберите регион в округе "{ctx.message.text.strip()}":\n\n'
             'Нажмите на регион, чтобы подписаться или отписаться.',
             keyboard=VKKeyboardPresets.two_columns(buttons, selected_regions=selected_regions),
         )
     else:
         # Multiple pages — show first page with inline callback keyboard
-        return VKHandlerResult(
-            text=f'Выберите регион в округе "{vk_message.text.strip()}":\n\n'
+        ctx.reply(
+            text=f'Выберите регион в округе "{ctx.message.text.strip()}":\n\n'
             'Нажмите на регион, чтобы подписаться или отписаться.',
             keyboard=VKKeyboardPresets.paginated_regions_inline(
                 region_buttons, 0, district_name, selected_regions=selected_regions
@@ -124,21 +119,21 @@ def handle_fed_district_select(
         )
 
 
-def handle_region_toggle(vk_message: VKMessage, state: DialogState | None, user_id: int) -> VKHandlerResult | None:
+def handle_region_toggle(ctx: VKHandlerContext) -> None:
     """Handle region toggle (subscribe/unsubscribe).
 
     Matches any text that corresponds to a known geo folder name.
     Uses toggle_region_by_name which requires a folder_dict parameter.
     Checks subscription state before toggling to provide correct feedback.
     """
-    text = vk_message.text.strip()
+    text = ctx.message.text.strip()
     if not text:
-        return None
+        return
 
     # Get all geo folders
-    folders = db().get_geo_folders()
+    folders = ctx.db.get_geo_folders()
     if not folders:
-        return None
+        return
 
     # Build folder_dict: {display_name: (folder_id,)}
     # Filter out None folder names (can happen if DB has NULL folder_display_name)
@@ -148,25 +143,25 @@ def handle_region_toggle(vk_message: VKMessage, state: DialogState | None, user_
             folder_dict[name] = (fid,)
 
     if not folder_dict:
-        return None
+        return
 
     # Case-insensitive matching
     region_name_lower = text.lower()
     matching = [name for name in folder_dict if name.lower() == region_name_lower]
     if not matching:
-        return None
+        return
     region_name = matching[0]
     region_folder_ids = folder_dict[region_name]
 
-    return _toggle_region(user_id, region_name, region_folder_ids, folder_dict)
+    _toggle_region(ctx, region_name, region_folder_ids, folder_dict)
 
 
 def _toggle_region(
-    user_id: int,
+    ctx: VKHandlerContext,
     region_name: str,
     region_folder_ids: tuple[int, ...] | None = None,
     folder_dict: dict[str, tuple[int, ...]] | None = None,
-) -> VKHandlerResult | None:
+) -> None:
     """Toggle region subscription for a user.
 
     If region_folder_ids and folder_dict are provided, uses them directly.
@@ -174,56 +169,57 @@ def _toggle_region(
     """
     if region_folder_ids is None or folder_dict is None:
         # Look up from DB
-        folders = db().get_geo_folders()
+        folders = ctx.db.get_geo_folders()
         if not folders:
-            return None
+            return
         folder_dict = {}
         for fid, name in folders:
             if name is not None:
                 folder_dict[name] = (fid,)
         if region_name not in folder_dict:
-            return None
+            return
         region_folder_ids = folder_dict[region_name]
 
     # Check current subscription state by comparing folder IDs
-    user_region_folder_ids = list(db().get_user_regions(user_id))
+    user_region_folder_ids = list(ctx.db.get_user_regions(ctx.user_id))
     is_subscribed = any(fid in user_region_folder_ids for fid in region_folder_ids)
 
     if is_subscribed:
         try:
-            result = db().toggle_region_by_name(user_id, region_name, folder_dict)
+            result = ctx.db.toggle_region_by_name(ctx.user_id, region_name, folder_dict)
         except Exception:
-            logging.exception(f'Failed to toggle region for user {user_id}: {region_name}')
-            return None
+            logging.exception(f'Failed to toggle region for user {ctx.user_id}: {region_name}')
+            return
 
         if result is False:
-            return VKHandlerResult(
+            ctx.reply(
                 text=region_selection_cant_remove_last(),
                 keyboard=VKKeyboardPresets.settings_menu(),
             )
-        return VKHandlerResult(
+            return
+        ctx.reply(
             text=f'Регион "{region_name}" удален.',
             keyboard=VKKeyboardPresets.settings_menu(),
         )
     else:
         try:
-            db().toggle_region_by_name(user_id, region_name, folder_dict)
+            ctx.db.toggle_region_by_name(ctx.user_id, region_name, folder_dict)
         except Exception:
-            logging.exception(f'Failed to toggle region for user {user_id}: {region_name}')
-            return None
-        return VKHandlerResult(
+            logging.exception(f'Failed to toggle region for user {ctx.user_id}: {region_name}')
+            return
+        ctx.reply(
             text=f'Регион "{region_name}" добавлен!',
             keyboard=VKKeyboardPresets.settings_menu(),
         )
 
 
-def _toggle_region_inline(user_id: int, region_name: str) -> str:
+def _toggle_region_inline(ctx: VKHandlerContext, region_name: str) -> str:
     """Toggle region subscription for inline callback.
 
     Lightweight version used by inline pagination callbacks.
-    Returns a snackbar text string to display to the user (no VKHandlerResult).
+    Returns a snackbar text string to display to the user.
     """
-    folders = db().get_geo_folders()
+    folders = ctx.db.get_geo_folders()
     if not folders:
         return 'Произошла ошибка. Попробуйте позже.'
 
@@ -237,14 +233,14 @@ def _toggle_region_inline(user_id: int, region_name: str) -> str:
 
     # Check current subscription state
     region_folder_ids = folder_dict[region_name]
-    user_region_folder_ids = list(db().get_user_regions(user_id))
+    user_region_folder_ids = list(ctx.db.get_user_regions(ctx.user_id))
     is_subscribed = any(fid in user_region_folder_ids for fid in region_folder_ids)
 
     if is_subscribed:
         try:
-            result = db().toggle_region_by_name(user_id, region_name, folder_dict)
+            result = ctx.db.toggle_region_by_name(ctx.user_id, region_name, folder_dict)
         except Exception:
-            logging.exception(f'Failed to toggle region for user {user_id}: {region_name}')
+            logging.exception(f'Failed to toggle region for user {ctx.user_id}: {region_name}')
             return 'Произошла ошибка. Попробуйте позже.'
 
         if result is False:
@@ -252,52 +248,17 @@ def _toggle_region_inline(user_id: int, region_name: str) -> str:
         return f'Регион "{region_name}" удален.'
     else:
         try:
-            db().toggle_region_by_name(user_id, region_name, folder_dict)
+            ctx.db.toggle_region_by_name(ctx.user_id, region_name, folder_dict)
         except Exception:
-            logging.exception(f'Failed to toggle region for user {user_id}: {region_name}')
+            logging.exception(f'Failed to toggle region for user {ctx.user_id}: {region_name}')
             return 'Произошла ошибка. Попробуйте позже.'
         return f'Регион "{region_name}" добавлен!'
 
 
-def _edit_message(
-    peer_id: int,
-    text: str,
-    sender: VKMessageSender,
-    keyboard: dict | None = None,
-    conversation_message_id: int | None = None,
-    message_id: int | None = None,
-) -> None:
-    """Edit an existing message in-place.
-
-    Uses conversation_message_id first (preferred for inline callback events),
-    falls back to message_id. At least one of the two must be provided.
-
-    Args:
-        sender: VKMessageSender instance for sending messages.
-    """
-    if conversation_message_id:
-        sender.edit_message(
-            peer_id=peer_id,
-            text=text,
-            keyboard=keyboard,
-            conversation_message_id=conversation_message_id,
-        )
-    elif message_id:
-        sender.edit_message(
-            peer_id=peer_id,
-            text=text,
-            keyboard=keyboard,
-            message_id=message_id,
-        )
-
-
-def handle_inline_pagination(
-    vk_message: VKMessage,
-    payload: dict,
-    sender: VKMessageSender,
-) -> None:
+def handle_inline_pagination(ctx: VKHandlerContext) -> None:
     """Handle inline pagination callbacks for region selection.
 
+    Parses ``ctx.message.payload`` for the command and parameters.
     Processes four command types:
     - paginate_nav: Navigate to a different page (edit message in-place)
     - paginate_toggle: Toggle region subscription (show snackbar)
@@ -310,18 +271,18 @@ def handle_inline_pagination(
     Falls back to send_message if no message identifier is available.
 
     Args:
-        vk_message: The incoming VK message with callback data.
-        payload: Parsed JSON payload dict.
-        sender: VKMessageSender instance for sending messages.
+        ctx: Handler context with message data and response methods.
     """
+    payload = ctx.message.payload_as_dict
+    if not payload:
+        return
+
     cmd = payload.get('cmd', '')
-    user_id = db().resolve_user_id(vk_message.user_id)
-    peer_id = vk_message.peer_id
-    message_id = vk_message.message_id
-    conversation_message_id = vk_message.conversation_message_id
+    message_id = ctx.message.message_id
+    conversation_message_id = ctx.message.conversation_message_id
 
     logging.info(
-        f'handle_inline_pagination: cmd="{cmd}", user_id={user_id}, '
+        f'handle_inline_pagination: cmd="{cmd}", user_id={ctx.user_id}, '
         f'message_id={message_id}, conversation_message_id={conversation_message_id}, '
         f'payload={payload}'
     )
@@ -329,37 +290,27 @@ def handle_inline_pagination(
     if cmd == 'paginate_nav':
         district = payload.get('district', '')
         page = payload.get('page', 0)
-        folders = _get_folders_for_district(district)
+        folders = _get_folders_for_district(ctx, district)
         if not folders:
-            sender.send_callback_answer(
-                event_id=vk_message.event_id or '',
-                user_id=vk_message.user_id,
-                peer_id=peer_id,
+            ctx.answer_callback(
                 event_data={'type': 'show_snackbar', 'text': 'В этом округе пока нет доступных регионов.'},
             )
             return
 
         region_buttons = [name for fid, name in folders]
-        selected_regions = _get_selected_region_names(user_id)
+        selected_regions = _get_selected_region_names(ctx)
         keyboard = VKKeyboardPresets.paginated_regions_inline(
             region_buttons, page, district, selected_regions=selected_regions
         )
 
-        callback_ok = sender.send_callback_answer(
-            event_id=vk_message.event_id or '',
-            user_id=vk_message.user_id,
-            peer_id=peer_id,
-        )
-        logging.info(f'handle_inline_pagination: send_callback_answer returned {callback_ok}')
+        ctx.answer_callback()
 
         text = f'Выберите регион в округе "{district} ФО":\n\n' 'Нажмите на регион, чтобы подписаться или отписаться.'
-        _edit_message(
-            peer_id=peer_id,
+        ctx.edit(
             text=text,
             keyboard=keyboard,
             conversation_message_id=conversation_message_id,
             message_id=message_id,
-            sender=sender,
         )
 
     elif cmd == 'paginate_toggle':
@@ -367,21 +318,18 @@ def handle_inline_pagination(
         if not region:
             return
 
-        snackbar_text = _toggle_region_inline(user_id, region)
-        sender.send_callback_answer(
-            event_id=vk_message.event_id or '',
-            user_id=vk_message.user_id,
-            peer_id=peer_id,
+        snackbar_text = _toggle_region_inline(ctx, region)
+        ctx.answer_callback(
             event_data={'type': 'show_snackbar', 'text': snackbar_text},
         )
 
         district = payload.get('district', '')
         page = payload.get('page', 0)
         if district:
-            folders = _get_folders_for_district(district)
+            folders = _get_folders_for_district(ctx, district)
             if folders:
                 region_buttons = [name for fid, name in folders]
-                selected_regions = _get_selected_region_names(user_id)
+                selected_regions = _get_selected_region_names(ctx)
                 text = (
                     f'Выберите регион в округе "{district} ФО":\n\n'
                     'Нажмите на регион, чтобы подписаться или отписаться.'
@@ -389,60 +337,42 @@ def handle_inline_pagination(
                 keyboard = VKKeyboardPresets.paginated_regions_inline(
                     region_buttons, page, district, selected_regions=selected_regions
                 )
-                _edit_message(
-                    peer_id=peer_id,
+                ctx.edit(
                     text=text,
                     keyboard=keyboard,
                     conversation_message_id=conversation_message_id,
                     message_id=message_id,
-                    sender=sender,
                 )
 
     elif cmd == 'paginate_back':
-        sender.send_callback_answer(
-            event_id=vk_message.event_id or '',
-            user_id=vk_message.user_id,
-            peer_id=peer_id,
-        )
+        ctx.answer_callback()
         text = region_selection_intro()
-        _edit_message(
-            peer_id=peer_id,
+        ctx.edit(
             text=text,
             keyboard=VKKeyboardPresets.fed_districts(),
             conversation_message_id=conversation_message_id,
             message_id=message_id,
-            sender=sender,
         )
 
     elif cmd == 'paginate_finish':
-        sender.send_callback_answer(
-            event_id=vk_message.event_id or '',
-            user_id=vk_message.user_id,
-            peer_id=peer_id,
-        )
+        ctx.answer_callback()
         empty_keyboard = {'inline': True, 'buttons': []}
-        _edit_message(
-            peer_id=peer_id,
+        ctx.edit(
             text='✅ Выбор региона завершён.',
             keyboard=empty_keyboard,
             conversation_message_id=conversation_message_id,
             message_id=message_id,
-            sender=sender,
         )
-        sender.send_message(
-            peer_id=peer_id,
+        ctx.send_message(
             text=settings_menu_intro(),
             keyboard=VKKeyboardPresets.settings_menu(),
         )
 
 
-def handle_district_select(
-    vk_message: VKMessage,
-    payload: dict,
-    sender: VKMessageSender,
-) -> None:
+def handle_district_select(ctx: VKHandlerContext) -> None:
     """Handle federal district selection via inline callback.
 
+    Parses ``ctx.message.payload_as_dict`` for the district name.
     When a user clicks a district inline button (e.g., 'Центральный ФО'),
     this function:
     1. Acknowledges the callback event
@@ -456,36 +386,28 @@ def handle_district_select(
     used by handle_inline_pagination).
 
     Args:
-        vk_message: The incoming VK message with callback data.
-        payload: Parsed JSON payload dict.
-        sender: VKMessageSender instance for sending messages.
+        ctx: Handler context with message data and response methods.
     """
+    payload = ctx.message.payload_as_dict
+    if not payload:
+        return
     district = payload.get('district', '')
     if not district:
         return
 
-    user_id = db().resolve_user_id(vk_message.user_id)
-    peer_id = vk_message.peer_id
-    conversation_message_id = vk_message.conversation_message_id
-    message_id = vk_message.message_id
+    conversation_message_id = ctx.message.conversation_message_id
+    message_id = ctx.message.message_id
 
     logging.info(
-        f'handle_district_select: district="{district}", user_id={user_id}, '
+        f'handle_district_select: district="{district}", user_id={ctx.user_id}, '
         f'conversation_message_id={conversation_message_id}'
     )
 
-    sender.send_callback_answer(
-        event_id=vk_message.event_id or '',
-        user_id=vk_message.user_id,
-        peer_id=peer_id,
-    )
+    ctx.answer_callback()
 
-    folders = _get_folders_for_district(district)
+    folders = _get_folders_for_district(ctx, district)
     if not folders:
-        sender.send_callback_answer(
-            event_id=vk_message.event_id or '',
-            user_id=vk_message.user_id,
-            peer_id=peer_id,
+        ctx.answer_callback(
             event_data={'type': 'show_snackbar', 'text': 'В этом округе пока нет доступных регионов.'},
         )
         return
@@ -493,7 +415,7 @@ def handle_district_select(
     region_buttons = [name for fid, name in folders]
     text = f'Выберите регион в округе "{district} ФО":\n\n' 'Нажмите на регион, чтобы подписаться или отписаться.'
 
-    selected_regions = _get_selected_region_names(user_id)
+    selected_regions = _get_selected_region_names(ctx)
 
     total_pages = (len(region_buttons) + _PAGE_SIZE - 1) // _PAGE_SIZE
 
@@ -506,17 +428,17 @@ def handle_district_select(
             region_buttons, 0, district, selected_regions=selected_regions
         )
 
-    _edit_message(
-        peer_id=peer_id,
+    ctx.edit(
         text=text,
         keyboard=keyboard,
         conversation_message_id=conversation_message_id,
         message_id=message_id,
-        sender=sender,
     )
 
 
 router: list = [
+    handle_inline_pagination,
+    handle_district_select,
     handle_fed_district_select,
     handle_region_toggle,
 ]

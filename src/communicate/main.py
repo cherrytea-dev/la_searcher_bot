@@ -5,7 +5,7 @@ import logging
 from functools import lru_cache
 from typing import Any, Callable
 
-from telegram import Bot, CallbackQuery, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
+from telegram import Bot, ReplyKeyboardMarkup, Update
 
 from _dependencies.bot.users_management import (
     ManageUserAction,
@@ -21,9 +21,9 @@ from ._utils.buttons import reply_markup_main
 from ._utils.common import (
     LA_BOT_CHAT_URL,
     InlineButtonCallbackData,
+    TGHandlerContext,
     UpdateBasicParams,
     UpdateExtraParams,
-    UserInputState,
 )
 from ._utils.database import db
 from ._utils.handlers import (
@@ -217,55 +217,6 @@ def _run_onboarding(user_id: int, username: str, onboarding_step_id: int, got_me
     return onboarding_step_id
 
 
-def _reply_to_user(
-    user_id: int,
-    got_callback: InlineButtonCallbackData | None,
-    callback_query: CallbackQuery | None,
-    reply_markup: ReplyKeyboardMarkup | InlineKeyboardMarkup | ReplyKeyboardRemove | None,
-    bot_message: str,
-) -> None:
-    context_step = '01a1'
-    context = f'if reply_markup and not isinstance(reply_markup, dict): {reply_markup=}, {context_step=}'
-    logging.info(f'{context=}: {reply_markup=}')
-
-    replied_with_inline_markup = got_callback and isinstance(reply_markup, InlineKeyboardMarkup)
-    if replied_with_inline_markup:
-        # call editMessageText to edit inline keyboard
-        # in the message where inline button was pushed
-        try:
-            if callback_query.message.reply_markup == reply_markup and callback_query.message.text == bot_message:  # type: ignore [union-attr]
-                tg_api().send_callback_answer_to_api(user_id, callback_query.id, '')  # type: ignore [union-attr]
-                return
-        except AttributeError:
-            logging.warning(f'no reply_markup or text in {callback_query=}')
-
-        last_user_message_id = callback_query.message.id  # type: ignore [union-attr]
-        # was get_last_user_inline_dialogue( user_id)
-        logging.info(f'{last_user_message_id=}')
-        # params['message_id'] = last_user_message_id
-        params = {
-            'chat_id': user_id,
-            'text': bot_message,
-            'message_id': last_user_message_id,
-            'reply_markup': reply_markup,
-        }
-        context_step = '1a1'
-        context = f'main() if user_used_inline_button: {user_id=}, {context_step=}'
-        tg_api().edit_message_text(params, context)
-
-    else:
-        params = {
-            'parse_mode': 'HTML',
-            'disable_web_page_preview': True,
-            'reply_markup': reply_markup,
-            'chat_id': user_id,
-            'text': bot_message,
-        }
-        context_step = '1b1'
-        context = f'main() if user_used_inline_button: else: {user_id=}, {context_step=}'
-        tg_api().send_message(params, context)
-
-
 def process_update(update: Update) -> str:
     update_params = _get_basic_update_parameters(update)
 
@@ -343,62 +294,50 @@ def process_update(update: Update) -> str:
     return 'finished successfully. in was a regular conversational message'
 
 
-def _process_handler_result(
-    update_params: UpdateBasicParams,
-    bot_message: str,
-    reply_markup: ReplyKeyboardMarkup | InlineKeyboardMarkup | ReplyKeyboardRemove | None,
-    new_user_input_state: UserInputState | None = None,
-) -> None:
-    user_id = update_params.user_id
-    got_callback = update_params.got_callback
-    callback_query = update_params.callback_query
-
-    if bot_message or reply_markup:
-        _reply_to_user(user_id, got_callback, callback_query, reply_markup, bot_message)
-
-    if not new_user_input_state:
-        new_user_input_state = UserInputState.not_defined
-    db().set_user_input_state(user_id, new_user_input_state)
-
-    if bot_message:
-        db().save_bot_reply_to_user(user_id, bot_message)
-
-
 def _run_handlers(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> None:
+    """Run the handler chain with a TGHandlerContext.
+
+    Creates a TGHandlerContext and passes it through the handler chain.
+    Each handler calls ctx.reply()/ctx.edit() to respond and mark as consumed.
+    """
+    ctx = TGHandlerContext(
+        update_params=update_params,
+        extra_params=extra_params,
+        tg_api=tg_api(),
+        db=db(),
+    )
+
     ### COMMON HANDLERS ###
     logging.info(f'start checking handlers with {update_params=}, {extra_params=}')
     for handler in COMMON_HANDLERS:
-        result = handler(update_params, extra_params)
-        if not result:
+        try:
+            handler(ctx)
+        except Exception:
+            logging.exception(f'Handler {handler.__name__} crashed for user {update_params.user_id}')
             continue
 
-        logging.info(f'triggered handler: {handler.__name__}')
-        bot_message, reply_markup = result[0], result[1]
-        new_user_input_state = result[2] if len(result) >= 3 else None
-
-        _process_handler_result(update_params, bot_message, reply_markup, new_user_input_state)
-        return
+        if ctx.is_consumed:
+            logging.info(f'triggered handler: {handler.__name__}')
+            return
 
     ### AUTO COORDINATES BY BUTTON ###
     if update_params.user_latitude:
         # auto coordinates by button
-        bot_message, reply_markup = other_handlers.handle_user_geolocation(update_params, extra_params)
-        _process_handler_result(update_params, bot_message, reply_markup)
+        other_handlers.handle_user_geolocation(ctx)
         return
 
     ### CUSTOM TEXT ###
     user_regions = db().get_user_reg_folders_preferences(update_params.user_id)
     if not user_regions:
         # force user to input a region
-        bot_message, reply_markup = other_handlers.handle_force_user_to_set_region(update_params.user_id)
-        _process_handler_result(update_params, bot_message, reply_markup)
+        other_handlers.handle_force_user_to_set_region(ctx)
         return
 
     # in case of other user messages, when command is unknown
-    bot_message = 'не понимаю такой команды, пожалуйста, используйте кнопки со стандартными командами ниже'
-    reply_markup = reply_markup_main
-
-    _process_handler_result(update_params, bot_message, reply_markup_main)
+    ctx.reply(
+        text='не понимаю такой команды, пожалуйста, используйте кнопки со стандартными командами ниже',
+        reply_markup=reply_markup_main,
+    )
 
 
 @lru_cache

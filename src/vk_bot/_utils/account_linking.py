@@ -16,10 +16,8 @@ import sqlalchemy
 from _dependencies.bot.users_management import save_onboarding_step
 from _dependencies.common.commons import get_app_config
 
-from .common import VKMessage, get_invite_from_message
-from .database import db
+from .common import VKHandlerContext, get_invite_from_message
 from .keyboards import VKKeyboardPresets
-from .message_sending import VKMessageSender
 
 
 def register_vk_only_user(vk_user_id: int, vk_user_name: str | None = None) -> int:
@@ -105,11 +103,7 @@ def _save_default_preferences(conn: sqlalchemy.engine.Connection, user_id: int) 
         conn.execute(stmt, {'user_id': params[0], 'preference': params[1], 'pref_id': params[2]})
 
 
-def handle_unregistered_user(
-    vk_message: VKMessage,
-    peer_id: int,
-    sender: VKMessageSender,
-) -> None:
+def handle_unregistered_user(ctx: VKHandlerContext) -> None:
     """Handle a message from an unregistered (unlinked) VK user.
 
     The only allowed action is to link via invite text.
@@ -117,13 +111,10 @@ def handle_unregistered_user(
     No phantom user is created in the database.
 
     Args:
-        vk_message: The incoming VK message.
-        peer_id: The peer ID to send responses to.
-        sender: VKMessageSender instance for sending messages.
+        ctx: VKHandlerContext with message, sender, and db access.
     """
-    _sender = sender
-    vk_user_id = vk_message.user_id
-    message_text = vk_message.text
+    vk_user_id = ctx.message.user_id
+    message_text = ctx.message.text
 
     logging.info(f'handle_unregistered_user: vk_user={vk_user_id}, text="{message_text}"')
 
@@ -131,20 +122,19 @@ def handle_unregistered_user(
 
     if not telegram_user_id or not invite_hash:
         text = _get_invite_instructions_text()
-        _sender.send_message(peer_id=peer_id, text=text)
+        ctx.send_message(text=text)
         return
 
     if not _validate_invite_hash(telegram_user_id, invite_hash):
         text = 'Неверный код приглашения. Попробуйте еще раз или получите новый код в Telegram боте.'
-        _sender.send_message(peer_id=peer_id, text=text)
+        ctx.send_message(text=text)
         return
 
-    updated = db().set_user_vk_id(telegram_user_id, vk_user_id)
+    updated = ctx.db.set_user_vk_id(telegram_user_id, vk_user_id)
     if updated:
         logging.info(f'VK user {vk_user_id} linked to Telegram user {telegram_user_id}')
 
-        _sender.send_message(
-            peer_id=peer_id,
+        ctx.send_message(
             text='Теперь вы можете изменять настройки бота здесь',
             keyboard=VKKeyboardPresets.main_menu(),
         )
@@ -159,7 +149,7 @@ def handle_unregistered_user(
             'Не удалось привязать аккаунт. Возможно, вы удалили бота в Telegram. '
             'Пожалуйста, откройте Telegram бота заново и получите новый код приглашения.'
         )
-        _sender.send_message(peer_id=peer_id, text=text)
+        ctx.send_message(text=text)
         return
 
 

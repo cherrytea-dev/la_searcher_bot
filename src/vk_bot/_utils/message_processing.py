@@ -4,20 +4,16 @@ This module contains the core logic for processing:
 - ``handle_new_message`` — new user messages (text commands)
 - ``handle_callback_event`` — inline keyboard callback events
 
-Both functions delegate to the handler chain for actual command handling,
-and use :func:`result_processing.process_vk_result` to send responses.
+Both functions delegate to the handler chain for actual command handling.
 """
 
-import json
 import logging
 
 from .account_linking import handle_unregistered_user, register_vk_only_user
-from .common import VKMessage, get_invite_from_message
+from .common import VKHandlerContext, VKMessage, get_invite_from_message
 from .database import db
 from .handler_chain import HANDLER_CHAIN
-from .handlers import region_select_handlers
 from .message_sending import VKMessageSender
-from .result_processing import process_vk_result
 
 
 def handle_new_message(
@@ -39,7 +35,6 @@ def handle_new_message(
     """
 
     vk_user_id = vk_message.user_id
-    peer_id = vk_message.peer_id
 
     logging.info(f'handle_new_message: vk_user={vk_user_id}, text="{vk_message.text}"')
 
@@ -61,7 +56,14 @@ def handle_new_message(
             telegram_user_id, invite_hash = get_invite_from_message(vk_message.text)
             if telegram_user_id and invite_hash:
                 # Let account_linking handle the invite validation
-                handle_unregistered_user(vk_message, peer_id, sender=sender)
+                ctx = VKHandlerContext(
+                    message=vk_message,
+                    user_id=-1,  # placeholder — user not yet resolved
+                    state=None,
+                    sender=sender,
+                    db=db(),
+                )
+                handle_unregistered_user(ctx)
                 return
 
             # 4. Register as VK-only user
@@ -75,19 +77,24 @@ def handle_new_message(
 
     state = db().get_user_state(user_id)
 
+    ctx = VKHandlerContext(
+        message=vk_message,
+        user_id=user_id,
+        state=state,
+        sender=sender,
+        db=db(),
+    )
+
     for handler in HANDLER_CHAIN:
         try:
-            result = handler(vk_message, state, user_id)
+            handler(ctx)
         except Exception:
             logging.exception(f'Handler {handler.__name__} crashed for user {user_id}')
             continue
 
-        if result is None:
-            continue
-
-        logging.info(f'handle_new_message: handler {handler.__name__} matched for text="{vk_message.text}"')
-        process_vk_result(user_id, peer_id, result, sender=sender)
-        return
+        if ctx.is_consumed:
+            logging.info(f'handle_new_message: handler {handler.__name__} matched for text="{vk_message.text}"')
+            return
 
 
 def handle_callback_event(
@@ -101,13 +108,11 @@ def handle_callback_event(
     message_event with a payload.
 
     When a callback is received:
-    1. Parse the payload to determine the action
-    2. If it's a pagination command (paginate_nav/paginate_toggle/paginate_back),
-       delegate to region_select_handlers.handle_inline_pagination().
-    3. If it's a district_select command, delegate to
-       region_select_handlers.handle_district_select().
-    4. Otherwise, acknowledge the event and process through the handler chain
-       as if it were a text message.
+    1. Resolve user identity
+    2. Acknowledge the callback event
+    3. Create a VKHandlerContext and run through the handler chain
+       — pagination/district_select handlers now parse payload from
+       ``ctx.message.payload_as_dict`` themselves.
 
     Args:
         vk_message: The incoming VK message (with payload for callbacks).
@@ -118,52 +123,44 @@ def handle_callback_event(
     if not payload:
         return
 
-    try:
-        payload_data = json.loads(payload)
-    except (json.JSONDecodeError, TypeError):
-        payload_data = None
-
-    if isinstance(payload_data, dict):
-        cmd = payload_data.get('cmd', '')
-
-        if cmd.startswith('paginate_'):
-            logging.info(
-                f'handle_callback_event: routing to region_select_handlers.handle_inline_pagination, cmd="{cmd}"'
-            )
-            region_select_handlers.handle_inline_pagination(vk_message, payload_data, sender=sender)
+    # Resolve identity
+    vk_user_id = vk_message.user_id
+    identity = db().get_identity_by_messenger_user_id(vk_user_id)
+    if identity is not None:
+        user_id = identity.internal_user_id
+    else:
+        linked_user_id = db().get_user_by_vk_id(vk_user_id)
+        if linked_user_id is not None:
+            user_id = linked_user_id
+        else:
+            logging.warning(f'handle_callback_event: unknown user {vk_user_id}, cannot process callback')
             return
 
-        if cmd == 'district_select':
-            logging.info(
-                f'handle_callback_event: routing to region_select_handlers.handle_district_select, '
-                f'district="{payload_data.get("district")}"'
-            )
-            region_select_handlers.handle_district_select(vk_message, payload_data, sender=sender)
-            return
-
-    logging.info('handle_callback_event: non-pagination callback, processing as text command')
+    # Acknowledge the callback event
     sender.send_callback_answer(
         event_id=vk_message.event_id or '',
         user_id=vk_message.user_id,
         peer_id=vk_message.peer_id,
     )
 
-    if isinstance(payload_data, dict):
-        command = payload_data.get('command', '') or payload_data.get('button', '')
-    elif payload_data is not None:
-        command = str(payload_data)
-    else:
-        command = str(payload)
-
-    if not command:
-        return
-
-    # Create a synthetic VKMessage with the command as text
-    # and process it through the normal message flow
-    synthetic_message = VKMessage(
-        text=command,
-        user_id=vk_message.user_id,
-        peer_id=vk_message.peer_id,
-        message_id=vk_message.message_id,
+    state = db().get_user_state(user_id)
+    ctx = VKHandlerContext(
+        message=vk_message,
+        user_id=user_id,
+        state=state,
+        sender=sender,
+        db=db(),
     )
-    handle_new_message(synthetic_message, sender=sender)
+
+    # Run through the handler chain — pagination/district_select handlers
+    # will match based on ctx.message.payload_as_dict
+    for handler in HANDLER_CHAIN:
+        try:
+            handler(ctx)
+        except Exception:
+            logging.exception(f'Handler {handler.__name__} crashed for user {user_id}')
+            continue
+
+        if ctx.is_consumed:
+            logging.info(f'handle_callback_event: handler {handler.__name__} matched for payload="{payload}"')
+            return

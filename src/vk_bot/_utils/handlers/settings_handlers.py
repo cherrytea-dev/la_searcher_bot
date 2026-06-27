@@ -10,9 +10,8 @@ Contains the `settings_router` list with handlers for:
 - VK linking
 - Other options menu
 
-Each handler matches by vk_message.text content and handles a specific
-button click or command. Returns VKHandlerResult if it handles the message,
-or None to pass to the next handler in the chain.
+Each handler takes a VKHandlerContext and returns None.
+Uses ctx.reply() to send responses and ctx.is_consumed to signal handling.
 """
 
 from _dependencies.bot.telegram_api_wrapper import make_invite_text_for_user
@@ -35,72 +34,74 @@ from vk_bot._utils.services.message_formatter import (
     vk_link_instructions,
 )
 
-from ..common import VKHandlerResult, VKMessage
-from ..database import db
+from ..common import VKHandlerContext
 from ..keyboards import VKKeyboardButtons, VKKeyboardPresets
 
 
-def handle_settings_menu(vk_message: VKMessage, state: DialogState | None, user_id: int) -> VKHandlerResult | None:
+def handle_settings_menu(ctx: VKHandlerContext) -> None:
     """Handle settings menu button clicks."""
-    text = vk_message.text.strip().lower()
+    text = ctx.message.text.strip().lower()
 
     if text == VKKeyboardButtons.BTN_SETTINGS_REGION.lower():
-        return VKHandlerResult(
+        ctx.reply(
             text=region_selection_intro(),
             keyboard=VKKeyboardPresets.fed_districts_inline(),
         )
+        return
 
     if text == VKKeyboardButtons.BTN_SETTINGS_COORDS.lower():
-        coords = db().get_coordinates(user_id)
+        coords = ctx.db.get_coordinates(ctx.user_id)
         if coords:
-            return VKHandlerResult(
+            ctx.reply(
                 text=coords_intro(),
                 keyboard=VKKeyboardPresets.coords_menu(),
             )
-        return VKHandlerResult(
+            return
+        ctx.reply(
             text=coords_not_set(),
             keyboard=VKKeyboardPresets.coords_menu(),
         )
+        return
 
     if text == VKKeyboardButtons.BTN_SETTINGS_RADIUS.lower():
-        radius = db().get_radius(user_id)
+        radius = ctx.db.get_radius(ctx.user_id)
         if radius:
-            return VKHandlerResult(
+            ctx.reply(
                 text=radius_intro_with_radius(radius),
                 keyboard=VKKeyboardPresets.radius_settings(has_radius=True),
             )
-        return VKHandlerResult(
+            return
+        ctx.reply(
             text=radius_intro_no_radius(),
             keyboard=VKKeyboardPresets.radius_settings(),
         )
+        return
 
     if text in (VKKeyboardButtons.BTN_RADIUS_ENABLE.lower(), VKKeyboardButtons.BTN_RADIUS_EDIT.lower()):
-        radius = db().get_radius(user_id)
+        radius = ctx.db.get_radius(ctx.user_id)
         current = f'Текущий радиус: {radius} км. ' if radius else ''
-        return VKHandlerResult(
+        ctx.set_state(DialogState.radius_input)
+        ctx.reply(
             text=f'{current}Введите новый радиус в километрах (только число).',
             keyboard=VKKeyboardPresets.back_to_start(),
-            new_state=DialogState.radius_input,
         )
+        return
 
     if text == VKKeyboardButtons.BTN_RADIUS_DISABLE.lower():
-        db().delete_radius(user_id)
-        return VKHandlerResult(
+        ctx.db.delete_radius(ctx.user_id)
+        ctx.reply(
             text=radius_deleted(),
             keyboard=VKKeyboardPresets.settings_menu(),
         )
+        return
 
-    return None
 
-
-def handle_notification_toggle(
-    vk_message: VKMessage, state: DialogState | None, user_id: int
-) -> VKHandlerResult | None:
+def handle_notification_toggle(ctx: VKHandlerContext) -> None:
     """Handle notification preference toggles.
 
     Maps VK button text to preference names and toggles them.
     """
-    text = vk_message.text.strip().lower()
+    text = ctx.message.text.strip().lower()
 
     # Map button text to preference names
     # Labels are shortened to fit VK's 40-char limit for button labels
@@ -122,7 +123,7 @@ def handle_notification_toggle(
     }
 
     if text not in notif_map:
-        return None
+        return
 
     pref_name = notif_map[text]
     is_enable = text.startswith('включить:')
@@ -130,69 +131,71 @@ def handle_notification_toggle(
     if is_enable:
         if pref_name == 'all':
             # Enable all — clear existing and set 'all'
-            db().delete_preferences(user_id, [])
-            db().save_preference(user_id, 'all')
+            ctx.db.delete_preferences(ctx.user_id, [])
+            ctx.db.save_preference(ctx.user_id, 'all')
         else:
-            db().save_preference(user_id, pref_name)
+            ctx.db.save_preference(ctx.user_id, pref_name)
     else:
         if pref_name == 'all':
-            db().delete_preferences(user_id, [])
+            ctx.db.delete_preferences(ctx.user_id, [])
         else:
-            db().delete_preferences(user_id, [pref_name])
+            ctx.db.delete_preferences(ctx.user_id, [pref_name])
 
     # Show updated preferences
-    prefs = db().get_all_user_preferences(user_id)
+    prefs = ctx.db.get_all_user_preferences(ctx.user_id)
 
     prefs_text = ''
     if prefs:
         prefs_text = '\n' + notif_settings_current_prefs(format_notif_prefs_list(prefs))
 
-    return VKHandlerResult(
+    ctx.reply(
         text=notif_settings_intro() + prefs_text,
         keyboard=VKKeyboardPresets.notification_settings(),
     )
 
 
-def handle_coordinates_action(vk_message: VKMessage, state: DialogState | None, user_id: int) -> VKHandlerResult | None:
+def handle_coordinates_action(ctx: VKHandlerContext) -> None:
     """Handle coordinates sub-menu actions."""
-    text = vk_message.text.strip().lower()
+    text = ctx.message.text.strip().lower()
 
     if text == VKKeyboardButtons.BTN_COORDS_ENTER.lower():
-        return VKHandlerResult(
+        ctx.set_state(DialogState.input_of_coords_man)
+        ctx.reply(
             text='Введите координаты в формате: широта, долгота (например: 55.7558, 37.6173)',
             keyboard=VKKeyboardPresets.back_to_start(),
-            new_state=DialogState.input_of_coords_man,
         )
+        return
 
     if text == VKKeyboardButtons.BTN_COORDS_VIEW.lower():
-        coords = db().get_coordinates(user_id)
+        coords = ctx.db.get_coordinates(ctx.user_id)
         if coords:
             lat, lon = coords
-            return VKHandlerResult(
+            ctx.reply(
                 text=f'Ваши координаты: {lat}, {lon}',
                 keyboard=VKKeyboardPresets.coords_menu(),
             )
-        return VKHandlerResult(
+            return
+        ctx.reply(
             text=coords_not_set(),
             keyboard=VKKeyboardPresets.coords_menu(),
         )
+        return
 
     if text == VKKeyboardButtons.BTN_COORDS_DELETE.lower():
-        db().delete_coordinates(user_id)
-        return VKHandlerResult(
+        ctx.db.delete_coordinates(ctx.user_id)
+        ctx.reply(
             text=coords_deleted(),
             keyboard=VKKeyboardPresets.settings_menu(),
         )
+        return
 
-    return None
 
-
-def handle_age_settings(vk_message: VKMessage, state: DialogState | None, user_id: int) -> VKHandlerResult | None:
+def handle_age_settings(ctx: VKHandlerContext) -> None:
     """Handle age preference toggles.
 
     Maps button text to AgePeriod objects and toggles them.
     """
-    text = vk_message.text.strip().lower()
+    text = ctx.message.text.strip().lower()
 
     age_map: dict[str, AgePeriod] = {
         VKKeyboardButtons.BTN_AGE_CHILDREN.lower(): AgePeriod(
@@ -226,20 +229,20 @@ def handle_age_settings(vk_message: VKMessage, state: DialogState | None, user_i
     }
 
     if text not in age_map:
-        return None
+        return
 
     period = age_map[text]
-    current_prefs = db().get_age_preferences(user_id)
+    current_prefs = ctx.db.get_age_preferences(ctx.user_id)
 
     # Check if this period is already set
     period_active = any(p_min == period.min_age and p_max == period.max_age for p_min, p_max in current_prefs)
 
     if period_active:
-        db().delete_age_preference(user_id, period)
+        ctx.db.delete_age_preference(ctx.user_id, period)
     else:
-        db().save_age_preference(user_id, period)
+        ctx.db.save_age_preference(ctx.user_id, period)
 
-    updated = db().get_age_preferences(user_id)
+    updated = ctx.db.get_age_preferences(ctx.user_id)
     # Build readable list of active age groups
     age_names = []
     for p_min, p_max in updated:
@@ -249,20 +252,18 @@ def handle_age_settings(vk_message: VKMessage, state: DialogState | None, user_i
                 break
 
     prefs_text = ', '.join(age_names) if age_names else 'не выбрано'
-    return VKHandlerResult(
+    ctx.reply(
         text=f'Возрастные группы: {prefs_text}',
         keyboard=VKKeyboardPresets.age_settings(),
     )
 
 
-def handle_topic_type_settings(
-    vk_message: VKMessage, state: DialogState | None, user_id: int
-) -> VKHandlerResult | None:
+def handle_topic_type_settings(ctx: VKHandlerContext) -> None:
     """Handle topic type preference toggles.
 
     Maps button text to topic_type_id integers and toggles them.
     """
-    text = vk_message.text.strip().lower()
+    text = ctx.message.text.strip().lower()
 
     type_map: dict[str, int] = {
         VKKeyboardButtons.BTN_TYPE_SEARCH.lower(): 0,
@@ -270,90 +271,92 @@ def handle_topic_type_settings(
     }
 
     if text not in type_map:
-        return None
+        return
 
     topic_type_id = type_map[text]
-    current_types = db().get_topic_types(user_id)
+    current_types = ctx.db.get_topic_types(ctx.user_id)
 
     if topic_type_id in current_types:
-        db().delete_topic_type(user_id, topic_type_id)
+        ctx.db.delete_topic_type(ctx.user_id, topic_type_id)
     else:
-        db().save_topic_type(user_id, topic_type_id)
+        ctx.db.save_topic_type(ctx.user_id, topic_type_id)
 
-    updated = db().get_topic_types(user_id)
+    updated = ctx.db.get_topic_types(ctx.user_id)
     # Map IDs back to names
     id_to_name = {v: k for k, v in type_map.items()}
     types_text = ', '.join(id_to_name.get(tid, f'тип {tid}') for tid in updated) or 'не выбрано'
 
-    return VKHandlerResult(
+    ctx.reply(
         text=f'Виды поисков: {types_text}',
         keyboard=VKKeyboardPresets.topic_type_settings(),
     )
 
 
-def handle_other_menu(vk_message: VKMessage, state: DialogState | None, user_id: int) -> VKHandlerResult | None:
+def handle_other_menu(ctx: VKHandlerContext) -> None:
     """Handle other options menu buttons."""
-    text = vk_message.text.strip().lower()
+    text = ctx.message.text.strip().lower()
 
     if text == VKKeyboardButtons.BTN_OTHER_LAST_SEARCHES.lower():
         # Delegate to the latest searches handler in view_searches_handlers
-        # by returning None to let it pass through the handler chain
-        return None
+        # by returning without consuming — let it pass through the handler chain
+        return
 
     if text == VKKeyboardButtons.BTN_OTHER_FEEDBACK.lower():
-        return VKHandlerResult(
+        ctx.reply(
             text=community_intro(),
             keyboard=VKKeyboardPresets.other_menu(),
         )
+        return
 
     if text == VKKeyboardButtons.BTN_OTHER_NEWBIE_INFO.lower():
-        return VKHandlerResult(
+        ctx.reply(
             text=first_search_intro(),
             keyboard=VKKeyboardPresets.other_menu(),
         )
+        return
 
     if text == VKKeyboardButtons.BTN_OTHER_PHOTOS.lower():
-        return VKHandlerResult(
+        ctx.reply(
             text=photos_intro(),
             keyboard=VKKeyboardPresets.other_menu(),
         )
+        return
 
-    return None
 
-
-def handle_forum_linking(vk_message: VKMessage, state: DialogState | None, user_id: int) -> VKHandlerResult | None:
+def handle_forum_linking(ctx: VKHandlerContext) -> None:
     """Handle forum linking — set state to input forum username."""
-    text = vk_message.text.strip().lower()
+    text = ctx.message.text.strip().lower()
     if text != VKKeyboardButtons.BTN_FORUM_ENTER_NICK.lower():
-        return None
+        return
 
-    return VKHandlerResult(
+    ctx.set_state(DialogState.input_of_forum_username)
+    ctx.reply(
         text='Введите ваш логин (ник) на форуме lizaalert.org:',
         keyboard=VKKeyboardPresets.back_to_start(),
-        new_state=DialogState.input_of_forum_username,
     )
 
 
-def handle_vk_linking(vk_message: VKMessage, state: DialogState | None, user_id: int) -> VKHandlerResult | None:
+def handle_vk_linking(ctx: VKHandlerContext) -> None:
     """Handle VK linking button.
 
     Generates a proper invite text using make_invite_text_for_user() which
     creates a SHA256 hash of {telegram_user_id}{bot_api_token__prod}.
     The user copies this text and sends it to the VK bot to link accounts.
     """
-    text = vk_message.text.strip().lower()
+    text = ctx.message.text.strip().lower()
     if text != VKKeyboardButtons.BTN_VK_LINK.lower():
-        return None
+        return
 
-    vk_id = db().get_user_vk_id(user_id)
+    vk_id = ctx.db.get_user_vk_id(ctx.user_id)
     if vk_id:
-        return VKHandlerResult(
+        ctx.reply(
             text=vk_already_linked(),
             keyboard=VKKeyboardPresets.settings_menu(),
         )
+        return
 
-    invite_text = make_invite_text_for_user(user_id)
-    return VKHandlerResult(
+    invite_text = make_invite_text_for_user(ctx.user_id)
+    ctx.reply(
         text=vk_link_instructions(invite_text),
         keyboard=VKKeyboardPresets.settings_menu(),
     )
