@@ -1,12 +1,36 @@
+# --- secrets ---
 .env
 .env.test
+
+# --- build artifacts, venv ---
 build/
-*.pyc
 .coverage
 .idea/
 venv/
+.venv/
 .sandbox/
 .DS_Store
-*.log
 frontend/
 node_modules
+
+
+# --- logs, databases ---
+*.log
+*.sqlite
+*.sqlite3
+.db
+qdrant_storage/
+
+# --- cache,bytecode ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.black/
+.coverage
+htmlcov/
+.tox/
+.nox/

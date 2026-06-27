@@ -22,15 +22,15 @@ The first two steps of contribution, that can help a lot, are:
 The following contributions are also welcomed:
 * Improved CI/CD, incl testing
 * Improved PSQL usage
-* Improved GCP costs
+* Improved Yandex Cloud costs
 * Improved Monitoring
 * Any ideas to make the Bot more productive
 
-For contribution to the current repo please make pull request from your 
+For contribution to the current repo please make pull request from your
 cloned repo. It will be reviewed within 5 business days.
 
-For contributions to services beyond the current repo (CI/CD, PSQL, GCP etc) - 
-please turn directly to [project author](https://t.me/MikeMikeT) 
+For contributions to services beyond the current repo (CI/CD, PSQL, Yandex Cloud etc) -
+please turn directly to [project author](https://t.me/MikeMikeT)
 or [community chat](https://t.me/+56GrL4LQ-og2NGEy).
 
 LizaAlert is a non-profit organization. You can [support it with 
