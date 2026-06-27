@@ -121,9 +121,11 @@ def move_first_posts_to_history_in_psql(conn: Connection) -> None:
     # 3. TTL PURGE
     # delete records older than TTL from search_first_posts__history
     # to prevent unbounded growth (the table is never read by any code)
+    # NOTE: INTERVAL with a parameter must use make_interval() or multiplication,
+    # because PostgreSQL does not accept a bound parameter inside INTERVAL syntax.
     stmt = sqlalchemy.text("""
         DELETE FROM search_first_posts__history
-        WHERE timestamp < NOW() - INTERVAL :ttl_days DAYS
+        WHERE timestamp < NOW() - make_interval(days => :ttl_days)
         """)
     conn.execute(stmt, ttl_days=SEARCH_FIRST_POSTS_HISTORY_TTL_DAYS)
 
