@@ -28,6 +28,19 @@
             "justMyCode": false
         },
         {
+            "name": "run_max_bot",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "tests/tools/run_max_bot.py",
+            "console": "integratedTerminal",
+            "purpose": [
+                "debug-test",
+                "debug-in-terminal"
+            ],
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
             "name": "run_vk_bot",
             "type": "debugpy",
             "request": "launch",

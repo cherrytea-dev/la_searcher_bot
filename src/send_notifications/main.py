@@ -1,4 +1,4 @@
-"""Send the prepared notifications to users (text and location) via Telegram"""
+"""Send the prepared notifications to users (text and location) via Telegram, VK, and MAX."""
 
 import ast
 import datetime
@@ -7,15 +7,16 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
-from functools import lru_cache
+from functools import cache, lru_cache
 from typing import Any
 
 import sqlalchemy
 
 from _dependencies.bot.messaging import tg_api_main_account
+from _dependencies.bot.messenger_clients import MaxClient
 from _dependencies.bot.telegram_api_wrapper import TGApiBase
 from _dependencies.bot.vk_api_client import VKApi, get_default_vk_api_client
-from _dependencies.common.commons import Messenger, setup_logging, sqlalchemy_get_pool
+from _dependencies.common.commons import Messenger, UserIdentity, setup_logging, sqlalchemy_get_pool
 from _dependencies.common.db_client import DBClientBase
 from _dependencies.common.lock_manager import FunctionLockError, lock_manager
 from _dependencies.common.misc import generate_random_function_id
@@ -58,6 +59,7 @@ class MessageToSend:
     failed: datetime.datetime | None
     messenger: str = 'telegram'
     vk_id: str | None = None
+    max_id: str | None = None
 
 
 class DBClient(DBClientBase):
@@ -112,6 +114,28 @@ class DBClient(DBClientBase):
                 retry_delay=datetime.datetime.now() - delay_to_retry_send_failed_messages,
             ).fetchall()
             return [MessageToSend(*notification) for notification in notifications]
+
+    def fill_max_user_ids(self, messages: list['MessageToSend']) -> None:
+        """Resolve max_id from user_identity_map for MAX-destined messages."""
+        with self.connect() as conn:
+            max_messages = [m for m in messages if m.messenger == Messenger.MAX]
+            if not max_messages:
+                return
+
+            user_ids = list(set([x.user_id for x in max_messages]))
+
+            identity_query = """
+                SELECT internal_user_id, messenger_user_id
+                FROM user_identity_map
+                WHERE internal_user_id = ANY(:user_ids)
+                  AND messenger = 'max'
+            """
+            stmt = sqlalchemy.text(identity_query)
+            rows = conn.execute(stmt, user_ids=user_ids).fetchall()
+            user_ids_map = {internal_user_id: messenger_user_id for internal_user_id, messenger_user_id in rows}
+
+            for message in max_messages:
+                message.max_id = user_ids_map.get(message.user_id, None)
 
     def fill_vk_user_ids(self, messages: list['MessageToSend']) -> None:
         """Append vk_id to MessageToSend for VK-destined messages.
@@ -295,6 +319,61 @@ def _dispatch_vk(
         raise ValueError(f'unknown message_type for VK: {message_to_send.message_type}')
 
 
+def _send_max_text(max_client: MaxClient, recipient: str, message_to_send: MessageToSend, content: str) -> str | None:
+    """Send a text message via MAX API."""
+    try:
+        logging.info(f'Sending message to MAX: {recipient=} {message_to_send=}')
+        user_identity = UserIdentity(
+            internal_user_id=message_to_send.user_id,
+            messenger=Messenger.MAX,
+            messenger_user_id=recipient,
+        )
+        result = max_client.send_message(user_identity, content, parse_mode='html')
+        return result.status
+    except Exception:
+        logging.exception(f'Sending message to MAX: failed {recipient=} {message_to_send=}')
+        return 'failed'
+
+
+def _send_max_coords(
+    max_client: MaxClient, recipient: str, message_to_send: MessageToSend, message_params: dict[str, Any]
+) -> str | None:
+    """Send coordinates via MAX API."""
+    try:
+        logging.info(f'Sending coordinates to MAX: {recipient=} {message_to_send=}')
+        user_identity = UserIdentity(
+            internal_user_id=message_to_send.user_id,
+            messenger=Messenger.MAX,
+            messenger_user_id=recipient,
+        )
+        result = max_client.send_coordinates(
+            user_identity,
+            lat=message_params['latitude'],
+            lng=message_params['longitude'],
+        )
+        return result.status
+    except Exception:
+        logging.exception(f'Sending coordinates to MAX: failed {recipient=} {message_to_send=}')
+        return 'failed'
+
+
+def _dispatch_max(
+    max_client: MaxClient,
+    message_to_send: MessageToSend,
+    content: str,
+    message_params: dict[str, Any],
+) -> str | None:
+    """Dispatch a message exclusively via MAX (messenger == MAX)."""
+    recipient = message_to_send.max_id or str(message_to_send.user_id)
+
+    if message_to_send.message_type == 'text':
+        return _send_max_text(max_client, recipient, message_to_send, content)
+    elif message_to_send.message_type == 'coords':
+        return _send_max_coords(max_client, recipient, message_to_send, message_params)
+    else:
+        raise ValueError(f'unknown message_type for MAX: {message_to_send.message_type}')
+
+
 def _try_send_vk_fallback(
     vk_api: VKApi, message_to_send: MessageToSend, content: str, message_params: dict[str, Any]
 ) -> None:
@@ -333,6 +412,10 @@ def send_single_message(tg_api: TGApiBase, vk_api: VKApi, message_to_send: Messa
 
     if message_to_send.messenger == Messenger.VK:
         return _dispatch_vk(vk_api, message_to_send, content, message_params)
+
+    if message_to_send.messenger == Messenger.MAX:
+        max_client = get_default_max_client()
+        return _dispatch_max(max_client, message_to_send, content, message_params)
 
     return _dispatch_telegram(tg_api, vk_api, message_to_send, content, message_params)
 
@@ -375,6 +458,7 @@ def iterate_over_notifications(
             messages = db_client.get_notifs_to_send(select_doubling=False)
             if USE_VK_API:
                 db_client.fill_vk_user_ids(messages)
+            db_client.fill_max_user_ids(messages)
 
             analytics_sql_duration = seconds_between_round_2(analytics_sql_start)
             logging.debug(f'time: {analytics_sql_duration:.2f} – reading sql')
@@ -563,6 +647,12 @@ def format_mesage_for_vk(message: str) -> str:
 @lru_cache
 def db() -> DBClient:
     return DBClient()
+
+
+@cache
+def get_default_max_client() -> MaxClient:
+    """Return a cached MaxClient instance for sending MAX notifications."""
+    return MaxClient()
 
 
 def main(event: dict, context: Ctx) -> str | None:

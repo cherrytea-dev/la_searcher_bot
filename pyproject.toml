@@ -99,7 +99,7 @@ identify_updates_of_topics = [
 
 send_debug_to_admin = []
 
-send_notifications = []
+send_notifications = ["maxapi>=1.2.0"]
 
 title_recognize = [
     "python-dateutil>=2.9.0", # extension to datetime module
@@ -113,6 +113,8 @@ users_activate = []
 test_func = []
 
 vk_bot = ["vk-api>=11.10.0", "click>=8.0"]
+
+max_bot = ["maxapi>=1.2.0", "click>=8.0"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

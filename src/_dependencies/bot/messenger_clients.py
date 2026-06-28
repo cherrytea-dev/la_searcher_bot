@@ -1,13 +1,16 @@
-"""Messenger client implementations — Telegram and VK.
+"""Messenger client implementations — Telegram, VK, and MAX.
 
-Wraps existing low-level API clients (``TGApiBase``, ``VKApi``)
+Wraps existing low-level API clients (``TGApiBase``, ``VKApi``, ``maxapi.Bot``)
 into the abstract ``MessengerClient`` interface defined in
 ``_dependencies.commons``.
 
 """
 
+import asyncio
 import random
 from typing import cast
+
+from maxapi import Bot as MaxBot
 
 from _dependencies.bot.telegram_api_wrapper import TGApiBase
 from _dependencies.bot.vk_api_client import VKApi, VkApiError
@@ -108,5 +111,89 @@ class VKClient(MessengerClient):
             return SendResult(success=True, status='completed')
         except VkApiError:
             return SendResult(success=False, status='failed')
+        except Exception:
+            return SendResult(success=False, status='failed')
+
+
+class MaxClient(MessengerClient):
+    """MessengerClient implementation for MAX messenger.
+
+    Wraps ``maxapi.Bot`` from the ``maxapi`` library.
+    The maxapi library is fully async, so synchronous ``send_message``
+    and ``send_coordinates`` calls are bridged via ``asyncio.run()``.
+
+    NOTE: This is a minimal integration for sending notifications.
+    Full interactive bot features (Dispatcher, webhooks, FSM) will
+    be added separately in a dedicated MAX bot module.
+    """
+
+    messenger = Messenger.MAX
+
+    def __init__(self, bot_instance: MaxBot | None = None) -> None:
+        """Initialize with an optional pre-configured maxapi.Bot.
+
+        If no bot is provided, creates one using ``MAX_BOT_TOKEN``
+        from the app config (reads ``MAX_BOT_TOKEN`` env var).
+        """
+        if bot_instance is not None:
+            self._bot: MaxBot = bot_instance
+        else:
+            self._bot = MaxBot()
+
+    def send_message(self, user_identity: UserIdentity, text: str, **kwargs: object) -> SendResult:
+        """Send a text message to a MAX user.
+
+        The ``user_identity.messenger_user_id`` is the MAX user ID
+        (integer as string).
+
+        Supported kwargs:
+            - ``parse_mode``: ``'markdown'`` or ``'html'`` (passed to maxapi)
+        """
+        try:
+            user_id = int(user_identity.messenger_user_id)
+            parse_mode_str = cast('str | None', kwargs.get('parse_mode'))
+
+            from maxapi.enums import ParseMode
+
+            parse_mode: ParseMode | None = None
+            if parse_mode_str:
+                parse_mode = ParseMode(parse_mode_str)
+
+            async def _send() -> None:
+                await self._bot.send_message(
+                    user_id=user_id,
+                    text=text,
+                    parse_mode=parse_mode,
+                )
+
+            asyncio.run(_send())
+            return SendResult(success=True, status='completed')
+        except ValueError:
+            return SendResult(success=False, status='cancelled_bad_request')
+        except Exception:
+            return SendResult(success=False, status='failed')
+
+    def send_coordinates(self, user_identity: UserIdentity, lat: float, lng: float) -> SendResult:
+        """Send location coordinates to a MAX user.
+
+        MAX API does not have a dedicated location message type,
+        so coordinates are sent as a text message with a link to
+        the location.
+        """
+        try:
+            user_id = int(user_identity.messenger_user_id)
+            maps_url = f'https://yandex.ru/maps/?pt={lng},{lat}&z=15&l=map'
+            text = f'📍 Координаты: {lat}, {lng}\n{maps_url}'
+
+            async def _send() -> None:
+                await self._bot.send_message(
+                    user_id=user_id,
+                    text=text,
+                )
+
+            asyncio.run(_send())
+            return SendResult(success=True, status='completed')
+        except ValueError:
+            return SendResult(success=False, status='cancelled_bad_request')
         except Exception:
             return SendResult(success=False, status='failed')

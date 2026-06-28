@@ -2,7 +2,7 @@
 
 ## What is this project?
 
-**LA Searcher Bot** is a Telegram bot for [LizaAlert](https://lizaalert.org/) — a non-profit volunteer Search & Rescue organization. The bot monitors the [LA phpBB Forum](https://lizaalert.org/forum/), detects new/updated searches (lost people), and sends **personalized notifications** to volunteer searchers via Telegram (and experimentally VKontakte).
+**LA Searcher Bot** is a Telegram bot for [LizaAlert](https://lizaalert.org/) — a non-profit volunteer Search & Rescue organization. The bot monitors the [LA phpBB Forum](https://lizaalert.org/forum/), detects new/updated searches (lost people), and sends **personalized notifications** to volunteer searchers via Telegram, VKontakte, and Max messenger.
 
 As of early 2023: ~9700 active users, ~6000 DAU, ~30000 daily messages. Annual growth ~2x.
 
@@ -46,9 +46,13 @@ As of early 2023: ~9700 active users, ~6000 DAU, ~30000 daily messages. Annual g
 │                                                                              │
 │  ┌────────────────┐    ┌──────────────┐    ┌──────────────────────┐         │
 │  │ LA phpBB Forum  │    │  Telegram    │    │  VKontakte API       │         │
-│  │ (parsed via     │    │  Bot API     │    │  (experimental       │         │
-│  │  HTTP + BS4)    │    │              │    │   notifications)     │         │
+│  │ (parsed via     │    │  Bot API     │    │  (notifications      │         │
+│  │  HTTP + BS4)    │    │              │    │   + user settings)   │         │
 │  └────────────────┘    └──────────────┘    └──────────────────────┘         │
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────────┐           │
+│  │  Max Messenger API (maxapi library, user settings only)       │           │
+│  └──────────────────────────────────────────────────────────────┘           │
 │                                                                              │
 │  ┌──────────────┐    ┌──────────────────────┐                               │
 │  │ LA Map       │    │ Forum phpMyAdmin DB   │                               │
@@ -267,6 +271,127 @@ Telegram Bot (communicate)                    VK Bot (vk_bot)
 - **Forum linking**: VK bot triggers `pubsub_parse_user_profile()` — the same `connect_to_forum` function that Telegram uses.
 - **VK notifications**: The `send_notifications` function also sends notifications to VK users (via `vk_api_client.VKApi.send()`) for users who have linked their VK account.
 
+### 7. Max Bot
+
+The Max bot provides a settings-management interface for the LA Searcher Bot via the [Max messenger](https://max.ru/). It replicates the core user-facing functionality of the VK bot (registration, region selection, radius/coordinate input) using the [`maxapi`](.vendor/maxapi/) Python library (v1.2.0), which provides a native Dispatcher/Router pattern, FSM (Finite State Machine), and InlineKeyboardBuilder — replacing the custom event loop and keyboard engine used by the VK bot.
+
+#### [`max_bot`](src/max_bot/main.py)
+- **Trigger**: HTTP (Max webhook, planned) or LongPoll polling mode
+- **Purpose**: User settings management for Max messenger users. Shares the same PostgreSQL database as the Telegram and VK bots — all changes made in Max are immediately reflected in Telegram/VK and vice versa.
+
+**Deployment modes** (via [`cli.py`](src/max_bot/cli.py)):
+- **LongPoll polling** (default): Uses `maxapi.Bot.start_polling()` for local development and testing. Launched with `uv run python -m src.max_bot.cli` or via [`run_max_bot.py`](tests/tools/run_max_bot.py).
+- **Webhook** (planned): Will use `maxapi.Bot.handle_webhook()` for production deployment as a Yandex Cloud Function.
+
+**Architecture**:
+```
+┌──────────────────────────────────────────────────────┐
+│  max_bot/main.py (entry point)                        │
+│  └─ @request_response_converter                      │
+│     └─ (webhook handler — planned)                   │
+└──────────────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────┐
+│  max_bot/_utils/bot_polling.py                       │
+│  └─ Dispatcher + Router (maxapi)                     │
+│     └─ handlers.router (all handlers registered)     │
+└──────────────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────┐
+│  max_bot/_utils/handlers.py                          │
+│  ┌─ on_bot_started (bot_started event)              │
+│  ├─ on_start (/start command)                       │
+│  ├─ on_back_to_main / on_region_menu                │
+│  ├─ on_radius_menu / on_radius_set / on_radius_view │
+│  │  / on_radius_delete                              │
+│  ├─ on_coords_menu / on_coords_enter / on_coords_   │
+│  │  view / on_coords_delete                         │
+│  ├─ on_district_select / on_paginate_nav /          │
+│  │  on_paginate_toggle / on_paginate_finish         │
+│  ├─ on_radius_text (FSM) / on_coords_text (FSM)    │
+│  ├─ on_geo_location (native geo button)             │
+│  └─ on_unknown_text (fallback)                      │
+└──────────────────────────────────────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────┐
+│  UserRepository (src/_dependencies/user_repository/) │
+│  Shared DB mixins: UserMixin, RegionMixin,           │
+│  GeoPrefMixin, VKIdentityMixin                       │
+└──────────────────────────────────────────────────────┘
+```
+
+**Features offered to users**:
+
+| Feature           | Handler(s)                            | Description                                                              |
+| ----------------- | ------------------------------------- | ------------------------------------------------------------------------ |
+| Registration      | `on_bot_started`, `on_start`          | Auto-register on first interaction, show main menu with settings buttons |
+| Region management | `on_district_select`, `on_paginate_*` | Federal district selection, region subscribe/unsubscribe with pagination |
+| Radius            | `on_radius_*`, `on_radius_text` (FSM) | Set/view/delete notification radius in km via FSM text input             |
+| Coordinates       | `on_coords_*`, `on_coords_text` (FSM) | Enter/view/delete home coordinates (manual text or native geo button)    |
+
+#### Key Sub-components
+
+##### `handlers.py` — Handler Chain
+- Uses `maxapi.Router` with typed event decorators: `@router.bot_started()`, `@router.message_created()`, `@router.message_callback()`.
+- **FSM**: Uses `maxapi.StatesGroup` (`MaxStates` with `waiting_for_radius`, `waiting_for_coords`). State is managed via `Dispatcher.fsm` (a `ContextManager`), injected into the module via `set_fsm()` because `Router.fsm` raises `RuntimeError`.
+- **Callback filtering**: Uses a custom `PayloadCmd(BaseFilter)` class that parses JSON from `Callback.payload` (which is `str | None`, not a dict) and checks `data.get('cmd')`. This replaces `F.callback.payload.cmd` which doesn't work on JSON-encoded strings.
+- **`event.ack()`**: All callback handlers pass `notification='...'` because the Max API requires at least one of `message` or `notification` — calling `await event.ack()` without arguments causes `MaxApiError`.
+- **Geo location**: Handles native `RequestGeoLocationButton` attachments via `F.message.body.attachments` filter.
+
+##### `keyboards.py` — Keyboard Presets
+- `MaxKeyboardButtons`: Centralized constants for all button labels.
+- `MaxKeyboardPresets`: High-level presets using `maxapi.InlineKeyboardBuilder` — `main_menu()`, `fed_districts_inline()`, `paginated_regions_inline()`, `radius_menu()`, `coords_menu()`, `back_to_main()`.
+- `paginated_regions_inline()`: Supports pagination with `page_size=6`, prepends `✓ ` to subscribed region names (since `Intent.POSITIVE`/`DEFAULT`/`NEGATIVE` are sent correctly but the Max UI doesn't render different intents with different visual styles).
+
+##### `message_formatter.py` — Text Templates
+- All bot response templates: `WELCOME_TEXT`, `MAIN_MENU_TEXT`, `FED_DISTRICTS_PROMPT`, `REGION_LIST_PROMPT`, `RADIUS_PROMPT`, `RADIUS_SAVED`, `COORDS_MANUAL_PROMPT`, `COORDS_SAVED`, `COORDS_VIEW`, `COORDS_DELETED`, `RADIUS_DELETED`, `RADIUS_VIEW`, `ERROR_TEXT`, etc.
+- Contains constants for LA organization links (same as VK bot's `message_formatter.py`).
+
+##### `states.py` — FSM States
+```python
+class MaxStates(StatesGroup):
+    waiting_for_radius = State()
+    waiting_for_coords = State()
+```
+
+##### `bot_polling.py` — LongPoll Runner
+- Creates `maxapi.Bot` with `MAX_BOT_TOKEN` from config.
+- Creates `Dispatcher`, includes `handlers.router`, injects `Dispatcher.fsm` into handlers via `handlers.set_fsm(dp.fsm)`.
+- Calls `await dp.start_polling(bot)`.
+
+#### Key Differences from VK Bot
+
+| Aspect                 | VK Bot                               | Max Bot                                              |
+| ---------------------- | ------------------------------------ | ---------------------------------------------------- |
+| **Framework**          | Custom event loop + handler chain    | `maxapi` library (Dispatcher/Router)                 |
+| **FSM**                | `DialogState` enum in DB             | `maxapi.StatesGroup` + `ContextManager`              |
+| **Keyboards**          | Custom dict-based JSON builder       | `maxapi.InlineKeyboardBuilder`                       |
+| **Callback payload**   | Dict in JSON string, parsed manually | `Callback.payload` is `str`, parsed via `PayloadCmd` |
+| **Geo button**         | VK `location` button type            | `RequestGeoLocationButton` attachment                |
+| **Event ack**          | VK `send_callback_answer()`          | `event.ack(notification='...')`                      |
+| **Onboarding**         | Role selection, Moscow prompt, etc.  | Simple welcome + main menu                           |
+| **Search viewing**     | Full search list + follow/unfollow   | Not implemented yet                                  |
+| **Notification prefs** | Toggle all notification types        | Not implemented yet                                  |
+| **Account linking**    | VK ↔ Telegram via invite hash        | Not implemented yet                                  |
+
+#### Integration with the rest of the system
+
+```
+Telegram Bot (communicate)          Max Bot (max_bot)
+        │                                   │
+        ├─ Settings → users table ←── Max bot reads/writes same DB tables
+        │                                   │
+        └─ Forum linking:                  │
+           pubsub_parse_user_profile ──→ connect_to_forum (planned)
+```
+
+- **Shared database**: Max bot reads/writes the same `users`, `user_regional_preferences`, `user_coordinates`, `user_pref_radius`, etc. tables. Changes in any bot are immediately visible in all others.
+- **Forum linking**: Planned — will trigger `pubsub_parse_user_profile()` like Telegram and VK bots.
+- **Notifications**: Not yet implemented — Max users currently receive notifications only via Telegram or VK.
+
 ---
 
 ## Data Flow (Pipeline)
@@ -321,6 +446,11 @@ LA Forum (phpBB)
     └──▶ parse_user_profile_from_forum ──▶ [connect_to_forum]
                                              (same forum linking as Telegram)
 
+[max_bot]  ← LongPoll / HTTP (Max API)
+    │ User settings management (region, radius, coordinates)
+    │ Shares PostgreSQL DB with Telegram and VK bots
+    └──▶ parse_user_profile_from_forum ──▶ [connect_to_forum] (planned)
+
 [title_recognize]  ← HTTP (internal)
     │ Called by identify_updates_of_topics
     │ Parses topic title for person/location info
@@ -349,6 +479,7 @@ LA Forum (phpBB)
 | **Storage**     | Yandex Object Storage (S3-compatible) via boto3               |
 | **Telegram**    | python-telegram-bot 21.x (webhook mode)                       |
 | **VK API**      | vk-api library                                                |
+| **Max API**     | maxapi 1.2.0 (native Dispatcher/Router, FSM, keyboards)       |
 | **NLP**         | natasha (Russian NER), python-dateutil                        |
 | **Parsing**     | BeautifulSoup 4 + lxml                                        |
 | **Geocoding**   | yandex-geocoder, geopy                                        |
@@ -445,6 +576,7 @@ All configuration comes from **environment variables** via [`AppConfig`](src/_de
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | YMQ + S3 credentials                               |
 | `AWS_BACKUP_BUCKET_NAME`                      | S3 bucket for notification archives                |
 | `VK_API_KEY`                                  | VK group API token                                 |
+| `MAX_BOT_TOKEN`                               | Max messenger bot token                            |
 | `FORUM_BOT_LOGIN` / `FORUM_BOT_PASSWORD`      | Forum login for scraping                           |
 | `MYSQL_*`                                     | MySQL connection for phpBB forum change detection  |
 
@@ -458,7 +590,7 @@ See [`terraform/`](terraform/):
 - [`main.tf`](terraform/main.tf) — Yandex provider, AWS provider (for YMQ), service account, S3 bucket
 - [`_func_cron_trigger.tf`](terraform/_func_cron_trigger.tf) — Functions triggered by timer: `check-first-posts-for-changes`, `archive-to-bigquery`
 - [`_func_event_trigger.tf`](terraform/_func_event_trigger.tf) — Functions triggered by YMQ: `compose-notifications`, `connect-to-forum`, `identify-updates-of-*`, `send-*`, `archive-notifications`
-- [`_func_api_trigger.tf`](terraform/_func_api_trigger.tf) — HTTP-triggered functions: `communicate`, `api-get-active-searches`, `title-recognize`, `user-provide-info`
+- [`_func_api_trigger.tf`](terraform/_func_api_trigger.tf) — HTTP-triggered functions: `communicate`, `api-get-active-searches`, `title-recognize`, `user-provide-info`, `max-bot`
 
 ### CI/CD (GitHub Actions)
 
@@ -544,6 +676,18 @@ The PostgreSQL database is central. Key tables (inferred from code):
 - **Confirmation**: VK sends a `confirmation` event with `group_id`; the bot returns `vk_confirmation_code` from config.
 - **Event types handled**: `message_new` (new user message), `message_event` (inline keyboard callback), `confirmation` (VK server handshake). `message_edit` and `message_reply` are ignored.
 
+### `max_bot` (Max Messenger API)
+- **Method**: POST (webhook, planned) or LongPoll polling
+- **Body**: Max API event object (`bot_started`, `message_created`, `message_callback`, etc.)
+- **Response**: `"ok"` (string)
+- **Note**: Currently uses LongPoll polling for development. Webhook mode (for Yandex Cloud Function deployment) is planned.
+- **Library**: Uses [`maxapi`](.vendor/maxapi/) v1.2.0 — native Python SDK for the Max messenger API.
+- **Event types handled**: `bot_started` (user opens chat), `message_created` (text/geo commands), `message_callback` (inline keyboard callbacks).
+- **Key implementation details**:
+  - `Router.fsm` raises `RuntimeError` — must use `Dispatcher.fsm` via injected `ContextManager`.
+  - `Callback.payload` is `str | None` (JSON-encoded) — use custom `PayloadCmd` filter instead of `F.callback.payload.cmd`.
+  - `event.ack()` requires `notification='...'` — calling without arguments causes `MaxApiError`.
+
 ---
 
 ## Development Guidelines
@@ -579,4 +723,5 @@ The PostgreSQL database is central. Key tables (inferred from code):
 - Prefer `make test` / `make mypy` / `make lint` — they handle all paths correctly.
 - **Comments**: Keep them minimal. Section-separator comments like `# ─── Section Name ───` are useless — good function/variable names should make the structure obvious. Only add comments where the logic genuinely needs explanation (non-obvious edge cases, API quirks, design rationale). Module-level docstrings explaining the file's purpose are fine.
 - **Schema changes**: If you modify a table's columns in code or tests, also update the corresponding `CREATE TABLE` in [`tests/tools/db.sql`](tests/tools/db.sql) and the SQLAlchemy model in [`tests/factories/db_models.py`](tests/factories/db_models.py). These files must stay in sync with the actual DB schema used in production.
-
+- Source code of third party libraries are located in ./vendor.
+If you need to read them, then summarize info you have read and save it to .md file in ./vendor. Next time you will be able to get summarized info from .md file without reading whole sources.

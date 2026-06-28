@@ -1,0 +1,734 @@
+"""Message and callback handlers for the MAX bot.
+
+Uses the ``maxapi`` library's ``Router`` + ``Dispatcher`` pattern with
+magic filters (``F``), command filters (``Command``), and FSM states.
+
+Handlers are registered on a shared ``Router`` instance, which is
+included into the main ``Dispatcher`` in ``bot_polling.py``.
+
+Flow:
+    1. ``bot_started`` / ``/start`` → register user → show main menu
+    2. Main menu buttons → region / radius / coords sub-menus
+    3. Region: federal districts → paginated regions → toggle subscribe
+    4. Radius: FSM ``waiting_for_radius`` → save to DB
+    5. Coords: FSM ``waiting_for_coords`` or geo location → save to DB
+
+.. important::
+    ``Router.fsm`` raises ``RuntimeError`` — use ``Dispatcher.fsm`` instead.
+    The ``Dispatcher``'s ``ContextManager`` is injected via ``set_fsm()``
+    from ``bot_polling.py`` after the ``Dispatcher`` is created.
+"""
+
+import json
+import logging
+from typing import Any
+
+from maxapi import F, Router
+from maxapi.context import ContextManager
+from maxapi.enums.attachment import AttachmentType
+from maxapi.filters.command import Command
+from maxapi.filters.filter import BaseFilter
+from maxapi.filters.state import StateFilter
+from maxapi.types.attachments import Location
+from maxapi.types.updates import UpdateUnion
+from maxapi.types.updates.bot_started import BotStarted
+from maxapi.types.updates.message_callback import MessageCallback
+from maxapi.types.updates.message_created import MessageCreated
+
+from _dependencies.user_repository import UserRepository
+
+from .keyboards import MaxKeyboardPresets
+from .message_formatter import (
+    COORDS_DELETED,
+    COORDS_INVALID_FORMAT,
+    COORDS_INVALID_VALUE,
+    COORDS_MANUAL_PROMPT,
+    COORDS_MENU_TEXT,
+    COORDS_NOT_SET,
+    COORDS_SAVED,
+    COORDS_VIEW_TEXT,
+    FED_DISTRICTS_PROMPT,
+    FSM_CANCELLED,
+    INTERNAL_ERROR,
+    MAIN_MENU_TEXT,
+    RADIUS_DELETED,
+    RADIUS_INVALID,
+    RADIUS_MENU_TEXT,
+    RADIUS_NOT_SET,
+    RADIUS_PROMPT,
+    RADIUS_SAVED,
+    RADIUS_VIEW_TEXT,
+    REGION_CANNOT_REMOVE_LAST,
+    REGION_LIST_PROMPT,
+    REGION_SELECTION_DONE,
+    REGION_TOGGLED_OFF,
+    REGION_TOGGLED_ON,
+    UNKNOWN_COMMAND,
+    WELCOME_TEXT,
+)
+from .states import MaxStates
+
+logger = logging.getLogger(__name__)
+
+router = Router()
+
+# FSM context manager — injected by bot_polling.py from Dispatcher.fsm.
+# Router.fsm raises RuntimeError, so we store the Dispatcher's ContextManager here.
+_fsm: ContextManager | None = None
+
+
+def set_fsm(fsm: ContextManager) -> None:
+    """Inject the ``Dispatcher``'s FSM ``ContextManager``.
+
+    Called from ``bot_polling.py`` after ``Dispatcher`` creation.
+    ``Router.fsm`` raises ``RuntimeError``, so handlers use this
+    module-level reference instead.
+    """
+    global _fsm  # noqa: PLW0603
+    _fsm = fsm
+
+
+class PayloadCmd(BaseFilter):
+    """Filter that matches ``MessageCallback`` events by parsed JSON payload ``cmd`` field.
+
+    ``Callback.payload`` is a ``str | None`` (JSON-encoded), so the
+    magic filter ``F.callback.payload.cmd`` cannot access the nested
+    ``cmd`` key directly. This filter parses the JSON and checks the
+    ``cmd`` value.
+
+    Usage::
+
+        @router.message_callback(PayloadCmd('region'))
+        async def handler(event: MessageCallback) -> None: ...
+    """
+
+    def __init__(self, cmd: str) -> None:
+        self._cmd = cmd
+
+    async def __call__(self, event: UpdateUnion) -> bool:
+        if not isinstance(event, MessageCallback):
+            return False
+        payload_str = event.callback.payload
+        if not payload_str:
+            return False
+        try:
+            data = json.loads(payload_str)
+        except (json.JSONDecodeError, TypeError):
+            return False
+        return data.get('cmd') == self._cmd
+
+
+# ─── Helpers ──────────────────────────────────────────────────────────────
+
+
+def _get_fsm() -> ContextManager:
+    """Get the injected ``Dispatcher.fsm`` ContextManager.
+
+    Raises:
+        RuntimeError: If ``set_fsm()`` has not been called yet
+            (i.e., the Dispatcher hasn't been initialized).
+    """
+    if _fsm is None:
+        msg = 'FSM ContextManager not set. ' 'Call handlers.set_fsm(dp.fsm) before starting polling.'
+        raise RuntimeError(msg)
+    return _fsm
+
+
+def _get_db() -> UserRepository:
+    """Get a UserRepository instance (lazy, uses AppConfig)."""
+    return UserRepository()
+
+
+def _get_user_id(event: MessageCreated | MessageCallback) -> int | None:
+    """Extract user_id from a message or callback event."""
+    if isinstance(event, MessageCreated):
+        return event.message.sender.user_id if event.message.sender else None
+    return event.callback.user.user_id
+
+
+def _get_chat_id(event: MessageCreated | MessageCallback) -> int | None:
+    """Extract chat_id from a message or callback event."""
+    if isinstance(event, MessageCreated):
+        return event.message.recipient.chat_id
+    if event.message is not None:
+        return event.message.recipient.chat_id
+    return None
+
+
+def _parse_payload(payload_str: str | None) -> dict[str, Any]:
+    """Parse a JSON callback payload string into a dict."""
+    if not payload_str:
+        return {}
+    try:
+        return json.loads(payload_str)
+    except (json.JSONDecodeError, TypeError):
+        logger.warning('Failed to parse callback payload: %s', payload_str)
+        return {}
+
+
+def _get_regions_for_district(district: str) -> list[tuple[int, str]]:
+    """Get (folder_id, display_name) list for a federal district."""
+    db = _get_db()
+    return db.get_geo_folders_by_district(district)
+
+
+def _get_subscribed_region_names(user_id: int) -> set[str]:
+    """Get set of region display names the user is subscribed to."""
+    db = _get_db()
+    subscribed_folder_ids = set(db.get_user_regions(user_id))
+    all_folders = db.get_geo_folders()
+    return {name for fid, name in all_folders if fid in subscribed_folder_ids}
+
+
+# ─── Registration & Main Menu ────────────────────────────────────────────
+
+
+@router.bot_started()
+async def on_bot_started(event: BotStarted) -> None:
+    """Handle ``bot_started`` — user first opens a chat with the bot.
+
+    Registers the user if new, then shows the main menu.
+    """
+    user_id = event.user.user_id
+    chat_id = event.chat_id
+    logger.info('Bot started by user %s in chat %s', user_id, chat_id)
+
+    bot = event.bot
+    if bot is None:
+        logger.error('Bot instance is None in bot_started handler')
+        return
+
+    try:
+        db = _get_db()
+        is_new = db.check_if_new_user(user_id)
+        if is_new:
+            db.register_user(user_id)
+            logger.info('Registered new user %s', user_id)
+
+        await bot.send_message(
+            chat_id=chat_id,
+            text=WELCOME_TEXT,
+            attachments=[MaxKeyboardPresets.main_menu()],  # type: ignore[arg-type]
+        )
+    except Exception:
+        logger.exception('Error in bot_started for user %s', user_id)
+        await bot.send_message(chat_id=chat_id, text=INTERNAL_ERROR)
+
+
+@router.message_created(Command('start'))
+async def on_start(event: MessageCreated) -> None:
+    """Handle ``/start`` command — register user and show main menu."""
+    user_id = _get_user_id(event)
+    chat_id = _get_chat_id(event)
+    logger.info('Start command from user %s', user_id)
+
+    if user_id is None or chat_id is None:
+        return
+
+    try:
+        db = _get_db()
+        is_new = db.check_if_new_user(user_id)
+        if is_new:
+            db.register_user(user_id)
+            logger.info('Registered new user %s', user_id)
+
+        await event.message.answer(
+            text=WELCOME_TEXT,
+            attachments=[MaxKeyboardPresets.main_menu()],
+        )
+    except Exception:
+        logger.exception('Error in /start for user %s', user_id)
+        await event.message.answer(text=INTERNAL_ERROR)
+
+
+# ─── Callback: Main Menu Navigation ──────────────────────────────────────
+
+
+@router.message_callback(PayloadCmd('back_to_main'))
+async def on_back_to_main(event: MessageCallback) -> None:
+    """Return to main menu."""
+    await event.ack(notification='...')
+    await event.edit(
+        text=MAIN_MENU_TEXT,
+        attachments=[MaxKeyboardPresets.main_menu()],
+    )
+
+
+@router.message_callback(PayloadCmd('region'))
+async def on_region_menu(event: MessageCallback) -> None:
+    """Show federal districts for region selection."""
+    await event.ack(notification='...')
+    await event.edit(
+        text=FED_DISTRICTS_PROMPT,
+        attachments=[MaxKeyboardPresets.fed_districts_inline()],
+    )
+
+
+@router.message_callback(PayloadCmd('radius'))
+async def on_radius_menu(event: MessageCallback) -> None:
+    """Show radius settings menu."""
+    await event.ack(notification='...')
+    await event.edit(
+        text=RADIUS_MENU_TEXT,
+        attachments=[MaxKeyboardPresets.radius_menu()],
+    )
+
+
+@router.message_callback(PayloadCmd('coords'))
+async def on_coords_menu(event: MessageCallback) -> None:
+    """Show coordinate settings menu."""
+    await event.ack(notification='...')
+    await event.edit(
+        text=COORDS_MENU_TEXT,
+        attachments=[MaxKeyboardPresets.coords_menu()],
+    )
+
+
+# ─── Region Selection: Federal Districts ─────────────────────────────────
+
+
+@router.message_callback(PayloadCmd('district_select'))
+async def on_district_select(event: MessageCallback) -> None:
+    """Show paginated regions for the selected federal district."""
+    payload = _parse_payload(event.callback.payload)
+    district = payload.get('district', '')
+    logger.info('District selected: %s', district)
+
+    regions = _get_regions_for_district(district)
+    if not regions:
+        await event.ack(notification='В этом округе пока нет доступных регионов.')
+        return
+
+    user_id = _get_user_id(event)
+    subscribed_names = _get_subscribed_region_names(user_id) if user_id else set()
+
+    region_names = [name for _fid, name in regions]
+
+    await event.ack(notification='...')
+    await event.edit(
+        text=REGION_LIST_PROMPT,
+        attachments=[
+            MaxKeyboardPresets.paginated_regions_inline(
+                region_buttons=region_names,
+                page=0,
+                district=district,
+                subscribed_ids=subscribed_names,
+            )
+        ],
+    )
+
+
+# ─── Region Selection: Pagination ────────────────────────────────────────
+
+
+@router.message_callback(PayloadCmd('paginate_nav'))
+async def on_paginate_nav(event: MessageCallback) -> None:
+    """Navigate between pages of regions."""
+    payload = _parse_payload(event.callback.payload)
+    district = payload.get('district', '')
+    page = payload.get('page', 0)
+
+    regions = _get_regions_for_district(district)
+    region_names = [name for _fid, name in regions]
+
+    user_id = _get_user_id(event)
+    subscribed_names = _get_subscribed_region_names(user_id) if user_id else set()
+
+    await event.ack(notification='...')
+    await event.edit(
+        text=REGION_LIST_PROMPT,
+        attachments=[
+            MaxKeyboardPresets.paginated_regions_inline(
+                region_buttons=region_names,
+                page=page,
+                district=district,
+                subscribed_ids=subscribed_names,
+            )
+        ],
+    )
+
+
+# ─── Region Selection: Toggle Subscribe ──────────────────────────────────
+
+
+@router.message_callback(PayloadCmd('paginate_toggle'))
+async def on_paginate_toggle(event: MessageCallback) -> None:
+    """Toggle subscription for a region."""
+    payload = _parse_payload(event.callback.payload)
+    region_name = payload.get('region', '')
+    district = payload.get('district', '')
+    page = payload.get('page', 0)
+    user_id = _get_user_id(event)
+
+    if not user_id or not region_name:
+        await event.ack(notification='Ошибка: не удалось определить регион.')
+        return
+
+    db = _get_db()
+
+    # Build folder_dict: region_name -> (folder_id,)
+    regions = _get_regions_for_district(district)
+    folder_dict: dict[str, tuple[int, ...]] = {}
+    for fid, name in regions:
+        folder_dict[name] = (fid,)
+
+    try:
+        success = db.toggle_region_by_name(user_id, region_name, folder_dict)
+    except Exception:
+        logger.exception('Error toggling region for user %s', user_id)
+        await event.ack(notification=INTERNAL_ERROR)
+        return
+
+    if not success:
+        await event.ack(notification=REGION_CANNOT_REMOVE_LAST)
+    else:
+        # Determine if subscribed or unsubscribed
+        subscribed_names = _get_subscribed_region_names(user_id)
+        if region_name in subscribed_names:
+            await event.ack(notification=REGION_TOGGLED_ON)
+        else:
+            await event.ack(notification=REGION_TOGGLED_OFF)
+
+    # Refresh the keyboard
+    region_names = [name for _fid, name in regions]
+    subscribed_names = _get_subscribed_region_names(user_id)
+
+    await event.edit(
+        text=REGION_LIST_PROMPT,
+        attachments=[
+            MaxKeyboardPresets.paginated_regions_inline(
+                region_buttons=region_names,
+                page=page,
+                district=district,
+                subscribed_ids=subscribed_names,
+            )
+        ],
+    )
+
+
+@router.message_callback(PayloadCmd('paginate_finish'))
+async def on_paginate_finish(event: MessageCallback) -> None:
+    """Finish region selection and return to main menu."""
+    await event.ack(notification=REGION_SELECTION_DONE)
+    await event.edit(
+        text=MAIN_MENU_TEXT,
+        attachments=[MaxKeyboardPresets.main_menu()],
+    )
+
+
+# ─── Radius Settings ─────────────────────────────────────────────────────
+
+
+@router.message_callback(PayloadCmd('radius_set'))
+async def on_radius_set(event: MessageCallback) -> None:
+    """Start FSM for radius input."""
+    user_id = _get_user_id(event)
+    chat_id = _get_chat_id(event)
+
+    await event.ack(notification='...')
+
+    # Set FSM state
+    if chat_id is not None and user_id is not None:
+        await _get_fsm().set_state(chat_id=chat_id, user_id=user_id, state=MaxStates.waiting_for_radius)
+
+    await event.edit(
+        text=RADIUS_PROMPT,
+        attachments=[MaxKeyboardPresets.back_to_main()],
+    )
+
+
+@router.message_callback(PayloadCmd('radius_view'))
+async def on_radius_view(event: MessageCallback) -> None:
+    """Show current radius."""
+    user_id = _get_user_id(event)
+    if user_id:
+        db = _get_db()
+        radius = db.get_radius(user_id)
+        if radius:
+            text = RADIUS_VIEW_TEXT.format(radius)
+        else:
+            text = RADIUS_NOT_SET
+    else:
+        text = RADIUS_NOT_SET
+
+    await event.ack(notification='...')
+    await event.edit(
+        text=text,
+        attachments=[MaxKeyboardPresets.radius_menu()],
+    )
+
+
+@router.message_callback(PayloadCmd('radius_delete'))
+async def on_radius_delete(event: MessageCallback) -> None:
+    """Delete current radius."""
+    user_id = _get_user_id(event)
+    if user_id:
+        db = _get_db()
+        db.delete_radius(user_id)
+
+    await event.ack(notification=RADIUS_DELETED)
+    await event.edit(
+        text=RADIUS_MENU_TEXT,
+        attachments=[MaxKeyboardPresets.radius_menu()],
+    )
+
+
+# ─── Coordinates Settings ────────────────────────────────────────────────
+
+
+@router.message_callback(PayloadCmd('coords_enter'))
+async def on_coords_enter(event: MessageCallback) -> None:
+    """Start FSM for manual coordinate input."""
+    user_id = _get_user_id(event)
+    chat_id = _get_chat_id(event)
+
+    await event.ack(notification='...')
+
+    if chat_id is not None and user_id is not None:
+        await _get_fsm().set_state(chat_id=chat_id, user_id=user_id, state=MaxStates.waiting_for_coords)
+
+    await event.edit(
+        text=COORDS_MANUAL_PROMPT,
+        attachments=[MaxKeyboardPresets.back_to_main()],
+    )
+
+
+@router.message_callback(PayloadCmd('coords_view'))
+async def on_coords_view(event: MessageCallback) -> None:
+    """Show current coordinates."""
+    user_id = _get_user_id(event)
+    if user_id:
+        db = _get_db()
+        coords = db.get_coordinates(user_id)
+        if coords:
+            lat, lng = coords
+            text = COORDS_VIEW_TEXT.format(lat, lng)
+        else:
+            text = COORDS_NOT_SET
+    else:
+        text = COORDS_NOT_SET
+
+    await event.ack(notification='...')
+    await event.edit(
+        text=text,
+        attachments=[MaxKeyboardPresets.coords_menu()],
+    )
+
+
+@router.message_callback(PayloadCmd('coords_delete'))
+async def on_coords_delete(event: MessageCallback) -> None:
+    """Delete current coordinates."""
+    user_id = _get_user_id(event)
+    if user_id:
+        db = _get_db()
+        db.delete_coordinates(user_id)
+
+    await event.ack(notification=COORDS_DELETED)
+    await event.edit(
+        text=COORDS_MENU_TEXT,
+        attachments=[MaxKeyboardPresets.coords_menu()],
+    )
+
+
+# ─── FSM: Waiting for Radius ─────────────────────────────────────────────
+
+
+@router.message_created(
+    F.message.body.text,
+    StateFilter(MaxStates.waiting_for_radius),
+)
+async def on_radius_text(event: MessageCreated) -> None:
+    """Handle radius input during FSM."""
+    user_id = _get_user_id(event)
+    chat_id = _get_chat_id(event)
+
+    if user_id is None or chat_id is None:
+        return
+
+    body = event.message.body
+    if body is None or body.text is None:
+        return
+
+    text = body.text.strip()
+
+    # Clear FSM state
+    await _get_fsm().clear(chat_id=chat_id, user_id=user_id)
+
+    # Validate: must be integer 1-1000
+    try:
+        radius = int(text)
+        if radius < 1 or radius > 1000:
+            raise ValueError
+    except (ValueError, TypeError):
+        await event.message.answer(
+            text=RADIUS_INVALID,
+            attachments=[MaxKeyboardPresets.radius_menu()],
+        )
+        return
+
+    db = _get_db()
+    db.save_radius(user_id, radius)
+    logger.info('User %s set radius to %s km', user_id, radius)
+
+    await event.message.answer(
+        text=RADIUS_SAVED.format(radius),
+        attachments=[MaxKeyboardPresets.radius_menu()],
+    )
+
+
+# ─── FSM: Waiting for Coordinates (manual text input) ────────────────────
+
+
+@router.message_created(
+    F.message.body.text,
+    StateFilter(MaxStates.waiting_for_coords),
+)
+async def on_coords_text(event: MessageCreated) -> None:
+    """Handle manual coordinate input during FSM.
+
+    Expected format: ``latitude, longitude`` (e.g., ``55.7558, 37.6173``).
+    """
+    user_id = _get_user_id(event)
+    chat_id = _get_chat_id(event)
+
+    if user_id is None or chat_id is None:
+        return
+
+    body = event.message.body
+    if body is None or body.text is None:
+        return
+
+    text = body.text.strip()
+
+    # Clear FSM state
+    await _get_fsm().clear(chat_id=chat_id, user_id=user_id)
+
+    # Parse "lat, lng" format
+    parts = text.replace(';', ',').split(',')
+    if len(parts) != 2:
+        await event.message.answer(
+            text=COORDS_INVALID_FORMAT,
+            attachments=[MaxKeyboardPresets.coords_menu()],
+        )
+        return
+
+    try:
+        lat = float(parts[0].strip())
+        lng = float(parts[1].strip())
+    except (ValueError, TypeError):
+        await event.message.answer(
+            text=COORDS_INVALID_FORMAT,
+            attachments=[MaxKeyboardPresets.coords_menu()],
+        )
+        return
+
+    # Validate ranges
+    if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
+        await event.message.answer(
+            text=COORDS_INVALID_VALUE,
+            attachments=[MaxKeyboardPresets.coords_menu()],
+        )
+        return
+
+    db = _get_db()
+    db.save_coordinates(user_id, lat, lng)
+    logger.info('User %s set coordinates: %s, %s', user_id, lat, lng)
+
+    await event.message.answer(
+        text=COORDS_SAVED.format(lat, lng),
+        attachments=[MaxKeyboardPresets.coords_menu()],
+    )
+
+
+# ─── Geo Location (from native geo button) ────────────────────────────────
+
+
+@router.message_created(F.message.body.attachments)
+async def on_geo_location(event: MessageCreated) -> None:
+    """Handle messages with attachments — specifically geo location.
+
+    When a user sends their location via the ``RequestGeoLocationButton``,
+    the message contains a ``Location`` attachment.
+    """
+    user_id = _get_user_id(event)
+    chat_id = _get_chat_id(event)
+    attachments = event.message.body.attachments if event.message.body else None
+
+    if user_id is None or chat_id is None:
+        return
+
+    if not attachments:
+        return
+
+    # Look for a Location attachment
+    location: Location | None = None
+    for att in attachments:
+        if isinstance(att, Location) or (hasattr(att, 'type') and att.type == AttachmentType.LOCATION):
+            location = att  # type: ignore[assignment]
+            break
+
+    if location is None:
+        # Has attachments but not a location — could be an image, etc.
+        # If user is in FSM, clear it and show menu
+        current_state = await _get_fsm().get_state(chat_id=chat_id, user_id=user_id)
+        if current_state is not None:
+            await _get_fsm().clear(chat_id=chat_id, user_id=user_id)
+            await event.message.answer(
+                text=FSM_CANCELLED,
+                attachments=[MaxKeyboardPresets.main_menu()],
+            )
+        return
+
+    lat = location.latitude
+    lng = location.longitude
+
+    if lat is None or lng is None:
+        await event.message.answer(
+            text=COORDS_INVALID_FORMAT,
+            attachments=[MaxKeyboardPresets.coords_menu()],
+        )
+        return
+
+    # Clear any FSM state
+    await _get_fsm().clear(chat_id=chat_id, user_id=user_id)
+
+    db = _get_db()
+    db.save_coordinates(user_id, lat, lng)
+    logger.info('User %s set coordinates via geo: %s, %s', user_id, lat, lng)
+
+    await event.message.answer(
+        text=COORDS_SAVED.format(lat, lng),
+        attachments=[MaxKeyboardPresets.coords_menu()],
+    )
+
+
+# ─── Fallback ─────────────────────────────────────────────────────────────
+
+
+@router.message_created(F.message.body.text)
+async def on_unknown_text(event: MessageCreated) -> None:
+    """Fallback handler for any unrecognized text message.
+
+    If the user is in an FSM state, clear it and show the main menu.
+    Otherwise, show the main menu.
+    """
+    user_id = _get_user_id(event)
+    chat_id = _get_chat_id(event)
+
+    if user_id is None or chat_id is None:
+        return
+
+    # Check if user is in an FSM state
+    current_state = await _get_fsm().get_state(chat_id=chat_id, user_id=user_id)
+    if current_state is not None:
+        await _get_fsm().clear(chat_id=chat_id, user_id=user_id)
+        await event.message.answer(
+            text=FSM_CANCELLED,
+            attachments=[MaxKeyboardPresets.main_menu()],
+        )
+        return
+
+    await event.message.answer(
+        text=UNKNOWN_COMMAND,
+        attachments=[MaxKeyboardPresets.main_menu()],
+    )

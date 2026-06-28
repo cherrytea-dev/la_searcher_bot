@@ -10,6 +10,7 @@ jobs:
     outputs:
       communicate: ${{ steps.filter.outputs.communicate }}
       vk_bot: ${{ steps.filter.outputs.vk_bot }}
+      max_bot: ${{ steps.filter.outputs.max_bot }}
       send_notifications: ${{ steps.filter.outputs.send_notifications }}
       connect_to_forum: ${{ steps.filter.outputs.connect_to_forum }}
       send_debug_to_admin: ${{ steps.filter.outputs.send_debug_to_admin }}
@@ -40,6 +41,13 @@ jobs:
             vk_bot:
               - '.github/workflows/deploy.yml'
               - 'src/vk_bot/**'
+              - 'src/_dependencies/common/**'
+              - 'src/_dependencies/bot/**'
+              - 'src/_dependencies/models.py'
+              - 'src/_dependencies/user_repository/**'
+            max_bot:
+              - '.github/workflows/deploy.yml'
+              - 'src/max_bot/**'
               - 'src/_dependencies/common/**'
               - 'src/_dependencies/bot/**'
               - 'src/_dependencies/models.py'
@@ -122,6 +130,9 @@ jobs:
             memory: 256Mb
             timeout: 60
           - function: vk_bot
+            memory: 256Mb
+            timeout: 60
+          - function: max_bot
             memory: 256Mb
             timeout: 60
           - function: send_notifications
@@ -225,6 +236,7 @@ jobs:
             VK_GROUP_ID=${{ secrets.VK_GROUP_ID }}
             BOT_API_HOST=${{ secrets.BOT_API_HOST }}
             FORUM_LEGACY_DATA_SOURCE=True
+            MAX_BOT_TOKEN=${{ secrets.MAX_BOT_TOKEN }}
           secrets: |
             MYSQL_HOST=e6qsc5sqd7db7gk4m9u8/latest/MYSQL_HOST
             MYSQL_DB=e6qsc5sqd7db7gk4m9u8/latest/MYSQL_DB
