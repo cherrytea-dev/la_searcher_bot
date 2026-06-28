@@ -10,6 +10,14 @@ The ``Bot`` and ``Dispatcher`` are created once at module level and
 reused across warm invocations. ``Dispatcher.startup()`` is called
 once (it's idempotent — the ``_ready`` flag prevents re-initialization).
 
+The handler is **async** — Yandex Cloud Functions natively supports
+``async def`` handlers for Python 3.12. This means the event loop
+created by the runtime persists across invocations, so the bot's
+``aiohttp.ClientSession`` can be reused without closing/recreating it
+on every request. This eliminates the overhead of ``asyncio.run()``
+(which creates a new event loop each time) and the forced session
+teardown that was previously needed to work around loop lifetime issues.
+
 Secret verification: The ``X-Max-Bot-Api-Secret`` header is checked
 against ``MAX_BOT_WEBHOOK_SECRET`` env var using constant-time comparison.
 
@@ -17,7 +25,6 @@ Dialog state is persisted in PostgreSQL via ``DialogStateMixin``
 (shared with Telegram and VK bots), not in maxapi's in-memory FSM.
 """
 
-import asyncio
 import logging
 import secrets
 
@@ -66,42 +73,31 @@ async def _init_dispatcher() -> None:
 async def _handle_webhook_async(event_json: dict) -> None:
     """Initialize dispatcher (if needed), parse and dispatch a single webhook event.
 
-    Both initialization and event handling run inside the **same** event loop
-    to avoid ``RuntimeError: Event loop is closed`` when the ``Bot``'s internal
-    ``aiohttp.ClientSession`` (created during init) is reused across separate
-    ``asyncio.run()`` calls.
-
-    After handling, the bot's ``aiohttp.ClientSession`` is explicitly closed so
-    that the next invocation (which runs in a **new** event loop created by
-    ``asyncio.run()``) will create a fresh session bound to the correct loop.
+    The dispatcher and bot are initialized once and reused across warm
+    invocations. The bot's ``aiohttp.ClientSession`` is **not** closed
+    after handling — because the entry point is now ``async def main()``,
+    the YC runtime keeps the same event loop alive across invocations,
+    so the session can be safely reused. This eliminates the overhead of
+    ``asyncio.run()`` (new event loop per call) and session recreation.
     """
     await _init_dispatcher()
     if _dp is None or _bot is None:
         logger.error('Dispatcher not initialized')
         return
 
-    try:
-        event_object = await process_update_webhook(event_json=event_json, bot=_bot)
-        if event_object is None:
-            logger.warning('Unknown update type: %s', event_json.get('update_type'))
-            return
+    event_object = await process_update_webhook(event_json=event_json, bot=_bot)
+    if event_object is None:
+        logger.warning('Unknown update type: %s', event_json.get('update_type'))
+        return
 
-        await _dp.handle(event_object)
-    finally:
-        # Close the bot's aiohttp ClientSession so the next invocation
-        # (which gets a fresh event loop from asyncio.run()) creates a
-        # new session bound to the correct loop.
-        # Without this, a warm invocation reuses the old session whose
-        # underlying event loop was closed by the previous asyncio.run().
-        if _bot is not None:
-            await _bot.close_session()
+    await _dp.handle(event_object)
 
 
 # ─── Yandex Cloud Function entry point ─────────────────────────────────────
 
 
 @request_response_converter
-def main(request: RequestWrapper, *args: object, **kwargs: object) -> ResponseWrapper:
+async def main(request: RequestWrapper, *args: object, **kwargs: object) -> ResponseWrapper:
     """Handle incoming MAX webhook event.
 
     Verifies the ``X-Max-Bot-Api-Secret`` header, parses the JSON payload,
@@ -129,7 +125,7 @@ def main(request: RequestWrapper, *args: object, **kwargs: object) -> ResponseWr
 
     # ── Dispatch event ─────────────────────────────────────────────────
     try:
-        asyncio.run(_handle_webhook_async(event_json))
+        await _handle_webhook_async(event_json)
     except Exception:
         logger.exception('Error processing MAX webhook event')
         return ResponseWrapper(data='Internal Server Error', status_code=500)
