@@ -6,6 +6,7 @@ import logging
 import sqlalchemy
 
 from _dependencies.bot.users_management import register_new_user, save_onboarding_step
+from _dependencies.common.commons import Messenger
 from _dependencies.common.db_client import DBClientMixinBase
 
 
@@ -19,9 +20,15 @@ class UserMixin(DBClientMixinBase):
             result = connection.execute(stmt, user_id=user_id)
             return result.fetchone() is None
 
-    def register_user(self, user_id: int, username: str | None = None) -> None:
-        """Register a new user with default settings."""
-        register_new_user(user_id, username, datetime.datetime.now())
+    def register_user(self, user_id: int, messenger: Messenger, username: str | None = None) -> None:
+        """Register a new user with default settings.
+
+        Args:
+            user_id: Internal user ID.
+            messenger: Messenger enum value for user_identity_map.
+            username: Optional display name.
+        """
+        register_new_user(user_id, username, datetime.datetime.now(), messenger)
 
     def get_onboarding_step(self, user_id: int, user_is_new: bool = False) -> tuple[int, str]:
         """Get the current onboarding step for a user.

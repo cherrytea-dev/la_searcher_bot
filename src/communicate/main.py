@@ -13,7 +13,7 @@ from _dependencies.bot.users_management import (
     save_onboarding_step,
     update_user_status,
 )
-from _dependencies.common.commons import get_app_config, setup_logging
+from _dependencies.common.commons import Messenger, get_app_config, setup_logging
 from _dependencies.common.misc import RequestWrapper, ResponseWrapper, request_response_converter
 from _dependencies.common.pubsub import notify_admin
 
@@ -218,7 +218,7 @@ def process_update(update: Update) -> str:
     user_is_new = db().check_if_new_user(user_id)
     logging.info(f'After check_if_new_user: {user_is_new=}')
     if user_is_new:
-        register_new_user(user_id, username, datetime.datetime.now())
+        register_new_user(user_id, username, datetime.datetime.now(), Messenger.TELEGRAM)
 
     onboarding_step_id, onboarding_step_name = db().get_onboarding_step(user_id, user_is_new)
 

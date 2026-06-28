@@ -12,6 +12,7 @@ from _dependencies.bot.users_management import (
     save_onboarding_step,
     update_user_status,
 )
+from _dependencies.common.commons import Messenger
 from tests.common import find_model
 from tests.factories.db_factories import UserFactory
 from tests.factories.db_models import User, UserOnboarding, UserPreference, UserStatusesHistory
@@ -83,7 +84,7 @@ class TestSaveNewUser:
         username = 'test_user'
         timestamp = datetime.now()
 
-        _save_new_user(connection, user_id, username, timestamp)
+        _save_new_user(connection, user_id, username, timestamp, Messenger.TELEGRAM)
 
         user = find_model(session, User, user_id=user_id)
         assert user is not None
@@ -100,7 +101,7 @@ class TestSaveNewUser:
         username = None
         timestamp = datetime.now()
 
-        _save_new_user(connection, user_id, username, timestamp)
+        _save_new_user(connection, user_id, username, timestamp, Messenger.TELEGRAM)
 
         user = find_model(session, User, user_id=user_id)
         assert user is not None
@@ -116,7 +117,7 @@ class TestSaveNewUser:
         UserFactory.create_sync(user_id=user_id, username_telegram=username, reg_date=timestamp)
 
         # Try to save the same user again
-        _save_new_user(connection, user_id, username, timestamp)
+        _save_new_user(connection, user_id, username, timestamp, Messenger.TELEGRAM)
 
         # Check that no new user was created
         users: list[User] = list(session.query(User).filter_by(user_id=user_id).all())
