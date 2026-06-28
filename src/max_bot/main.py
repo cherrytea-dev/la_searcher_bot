@@ -65,18 +65,31 @@ async def _handle_webhook_async(event_json: dict) -> None:
     to avoid ``RuntimeError: Event loop is closed`` when the ``Bot``'s internal
     ``aiohttp.ClientSession`` (created during init) is reused across separate
     ``asyncio.run()`` calls.
+
+    After handling, the bot's ``aiohttp.ClientSession`` is explicitly closed so
+    that the next invocation (which runs in a **new** event loop created by
+    ``asyncio.run()``) will create a fresh session bound to the correct loop.
     """
     await _init_dispatcher()
     if _dp is None or _bot is None:
         logger.error('Dispatcher not initialized')
         return
 
-    event_object = await process_update_webhook(event_json=event_json, bot=_bot)
-    if event_object is None:
-        logger.warning('Unknown update type: %s', event_json.get('update_type'))
-        return
+    try:
+        event_object = await process_update_webhook(event_json=event_json, bot=_bot)
+        if event_object is None:
+            logger.warning('Unknown update type: %s', event_json.get('update_type'))
+            return
 
-    await _dp.handle(event_object)
+        await _dp.handle(event_object)
+    finally:
+        # Close the bot's aiohttp ClientSession so the next invocation
+        # (which gets a fresh event loop from asyncio.run()) creates a
+        # new session bound to the correct loop.
+        # Without this, a warm invocation reuses the old session whose
+        # underlying event loop was closed by the previous asyncio.run().
+        if _bot is not None:
+            await _bot.close_session()
 
 
 # ─── Yandex Cloud Function entry point ─────────────────────────────────────
