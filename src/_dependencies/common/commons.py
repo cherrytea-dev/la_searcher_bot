@@ -45,6 +45,7 @@ class AppConfig(BaseSettings):
     vk_confirmation_code: str = ''
     vk_group_id: int = 0
     max_bot_token: str = ''
+    max_bot_webhook_secret: str = ''
 
     mysql_host: str = ''
     mysql_db: str = ''
