@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 import math
@@ -104,7 +105,30 @@ class ResponseWrapper:
     headers: Mapping[str, str | Sequence[str]] = field(default_factory=dict)
 
 
-def request_response_converter(func: Callable[..., ResponseWrapper]) -> Callable[..., dict]:
+def request_response_converter(
+    func: Callable[..., Any],
+) -> Callable[..., Any]:
+    """Decorator that converts Yandex Cloud Functions HTTP request/response format.
+
+    Supports both sync and async handler functions. For async handlers, the
+    returned wrapper is itself async, so YC runtime can ``await`` it directly
+    without the caller needing to use ``asyncio.run()``.
+    """
+
+    if asyncio.iscoroutinefunction(func):
+
+        @wraps(func)
+        async def async_wrapper(request_data: dict, *args: Any, **kwargs: Any) -> dict:
+            request = convert_yc_request(request_data)
+            response = await func(request, *args, **kwargs)
+            return {
+                'statusCode': response.status_code,
+                'body': response.data,
+                'headers': response.headers,
+            }
+
+        return async_wrapper
+
     @wraps(func)
     def wrapper(request_data: dict, *args: Any, **kwargs: Any) -> dict:
         # yc branch
