@@ -4,7 +4,7 @@ from enum import Enum
 
 import sqlalchemy
 
-from _dependencies.common.commons import sqlalchemy_get_pool
+from _dependencies.common.commons import Messenger, sqlalchemy_get_pool
 
 
 class ManageUserAction(str, Enum):
@@ -22,8 +22,15 @@ class ManageUserAction(str, Enum):
         }[self]
 
 
-def register_new_user(user_id: int, user_name: str | None, timestamp: datetime) -> None:
-    """block, unblock or record as new user"""
+def register_new_user(user_id: int, user_name: str | None, timestamp: datetime, messenger: Messenger) -> None:
+    """block, unblock or record as new user
+
+    Args:
+        user_id: Internal user ID.
+        user_name: Optional display name.
+        timestamp: Registration timestamp.
+        messenger: Messenger enum value for user_identity_map.
+    """
 
     pool = sqlalchemy_get_pool()
     with pool.connect() as conn:
@@ -31,7 +38,7 @@ def register_new_user(user_id: int, user_name: str | None, timestamp: datetime) 
         _write_new_user_status(conn, ManageUserAction.new, user_id, timestamp)
 
         # save in table users
-        _save_new_user(conn, user_id, user_name, timestamp)
+        _save_new_user(conn, user_id, user_name, timestamp, messenger)
         # save in table user_preferences
         _save_default_notif_settings(conn, user_id)
 
@@ -132,8 +139,22 @@ def _save_default_notif_settings(conn: sqlalchemy.engine.Connection, user_id: in
     logging.info(f'New user with id: {user_id}, default notif categories were set.')
 
 
-def _save_new_user(conn: sqlalchemy.engine.Connection, user_id: int, username: str | None, timestamp: datetime) -> None:
-    """if the user is new – save to users table"""
+def _save_new_user(
+    conn: sqlalchemy.engine.Connection,
+    user_id: int,
+    username: str | None,
+    timestamp: datetime,
+    messenger: Messenger,
+) -> None:
+    """if the user is new – save to users table
+
+    Args:
+        conn: DB connection.
+        user_id: Internal user ID.
+        username: Optional display name.
+        timestamp: Registration timestamp.
+        messenger: Messenger enum value for user_identity_map.
+    """
 
     # add the New User into table users
     # internal_user_id = user_id for telegram users (1:1 mapping)
@@ -157,14 +178,13 @@ def _save_new_user(conn: sqlalchemy.engine.Connection, user_id: int, username: s
     else:
         logging.info(f'New user with id: {user_id}, username {username} saved.')
         # save in user_identity_map (only for truly new users, not duplicates)
-        # For telegram users, internal_user_id = user_id (1:1 mapping)
         conn.execute(
             sqlalchemy.text("""
                 INSERT INTO user_identity_map (internal_user_id, messenger, messenger_user_id)
-                VALUES (:internal_user_id, 'telegram', :messenger_user_id)
+                VALUES (:internal_user_id, :messenger, :messenger_user_id)
                 ON CONFLICT (messenger, messenger_user_id) DO NOTHING
             """),
-            {'internal_user_id': user_id, 'messenger_user_id': str(user_id)},
+            {'internal_user_id': user_id, 'messenger': messenger.value, 'messenger_user_id': str(user_id)},
         )
 
     # save onboarding start

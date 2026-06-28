@@ -29,6 +29,7 @@ from maxapi.types.updates.bot_started import BotStarted
 from maxapi.types.updates.message_callback import MessageCallback
 from maxapi.types.updates.message_created import MessageCreated
 
+from _dependencies.common.commons import Messenger
 from _dependencies.models import DialogState
 from _dependencies.user_repository import UserRepository
 
@@ -196,7 +197,7 @@ async def on_bot_started(event: BotStarted) -> None:
         db = _get_db()
         is_new = db.check_if_new_user(user_id)
         if is_new:
-            db.register_user(user_id)
+            db.register_user(user_id, Messenger.MAX)
             logger.info('Registered new user %s', user_id)
 
         await bot.send_message(
@@ -223,7 +224,7 @@ async def on_start(event: MessageCreated) -> None:
         db = _get_db()
         is_new = db.check_if_new_user(user_id)
         if is_new:
-            db.register_user(user_id)
+            db.register_user(user_id, Messenger.MAX)
             logger.info('Registered new user %s', user_id)
 
         await event.message.answer(
