@@ -276,12 +276,12 @@ Telegram Bot (communicate)                    VK Bot (vk_bot)
 The Max bot provides a settings-management interface for the LA Searcher Bot via the [Max messenger](https://max.ru/). It replicates the core user-facing functionality of the VK bot (registration, region selection, radius/coordinate input) using the [`maxapi`](.vendor/maxapi/) Python library (v1.2.0), which provides a native Dispatcher/Router pattern, FSM (Finite State Machine), and InlineKeyboardBuilder — replacing the custom event loop and keyboard engine used by the VK bot.
 
 #### [`max_bot`](src/max_bot/main.py)
-- **Trigger**: HTTP (Max webhook, planned) or LongPoll polling mode
+- **Trigger**: HTTP (Max webhook) or LongPoll polling mode
 - **Purpose**: User settings management for Max messenger users. Shares the same PostgreSQL database as the Telegram and VK bots — all changes made in Max are immediately reflected in Telegram/VK and vice versa.
 
 **Deployment modes** (via [`cli.py`](src/max_bot/cli.py)):
 - **LongPoll polling** (default): Uses `maxapi.Bot.start_polling()` for local development and testing. Launched with `uv run python -m src.max_bot.cli` or via [`run_max_bot.py`](tests/tools/run_max_bot.py).
-- **Webhook** (planned): Will use `maxapi.Bot.handle_webhook()` for production deployment as a Yandex Cloud Function.
+- **Webhook**: Uses `maxapi.Dispatcher.handle()` via the Yandex Cloud Function entry point ([`main.py`](src/max_bot/main.py)). The ``Bot`` and ``Dispatcher`` are created once at module level and reused across warm invocations. Incoming events are parsed via ``process_update_webhook()`` and dispatched through the same handler chain as polling mode.
 
 **Architecture**:
 ```
@@ -680,7 +680,7 @@ The PostgreSQL database is central. Key tables (inferred from code):
 - **Method**: POST (webhook, planned) or LongPoll polling
 - **Body**: Max API event object (`bot_started`, `message_created`, `message_callback`, etc.)
 - **Response**: `"ok"` (string)
-- **Note**: Currently uses LongPoll polling for development. Webhook mode (for Yandex Cloud Function deployment) is planned.
+- **Note**: Webhook mode uses the Yandex Cloud Function entry point ([`main.py`](src/max_bot/main.py)). The ``Bot`` and ``Dispatcher`` are initialized lazily at module level and reused across warm container invocations. ``X-Max-Bot-Api-Secret`` is verified via ``secrets.compare_digest()`` against ``MAX_BOT_WEBHOOK_SECRET`` env var.
 - **Library**: Uses [`maxapi`](.vendor/maxapi/) v1.2.0 — native Python SDK for the Max messenger API.
 - **Event types handled**: `bot_started` (user opens chat), `message_created` (text/geo commands), `message_callback` (inline keyboard callbacks).
 - **Key implementation details**:
