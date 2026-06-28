@@ -12,6 +12,9 @@ once (it's idempotent — the ``_ready`` flag prevents re-initialization).
 
 Secret verification: The ``X-Max-Bot-Api-Secret`` header is checked
 against ``MAX_BOT_WEBHOOK_SECRET`` env var using constant-time comparison.
+
+Dialog state is persisted in PostgreSQL via ``DialogStateMixin``
+(shared with Telegram and VK bots), not in maxapi's in-memory FSM.
 """
 
 import asyncio
@@ -51,7 +54,9 @@ async def _init_dispatcher() -> None:
     _bot = Bot()
     _dp = Dispatcher()
     _dp.include_routers(handlers.router)
-    handlers.set_fsm(_dp.fsm)
+
+    # Dialog state is persisted in PostgreSQL via DialogStateMixin,
+    # not in maxapi's in-memory FSM. No need to inject dp.fsm.
 
     await _dp.startup(_bot)
     _initialized = True

@@ -24,9 +24,8 @@ async def run_polling_async() -> None:
     dp = Dispatcher()
     dp.include_routers(handlers.router)
 
-    # Inject the Dispatcher's FSM ContextManager into handlers.
-    # Router.fsm raises RuntimeError, so handlers use this reference instead.
-    handlers.set_fsm(dp.fsm)
+    # Dialog state is persisted in PostgreSQL via DialogStateMixin,
+    # not in maxapi's in-memory FSM. No need to inject dp.fsm.
 
     logger.info('Starting MAX bot in long-polling mode...')
     logger.info('Bot token configured: %s', 'yes' if bot._Bot__token else 'no')  # type: ignore[attr-defined]

@@ -1,22 +1,18 @@
 """Message and callback handlers for the MAX bot.
 
 Uses the ``maxapi`` library's ``Router`` + ``Dispatcher`` pattern with
-magic filters (``F``), command filters (``Command``), and FSM states.
+magic filters (``F``) and command filters (``Command``).
 
-Handlers are registered on a shared ``Router`` instance, which is
-included into the main ``Dispatcher`` in ``bot_polling.py``.
+Dialog state (FSM) is persisted in PostgreSQL via ``DialogStateMixin``
+(shared with Telegram and VK bots), so state survives Yandex Cloud Function
+cold starts and container instance switches.
 
 Flow:
     1. ``bot_started`` / ``/start`` → register user → show main menu
     2. Main menu buttons → region / radius / coords sub-menus
     3. Region: federal districts → paginated regions → toggle subscribe
-    4. Radius: FSM ``waiting_for_radius`` → save to DB
-    5. Coords: FSM ``waiting_for_coords`` or geo location → save to DB
-
-.. important::
-    ``Router.fsm`` raises ``RuntimeError`` — use ``Dispatcher.fsm`` instead.
-    The ``Dispatcher``'s ``ContextManager`` is injected via ``set_fsm()``
-    from ``bot_polling.py`` after the ``Dispatcher`` is created.
+    4. Radius: DB state ``waiting_for_radius`` → save to DB
+    5. Coords: DB state ``waiting_for_coords`` or geo location → save to DB
 """
 
 import json
@@ -24,17 +20,16 @@ import logging
 from typing import Any
 
 from maxapi import F, Router
-from maxapi.context import ContextManager
 from maxapi.enums.attachment import AttachmentType
 from maxapi.filters.command import Command
 from maxapi.filters.filter import BaseFilter
-from maxapi.filters.state import StateFilter
 from maxapi.types.attachments import Location
 from maxapi.types.updates import UpdateUnion
 from maxapi.types.updates.bot_started import BotStarted
 from maxapi.types.updates.message_callback import MessageCallback
 from maxapi.types.updates.message_created import MessageCreated
 
+from _dependencies.models import DialogState
 from _dependencies.user_repository import UserRepository
 
 from .keyboards import MaxKeyboardPresets
@@ -66,26 +61,10 @@ from .message_formatter import (
     UNKNOWN_COMMAND,
     WELCOME_TEXT,
 )
-from .states import MaxStates
 
 logger = logging.getLogger(__name__)
 
 router = Router()
-
-# FSM context manager — injected by bot_polling.py from Dispatcher.fsm.
-# Router.fsm raises RuntimeError, so we store the Dispatcher's ContextManager here.
-_fsm: ContextManager | None = None
-
-
-def set_fsm(fsm: ContextManager) -> None:
-    """Inject the ``Dispatcher``'s FSM ``ContextManager``.
-
-    Called from ``bot_polling.py`` after ``Dispatcher`` creation.
-    ``Router.fsm`` raises ``RuntimeError``, so handlers use this
-    module-level reference instead.
-    """
-    global _fsm  # noqa: PLW0603
-    _fsm = fsm
 
 
 class PayloadCmd(BaseFilter):
@@ -118,20 +97,35 @@ class PayloadCmd(BaseFilter):
         return data.get('cmd') == self._cmd
 
 
-# ─── Helpers ──────────────────────────────────────────────────────────────
+class DBStateFilter(BaseFilter):
+    """Filter that matches ``MessageCreated`` events by the user's DB-persisted dialog state.
 
+    Checks the ``msg_from_bot`` table via ``DialogStateMixin.get_user_state()``.
+    This is the DB-backed replacement for ``maxapi.filters.state.StateFilter``,
+    which stores state in-memory only and does not survive Yandex Cloud Function
+    cold starts.
 
-def _get_fsm() -> ContextManager:
-    """Get the injected ``Dispatcher.fsm`` ContextManager.
+    Usage::
 
-    Raises:
-        RuntimeError: If ``set_fsm()`` has not been called yet
-            (i.e., the Dispatcher hasn't been initialized).
+        @router.message_created(F.message.body.text, DBStateFilter(DialogState.waiting_for_radius))
+        async def handler(event: MessageCreated) -> None: ...
     """
-    if _fsm is None:
-        msg = 'FSM ContextManager not set. ' 'Call handlers.set_fsm(dp.fsm) before starting polling.'
-        raise RuntimeError(msg)
-    return _fsm
+
+    def __init__(self, state: DialogState) -> None:
+        self._state = state
+
+    async def __call__(self, event: UpdateUnion) -> bool:
+        if not isinstance(event, MessageCreated):
+            return False
+        user_id = event.message.sender.user_id if event.message.sender else None
+        if user_id is None:
+            return False
+        db = UserRepository()
+        current_state = db.get_user_state(user_id)
+        return current_state == self._state
+
+
+# ─── Helpers ──────────────────────────────────────────────────────────────
 
 
 def _get_db() -> UserRepository:
@@ -421,15 +415,16 @@ async def on_paginate_finish(event: MessageCallback) -> None:
 
 @router.message_callback(PayloadCmd('radius_set'))
 async def on_radius_set(event: MessageCallback) -> None:
-    """Start FSM for radius input."""
+    """Start DB-backed dialog state for radius input."""
     user_id = _get_user_id(event)
-    chat_id = _get_chat_id(event)
 
     await event.ack(notification='...')
 
-    # Set FSM state
-    if chat_id is not None and user_id is not None:
-        await _get_fsm().set_state(chat_id=chat_id, user_id=user_id, state=MaxStates.waiting_for_radius)
+    # Set DB-persisted dialog state (reuses existing radius_input state)
+    if user_id is not None:
+        db = _get_db()
+        db.set_user_state(user_id, DialogState.radius_input)
+        logger.info('Set DB state radius_input for user %s', user_id)
 
     await event.edit(
         text=RADIUS_PROMPT,
@@ -478,14 +473,15 @@ async def on_radius_delete(event: MessageCallback) -> None:
 
 @router.message_callback(PayloadCmd('coords_enter'))
 async def on_coords_enter(event: MessageCallback) -> None:
-    """Start FSM for manual coordinate input."""
+    """Start DB-backed dialog state for manual coordinate input."""
     user_id = _get_user_id(event)
-    chat_id = _get_chat_id(event)
 
     await event.ack(notification='...')
 
-    if chat_id is not None and user_id is not None:
-        await _get_fsm().set_state(chat_id=chat_id, user_id=user_id, state=MaxStates.waiting_for_coords)
+    if user_id is not None:
+        db = _get_db()
+        db.set_user_state(user_id, DialogState.input_of_coords_man)
+        logger.info('Set DB state input_of_coords_man for user %s', user_id)
 
     await event.edit(
         text=COORDS_MANUAL_PROMPT,
@@ -530,15 +526,15 @@ async def on_coords_delete(event: MessageCallback) -> None:
     )
 
 
-# ─── FSM: Waiting for Radius ─────────────────────────────────────────────
+# ─── DB State: Waiting for Radius ────────────────────────────────────────
 
 
 @router.message_created(
     F.message.body.text,
-    StateFilter(MaxStates.waiting_for_radius),
+    DBStateFilter(DialogState.radius_input),
 )
 async def on_radius_text(event: MessageCreated) -> None:
-    """Handle radius input during FSM."""
+    """Handle radius input during DB-backed dialog state."""
     user_id = _get_user_id(event)
     chat_id = _get_chat_id(event)
 
@@ -551,8 +547,9 @@ async def on_radius_text(event: MessageCreated) -> None:
 
     text = body.text.strip()
 
-    # Clear FSM state
-    await _get_fsm().clear(chat_id=chat_id, user_id=user_id)
+    # Clear DB state
+    db = _get_db()
+    db.clear_user_state(user_id)
 
     # Validate: must be integer 1-1000
     try:
@@ -566,7 +563,6 @@ async def on_radius_text(event: MessageCreated) -> None:
         )
         return
 
-    db = _get_db()
     db.save_radius(user_id, radius)
     logger.info('User %s set radius to %s km', user_id, radius)
 
@@ -576,15 +572,15 @@ async def on_radius_text(event: MessageCreated) -> None:
     )
 
 
-# ─── FSM: Waiting for Coordinates (manual text input) ────────────────────
+# ─── DB State: Waiting for Coordinates (manual text input) ────────────────
 
 
 @router.message_created(
     F.message.body.text,
-    StateFilter(MaxStates.waiting_for_coords),
+    DBStateFilter(DialogState.input_of_coords_man),
 )
 async def on_coords_text(event: MessageCreated) -> None:
-    """Handle manual coordinate input during FSM.
+    """Handle manual coordinate input during DB-backed dialog state.
 
     Expected format: ``latitude, longitude`` (e.g., ``55.7558, 37.6173``).
     """
@@ -600,8 +596,9 @@ async def on_coords_text(event: MessageCreated) -> None:
 
     text = body.text.strip()
 
-    # Clear FSM state
-    await _get_fsm().clear(chat_id=chat_id, user_id=user_id)
+    # Clear DB state
+    db = _get_db()
+    db.clear_user_state(user_id)
 
     # Parse "lat, lng" format
     parts = text.replace(';', ',').split(',')
@@ -630,7 +627,6 @@ async def on_coords_text(event: MessageCreated) -> None:
         )
         return
 
-    db = _get_db()
     db.save_coordinates(user_id, lat, lng)
     logger.info('User %s set coordinates: %s, %s', user_id, lat, lng)
 
@@ -669,10 +665,11 @@ async def on_geo_location(event: MessageCreated) -> None:
 
     if location is None:
         # Has attachments but not a location — could be an image, etc.
-        # If user is in FSM, clear it and show menu
-        current_state = await _get_fsm().get_state(chat_id=chat_id, user_id=user_id)
-        if current_state is not None:
-            await _get_fsm().clear(chat_id=chat_id, user_id=user_id)
+        # If user is in a DB dialog state, clear it and show menu
+        db = _get_db()
+        current_state = db.get_user_state(user_id)
+        if current_state is not None and current_state != DialogState.not_defined:
+            db.clear_user_state(user_id)
             await event.message.answer(
                 text=FSM_CANCELLED,
                 attachments=[MaxKeyboardPresets.main_menu()],
@@ -689,10 +686,10 @@ async def on_geo_location(event: MessageCreated) -> None:
         )
         return
 
-    # Clear any FSM state
-    await _get_fsm().clear(chat_id=chat_id, user_id=user_id)
-
+    # Clear any DB dialog state
     db = _get_db()
+    db.clear_user_state(user_id)
+
     db.save_coordinates(user_id, lat, lng)
     logger.info('User %s set coordinates via geo: %s, %s', user_id, lat, lng)
 
@@ -709,7 +706,7 @@ async def on_geo_location(event: MessageCreated) -> None:
 async def on_unknown_text(event: MessageCreated) -> None:
     """Fallback handler for any unrecognized text message.
 
-    If the user is in an FSM state, clear it and show the main menu.
+    If the user is in a DB dialog state, clear it and show the main menu.
     Otherwise, show the main menu.
     """
     user_id = _get_user_id(event)
@@ -718,10 +715,11 @@ async def on_unknown_text(event: MessageCreated) -> None:
     if user_id is None or chat_id is None:
         return
 
-    # Check if user is in an FSM state
-    current_state = await _get_fsm().get_state(chat_id=chat_id, user_id=user_id)
-    if current_state is not None:
-        await _get_fsm().clear(chat_id=chat_id, user_id=user_id)
+    # Check if user is in a DB dialog state
+    db = _get_db()
+    current_state = db.get_user_state(user_id)
+    if current_state is not None and current_state != DialogState.not_defined:
+        db.clear_user_state(user_id)
         await event.message.answer(
             text=FSM_CANCELLED,
             attachments=[MaxKeyboardPresets.main_menu()],
