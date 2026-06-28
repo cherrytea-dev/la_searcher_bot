@@ -59,7 +59,14 @@ async def _init_dispatcher() -> None:
 
 
 async def _handle_webhook_async(event_json: dict) -> None:
-    """Parse and dispatch a single webhook event."""
+    """Initialize dispatcher (if needed), parse and dispatch a single webhook event.
+
+    Both initialization and event handling run inside the **same** event loop
+    to avoid ``RuntimeError: Event loop is closed`` when the ``Bot``'s internal
+    ``aiohttp.ClientSession`` (created during init) is reused across separate
+    ``asyncio.run()`` calls.
+    """
+    await _init_dispatcher()
     if _dp is None or _bot is None:
         logger.error('Dispatcher not initialized')
         return
@@ -104,7 +111,6 @@ def main(request: RequestWrapper, *args: object, **kwargs: object) -> ResponseWr
 
     # ── Dispatch event ─────────────────────────────────────────────────
     try:
-        asyncio.run(_init_dispatcher())
         asyncio.run(_handle_webhook_async(event_json))
     except Exception:
         logger.exception('Error processing MAX webhook event')
