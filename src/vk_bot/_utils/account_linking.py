@@ -8,13 +8,15 @@ This module was extracted from dispatcher.py to reduce its size and separate
 concerns — account linking is a distinct domain from event dispatching.
 """
 
+import datetime
 import hashlib
 import logging
 
 import sqlalchemy
 
 from _dependencies.bot.users_management import save_onboarding_step
-from _dependencies.common.commons import get_app_config
+from _dependencies.common.commons import get_app_config, sqlalchemy_get_pool
+from _dependencies.user_repository import UserRepository
 
 from .common import VKHandlerContext, get_invite_from_message
 from .keyboards import VKKeyboardPresets
@@ -29,6 +31,7 @@ def register_vk_only_user(vk_user_id: int, vk_user_name: str | None = None) -> i
     2. A record in ``user_identity_map`` (messenger='vk', messenger_user_id=vk_user_id)
     3. Onboarding step
     4. Default notification preferences
+    5. Default topic type preferences
 
     Args:
         vk_user_id: VK user ID.
@@ -37,7 +40,6 @@ def register_vk_only_user(vk_user_id: int, vk_user_name: str | None = None) -> i
     Returns:
         The new ``internal_user_id``.
     """
-    from _dependencies.common.commons import sqlalchemy_get_pool
 
     pool = sqlalchemy_get_pool()
     with pool.connect() as conn:
@@ -47,7 +49,6 @@ def register_vk_only_user(vk_user_id: int, vk_user_name: str | None = None) -> i
 
         # 2. Create record in users table
         #    Use internal_user_id as user_id (no telegram id available)
-        import datetime
 
         now = datetime.datetime.now()
         conn.execute(
@@ -80,6 +81,9 @@ def register_vk_only_user(vk_user_id: int, vk_user_name: str | None = None) -> i
 
         # 5. Create default notification preferences
         _save_default_preferences(conn, internal_user_id)
+
+        # 6. Create default topic type preferences (required for compose_notifications SQL filter)
+        UserRepository().save_default_topic_types(internal_user_id, None)
 
         logging.info(f'VK-only user registered: internal_user_id={internal_user_id}, vk_user_id={vk_user_id}')
         return internal_user_id
