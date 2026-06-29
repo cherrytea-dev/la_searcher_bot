@@ -74,7 +74,7 @@ class RegionMixin(DBClientMixinBase):
         """Get geographic folders for regions in a given federal district."""
         with self.connect() as connection:
             stmt = sqlalchemy.text("""
-                SELECT fv.folder_id, fv.folder_display_name
+                SELECT DISTINCT fv.folder_id, fv.folder_display_name
                 FROM geo_folders_view fv
                 JOIN geo_divisions d ON fv.division_id = d.division_id
                 JOIN geo_regions r ON d.division_id = r.division_id
