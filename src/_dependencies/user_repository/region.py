@@ -71,15 +71,22 @@ class RegionMixin(DBClientMixinBase):
             return result.fetchall()
 
     def get_geo_folders_by_district(self, federal_district_name: str) -> list[tuple[int, str]]:
-        """Get geographic folders for regions in a given federal district."""
+        """Get geographic folders for regions in a given federal district.
+
+        Returns a list of ``(folder_id, folder_display_name)`` tuples.
+        When multiple folders share the same display name (e.g., multiple
+        forum subforums for the same division+subtype), only the first
+        folder_id is returned — the keyboard shows each display name once.
+        """
         with self.connect() as connection:
             stmt = sqlalchemy.text("""
-                SELECT DISTINCT fv.folder_id, fv.folder_display_name
+                SELECT MIN(fv.folder_id) AS folder_id, fv.folder_display_name
                 FROM geo_folders_view fv
                 JOIN geo_divisions d ON fv.division_id = d.division_id
                 JOIN geo_regions r ON d.division_id = r.division_id
                 WHERE fv.folder_type = 'searches'
                   AND r.federal_district = :district_name
+                GROUP BY fv.folder_display_name
                 ORDER BY fv.folder_display_name;
             """)
             result = connection.execute(stmt, {'district_name': federal_district_name})
