@@ -204,15 +204,22 @@ def mock_vk_sender():
 def mock_dispatcher_db():
     """Patch db() in modules that still import it directly.
 
-    Provides a pre-configured mock with resolve_user_id returning 42.
+    Provides a pre-configured mock with get_identity_by_messenger_user_id
+    returning a SimpleNamespace for user 42.
     Tests can override by accessing mock_db().xxx.return_value = ...
 
     Only patches modules that still do ``from .database import db``
     (creating local references). account_linking and region_select_handlers
     no longer import db directly — they use ctx.db instead.
     """
+    from types import SimpleNamespace
+
     db_mock = MagicMock()
-    db_mock().resolve_user_id.return_value = 42
+    db_mock().get_identity_by_messenger_user_id.return_value = SimpleNamespace(
+        internal_user_id=42,
+        messenger='vk',
+        messenger_user_id='99999',
+    )
     with patch('vk_bot._utils.message_processing.db', db_mock):
         yield db_mock
 

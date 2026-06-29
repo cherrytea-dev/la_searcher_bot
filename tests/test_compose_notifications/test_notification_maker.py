@@ -45,7 +45,9 @@ class TestNotificationMaker:
     ):
         record = LineInChangeLogFactory.build(ignore=False, change_type=ChangeType.topic_status_change, processed=False)
         user = UserFactory.build()
+        _ensure_identity_map(connection, user.user_id, 'telegram', str(user.user_id))
         composer = NotificationMaker(connection, record, [user])
+        composer._resolve_messengers_batch()
 
         composer.generate_notification_for_user(record.change_log_id, user)
         composer.flush_batch()
@@ -75,7 +77,9 @@ class TestNotificationMaker:
             user_latitude='55.0000',
             user_longitude='55.0000',
         )
+        _ensure_identity_map(connection, user.user_id, 'telegram', str(user.user_id))
         composer = NotificationMaker(connection, record, [user])
+        composer._resolve_messengers_batch()
 
         composer.generate_notification_for_user(record.change_log_id, user)
         composer.flush_batch()
@@ -105,7 +109,9 @@ class TestNotificationMaker:
             user_latitude='55.0000',
             user_longitude='55.0000',
         )
+        _ensure_identity_map(connection, user.user_id, 'telegram', str(user.user_id))
         composer = NotificationMaker(connection, record, [user])
+        composer._resolve_messengers_batch()
 
         composer.generate_notification_for_user(record.change_log_id, user)
         composer.flush_batch()
@@ -120,13 +126,6 @@ class TestNotificationMaker:
         assert query.filter(db_models.NotifByUser.message_type == 'coords').count() == 1
 
     # ─── Tests for _resolve_messengers_batch() ───────────────────────────────
-
-    def test_resolve_messengers_batch_no_identity_map(self, connection: Connection, dict_notif_type_status_change):
-        """User with no user_identity_map entries → fallback to ['telegram']."""
-        user = UserFactory.build(user_id=999999001)
-        composer = NotificationMaker(connection, LineInChangeLogFactory.build(), [user])
-        composer._resolve_messengers_batch()
-        assert composer._messenger_map == {user.user_id: ['telegram']}
 
     def test_resolve_messengers_batch_telegram_only(self, connection: Connection, dict_notif_type_status_change):
         """User with only telegram in user_identity_map → ['telegram']."""
@@ -176,7 +175,7 @@ class TestNotificationMaker:
         assert composer._messenger_map[user_tg.user_id] == ['telegram']
         assert composer._messenger_map[user_vk.user_id] == ['vk']
         assert set(composer._messenger_map[user_both.user_id]) == {'telegram', 'vk'}
-        assert composer._messenger_map[user_none.user_id] == ['telegram']
+        assert composer._messenger_map[user_none.user_id] == []
 
     def test_resolve_messengers_batch_empty_users(self, connection: Connection, dict_notif_type_status_change):
         """Empty list_of_users → empty _messenger_map."""
@@ -259,29 +258,6 @@ class TestNotificationMaker:
         assert len(notifs) == 2
         messengers = {n.messenger for n in notifs}
         assert messengers == {'telegram', 'vk'}
-
-    def test_save_to_sql_notif_by_user_no_identity_map(
-        self, connection: Connection, dict_notif_type_status_change, session: Session
-    ):
-        """User with no identity_map → fallback to 1 record with messenger='telegram'."""
-        user = UserFactory.build(user_id=999999013)
-
-        record = LineInChangeLogFactory.build(ignore=False, change_type=ChangeType.topic_status_change, processed=False)
-        composer = NotificationMaker(connection, record, [user])
-        composer._resolve_messengers_batch()
-        composer._save_to_sql_notif_by_user(record.change_log_id, user.user_id, 'test msg', 'test msg', 'text', {})
-        composer.flush_batch()
-
-        notifs = (
-            session.query(db_models.NotifByUser)
-            .filter(
-                db_models.NotifByUser.change_log_id == record.change_log_id,
-                db_models.NotifByUser.user_id == user.user_id,
-            )
-            .all()
-        )
-        assert len(notifs) == 1
-        assert notifs[0].messenger == 'telegram'
 
     def test_save_to_sql_notif_by_user_multiple_users(
         self, connection: Connection, dict_notif_type_status_change, session: Session

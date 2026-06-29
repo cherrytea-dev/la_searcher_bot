@@ -12,6 +12,7 @@ import hashlib
 import json
 import random as _random
 import time
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -50,19 +51,6 @@ class TestDBClient:
     def db_client(self, connection_pool: Engine) -> DBClient:
         return DBClient(connection_pool)
 
-    def test_get_user_by_vk_id_not_found(self, db_client: DBClient):
-        """Returns None when vk_id doesn't exist."""
-        result = db_client.get_user_by_vk_id(-999999)
-        assert result is None
-
-    def test_get_user_by_vk_id_found(self, db_client: DBClient, session: Session):
-        """Returns user_id when vk_id exists."""
-
-        test_vk_id = _random.randint(100000, 999999)
-        user = db_factories.UserFactory.create_sync(vk_id=str(test_vk_id))
-        result = db_client.get_user_by_vk_id(test_vk_id)
-        assert result == user.user_id
-
     def test_set_user_vk_id(self, db_client: DBClient, session: Session, user_id: int):
         """set_user_vk_id updates the vk_id column and returns True."""
         result = db_client.set_user_vk_id(user_id, vk_id=99999)
@@ -88,22 +76,6 @@ class TestDBClient:
 
     def test_is_user_registered_in_vk_false(self, db_client: DBClient):
         assert db_client.is_user_registered_in_vk(-999) is False
-
-    def test_resolve_user_id_linked(self, db_client: DBClient, session: Session):
-        """Linked VK user returns telegram user_id."""
-
-        test_vk_id = _random.randint(100000, 999999)
-        user = db_factories.UserFactory.create_sync(vk_id=str(test_vk_id))
-        result = db_client.resolve_user_id(test_vk_id)
-        assert result == user.user_id
-        assert result > 0
-
-    def test_resolve_user_id_not_linked(self, db_client: DBClient):
-        """Unlinked VK user returns -vk_user_id."""
-        vk_id = 55555
-        result = db_client.resolve_user_id(vk_id)
-        assert result == -vk_id
-        assert result < 0
 
     def test_db_singleton(self):
         """db() returns the same instance."""
@@ -211,7 +183,11 @@ class TestDispatcherMessageNew:
         }
 
         # Simulate that this VK user is linked to the Telegram user
-        mock_dispatcher_db().get_user_by_vk_id.return_value = user.user_id
+        mock_dispatcher_db().get_identity_by_messenger_user_id.return_value = SimpleNamespace(
+            internal_user_id=user.user_id,
+            messenger='vk',
+            messenger_user_id=str(vk_user_id),
+        )
 
         result = dispatch_event(event)
         assert result == 'ok'
@@ -245,7 +221,11 @@ class TestDispatcherMessageNew:
         }
 
         # Simulate that this VK user is linked to the Telegram user
-        mock_dispatcher_db().get_user_by_vk_id.return_value = user.user_id
+        mock_dispatcher_db().get_identity_by_messenger_user_id.return_value = SimpleNamespace(
+            internal_user_id=user.user_id,
+            messenger='vk',
+            messenger_user_id=str(vk_user_id),
+        )
 
         result = dispatch_event(event)
         assert result == 'ok'
@@ -292,14 +272,21 @@ class TestDispatcherMessageNew:
         assert 'keyboard' in call_kwargs  # Should have a keyboard (main menu)
         assert call_kwargs['text'] == 'Теперь вы можете изменять настройки бота здесь'
 
-        # Verify the VK ID was linked in the database
-        linked_user_id = db().get_user_by_vk_id(vk_user_id)
-        assert linked_user_id == telegram_user_id
+        # Verify the VK ID was linked in the database via identity_map
+        identity = db().get_identity_by_messenger_user_id(vk_user_id)
+        assert identity is not None
+        # internal_user_id may differ from user_id (telegram ID) — just check it's positive
+        assert identity.internal_user_id > 0
+        assert identity.messenger == 'vk'
+        assert identity.messenger_user_id == str(vk_user_id)
 
         # Cleanup: remove the vk_id link
-
         with db().connect() as conn:
             conn.execute(sa_text('UPDATE users SET vk_id = NULL WHERE user_id = :uid'), uid=telegram_user_id)
+            conn.execute(
+                sa_text("DELETE FROM user_identity_map WHERE messenger = 'vk' AND messenger_user_id = :vid"),
+                vid=str(vk_user_id),
+            )
 
     def test_message_new_with_stale_invite(self, mock_vk_sender: MagicMock | AsyncMock):
         """Valid invite hash but Telegram user doesn't exist in DB gets error message.
@@ -336,7 +323,7 @@ class TestDispatcherMessageNew:
         assert 'удалили бота' in text or 'код приглашения' in text
 
         # Verify no VK ID was linked
-        assert db().get_user_by_vk_id(vk_user_id) is None
+        assert db().get_identity_by_messenger_user_id(vk_user_id) is None
 
     def test_message_new_with_invalid_invite(self, mock_vk_sender: MagicMock | AsyncMock):
         """Unlinked user with invalid invite hash gets error message."""
@@ -380,8 +367,11 @@ class TestDispatcherMessageEvent:
 
     def test_message_event(self, fake_vk_sender: FakeVKMessageSender, mock_dispatcher_db: MagicMock):
         """Callback event is acknowledged."""
-        mock_dispatcher_db().get_identity_by_messenger_user_id.return_value = None
-        mock_dispatcher_db().get_user_by_vk_id.return_value = 42
+        mock_dispatcher_db().get_identity_by_messenger_user_id.return_value = SimpleNamespace(
+            internal_user_id=42,
+            messenger='vk',
+            messenger_user_id='123',
+        )
         event = {
             'type': 'message_event',
             'object': {

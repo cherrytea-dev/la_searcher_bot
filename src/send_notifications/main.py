@@ -91,7 +91,7 @@ class DBClient(DBClientBase):
                     message_group_id,
                     change_log_id,
                     failed,
-                    COALESCE(messenger, 'telegram') AS messenger
+                    messenger
                 FROM
                     notif_by_user
                 WHERE
@@ -140,7 +140,7 @@ class DBClient(DBClientBase):
     def fill_vk_user_ids(self, messages: list['MessageToSend']) -> None:
         """Append vk_id to MessageToSend for VK-destined messages.
 
-        Uses user_identity_map (new path) with fallback to users.vk_id (legacy).
+        Resolves ``vk_id`` from ``user_identity_map``.
         """
         with self.connect() as conn:
             vk_messages = [m for m in messages if m.messenger == Messenger.VK]
@@ -149,7 +149,6 @@ class DBClient(DBClientBase):
 
             user_ids = list(set([x.user_id for x in vk_messages]))
 
-            # New path: resolve vk_id from user_identity_map
             identity_query = """
                 SELECT internal_user_id, messenger_user_id
                 FROM user_identity_map
@@ -159,19 +158,6 @@ class DBClient(DBClientBase):
             stmt = sqlalchemy.text(identity_query)
             rows = conn.execute(stmt, user_ids=user_ids).fetchall()
             user_ids_map = {internal_user_id: messenger_user_id for internal_user_id, messenger_user_id in rows}
-
-            # Legacy fallback: resolve from users.vk_id for users not in identity_map
-            legacy_query = """
-                SELECT user_id, vk_id
-                FROM users
-                WHERE user_id = ANY(:user_ids)
-                  AND vk_id IS NOT NULL
-            """
-            stmt = sqlalchemy.text(legacy_query)
-            legacy_rows = conn.execute(stmt, user_ids=user_ids).fetchall()
-            for user_id, vk_id in legacy_rows:
-                if user_id not in user_ids_map:
-                    user_ids_map[user_id] = vk_id
 
             for message in vk_messages:
                 message.vk_id = user_ids_map.get(message.user_id, None)
@@ -374,33 +360,18 @@ def _dispatch_max(
         raise ValueError(f'unknown message_type for MAX: {message_to_send.message_type}')
 
 
-def _try_send_vk_fallback(
-    vk_api: VKApi, message_to_send: MessageToSend, content: str, message_params: dict[str, Any]
-) -> None:
-    """Legacy fallback: also send to VK if user has linked a VK account."""
-    if not USE_VK_API or not message_to_send.vk_id:
-        return
-
-    if message_to_send.message_type == 'text':
-        _send_vk_text(vk_api, message_to_send.vk_id, message_to_send, content)
-    elif message_to_send.message_type == 'coords':
-        _send_vk_coords(vk_api, message_to_send.vk_id, message_to_send, message_params)
-
-
 def _dispatch_telegram(
-    tg_api: TGApiBase, vk_api: VKApi, message_to_send: MessageToSend, content: str, message_params: dict[str, Any]
+    tg_api: TGApiBase, message_to_send: MessageToSend, content: str, message_params: dict[str, Any]
 ) -> str | None:
-    """Dispatch a message via Telegram, with optional legacy VK fallback."""
+    """Dispatch a message via Telegram."""
     user_id = message_to_send.user_id
 
     if message_to_send.message_type == 'text':
         message_params['chat_id'] = user_id
         message_params['text'] = content
-        _try_send_vk_fallback(vk_api, message_to_send, content, message_params)
         return tg_api.send_message(message_params)
 
     elif message_to_send.message_type == 'coords':
-        _try_send_vk_fallback(vk_api, message_to_send, content, message_params)
         return tg_api.send_location(user_id, message_params['latitude'], message_params['longitude'])
     else:
         raise ValueError(f'unknown message_type: {message_to_send.message_type}')
@@ -417,7 +388,7 @@ def send_single_message(tg_api: TGApiBase, vk_api: VKApi, message_to_send: Messa
         max_client = get_default_max_client()
         return _dispatch_max(max_client, message_to_send, content, message_params)
 
-    return _dispatch_telegram(tg_api, vk_api, message_to_send, content, message_params)
+    return _dispatch_telegram(tg_api, message_to_send, content, message_params)
 
 
 def seconds_between(datetime1: datetime.datetime, datetime2: datetime.datetime | None = None) -> float:
