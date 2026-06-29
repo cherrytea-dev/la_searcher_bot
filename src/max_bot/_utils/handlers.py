@@ -198,6 +198,7 @@ async def on_bot_started(event: BotStarted) -> None:
         is_new = db.check_if_new_user(user_id)
         if is_new:
             db.register_user(user_id, Messenger.MAX)
+            db.save_default_topic_types(user_id, None)
             logger.info('Registered new user %s', user_id)
 
         await bot.send_message(
@@ -225,6 +226,7 @@ async def on_start(event: MessageCreated) -> None:
         is_new = db.check_if_new_user(user_id)
         if is_new:
             db.register_user(user_id, Messenger.MAX)
+            db.save_default_topic_types(user_id, None)
             logger.info('Registered new user %s', user_id)
 
         await event.message.answer(
