@@ -16,15 +16,11 @@ import logging
 
 from ..common import VKHandlerContext
 from ..decorators import vk_handle
-from ..keyboards import VKKeyboardButtons, VKKeyboardPresets
+from ..keyboards import REGION_EMOJI_LEGEND, VKKeyboardPresets
 from ..services.message_formatter import (
     region_selection_intro,
     settings_menu_intro,
 )
-
-# Number of region buttons per page (6 items = 3 rows in two_columns layout).
-# Kept at 6 to stay under VK's 10-button limit for messages.edit inline keyboards.
-_PAGE_SIZE = 6
 
 # Known federal districts from VKKeyboardPresets.fed_districts()
 _KNOWN_DISTRICTS = [
@@ -97,27 +93,16 @@ def handle_fed_district_select(ctx: VKHandlerContext) -> None:
     region_buttons = [name for fid, name in folders]
     selected_regions = _get_selected_region_names(ctx)
 
-    # Check if pagination is needed
-    total_pages = (len(region_buttons) + _PAGE_SIZE - 1) // _PAGE_SIZE
-
-    if total_pages <= 1:
-        # Single page — show all regions as regular text buttons
-        buttons = list(region_buttons)
-        buttons.append(VKKeyboardButtons.BTN_FINISH)
-        ctx.reply(
-            text=f'Выберите регион в округе "{ctx.message.text.strip()}":\n\n'
-            'Нажмите на регион, чтобы подписаться или отписаться.',
-            keyboard=VKKeyboardPresets.two_columns(buttons, selected_regions=selected_regions),
-        )
-    else:
-        # Multiple pages — show first page with inline callback keyboard
-        ctx.reply(
-            text=f'Выберите регион в округе "{ctx.message.text.strip()}":\n\n'
-            'Нажмите на регион, чтобы подписаться или отписаться.',
-            keyboard=VKKeyboardPresets.paginated_regions_inline(
-                region_buttons, 0, district_name, selected_regions=selected_regions
-            ),
-        )
+    ctx.reply(
+        text=(
+            f'Выберите регион в округе "{ctx.message.text.strip()}":\n\n'
+            f'{REGION_EMOJI_LEGEND}\n\n'
+            'Нажмите на регион, чтобы подписаться или отписаться.'
+        ),
+        keyboard=VKKeyboardPresets.paginated_regions_inline(
+            region_buttons, 0, district_name, selected_regions=selected_regions
+        ),
+    )
 
 
 def _toggle_region_inline(ctx: VKHandlerContext, region_name: str) -> str:
@@ -200,7 +185,11 @@ def handle_inline_pagination_nav(ctx: VKHandlerContext) -> None:
 
     ctx.answer_callback()
 
-    text = f'Выберите регион в округе "{district} ФО":\n\n' 'Нажмите на регион, чтобы подписаться или отписаться.'
+    text = (
+        f'Выберите регион в округе "{district} ФО":\n\n'
+        f'{REGION_EMOJI_LEGEND}\n\n'
+        'Нажмите на регион, чтобы подписаться или отписаться.'
+    )
     ctx.edit(
         text=text,
         keyboard=keyboard,
@@ -240,7 +229,9 @@ def handle_inline_pagination_toggle(ctx: VKHandlerContext) -> None:
             region_buttons = [name for fid, name in folders]
             selected_regions = _get_selected_region_names(ctx)
             text = (
-                f'Выберите регион в округе "{district} ФО":\n\n' 'Нажмите на регион, чтобы подписаться или отписаться.'
+                f'Выберите регион в округе "{district} ФО":\n\n'
+                f'{REGION_EMOJI_LEGEND}\n\n'
+                'Нажмите на регион, чтобы подписаться или отписаться.'
             )
             keyboard = VKKeyboardPresets.paginated_regions_inline(
                 region_buttons, page, district, selected_regions=selected_regions
@@ -342,20 +333,17 @@ def handle_district_select(ctx: VKHandlerContext) -> None:
         return
 
     region_buttons = [name for fid, name in folders]
-    text = f'Выберите регион в округе "{district} ФО":\n\n' 'Нажмите на регион, чтобы подписаться или отписаться.'
+    text = (
+        f'Выберите регион в округе "{district} ФО":\n\n'
+        f'{REGION_EMOJI_LEGEND}\n\n'
+        'Нажмите на регион, чтобы подписаться или отписаться.'
+    )
 
     selected_regions = _get_selected_region_names(ctx)
 
-    total_pages = (len(region_buttons) + _PAGE_SIZE - 1) // _PAGE_SIZE
-
-    if total_pages <= 1:
-        buttons = list(region_buttons)
-        buttons.append('Завершить')
-        keyboard = VKKeyboardPresets.two_columns(buttons, selected_regions=selected_regions)
-    else:
-        keyboard = VKKeyboardPresets.paginated_regions_inline(
-            region_buttons, 0, district, selected_regions=selected_regions
-        )
+    keyboard = VKKeyboardPresets.paginated_regions_inline(
+        region_buttons, 0, district, selected_regions=selected_regions
+    )
 
     ctx.edit(
         text=text,
