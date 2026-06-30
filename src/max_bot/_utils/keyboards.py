@@ -19,6 +19,8 @@ from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
 
 # Suffix-to-emoji mapping for compact region display names.
 # Replaces verbose subtype suffixes like " – Активные поиски" with short emoji markers.
+# Emoji is placed at the BEGINNING of the label because Max's keyboard buttons
+# are narrower than VK's and trailing emojis may be clipped.
 _SUFFIX_TO_EMOJI: dict[str, str] = {
     ' – Активные поиски': '🔍',
     ' – Завершенные поиски': '✅',
@@ -30,15 +32,16 @@ _COMPACT_REGION_RE = re.compile('(' + '|'.join(re.escape(s) for s in _SUFFIX_TO_
 
 
 def _compact_region_name(name: str) -> str:
-    """Replace verbose subtype suffix with a short emoji marker.
+    """Replace verbose subtype suffix with a short emoji marker at the BEGINNING.
 
-    "Москва – Активные поиски" → "Москва 🔍"
-    "Ханты-Мансийский АО – Завершенные поиски" → "Ханты-Мансийский АО ✅"
+    "Москва – Активные поиски" → "🔍 Москва"
+    "Ханты-Мансийский АО – Завершенные поиски" → "✅ Ханты-Мансийский АО"
     """
     match = _COMPACT_REGION_RE.search(name)
     if match:
         suffix = match.group(1)
-        return name[: match.start()] + ' ' + _SUFFIX_TO_EMOJI[suffix]
+        region_part = name[: match.start()].strip()
+        return _SUFFIX_TO_EMOJI[suffix] + ' ' + region_part
     return name
 
 
