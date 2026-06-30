@@ -211,7 +211,7 @@ class NotificationMaker:
         so a user with both Telegram and VK gets two records.
         """
 
-        messengers = self._messenger_map.get(user_id, ['telegram'])
+        messengers = self._messenger_map.get(user_id, [])
 
         for messenger in messengers:
             record = NotificationRecord(
@@ -234,7 +234,6 @@ class NotificationMaker:
         """Batch-resolve messengers for all users in a single query.
 
         Builds self._messenger_map: user_id -> list of messenger strings.
-        Users with no identity_map entry get ['telegram'] as default.
         """
         if not self.list_of_users:
             self._messenger_map = {}
@@ -260,12 +259,9 @@ class NotificationMaker:
                 temp[uid] = set()
             temp[uid].add(messenger)
 
-        # Ensure every user has at least 'telegram' as fallback
         self._messenger_map = {}
         for uid in user_ids:
             messengers = temp.get(uid, set())
-            if not messengers:
-                messengers = {'telegram'}
             self._messenger_map[uid] = list(messengers)
 
     def flush_batch(self) -> None:

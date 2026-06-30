@@ -61,11 +61,10 @@ def handle_new_message(
     """Process a new message from a user.
 
     Flow:
-    1. Resolve identity via ``user_identity_map`` (new path)
-    2. If not found, fall back to ``users.vk_id`` column (legacy path)
-    3. If still not found, try invite linking first; if that fails,
+    1. Resolve identity via ``user_identity_map``
+    2. If not found, try invite linking first; if that fails,
        register as a VK-only user so they can use the bot immediately
-    4. Once identity is resolved → run registered handlers via vk_registry.match()
+    3. Once identity is resolved → run registered handlers via vk_registry.match()
 
     Args:
         vk_message: The incoming VK message.
@@ -76,37 +75,31 @@ def handle_new_message(
 
     logging.info(f'handle_new_message: vk_user={vk_user_id}, text="{vk_message.text}"')
 
-    # 1. Try new path: user_identity_map
+    # 1. Resolve identity from user_identity_map
     identity = db().get_identity_by_messenger_user_id(vk_user_id)
     if identity is not None:
         user_id = identity.internal_user_id
         logging.info(f'handle_new_message: resolved from identity_map, internal_user={user_id}')
 
-    # 2. Fall back to legacy path: users.vk_id
     else:
-        linked_user_id = db().get_user_by_vk_id(vk_user_id)
-        if linked_user_id is not None:
-            user_id = linked_user_id
-            logging.info(f'handle_new_message: resolved from legacy vk_id, system_user={user_id}')
-        else:
-            # 3. Check if message is an invite attempt
+        # 2. Check if message is an invite attempt
 
-            telegram_user_id, invite_hash = get_invite_from_message(vk_message.text)
-            if telegram_user_id and invite_hash:
-                # Let account_linking handle the invite validation
-                ctx = VKHandlerContext(
-                    message=vk_message,
-                    user_id=-1,  # placeholder — user not yet resolved
-                    state=None,
-                    sender=sender,
-                    db=db(),
-                )
-                handle_unregistered_user(ctx)
-                return
+        telegram_user_id, invite_hash = get_invite_from_message(vk_message.text)
+        if telegram_user_id and invite_hash:
+            # Let account_linking handle the invite validation
+            ctx = VKHandlerContext(
+                message=vk_message,
+                user_id=-1,  # placeholder — user not yet resolved
+                state=None,
+                sender=sender,
+                db=db(),
+            )
+            handle_unregistered_user(ctx)
+            return
 
-            # 4. Register as VK-only user
-            logging.info(f'handle_new_message: registering VK-only user {vk_user_id}')
-            user_id = register_vk_only_user(vk_user_id)
+        # 3. Register as VK-only user
+        logging.info(f'handle_new_message: registering VK-only user {vk_user_id}')
+        user_id = register_vk_only_user(vk_user_id)
 
     try:
         db().save_user_message(user_id, vk_message.text)
@@ -172,12 +165,8 @@ def handle_callback_event(
     if identity is not None:
         user_id = identity.internal_user_id
     else:
-        linked_user_id = db().get_user_by_vk_id(vk_user_id)
-        if linked_user_id is not None:
-            user_id = linked_user_id
-        else:
-            logging.warning(f'handle_callback_event: unknown user {vk_user_id}, cannot process callback')
-            return
+        logging.warning(f'handle_callback_event: unknown user {vk_user_id}, cannot process callback')
+        return
 
     # Acknowledge the callback event
     sender.send_callback_answer(

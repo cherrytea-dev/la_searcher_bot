@@ -143,7 +143,7 @@ class TestGetNotifsToSendMessenger:
 
 @pytest.mark.xdist_group(name='send_notifications')
 class TestFillVkUserIds:
-    """Tests for fill_vk_user_ids() — identity_map + legacy fallback."""
+    """Tests for fill_vk_user_ids() — identity_map resolution."""
 
     def _make_vk_notification(self, user_id: int) -> main.MessageToSend:
         """Create a VK-destined MessageToSend (not persisted)."""
@@ -199,38 +199,10 @@ class TestFillVkUserIds:
         db_client.fill_vk_user_ids([msg])
         assert msg.vk_id == vk_user_id
 
-    def test_legacy_fallback(self, db_client: main.DBClient):
-        """VK message, user NOT in identity_map but has users.vk_id → legacy fallback."""
-        user_id = randint(10_000_000, 99_999_999)
-        vk_id = str(randint(100_000, 999_999))
-        UserFactory.create_sync(user_id=user_id, internal_user_id=user_id, vk_id=vk_id)
-
-        msg = self._make_vk_notification(user_id=user_id)
-        db_client.fill_vk_user_ids([msg])
-        assert msg.vk_id == vk_id
-
-    def test_identity_map_wins_over_legacy(self, db_client: main.DBClient):
-        """User in both identity_map and users.vk_id → identity_map takes priority."""
-        user_id = randint(10_000_000, 99_999_999)
-        identity_map_vk = str(randint(100_000, 999_999))
-        legacy_vk = str(randint(100_000, 999_999))
-        # Ensure different values
-        while legacy_vk == identity_map_vk:
-            legacy_vk = str(randint(100_000, 999_999))
-
-        pool = sqlalchemy_get_pool()
-        with pool.connect() as conn:
-            _ensure_identity_map(conn, user_id, 'vk', identity_map_vk)
-        UserFactory.create_sync(user_id=user_id, internal_user_id=user_id, vk_id=legacy_vk)
-
-        msg = self._make_vk_notification(user_id=user_id)
-        db_client.fill_vk_user_ids([msg])
-        assert msg.vk_id == identity_map_vk
-
     def test_not_found(self, db_client: main.DBClient):
-        """VK message, user not in identity_map nor users.vk_id → vk_id stays None."""
+        """VK message, user not in identity_map → vk_id stays None."""
         user_id = randint(10_000_000, 99_999_999)
-        # Create user but without vk_id
+        # Create user but without identity_map entry
         UserFactory.create_sync(user_id=user_id, internal_user_id=user_id, vk_id=None)
 
         msg = self._make_vk_notification(user_id=user_id)
@@ -238,28 +210,23 @@ class TestFillVkUserIds:
         assert msg.vk_id is None
 
     def test_multiple_users_mixed(self, db_client: main.DBClient):
-        """Multiple VK messages: some from identity_map, some from legacy, some not found."""
+        """Multiple VK messages: some from identity_map, some not found."""
         user_a = randint(10_000_000, 99_999_999)
         user_b = randint(10_000_000, 99_999_999)
-        user_c = randint(10_000_000, 99_999_999)
         vk_a = str(randint(100_000, 999_999))
-        vk_b = str(randint(100_000, 999_999))
 
         pool = sqlalchemy_get_pool()
         with pool.connect() as conn:
             _ensure_identity_map(conn, user_a, 'vk', vk_a)
-        UserFactory.create_sync(user_id=user_b, internal_user_id=user_b, vk_id=vk_b)
-        UserFactory.create_sync(user_id=user_c, internal_user_id=user_c, vk_id=None)
+        UserFactory.create_sync(user_id=user_b, internal_user_id=user_b, vk_id=None)
 
         msgs = [
             self._make_vk_notification(user_id=user_a),
             self._make_vk_notification(user_id=user_b),
-            self._make_vk_notification(user_id=user_c),
         ]
         db_client.fill_vk_user_ids(msgs)
         assert msgs[0].vk_id == vk_a
-        assert msgs[1].vk_id == vk_b
-        assert msgs[2].vk_id is None
+        assert msgs[1].vk_id is None
 
 
 # ─── Category 2b: fill_max_user_ids() — new path via user_identity_map ───
@@ -573,22 +540,6 @@ class TestSendSingleMessage:
         tg_mock.assert_called_once()
         vk_mock.assert_not_called()
 
-    def test_telegram_text_with_vk(self):
-        """messenger='telegram', vk_id set, message_type='text' → tg_api + vk_api (legacy fallback)."""
-        msg = self._make_msg(messenger='telegram', vk_id='12345', message_type='text', message_content='hello both')
-        tg_api = TGApiBase(token='token')
-        vk_api = VKApi('token')
-        with (
-            patch.object(TGApiBase, 'send_message', MagicMock(return_value='completed')) as tg_mock,
-            patch.object(VKApi, 'send', MagicMock(return_value={})) as vk_mock,
-        ):
-            res = main.send_single_message(tg_api, vk_api, msg)
-        assert res == 'completed'
-        tg_mock.assert_called_once()
-        vk_mock.assert_called_once()
-        args, _ = vk_mock.call_args
-        assert args[0] == '12345'
-
     def test_telegram_coords_no_vk(self):
         """messenger='telegram', vk_id=None, message_type='coords' → only tg_api.send_location()."""
         msg = self._make_msg(
@@ -607,28 +558,6 @@ class TestSendSingleMessage:
         assert res == 'completed'
         tg_mock.assert_called_once_with(msg.user_id, 55.75, 37.62)
         vk_mock.assert_not_called()
-
-    def test_telegram_coords_with_vk(self):
-        """messenger='telegram', vk_id set, message_type='coords' → tg_api + vk_api (legacy)."""
-        msg = self._make_msg(
-            messenger='telegram',
-            vk_id='12345',
-            message_type='coords',
-            message_params='{"latitude": 55.75, "longitude": 37.62}',
-        )
-        tg_api = TGApiBase(token='token')
-        vk_api = VKApi('token')
-        with (
-            patch.object(TGApiBase, 'send_location', MagicMock(return_value='completed')) as tg_mock,
-            patch.object(VKApi, 'send', MagicMock(return_value={})) as vk_mock,
-        ):
-            res = main.send_single_message(tg_api, vk_api, msg)
-        assert res == 'completed'
-        tg_mock.assert_called_once()
-        vk_mock.assert_called_once()
-        _, kwargs = vk_mock.call_args
-        assert kwargs.get('lat') == 55.75
-        assert kwargs.get('long') == 37.62
 
     def test_telegram_unknown_type(self):
         """messenger='telegram', unknown message_type → ValueError."""

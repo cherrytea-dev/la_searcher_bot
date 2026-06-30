@@ -426,18 +426,6 @@ class TestSetUserVkId:
         assert vk_id == 'new_vk_id'
 
 
-class TestGetUserByVkId:
-    def test_find_by_vk_id(self, settings_service: DBClient, user_id: int, session: Session):
-        unique_vk = f'findable_vk_{randint(1, 999999)}'
-        db_factories.UserFactory.create_sync(user_id=user_id, vk_id=unique_vk)
-        found_id = settings_service.get_user_by_vk_id(unique_vk)
-        assert found_id == user_id
-
-    def test_not_found(self, settings_service: DBClient):
-        found_id = settings_service.get_user_by_vk_id('nonexistent_vk')
-        assert found_id is None
-
-
 class TestGetForumAttributes:
     def test_no_attributes(self, settings_service: DBClient, user_id: int):
         db_factories.UserFactory.create_sync(user_id=user_id)
