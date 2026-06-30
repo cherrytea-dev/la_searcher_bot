@@ -29,15 +29,16 @@ REGION_EMOJI_LEGEND: str = (
 
 
 def _compact_region_name(name: str) -> str:
-    """Replace verbose subtype suffix with a short emoji marker.
+    """Replace verbose subtype suffix with a short emoji marker at the BEGINNING.
 
-    "Москва – Активные поиски" → "Москва 🔍"
-    "Ханты-Мансийский АО – Завершенные поиски" → "Ханты-Мансийский АО ✅"
+    "Москва – Активные поиски" → "🔍 Москва"
+    "Ханты-Мансийский АО – Завершенные поиски" → "✅ Ханты-Мансийский АО"
     """
     match = _COMPACT_REGION_RE.search(name)
     if match:
         suffix = match.group(1)
-        return name[: match.start()] + ' ' + _SUFFIX_TO_EMOJI[suffix]
+        region_part = name[: match.start()].strip()
+        return _SUFFIX_TO_EMOJI[suffix] + ' ' + region_part
     return name
 
 
