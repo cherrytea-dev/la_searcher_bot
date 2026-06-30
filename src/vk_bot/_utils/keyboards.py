@@ -1,4 +1,5 @@
 import json
+import re
 
 from .common import ButtonColor
 
@@ -6,6 +7,38 @@ from .common import ButtonColor
 _MAX_BUTTON_LABEL_LENGTH = 40
 _MAX_KEYBOARD_ROWS = 10
 _MAX_INLINE_ROWS = 6
+# Inline keyboard: max 10 buttons total, grouped into max 6 rows, max 5 buttons per row.
+_MAX_INLINE_BUTTONS = 10
+
+# Suffix-to-emoji mapping for compact region display names.
+# Replaces verbose subtype suffixes like " – Активные поиски" with short emoji markers.
+_SUFFIX_TO_EMOJI: dict[str, str] = {
+    ' – Активные поиски': '🔍',
+    ' – Завершенные поиски': '✅',
+    ' – Инфо поддержка': 'ℹ️',
+    ' – Мероприятия': '📅',
+}
+# Build a regex once for efficient matching
+_COMPACT_REGION_RE = re.compile('(' + '|'.join(re.escape(s) for s in _SUFFIX_TO_EMOJI) + ')$')
+
+# Emoji legend shown above region selection keyboards so users understand
+# what each emoji marker means.
+REGION_EMOJI_LEGEND: str = (
+    '🔍 — активные поиски\n' '✅ — завершённые поиски\n' 'ℹ️ — инфорг / поддержка\n' '📅 — мероприятия'
+)
+
+
+def _compact_region_name(name: str) -> str:
+    """Replace verbose subtype suffix with a short emoji marker.
+
+    "Москва – Активные поиски" → "Москва 🔍"
+    "Ханты-Мансийский АО – Завершенные поиски" → "Ханты-Мансийский АО ✅"
+    """
+    match = _COMPACT_REGION_RE.search(name)
+    if match:
+        suffix = match.group(1)
+        return name[: match.start()] + ' ' + _SUFFIX_TO_EMOJI[suffix]
+    return name
 
 
 class VKKeyboardButtons:
@@ -150,8 +183,8 @@ class VKKeyboardBase:
     VK API limits (validated at construction time):
 
     - Button labels: max 40 characters
-    - Non-inline keyboards: max 10 rows
-    - Inline keyboards: max 6 rows
+    - Non-inline keyboards: max 40 buttons, max 10 rows, max 5 buttons per row
+    - Inline keyboards: max 10 buttons, max 6 rows, max 5 buttons per row
     """
 
     @staticmethod
@@ -163,14 +196,18 @@ class VKKeyboardBase:
 
     @staticmethod
     def validate_rows(buttons: list, inline: bool = False) -> None:
-        """Validate the number of rows in a keyboard does not exceed VK API limits.
+        """Validate keyboard dimensions do not exceed VK API limits.
+
+        For inline keyboards, validates both row count (max 6) and
+        total button count (max 10).
 
         Args:
             buttons: The list of button rows (each row is a list of button dicts).
-            inline: Whether this is an inline keyboard (max 6 rows vs 10 for non-inline).
+            inline: Whether this is an inline keyboard (max 6 rows, 10 buttons
+                    vs 10 rows for non-inline).
 
         Raises:
-            ValueError: If the number of rows exceeds the VK API limit.
+            ValueError: If the number of rows or total buttons exceeds VK API limits.
         """
         max_rows = _MAX_INLINE_ROWS if inline else _MAX_KEYBOARD_ROWS
         row_count = len(buttons)
@@ -180,6 +217,14 @@ class VKKeyboardBase:
                 f'({row_count} rows). '
                 f'Use two_columns or paginate the content.'
             )
+        if inline:
+            total_buttons = sum(len(row) for row in buttons)
+            if total_buttons > _MAX_INLINE_BUTTONS:
+                raise ValueError(
+                    f'VK inline keyboard exceeds {_MAX_INLINE_BUTTONS} button limit '
+                    f'({total_buttons} buttons). '
+                    f'Reduce page_size or use fewer rows.'
+                )
 
     @staticmethod
     def text_button(label: str, color: ButtonColor = 'secondary', payload: str = '') -> dict:
@@ -277,12 +322,12 @@ class VKKeyboardLayouts(VKKeyboardBase):
         if selected_regions is None:
             selected_regions = set()
         for i in range(0, len(buttons), 2):
-            btn1_name = buttons[i]
-            btn1_color = 'primary' if btn1_name in selected_regions else color
+            btn1_name = _compact_region_name(buttons[i])
+            btn1_color = 'primary' if buttons[i] in selected_regions else color
             row = [cls.text_button(btn1_name, btn1_color)]
             if i + 1 < len(buttons):
-                btn2_name = buttons[i + 1]
-                btn2_color = 'primary' if btn2_name in selected_regions else color
+                btn2_name = _compact_region_name(buttons[i + 1])
+                btn2_color = 'primary' if buttons[i + 1] in selected_regions else color
                 row.append(cls.text_button(btn2_name, btn2_color))
             rows.append(row)
         cls.validate_rows(rows, inline=False)
@@ -693,14 +738,18 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
 
         Already-selected regions are highlighted with 'primary' (green) color.
 
-        VK's ``messages.edit`` API has a 10-button limit for inline keyboards,
-        so *page_size*=6 ensures max 9 buttons per page (6 region + 3 nav).
+        Region names are compacted via ``_compact_region_name()`` — verbose
+        subtype suffixes (e.g., " – Активные поиски") are replaced with short
+        emoji markers (e.g., "🔍") to fit within VK's 40-character button limit.
+
+        Uses two-column layout with *page_size*=6 (3 rows of 2 + 1 nav row = max 9 buttons),
+        fitting within VK's inline keyboard limits: max 10 buttons, max 6 rows.
 
         Args:
             region_buttons: Full list of region button labels.
             page: Zero-based page index.
             district: Normalized district name (e.g., 'Центральный').
-            page_size: Number of items per page (default: 6 = 3 rows in two_columns).
+            page_size: Number of items per page (default: 6 = 3 rows of 2 + 1 nav row).
             selected_regions: Set of region names that are already subscribed (highlighted green).
 
         Returns:
@@ -714,35 +763,23 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
         if selected_regions is None:
             selected_regions = set()
 
+        compacted = [(_compact_region_name(name), name) for name in page_items]
+
         rows: list[list[dict]] = []
-        for i in range(0, len(page_items), 2):
-            btn1_name = page_items[i]
-            btn1_color: ButtonColor = 'primary' if btn1_name in selected_regions else 'secondary'
-            row = [
-                cls.inline_callback_button(
-                    btn1_name,
-                    {
-                        'cmd': 'paginate_toggle',
-                        'region': btn1_name,
-                        'district': district,
-                        'page': page,
-                    },
-                    color=btn1_color,
-                )
-            ]
-            if i + 1 < len(page_items):
-                btn2_name = page_items[i + 1]
-                btn2_color: ButtonColor = 'primary' if btn2_name in selected_regions else 'secondary'
+        for i in range(0, len(compacted), 2):
+            row: list[dict] = []
+            for compact_name, original_name in compacted[i : i + 2]:
+                btn_color: ButtonColor = 'primary' if original_name in selected_regions else 'secondary'
                 row.append(
                     cls.inline_callback_button(
-                        btn2_name,
+                        compact_name,
                         {
                             'cmd': 'paginate_toggle',
-                            'region': btn2_name,
+                            'region': original_name,
                             'district': district,
                             'page': page,
                         },
-                        color=btn2_color,
+                        color=btn_color,
                     )
                 )
             rows.append(row)
