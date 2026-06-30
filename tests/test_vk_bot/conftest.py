@@ -1,5 +1,6 @@
 """Fixtures for VK Bot tests."""
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -212,7 +213,6 @@ def mock_dispatcher_db():
     (creating local references). account_linking and region_select_handlers
     no longer import db directly — they use ctx.db instead.
     """
-    from types import SimpleNamespace
 
     db_mock = MagicMock()
     db_mock().get_identity_by_messenger_user_id.return_value = SimpleNamespace(
