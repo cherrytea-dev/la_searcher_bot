@@ -98,9 +98,18 @@ class TGHandlerContext:
     ) -> None:
         """Edit an existing message (for inline keyboard updates).
 
+        When called from a callback handler without an explicit ``message_id``,
+        automatically extracts the message ID from the callback query's message.
+
         Marks the context as consumed.
         """
         self._consumed = True
+
+        if message_id is None and self.update_params.callback_query is not None:
+            message = self.update_params.callback_query.message
+            if isinstance(message, Message):
+                message_id = message.id
+
         params = {
             'chat_id': self.user_id,
             'text': text,
