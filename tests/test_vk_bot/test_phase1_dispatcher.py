@@ -16,7 +16,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fakes import CallbackAnswer, FakeVKMessageSender
+from fakes import FakeVKMessageSender
 from sqlalchemy import text as sa_text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm.session import Session
@@ -366,7 +366,7 @@ class TestDispatcherMessageEvent:
     """message_event (callback) routing."""
 
     def test_message_event(self, fake_vk_sender: FakeVKMessageSender, mock_dispatcher_db: MagicMock):
-        """Callback event is acknowledged."""
+        """Callback event is dispatched to handler chain (no ack in dispatcher)."""
         mock_dispatcher_db().get_identity_by_messenger_user_id.return_value = SimpleNamespace(
             internal_user_id=42,
             messenger='vk',
@@ -385,8 +385,10 @@ class TestDispatcherMessageEvent:
 
         result = dispatch_event(event)
         assert result == 'ok'
-        assert len(fake_vk_sender.callback_answers) == 1
-        assert fake_vk_sender.callback_answers[0] == CallbackAnswer(event_id='evt_001', user_id=123, peer_id=456)
+        # No callback ack here — handle_callback_event no longer acknowledges
+        # the callback. Each handler calls ctx.answer_callback() itself.
+        # Since no handler matches payload '{"button":"test"}', no ack is sent.
+        assert len(fake_vk_sender.callback_answers) == 0
 
     def test_message_event_without_event_id(self, fake_vk_sender: FakeVKMessageSender):
         """Callback without event_id still returns ok."""

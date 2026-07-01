@@ -147,8 +147,12 @@ def handle_callback_event(
 
     When a callback is received:
     1. Resolve user identity
-    2. Acknowledge the callback event
-    3. Extract callback_data from payload and use vk_registry.match()
+    2. Extract callback_data from payload and use vk_registry.match()
+
+    Note: Callback acknowledgment (``ctx.answer_callback()``) is the
+    responsibility of each individual handler, not this function.
+    Acknowledging here would consume the ``event_id``, causing VK API
+    error 100 on the handler's subsequent call.
 
     Args:
         vk_message: The incoming VK message (with payload for callbacks).
@@ -168,18 +172,10 @@ def handle_callback_event(
         logging.warning(f'handle_callback_event: unknown user {vk_user_id}, cannot process callback')
         return
 
-    # Acknowledge the callback event
-    if vk_message.event_id:
-        sender.send_callback_answer(
-            event_id=vk_message.event_id,
-            user_id=vk_message.user_id,
-            peer_id=vk_message.peer_id,
-        )
-    else:
-        logging.warning(
-            f'handle_callback_event: VK sent message_event without event_id '
-            f'(user_id={vk_message.user_id}, payload="{payload}") — skipping callback ack'
-        )
+    # NOTE: Do NOT acknowledge the callback here — each handler calls
+    # ctx.answer_callback() itself with the appropriate event_data
+    # (snackbar/popup). Acknowledging here would consume the event_id,
+    # causing VK API error 100 on the handler's subsequent call.
 
     state = db().get_user_state(user_id)
     ctx = VKHandlerContext(
