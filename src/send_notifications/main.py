@@ -68,13 +68,13 @@ class DBClient(DBClientBase):
         with self.connect() as conn:
             duplicated_notifications_query = """
                 SELECT
-                    change_log_id, user_id, message_type, messenger
+                    change_log_id, user_id, message_type, COALESCE(messenger, 'telegram')
                 FROM
                     notif_by_user
                 WHERE
                     completed IS NULL AND
                     cancelled IS null
-                group by change_log_id, user_id, message_type, messenger
+                group by change_log_id, user_id, message_type, COALESCE(messenger, 'telegram')
                 having count(message_id) > 1
             """
 
@@ -504,7 +504,6 @@ def _process_doubling_messages() -> None:
     db_client = db()
     messages = db_client.get_notifs_to_send(select_doubling=True)
     if messages:
-        # Log details of each duplicate group for diagnosis
         groups: dict[tuple, list[int]] = {}
         for m in messages:
             key = (m.change_log_id, m.message_type, m.user_id, m.messenger)
@@ -516,22 +515,25 @@ def _process_doubling_messages() -> None:
         )
         notify_admin(f'cancelled_due_to_doubling! {len(messages)} messages are doubling')
 
-    already_marked = set()
+    # Keep the first message per group, cancel all subsequent duplicates
+    seen_keys: set[tuple] = set()
     for message in messages:
-        # TODO mark only first message in tuple
-        # BUG: this code cancels the FIRST occurrence and KEEPS the rest — inverted logic!
-        # Should be: skip first, cancel rest.
         key = (message.change_log_id, message.message_type, message.user_id, message.messenger)
-        if key in already_marked:
-            continue
-        already_marked.add(key)
-        logging.info(
-            f'DOUBLING_DIAG: cancelling msg_id={message.message_id} '
-            f'for key cl={message.change_log_id} type={message.message_type} '
-            f'uid={message.user_id} msgr={message.messenger} — keeping remaining {len([m for m in messages if (m.change_log_id, m.message_type, m.user_id, m.messenger) == key and m.message_id != message.message_id])} duplicates uncancelled'
-        )
-        result = 'cancelled_due_to_doubling'
-        db_client.save_sending_status_to_notif_by_user(message.message_id, result)
+        if key in seen_keys:
+            # This is a duplicate — cancel it
+            logging.info(
+                f'DOUBLING_DIAG: cancelling duplicate msg_id={message.message_id} '
+                f'for key cl={message.change_log_id} type={message.message_type} '
+                f'uid={message.user_id} msgr={message.messenger}'
+            )
+            db_client.save_sending_status_to_notif_by_user(message.message_id, 'cancelled_due_to_doubling')
+        else:
+            seen_keys.add(key)
+            logging.info(
+                f'DOUBLING_DIAG: keeping first msg_id={message.message_id} '
+                f'for key cl={message.change_log_id} type={message.message_type} '
+                f'uid={message.user_id} msgr={message.messenger}'
+            )
 
 
 def _process_logs_with_completed_sending(
