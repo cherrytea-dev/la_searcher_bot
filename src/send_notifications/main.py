@@ -504,15 +504,32 @@ def _process_doubling_messages() -> None:
     db_client = db()
     messages = db_client.get_notifs_to_send(select_doubling=True)
     if messages:
+        # Log details of each duplicate group for diagnosis
+        groups: dict[tuple, list[int]] = {}
+        for m in messages:
+            key = (m.change_log_id, m.message_type, m.user_id, m.messenger)
+            groups.setdefault(key, []).append(m.message_id)
+        logging.warning(
+            f'DOUBLING_DIAG: {len(messages)} total doubling messages. '
+            f'Groups: {len(groups)}. Details: '
+            + '; '.join(f'cl={k[0]} type={k[1]} uid={k[2]} msgr={k[3]} → ids={v}' for k, v in groups.items())
+        )
         notify_admin(f'cancelled_due_to_doubling! {len(messages)} messages are doubling')
 
     already_marked = set()
     for message in messages:
         # TODO mark only first message in tuple
+        # BUG: this code cancels the FIRST occurrence and KEEPS the rest — inverted logic!
+        # Should be: skip first, cancel rest.
         key = (message.change_log_id, message.message_type, message.user_id, message.messenger)
         if key in already_marked:
             continue
         already_marked.add(key)
+        logging.info(
+            f'DOUBLING_DIAG: cancelling msg_id={message.message_id} '
+            f'for key cl={message.change_log_id} type={message.message_type} '
+            f'uid={message.user_id} msgr={message.messenger} — keeping remaining {len([m for m in messages if (m.change_log_id, m.message_type, m.user_id, m.messenger) == key and m.message_id != message.message_id])} duplicates uncancelled'
+        )
         result = 'cancelled_due_to_doubling'
         db_client.save_sending_status_to_notif_by_user(message.message_id, result)
 
