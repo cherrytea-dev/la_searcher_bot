@@ -169,11 +169,17 @@ def handle_callback_event(
         return
 
     # Acknowledge the callback event
-    sender.send_callback_answer(
-        event_id=vk_message.event_id or '',
-        user_id=vk_message.user_id,
-        peer_id=vk_message.peer_id,
-    )
+    if vk_message.event_id:
+        sender.send_callback_answer(
+            event_id=vk_message.event_id,
+            user_id=vk_message.user_id,
+            peer_id=vk_message.peer_id,
+        )
+    else:
+        logging.warning(
+            f'handle_callback_event: VK sent message_event without event_id '
+            f'(user_id={vk_message.user_id}, payload="{payload}") — skipping callback ack'
+        )
 
     state = db().get_user_state(user_id)
     ctx = VKHandlerContext(

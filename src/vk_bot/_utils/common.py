@@ -216,9 +216,20 @@ class VKHandlerContext:
 
         Does NOT mark the context as consumed — the handler may call
         both ``.answer_callback()`` and ``.reply()`` / ``.edit()``.
+
+        If the VK event has no ``event_id`` (edge case), the callback
+        ack is silently skipped — VK API would reject an empty event_id
+        with error 100.
         """
+        if not self.message.event_id:
+            logging.warning(
+                f'answer_callback: VK event without event_id '
+                f'(user_id={self.message.user_id}, peer_id={self.message.peer_id}) '
+                f'— skipping callback ack'
+            )
+            return False
         return self._sender.send_callback_answer(
-            event_id=self.message.event_id or '',
+            event_id=self.message.event_id,
             user_id=self.message.user_id,
             peer_id=self.message.peer_id,
             event_data=event_data,
