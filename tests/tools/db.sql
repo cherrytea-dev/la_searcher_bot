@@ -1164,6 +1164,11 @@ CREATE TABLE notif_by_user (
 	CONSTRAINT notif_by_user_pkey PRIMARY KEY (message_id)
 );
 
+-- Partial unique index to prevent duplicate unsent notifications
+CREATE UNIQUE INDEX IF NOT EXISTS notif_by_user_unique_unsent_idx
+	   ON notif_by_user (change_log_id, user_id, message_type, COALESCE(messenger, 'telegram'))
+	   WHERE completed IS NULL AND cancelled IS NULL;
+
 
 
 -- public.geo_folders_view исходный текст

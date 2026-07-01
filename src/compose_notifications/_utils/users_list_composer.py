@@ -311,6 +311,13 @@ class UserListFilter:
         # TODO do we still need it?
         users_list_outcome = self.users
         users_with_prepared_messages = self._get_from_sql_list_of_users_with_prepared_message()
+        if users_with_prepared_messages:
+            logging.warning(
+                f'DOUBLING_DIAG: change_log_id={self.new_record.change_log_id} — '
+                f'{len(users_with_prepared_messages)} users already have notif_by_user records. '
+                f'Users: {sorted(users_with_prepared_messages)}. '
+                f'This indicates compose_notifications is reprocessing the same change_log record!'
+            )
         temp_user_list = [user for user in users_list_outcome if user.user_id not in users_with_prepared_messages]
         logging.info(f'User List crop due to doubling: {len(users_list_outcome)} --> {len(temp_user_list)}')
         return temp_user_list

@@ -618,3 +618,15 @@ class NotifByUser(Base):
     failed = Column(DateTime)
     num_of_fails = Column(Integer)
     messenger = Column(String(20), nullable=False, server_default=text("'telegram'"))
+
+    __table_args__ = (
+        Index(
+            'notif_by_user_unique_unsent_idx',
+            'change_log_id',
+            'user_id',
+            'message_type',
+            text("COALESCE(messenger, 'telegram')"),
+            postgresql_where=text('completed IS NULL AND cancelled IS NULL'),
+            unique=True,
+        ),
+    )

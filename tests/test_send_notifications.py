@@ -732,58 +732,6 @@ def test_main_no_message():
     assert True
 
 
-@pytest.mark.xdist_group(name='send_notifications')
-def test_iterate_over_notifications():
-    time_analytics = TimeAnalyticsFactory.build()
-
-    session = get_session()
-    doubling_notification_1, doubling_notification_2 = NotSentNotificationFactory.create_batch_sync(
-        2,
-        change_log_id=randint(0, 1000),
-        user_id=randint(0, 1000),
-    )
-    unique_notification = NotSentNotificationFactory.create_sync()
-    # TODO don't know why, but if move creation of unique_notification upper, then test started to fail
-
-    with patch.object(TGApiBase, '_process_response_of_api_call', MagicMock(return_value='completed')):
-        main.iterate_over_notifications(1, time_analytics)
-
-    session.flush()
-
-    unique_notification = session.query(NotifByUser).get(unique_notification.message_id)
-    doubling_notification_1 = session.query(NotifByUser).get(doubling_notification_1.message_id)
-    doubling_notification_2 = session.query(NotifByUser).get(doubling_notification_2.message_id)
-
-    assert not unique_notification.cancelled
-    assert not unique_notification.failed
-    assert unique_notification.completed
-    assert bool(doubling_notification_1.cancelled) ^ bool(doubling_notification_2.cancelled)  # TODO merge test
-
-
-@pytest.mark.xdist_group(name='send_notifications')
-def test_check_for_notifs_to_send():
-    unique_notification = NotSentNotificationFactory.create_sync()
-    doubling_notification_1, doubling_notification_2 = NotSentNotificationFactory.create_batch_sync(
-        2,
-        change_log_id=randint(0, 1000),
-        user_id=randint(0, 1000),
-    )
-
-    doubling_messages = main.db().get_notifs_to_send(True)
-    doubling_message_ids = [x.message_id for x in doubling_messages]
-    unique_messages = main.db().get_notifs_to_send(False)
-    unique_message_ids = [x.message_id for x in unique_messages]
-
-    assert doubling_notification_1.message_id in doubling_message_ids
-    assert doubling_notification_2.message_id in doubling_message_ids
-
-    assert doubling_notification_1.message_id not in unique_message_ids
-    assert doubling_notification_2.message_id not in unique_message_ids
-
-    assert unique_notification.message_id in unique_message_ids
-    assert unique_notification.message_id not in doubling_message_ids
-
-
 def test_finish_time_analytics():
     time_analytics = main.TimeAnalytics(
         delays=[1],

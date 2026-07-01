@@ -79,6 +79,17 @@ def create_user_notifications_from_change_log_record(
     duration_match = round((analytics_match_finish - analytics_start_of_func).total_seconds(), 2)
     logging.info(f'time: function match end-to-end – {duration_match} sec')
 
+    # Mark change_log as "in progress" BEFORE inserting notif_by_user records.
+    # This prevents a second compose_notifications instance from picking up
+    # the same change_log_id if the lock expires or YMQ redelivers the message.
+    conn.execute(
+        sqlalchemy.text("""
+            UPDATE change_log SET notification_sent = 's' WHERE id = :a
+        """),
+        a=new_record.change_log_id,
+    )
+    logging.info(f'change_log {new_record.change_log_id} marked as in-progress (s)')
+
     # check the matrix: new update - user and initiate sending notifications
 
     notification_maker = NotificationMaker(conn, new_record, list_of_users)

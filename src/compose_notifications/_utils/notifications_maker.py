@@ -269,6 +269,29 @@ class NotificationMaker:
         if not self._batch_buffer:
             return
 
+        # DIAG: check if any records in this batch would create duplicates
+        change_log_id = self.new_record.change_log_id
+        for record in self._batch_buffer:
+            check = self.conn.execute(
+                sqlalchemy.text("""
+                    SELECT count(*) FROM notif_by_user
+                    WHERE change_log_id = :cl AND user_id = :uid
+                      AND message_type = :mt AND messenger = :msgr
+                      AND completed IS NULL AND cancelled IS NULL
+                """),
+                cl=change_log_id,
+                uid=record.user_id,
+                mt=record.message_type,
+                msgr=record.messenger,
+            ).fetchone()
+            if check and check[0] > 0:
+                logging.warning(
+                    f'DOUBLING_DIAG: flush_batch would create duplicate! '
+                    f'change_log_id={change_log_id} user_id={record.user_id} '
+                    f'message_type={record.message_type} messenger={record.messenger} '
+                    f'existing_count={check[0]}'
+                )
+
         sql_text = sqlalchemy.text("""
             INSERT INTO notif_by_user (
                 user_id,
