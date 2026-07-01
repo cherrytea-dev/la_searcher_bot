@@ -151,12 +151,20 @@ class VKEventDispatcher:
         and delegates to handle_callback_event().
         """
         raw_payload = event_object.get('payload')
+        event_id = event_object.get('event_id')
         logging.info(
             f'dispatch_event: message_event user_id={event_object.get("user_id")}, '
             f'message_id={event_object.get("message_id")}, '
             f'conversation_message_id={event_object.get("conversation_message_id")}, '
+            f'event_id={event_id}, '
             f'payload={raw_payload}'
         )
+        if not event_id:
+            logging.warning(
+                f'dispatch_event: VK sent message_event without event_id '
+                f'(user_id={event_object.get("user_id")}, '
+                f'payload={raw_payload}) — callback ack will be skipped'
+            )
         vk_message = VKMessage(
             text='',
             user_id=event_object.get('user_id', 0),
@@ -164,7 +172,7 @@ class VKEventDispatcher:
             message_id=event_object.get('message_id'),
             conversation_message_id=event_object.get('conversation_message_id'),
             payload=raw_payload,
-            event_id=event_object.get('event_id'),
+            event_id=event_id,
         )
 
         handle_callback_event(vk_message, sender=vk_sender())
