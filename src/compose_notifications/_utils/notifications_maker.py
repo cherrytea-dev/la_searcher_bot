@@ -69,6 +69,25 @@ class NotificationMaker:
         # Batch-resolve messengers for all users in a single query
         self._resolve_messengers_batch()
 
+        # Defensive deduplication by user_id: duplicate entries in user_regional_preferences
+        # can cause the SQL query in UsersListComposer to return the same user multiple times.
+        # Without deduplication, the second pass would hit the unique index on notif_by_user.
+        seen: set[int] = set()
+        duplicate_ids: set[int] = set()
+        unique_users: list[User] = []
+        for user in self.list_of_users:
+            if user.user_id not in seen:
+                seen.add(user.user_id)
+                unique_users.append(user)
+            else:
+                duplicate_ids.add(user.user_id)
+        if duplicate_ids:
+            logging.warning(
+                f'Deduplicated user list: {len(self.list_of_users)} → {len(unique_users)} users. '
+                f'Duplicate user_ids: {sorted(duplicate_ids)}'
+            )
+        self.list_of_users = unique_users
+
         for user in self.list_of_users:
             self.generate_notification_for_user(change_log_id, user)
 
