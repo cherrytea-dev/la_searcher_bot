@@ -117,7 +117,7 @@ class UsersListComposer:
                     FROM user_pref_age 
                     GROUP BY user_id)
             ----------------------------------------------------------------
-            SELECT  ns.user_id, ns.username_telegram, ns.latitude, ns.longitude, ns.role,
+            SELECT DISTINCT  ns.user_id, ns.username_telegram, ns.latitude, ns.longitude, ns.role,
                     st.num_of_new_search_notifs, ns.multi_folder, ns.all_notifs, 
                     upr.radius, uap.age_prefs
             FROM user_with_loc AS ns
