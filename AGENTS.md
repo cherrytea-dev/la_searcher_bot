@@ -715,6 +715,11 @@ The PostgreSQL database is central. Key tables (inferred from code):
 - Test database is initialized via: `make initdb`
 - **IMPORTANT**: The test database is NOT recreated between test runs. Data persists across runs. When writing tests that insert data with specific values (e.g., `vk_id`), always use unique values per test run (e.g., `random.randint()` or `uuid`) to avoid collisions with stale data from previous runs.
 
+### Git Workflow
+- **NEVER push directly to `main`**. Always create a feature branch (`feature/<name>`), push it, and open a Pull Request.
+- After force-push on main, sync local: `git fetch origin && git reset --hard origin/main`
+- Use token from `.env` for auth: `git push "https://oauth2:$(grep ^GITHUB_TOKEN /home/node/.openclaw/workspace/.env | cut -d= -f2-)@github.com/volodkindv/la_searcher_bot.git" <branch>`
+
 ### For AI agents:
 - NEVER read, reference, or output `.env`, `.env.test` files or hardcoded credentials, directly or via cli tools.
 - Always use `uv run` prefix (e.g., `uv run python foo.py`, `uv run pytest`) — the venv is managed by `uv`.
