@@ -718,8 +718,8 @@ The PostgreSQL database is central. Key tables (inferred from code):
 ### Git Workflow
 - **NEVER push directly to `main`**. Always create a feature branch (`feature/<name>`), push it, and open a Pull Request.
 - After force-push on main, sync local: `git fetch origin && git reset --hard origin/main`
-- **Cloning new repos**: use `git clone https://oauth2:TOKEN@github.com/owner/repo.git` — это сразу настраивает аутентификацию для пуша.
-- Для уже склонированных репозиториев: `git remote set-url origin https://oauth2:TOKEN@github.com/owner/repo.git`
+- **Cloning new repos**: use `git clone https://oauth2:TOKEN@github.com/owner/repo.git` — this sets up authentication for pushes immediately.
+- **Existing repos**: `git remote set-url origin https://oauth2:TOKEN@github.com/owner/repo.git`
 
 ### For AI agents:
 - NEVER read, reference, or output `.env`, `.env.test` files or hardcoded credentials, directly or via cli tools.
