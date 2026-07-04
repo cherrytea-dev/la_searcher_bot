@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-YC Log Inspector — Yandex Cloud Logging error investigation tool.
+"""YC Log Inspector — Yandex Cloud Logging error investigation tool.
 
 Ref: https://github.com/volodkindv/la_searcher_bot/issues/4
 Ref: https://github.com/volodkindv/la_searcher_bot/issues/5
@@ -15,96 +14,96 @@ Auth (priority):
   1. YC_IAM_TOKEN env var
   2. YC_LOG_INSPECTOR_SA_JSON env var
   3. YC metadata service (inside VMs / Cloud Functions)
+
+Usage:
+  uv run python tools/log_inspector/main.py top-errors <log-group-id> --hours 24 --top 10
+  uv run python tools/log_inspector/main.py trace <log-group-id> <request-id> --hours 24
+  uv run python tools/log_inspector/main.py list-groups <folder-id>
+  uv run python tools/log_inspector/main.py raw <log-group-id> --hours 1 --level ERROR
 """
 
-import argparse
 import json
 import sys
 from datetime import datetime, timedelta, timezone
+
+import click
 
 from tools.log_inspector._utils.analytics import group_errors
 from tools.log_inspector._utils.yc_logging import YCLoggingClient
 
 
-def _color_for_level(level: str) -> str:
-    """ANSI color codes for log levels."""
-    if level in ('ERROR', 'FATAL', 'CRITICAL'):
-        return '\033[91m'  # red
-    if level == 'WARN':
-        return '\033[93m'  # yellow
-    if level == 'INFO':
-        return '\033[92m'  # green
-    return ''
+_COLORS = {
+    'ERROR': 'red',
+    'FATAL': 'red',
+    'CRITICAL': 'red',
+    'WARN': 'yellow',
+    'INFO': 'green',
+}
 
 
-def _color_reset() -> str:
-    return '\033[0m'
+@click.group()
+def cli() -> None:
+    """YC Log Inspector — investigate errors in Yandex Cloud Logging."""
 
 
-def cmd_top_errors(args: argparse.Namespace) -> None:
-    """Aggregate ERROR logs and show top patterns."""
-    client = YCLoggingClient()
+@cli.command()
+@click.argument('log_group_id')
+@click.option('--hours', default=24, show_default=True, help='Time window (hours)')
+@click.option('--top', default=10, show_default=True, help='Number of top error patterns')
+def top_errors(log_group_id: str, hours: int, top: int) -> None:
+    """Aggregate ERROR logs by normalized pattern."""
+    client = _make_client()
     to_time = datetime.now(timezone.utc)
-    from_time = to_time - timedelta(hours=args.hours)
+    from_time = to_time - timedelta(hours=hours)
 
-    print(f'⏳ Fetching ERROR logs for the last {args.hours}h …', file=sys.stderr)
+    click.echo(f'⏳ Fetching ERROR logs for the last {hours}h …', err=True)
     entries = client.read_all_logs(
-        args.log_group_id,
-        levels=['ERROR'],
-        from_time=from_time,
-        to_time=to_time,
+        log_group_id, levels=['ERROR'], from_time=from_time, to_time=to_time,
     )
     error_entries = [e for e in entries if e.get('level') == 'ERROR']
-
-    print(
-        f'📊 Found {len(error_entries)} ERROR entries '
-        f'(out of {len(entries)} total).\n',
-        file=sys.stderr,
+    click.echo(
+        f'📊 Found {len(error_entries)} ERROR entries (out of {len(entries)} total).\n',
+        err=True,
     )
 
     if not error_entries:
-        print('✅ No ERROR entries in the selected window.')
+        click.secho('✅ No ERROR entries in the selected window.', fg='green')
         return
 
-    groups = group_errors(error_entries, top_n=args.top)
+    groups = group_errors(error_entries, top_n=top)
     for i, group in enumerate(groups):
-        print(f'{"=" * 80}')
-        print(f'#{i + 1}  —  {group.count} occurrences')
-        print(f'{"=" * 80}')
-        print(f'{group.sample_message[:600]}')
+        click.echo('=' * 80)
+        click.echo(f'#{i + 1}  —  {group.count} occurrences')
+        click.echo('=' * 80)
+        click.echo(group.sample_message[:600])
         if group.sample_request_ids:
-            print()
+            click.echo()
             for rid in group.sample_request_ids:
-                print(f'  🔗 request_id: {rid}')
-            print()
-        print()
+                click.echo(f'  🔗 request_id: {rid}')
+            click.echo()
 
 
-def cmd_trace(args: argparse.Namespace) -> None:
+@cli.command()
+@click.argument('log_group_id')
+@click.argument('request_id')
+@click.option('--hours', default=24, show_default=True, help='Time window (hours)')
+@click.option('--filter', '-f', help='Custom filter expression (overrides request_id filter)')
+def trace(log_group_id: str, request_id: str, hours: int, filter: str | None) -> None:
     """Trace all log entries for a specific request_id."""
-    client = YCLoggingClient()
+    client = _make_client()
     to_time = datetime.now(timezone.utc)
-    from_time = to_time - timedelta(hours=args.hours)
+    from_time = to_time - timedelta(hours=hours)
 
-    filter_expr = args.filter or f'request_id="{args.request_id}"'
+    filter_expr = filter or f'request_id="{request_id}"'
+    click.echo(f'🔍 Tracing request_id="{request_id}" for the last {hours}h …', err=True)
 
-    print(
-        f'🔍 Tracing request_id="{args.request_id}" '
-        f'for the last {args.hours}h …',
-        file=sys.stderr,
-    )
     entries = client.read_all_logs(
-        args.log_group_id,
-        filter_str=filter_expr,
-        from_time=from_time,
-        to_time=to_time,
+        log_group_id, filter_str=filter_expr, from_time=from_time, to_time=to_time,
     )
-    print(
-        f'📊 Found {len(entries)} entries.\n', file=sys.stderr,
-    )
+    click.echo(f'📊 Found {len(entries)} entries.\n', err=True)
 
     if not entries:
-        print(f'No entries found for request_id="{args.request_id}".')
+        click.echo(f'No entries found for request_id="{request_id}".')
         return
 
     for entry in entries:
@@ -112,82 +111,46 @@ def cmd_trace(args: argparse.Namespace) -> None:
         level = entry.get('level', 'UNKNOWN')
         message = entry.get('message', '')
 
-        color = _color_for_level(level)
-        reset = _color_reset()
-        print(f'[{ts}] {color}{level}{reset}')
-        print(f'  {message[:500]}')
-        print()
+        color = _COLORS.get(level)
+        click.echo(f'[{ts}] {click.style(level, fg=color)}')
+        click.echo(f'  {message[:500]}')
+        click.echo()
 
 
-def cmd_list_groups(args: argparse.Namespace) -> None:
-    """List log groups in a YC folder."""
-    client = YCLoggingClient()
-    groups = client.list_log_groups(args.folder_id)
+@cli.command()
+@click.argument('folder_id')
+def list_groups(folder_id: str) -> None:
+    """List available log groups in a YC folder."""
+    client = _make_client()
+    groups = client.list_log_groups(folder_id)
 
-    name_w = min(max(len(g.name) for g in groups), 50) if groups else 8
-    print(f'{"ID":48s}  {"NAME":{name_w}s}')
-    print(f'{"-" * 48}  {"-" * name_w}')
     for g in groups:
-        print(f'{g.id:48s}  {g.name}')
+        click.echo(f'{g.id}  {g.name}')
 
 
-def cmd_raw(args: argparse.Namespace) -> None:
+@cli.command()
+@click.argument('log_group_id')
+@click.option('--hours', default=1, show_default=True, help='Time window (hours)')
+@click.option('--level', default='ERROR', show_default=True, help='Log level filter')
+def raw(log_group_id: str, hours: int, level: str) -> None:
     """Dump raw JSON for a time window."""
-    client = YCLoggingClient()
+    client = _make_client()
     to_time = datetime.now(timezone.utc)
-    from_time = to_time - timedelta(hours=args.hours)
+    from_time = to_time - timedelta(hours=hours)
 
     entries = client.read_all_logs(
-        args.log_group_id,
-        levels=[args.level] if args.level else None,
-        from_time=from_time,
-        to_time=to_time,
+        log_group_id, levels=[level], from_time=from_time, to_time=to_time,
     )
-    print(json.dumps(entries, indent=2, ensure_ascii=False))
+    click.echo(json.dumps(entries, indent=2, ensure_ascii=False))
 
 
-def main() -> None:  # pragma: no cover
-    parser = argparse.ArgumentParser(
-        prog='log_inspector',
-        description='YC Log Inspector — investigate errors in Yandex Cloud Logging.',
-    )
-    sub = parser.add_subparsers(dest='command', required=True)
-
-    # top-errors
-    p = sub.add_parser('top-errors', help='Show top ERROR patterns')
-    p.add_argument('log_group_id')
-    p.add_argument('--hours', type=int, default=24)
-    p.add_argument('--top', type=int, default=10)
-    p.set_defaults(func=cmd_top_errors)
-
-    # trace
-    p = sub.add_parser('trace', help='Trace all logs for a request_id')
-    p.add_argument('log_group_id')
-    p.add_argument('request_id')
-    p.add_argument('--hours', type=int, default=24)
-    p.add_argument('--filter', help='Custom filter (overrides request_id filter)')
-    p.set_defaults(func=cmd_trace)
-
-    # list-groups
-    p = sub.add_parser('list-groups', help='List log groups in a folder')
-    p.add_argument('folder_id')
-    p.set_defaults(func=cmd_list_groups)
-
-    # raw
-    p = sub.add_parser('raw', help='Raw JSON dump')
-    p.add_argument('log_group_id')
-    p.add_argument('--hours', type=int, default=1)
-    p.add_argument('--level', default='ERROR')
-    p.set_defaults(func=cmd_raw)
-
-    args = parser.parse_args()
-
+def _make_client() -> YCLoggingClient:
     try:
-        args.func(args)
-    except Exception as exc:
-        print(f'💥 Error: {exc}', file=sys.stderr)
+        return YCLoggingClient()
+    except RuntimeError as exc:
+        click.secho(f'💥 Auth error: {exc}', fg='red', err=True)
         sys.exit(1)
 
 
 if __name__ == '__main__':
-    main()
+    cli()

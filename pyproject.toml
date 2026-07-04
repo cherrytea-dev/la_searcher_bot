@@ -36,6 +36,7 @@ dev = [
     "pytest-timeout>=2.4.0",
     "pyannotate==1.2.*",
     "flask>=3.0.0",
+    "click>=8.1",
 
     "types-beautifulsoup4",
     "types-psycopg2",

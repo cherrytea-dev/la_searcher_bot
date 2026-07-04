@@ -1141,6 +1141,7 @@ vk-bot = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "click" },
     { name = "cryptography" },
     { name = "flask" },
     { name = "freezegun" },
@@ -1220,6 +1221,7 @@ provides-extras = ["api-get-active-searches", "archive-notifications", "archive-
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "click", specifier = ">=8.1" },
     { name = "cryptography", specifier = ">=46.0.5" },
     { name = "flask", specifier = ">=3.0.0" },
     { name = "freezegun", specifier = ">=1.5.1" },
