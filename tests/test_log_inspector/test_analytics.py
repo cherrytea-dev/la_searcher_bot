@@ -1,8 +1,6 @@
 """Tests for YC Log Inspector — analytics module."""
 
-import pytest
 from tools.log_inspector._utils.analytics import (
-    ErrorGroup,
     extract_request_id,
     group_errors,
     normalize_error,

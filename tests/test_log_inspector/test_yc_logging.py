@@ -1,19 +1,14 @@
 """Tests for YC Log Inspector — YC Logging API client."""
 
-import json
-import os
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
 from tools.log_inspector._utils.yc_logging import (
     YCLoggingClient,
-    YC_IAM_TOKEN_URL,
-    YC_LOGGING_BASE_URL,
     get_iam_token,
 )
-
 
 SERVICE_ACCOUNT_KEY = {
     'id': 'aje123abc',
@@ -72,10 +67,13 @@ class TestGetIamToken:
             'expiresAt': '2099-01-01T00:00:00Z',
         }
 
-        with patch(
-            'tools.log_inspector._utils.yc_logging._make_jwt',
-            return_value='mock-jwt-token',
-        ) as mock_jwt, patch('httpx.post', return_value=mock_resp) as mock_post:
+        with (
+            patch(
+                'tools.log_inspector._utils.yc_logging._make_jwt',
+                return_value='mock-jwt-token',
+            ) as mock_jwt,
+            patch('httpx.post', return_value=mock_resp) as mock_post,
+        ):
             token = get_iam_token()
             assert token == 't1.sa...xyz'
             mock_jwt.assert_called_once()
@@ -156,9 +154,7 @@ class TestYCLoggingClient:
             ],
         }
 
-        with patch.object(
-            client._client, 'post', side_effect=[page_1_resp, page_2_resp]
-        ):
+        with patch.object(client._client, 'post', side_effect=[page_1_resp, page_2_resp]):
             entries = client.read_all_logs('lg-xxx')
             assert len(entries) == 2
 

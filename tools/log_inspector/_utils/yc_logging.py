@@ -12,12 +12,9 @@ from datetime import datetime
 import httpx
 import jwt
 
-
 YC_IAM_TOKEN_URL = 'https://iam.api.cloud.yandex.net/iam/v1/tokens'
 YC_LOGGING_BASE_URL = 'https://api.logging.yandexcloud.net/logging/v1'
-METADATA_TOKEN_URL = (
-    'http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token'
-)
+METADATA_TOKEN_URL = 'http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token'
 
 
 def _make_jwt(sa_key: dict) -> str:
@@ -79,9 +76,7 @@ def get_iam_token() -> str:
     if token:
         return token
 
-    raise RuntimeError(
-        'No auth method available. Set YC_LOG_INSPECTOR_SA_JSON or YC_IAM_TOKEN.'
-    )
+    raise RuntimeError('No auth method available. Set YC_LOG_INSPECTOR_SA_JSON or YC_IAM_TOKEN.')
 
 
 @dataclass
@@ -96,9 +91,7 @@ class YCLoggingClient:
 
     def __init__(self, iam_token: str | None = None) -> None:
         self._token = iam_token or get_iam_token()
-        self._client = httpx.Client(
-            headers={'Authorization': f'Bearer {self._token}'}
-        )
+        self._client = httpx.Client(headers={'Authorization': f'Bearer {self._token}'})
 
     def list_log_groups(self, folder_id: str) -> list[LogGroup]:
         """List available log groups in a YC folder."""

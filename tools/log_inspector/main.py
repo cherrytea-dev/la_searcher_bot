@@ -31,7 +31,6 @@ import click
 from tools.log_inspector._utils.analytics import group_errors
 from tools.log_inspector._utils.yc_logging import YCLoggingClient
 
-
 _COLORS = {
     'ERROR': 'red',
     'FATAL': 'red',
@@ -58,7 +57,10 @@ def top_errors(log_group_id: str, hours: int, top: int) -> None:
 
     click.echo(f'⏳ Fetching ERROR logs for the last {hours}h …', err=True)
     entries = client.read_all_logs(
-        log_group_id, levels=['ERROR'], from_time=from_time, to_time=to_time,
+        log_group_id,
+        levels=['ERROR'],
+        from_time=from_time,
+        to_time=to_time,
     )
     error_entries = [e for e in entries if e.get('level') == 'ERROR']
     click.echo(
@@ -98,7 +100,10 @@ def trace(log_group_id: str, request_id: str, hours: int, filter: str | None) ->
     click.echo(f'🔍 Tracing request_id="{request_id}" for the last {hours}h …', err=True)
 
     entries = client.read_all_logs(
-        log_group_id, filter_str=filter_expr, from_time=from_time, to_time=to_time,
+        log_group_id,
+        filter_str=filter_expr,
+        from_time=from_time,
+        to_time=to_time,
     )
     click.echo(f'📊 Found {len(entries)} entries.\n', err=True)
 
@@ -139,7 +144,10 @@ def raw(log_group_id: str, hours: int, level: str) -> None:
     from_time = to_time - timedelta(hours=hours)
 
     entries = client.read_all_logs(
-        log_group_id, levels=[level], from_time=from_time, to_time=to_time,
+        log_group_id,
+        levels=[level],
+        from_time=from_time,
+        to_time=to_time,
     )
     click.echo(json.dumps(entries, indent=2, ensure_ascii=False))
 
