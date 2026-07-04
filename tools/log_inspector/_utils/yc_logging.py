@@ -3,7 +3,6 @@
 Auth priority: YC_IAM_TOKEN → YC_LOG_INSPECTOR_SA_JSON → metadata service.
 """
 
-import base64
 import json
 import os
 import time
@@ -11,8 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import httpx
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
+import jwt
 
 
 YC_IAM_TOKEN_URL = 'https://iam.api.cloud.yandex.net/iam/v1/tokens'
@@ -22,36 +20,17 @@ METADATA_TOKEN_URL = (
 )
 
 
-def _base64url_encode(data: bytes) -> str:
-    return base64.urlsafe_b64encode(data).rstrip(b'=').decode()
-
-
 def _make_jwt(sa_key: dict) -> str:
     """Create a signed JWT using a Yandex Cloud service account key."""
-    private_key = serialization.load_pem_private_key(
-        sa_key['private_key'].encode(), password=None
-    )
     now = int(time.time())
-    header = _base64url_encode(
-        json.dumps({'alg': 'PS256', 'typ': 'JWT', 'kid': sa_key['id']}).encode()
-    )
-    payload = _base64url_encode(
-        json.dumps(
-            {
-                'aud': YC_IAM_TOKEN_URL,
-                'iss': sa_key['service_account_id'],
-                'iat': now,
-                'exp': now + 3600,
-            }
-        ).encode()
-    )
-    signing_input = f'{header}.{payload}'
-    signature = private_key.sign(
-        signing_input.encode(),
-        padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
-        hashes.SHA256(),
-    )
-    return f'{signing_input}.{_base64url_encode(signature)}'
+    payload = {
+        'aud': YC_IAM_TOKEN_URL,
+        'iss': sa_key['service_account_id'],
+        'iat': now,
+        'exp': now + 3600,
+    }
+    headers = {'kid': sa_key['id'], 'typ': 'JWT'}
+    return jwt.encode(payload, sa_key['private_key'], algorithm='PS256', headers=headers)
 
 
 def _token_from_sa_json(sa_json_str: str) -> str:
