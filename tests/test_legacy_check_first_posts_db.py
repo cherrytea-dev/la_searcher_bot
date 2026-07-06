@@ -12,9 +12,8 @@ Key differences from the non-legacy DBClient:
 
 from datetime import datetime
 
-import sqlalchemy
-
 import pytest
+import sqlalchemy
 from freezegun import freeze_time
 from sqlalchemy.orm import Session
 
@@ -98,9 +97,7 @@ class TestDeleteSearchHealthCheck:
 
         db_client.delete_search_health_check(model.search_forum_num)
 
-        assert not find_model(
-            session, db_models.SearchHealthCheck, search_forum_num=model.search_forum_num
-        )
+        assert not find_model(session, db_models.SearchHealthCheck, search_forum_num=model.search_forum_num)
 
     def test_does_not_affect_other_records(self, db_client: LegacyDBClient, session: Session):
         to_delete, to_keep = db_factories.SearchHealthCheckFactory.create_batch_sync(2)
@@ -251,7 +248,7 @@ class TestGetListOfTopics:
             forum_folder_id=folder.folder_id,
             search_start_time=dt(2026, 1, 1, 12, 0, 0),
         )
-        mid = db_factories.SearchFactory.create_sync(
+        db_factories.SearchFactory.create_sync(
             status='Ищем',
             forum_folder_id=folder.folder_id,
             search_start_time=dt(2026, 6, 1, 12, 0, 0),
@@ -302,11 +299,7 @@ class TestCreateSearchFirstPost:
         # should succeed (it will be marked as not actual later).
         db_client.create_search_first_post(topic_id, 'hash2', 'Content 2')
 
-        records = (
-            session.query(db_models.SearchFirstPost)
-            .filter(db_models.SearchFirstPost.search_id == topic_id)
-            .all()
-        )
+        records = session.query(db_models.SearchFirstPost).filter(db_models.SearchFirstPost.search_id == topic_id).all()
         assert len(records) == 2
 
 
