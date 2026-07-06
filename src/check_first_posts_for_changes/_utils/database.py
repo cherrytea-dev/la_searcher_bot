@@ -130,7 +130,6 @@ class PhpBbDbClient:
         engine = create_engine(
             url=connection_url,
             connect_args={'ssl': ssl_arg},
-            future=True,
         )
         self._connection = engine.connect()
 
