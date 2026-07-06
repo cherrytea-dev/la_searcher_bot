@@ -97,7 +97,7 @@ class LogRecordComposer:
                         forum_folder_id, search_start_time, display_name, age_min, age_max, status, city_locations,
                         topic_type_id
                     FROM searches
-                    WHERE search_forum_num = :a
+                    WHERE search_forum_num = :forum_search_num
                 ),
                 ns AS (
                     SELECT s.search_forum_num, s.status, s.forum_search_title, s.num_of_replies, s.family_name,
@@ -114,7 +114,7 @@ class LogRecordComposer:
                 """
             )
 
-            s_line = self.conn.execute(sql_text, dict(a=r_line.forum_search_num)).fetchone()
+            s_line = self.conn.execute(sql_text, dict(forum_search_num=r_line.forum_search_num)).fetchone()
 
             if not s_line:
                 logging.info('New Record WERE NOT enriched from Searches as there was no record in searches')
@@ -187,14 +187,14 @@ class LogRecordComposer:
             SELECT dsa.activity_name from search_activities sa
             LEFT JOIN dict_search_activities dsa ON sa.activity_type=dsa.activity_id
             WHERE
-                sa.search_forum_num = :a AND
+                sa.search_forum_num = :forum_search_num AND
                 sa.activity_type <> '9 - hq closed' AND
                 sa.activity_type <> '8 - info' AND
                 sa.activity_status = 'ongoing' 
             ORDER BY sa.id; 
                                                 """)
 
-        list_of_activities = self.conn.execute(query, dict(a=r_line.forum_search_num)).fetchall()
+        list_of_activities = self.conn.execute(query, dict(forum_search_num=r_line.forum_search_num)).fetchall()
         r_line.activities = [a_line[0] for a_line in list_of_activities]
 
         logging.info('New Record enriched with Search Activities')
@@ -207,10 +207,10 @@ class LogRecordComposer:
             FROM search_attributes
             WHERE 
                 attribute_name='managers'
-                AND search_forum_num = :a
+                AND search_forum_num = :forum_search_num
             ORDER BY id; 
                                 """)
-        list_of_managers = self.conn.execute(query, dict(a=r_line.forum_search_num)).fetchall()
+        list_of_managers = self.conn.execute(query, dict(forum_search_num=r_line.forum_search_num)).fetchall()
 
         # look for matching Forum Search Numbers in New Records List & Search Managers
 
@@ -235,10 +235,10 @@ class LogRecordComposer:
                 FROM comments 
                 WHERE 
                     notification_sent IS NULL
-                    AND search_forum_num = :a;
+                    AND search_forum_num = :forum_search_num;
                                 """)
 
-        comments = self.conn.execute(query, dict(a=r_line.forum_search_num)).fetchall()
+        comments = self.conn.execute(query, dict(forum_search_num=r_line.forum_search_num)).fetchall()
         r_line.comments = self._get_comments_from_query_result(comments)
         logging.info('New Record enriched with Comments for all')
 
@@ -258,10 +258,10 @@ class LogRecordComposer:
                 notif_sent_inforg IS NULL
                 AND LOWER(LEFT(comment_author_nickname,6))='инфорг'
                 AND comment_author_nickname!='Инфорг кинологов'
-                AND search_forum_num = :a;
+                AND search_forum_num = :forum_search_num;
                                 """)
 
-        comments = self.conn.execute(query, dict(a=r_line.forum_search_num)).fetchall()
+        comments = self.conn.execute(query, dict(forum_search_num=r_line.forum_search_num)).fetchall()
         r_line.comments_inforg = self._get_comments_from_query_result(comments)
         logging.info('New Record enriched with Comments for inforg')
 

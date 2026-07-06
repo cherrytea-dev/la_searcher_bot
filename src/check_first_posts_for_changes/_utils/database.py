@@ -31,18 +31,18 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
     def delete_search_health_check(self, search_id: int) -> None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
-                DELETE FROM search_health_check WHERE search_forum_num=:a;
+                DELETE FROM search_health_check WHERE search_forum_num=:search_id;
                                    """)
-            conn.execute(stmt, dict(a=search_id))
+            conn.execute(stmt, dict(search_id=search_id))
 
     def write_search_health_check(self, search_id: int, visibility: str) -> None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 INSERT INTO search_health_check 
                 (search_forum_num, timestamp, status)
-                VALUES (:a, :b, :c);
+                VALUES (:search_id, :ts, :visibility);
                                    """)
-            conn.execute(stmt, dict(a=search_id, b=datetime.datetime.now(), c=visibility))
+            conn.execute(stmt, dict(search_id=search_id, ts=datetime.datetime.now(), visibility=visibility))
 
     def get_active_searches_ids(self) -> list[int]:
         """get best list of searches for which first posts should be checked"""
@@ -78,18 +78,18 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
             stmt = sqlalchemy.text("""
                 INSERT INTO search_first_posts
                 (search_id, timestamp, actual, content_hash, content, num_of_checks)
-                VALUES (:a, :b, TRUE, :c, :d, :e);
+                VALUES (:topic_id, :ts, TRUE, :hash_val, :content, :num_checks);
                                     """)
-            conn.execute(stmt, dict(a=topic_id, b=datetime.datetime.now(), c=act_hash, d=act_content, e=1))
+            conn.execute(stmt, dict(topic_id=topic_id, ts=datetime.datetime.now(), hash_val=act_hash, content=act_content, num_checks=1))
 
     def mark_search_first_post_as_not_actual(self, topic_id: int) -> None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 UPDATE search_first_posts 
                 SET actual = FALSE 
-                WHERE search_id = :a;
+                WHERE search_id = :topic_id;
                                     """)
-            conn.execute(stmt, dict(a=topic_id))
+            conn.execute(stmt, dict(topic_id=topic_id))
 
     def get_search_first_post_actual_hash(self, topic_id: int) -> str | None:
         with self.connect() as conn:
@@ -97,10 +97,10 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                 SELECT content_hash, num_of_checks, content 
                 FROM search_first_posts 
                 WHERE
-                    search_id = :a
+                    search_id = :topic_id
                     AND actual = TRUE;
                             """)
-            raw_data = conn.execute(stmt, dict(a=topic_id)).fetchone()
+            raw_data = conn.execute(stmt, dict(topic_id=topic_id)).fetchone()
             if raw_data:
                 return raw_data[0]
         return None

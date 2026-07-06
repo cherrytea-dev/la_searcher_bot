@@ -462,13 +462,13 @@ WHERE upsf.filter_name is not null /* user has activated following mode */
                 notif_by_user
             WHERE
                 created IS NOT NULL AND
-                change_log_id=:a
+                change_log_id=:change_log_id
 
             /*action='get_from_sql_list_of_users_with_already_composed_messages 2.0'*/
             ;
             """)
 
-        raw_data_ = self.conn.execute(sql_text_, dict(a=self.new_record.change_log_id)).fetchall()
+        raw_data_ = self.conn.execute(sql_text_, dict(change_log_id=self.new_record.change_log_id)).fetchall()
         # TODO: to delete
         logging.info('list of user with composed messages:')
         logging.info(raw_data_)

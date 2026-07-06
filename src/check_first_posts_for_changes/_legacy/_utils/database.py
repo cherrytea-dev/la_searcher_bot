@@ -38,18 +38,18 @@ class DBClient:
     def delete_search_health_check(self, search_id: int) -> None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
-                DELETE FROM search_health_check WHERE search_forum_num=:a;
+                DELETE FROM search_health_check WHERE search_forum_num=:search_id;
                                    """)
-            conn.execute(stmt, a=search_id)
+            conn.execute(stmt, dict(search_id=search_id))
 
     def write_search_health_check(self, search_id: int, visibility: str) -> None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 INSERT INTO search_health_check 
                 (search_forum_num, timestamp, status)
-                VALUES (:a, :b, :c);
+                VALUES (:search_id, :ts, :visibility);
                                    """)
-            conn.execute(stmt, a=search_id, b=datetime.datetime.now(), c=visibility)
+            conn.execute(stmt, dict(search_id=search_id, ts=datetime.datetime.now(), visibility=visibility))
 
     def get_list_of_topics(self) -> list[Search]:
         """get best list of searches for which first posts should be checked"""
@@ -85,18 +85,18 @@ class DBClient:
             stmt = sqlalchemy.text("""
                 INSERT INTO search_first_posts
                 (search_id, timestamp, actual, content_hash, content, num_of_checks)
-                VALUES (:a, :b, TRUE, :c, :d, :e);
+                VALUES (:topic_id, :ts, TRUE, :hash_val, :content, :num_checks);
                                     """)
-            conn.execute(stmt, a=topic_id, b=datetime.datetime.now(), c=act_hash, d=act_content, e=1)
+            conn.execute(stmt, dict(topic_id=topic_id, ts=datetime.datetime.now(), hash_val=act_hash, content=act_content, num_checks=1))
 
     def mark_search_first_post_as_not_actual(self, topic_id: int) -> None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 UPDATE search_first_posts 
                 SET actual = FALSE 
-                WHERE search_id = :a;
+                WHERE search_id = :topic_id;
                                     """)
-            conn.execute(stmt, a=topic_id)
+            conn.execute(stmt, dict(topic_id=topic_id))
 
     def get_search_first_post_actual_hash(self, topic_id: int) -> str | None:
         with self.connect() as conn:
@@ -104,10 +104,10 @@ class DBClient:
                 SELECT content_hash, num_of_checks, content 
                 FROM search_first_posts 
                 WHERE
-                    search_id = :a
+                    search_id = :topic_id
                     AND actual = TRUE;
                             """)
-            raw_data = conn.execute(stmt, a=topic_id).fetchone()
+            raw_data = conn.execute(stmt, dict(topic_id=topic_id)).fetchone()
             if raw_data:
                 return raw_data[0]
         return None
@@ -117,15 +117,11 @@ class DBClient:
             stmt = sqlalchemy.text("""
                 INSERT INTO rss_items 
                 (search_forum_num, published_at, updated_at, url, content)
-                VALUES (:a, :b, :c, :d, :e);
+                VALUES (:topic_id, :published_at, :updated_at, :url, :content);
                                    """)
             conn.execute(
                 stmt,
-                a=item.topic_id,
-                b=item.published_at,
-                c=item.updated_at,
-                d=item.item_id,
-                e=item.content,
+                dict(topic_id=item.topic_id, published_at=item.published_at, updated_at=item.updated_at, url=item.item_id, content=item.content),
             )
 
     def get_rss_item(self, item_id: str) -> RSSItem | None:
@@ -134,9 +130,9 @@ class DBClient:
                 SELECT id, url, search_forum_num, published_at, updated_at, content 
                 FROM rss_items 
                 WHERE
-                    url = :a;
+                    url = :item_id;
                             """)
-            raw_data = conn.execute(stmt, a=item_id).fetchone()
+            raw_data = conn.execute(stmt, dict(item_id=item_id)).fetchone()
             if raw_data:
                 return RSSItem(
                     id=raw_data[0],

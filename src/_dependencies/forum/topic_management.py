@@ -12,9 +12,9 @@ def save_status_for_topic(conn: sqlalchemy.engine.Connection, topic_id: int, sta
 
     # check if this topic is already marked with the new status:
     stmt = sqlalchemy.text("""
-        SELECT id FROM searches WHERE search_forum_num=:a AND status=:b;
+        SELECT id FROM searches WHERE search_forum_num=:topic_id AND status=:status;
                         """)
-    this_data_already_recorded = conn.execute(stmt, dict(a=topic_id, b=status)).fetchone()
+    this_data_already_recorded = conn.execute(stmt, dict(topic_id=topic_id, status=status)).fetchone()
 
     if this_data_already_recorded:
         logging.info(f"The status {status} for search {topic_id} WAS ALREADY recorded, so It's being ignored.")
@@ -24,16 +24,16 @@ def save_status_for_topic(conn: sqlalchemy.engine.Connection, topic_id: int, sta
     # update status in change_log table
     stmt = sqlalchemy.text("""
             INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters,
-            change_type) values (:a, :b, :c, :d, :e, :f) RETURNING id;
+            change_type) values (:ts, :topic_id, :changed_field, :new_value, :params, :change_type) RETURNING id;
                             """)
-    raw_data = conn.execute(stmt, dict(a=datetime.datetime.now(), b=topic_id, c='status_change', d=status, e='', f=1))
+    raw_data = conn.execute(stmt, dict(ts=datetime.datetime.now(), topic_id=topic_id, changed_field='status_change', new_value=status, params='', change_type=1))
 
     change_log_id = raw_data.scalar()
     logging.info(f'{change_log_id=}')
 
     # update status in searches table
-    stmt = sqlalchemy.text("""UPDATE searches SET status=:a WHERE search_forum_num=:b;""")
-    conn.execute(stmt, dict(a=status, b=topic_id))
+    stmt = sqlalchemy.text("""UPDATE searches SET status=:status WHERE search_forum_num=:topic_id;""")
+    conn.execute(stmt, dict(status=status, topic_id=topic_id))
 
     logging.info(f'Status is set={status} for topic_id={topic_id}')
     logging.info(f'status {status} for topic {topic_id} has been saved in change_log and searches tables.')
@@ -56,12 +56,12 @@ def save_visibility_for_topic(conn: sqlalchemy.engine.Connection, topic_id: int,
     # 'ok' – regular topics with public visibility
 
     # clear the prev visibility status
-    stmt = sqlalchemy.text("""DELETE FROM search_health_check WHERE search_forum_num=:a;""")
-    conn.execute(stmt, dict(a=topic_id))
+    stmt = sqlalchemy.text("""DELETE FROM search_health_check WHERE search_forum_num=:topic_id;""")
+    conn.execute(stmt, dict(topic_id=topic_id))
 
     # set the new visibility status
     stmt = sqlalchemy.text("""INSERT INTO search_health_check (search_forum_num, timestamp, status)
-                                    VALUES (:a, :b, :c);""")
-    conn.execute(stmt, dict(a=topic_id, b=datetime.datetime.now(), c=visibility))
+                                    VALUES (:topic_id, :ts, :visibility);""")
+    conn.execute(stmt, dict(topic_id=topic_id, ts=datetime.datetime.now(), visibility=visibility))
 
     logging.info(f'Visibility is set={visibility} for topic_id={topic_id}')
