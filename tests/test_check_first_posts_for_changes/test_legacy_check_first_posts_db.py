@@ -23,6 +23,10 @@ from tests.common import fake, find_model
 from tests.factories import db_factories
 from tests.factories import db_models
 
+# All tests in this file run in a single xdist worker to avoid
+# interference with each other on the shared database.
+pytestmark = pytest.mark.xdist_group('legacy_db')
+
 
 @pytest.fixture(scope='session')
 def db_client(connection_pool):
