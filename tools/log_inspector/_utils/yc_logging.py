@@ -1,18 +1,22 @@
 """YC Logging REST API client.
 
-Uses YC_IAM_TOKEN environment variable for authentication.
+Uses YC_SERVICE_ACCOUNT_JSON environment variable for authentication.
 """
 
+import json
 import logging
 import os
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
+import jwt
 
 logger = logging.getLogger(__name__)
 
+YC_IAM_TOKEN_URL = 'https://iam.api.cloud.yandex.net/iam/v1/tokens'
 YC_LOGGING_BASE_URL = 'https://api.logging.yandexcloud.net/logging/v1'
 
 
@@ -21,8 +25,9 @@ class AuthError(RuntimeError):
 
 
 class IamTokenAuth:
-    """Provides an IAM token from the YC_IAM_TOKEN environment variable.
+    """Provides an IAM token from the YC_SERVICE_ACCOUNT_JSON environment variable.
 
+    Exchanges the service account key for an IAM token via the YC IAM API.
     Caches the token and handles refresh on expiry.
     """
 
@@ -31,20 +36,44 @@ class IamTokenAuth:
         self._expiry: datetime | None = None
 
     def get_token(self) -> str:
-        """Return a valid IAM token, reading from env var if needed."""
+        """Return a valid IAM token, exchanging SA key if needed."""
         if self._token and self._expiry and datetime.now(timezone.utc) < self._expiry:
             return self._token
 
-        token = os.environ.get('YC_IAM_TOKEN')
-        if not token:
+        sa_json = os.environ.get('YC_SERVICE_ACCOUNT_JSON')
+        if not sa_json:
             raise AuthError(
-                'YC_IAM_TOKEN environment variable is not set. ' 'Obtain a token via YC CLI: yc iam create-token'
+                'YC_SERVICE_ACCOUNT_JSON environment variable is not set. '
+                'Create a service account key via YC CLI:\n'
+                '  yc iam key create --service-account-name <name> --output key.json\n'
+                'Then set YC_SERVICE_ACCOUNT_JSON to the contents of key.json'
             )
 
-        self._token = token
+        self._token = self._exchange_sa_key(sa_json)
         # IAM tokens are valid for 12h, refresh after 11h
         self._expiry = datetime.now(timezone.utc) + timedelta(hours=11)
         return self._token
+
+    @staticmethod
+    def _make_jwt(sa_key: dict) -> str:
+        """Create a signed JWT using a Yandex Cloud service account key."""
+        now = int(time.time())
+        payload = {
+            'aud': YC_IAM_TOKEN_URL,
+            'iss': sa_key['service_account_id'],
+            'iat': now,
+            'exp': now + 3600,
+        }
+        headers = {'kid': sa_key['id'], 'typ': 'JWT'}
+        return jwt.encode(payload, sa_key['private_key'], algorithm='PS256', headers=headers)
+
+    def _exchange_sa_key(self, sa_json_str: str) -> str:
+        """Exchange service account key JSON for an IAM token."""
+        sa_key = json.loads(sa_json_str)
+        jwt_token = self._make_jwt(sa_key)
+        resp = httpx.post(YC_IAM_TOKEN_URL, json={'jwt': jwt_token}, timeout=10)
+        resp.raise_for_status()
+        return resp.json()['iamToken']
 
     def invalidate(self) -> None:
         """Force token refresh on next call."""
@@ -62,12 +91,11 @@ class LogGroup:
 class YCLoggingClient:
     """YC Logging REST API client.
 
-    Uses IamTokenAuth for authentication via the YC_IAM_TOKEN env var.
+    Uses IamTokenAuth for authentication via the YC_SERVICE_ACCOUNT_JSON env var.
     """
 
     def __init__(self, auth: IamTokenAuth | None = None) -> None:
         self._auth = auth or IamTokenAuth()
-        self._token: str | None = None
         self._http = httpx.Client(timeout=30.0)
 
     # ── Internal HTTP ───────────────────────────────────────────────

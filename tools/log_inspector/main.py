@@ -11,7 +11,7 @@ Modes:
   raw          Raw JSON dump for programmatic use.
 
 Auth:
-  YC_IAM_TOKEN env var (obtain via: yc iam create-token)
+  YC_SERVICE_ACCOUNT_JSON env var (service account key file)
 
 Usage:
   uv run python tools/log_inspector/main.py top-errors <log-group-id> --hours 24 --top 10
