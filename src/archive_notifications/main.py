@@ -139,13 +139,10 @@ def main(event: dict[str, bytes], context: Ctx) -> None:
     """main function"""
 
     pool = sqlalchemy_get_pool()
-    with pool.connect() as conn:
-        with conn.begin() as tr:
-            move_notifications_to_history_in_psql(conn)
-            tr.commit()
+    with pool.begin() as conn:
+        move_notifications_to_history_in_psql(conn)
 
-        with conn.begin() as tr:
-            move_first_posts_to_history_in_psql(conn)
-            tr.commit()
+    with pool.begin() as conn:
+        move_first_posts_to_history_in_psql(conn)
 
     pool.dispose()

@@ -3,7 +3,7 @@ from functools import lru_cache
 from typing import NamedTuple
 
 import sqlalchemy
-from sqlalchemy.engine import Connection, create_engine
+from sqlalchemy.engine import create_engine
 
 from _dependencies.common.commons import get_app_config
 from _dependencies.common.db_client import DBClientBase, DBKeyValueStorageMixin
@@ -130,8 +130,9 @@ class PhpBbDbClient:
         engine = create_engine(
             url=connection_url,
             connect_args={'ssl': ssl_arg},
+            future=True,
         )
-        self._connection = Connection(engine)
+        self._connection = engine.connect()
 
     def get_changed_posts_from_last_id(self, last_id: int) -> list[PostInfo]:
         """
