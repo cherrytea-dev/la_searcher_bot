@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from identify_updates_of_first_posts import main
+from identify_updates_of_first_posts._utils.database import DBClient
 from src.identify_updates_of_first_posts.main import (
     process_first_page_comparison,
     split_text_to_deleted_and_regular_parts,
@@ -57,8 +58,13 @@ def session() -> Session:
         yield session
 
 
+@pytest.fixture
+def db_client(connection_pool) -> DBClient:
+    return DBClient(connection_pool)
+
+
 class TestProcessFirstPageComparison:
-    def test_process_first_page_comparison_no_changes(self, connection):
+    def test_process_first_page_comparison_no_changes(self, db_client):
         # Create a search using SearchFactory
         search = db_factories.SearchFactory.create_sync(
             display_name='Test Name', status='Ищем', family_name='Family Name', age=30
@@ -68,14 +74,14 @@ class TestProcessFirstPageComparison:
         first_page_content_curr = '<p>Ищем человека</p>'
 
         changes = process_first_page_comparison(
-            connection, search.search_forum_num, first_page_content_prev, first_page_content_curr
+            db_client, search.search_forum_num, first_page_content_prev, first_page_content_curr
         )
 
         assert not changes.message
         assert not changes.additions
         assert not changes.deletions
 
-    def test_process_first_page_comparison_with_changes(self, connection):
+    def test_process_first_page_comparison_with_changes(self, db_client):
         search = db_factories.SearchFactory.create_sync(
             display_name='Test Name', status='Ищем', family_name='Family Name', age=30
         )
@@ -84,14 +90,14 @@ class TestProcessFirstPageComparison:
         first_page_content_curr = '<p>Ищем человека. Найден жив.</p>'
 
         changes = process_first_page_comparison(
-            connection, search.search_forum_num, first_page_content_prev, first_page_content_curr
+            db_client, search.search_forum_num, first_page_content_prev, first_page_content_curr
         )
 
         assert changes is not None
         assert 'Добавлено:' in changes.message
         assert 'Найден жив.' in changes.additions[0]
 
-    def test_process_first_page_comparison_search_finished(self, connection):
+    def test_process_first_page_comparison_search_finished(self, db_client):
         search = db_factories.SearchFactory.create_sync(
             display_name='Test Name', status='Завершен', family_name='Family Name', age=30
         )
@@ -99,7 +105,7 @@ class TestProcessFirstPageComparison:
         first_page_content_curr = '<p>Ищем человека. Найден жив.</p>'
 
         changes = process_first_page_comparison(
-            connection, search.search_forum_num, first_page_content_prev, first_page_content_curr
+            db_client, search.search_forum_num, first_page_content_prev, first_page_content_curr
         )
 
         assert changes is None
@@ -131,7 +137,7 @@ class TestCompressedFirstPost:
 
 
 class TestProcessOneUpdate:
-    def test__process_one_update(self, connection):
+    def test__process_one_update(self, db_client):
         prev_search_first_post = db_factories.SearchFirstPostFactory.create_sync(
             actual=False, timestamp=datetime.datetime.now()
         )
@@ -143,14 +149,14 @@ class TestProcessOneUpdate:
 
         main._process_one_update(
             change_log_ids,
-            connection,
+            db_client,
             search_first_post.search_id,
         )
 
         assert len(change_log_ids) == 1
 
 
-def test__get_actual_and_previous_page_content(connection):
+def test__get_actual_and_previous_page_content(db_client):
     prev_search_first_post = db_factories.SearchFirstPostFactory.create_sync(
         actual=False, timestamp=datetime.datetime.now()
     )
@@ -160,8 +166,8 @@ def test__get_actual_and_previous_page_content(connection):
     db_factories.SearchFactory.create_sync(search_forum_num=prev_search_first_post.search_id, status='Ищем')
 
     actual, prev = main._get_actual_and_previous_page_content(
+        db_client,
         search_id=prev_search_first_post.search_id,
-        conn=connection,
     )
     assert prev == prev_search_first_post.content
     assert actual == search_first_post.content

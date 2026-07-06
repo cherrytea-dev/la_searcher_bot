@@ -3,7 +3,6 @@ Result to be recorded into Change_log and triggered another script identify_upda
 
 import ast
 import copy
-import datetime
 import difflib
 import logging
 import re
@@ -11,7 +10,6 @@ from functools import lru_cache
 from typing import Iterator
 
 import requests
-import sqlalchemy
 from bs4 import BeautifulSoup
 
 from _dependencies.common.commons import (
@@ -20,7 +18,6 @@ from _dependencies.common.commons import (
     get_app_config,
     get_forum_proxies,
     setup_logging,
-    sqlalchemy_get_pool,
 )
 from _dependencies.common.misc import generate_random_function_id
 from _dependencies.common.pubsub import (
@@ -30,6 +27,8 @@ from _dependencies.common.pubsub import (
     pubsub_compose_notifications,
 )
 from _dependencies.forum.content import clean_up_content_2
+
+from ._utils.database import DBClient, get_db_client
 
 setup_logging(__package__)
 
@@ -95,11 +94,11 @@ def _format_additions(additions: list[str]) -> str:
 
 
 def process_first_page_comparison(
-    conn: sqlalchemy.engine.Connection, search_id: int, first_page_content_prev: str, first_page_content_curr: str
+    db: DBClient, search_id: int, first_page_content_prev: str, first_page_content_curr: str
 ) -> ChangeLogSavedValue | None:
     """compare first post content to identify any diffs"""
 
-    if not _search_status_is_active(conn, search_id):
+    if not db.is_search_status_active(search_id):
         return None
 
     prev_clean_content = clean_up_content_2(first_page_content_prev)
@@ -109,29 +108,6 @@ def process_first_page_comparison(
 
     _notify_admin_if_no_changes(message_schema)
     return message_schema
-
-
-def _search_status_is_active(conn: sqlalchemy.engine.Connection, search_id: int) -> bool:
-    search_status = _get_search_status(conn, search_id)
-
-    if not search_status:
-        logging.info('first page comparison failed – nothing is searches psql table')
-        return False
-
-    if search_status != 'Ищем':
-        return False
-
-    return True
-
-
-def _get_search_status(conn: sqlalchemy.engine.Connection, search_id: int) -> str | None:
-    sql_text = sqlalchemy.text("""
-        SELECT display_name, status, family_name, age, status
-        FROM searches WHERE search_forum_num=:search_id;
-                               """)
-
-    what_is_saved_in_psql = conn.execute(sql_text, dict(search_id=search_id)).fetchone()
-    return what_is_saved_in_psql[1] if what_is_saved_in_psql else None
 
 
 def _notify_admin_if_no_changes(message_schema: ChangeLogSavedValue) -> None:
@@ -147,36 +123,6 @@ def _notify_admin_if_no_changes(message_schema: ChangeLogSavedValue) -> None:
     changes = re.sub(r'\D', '', changes, count=1)  # changes for only one letter – irrelevant (but not for digit)
     if not changes:
         notify_admin(f'[ide_posts]: IGNORED MINOR CHANGE: \ninit message:\n{message_schema}')
-
-
-def save_new_record_into_change_log(
-    conn: sqlalchemy.engine.Connection,
-    search_id: int,
-    new_value: str,
-    changed_field: str,
-    change_type: int,
-) -> int:
-    """save the coordinates change into change_log"""
-
-    stmt = sqlalchemy.text("""
-        INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type)
-        values (:ts, :search_id, :changed_field, :new_value, :change_type) 
-        RETURNING id;
-                           """)
-
-    change_log_id = conn.execute(
-        stmt,
-        dict(
-            ts=datetime.datetime.now(),
-            search_id=search_id,
-            changed_field=changed_field,
-            new_value=new_value,
-            change_type=change_type,
-        ),
-    ).scalar()
-
-    assert change_log_id is not None, f'Failed to insert change_log for search {search_id}'
-    return change_log_id
 
 
 def get_compressed_first_post(initial_text: str) -> str:
@@ -225,23 +171,22 @@ def split_text_to_deleted_and_regular_parts(text: str) -> tuple[str, str]:
 
 def _process_one_update(
     change_log_ids: list[int],
-    conn: sqlalchemy.engine.Connection,
+    db: DBClient,
     search_id: int,
 ) -> None:
     # get the Current First Page Content
 
-    first_page_content_curr, first_page_content_prev = _get_actual_and_previous_page_content(conn, search_id)
+    first_page_content_curr, first_page_content_prev = _get_actual_and_previous_page_content(db, search_id)
     if not first_page_content_curr or not first_page_content_prev:
         return
 
     try:
         # check the difference b/w first posts for current and previous version
-        diff_message = process_first_page_comparison(conn, search_id, first_page_content_prev, first_page_content_curr)
+        diff_message = process_first_page_comparison(db, search_id, first_page_content_prev, first_page_content_curr)
         if not diff_message or not diff_message.message:
             return
 
-        change_log_id = save_new_record_into_change_log(
-            conn,
+        change_log_id = db.save_record_in_change_log(
             search_id,
             diff_message.to_db_saved_value(),
             'topic_first_post_change',
@@ -254,43 +199,23 @@ def _process_one_update(
         notify_admin('[ide_posts]: Error fired during output_dict creation.')
 
 
-def _get_actual_and_previous_page_content(conn: sqlalchemy.engine.Connection, search_id: int) -> tuple[str, str]:
-    sql_text = sqlalchemy.text("""
-        SELECT content, content_compact 
-        FROM search_first_posts 
-        WHERE search_id=:search_id AND actual = True;
-                    """)
-    raw_data = conn.execute(sql_text, dict(search_id=search_id)).fetchone()
-    if not raw_data:
+def _get_actual_and_previous_page_content(db: DBClient, search_id: int) -> tuple[str, str]:
+    first_page_content_curr, first_page_content_curr_compact = db.get_actual_page_content(search_id)
+    if not first_page_content_curr:
         logging.error(f'No actual content for first post of search {search_id}')
         return '', ''
-
-    first_page_content_curr = raw_data[0]
-    first_page_content_curr_compact = raw_data[1]
 
     # TODO: why we're doing it in this script but not in che_posts??
     # save compact first page content
     if not first_page_content_curr_compact:
         content_compact = get_compressed_first_post(first_page_content_curr)
-        sql_text = sqlalchemy.text("""
-            UPDATE search_first_posts 
-            SET content_compact=:content_compact
-            WHERE search_id=:search_id AND actual = True;
-                                        """)
-        conn.execute(sql_text, dict(content_compact=content_compact, search_id=search_id))
+        db.save_compact_content(search_id, content_compact)
 
     # get the Previous First Page Content
-    sql_text = sqlalchemy.text("""
-        SELECT content
-        FROM search_first_posts
-        WHERE search_id=:search_id AND actual=False
-        ORDER BY timestamp DESC;
-                                   """)
-    raw_data = conn.execute(sql_text, dict(search_id=search_id)).fetchone()
-    if not raw_data:
+    first_page_content_prev = db.get_previous_page_content(search_id)
+    if not first_page_content_prev:
         logging.error(f'No previous content for first post of search {search_id}')
         return '', ''
-    first_page_content_prev = raw_data[0]
 
     logging.info(f'topic id {search_id} has an update of first post:')
     logging.info(f'first page content prev: {first_page_content_prev}')
@@ -316,14 +241,11 @@ def main(event: dict, context: Ctx) -> str:  # noqa
     if not list_of_updated_searches:
         return 'ok'
 
-    pool = sqlalchemy_get_pool()
-    with pool.begin() as conn:
-        change_log_ids: list[int] = []
-        for search_id in list_of_updated_searches:
-            _process_one_update(change_log_ids, conn, search_id)
+    db = get_db_client()
+    change_log_ids: list[int] = []
+    for search_id in list_of_updated_searches:
+        _process_one_update(change_log_ids, db, search_id)
 
         pubsub_compose_notifications(function_id, '')
-
-    pool.dispose()
 
     return 'ok'
