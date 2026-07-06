@@ -52,6 +52,7 @@ class TestNotificationMaker:
 
         composer.generate_notification_for_user(record.change_log_id, user)
         composer.flush_batch()
+        connection.commit()
 
         stmt = select(db_models.NotifByUser).filter(
             db_models.NotifByUser.change_log_id == record.change_log_id,
@@ -85,6 +86,7 @@ class TestNotificationMaker:
 
         composer.generate_notification_for_user(record.change_log_id, user)
         composer.flush_batch()
+        connection.commit()
 
         stmt = select(db_models.NotifByUser).filter(
             db_models.NotifByUser.change_log_id == record.change_log_id,
@@ -118,6 +120,7 @@ class TestNotificationMaker:
 
         composer.generate_notification_for_user(record.change_log_id, user)
         composer.flush_batch()
+        connection.commit()
 
         stmt = select(db_models.NotifByUser).filter(
             db_models.NotifByUser.change_log_id == record.change_log_id,
@@ -201,6 +204,7 @@ class TestNotificationMaker:
         composer._resolve_messengers_batch()
         composer._save_to_sql_notif_by_user(record.change_log_id, user.user_id, 'test msg', 'test msg', 'text', {})
         composer.flush_batch()
+        connection.commit()
 
         notifs = list(
             session.execute(
@@ -226,6 +230,7 @@ class TestNotificationMaker:
         composer._resolve_messengers_batch()
         composer._save_to_sql_notif_by_user(record.change_log_id, user.user_id, 'test msg', 'test msg', 'text', {})
         composer.flush_batch()
+        connection.commit()
 
         notifs = list(
             session.execute(
@@ -252,6 +257,7 @@ class TestNotificationMaker:
         composer._resolve_messengers_batch()
         composer._save_to_sql_notif_by_user(record.change_log_id, user.user_id, 'test msg', 'test msg', 'text', {})
         composer.flush_batch()
+        connection.commit()
 
         notifs = list(
             session.execute(
@@ -283,6 +289,7 @@ class TestNotificationMaker:
         composer._save_to_sql_notif_by_user(record.change_log_id, user_both.user_id, 'msg', 'msg', 'text', {})
         composer._save_to_sql_notif_by_user(record.change_log_id, user_tg.user_id, 'msg', 'msg', 'text', {})
         composer.flush_batch()
+        connection.commit()
 
         notifs = list(
             session.execute(
@@ -315,6 +322,7 @@ class TestNotificationMaker:
         record = LineInChangeLogFactory.build(ignore=False, change_type=ChangeType.topic_status_change, processed=False)
         composer = NotificationMaker(connection, record, [user])
         composer.generate_notifications_for_users(1)
+        connection.commit()
 
         notifs = list(
             session.execute(
@@ -347,6 +355,7 @@ class TestNotificationMaker:
         )
         composer = NotificationMaker(connection, record, [user])
         composer.generate_notifications_for_users(1)
+        connection.commit()
 
         notifs = list(
             session.execute(
@@ -375,6 +384,7 @@ class TestNotificationMaker:
 
         record = LineInChangeLogFactory.build(ignore=False, change_type=ChangeType.topic_status_change, processed=False)
         composer = NotificationMaker(connection, record, [user_tg, user_vk])
+        connection.commit()
         composer.generate_notifications_for_users(1)
 
         notifs = list(

@@ -111,8 +111,8 @@ class DBClient(DBClientBase):
             stmt = sqlalchemy.text(notifications_query)
             notifications = conn.execute(
                 stmt,
-                retry_delay=datetime.datetime.now() - delay_to_retry_send_failed_messages,
-            ).fetchall()
+                dict(retry_delay=datetime.datetime.now() - delay_to_retry_send_failed_messages,
+            ))
             return [MessageToSend(*notification) for notification in notifications]
 
     def fill_max_user_ids(self, messages: list['MessageToSend']) -> None:
@@ -131,7 +131,7 @@ class DBClient(DBClientBase):
                   AND messenger = 'max'
             """
             stmt = sqlalchemy.text(identity_query)
-            rows = conn.execute(stmt, user_ids=user_ids).fetchall()
+            rows = conn.execute(stmt, dict(user_ids=user_ids)).fetchall()
             user_ids_map = {internal_user_id: messenger_user_id for internal_user_id, messenger_user_id in rows}
 
             for message in max_messages:
@@ -156,7 +156,7 @@ class DBClient(DBClientBase):
                   AND messenger = 'vk'
             """
             stmt = sqlalchemy.text(identity_query)
-            rows = conn.execute(stmt, user_ids=user_ids).fetchall()
+            rows = conn.execute(stmt, dict(user_ids=user_ids)).fetchall()
             user_ids_map = {internal_user_id: messenger_user_id for internal_user_id, messenger_user_id in rows}
 
             for message in vk_messages:
@@ -208,7 +208,7 @@ class DBClient(DBClientBase):
                 /*action='save_sending_status_to_notif_by_user_{result}' */
             """
             stmt = sqlalchemy.text(sql_text_psy)
-            conn.execute(stmt, now=datetime.datetime.now(), message_id=message_id)
+            conn.execute(stmt, dict(now=datetime.datetime.now(), message_id=message_id))
 
     def get_change_log_update_time(self, change_log_id: int) -> datetime.datetime | None:
         """get the time of parsing of the change, saved in PSQL"""
@@ -223,7 +223,7 @@ class DBClient(DBClientBase):
                 /*action='getting_change_log_parsing_time' */
             """
             stmt = sqlalchemy.text(sql_text_psy)
-            record = conn.execute(stmt, change_log_id=change_log_id).fetchone()
+            record = conn.execute(stmt, dict(change_log_id=change_log_id)).fetchone()
             return record[0] if record else None
 
     def save_sending_analytics(self, num_msgs: int, speed: float, ttl_time: float) -> None:
@@ -238,7 +238,7 @@ class DBClient(DBClientBase):
                     /*action='notif_stat_sending_speed' */
                 """
                 stmt = sqlalchemy.text(sql_text)
-                conn.execute(stmt, now=datetime.datetime.now(), num_msgs=num_msgs, speed=speed, ttl_time=ttl_time)
+                conn.execute(stmt, dict(now=datetime.datetime.now(), num_msgs=num_msgs, speed=speed, ttl_time=ttl_time))
             except:  # noqa
                 pass
 
@@ -656,9 +656,9 @@ def main(event: dict, context: Ctx) -> str | None:
 
     try:
         pool = sqlalchemy_get_pool()
-        connection = pool.connect()
-        with lock_manager(connection, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
-            changed_ids = iterate_over_notifications(function_id, time_analytics)
+        with pool.begin() as connection:
+            with lock_manager(connection, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
+                changed_ids = iterate_over_notifications(function_id, time_analytics)
 
     except FunctionLockError:
         logging.info('script cancelled')

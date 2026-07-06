@@ -346,7 +346,7 @@ def main(event: dict, context: Ctx) -> str:  # noqa
         return 'ok'
 
     pool = sqlalchemy_get_pool()
-    with pool.connect() as conn:
+    with pool.begin() as conn:
         try:
             change_log_ids: list[int] = []
             for search_id in list_of_updated_searches:

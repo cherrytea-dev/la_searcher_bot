@@ -50,7 +50,7 @@ def move_notifications_to_history_in_psql(conn: Connection) -> None:
         DELETE FROM notif_by_user
             WHERE change_log_id = :change_log_id
         """)
-    conn.execute(stmt, change_log_id=change_log_id)
+    conn.execute(stmt, dict(change_log_id=change_log_id))
 
     pubsub_archive_notifications()
 
@@ -127,7 +127,7 @@ def move_first_posts_to_history_in_psql(conn: Connection) -> None:
         DELETE FROM search_first_posts__history
         WHERE timestamp < NOW() - make_interval(days => :ttl_days)
         """)
-    conn.execute(stmt, ttl_days=SEARCH_FIRST_POSTS_HISTORY_TTL_DAYS)
+    conn.execute(stmt, dict(ttl_days=SEARCH_FIRST_POSTS_HISTORY_TTL_DAYS))
 
     logging.info(
         'purged records older than %d days from search_first_posts__history',

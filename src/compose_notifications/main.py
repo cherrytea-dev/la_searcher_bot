@@ -86,8 +86,8 @@ def create_user_notifications_from_change_log_record(
         sqlalchemy.text("""
             UPDATE change_log SET notification_sent = 's' WHERE id = :a
         """),
-        a=new_record.change_log_id,
-    )
+        dict(a=new_record.change_log_id,
+    ))
     logging.info(f'change_log {new_record.change_log_id} marked as in-progress (s)')
 
     # check the matrix: new update - user and initiate sending notifications
@@ -119,7 +119,7 @@ def delete_ended_search_following(conn: Connection, new_record: LineInChangeLog)
             DELETE FROM user_pref_search_whitelist upswl 
             WHERE upswl.search_id=:forum_search_num
                                 """)
-        conn.execute(stmt, forum_search_num=new_record.forum_search_num)
+        conn.execute(stmt, dict(forum_search_num=new_record.forum_search_num))
         logging.info(
             f'Search id={new_record.forum_search_num} with status {new_record.status} is been deleted from user_pref_search_whitelist.'
         )
@@ -135,7 +135,7 @@ def main(event: dict, context: Ctx) -> None:
 
     try:
         pool = sqlalchemy_get_pool()
-        with pool.connect() as conn:
+        with pool.begin() as conn:
             with lock_manager(conn, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
                 # compose New Records List: the delta from Change log
                 new_record = LogRecordComposer(conn).get_line()

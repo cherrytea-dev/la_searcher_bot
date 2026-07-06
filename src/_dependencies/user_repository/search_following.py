@@ -17,7 +17,7 @@ class SearchFollowingMixin(DBClientMixinBase):
             stmt = sqlalchemy.text(
                 """SELECT filter_name FROM user_pref_search_filtering WHERE user_id=:user_id LIMIT 1;"""
             )
-            result = connection.execute(stmt, user_id=user_id)
+            result = connection.execute(stmt, dict(user_id=user_id))
             row = result.fetchone()
             return row is not None and 'whitelist' in row[0]
 
@@ -30,7 +30,7 @@ class SearchFollowingMixin(DBClientMixinBase):
                    VALUES (:user_id, :filter_name)
                    ON CONFLICT (user_id) DO UPDATE SET filter_name=:filter_name;"""
             )
-            connection.execute(stmt, user_id=user_id, filter_name=filter_name)
+            connection.execute(stmt, dict(user_id=user_id, filter_name=filter_name))
 
     def delete_search_follow_mode(self, user_id: int) -> None:
         """Disable search following mode."""
@@ -39,7 +39,7 @@ class SearchFollowingMixin(DBClientMixinBase):
                 """DELETE FROM user_pref_search_filtering
                    WHERE user_id=:user_id and 'whitelist' = ANY(filter_name);"""
             )
-            connection.execute(stmt, user_id=user_id)
+            connection.execute(stmt, dict(user_id=user_id))
 
     def record_search_whiteness(self, user_id: int, search_id: int, mode: SearchFollowingMode | str) -> None:
         """Save or remove a search whitelist entry."""
@@ -53,23 +53,23 @@ class SearchFollowingMixin(DBClientMixinBase):
                 )
                 connection.execute(
                     stmt,
-                    user_id=user_id,
+                    dict(user_id=user_id,
                     search_id=search_id,
                     timestamp=datetime.datetime.now(),
                     mode=mode,
-                )
+                ))
             else:
                 stmt = sqlalchemy.text(
                     """DELETE FROM user_pref_search_whitelist
                        WHERE user_id=:user_id and search_id=:search_id;"""
                 )
-                connection.execute(stmt, user_id=user_id, search_id=search_id)
+                connection.execute(stmt, dict(user_id=user_id, search_id=search_id))
 
     def delete_search_whiteness(self, user_id: int) -> None:
         """Delete all search whitelist entries for a user."""
         with self.connect() as connection:
             stmt = sqlalchemy.text("""DELETE FROM user_pref_search_whitelist WHERE user_id=:user_id;""")
-            connection.execute(stmt, user_id=user_id)
+            connection.execute(stmt, dict(user_id=user_id))
 
     def get_folders_with_followed_searches(self, user_id: int) -> list[int]:
         """Get forum folder IDs that contain searches the user is following."""
@@ -86,7 +86,7 @@ class SearchFollowingMixin(DBClientMixinBase):
             )
             result = connection.execute(
                 stmt,
-                user_id=user_id,
+                dict(user_id=user_id,
                 search_follow_on=SearchFollowingMode.ON,
-            )
+            ))
             return [int(x[0]) for x in result.fetchall()]

@@ -1,5 +1,6 @@
 import json
 import logging
+from contextlib import _GeneratorContextManager
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any
@@ -22,8 +23,8 @@ class DBClient:
     def __init__(self, db: Engine) -> None:
         self._db = db
 
-    def connect(self) -> Connection:
-        return self._db.connect()
+    def connect(self) -> _GeneratorContextManager:
+        return self._db.begin()
 
     def get_the_list_of_ignored_folders(self) -> list[int]:
         """get the list of folders which does not contain searches – thus should be ignored"""

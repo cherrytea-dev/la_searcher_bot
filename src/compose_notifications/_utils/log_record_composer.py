@@ -43,7 +43,7 @@ class LogRecordComposer:
             """)
 
         query_args = {'record_id': record_id} if record_id is not None else {}
-        delta_in_cl = self.conn.execute(query, **query_args).fetchall()
+        delta_in_cl = self.conn.execute(query, query_args).fetchall()
 
         if not delta_in_cl:
             logging.info('no new records found in PSQL')
@@ -114,7 +114,7 @@ class LogRecordComposer:
                 """
             )
 
-            s_line = self.conn.execute(sql_text, a=r_line.forum_search_num).fetchone()
+            s_line = self.conn.execute(sql_text, dict(a=r_line.forum_search_num)).fetchone()
 
             if not s_line:
                 logging.info('New Record WERE NOT enriched from Searches as there was no record in searches')
@@ -194,7 +194,7 @@ class LogRecordComposer:
             ORDER BY sa.id; 
                                                 """)
 
-        list_of_activities = self.conn.execute(query, a=r_line.forum_search_num).fetchall()
+        list_of_activities = self.conn.execute(query, dict(a=r_line.forum_search_num)).fetchall()
         r_line.activities = [a_line[0] for a_line in list_of_activities]
 
         logging.info('New Record enriched with Search Activities')
@@ -210,7 +210,7 @@ class LogRecordComposer:
                 AND search_forum_num = :a
             ORDER BY id; 
                                 """)
-        list_of_managers = self.conn.execute(query, a=r_line.forum_search_num).fetchall()
+        list_of_managers = self.conn.execute(query, dict(a=r_line.forum_search_num)).fetchall()
 
         # look for matching Forum Search Numbers in New Records List & Search Managers
 
@@ -238,7 +238,7 @@ class LogRecordComposer:
                     AND search_forum_num = :a;
                                 """)
 
-        comments = self.conn.execute(query, a=r_line.forum_search_num).fetchall()
+        comments = self.conn.execute(query, dict(a=r_line.forum_search_num)).fetchall()
         r_line.comments = self._get_comments_from_query_result(comments)
         logging.info('New Record enriched with Comments for all')
 
@@ -261,7 +261,7 @@ class LogRecordComposer:
                 AND search_forum_num = :a;
                                 """)
 
-        comments = self.conn.execute(query, a=r_line.forum_search_num).fetchall()
+        comments = self.conn.execute(query, dict(a=r_line.forum_search_num)).fetchall()
         r_line.comments_inforg = self._get_comments_from_query_result(comments)
         logging.info('New Record enriched with Comments for inforg')
 

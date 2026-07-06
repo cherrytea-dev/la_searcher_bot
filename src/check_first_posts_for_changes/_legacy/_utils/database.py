@@ -1,4 +1,5 @@
 import datetime
+from contextlib import _GeneratorContextManager
 from functools import lru_cache
 
 import sqlalchemy
@@ -14,8 +15,8 @@ class DBClient:
     def __init__(self, db: Engine) -> None:
         self._db = db
 
-    def connect(self) -> Connection:
-        return self._db.connect()
+    def connect(self) -> _GeneratorContextManager:
+        return self._db.begin()
 
     def get_random_hidden_topic_id(self) -> int | None:
         with self.connect() as conn:

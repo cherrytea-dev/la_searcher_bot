@@ -258,7 +258,7 @@ def main(event: Dict[str, bytes], context: Ctx) -> None:
     """main function triggered from communicate script via pyb/sub"""
 
     pool = sqlalchemy_get_pool()
-    with pool.connect() as conn:
+    with pool.begin() as conn:
         message_in_ascii = process_pubsub_message(event)
         tg_user_id, f_username = list(message_in_ascii)
 

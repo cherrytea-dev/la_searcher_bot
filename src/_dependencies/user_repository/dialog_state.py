@@ -23,17 +23,17 @@ class DialogStateMixin(DBClientMixinBase):
         """
         with self.connect() as connection:
             delete_stmt = sqlalchemy.text("""DELETE FROM msg_from_bot WHERE user_id=:user_id;""")
-            connection.execute(delete_stmt, user_id=user_id)
+            connection.execute(delete_stmt, dict(user_id=user_id))
 
             insert_stmt = sqlalchemy.text(
                 """INSERT INTO msg_from_bot (user_id, time, msg_type) values (:user_id, :time, :msg_type);"""
             )
             connection.execute(
                 insert_stmt,
-                user_id=user_id,
+                dict(user_id=user_id,
                 time=datetime.datetime.now(),
                 msg_type=state.value,
-            )
+            ))
 
     def get_user_state(self, user_id: int) -> DialogState | None:
         """Get the bot's expected input state for a user.
@@ -42,7 +42,7 @@ class DialogStateMixin(DBClientMixinBase):
         """
         with self.connect() as connection:
             stmt = sqlalchemy.text("""SELECT msg_type FROM msg_from_bot WHERE user_id=:user_id LIMIT 1;""")
-            result = connection.execute(stmt, user_id=user_id)
+            result = connection.execute(stmt, dict(user_id=user_id))
             extract = result.fetchone()
 
             if not extract:

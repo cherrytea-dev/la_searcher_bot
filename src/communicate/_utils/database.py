@@ -141,16 +141,16 @@ class DBClient(
         # Write directly to DB to preserve backward compatibility with raw string values
         with self.connect() as connection:
             delete_stmt = sqlalchemy.text("""DELETE FROM msg_from_bot WHERE user_id=:user_id;""")
-            connection.execute(delete_stmt, user_id=user_id)
+            connection.execute(delete_stmt, dict(user_id=user_id))
             insert_stmt = sqlalchemy.text(
                 """INSERT INTO msg_from_bot (user_id, time, msg_type) values (:user_id, :time, :msg_type);"""
             )
             connection.execute(
                 insert_stmt,
-                user_id=user_id,
+                dict(user_id=user_id,
                 time=datetime.datetime.now(),
                 msg_type=state_value,
-            )
+            ))
 
     def user_preference_save(self, user: int, preference_name: str) -> None:
         self.save_preference(user, preference_name)

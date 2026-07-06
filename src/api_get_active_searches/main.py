@@ -138,9 +138,9 @@ def get_query_results(conn: Connection, depth_days: int, folders_list: list[int]
 
     stmt = sqlalchemy.text(query)
     if folders_list:
-        raw_data = conn.execute(stmt, folders_list=folders_list, depth_days=depth_days).fetchall()
+        raw_data = conn.execute(stmt, dict(folders_list=folders_list, depth_days=depth_days)).fetchall()
     else:
-        raw_data = conn.execute(stmt, depth_days=depth_days).fetchall()
+        raw_data = conn.execute(stmt, dict(depth_days=depth_days)).fetchall()
 
     searches = [
         Search(
@@ -170,7 +170,7 @@ def save_user_statistics_to_db(conn: Connection, user_input: Any, response: dict
             (request, timestamp, response)
             VALUES (:request, CURRENT_TIMESTAMP, :response)
         """)
-        conn.execute(stmt, request=str(user_input), response=json_to_save)
+        conn.execute(stmt, dict(request=str(user_input), response=json_to_save))
     except Exception:
         logging.exception('Cannot save statistics to DB')
 
@@ -187,7 +187,7 @@ def main(request_data: RequestWrapper, *args: Any, **kwargs: Any) -> ResponseWra
     logging.info(request_json)
 
     pool = sqlalchemy_get_pool()
-    with pool.connect() as conn:
+    with pool.begin() as conn:
         try:
             user_request = UserRequest.model_validate_json(request_data.data)
         except ValidationError as ve:

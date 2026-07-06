@@ -14,7 +14,7 @@ def save_status_for_topic(conn: sqlalchemy.engine.Connection, topic_id: int, sta
     stmt = sqlalchemy.text("""
         SELECT id FROM searches WHERE search_forum_num=:a AND status=:b;
                         """)
-    this_data_already_recorded = conn.execute(stmt, a=topic_id, b=status).fetchone()
+    this_data_already_recorded = conn.execute(stmt, dict(a=topic_id, b=status)).fetchone()
 
     if this_data_already_recorded:
         logging.info(f"The status {status} for search {topic_id} WAS ALREADY recorded, so It's being ignored.")
@@ -27,15 +27,15 @@ def save_status_for_topic(conn: sqlalchemy.engine.Connection, topic_id: int, sta
             change_type) values (:a, :b, :c, :d, :e, :f) RETURNING id;
                             """)
     raw_data = conn.execute(
-        stmt, a=datetime.datetime.now(), b=topic_id, c='status_change', d=status, e='', f=1
-    ).fetchone()
+        stmt, dict(a=datetime.datetime.now(), b=topic_id, c='status_change', d=status, e='', f=1
+    ))
 
-    change_log_id = raw_data[0]
+    change_log_id = raw_data.scalar()
     logging.info(f'{change_log_id=}')
 
     # update status in searches table
     stmt = sqlalchemy.text("""UPDATE searches SET status=:a WHERE search_forum_num=:b;""")
-    conn.execute(stmt, a=status, b=topic_id)
+    conn.execute(stmt, dict(a=status, b=topic_id))
 
     logging.info(f'Status is set={status} for topic_id={topic_id}')
     logging.info(f'status {status} for topic {topic_id} has been saved in change_log and searches tables.')
@@ -59,11 +59,11 @@ def save_visibility_for_topic(conn: sqlalchemy.engine.Connection, topic_id: int,
 
     # clear the prev visibility status
     stmt = sqlalchemy.text("""DELETE FROM search_health_check WHERE search_forum_num=:a;""")
-    conn.execute(stmt, a=topic_id)
+    conn.execute(stmt, dict(a=topic_id))
 
     # set the new visibility status
     stmt = sqlalchemy.text("""INSERT INTO search_health_check (search_forum_num, timestamp, status)
                                     VALUES (:a, :b, :c);""")
-    conn.execute(stmt, a=topic_id, b=datetime.datetime.now(), c=visibility)
+    conn.execute(stmt, dict(a=topic_id, b=datetime.datetime.now(), c=visibility))
 
     logging.info(f'Visibility is set={visibility} for topic_id={topic_id}')

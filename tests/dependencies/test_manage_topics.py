@@ -20,6 +20,7 @@ class TestSaveStatusForTopic:
         new_status = 'new_status'
 
         change_log_id = save_status_for_topic(connection, topic_id, new_status)
+        connection.commit()
 
         assert find_model(get_session(), Search, search_forum_num=topic_id, status=new_status)
 
@@ -35,6 +36,7 @@ class TestSaveStatusForTopic:
         SearchFactory.create_sync(search_forum_num=topic_id, status=existing_status)
 
         change_log_id = save_status_for_topic(connection, topic_id, existing_status)
+        connection.commit()
 
         assert change_log_id is None
 
@@ -52,6 +54,7 @@ class TestSaveStatusForTopic:
         SearchFactory.create_sync(search_forum_num=topic_id)
 
         change_log_id = save_status_for_topic(connection, topic_id, new_status)
+        connection.commit()
 
         assert change_log_id is not None
 

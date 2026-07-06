@@ -18,7 +18,7 @@ class ForumAttributeMixin(DBClientMixinBase):
                    ORDER BY timestamp DESC
                    LIMIT 1;"""
             )
-            result = connection.execute(stmt, user_id=user_id)
+            result = connection.execute(stmt, dict(user_id=user_id))
             return result.fetchone()
 
     def verify_forum_attributes(self, user_id: int) -> None:
@@ -29,4 +29,4 @@ class ForumAttributeMixin(DBClientMixinBase):
                    WHERE user_id=:user_id and timestamp =
                    (SELECT MAX(timestamp) FROM user_forum_attributes WHERE user_id=:user_id);"""
             )
-            connection.execute(stmt, user_id=user_id)
+            connection.execute(stmt, dict(user_id=user_id))

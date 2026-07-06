@@ -56,7 +56,7 @@ def _check_if_another_function_is_running(
                     ;""")
 
     start_time = now - timedelta(seconds=timeout_in_seconds)
-    res = conn.execute(txt, time_start=start_time, func_name=func_name, current_run_id=current_run_id)
+    res = conn.execute(txt, dict(time_start=start_time, func_name=func_name, current_run_id=current_run_id))
 
     rows = list(res)
     return bool(rows)
@@ -72,7 +72,7 @@ def _write_function_start(conn: Connection, func_name: str) -> int:
                         RETURNING id;
                         ;
                             """)
-    res = conn.execute(sql_text, func_name=func_name, start_time=datetime.now())
+    res = conn.execute(sql_text, dict(func_name=func_name, start_time=datetime.now()))
     return res.first()[0]
 
 
@@ -86,4 +86,4 @@ def _write_function_finish(conn: Connection, func_name: str, record_id: int) -> 
                             id=:record_id
                         ;
                     """)
-    conn.execute(sql_text, record_id=record_id, finish_time=datetime.now())
+    conn.execute(sql_text, dict(record_id=record_id, finish_time=datetime.now()))
