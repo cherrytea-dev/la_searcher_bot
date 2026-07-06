@@ -114,6 +114,7 @@ def sqlalchemy_get_pool_inner() -> sqlalchemy.engine.Engine:
             password=config.postgres_password,
             database=config.postgres_db,
         ),
+        future=True,
         **db_config,
     )
 
