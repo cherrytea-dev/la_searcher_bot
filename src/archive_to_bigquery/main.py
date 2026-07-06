@@ -1,10 +1,10 @@
 """move data from Cloud SQL to S3 bucket for long-term storage & analysis"""
 
 import csv
+import io
 import logging
 from dataclasses import dataclass
 from datetime import date, timedelta
-from tempfile import NamedTemporaryFile
 from typing import Any
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -26,10 +26,10 @@ BATCH_SIZE = 10_000  # rows per paginated query (keeps memory < 100 MB per itera
 @dataclass
 class Archiver:
     """
-    Archivation algorythm:
-    - Unload all records from table notif_by_user__history by one day to CSV file.
-    - Create zip archive.
-    - Move archive to s3 storage.
+    Archivation algorithm:
+    - Stream all records from table notif_by_user__history by one day into
+      a zip-compressed BytesIO buffer (no temp files).
+    - Upload the compressed buffer directly to s3.
     - Delete unloaded records.
     """
 
@@ -39,13 +39,17 @@ class Archiver:
     s3_prefix: str = 'notif_by_user_archive'  # name of folder inside s3 bucket
 
     def run(self) -> None:
-        temp_file_name = self._unload_records_to_csv()
-        if temp_file_name:
-            self._move_to_s3(temp_file_name)
+        data = self._unload_records_to_csv_zip()
+        if data:
+            self._move_to_s3(data)
             self._delete_old_records()
 
     @property
     def _unload_file_name(self) -> str:
+        return f'notifications-archive-{self.archive_date.isoformat()}.csv.zip'
+
+    @property
+    def _csv_entry_name(self) -> str:
         return f'notifications-archive-{self.archive_date.isoformat()}.csv'
 
     @property
@@ -56,8 +60,8 @@ class Archiver:
     def _date_to(self) -> date:
         return self.archive_date + timedelta(days=1)
 
-    def _unload_records_to_csv(self) -> str | None:
-        """returns None if no records to unload"""
+    def _unload_records_to_csv_zip(self) -> io.BytesIO | None:
+        """Stream records into a zip-compressed BytesIO buffer; returns None if no records."""
 
         logging.info('Fetching records to archive in batches')
 
@@ -79,51 +83,48 @@ class Archiver:
 
         total_count = 0
         last_message_id: int | None = None
-        temp_file_name: str | None = None
+        buf = io.BytesIO()
 
         with self.engine.connect() as conn:
-            with NamedTemporaryFile('w', delete=False) as f:
-                writer = None
+            with ZipFile(buf, 'w', compression=ZIP_DEFLATED, compresslevel=9) as zf:
+                with zf.open(self._csv_entry_name, 'w') as csv_entry:
+                    with io.TextIOWrapper(csv_entry, encoding='utf-8') as text_wrapper:
+                        writer = None
 
-                while True:
-                    result = conn.execute(paginated_query, params | {'last_message_id': last_message_id})
-                    rows = result.fetchall()
+                        while True:
+                            result = conn.execute(
+                                paginated_query,
+                                params | {'last_message_id': last_message_id},
+                            )
+                            rows = result.fetchall()
 
-                    if not rows:
-                        break
+                            if not rows:
+                                break
 
-                    if writer is None:
-                        columns = list(result.keys())
-                        writer = csv.writer(f)
-                        writer.writerow(columns)
+                            if writer is None:
+                                columns = list(result.keys())
+                                writer = csv.writer(text_wrapper)
+                                writer.writerow(columns)
 
-                    writer.writerows(rows)
-                    total_count += len(rows)
-                    last_message_id = rows[-1].message_id
-
-                temp_file_name = f.name
+                            writer.writerows(rows)
+                            total_count += len(rows)
+                            last_message_id = rows[-1].message_id
 
         if total_count == 0:
+            buf.close()
             return None
 
         logging.info(f'records to archive: {total_count}')
-        logging.info(f'records unloaded to temp file {temp_file_name}')
+        buf.seek(0)
+        return buf
 
-        return temp_file_name
-
-    def _move_to_s3(self, temp_file_name: str) -> None:
-        result_file_name = self._unload_file_name + '.zip'
-        zip_file_name = temp_file_name + '.zip'
-
-        logging.info(f'Creating archive: {result_file_name}')
-
-        with ZipFile(zip_file_name, 'w', compression=ZIP_DEFLATED, compresslevel=9) as zip_file:
-            zip_file.write(temp_file_name, self._unload_file_name)
+    def _move_to_s3(self, data: io.BytesIO) -> None:
+        result_file_name = self._unload_file_name
 
         logging.info(f'Uploading to s3: {result_file_name}')
 
-        self.s3_client.upload_file(
-            zip_file_name,
+        self.s3_client.upload_fileobj(
+            data,
             get_app_config().aws_backup_bucket_name,
             f'{self.s3_prefix}/{result_file_name}',
         )
