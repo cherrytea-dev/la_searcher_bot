@@ -8,7 +8,7 @@ from typing import Any, TypeVar
 from dotenv import load_dotenv
 from faker import Faker
 from pydantic_settings import SettingsConfigDict
-from sqlalchemy import select
+from sqlalchemy import Table, select
 from sqlalchemy.orm import Session
 
 from _dependencies.common.commons import AppConfig
@@ -86,7 +86,10 @@ def find_model(session: Session, model: type[T], **kwargs: Any) -> T | None:
     stmt = select(model)
     for key, value in kwargs.items():
         stmt = stmt.filter_by(**{key: value})
-    return session.execute(stmt).scalars().first()
+    result = session.execute(stmt)
+    if isinstance(model, Table):
+        return result.first()  # Row supports attribute access for Core Tables
+    return result.scalars().first()
 
 
 @lru_cache
