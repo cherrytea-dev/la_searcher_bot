@@ -1,6 +1,8 @@
+import csv
+import io
 from datetime import datetime, timedelta
-from tempfile import NamedTemporaryFile
 from unittest.mock import Mock, patch
+from zipfile import ZipFile
 
 import pytest
 from sqlalchemy.orm.session import Session
@@ -34,12 +36,16 @@ class TestArchiveNotifications:
         main('event', 'context')
 
     def test_records_unloaded(self, archiver: Archiver, session: Session):
-        """unload old records"""
+        """unload old records — returns zipped BytesIO, then deletes"""
         records_count = 3
-        first_notif, *others = NotifByUserHistoryFactory.create_batch_sync(records_count, created=archiver.archive_date)
-        unload_file_name = archiver._unload_records_to_csv()
+        first_notif, *others = NotifByUserHistoryFactory.create_batch_sync(
+            records_count,
+            created=archiver.archive_date,
+        )
+        data = archiver._unload_records_to_csv_zip()
 
-        assert unload_file_name.startswith('/tmp')
+        assert data is not None
+        assert isinstance(data, io.BytesIO)
 
         assert find_model(session, NotifByUserHistory, message_id=first_notif.message_id)
         archiver._delete_old_records()
@@ -49,35 +55,34 @@ class TestArchiveNotifications:
         """records are not enough old to unload"""
 
         NotifByUserHistoryFactory.create_sync(created=archiver.archive_date - timedelta(days=1))
-        unload_file_name = archiver._unload_records_to_csv()
-        assert unload_file_name is None
+        data = archiver._unload_records_to_csv_zip()
+        assert data is None
 
-    @patch('boto3.session')
-    def test_backup_file_upload(self, mock_boto3, archiver: Archiver):
-        """upload file to s3 storage"""
+    def test_backup_file_upload(self, archiver: Archiver):
+        """upload zipped BytesIO to s3 storage"""
 
-        with NamedTemporaryFile(delete=False) as file:
-            file.close()
-            with patch('boto3.session'):
-                archiver._move_to_s3(file.name)
-                pass
+        buf = io.BytesIO(b'fake,compressed,data')
+        archiver._move_to_s3(buf)
+        archiver.s3_client.upload_fileobj.assert_called_once()
 
     @patch('archive_to_bigquery.main.BATCH_SIZE', 2)
     def test_batch_unload(self, archiver: Archiver):
         """unload more records than batch size — verifies keyset pagination"""
-        import csv
 
         batch_override = 2
         records_count = batch_override * 2 + 1  # 5 records, 3 batches
 
         NotifByUserHistoryFactory.create_batch_sync(records_count, created=archiver.archive_date)
 
-        unload_file_name = archiver._unload_records_to_csv()
+        data = archiver._unload_records_to_csv_zip()
 
-        assert unload_file_name is not None
+        assert data is not None
 
-        with open(unload_file_name) as f:
-            reader = csv.reader(f)
-            rows = list(reader)
+        with ZipFile(data) as zf:
+            csv_entry = archiver._csv_entry_name
+            assert csv_entry in zf.namelist()
+            with zf.open(csv_entry) as csv_file:
+                reader = csv.reader(io.TextIOWrapper(csv_file, encoding='utf-8'))
+                rows = list(reader)
 
         assert len(rows) == 1 + records_count  # header + data
