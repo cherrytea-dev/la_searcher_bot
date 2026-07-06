@@ -39,7 +39,7 @@ class DBClient:
             stmt = sqlalchemy.text("""
                 SELECT value FROM key_value_storage WHERE key=:key;
                                    """)
-            raw_data = conn.execute(stmt, key=key).fetchone()
+            raw_data = conn.execute(stmt, dict(key=key)).fetchone()
             return raw_data[0] if raw_data else None
 
     def set_key_value_item(self, key: str, value: Any) -> None:
@@ -50,7 +50,7 @@ class DBClient:
                 VALUES (:key, :value) 
                 ON CONFLICT (key) DO UPDATE SET value = :value ; 
                                    """)
-            conn.execute(stmt, key=key, value=json.dumps(value))
+            conn.execute(stmt, dict(key=key, value=json.dumps(value)))
 
     def delete_key_value_item(self, key: str) -> None:
         with self.connect() as conn:
@@ -58,7 +58,7 @@ class DBClient:
                 DELETE FROM key_value_storage 
                 WHERE key=:key; 
                                    """)
-            conn.execute(stmt, key=key)
+            conn.execute(stmt, dict(key=key))
 
 
 @lru_cache

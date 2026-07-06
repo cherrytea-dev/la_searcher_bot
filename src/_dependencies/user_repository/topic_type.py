@@ -20,9 +20,11 @@ class TopicTypeMixin(DBClientMixinBase):
             )
             connection.execute(
                 stmt,
-                user_id=user_id,
-                type_id=topic_type_id,
-                timestamp=datetime.datetime.now(),
+                dict(
+                    user_id=user_id,
+                    type_id=topic_type_id,
+                    timestamp=datetime.datetime.now(),
+                ),
             )
 
     def delete_topic_type(self, user_id: int, topic_type_id: int) -> None:
@@ -31,7 +33,7 @@ class TopicTypeMixin(DBClientMixinBase):
             stmt = sqlalchemy.text(
                 """DELETE FROM user_pref_topic_type WHERE user_id=:user_id AND topic_type_id=:type_id;"""
             )
-            connection.execute(stmt, user_id=user_id, type_id=topic_type_id)
+            connection.execute(stmt, dict(user_id=user_id, type_id=topic_type_id))
 
     def get_topic_types(self, user_id: int) -> list[int]:
         """Get user's saved topic type preferences."""
@@ -39,7 +41,7 @@ class TopicTypeMixin(DBClientMixinBase):
             stmt = sqlalchemy.text(
                 """SELECT topic_type_id FROM user_pref_topic_type WHERE user_id=:user_id ORDER BY 1;"""
             )
-            result = connection.execute(stmt, user_id=user_id)
+            result = connection.execute(stmt, dict(user_id=user_id))
             return [row[0] for row in result.fetchall()]
 
     def save_default_topic_types(self, user_id: int, user_role: str | None) -> None:

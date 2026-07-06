@@ -24,10 +24,10 @@ def move_notifications_to_history_in_psql(conn: Connection) -> None:
                         ON nm.change_log_id=cl.id
                         WHERE cl.parsed_time < NOW() - INTERVAL '2 hour' ORDER BY 1 LIMIT 1;
                         """)
-    oldest_date_nbu = conn.execute(stmt).fetchone()[0]
-
-    if not oldest_date_nbu:
+    oldest_date_nbu = conn.execute(stmt).fetchone()
+    if oldest_date_nbu is None:
         return
+    oldest_date_nbu = oldest_date_nbu[0]
 
     logging.info(f'The oldest date in notif_by_user: {oldest_date_nbu}')
 
@@ -36,6 +36,8 @@ def move_notifications_to_history_in_psql(conn: Connection) -> None:
                 SELECT MIN(change_log_id) FROM notif_by_user;
                 """)
     query_result = conn.execute(stmt).fetchone()
+    if query_result is None:
+        return
     change_log_id = query_result[0]
 
     logging.info(f'The change_log_id to be updated in nbu: {query_result[0]}')
@@ -50,7 +52,7 @@ def move_notifications_to_history_in_psql(conn: Connection) -> None:
         DELETE FROM notif_by_user
             WHERE change_log_id = :change_log_id
         """)
-    conn.execute(stmt, change_log_id=change_log_id)
+    conn.execute(stmt, dict(change_log_id=change_log_id))
 
     pubsub_archive_notifications()
 
@@ -127,7 +129,7 @@ def move_first_posts_to_history_in_psql(conn: Connection) -> None:
         DELETE FROM search_first_posts__history
         WHERE timestamp < NOW() - make_interval(days => :ttl_days)
         """)
-    conn.execute(stmt, ttl_days=SEARCH_FIRST_POSTS_HISTORY_TTL_DAYS)
+    conn.execute(stmt, dict(ttl_days=SEARCH_FIRST_POSTS_HISTORY_TTL_DAYS))
 
     logging.info(
         'purged records older than %d days from search_first_posts__history',
@@ -139,13 +141,10 @@ def main(event: dict[str, bytes], context: Ctx) -> None:
     """main function"""
 
     pool = sqlalchemy_get_pool()
-    with pool.connect() as conn:
-        with conn.begin() as tr:
-            move_notifications_to_history_in_psql(conn)
-            tr.commit()
+    with pool.begin() as conn:
+        move_notifications_to_history_in_psql(conn)
 
-        with conn.begin() as tr:
-            move_first_posts_to_history_in_psql(conn)
-            tr.commit()
+    with pool.begin() as conn:
+        move_first_posts_to_history_in_psql(conn)
 
     pool.dispose()

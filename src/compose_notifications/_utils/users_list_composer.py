@@ -133,12 +133,14 @@ class UsersListComposer:
 
         users_short_version = self.conn.execute(
             sql_text_psy,
-            change_type=new_record.change_type,
-            forum_folder=new_record.forum_folder,
-            topic_type_id=new_record.topic_type_id,
-            forum_search_num=int(new_record.forum_search_num),
-            following_mode_on=SearchFollowingMode.ON,
-        ).fetchall()
+            dict(
+                change_type=new_record.change_type,
+                forum_folder=new_record.forum_folder,
+                topic_type_id=new_record.topic_type_id,
+                forum_search_num=int(new_record.forum_search_num),
+                following_mode_on=SearchFollowingMode.ON,
+            ),
+        )
 
         logging.info(f'Fetched users for search {new_record.forum_search_num=} with {new_record.new_status=}.')
         analytics_sql_finish = datetime.datetime.now()
@@ -343,8 +345,10 @@ class UserListFilter:
         """)
         upsf_for_debug_user = self.conn.execute(
             sql_text_,
-            debug_user_id=debug_user_id,
-        ).fetchall()
+            dict(
+                debug_user_id=debug_user_id,
+            ),
+        )
         logging.info(f'{upsf_for_debug_user=}')
 
         sql_text_ = sqlalchemy.text("""
@@ -354,8 +358,10 @@ class UserListFilter:
         """)
         upswls_for_debug_user = self.conn.execute(
             sql_text_,
-            debug_user_id=debug_user_id,
-        ).fetchall()
+            dict(
+                debug_user_id=debug_user_id,
+            ),
+        )
         logging.info(f'{upswls_for_debug_user=}')
 
         temp_user_list: list[User] = []
@@ -421,17 +427,21 @@ WHERE upsf.filter_name is not null /* user has activated following mode */
     OR upsf.filter_name is null
     ;
         """)
-        rows = self.conn.execute(
-            sql_text_,
-            forum_search_num=record.forum_search_num,
-            search_new_status=record.new_status,
-            change_type=record.change_type,
-            following_mode_on=SearchFollowingMode.ON,
-            following_mode_off=SearchFollowingMode.OFF,
-        ).fetchall()
+        rows = list(
+            self.conn.execute(
+                sql_text_,
+                dict(
+                    forum_search_num=record.forum_search_num,
+                    search_new_status=record.new_status,
+                    change_type=record.change_type,
+                    following_mode_on=SearchFollowingMode.ON,
+                    following_mode_off=SearchFollowingMode.OFF,
+                ),
+            )
+        )
         logging.info(f'Crop user list due to whitelisting: len(rows)=={len(rows)}')
 
-        following_users_ids = set([row[0] for row in rows])
+        following_users_ids = {row[0] for row in rows}
         temp_user_list = [user for user in users_list_outcome if user.user_id in following_users_ids]
 
         debug_user_id = 552487421
@@ -452,13 +462,13 @@ WHERE upsf.filter_name is not null /* user has activated following mode */
                 notif_by_user
             WHERE
                 created IS NOT NULL AND
-                change_log_id=:a
+                change_log_id=:change_log_id
 
             /*action='get_from_sql_list_of_users_with_already_composed_messages 2.0'*/
             ;
             """)
 
-        raw_data_ = self.conn.execute(sql_text_, a=self.new_record.change_log_id).fetchall()
+        raw_data_ = self.conn.execute(sql_text_, dict(change_log_id=self.new_record.change_log_id)).fetchall()
         # TODO: to delete
         logging.info('list of user with composed messages:')
         logging.info(raw_data_)

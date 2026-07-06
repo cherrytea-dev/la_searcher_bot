@@ -16,13 +16,13 @@ class InlineDialogueMixin(DBClientMixinBase):
         """Delete from DB the user's last interaction via inline buttons."""
         with self.connect() as connection:
             stmt = sqlalchemy.text("""DELETE FROM communications_last_inline_msg WHERE user_id=:user_id;""")
-            connection.execute(stmt, user_id=user_id)
+            connection.execute(stmt, dict(user_id=user_id))
 
     def get_last_user_inline_dialogue(self, user_id: int) -> list[int]:
         """Get from DB the user's last interaction via inline buttons."""
         with self.connect() as connection:
             stmt = sqlalchemy.text("""SELECT message_id FROM communications_last_inline_msg WHERE user_id=:user_id;""")
-            result = connection.execute(stmt, user_id=user_id)
+            result = connection.execute(stmt, dict(user_id=user_id))
             message_id_lines = result.fetchall()
             message_id_list = []
             if message_id_lines and len(message_id_lines) > 0:
@@ -39,4 +39,4 @@ class InlineDialogueMixin(DBClientMixinBase):
                             ON CONFLICT (user_id, message_id) DO
                             UPDATE SET timestamp=CURRENT_TIMESTAMP AT TIME ZONE 'UTC';"""
             )
-            connection.execute(stmt, user_id=user_id, message_id=message_id)
+            connection.execute(stmt, dict(user_id=user_id, message_id=message_id))

@@ -21,11 +21,13 @@ class AgePrefMixin(DBClientMixinBase):
             )
             connection.execute(
                 stmt,
-                user_id=user_id,
-                period_name=period.name,
-                period_set_date=datetime.datetime.now(),
-                period_min=period.min_age,
-                period_max=period.max_age,
+                dict(
+                    user_id=user_id,
+                    period_name=period.name,
+                    period_set_date=datetime.datetime.now(),
+                    period_min=period.min_age,
+                    period_max=period.max_age,
+                ),
             )
 
     def delete_age_preference(self, user_id: int, period: AgePeriod) -> None:
@@ -37,14 +39,16 @@ class AgePrefMixin(DBClientMixinBase):
             )
             connection.execute(
                 stmt,
-                user_id=user_id,
-                period_min=period.min_age,
-                period_max=period.max_age,
+                dict(
+                    user_id=user_id,
+                    period_min=period.min_age,
+                    period_max=period.max_age,
+                ),
             )
 
     def get_age_preferences(self, user_id: int) -> list[tuple[int, int]]:
         """Get user's age period preferences as (min_age, max_age) tuples."""
         with self.connect() as connection:
             stmt = sqlalchemy.text("""SELECT period_min, period_max FROM user_pref_age WHERE user_id=:user_id;""")
-            result = connection.execute(stmt, user_id=user_id)
+            result = connection.execute(stmt, dict(user_id=user_id))
             return result.fetchall()

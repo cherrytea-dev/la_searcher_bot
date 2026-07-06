@@ -25,7 +25,7 @@ class VKIdentityMixin(DBClientMixinBase):
                 WHERE vk_id = :vk_id
                 LIMIT 1;
             """)
-            result = connection.execute(stmt, vk_id=str(vk_id))
+            result = connection.execute(stmt, dict(vk_id=str(vk_id)))
             row = result.fetchone()
             return row[0] if row else None
 
@@ -40,7 +40,7 @@ class VKIdentityMixin(DBClientMixinBase):
                 WHERE user_id = :user_id
                 LIMIT 1;
             """)
-            result = connection.execute(stmt, user_id=user_id)
+            result = connection.execute(stmt, dict(user_id=user_id))
             row = result.fetchone()
             return row[0] if row else None
 
@@ -59,7 +59,7 @@ class VKIdentityMixin(DBClientMixinBase):
                 SET vk_id = :vk_id
                 WHERE user_id = :user_id;
             """)
-            result = connection.execute(stmt, user_id=telegram_user_id, vk_id=str(vk_id))
+            result = connection.execute(stmt, dict(user_id=telegram_user_id, vk_id=str(vk_id)))
             if result.rowcount == 0:
                 return False
 
@@ -104,7 +104,7 @@ class VKIdentityMixin(DBClientMixinBase):
                 WHERE messenger = 'vk' AND messenger_user_id = :user_id
                 LIMIT 1;
             """)
-            result = connection.execute(stmt, user_id=str(messenger_user_id))
+            result = connection.execute(stmt, dict(user_id=str(messenger_user_id)))
             row = result.fetchone()
             if row:
                 return SimpleNamespace(

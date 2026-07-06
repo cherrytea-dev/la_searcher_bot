@@ -114,7 +114,7 @@ class Archiver:
     def _delete_old_records(self) -> None:
         logging.info('Deleting old records')
 
-        with self.engine.connect() as conn:
+        with self.engine.begin() as conn:
             delete_query = text("""
                     DELETE FROM notif_by_user__history
                     WHERE 

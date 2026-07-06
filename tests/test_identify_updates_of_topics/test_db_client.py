@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from identify_updates_of_topics._utils.database import DBClient
@@ -146,12 +147,14 @@ class TestDBClient:
         db_client.write_comment(comment)
 
         # Only one record should exist
-        comments = (
-            session.query(db_models.Comment)
-            .filter(
-                db_models.Comment.comment_global_num == comment.comment_forum_global_id,
-                db_models.Comment.search_forum_num == comment.search_num,
+        comments = list(
+            session.execute(
+                select(db_models.Comment).filter(
+                    db_models.Comment.comment_global_num == comment.comment_forum_global_id,
+                    db_models.Comment.search_forum_num == comment.search_num,
+                )
             )
+            .scalars()
             .all()
         )
         assert len(comments) == 1

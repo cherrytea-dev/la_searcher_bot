@@ -33,9 +33,11 @@ def get_list_of_admins_and_testers(conn: Connection) -> tuple[list[int], list[in
     list_of_testers = []
 
     try:
-        user_roles = conn.execute("""
+        user_roles = conn.execute(
+            sqlalchemy.text("""
             SELECT user_id, role FROM user_roles;
-                                  """).fetchall()
+                                  """)
+        ).fetchall()
 
         for line in user_roles:
             if line[1] == 'admin':
@@ -54,11 +56,13 @@ def get_list_of_admins_and_testers(conn: Connection) -> tuple[list[int], list[in
 def call_self_if_need_compose_more(conn: Connection, function_id: int) -> None:
     """check if there are any notifications remained to be composed"""
 
-    check = conn.execute("""
+    check = conn.execute(
+        sqlalchemy.text("""
         SELECT 1 FROM change_log
         WHERE notification_sent is NULL
         OR notification_sent='s' LIMIT 1; 
-                         """).fetchall()
+                         """)
+    ).fetchall()
     if check:
         logging.info('we checked – there is still something to compose: re-initiating [compose_notification]')
         pubsub_compose_notifications(function_id, 're-run from same script')
@@ -86,7 +90,9 @@ def create_user_notifications_from_change_log_record(
         sqlalchemy.text("""
             UPDATE change_log SET notification_sent = 's' WHERE id = :a
         """),
-        a=new_record.change_log_id,
+        dict(
+            a=new_record.change_log_id,
+        ),
     )
     logging.info(f'change_log {new_record.change_log_id} marked as in-progress (s)')
 
@@ -119,7 +125,7 @@ def delete_ended_search_following(conn: Connection, new_record: LineInChangeLog)
             DELETE FROM user_pref_search_whitelist upswl 
             WHERE upswl.search_id=:forum_search_num
                                 """)
-        conn.execute(stmt, forum_search_num=new_record.forum_search_num)
+        conn.execute(stmt, dict(forum_search_num=new_record.forum_search_num))
         logging.info(
             f'Search id={new_record.forum_search_num} with status {new_record.status} is been deleted from user_pref_search_whitelist.'
         )
@@ -135,7 +141,7 @@ def main(event: dict, context: Ctx) -> None:
 
     try:
         pool = sqlalchemy_get_pool()
-        with pool.connect() as conn:
+        with pool.begin() as conn:
             with lock_manager(conn, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
                 # compose New Records List: the delta from Change log
                 new_record = LogRecordComposer(conn).get_line()

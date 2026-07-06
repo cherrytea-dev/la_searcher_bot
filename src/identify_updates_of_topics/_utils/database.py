@@ -35,18 +35,18 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
             # check if this record already exists
             stmt = sqlalchemy.text("""
                 SELECT search_id FROM search_places
-                WHERE search_id=:a AND address=:b;
+                WHERE search_id=:search_num AND address=:address;
                                    """)
-            prev_data = conn.execute(stmt, a=search_num, b=address_string).fetchone()
+            prev_data = conn.execute(stmt, dict(search_num=search_num, address=address_string)).fetchone()
 
             # if it's a new info
             if not prev_data:
                 stmt = sqlalchemy.text("""
                     INSERT INTO search_places 
                     (search_id, address, timestamp)
-                    VALUES (:a, :b, :c); 
+                    VALUES (:search_num, :address, :ts); 
                                        """)
-                conn.execute(stmt, a=search_num, b=address_string, c=datetime.now())
+                conn.execute(stmt, dict(search_num=search_num, address=address_string, ts=datetime.now()))
 
     def save_geolocation_in_psql(
         self, address_string: str, status: str, latitude: float, longitude: float, geocoder: str
@@ -57,13 +57,21 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 INSERT INTO geocoding (address, status, latitude, longitude, geocoder, timestamp) VALUES
-                (:a, :b, :c, :d, :e, :f)
+                (:address, :status, :latitude, :longitude, :geocoder, :ts)
                 ON CONFLICT(address) DO
                 UPDATE SET status=EXCLUDED.status, latitude=EXCLUDED.latitude, longitude=EXCLUDED.longitude,
                 geocoder=EXCLUDED.geocoder, timestamp=EXCLUDED.timestamp;
                                    """)
             conn.execute(
-                stmt, a=address_string, b=status, c=latitude, d=longitude, e=geocoder, f=datetime.now(timezone.utc)
+                stmt,
+                dict(
+                    address=address_string,
+                    status=status,
+                    latitude=latitude,
+                    longitude=longitude,
+                    geocoder=geocoder,
+                    ts=datetime.now(timezone.utc),
+                ),
             )
 
     def get_geolocation_form_psql(self, address_string: str) -> tuple[str | None, float, float, str]:
@@ -72,10 +80,10 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 SELECT address, status, latitude, longitude, geocoder 
-                FROM geocoding WHERE address=:a
+                FROM geocoding WHERE address=:address
                 ORDER BY id DESC LIMIT 1; 
                                    """)
-            saved_result = conn.execute(stmt, a=address_string).fetchone()
+            saved_result = conn.execute(stmt, dict(address=address_string)).fetchone()
 
         logging.info(f'{address_string=}, {saved_result=}')
 
@@ -97,10 +105,10 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                     UPDATE geocode_last_api_call 
-                    SET timestamp=:a AT TIME ZONE 'UTC' 
-                    WHERE geocoder=:b;
+                    SET timestamp=:ts AT TIME ZONE 'UTC' 
+                    WHERE geocoder=:geocoder;
                                        """)
-            conn.execute(stmt, a=datetime.now(timezone.utc), b=geocoder)
+            conn.execute(stmt, dict(ts=datetime.now(timezone.utc), geocoder=geocoder))
 
     def get_last_api_call_time_from_psql(self, geocoder: str) -> datetime | None:
         """Used to track time of the last api call to geocoders. Gets the last timestamp in UTC saved in psql"""
@@ -108,9 +116,9 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 SELECT timestamp FROM geocode_last_api_call 
-                WHERE geocoder=:a LIMIT 1;
+                WHERE geocoder=:geocoder LIMIT 1;
                                     """)
-            last_call = conn.execute(stmt, a=geocoder).fetchone()
+            last_call = conn.execute(stmt, dict(geocoder=geocoder)).fetchone()
             return last_call[0] if last_call else None
 
     def rewrite_snapshot_in_sql(self, line: SearchSummary) -> None:
@@ -126,28 +134,30 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                 INSERT INTO forum_summary_snapshot 
                     (search_forum_num, parsed_time, forum_search_title, search_start_time, num_of_replies, age, family_name, 
                     forum_folder_id, topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id)
-                VALUES (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p); 
+                VALUES (:topic_id, :parsed_time, :title, :start_time, :num_of_replies, :age, :name, :folder_id, :topic_type, :display_name, :age_min, :age_max, :status, :locations, :topic_type_id); 
                                        """)
             # FIXME – add status
-            conn.execute(sql_text_delete, topic_id=line.topic_id)
+            conn.execute(sql_text_delete, dict(topic_id=line.topic_id))
 
             conn.execute(
                 sql_text_insert,
-                a=line.topic_id,
-                b=line.parsed_time,
-                d=line.title,
-                e=line.start_time,
-                f=line.num_of_replies,
-                g=line.age,
-                h=line.name,
-                i=line.folder_id,
-                j=line.topic_type,
-                k=line.display_name,
-                l=line.age_min,
-                m=line.age_max,
-                n=line.new_status,
-                o=str(line.locations),
-                p=line.topic_type_id,
+                dict(
+                    topic_id=line.topic_id,
+                    parsed_time=line.parsed_time,
+                    title=line.title,
+                    start_time=line.start_time,
+                    num_of_replies=line.num_of_replies,
+                    age=line.age,
+                    name=line.name,
+                    folder_id=line.folder_id,
+                    topic_type=line.topic_type,
+                    display_name=line.display_name,
+                    age_min=line.age_min,
+                    age_max=line.age_max,
+                    status=line.new_status,
+                    locations=str(line.locations),
+                    topic_type_id=line.topic_type_id,
+                ),
             )
 
     def write_comment(self, comment_data: ForumCommentItem) -> None:
@@ -160,9 +170,13 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
             # producing the same comment. Check by global post ID.
             if comment_data.comment_forum_global_id is not None:
                 existing = conn.execute(
-                    sqlalchemy.text('SELECT id FROM comments WHERE comment_global_num = :g AND search_forum_num = :s'),
-                    g=str(comment_data.comment_forum_global_id),
-                    s=comment_data.search_num,
+                    sqlalchemy.text(
+                        'SELECT id FROM comments WHERE comment_global_num = :global_num AND search_forum_num = :search_num'
+                    ),
+                    dict(
+                        global_num=str(comment_data.comment_forum_global_id),
+                        search_num=comment_data.search_num,
+                    ),
                 ).fetchone()
                 if existing:
                     return
@@ -171,18 +185,20 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                 INSERT INTO comments
                     (comment_url, comment_text, comment_author_nickname,
                     comment_author_link, search_forum_num, comment_num, notification_sent, comment_global_num)
-                VALUES (:a, :b, :c, :d, :e, :f, :g, :h);
+                VALUES (:url, :text, :nickname, :author_link, :search_num, :comment_num, :notif_sent, :global_num);
                                     """)
             conn.execute(
                 stmt,
-                a=comment_data.comment_url,
-                b=comment_data.comment_text,
-                c=comment_data.comment_author_nickname,
-                d=comment_data.comment_author_link,
-                e=comment_data.search_num,
-                f=comment_data.comment_num,
-                g='n' if comment_data.ignore else None,
-                h=None if comment_data.ignore else comment_data.comment_forum_global_id,
+                dict(
+                    url=comment_data.comment_url,
+                    text=comment_data.comment_text,
+                    nickname=comment_data.comment_author_nickname,
+                    author_link=comment_data.comment_author_link,
+                    search_num=comment_data.search_num,
+                    comment_num=comment_data.comment_num,
+                    notif_sent='n' if comment_data.ignore else None,
+                    global_num=None if comment_data.ignore else comment_data.comment_forum_global_id,
+                ),
             )
 
     def update_coordinates_in_db(self, search_id: int, lat: float, lon: float, coord_type: CoordType) -> None:
@@ -190,9 +206,9 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
             stmt = sqlalchemy.text("""
                 SELECT latitude, longitude, coord_type
                 FROM search_coordinates
-                WHERE search_id=:a LIMIT 1;
+                WHERE search_id=:search_id LIMIT 1;
                                    """)
-            old_coords = conn.execute(stmt, a=search_id).fetchone()
+            old_coords = conn.execute(stmt, dict(search_id=search_id)).fetchone()
 
             current_coords_defined = bool(lat and lon)
 
@@ -200,9 +216,9 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                 stmt = sqlalchemy.text("""
                         INSERT INTO search_coordinates
                         (search_id, latitude, longitude, coord_type, upd_time)
-                        VALUES (:a, :b, :c, :d, CURRENT_TIMESTAMP);
+                        VALUES (:search_id, :lat, :lon, :coord_type, CURRENT_TIMESTAMP);
                                            """)
-                conn.execute(stmt, a=search_id, b=lat, c=lon, d=coord_type)
+                conn.execute(stmt, dict(search_id=search_id, lat=lat, lon=lon, coord_type=coord_type))
                 return
 
             if current_coords_defined and old_coords is not None:
@@ -223,10 +239,10 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                 if do_update:
                     stmt = sqlalchemy.text("""
                             UPDATE search_coordinates
-                            SET latitude=:a, longitude=:b, coord_type=:c, upd_time=CURRENT_TIMESTAMP
-                            WHERE search_id=:d;
+                            SET latitude=:lat, longitude=:lon, coord_type=:coord_type, upd_time=CURRENT_TIMESTAMP
+                            WHERE search_id=:search_id;
                                                """)
-                    conn.execute(stmt, a=lat, b=lon, c=coord_type, d=search_id)
+                    conn.execute(stmt, dict(lat=lat, lon=lon, coord_type=coord_type, search_id=search_id))
                     return
 
             # case when coords are not defined, but there were saved coords type 1 or 2 – so we need to mark as deleted
@@ -237,10 +253,10 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
             ):
                 stmt = sqlalchemy.text("""
                         UPDATE search_coordinates
-                        SET coord_type=:a, upd_time=CURRENT_TIMESTAMP
-                        WHERE search_id=:b;
+                        SET coord_type=:coord_type, upd_time=CURRENT_TIMESTAMP
+                        WHERE search_id=:search_id;
                                        """)
-                conn.execute(stmt, a=coord_type, b=search_id)
+                conn.execute(stmt, dict(coord_type=coord_type, search_id=search_id))
 
     def get_current_snapshot(self, search_forum_num: int) -> SearchSummary | None:
         sql_text = sqlalchemy.text("""
@@ -251,7 +267,7 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                 WHERE search_forum_num = :search_forum_num; 
                                 """)
         with self.connect() as conn:
-            rows = conn.execute(sql_text, search_forum_num=search_forum_num).fetchall()
+            rows = conn.execute(sql_text, dict(search_forum_num=search_forum_num)).fetchall()
             if not rows:
                 return None
             row = rows[0]
@@ -283,29 +299,32 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                 search_start_time, num_of_replies, age, family_name, forum_folder_id,
                 topic_type, display_name, age_min, age_max, status, city_locations, topic_type_id) 
             values
-                (:a, :b, :d, :e, :f, :g, :h, :i, :j, :k, :l, :m, :n, :o, :p)
+                (:topic_id, :parsed_time, :title, :start_time, :num_of_replies, :age, :name, :folder_id,
+                 :topic_type, :display_name, :age_min, :age_max, :status, :locations, :topic_type_id)
             RETURNING id; 
                             """)
         with self.connect() as conn:
             row = conn.execute(
                 stmt,
-                a=line.topic_id,
-                b=line.parsed_time,
-                d=line.title,
-                e=line.start_time,
-                f=line.num_of_replies,
-                g=line.age,
-                h=line.name,
-                i=line.folder_id,
-                j=line.topic_type,
-                k=line.display_name,
-                l=line.age_min,
-                m=line.age_max,
-                n=line.new_status,
-                o=str(line.locations),
-                p=line.topic_type_id,
-            ).fetchone()
-            return row[0]
+                dict(
+                    topic_id=line.topic_id,
+                    parsed_time=line.parsed_time,
+                    title=line.title,
+                    start_time=line.start_time,
+                    num_of_replies=line.num_of_replies,
+                    age=line.age,
+                    name=line.name,
+                    folder_id=line.folder_id,
+                    topic_type=line.topic_type,
+                    display_name=line.display_name,
+                    age_min=line.age_min,
+                    age_max=line.age_max,
+                    status=line.new_status,
+                    locations=str(line.locations),
+                    topic_type_id=line.topic_type_id,
+                ),
+            )
+            return row.scalar()
 
     def get_search_by_id(self, search_id: int) -> SearchSummary | None:
         with self.connect() as conn:
@@ -318,7 +337,7 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                 WHERE search_forum_num = :search_id;
                                     """)
 
-            rows = conn.execute(stmt, search_id=search_id).fetchall()
+            rows = conn.execute(stmt, dict(search_id=search_id)).fetchall()
             if not rows:
                 return None
 
@@ -348,20 +367,22 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
         stmt = sqlalchemy.text("""
             INSERT INTO change_log 
                 (parsed_time, search_forum_num, changed_field, new_value, parameters, change_type) 
-                values (:a, :b, :c, :d, :e, :f) 
+                values (:parsed_time, :topic_id, :changed_field, :new_value, :parameters, :change_type) 
             RETURNING id;
                             """)
         with self.connect() as conn:
             raw_data = conn.execute(
                 stmt,
-                a=line.parsed_time,
-                b=line.topic_id,
-                c=line.changed_field,
-                d=line.new_value,
-                e=line.parameters,
-                f=line.change_type,
-            ).fetchone()
-            return raw_data[0]
+                dict(
+                    parsed_time=line.parsed_time,
+                    topic_id=line.topic_id,
+                    changed_field=line.changed_field,
+                    new_value=line.new_value,
+                    parameters=line.parameters,
+                    change_type=line.change_type,
+                ),
+            )
+            return raw_data.scalar()
 
     def update_search_activities(self, search_num: int, search_activities: list[str]) -> None:
         logging.debug(f'DBG.P.103:Search activities: {search_activities}')
@@ -370,19 +391,27 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
         sql_text = sqlalchemy.text("""
             UPDATE search_activities 
             SET activity_status = 'deactivated' 
-            WHERE search_forum_num=:a; 
+            WHERE search_forum_num=:search_num; 
             """)
         with self.connect() as conn:
-            conn.execute(sql_text, a=search_num)
+            conn.execute(sql_text, dict(search_num=search_num))
 
             # add the latest activities for the search
             for activity_line in search_activities:
                 sql_text = sqlalchemy.text("""
                     INSERT INTO search_activities 
                     (search_forum_num, activity_type, activity_status, timestamp) 
-                    values ( :a, :b, :c, :d); 
+                    values ( :search_num, :activity_type, :activity_status, :ts); 
                                         """)
-                conn.execute(sql_text, a=search_num, b=activity_line, c='ongoing', d=datetime.now())
+                conn.execute(
+                    sql_text,
+                    dict(
+                        search_num=search_num,
+                        activity_type=activity_line,
+                        activity_status='ongoing',
+                        ts=datetime.now(),
+                    ),
+                )
 
     def update_search_managers(self, search_num: int, managers: list[str]) -> None:
         if not managers:
@@ -392,16 +421,24 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
             sql_text = sqlalchemy.text("""
                 INSERT INTO search_attributes 
                 (search_forum_num, attribute_name, attribute_value, timestamp) 
-                values ( :a, :b, :c, :d); 
+                values ( :search_num, :attribute_name, :attribute_value, :ts); 
                                     """)
-            conn.execute(sql_text, a=search_num, b='managers', c=str(managers), d=datetime.now())
+            conn.execute(
+                sql_text,
+                dict(
+                    search_num=search_num,
+                    attribute_name='managers',
+                    attribute_value=str(managers),
+                    ts=datetime.now(),
+                ),
+            )
 
     def delete_search(self, search_num: int) -> None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
-                DELETE FROM searches WHERE search_forum_num=:a;
+                DELETE FROM searches WHERE search_forum_num=:search_num;
                                    """)
-            conn.execute(stmt, a=int(search_num))
+            conn.execute(stmt, dict(search_num=int(search_num)))
 
     def get_folders_with_events_only(self) -> list[int]:
         with self.connect() as conn:

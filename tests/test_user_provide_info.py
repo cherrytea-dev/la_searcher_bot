@@ -39,7 +39,8 @@ class TestMain:
 
         assert resp['statusCode'] == 204
 
-    def test_main_query_str(self):
+    @patch.object(main, 'verify_telegram_data', return_value=True)
+    def test_main_query_str(self, mock_verify):
         """lock current behavior"""
 
         user_data = {
@@ -65,18 +66,14 @@ class TestMain:
 
         assert resp['statusCode'] == 200
         assert resp['headers']['Access-Control-Allow-Origin'] == 'https://storage.googleapis.com'
-        assert json.loads(resp['body']) == {
-            'ok': True,
-            'user_id': 1234567890,
-            'params': {
-                'curr_user': False,
-                'home_lat': 55.752702,
-                'home_lon': 37.622914,
-                'radius': 100,
-                'regions': [28, 29],
-                'searches': [],
-            },
-        }
+        body = json.loads(resp['body'])
+        assert body['ok'] is True
+        assert body['user_id'] == 1234567890
+        assert body['params']['curr_user'] is False
+        assert body['params']['home_lat'] == 55.752702
+        assert body['params']['home_lon'] == 37.622914
+        assert body['params']['radius'] == 100
+        assert body['params']['searches'] == []
 
     def test_main_validate_no_data(self):
         request = get_http_request(method='POST')

@@ -2,6 +2,7 @@ from datetime import datetime
 from random import randint
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
@@ -72,7 +73,9 @@ class TestSaveOnboardingStep:
         for step_name, timestamp in steps:
             save_onboarding_step(user_id, step_name)
 
-        saved_steps: list[UserOnboarding] = list(session.query(UserOnboarding).filter_by(user_id=user_id).all())
+        saved_steps: list[UserOnboarding] = list(
+            session.execute(select(UserOnboarding).filter_by(user_id=user_id)).scalars().all()
+        )
         assert len(saved_steps) == 3
 
         for i, (step_name, timestamp_) in enumerate(steps):
@@ -85,6 +88,7 @@ class TestSaveNewUser:
         timestamp = datetime.now()
 
         _save_new_user(connection, user_id, username, timestamp, Messenger.TELEGRAM)
+        connection.commit()
 
         user = find_model(session, User, user_id=user_id)
         assert user is not None
@@ -102,6 +106,7 @@ class TestSaveNewUser:
         timestamp = datetime.now()
 
         _save_new_user(connection, user_id, username, timestamp, Messenger.TELEGRAM)
+        connection.commit()
 
         user = find_model(session, User, user_id=user_id)
         assert user is not None
@@ -118,9 +123,10 @@ class TestSaveNewUser:
 
         # Try to save the same user again
         _save_new_user(connection, user_id, username, timestamp, Messenger.TELEGRAM)
+        connection.commit()
 
         # Check that no new user was created
-        users: list[User] = list(session.query(User).filter_by(user_id=user_id).all())
+        users: list[User] = list(session.execute(select(User).filter_by(user_id=user_id)).scalars().all())
         assert len(users) == 1
         assert users[0].username_telegram == username
         assert users[0].reg_date == timestamp
@@ -135,6 +141,7 @@ class TestSaveNewUser:
 class TestSaveDefaultNotifSettings:
     def test_save_default_notif_settings(self, user_id: int, connection: Connection, session: Session):
         _save_default_notif_settings(connection, user_id)
+        connection.commit()
 
         user_pref_bot_news = find_model(session, UserPreference, user_id=user_id, preference='bot_news')
         assert user_pref_bot_news is not None

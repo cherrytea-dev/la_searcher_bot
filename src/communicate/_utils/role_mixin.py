@@ -32,7 +32,7 @@ class TelegramRoleMixin(DBClientMixinBase):
 
         with self.connect() as connection:
             stmt = sqlalchemy.text("""UPDATE users SET role=:role where user_id=:user_id;""")
-            connection.execute(stmt, role=role, user_id=user_id)
+            connection.execute(stmt, dict(role=role, user_id=user_id))
             logging.info(f'[comm]: user {user_id} selected role {role}')
             return role
 
@@ -46,9 +46,11 @@ class TelegramRoleMixin(DBClientMixinBase):
             )
             connection.execute(
                 stmt,
-                user_id=user_id,
-                type_id=pref_type_id,
-                timestamp=datetime.datetime.now(),
+                dict(
+                    user_id=user_id,
+                    type_id=pref_type_id,
+                    timestamp=datetime.datetime.now(),
+                ),
             )
 
     def save_user_pref_topic_type(self, user_id: int, user_role: str | None) -> None:

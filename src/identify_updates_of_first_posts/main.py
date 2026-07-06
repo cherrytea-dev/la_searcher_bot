@@ -127,10 +127,10 @@ def _search_status_is_active(conn: sqlalchemy.engine.Connection, search_id: int)
 def _get_search_status(conn: sqlalchemy.engine.Connection, search_id: int) -> str | None:
     sql_text = sqlalchemy.text("""
         SELECT display_name, status, family_name, age, status
-        FROM searches WHERE search_forum_num=:a;
+        FROM searches WHERE search_forum_num=:search_id;
                                """)
 
-    what_is_saved_in_psql = conn.execute(sql_text, a=search_id).fetchone()
+    what_is_saved_in_psql = conn.execute(sql_text, dict(search_id=search_id)).fetchone()
     return what_is_saved_in_psql[1] if what_is_saved_in_psql else None
 
 
@@ -160,15 +160,22 @@ def save_new_record_into_change_log(
 
     stmt = sqlalchemy.text("""
         INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, change_type)
-        values (:a, :b, :c, :d, :e) 
+        values (:ts, :search_id, :changed_field, :new_value, :change_type) 
         RETURNING id;
                            """)
 
-    raw_data = conn.execute(
-        stmt, a=datetime.datetime.now(), b=search_id, c=changed_field, d=new_value, e=change_type
-    ).fetchone()
-    change_log_id = raw_data[0]
+    change_log_id = conn.execute(
+        stmt,
+        dict(
+            ts=datetime.datetime.now(),
+            search_id=search_id,
+            changed_field=changed_field,
+            new_value=new_value,
+            change_type=change_type,
+        ),
+    ).scalar()
 
+    assert change_log_id is not None, f'Failed to insert change_log for search {search_id}'
     return change_log_id
 
 
@@ -251,9 +258,9 @@ def _get_actual_and_previous_page_content(conn: sqlalchemy.engine.Connection, se
     sql_text = sqlalchemy.text("""
         SELECT content, content_compact 
         FROM search_first_posts 
-        WHERE search_id=:a AND actual = True;
+        WHERE search_id=:search_id AND actual = True;
                     """)
-    raw_data = conn.execute(sql_text, a=search_id).fetchone()
+    raw_data = conn.execute(sql_text, dict(search_id=search_id)).fetchone()
     if not raw_data:
         logging.error(f'No actual content for first post of search {search_id}')
         return '', ''
@@ -267,19 +274,19 @@ def _get_actual_and_previous_page_content(conn: sqlalchemy.engine.Connection, se
         content_compact = get_compressed_first_post(first_page_content_curr)
         sql_text = sqlalchemy.text("""
             UPDATE search_first_posts 
-            SET content_compact=:a
-            WHERE search_id=:b AND actual = True;
+            SET content_compact=:content_compact
+            WHERE search_id=:search_id AND actual = True;
                                         """)
-        conn.execute(sql_text, a=content_compact, b=search_id)
+        conn.execute(sql_text, dict(content_compact=content_compact, search_id=search_id))
 
     # get the Previous First Page Content
     sql_text = sqlalchemy.text("""
         SELECT content
         FROM search_first_posts
-        WHERE search_id=:a AND actual=False
+        WHERE search_id=:search_id AND actual=False
         ORDER BY timestamp DESC;
                                    """)
-    raw_data = conn.execute(sql_text, a=search_id).fetchone()
+    raw_data = conn.execute(sql_text, dict(search_id=search_id)).fetchone()
     if not raw_data:
         logging.error(f'No previous content for first post of search {search_id}')
         return '', ''
@@ -310,7 +317,7 @@ def main(event: dict, context: Ctx) -> str:  # noqa
         return 'ok'
 
     pool = sqlalchemy_get_pool()
-    with pool.connect() as conn:
+    with pool.begin() as conn:
         change_log_ids: list[int] = []
         for search_id in list_of_updated_searches:
             _process_one_update(change_log_ids, conn, search_id)

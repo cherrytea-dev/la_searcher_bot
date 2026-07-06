@@ -68,7 +68,7 @@ def _fetch_active_searches(ctx: VKHandlerContext) -> list[dict]:
             ORDER BY s.search_start_time DESC
             LIMIT 50
         """)
-        result = conn.execute(stmt, folder_ids=tuple(folder_ids), cutoff=sixty_days_ago)
+        result = conn.execute(stmt, dict(folder_ids=tuple(folder_ids), cutoff=sixty_days_ago))
         rows = result.fetchall()
 
     return [
@@ -108,7 +108,7 @@ def _fetch_latest_searches(ctx: VKHandlerContext) -> list[dict]:
             ORDER BY s.search_start_time DESC
             LIMIT 20
         """)
-        result = conn.execute(stmt, folder_ids=tuple(folder_ids))
+        result = conn.execute(stmt, dict(folder_ids=tuple(folder_ids)))
         rows = result.fetchall()
 
     return [
@@ -136,7 +136,7 @@ def _get_user_followed_ids(ctx: VKHandlerContext) -> set[int]:
                 FROM user_pref_search_whitelist
                 WHERE user_id = :user_id
             """)
-            result = conn.execute(stmt, user_id=ctx.user_id)
+            result = conn.execute(stmt, dict(user_id=ctx.user_id))
             for row in result:
                 if row[1] in (SearchFollowingMode.ON, SearchFollowingMode.OFF):
                     followed.add(row[0])
@@ -311,7 +311,7 @@ def handle_follow_show(ctx: VKHandlerContext) -> None:
             WHERE search_forum_num IN :ids
             ORDER BY search_start_time DESC
         """)
-        result = conn.execute(stmt, ids=tuple(followed_ids))
+        result = conn.execute(stmt, dict(ids=tuple(followed_ids)))
         rows = result.fetchall()
 
     lines = ['👀 Отслеживаемые поиски:', '']
@@ -352,7 +352,7 @@ def handle_follow_unfollow_command(ctx: VKHandlerContext) -> None:
 
     with ctx.db.connect() as conn:
         stmt = sa.text('SELECT search_forum_num FROM searches WHERE search_forum_num = :sid')
-        result = conn.execute(stmt, sid=topic_id)
+        result = conn.execute(stmt, dict(sid=topic_id))
         if not result.fetchone():
             ctx.reply(
                 text=f'Поиск #{topic_id} не найден. Проверьте номер.',
@@ -367,7 +367,7 @@ def handle_follow_unfollow_command(ctx: VKHandlerContext) -> None:
                 SELECT search_following_mode FROM user_pref_search_whitelist
                 WHERE user_id = :user_id AND search_id = :sid
             """)
-            result = conn.execute(stmt, user_id=ctx.user_id, sid=topic_id)
+            result = conn.execute(stmt, dict(user_id=ctx.user_id, sid=topic_id))
             row = result.fetchone()
             if row:
                 current_mode = row[0]

@@ -46,7 +46,7 @@ def connection_pool() -> Engine:
 
 @pytest.fixture()
 def connection(connection_pool: Engine) -> Connection:
-    with connection_pool.connect() as conn:
+    with connection_pool.begin() as conn:
         yield conn
 
 

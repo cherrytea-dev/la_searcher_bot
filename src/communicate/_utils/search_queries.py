@@ -41,9 +41,11 @@ def get_active_searches_in_region_limit_20(
 
     result = connection.execute(
         stmt,
-        region=region,
-        user_id=user_id,
-        search_follow_on=SearchFollowingMode.ON,
+        dict(
+            region=region,
+            user_id=user_id,
+            search_follow_on=SearchFollowingMode.ON,
+        ),
     )
     return [
         SearchSummary(
@@ -99,9 +101,11 @@ def get_all_last_searches_in_region_limit_20(
     stmt = sqlalchemy.text(sql_text)
     result = connection.execute(
         stmt,
-        region=region,
-        user_id=user_id,
-        search_follow_on=SearchFollowingMode.ON,
+        dict(
+            region=region,
+            user_id=user_id,
+            search_follow_on=SearchFollowingMode.ON,
+        ),
     )
     return [
         SearchSummary(
@@ -132,7 +136,7 @@ def get_active_searches_in_one_region(connection: sqlalchemy.engine.Connection, 
         WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
         ORDER BY s2.search_start_time DESC;""")
 
-    result = connection.execute(stmt, region=region)
+    result = connection.execute(stmt, dict(region=region))
     return [
         SearchSummary(
             topic_id=row[0],
@@ -164,7 +168,7 @@ def get_all_searches_in_one_region_limit_20(
         WHERE (shc.status is NULL or shc.status='ok' or shc.status='regular') 
         ORDER BY s2.search_start_time DESC;""")
 
-    result = connection.execute(stmt, region=region)
+    result = connection.execute(stmt, dict(region=region))
     return [
         SearchSummary(
             topic_id=row[0],

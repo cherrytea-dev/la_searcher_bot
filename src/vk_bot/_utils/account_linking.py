@@ -42,10 +42,11 @@ def register_vk_only_user(vk_user_id: int, vk_user_name: str | None = None) -> i
     """
 
     pool = sqlalchemy_get_pool()
-    with pool.connect() as conn:
+    with pool.begin() as conn:
         # 1. Generate a new internal_user_id from the users sequence
         result = conn.execute(sqlalchemy.text("SELECT nextval('users_id_seq'::regclass)"))
         internal_user_id = result.scalar()
+        assert internal_user_id is not None, 'Failed to generate next user ID from sequence'
 
         # 2. Create record in users table
         #    Use internal_user_id as user_id (no telegram id available)

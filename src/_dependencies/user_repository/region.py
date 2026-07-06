@@ -14,7 +14,7 @@ class RegionMixin(DBClientMixinBase):
         """Get list of forum folder IDs the user is subscribed to."""
         with self.connect() as connection:
             stmt = sqlalchemy.text("""SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=:user_id;""")
-            result = connection.execute(stmt, user_id=user_id)
+            result = connection.execute(stmt, dict(user_id=user_id))
             return [reg[0] for reg in result.fetchall()]
 
     def add_region(self, user_id: int, forum_folder_num: int) -> None:
@@ -24,7 +24,7 @@ class RegionMixin(DBClientMixinBase):
                 """INSERT INTO user_regional_preferences (user_id, forum_folder_num)
                    VALUES (:user_id, :region);"""
             )
-            connection.execute(stmt, user_id=user_id, region=forum_folder_num)
+            connection.execute(stmt, dict(user_id=user_id, region=forum_folder_num))
 
     def remove_region(self, user_id: int, forum_folder_num: int) -> None:
         """Unsubscribe user from a region (forum folder)."""
@@ -33,13 +33,13 @@ class RegionMixin(DBClientMixinBase):
                 """DELETE FROM user_regional_preferences
                    WHERE user_id=:user_id and forum_folder_num=:region;"""
             )
-            connection.execute(stmt, user_id=user_id, region=forum_folder_num)
+            connection.execute(stmt, dict(user_id=user_id, region=forum_folder_num))
 
     def check_if_user_has_no_regions(self, user_id: int) -> bool:
         """Check if user has at least one region subscribed."""
         with self.connect() as connection:
             stmt = sqlalchemy.text("""SELECT user_id FROM user_regional_preferences WHERE user_id=:user_id LIMIT 1;""")
-            result = connection.execute(stmt, user_id=user_id)
+            result = connection.execute(stmt, dict(user_id=user_id))
             return result.fetchone() is None
 
     def add_user_region_setting(self, user_id: int, region_id: int) -> None:
@@ -55,9 +55,11 @@ class RegionMixin(DBClientMixinBase):
             )
             connection.execute(
                 stmt,
-                user_id=user_id,
-                region_id=region_id,
-                timestamp=datetime.datetime.now(),
+                dict(
+                    user_id=user_id,
+                    region_id=region_id,
+                    timestamp=datetime.datetime.now(),
+                ),
             )
 
     def get_geo_folders(self) -> list[tuple[int, str]]:
