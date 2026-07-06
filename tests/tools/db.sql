@@ -653,6 +653,9 @@ CREATE TABLE notif_by_user__history (
 	messenger varchar(20) DEFAULT 'telegram'::character varying NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS idx_notif_by_user__history_created_message_id
+	ON notif_by_user__history (created, message_id);
+
 
 -- public.notif_stat_sending_speed определение
 

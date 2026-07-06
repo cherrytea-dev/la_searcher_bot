@@ -61,3 +61,23 @@ class TestArchiveNotifications:
             with patch('boto3.session'):
                 archiver._move_to_s3(file.name)
                 pass
+
+    @patch('archive_to_bigquery.main.BATCH_SIZE', 2)
+    def test_batch_unload(self, archiver: Archiver):
+        """unload more records than batch size — verifies keyset pagination"""
+        import csv
+
+        batch_override = 2
+        records_count = batch_override * 2 + 1  # 5 records, 3 batches
+
+        NotifByUserHistoryFactory.create_batch_sync(records_count, created=archiver.archive_date)
+
+        unload_file_name = archiver._unload_records_to_csv()
+
+        assert unload_file_name is not None
+
+        with open(unload_file_name) as f:
+            reader = csv.reader(f)
+            rows = list(reader)
+
+        assert len(rows) == 1 + records_count  # header + data

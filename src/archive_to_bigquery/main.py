@@ -20,6 +20,7 @@ setup_logging(__package__)
 
 DAYS_AGO_TO_START = 40  # temporarily increase
 DAYS_AGO_TO_FINISH = 1  # at least 1 day ago to avoid timezone problems
+BATCH_SIZE = 10_000  # rows per paginated query (keeps memory < 100 MB per iteration)
 
 
 @dataclass
@@ -56,41 +57,59 @@ class Archiver:
         return self.archive_date + timedelta(days=1)
 
     def _unload_records_to_csv(self) -> str | None:
-        """returns False if no records to unload"""
+        """returns None if no records to unload"""
 
-        logging.info('Fetching records to archive')
+        logging.info('Fetching records to archive in batches')
+
+        paginated_query = text("""
+            SELECT * FROM notif_by_user__history
+            WHERE
+                created >= :date_from
+                AND created < :date_to
+                AND (:last_message_id IS NULL OR message_id > :last_message_id)
+            ORDER BY message_id
+            LIMIT :limit
+        """)
+
+        params = {
+            'date_from': self._date_from,
+            'date_to': self._date_to,
+            'limit': BATCH_SIZE,
+        }
+
+        total_count = 0
+        last_message_id: int | None = None
+        temp_file_name: str | None = None
 
         with self.engine.connect() as conn:
-            # Use raw SQL to export data to CSV
-            query = text("""
-                    SELECT * FROM notif_by_user__history
-                    WHERE 
-                        created >= :date_from
-                        AND created < :date_to
-            """)
-
-            result = conn.execute(
-                query,
-                {
-                    'date_from': self._date_from,
-                    'date_to': self._date_to,
-                },
-            )
-
-            logging.info(f'records to archive: {result.rowcount}')
-
-            if not result.rowcount:
-                return None
-
             with NamedTemporaryFile('w', delete=False) as f:
-                writer = csv.writer(f)
-                columns = (desc[0] for desc in result.cursor.description)
-                writer.writerow(columns)
-                writer.writerows(result)
+                writer = None
 
-        logging.info(f'records unloaded to temp file {f.name}')
+                while True:
+                    result = conn.execute(paginated_query, params | {'last_message_id': last_message_id})
+                    rows = result.fetchall()
 
-        return f.name
+                    if not rows:
+                        break
+
+                    if writer is None:
+                        columns = list(result.keys())
+                        writer = csv.writer(f)
+                        writer.writerow(columns)
+
+                    writer.writerows(rows)
+                    total_count += len(rows)
+                    last_message_id = rows[-1].message_id
+
+                temp_file_name = f.name
+
+        if total_count == 0:
+            return None
+
+        logging.info(f'records to archive: {total_count}')
+        logging.info(f'records unloaded to temp file {temp_file_name}')
+
+        return temp_file_name
 
     def _move_to_s3(self, temp_file_name: str) -> None:
         result_file_name = self._unload_file_name + '.zip'
