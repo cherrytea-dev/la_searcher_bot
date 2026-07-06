@@ -10,10 +10,8 @@ Modes:
   list-groups  List available log groups in a YC folder.
   raw          Raw JSON dump for programmatic use.
 
-Auth (priority):
-  1. YC_IAM_TOKEN env var
-  2. YC_LOG_INSPECTOR_SA_JSON env var
-  3. YC metadata service (inside VMs / Cloud Functions)
+Auth:
+  YC_IAM_TOKEN env var (obtain via: yc iam create-token)
 
 Usage:
   uv run python tools/log_inspector/main.py top-errors <log-group-id> --hours 24 --top 10
@@ -29,7 +27,7 @@ from datetime import datetime, timedelta, timezone
 import click
 
 from tools.log_inspector._utils.analytics import group_errors
-from tools.log_inspector._utils.yc_logging import YCLoggingClient
+from tools.log_inspector._utils.yc_logging import AuthError, YCLoggingClient
 
 _COLORS = {
     'ERROR': 'red',
@@ -155,7 +153,7 @@ def raw(log_group_id: str, hours: int, level: str) -> None:
 def _make_client() -> YCLoggingClient:
     try:
         return YCLoggingClient()
-    except RuntimeError as exc:
+    except AuthError as exc:
         click.secho(f'💥 Auth error: {exc}', fg='red', err=True)
         sys.exit(1)
 

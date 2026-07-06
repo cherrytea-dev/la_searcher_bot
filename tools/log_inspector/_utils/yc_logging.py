@@ -1,82 +1,55 @@
 """YC Logging REST API client.
 
-Auth priority: YC_IAM_TOKEN → YC_LOG_INSPECTOR_SA_JSON → metadata service.
+Uses YC_IAM_TOKEN environment variable for authentication.
 """
 
-import json
+import logging
 import os
-import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import httpx
-import jwt
 
-YC_IAM_TOKEN_URL = 'https://iam.api.cloud.yandex.net/iam/v1/tokens'
+logger = logging.getLogger(__name__)
+
 YC_LOGGING_BASE_URL = 'https://api.logging.yandexcloud.net/logging/v1'
-METADATA_TOKEN_URL = 'http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token'
 
 
-def _make_jwt(sa_key: dict) -> str:
-    """Create a signed JWT using a Yandex Cloud service account key."""
-    now = int(time.time())
-    payload = {
-        'aud': YC_IAM_TOKEN_URL,
-        'iss': sa_key['service_account_id'],
-        'iat': now,
-        'exp': now + 3600,
-    }
-    headers = {'kid': sa_key['id'], 'typ': 'JWT'}
-    return jwt.encode(payload, sa_key['private_key'], algorithm='PS256', headers=headers)
+class AuthError(RuntimeError):
+    """Authentication-related errors."""
 
 
-def _token_from_sa_json(sa_json_str: str) -> str:
-    """Exchange service account key JSON for an IAM token."""
-    sa_key = json.loads(sa_json_str)
-    jwt_token = _make_jwt(sa_key)
-    resp = httpx.post(YC_IAM_TOKEN_URL, json={'jwt': jwt_token}, timeout=10)
-    resp.raise_for_status()
-    return resp.json()['iamToken']
+class IamTokenAuth:
+    """Provides an IAM token from the YC_IAM_TOKEN environment variable.
 
-
-def _token_from_metadata() -> str | None:
-    """Try to get IAM token from YC metadata service (inside VM/Function)."""
-    try:
-        resp = httpx.get(
-            METADATA_TOKEN_URL,
-            headers={'Metadata-Flavor': 'Google'},
-            timeout=5,
-        )
-        resp.raise_for_status()
-        return resp.json()['access_token']
-    except Exception:
-        return None
-
-
-def get_iam_token() -> str:
-    """Resolve IAM token from available sources.
-
-    Priority:
-      1. YC_IAM_TOKEN env var (ready-to-use token)
-      2. YC_LOG_INSPECTOR_SA_JSON env var (service account key JSON)
-      3. YC metadata service (inside Yandex Cloud VMs/Functions)
+    Caches the token and handles refresh on expiry.
     """
-    # 1. Direct IAM token
-    token = os.environ.get('YC_IAM_TOKEN')
-    if token:
-        return token
 
-    # 2. Service account JSON key
-    sa_json = os.environ.get('YC_LOG_INSPECTOR_SA_JSON')
-    if sa_json:
-        return _token_from_sa_json(sa_json)
+    def __init__(self) -> None:
+        self._token: str | None = None
+        self._expiry: datetime | None = None
 
-    # 3. Metadata service
-    token = _token_from_metadata()
-    if token:
-        return token
+    def get_token(self) -> str:
+        """Return a valid IAM token, reading from env var if needed."""
+        if self._token and self._expiry and datetime.now(timezone.utc) < self._expiry:
+            return self._token
 
-    raise RuntimeError('No auth method available. Set YC_LOG_INSPECTOR_SA_JSON or YC_IAM_TOKEN.')
+        token = os.environ.get('YC_IAM_TOKEN')
+        if not token:
+            raise AuthError(
+                'YC_IAM_TOKEN environment variable is not set. ' 'Obtain a token via YC CLI: yc iam create-token'
+            )
+
+        self._token = token
+        # IAM tokens are valid for 12h, refresh after 11h
+        self._expiry = datetime.now(timezone.utc) + timedelta(hours=11)
+        return self._token
+
+    def invalidate(self) -> None:
+        """Force token refresh on next call."""
+        self._token = None
+        self._expiry = None
 
 
 @dataclass
@@ -87,21 +60,49 @@ class LogGroup:
 
 
 class YCLoggingClient:
-    """YC Logging REST API client."""
+    """YC Logging REST API client.
 
-    def __init__(self, iam_token: str | None = None) -> None:
-        self._token = iam_token or get_iam_token()
-        self._client = httpx.Client(headers={'Authorization': f'Bearer {self._token}'})
+    Uses IamTokenAuth for authentication via the YC_IAM_TOKEN env var.
+    """
+
+    def __init__(self, auth: IamTokenAuth | None = None) -> None:
+        self._auth = auth or IamTokenAuth()
+        self._token: str | None = None
+        self._http = httpx.Client(timeout=30.0)
+
+    # ── Internal HTTP ───────────────────────────────────────────────
+
+    def _ensure_headers(self) -> dict[str, str]:
+        """Return auth headers, fetching/refreshing token as needed."""
+        token = self._auth.get_token()
+        return {'Authorization': f'Bearer {token}'}
+
+    def _request(self, method: str, url: str, **kwargs: Any) -> Any:
+        """Make an authenticated request with automatic token refresh on 401."""
+        headers = self._ensure_headers()
+        headers.update(kwargs.pop('headers', {}))
+
+        resp = self._http.request(method, url, headers=headers, **kwargs)
+
+        if resp.status_code == 401:
+            # Token expired, force refresh and retry once
+            self._auth.invalidate()
+            headers = self._ensure_headers()
+            headers.update(kwargs.pop('headers', {}))
+            resp = self._http.request(method, url, headers=headers, **kwargs)
+
+        resp.raise_for_status()
+        return resp.json()
+
+    # ── API Methods ─────────────────────────────────────────────────
 
     def list_log_groups(self, folder_id: str) -> list[LogGroup]:
         """List available log groups in a YC folder."""
-        resp = self._client.get(
+        data = self._request(
+            'GET',
             f'{YC_LOGGING_BASE_URL}/logGroups',
             params={'folderId': folder_id},
-            timeout=30,
         )
-        resp.raise_for_status()
-        data = resp.json()
         return [
             LogGroup(
                 id=g['id'],
@@ -121,14 +122,14 @@ class YCLoggingClient:
         to_time: datetime | None = None,
         page_size: int = 100,
         page_token: str | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Read a single page of log entries.
 
         Returns dict with 'entries' and optional 'next_page_token'.
         """
-        body: dict = {'page_size': page_size}
+        body: dict[str, Any] = {'page_size': page_size}
 
-        criteria: dict = {}
+        criteria: dict[str, Any] = {}
         if levels:
             criteria['levels'] = levels
         if filter_str:
@@ -143,13 +144,11 @@ class YCLoggingClient:
         if page_token:
             body['page_token'] = page_token
 
-        resp = self._client.post(
+        return self._request(
+            'POST',
             f'{YC_LOGGING_BASE_URL}/logGroupId/{log_group_id}/entries:read',
             json=body,
-            timeout=120,
         )
-        resp.raise_for_status()
-        return resp.json()
 
     def read_all_logs(
         self,
@@ -160,9 +159,9 @@ class YCLoggingClient:
         from_time: datetime | None = None,
         to_time: datetime | None = None,
         max_pages: int = 50,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Read all matching log entries (auto-paginated)."""
-        entries: list[dict] = []
+        entries: list[dict[str, Any]] = []
         page_token: str | None = None
         pages = 0
 
@@ -184,3 +183,7 @@ class YCLoggingClient:
                 break
 
         return entries
+
+    def close(self) -> None:
+        """Close the underlying HTTP client."""
+        self._http.close()
