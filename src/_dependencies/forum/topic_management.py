@@ -26,7 +26,17 @@ def save_status_for_topic(conn: sqlalchemy.engine.Connection, topic_id: int, sta
             INSERT INTO change_log (parsed_time, search_forum_num, changed_field, new_value, parameters,
             change_type) values (:ts, :topic_id, :changed_field, :new_value, :params, :change_type) RETURNING id;
                             """)
-    raw_data = conn.execute(stmt, dict(ts=datetime.datetime.now(), topic_id=topic_id, changed_field='status_change', new_value=status, params='', change_type=1))
+    raw_data = conn.execute(
+        stmt,
+        dict(
+            ts=datetime.datetime.now(),
+            topic_id=topic_id,
+            changed_field='status_change',
+            new_value=status,
+            params='',
+            change_type=1,
+        ),
+    )
 
     change_log_id = raw_data.scalar()
     logging.info(f'{change_log_id=}')

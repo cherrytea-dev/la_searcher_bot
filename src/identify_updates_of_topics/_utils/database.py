@@ -64,7 +64,14 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                                    """)
             conn.execute(
                 stmt,
-                dict(address=address_string, status=status, latitude=latitude, longitude=longitude, geocoder=geocoder, ts=datetime.now(timezone.utc)),
+                dict(
+                    address=address_string,
+                    status=status,
+                    latitude=latitude,
+                    longitude=longitude,
+                    geocoder=geocoder,
+                    ts=datetime.now(timezone.utc),
+                ),
             )
 
     def get_geolocation_form_psql(self, address_string: str) -> tuple[str | None, float, float, str]:
@@ -163,7 +170,9 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
             # producing the same comment. Check by global post ID.
             if comment_data.comment_forum_global_id is not None:
                 existing = conn.execute(
-                    sqlalchemy.text('SELECT id FROM comments WHERE comment_global_num = :global_num AND search_forum_num = :search_num'),
+                    sqlalchemy.text(
+                        'SELECT id FROM comments WHERE comment_global_num = :global_num AND search_forum_num = :search_num'
+                    ),
                     dict(
                         global_num=str(comment_data.comment_forum_global_id),
                         search_num=comment_data.search_num,
@@ -394,7 +403,15 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                     (search_forum_num, activity_type, activity_status, timestamp) 
                     values ( :search_num, :activity_type, :activity_status, :ts); 
                                         """)
-                conn.execute(sql_text, dict(search_num=search_num, activity_type=activity_line, activity_status='ongoing', ts=datetime.now()))
+                conn.execute(
+                    sql_text,
+                    dict(
+                        search_num=search_num,
+                        activity_type=activity_line,
+                        activity_status='ongoing',
+                        ts=datetime.now(),
+                    ),
+                )
 
     def update_search_managers(self, search_num: int, managers: list[str]) -> None:
         if not managers:
@@ -406,7 +423,15 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                 (search_forum_num, attribute_name, attribute_value, timestamp) 
                 values ( :search_num, :attribute_name, :attribute_value, :ts); 
                                     """)
-            conn.execute(sql_text, dict(search_num=search_num, attribute_name='managers', attribute_value=str(managers), ts=datetime.now()))
+            conn.execute(
+                sql_text,
+                dict(
+                    search_num=search_num,
+                    attribute_name='managers',
+                    attribute_value=str(managers),
+                    ts=datetime.now(),
+                ),
+            )
 
     def delete_search(self, search_num: int) -> None:
         with self.connect() as conn:

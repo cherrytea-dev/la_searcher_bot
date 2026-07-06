@@ -87,7 +87,16 @@ class DBClient:
                 (search_id, timestamp, actual, content_hash, content, num_of_checks)
                 VALUES (:topic_id, :ts, TRUE, :hash_val, :content, :num_checks);
                                     """)
-            conn.execute(stmt, dict(topic_id=topic_id, ts=datetime.datetime.now(), hash_val=act_hash, content=act_content, num_checks=1))
+            conn.execute(
+                stmt,
+                dict(
+                    topic_id=topic_id,
+                    ts=datetime.datetime.now(),
+                    hash_val=act_hash,
+                    content=act_content,
+                    num_checks=1,
+                ),
+            )
 
     def mark_search_first_post_as_not_actual(self, topic_id: int) -> None:
         with self.connect() as conn:
@@ -121,7 +130,13 @@ class DBClient:
                                    """)
             conn.execute(
                 stmt,
-                dict(topic_id=item.topic_id, published_at=item.published_at, updated_at=item.updated_at, url=item.item_id, content=item.content),
+                dict(
+                    topic_id=item.topic_id,
+                    published_at=item.published_at,
+                    updated_at=item.updated_at,
+                    url=item.item_id,
+                    content=item.content,
+                ),
             )
 
     def get_rss_item(self, item_id: str) -> RSSItem | None:

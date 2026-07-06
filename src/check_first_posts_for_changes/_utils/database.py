@@ -80,7 +80,16 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                 (search_id, timestamp, actual, content_hash, content, num_of_checks)
                 VALUES (:topic_id, :ts, TRUE, :hash_val, :content, :num_checks);
                                     """)
-            conn.execute(stmt, dict(topic_id=topic_id, ts=datetime.datetime.now(), hash_val=act_hash, content=act_content, num_checks=1))
+            conn.execute(
+                stmt,
+                dict(
+                    topic_id=topic_id,
+                    ts=datetime.datetime.now(),
+                    hash_val=act_hash,
+                    content=act_content,
+                    num_checks=1,
+                ),
+            )
 
     def mark_search_first_post_as_not_actual(self, topic_id: int) -> None:
         with self.connect() as conn:

@@ -165,7 +165,14 @@ def save_new_record_into_change_log(
                            """)
 
     change_log_id = conn.execute(
-        stmt, dict(ts=datetime.datetime.now(), search_id=search_id, changed_field=changed_field, new_value=new_value, change_type=change_type)
+        stmt,
+        dict(
+            ts=datetime.datetime.now(),
+            search_id=search_id,
+            changed_field=changed_field,
+            new_value=new_value,
+            change_type=change_type,
+        ),
     ).scalar()
 
     return change_log_id
