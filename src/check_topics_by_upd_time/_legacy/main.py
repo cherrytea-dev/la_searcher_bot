@@ -70,6 +70,7 @@ def get_db_client() -> DBClient:
 class FolderForDecompose:
     mother_folder_num: str
     mother_folder_name: str | None = None
+    mother_folder_timestamp: str | None = None
 
 
 @dataclass
@@ -109,6 +110,7 @@ def get_session() -> requests.Session:
 class KeyValueStorage:
     # TODO rename and move to common code
     ROOT_MODIFIED_TIMES_KEY = 'root_modified_times'
+    FOLDER_TIMESTAMPS_KEY = 'folder_timestamps'
 
     def __init__(self) -> None:
         self.db = get_db_client()
@@ -131,6 +133,13 @@ class KeyValueStorage:
 
     def write_foder_root_modified_times_dict(self, data: dict) -> None:
         return self._write_snapshot(data, self.ROOT_MODIFIED_TIMES_KEY)
+
+    def read_folder_timestamps(self) -> dict[str, str]:
+        ts: dict | None = self._read_snapshot(self.FOLDER_TIMESTAMPS_KEY)
+        return ts if ts else {}
+
+    def write_folder_timestamps(self, data: dict[str, str]) -> None:
+        return self._write_snapshot(data, self.FOLDER_TIMESTAMPS_KEY)
 
     def _read_snapshot(self, snapshot_name: str) -> Any:
         return self.db.get_key_value_item(snapshot_name)
@@ -374,23 +383,12 @@ def time_delta(now: datetime.datetime, time: datetime.datetime) -> int:
     return time_diff_in_min
 
 
-def get_the_list_folders_to_update(list_of_folders_and_times: list[list]) -> list:
-    """get the list of updated folders that were updated recently"""
-    storage = KeyValueStorage()
-    update_times = storage.read_foder_root_modified_times_dict()
-    updated_folders = []
-
-    for f_num, f_time_str, f_time in list_of_folders_and_times:
-        saved_update_time = update_times.get(f_num, datetime.datetime.min)
-        if f_time_str != saved_update_time:
-            updated_folders.append([f_num, f_time_str])
-            update_times[f_num] = f_time_str
-
-    storage.write_foder_root_modified_times_dict(update_times)
-    return updated_folders
-
-
-def get_updated_root_folders() -> list[str]:
+def get_updated_root_folders() -> list[tuple[str, str]]:
+    """
+    Get root folders whose timestamps changed since last check.
+    Returns list of (folder_num, timestamp_str).
+    Does NOT save timestamps — caller is responsible on success.
+    """
     now = datetime.datetime.now()
     folder_checker = FolderUpdateChecker()
     list_of_folders_and_times = folder_checker.check_updates_in_folder_with_folders()
@@ -402,11 +400,28 @@ def get_updated_root_folders() -> list[str]:
     time_diff_in_min = time_delta(now, last_update_time)
     logging.info(f'{str(time_diff_in_min)} minute(s) ago forum was updated')
 
-    list_of_updated_folders = get_the_list_folders_to_update(list_of_folders_and_times)
-    logging.info(f'Folders with new info: {str(list_of_updated_folders)}')
+    storage = KeyValueStorage()
+    update_times = storage.read_foder_root_modified_times_dict()
+    updated_folders: list[tuple[str, str]] = []
 
-    updated_root_folders = [line[0] for line in list_of_updated_folders]
-    return updated_root_folders
+    for f_num, f_time_str, f_time in list_of_folders_and_times:
+        saved_update_time = update_times.get(f_num, datetime.datetime.min)
+        if f_time_str != saved_update_time:
+            updated_folders.append((str(f_num), str(f_time_str)))
+
+    logging.info(f'Root folders with new info: {str(updated_folders)}')
+    return updated_folders
+
+
+def save_root_timestamps(updated_root_folders: list[tuple[str, str]]) -> None:
+    """Persist root folder timestamps after successful tree traversal."""
+    if not updated_root_folders:
+        return
+    storage = KeyValueStorage()
+    update_times = storage.read_foder_root_modified_times_dict()
+    for f_num, f_time_str in updated_root_folders:
+        update_times[f_num] = f_time_str
+    storage.write_foder_root_modified_times_dict(update_times)
 
 
 def process_folder(
@@ -414,7 +429,15 @@ def process_folder(
     updated_folders: list,
     folder: FolderForDecompose,
     storage: KeyValueStorage,
+    folder_timestamps: dict[str, str],
 ) -> None:
+    # Skip if this folder's timestamp hasn't changed since last successful check
+    if folder.mother_folder_timestamp:
+        saved_ts = folder_timestamps.get(folder.mother_folder_num)
+        if saved_ts == folder.mother_folder_timestamp:
+            logging.info(f'Folder {folder.mother_folder_num}: no change since last check, skipping')
+            return
+
     decomposed_folder = FolderDecomposer().decompose_folder(folder.mother_folder_num)
 
     new_child_folders_str = str(decomposed_folder.subfolders)
@@ -431,31 +454,53 @@ def process_folder(
 
     logging.info(f'List of new folders in {folder.mother_folder_num}: {list_of_new_folders}')
 
+    # Save this folder's timestamp
+    if folder.mother_folder_timestamp:
+        folder_timestamps[folder.mother_folder_num] = folder.mother_folder_timestamp
+
+    # Queue only new/changed subfolders (from comparator), carrying their timestamps
+    child_timestamps = {str(sf.folder_num): sf.change_time_str for sf in decomposed_folder.subfolders}
     for line in list_of_new_folders:
-        folders_to_check.append(FolderForDecompose(mother_folder_num=str(line)))
+        folders_to_check.append(
+            FolderForDecompose(
+                mother_folder_num=str(line),
+                mother_folder_timestamp=child_timestamps.get(str(line)),
+            )
+        )
 
     if new_child_searches_str != old_child_searches_str:
         updated_folders.append((folder.mother_folder_num, folder.mother_folder_name))
 
 
-def get_updates_of_nested_folders(folders_list_to_scan: list[str]) -> list[list]:
+def get_updates_of_nested_folders(folders_list_to_scan: list[tuple[str, str]]) -> list[list]:
     storage = KeyValueStorage()
+    folder_timestamps = storage.read_folder_timestamps()
 
     folders_to_check: list[FolderForDecompose] = []
     updated_folders: list = []
 
-    for folder_num in folders_list_to_scan:
-        folders_to_check.append(FolderForDecompose(mother_folder_num=folder_num))
+    for folder_num, folder_timestamp in folders_list_to_scan:
+        folders_to_check.append(
+            FolderForDecompose(
+                mother_folder_num=folder_num,
+                mother_folder_timestamp=folder_timestamp,
+            )
+        )
 
     with ThreadPoolExecutor(max_workers=WORKERS_COUNT) as pool:
         futures = []
         while folders_to_check:
             while folders_to_check:
                 folder = folders_to_check.pop()
-                future = pool.submit(process_folder, folders_to_check, updated_folders, folder, storage)
+                future = pool.submit(
+                    process_folder, folders_to_check, updated_folders, folder, storage, folder_timestamps
+                )
                 futures.append(future)
             wait(futures)
             [f.result() for f in futures]  # check that all tasks are done without exceptions
+
+    # Save per-folder timestamps for future runs
+    storage.write_folder_timestamps(folder_timestamps)
     return updated_folders
 
 
@@ -467,10 +512,17 @@ def main(event: dict[str, Any], context: Ctx | None = None) -> None:
     if not updated_root_folders:
         return
 
-    updated_folders = get_updates_of_nested_folders(updated_root_folders)
-    logging.info(
-        'The below list is to be sent to "Identify updates of topics" script via pub/sub:\n%s',
-        updated_folders,
-    )
-    if updated_folders:
-        pubsub_parse_folders(updated_folders)
+    try:
+        updated_folders = get_updates_of_nested_folders(updated_root_folders)
+        logging.info(
+            'The below list is to be sent to "Identify updates of topics" script via pub/sub:\n%s',
+            updated_folders,
+        )
+        if updated_folders:
+            pubsub_parse_folders(updated_folders)
+    except Exception:
+        logging.exception('Failed to traverse nested folders — root timestamps NOT saved')
+        raise
+
+    # Only save root timestamps after successful full traversal
+    save_root_timestamps(updated_root_folders)
