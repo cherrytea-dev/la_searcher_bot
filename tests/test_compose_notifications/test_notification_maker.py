@@ -384,8 +384,8 @@ class TestNotificationMaker:
 
         record = LineInChangeLogFactory.build(ignore=False, change_type=ChangeType.topic_status_change, processed=False)
         composer = NotificationMaker(connection, record, [user_tg, user_vk])
-        connection.commit()
         composer.generate_notifications_for_users(1)
+        connection.commit()
 
         notifs = list(
             session.execute(
