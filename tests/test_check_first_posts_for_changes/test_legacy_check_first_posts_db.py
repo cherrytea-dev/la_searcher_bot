@@ -20,8 +20,7 @@ from sqlalchemy.orm import Session
 from check_first_posts_for_changes._legacy._utils.commons import RSSItem, Search
 from check_first_posts_for_changes._legacy._utils.database import DBClient as LegacyDBClient
 from tests.common import fake, find_model
-from tests.factories import db_factories
-from tests.factories import db_models
+from tests.factories import db_factories, db_models
 
 # All tests in this file run in a single xdist worker to avoid
 # interference with each other on the shared database.
@@ -57,9 +56,6 @@ def _make_geo_folder_with_view_support(
             # Division already exists (leftover from a previous test) — fine
             session.rollback()
     return folder
-
-
-
 
 
 class TestGetRandomHiddenTopic:
@@ -243,7 +239,7 @@ class TestGetListOfTopics:
         search_nj = db_factories.SearchFactory.create_sync(status='НЖ')
         search_np = db_factories.SearchFactory.create_sync(status='НП')
         search_ischem = db_factories.SearchFactory.create_sync(status='Ищем')
-        folder = _make_geo_folder_with_view_support(
+        _ = _make_geo_folder_with_view_support(
             session,
             folder_id=search_ischem.forum_folder_id,
             folder_type='searches',
