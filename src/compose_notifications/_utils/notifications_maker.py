@@ -213,9 +213,9 @@ class NotificationMaker:
                 b=user_id,
                 c=message_type,
             ),
-        )
+        ).scalar()
 
-        return user_was_already_notified
+        return bool(user_was_already_notified)
 
     def _save_to_sql_notif_by_user(
         self,

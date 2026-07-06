@@ -175,6 +175,7 @@ def save_new_record_into_change_log(
         ),
     ).scalar()
 
+    assert change_log_id is not None, f'Failed to insert change_log for search {search_id}'
     return change_log_id
 
 

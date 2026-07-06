@@ -73,7 +73,10 @@ def _write_function_start(conn: Connection, func_name: str) -> int:
                         ;
                             """)
     res = conn.execute(sql_text, dict(func_name=func_name, start_time=datetime.now()))
-    return res.first()[0]
+    row = res.first()
+    if row is None:
+        raise RuntimeError(f'Failed to write function start for {func_name}')
+    return row[0]
 
 
 def _write_function_finish(conn: Connection, func_name: str, record_id: int) -> None:

@@ -226,7 +226,7 @@ def _get_searches_from_db(user_id: int, conn: sqlalchemy.engine.Connection, user
     result = conn.execute(sqlalchemy.text(query), {'user_id': user_id})
     raw_data = result.fetchall()
 
-    return _compose_searches(raw_data)
+    return _compose_searches(list(raw_data))  # type: ignore[arg-type]
 
 
 def _get_user_regions(user_id: int, conn: sqlalchemy.engine.Connection) -> list[int]:

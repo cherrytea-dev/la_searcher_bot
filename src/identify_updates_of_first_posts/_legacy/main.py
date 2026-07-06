@@ -130,7 +130,7 @@ def _get_search_status(conn: sqlalchemy.engine.Connection, search_id: int) -> st
         FROM searches WHERE search_forum_num=:a;
                                """)
 
-    what_is_saved_in_psql = conn.execute(sql_text, a=search_id).fetchone()
+    what_is_saved_in_psql = conn.execute(sql_text, dict(a=search_id)).fetchone()
     return what_is_saved_in_psql[1] if what_is_saved_in_psql else None
 
 
@@ -165,8 +165,10 @@ def save_new_record_into_change_log(
                            """)
 
     raw_data = conn.execute(
-        stmt, a=datetime.datetime.now(), b=search_id, c=changed_field, d=new_value, e=change_type
+        stmt, dict(a=datetime.datetime.now(), b=search_id, c=changed_field, d=new_value, e=change_type)
     ).fetchone()
+    if raw_data is None:
+        raise RuntimeError(f'Failed to insert change_log record for search {search_id}')
     change_log_id = raw_data[0]
 
     return change_log_id
@@ -293,7 +295,7 @@ def _get_actual_and_previous_page_content(conn: sqlalchemy.engine.Connection, se
         FROM search_first_posts 
         WHERE search_id=:a AND actual = True;
                     """)
-    raw_data = conn.execute(sql_text, a=search_id).fetchone()
+    raw_data = conn.execute(sql_text, dict(a=search_id)).fetchone()
     if not raw_data:
         logging.error(f'No actual content for first post of search {search_id}')
         return '', ''
@@ -310,7 +312,7 @@ def _get_actual_and_previous_page_content(conn: sqlalchemy.engine.Connection, se
             SET content_compact=:a
             WHERE search_id=:b AND actual = True;
                                         """)
-        conn.execute(sql_text, a=content_compact, b=search_id)
+        conn.execute(sql_text, dict(a=content_compact, b=search_id))
 
     # get the Previous First Page Content
     sql_text = sqlalchemy.text("""
@@ -319,7 +321,7 @@ def _get_actual_and_previous_page_content(conn: sqlalchemy.engine.Connection, se
         WHERE search_id=:a AND actual=False
         ORDER BY timestamp DESC;
                                    """)
-    raw_data = conn.execute(sql_text, a=search_id).fetchone()
+    raw_data = conn.execute(sql_text, dict(a=search_id)).fetchone()
     if not raw_data:
         logging.error(f'No previous content for first post of search {search_id}')
         return '', ''

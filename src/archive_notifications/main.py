@@ -24,10 +24,10 @@ def move_notifications_to_history_in_psql(conn: Connection) -> None:
                         ON nm.change_log_id=cl.id
                         WHERE cl.parsed_time < NOW() - INTERVAL '2 hour' ORDER BY 1 LIMIT 1;
                         """)
-    oldest_date_nbu = conn.execute(stmt).fetchone()[0]
-
-    if not oldest_date_nbu:
+    oldest_date_nbu = conn.execute(stmt).fetchone()
+    if oldest_date_nbu is None:
         return
+    oldest_date_nbu = oldest_date_nbu[0]
 
     logging.info(f'The oldest date in notif_by_user: {oldest_date_nbu}')
 
@@ -36,6 +36,8 @@ def move_notifications_to_history_in_psql(conn: Connection) -> None:
                 SELECT MIN(change_log_id) FROM notif_by_user;
                 """)
     query_result = conn.execute(stmt).fetchone()
+    if query_result is None:
+        return
     change_log_id = query_result[0]
 
     logging.info(f'The change_log_id to be updated in nbu: {query_result[0]}')

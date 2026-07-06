@@ -239,7 +239,7 @@ class LogRecordComposer:
                                 """)
 
         comments = self.conn.execute(query, dict(forum_search_num=r_line.forum_search_num)).fetchall()
-        r_line.comments = self._get_comments_from_query_result(comments)
+        r_line.comments = self._get_comments_from_query_result(list(comments))  # type: ignore[arg-type]
         logging.info('New Record enriched with Comments for all')
 
     def _enrich_new_record_with_inforg_comments(self, r_line: LineInChangeLog) -> None:
@@ -262,7 +262,7 @@ class LogRecordComposer:
                                 """)
 
         comments = self.conn.execute(query, dict(forum_search_num=r_line.forum_search_num)).fetchall()
-        r_line.comments_inforg = self._get_comments_from_query_result(comments)
+        r_line.comments_inforg = self._get_comments_from_query_result(list(comments))  # type: ignore[arg-type]
         logging.info('New Record enriched with Comments for inforg')
 
     def _get_comments_from_query_result(self, query_result: list[tuple]) -> list[Comment]:
