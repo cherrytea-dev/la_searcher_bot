@@ -30,10 +30,12 @@ class NotificationPrefMixin(DBClientMixinBase):
             )
             connection.execute(
                 stmt,
-                dict(user_id=user_id,
-                preference=preference_name,
-                pref_id=preference_id,
-            ))
+                dict(
+                    user_id=user_id,
+                    preference=preference_name,
+                    pref_id=preference_id,
+                ),
+            )
 
     def delete_preferences(self, user_id: int, preferences: list[str]) -> None:
         """Disable notification preferences for a user."""

@@ -43,9 +43,7 @@ class TestSaveStatusForTopic:
         assert find_model(get_session(), Search, search_forum_num=topic_id, status=existing_status)
 
         change_log_entries = list(
-            get_session().execute(
-                select(ChangeLog).filter_by(search_forum_num=topic_id)
-            ).scalars().all()
+            get_session().execute(select(ChangeLog).filter_by(search_forum_num=topic_id)).scalars().all()
         )
         assert len(change_log_entries) == 0
 

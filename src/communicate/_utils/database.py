@@ -147,10 +147,12 @@ class DBClient(
             )
             connection.execute(
                 insert_stmt,
-                dict(user_id=user_id,
-                time=datetime.datetime.now(),
-                msg_type=state_value,
-            ))
+                dict(
+                    user_id=user_id,
+                    time=datetime.datetime.now(),
+                    msg_type=state_value,
+                ),
+            )
 
     def user_preference_save(self, user: int, preference_name: str) -> None:
         self.save_preference(user, preference_name)

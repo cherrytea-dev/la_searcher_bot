@@ -29,9 +29,7 @@ def dict_notif_type_first_post_change() -> db_models.DictNotifType:
 
 
 def get_or_create_dict_notif_type(session: Session, type_id: ChangeType) -> db_models.DictNotifType:
-    instance = session.execute(
-        select(db_models.DictNotifType).filter_by(type_id=type_id)
-    ).scalars().first()
+    instance = session.execute(select(db_models.DictNotifType).filter_by(type_id=type_id)).scalars().first()
     if instance:
         return instance
     else:
@@ -41,7 +39,5 @@ def get_or_create_dict_notif_type(session: Session, type_id: ChangeType) -> db_m
             session.commit()
         except IntegrityError:
             session.rollback()
-            instance = session.execute(
-                select(db_models.DictNotifType).filter_by(type_id=type_id)
-            ).scalars().first()
+            instance = session.execute(select(db_models.DictNotifType).filter_by(type_id=type_id)).scalars().first()
         return instance

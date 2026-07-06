@@ -53,11 +53,13 @@ class SearchFollowingMixin(DBClientMixinBase):
                 )
                 connection.execute(
                     stmt,
-                    dict(user_id=user_id,
-                    search_id=search_id,
-                    timestamp=datetime.datetime.now(),
-                    mode=mode,
-                ))
+                    dict(
+                        user_id=user_id,
+                        search_id=search_id,
+                        timestamp=datetime.datetime.now(),
+                        mode=mode,
+                    ),
+                )
             else:
                 stmt = sqlalchemy.text(
                     """DELETE FROM user_pref_search_whitelist
@@ -86,7 +88,9 @@ class SearchFollowingMixin(DBClientMixinBase):
             )
             result = connection.execute(
                 stmt,
-                dict(user_id=user_id,
-                search_follow_on=SearchFollowingMode.ON,
-            ))
+                dict(
+                    user_id=user_id,
+                    search_follow_on=SearchFollowingMode.ON,
+                ),
+            )
             return [int(x[0]) for x in result.fetchall()]

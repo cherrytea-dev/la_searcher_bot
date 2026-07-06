@@ -111,8 +111,10 @@ class DBClient(DBClientBase):
             stmt = sqlalchemy.text(notifications_query)
             notifications = conn.execute(
                 stmt,
-                dict(retry_delay=datetime.datetime.now() - delay_to_retry_send_failed_messages,
-            ))
+                dict(
+                    retry_delay=datetime.datetime.now() - delay_to_retry_send_failed_messages,
+                ),
+            )
             return [MessageToSend(*notification) for notification in notifications]
 
     def fill_max_user_ids(self, messages: list['MessageToSend']) -> None:

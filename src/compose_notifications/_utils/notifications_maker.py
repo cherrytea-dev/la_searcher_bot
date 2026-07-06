@@ -208,10 +208,12 @@ class NotificationMaker:
 
         user_was_already_notified = self.conn.execute(
             sql_text_,
-            dict(a=self.new_record.change_log_id,
-            b=user_id,
-            c=message_type,
-        ))
+            dict(
+                a=self.new_record.change_log_id,
+                b=user_id,
+                c=message_type,
+            ),
+        )
 
         return user_was_already_notified
 
@@ -298,11 +300,13 @@ class NotificationMaker:
                       AND message_type = :mt AND messenger = :msgr
                       AND completed IS NULL AND cancelled IS NULL
                 """),
-                dict(cl=change_log_id,
-                uid=record.user_id,
-                mt=record.message_type,
-                msgr=record.messenger,
-            )).scalar()
+                dict(
+                    cl=change_log_id,
+                    uid=record.user_id,
+                    mt=record.message_type,
+                    msgr=record.messenger,
+                ),
+            ).scalar()
             if existing_count and existing_count > 0:
                 logging.warning(
                     f'DOUBLING_DIAG: flush_batch would create duplicate! '
@@ -376,9 +380,11 @@ class NotificationMaker:
                                     """)
         self.conn.execute(
             sql_text,
-            dict(a=self.new_record.change_log_id,
-            sent='n' if self.new_record.ignore else 'y',
-        ))
+            dict(
+                a=self.new_record.change_log_id,
+                sent='n' if self.new_record.ignore else 'y',
+            ),
+        )
         record_status = 'IGNORED' if self.new_record.ignore else 'processed'
         logging.info(f'The New Record {self.new_record.change_log_id} was marked as {record_status} in PSQL')
 

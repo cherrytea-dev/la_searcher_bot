@@ -4,7 +4,6 @@ from contextlib import _GeneratorContextManager
 from typing import Any
 
 import sqlalchemy
-from sqlalchemy.engine import Connection
 from sqlalchemy.engine.base import Engine
 
 from _dependencies.common.commons import sqlalchemy_get_pool
@@ -33,7 +32,6 @@ class DBClientMixinBase(ABC):
 
     @abstractmethod
     def connect(self) -> _GeneratorContextManager: ...
-
 
 
 class DBKeyValueStorageMixin(DBClientMixinBase):

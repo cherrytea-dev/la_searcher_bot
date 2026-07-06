@@ -6,7 +6,6 @@ from functools import lru_cache
 from typing import Any
 
 import sqlalchemy
-from sqlalchemy.engine import Connection
 from sqlalchemy.engine.base import Engine
 
 from _dependencies.common.commons import sqlalchemy_get_pool

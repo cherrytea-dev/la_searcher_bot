@@ -208,12 +208,13 @@ class TestNotificationMaker:
 
         notifs = list(
             session.execute(
-                select(db_models.NotifByUser)
-                .filter(
+                select(db_models.NotifByUser).filter(
                     db_models.NotifByUser.change_log_id == record.change_log_id,
                     db_models.NotifByUser.user_id == user.user_id,
                 )
-            ).scalars().all()
+            )
+            .scalars()
+            .all()
         )
         assert len(notifs) == 1
         assert notifs[0].messenger == 'telegram'
@@ -234,12 +235,13 @@ class TestNotificationMaker:
 
         notifs = list(
             session.execute(
-                select(db_models.NotifByUser)
-                .filter(
+                select(db_models.NotifByUser).filter(
                     db_models.NotifByUser.change_log_id == record.change_log_id,
                     db_models.NotifByUser.user_id == user.user_id,
                 )
-            ).scalars().all()
+            )
+            .scalars()
+            .all()
         )
         assert len(notifs) == 1
         assert notifs[0].messenger == 'vk'
@@ -261,12 +263,13 @@ class TestNotificationMaker:
 
         notifs = list(
             session.execute(
-                select(db_models.NotifByUser)
-                .filter(
+                select(db_models.NotifByUser).filter(
                     db_models.NotifByUser.change_log_id == record.change_log_id,
                     db_models.NotifByUser.user_id == user.user_id,
                 )
-            ).scalars().all()
+            )
+            .scalars()
+            .all()
         )
         assert len(notifs) == 2
         messengers = {n.messenger for n in notifs}
@@ -293,11 +296,12 @@ class TestNotificationMaker:
 
         notifs = list(
             session.execute(
-                select(db_models.NotifByUser)
-                .filter(
+                select(db_models.NotifByUser).filter(
                     db_models.NotifByUser.change_log_id == record.change_log_id,
                 )
-            ).scalars().all()
+            )
+            .scalars()
+            .all()
         )
         assert len(notifs) == 3
 
@@ -326,12 +330,13 @@ class TestNotificationMaker:
 
         notifs = list(
             session.execute(
-                select(db_models.NotifByUser)
-                .filter(
+                select(db_models.NotifByUser).filter(
                     db_models.NotifByUser.change_log_id == record.change_log_id,
                     db_models.NotifByUser.user_id == user.user_id,
                 )
-            ).scalars().all()
+            )
+            .scalars()
+            .all()
         )
         assert len(notifs) == 2
         assert {n.messenger for n in notifs} == {'telegram', 'vk'}
@@ -359,12 +364,13 @@ class TestNotificationMaker:
 
         notifs = list(
             session.execute(
-                select(db_models.NotifByUser)
-                .filter(
+                select(db_models.NotifByUser).filter(
                     db_models.NotifByUser.change_log_id == record.change_log_id,
                     db_models.NotifByUser.user_id == user.user_id,
                 )
-            ).scalars().all()
+            )
+            .scalars()
+            .all()
         )
         # 2 messengers × (1 text + 1 coords) = 4
         assert len(notifs) == 4
@@ -389,11 +395,12 @@ class TestNotificationMaker:
 
         notifs = list(
             session.execute(
-                select(db_models.NotifByUser)
-                .filter(
+                select(db_models.NotifByUser).filter(
                     db_models.NotifByUser.change_log_id == record.change_log_id,
                 )
-            ).scalars().all()
+            )
+            .scalars()
+            .all()
         )
         assert len(notifs) == 2
 

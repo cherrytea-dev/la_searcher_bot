@@ -23,11 +23,13 @@ class GeoPrefMixin(DBClientMixinBase):
             )
             connection.execute(
                 insert_stmt,
-                dict(user_id=user_id,
-                latitude=latitude,
-                longitude=longitude,
-                upd_time=now,
-            ))
+                dict(
+                    user_id=user_id,
+                    latitude=latitude,
+                    longitude=longitude,
+                    upd_time=now,
+                ),
+            )
 
     def get_coordinates(self, user_id: int) -> tuple[str, str] | None:
         """Get user's saved home coordinates, or None."""

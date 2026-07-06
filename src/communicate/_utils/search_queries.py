@@ -41,10 +41,12 @@ def get_active_searches_in_region_limit_20(
 
     result = connection.execute(
         stmt,
-        dict(region=region,
-        user_id=user_id,
-        search_follow_on=SearchFollowingMode.ON,
-    ))
+        dict(
+            region=region,
+            user_id=user_id,
+            search_follow_on=SearchFollowingMode.ON,
+        ),
+    )
     return [
         SearchSummary(
             topic_id=row[0],
@@ -99,10 +101,12 @@ def get_all_last_searches_in_region_limit_20(
     stmt = sqlalchemy.text(sql_text)
     result = connection.execute(
         stmt,
-        dict(region=region,
-        user_id=user_id,
-        search_follow_on=SearchFollowingMode.ON,
-    ))
+        dict(
+            region=region,
+            user_id=user_id,
+            search_follow_on=SearchFollowingMode.ON,
+        ),
+    )
     return [
         SearchSummary(
             topic_id=row[0],

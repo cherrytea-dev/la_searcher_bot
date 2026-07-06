@@ -55,10 +55,12 @@ class RegionMixin(DBClientMixinBase):
             )
             connection.execute(
                 stmt,
-                dict(user_id=user_id,
-                region_id=region_id,
-                timestamp=datetime.datetime.now(),
-            ))
+                dict(
+                    user_id=user_id,
+                    region_id=region_id,
+                    timestamp=datetime.datetime.now(),
+                ),
+            )
 
     def get_geo_folders(self) -> list[tuple[int, str]]:
         """Get all geographic folders from the database."""

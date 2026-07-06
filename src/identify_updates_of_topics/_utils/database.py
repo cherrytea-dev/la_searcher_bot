@@ -63,8 +63,9 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                 geocoder=EXCLUDED.geocoder, timestamp=EXCLUDED.timestamp;
                                    """)
             conn.execute(
-                stmt, dict(a=address_string, b=status, c=latitude, d=longitude, e=geocoder, f=datetime.now(timezone.utc)
-            ))
+                stmt,
+                dict(a=address_string, b=status, c=latitude, d=longitude, e=geocoder, f=datetime.now(timezone.utc)),
+            )
 
     def get_geolocation_form_psql(self, address_string: str) -> tuple[str | None, float, float, str]:
         """get results of geocoding from psql"""
@@ -133,22 +134,24 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
 
             conn.execute(
                 sql_text_insert,
-                dict(a=line.topic_id,
-                b=line.parsed_time,
-                d=line.title,
-                e=line.start_time,
-                f=line.num_of_replies,
-                g=line.age,
-                h=line.name,
-                i=line.folder_id,
-                j=line.topic_type,
-                k=line.display_name,
-                l=line.age_min,
-                m=line.age_max,
-                n=line.new_status,
-                o=str(line.locations),
-                p=line.topic_type_id,
-            ))
+                dict(
+                    a=line.topic_id,
+                    b=line.parsed_time,
+                    d=line.title,
+                    e=line.start_time,
+                    f=line.num_of_replies,
+                    g=line.age,
+                    h=line.name,
+                    i=line.folder_id,
+                    j=line.topic_type,
+                    k=line.display_name,
+                    l=line.age_min,
+                    m=line.age_max,
+                    n=line.new_status,
+                    o=str(line.locations),
+                    p=line.topic_type_id,
+                ),
+            )
 
     def write_comment(self, comment_data: ForumCommentItem) -> None:
         with self.connect() as conn:
@@ -161,9 +164,11 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
             if comment_data.comment_forum_global_id is not None:
                 existing = conn.execute(
                     sqlalchemy.text('SELECT id FROM comments WHERE comment_global_num = :g AND search_forum_num = :s'),
-                    dict(g=str(comment_data.comment_forum_global_id),
-                    s=comment_data.search_num,
-                )).fetchone()
+                    dict(
+                        g=str(comment_data.comment_forum_global_id),
+                        s=comment_data.search_num,
+                    ),
+                ).fetchone()
                 if existing:
                     return
 
@@ -175,15 +180,17 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                                     """)
             conn.execute(
                 stmt,
-                dict(a=comment_data.comment_url,
-                b=comment_data.comment_text,
-                c=comment_data.comment_author_nickname,
-                d=comment_data.comment_author_link,
-                e=comment_data.search_num,
-                f=comment_data.comment_num,
-                g='n' if comment_data.ignore else None,
-                h=None if comment_data.ignore else comment_data.comment_forum_global_id,
-            ))
+                dict(
+                    a=comment_data.comment_url,
+                    b=comment_data.comment_text,
+                    c=comment_data.comment_author_nickname,
+                    d=comment_data.comment_author_link,
+                    e=comment_data.search_num,
+                    f=comment_data.comment_num,
+                    g='n' if comment_data.ignore else None,
+                    h=None if comment_data.ignore else comment_data.comment_forum_global_id,
+                ),
+            )
 
     def update_coordinates_in_db(self, search_id: int, lat: float, lon: float, coord_type: CoordType) -> None:
         with self.connect() as conn:
@@ -289,22 +296,24 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
         with self.connect() as conn:
             row = conn.execute(
                 stmt,
-                dict(a=line.topic_id,
-                b=line.parsed_time,
-                d=line.title,
-                e=line.start_time,
-                f=line.num_of_replies,
-                g=line.age,
-                h=line.name,
-                i=line.folder_id,
-                j=line.topic_type,
-                k=line.display_name,
-                l=line.age_min,
-                m=line.age_max,
-                n=line.new_status,
-                o=str(line.locations),
-                p=line.topic_type_id,
-            ))
+                dict(
+                    a=line.topic_id,
+                    b=line.parsed_time,
+                    d=line.title,
+                    e=line.start_time,
+                    f=line.num_of_replies,
+                    g=line.age,
+                    h=line.name,
+                    i=line.folder_id,
+                    j=line.topic_type,
+                    k=line.display_name,
+                    l=line.age_min,
+                    m=line.age_max,
+                    n=line.new_status,
+                    o=str(line.locations),
+                    p=line.topic_type_id,
+                ),
+            )
             return row.scalar()
 
     def get_search_by_id(self, search_id: int) -> SearchSummary | None:
@@ -354,13 +363,15 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
         with self.connect() as conn:
             raw_data = conn.execute(
                 stmt,
-                dict(a=line.parsed_time,
-                b=line.topic_id,
-                c=line.changed_field,
-                d=line.new_value,
-                e=line.parameters,
-                f=line.change_type,
-            ))
+                dict(
+                    a=line.parsed_time,
+                    b=line.topic_id,
+                    c=line.changed_field,
+                    d=line.new_value,
+                    e=line.parameters,
+                    f=line.change_type,
+                ),
+            )
             return raw_data.scalar()
 
     def update_search_activities(self, search_num: int, search_activities: list[str]) -> None:

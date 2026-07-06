@@ -126,9 +126,7 @@ class TestSaveNewUser:
         connection.commit()
 
         # Check that no new user was created
-        users: list[User] = list(
-            session.execute(select(User).filter_by(user_id=user_id)).scalars().all()
-        )
+        users: list[User] = list(session.execute(select(User).filter_by(user_id=user_id)).scalars().all())
         assert len(users) == 1
         assert users[0].username_telegram == username
         assert users[0].reg_date == timestamp

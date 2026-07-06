@@ -20,10 +20,12 @@ class TopicTypeMixin(DBClientMixinBase):
             )
             connection.execute(
                 stmt,
-                dict(user_id=user_id,
-                type_id=topic_type_id,
-                timestamp=datetime.datetime.now(),
-            ))
+                dict(
+                    user_id=user_id,
+                    type_id=topic_type_id,
+                    timestamp=datetime.datetime.now(),
+                ),
+            )
 
     def delete_topic_type(self, user_id: int, topic_type_id: int) -> None:
         """Delete a topic type preference for a user."""

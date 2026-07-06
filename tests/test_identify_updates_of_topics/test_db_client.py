@@ -149,12 +149,13 @@ class TestDBClient:
         # Only one record should exist
         comments = list(
             session.execute(
-                select(db_models.Comment)
-                .filter(
+                select(db_models.Comment).filter(
                     db_models.Comment.comment_global_num == comment.comment_forum_global_id,
                     db_models.Comment.search_forum_num == comment.search_num,
                 )
-            ).scalars().all()
+            )
+            .scalars()
+            .all()
         )
         assert len(comments) == 1
 

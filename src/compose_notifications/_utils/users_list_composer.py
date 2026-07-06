@@ -133,12 +133,14 @@ class UsersListComposer:
 
         users_short_version = self.conn.execute(
             sql_text_psy,
-            dict(change_type=new_record.change_type,
-            forum_folder=new_record.forum_folder,
-            topic_type_id=new_record.topic_type_id,
-            forum_search_num=int(new_record.forum_search_num),
-            following_mode_on=SearchFollowingMode.ON,
-        ))
+            dict(
+                change_type=new_record.change_type,
+                forum_folder=new_record.forum_folder,
+                topic_type_id=new_record.topic_type_id,
+                forum_search_num=int(new_record.forum_search_num),
+                following_mode_on=SearchFollowingMode.ON,
+            ),
+        )
 
         logging.info(f'Fetched users for search {new_record.forum_search_num=} with {new_record.new_status=}.')
         analytics_sql_finish = datetime.datetime.now()
@@ -343,8 +345,10 @@ class UserListFilter:
         """)
         upsf_for_debug_user = self.conn.execute(
             sql_text_,
-            dict(debug_user_id=debug_user_id,
-        ))
+            dict(
+                debug_user_id=debug_user_id,
+            ),
+        )
         logging.info(f'{upsf_for_debug_user=}')
 
         sql_text_ = sqlalchemy.text("""
@@ -354,8 +358,10 @@ class UserListFilter:
         """)
         upswls_for_debug_user = self.conn.execute(
             sql_text_,
-            dict(debug_user_id=debug_user_id,
-        ))
+            dict(
+                debug_user_id=debug_user_id,
+            ),
+        )
         logging.info(f'{upswls_for_debug_user=}')
 
         temp_user_list: list[User] = []

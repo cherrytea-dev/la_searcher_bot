@@ -30,10 +30,12 @@ class DialogStateMixin(DBClientMixinBase):
             )
             connection.execute(
                 insert_stmt,
-                dict(user_id=user_id,
-                time=datetime.datetime.now(),
-                msg_type=state.value,
-            ))
+                dict(
+                    user_id=user_id,
+                    time=datetime.datetime.now(),
+                    msg_type=state.value,
+                ),
+            )
 
     def get_user_state(self, user_id: int) -> DialogState | None:
         """Get the bot's expected input state for a user.
