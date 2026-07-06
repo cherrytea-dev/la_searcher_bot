@@ -1,6 +1,7 @@
 import random
 
 import sqlalchemy
+from sqlalchemy import select
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
@@ -52,13 +53,14 @@ class TestNotificationMaker:
         composer.generate_notification_for_user(record.change_log_id, user)
         composer.flush_batch()
 
-        query = session.query(db_models.NotifByUser).filter(
+        stmt = select(db_models.NotifByUser).filter(
             db_models.NotifByUser.change_log_id == record.change_log_id,
             db_models.NotifByUser.user_id == user.user_id,
         )
+        notifs = list(session.execute(stmt).scalars().all())
 
-        assert query.count() == 1
-        notification: db_models.NotifByUser = query.first()
+        assert len(notifs) == 1
+        notification: db_models.NotifByUser = notifs[0]
         assert notification.created
         assert notification.message_type == 'text'
 
@@ -84,14 +86,15 @@ class TestNotificationMaker:
         composer.generate_notification_for_user(record.change_log_id, user)
         composer.flush_batch()
 
-        query = session.query(db_models.NotifByUser).filter(
+        stmt = select(db_models.NotifByUser).filter(
             db_models.NotifByUser.change_log_id == record.change_log_id,
             db_models.NotifByUser.user_id == user.user_id,
         )
+        notifs = list(session.execute(stmt).scalars().all())
 
-        assert query.count() == 2
-        assert query.filter(db_models.NotifByUser.message_type == 'text').count() == 1
-        assert query.filter(db_models.NotifByUser.message_type == 'coords').count() == 1
+        assert len(notifs) == 2
+        assert len([n for n in notifs if n.message_type == 'text']) == 1
+        assert len([n for n in notifs if n.message_type == 'coords']) == 1
 
     def test_generate_notifications_for_user_text_with_coords_2(
         self, connection: Connection, dict_notif_type_first_post_change, session: Session
@@ -116,14 +119,15 @@ class TestNotificationMaker:
         composer.generate_notification_for_user(record.change_log_id, user)
         composer.flush_batch()
 
-        query = session.query(db_models.NotifByUser).filter(
+        stmt = select(db_models.NotifByUser).filter(
             db_models.NotifByUser.change_log_id == record.change_log_id,
             db_models.NotifByUser.user_id == user.user_id,
         )
+        notifs = list(session.execute(stmt).scalars().all())
 
-        assert query.count() == 2
-        assert query.filter(db_models.NotifByUser.message_type == 'text').count() == 1
-        assert query.filter(db_models.NotifByUser.message_type == 'coords').count() == 1
+        assert len(notifs) == 2
+        assert len([n for n in notifs if n.message_type == 'text']) == 1
+        assert len([n for n in notifs if n.message_type == 'coords']) == 1
 
     # ─── Tests for _resolve_messengers_batch() ───────────────────────────────
 
@@ -198,13 +202,14 @@ class TestNotificationMaker:
         composer._save_to_sql_notif_by_user(record.change_log_id, user.user_id, 'test msg', 'test msg', 'text', {})
         composer.flush_batch()
 
-        notifs = (
-            session.query(db_models.NotifByUser)
-            .filter(
-                db_models.NotifByUser.change_log_id == record.change_log_id,
-                db_models.NotifByUser.user_id == user.user_id,
-            )
-            .all()
+        notifs = list(
+            session.execute(
+                select(db_models.NotifByUser)
+                .filter(
+                    db_models.NotifByUser.change_log_id == record.change_log_id,
+                    db_models.NotifByUser.user_id == user.user_id,
+                )
+            ).scalars().all()
         )
         assert len(notifs) == 1
         assert notifs[0].messenger == 'telegram'
@@ -222,13 +227,14 @@ class TestNotificationMaker:
         composer._save_to_sql_notif_by_user(record.change_log_id, user.user_id, 'test msg', 'test msg', 'text', {})
         composer.flush_batch()
 
-        notifs = (
-            session.query(db_models.NotifByUser)
-            .filter(
-                db_models.NotifByUser.change_log_id == record.change_log_id,
-                db_models.NotifByUser.user_id == user.user_id,
-            )
-            .all()
+        notifs = list(
+            session.execute(
+                select(db_models.NotifByUser)
+                .filter(
+                    db_models.NotifByUser.change_log_id == record.change_log_id,
+                    db_models.NotifByUser.user_id == user.user_id,
+                )
+            ).scalars().all()
         )
         assert len(notifs) == 1
         assert notifs[0].messenger == 'vk'
@@ -247,13 +253,14 @@ class TestNotificationMaker:
         composer._save_to_sql_notif_by_user(record.change_log_id, user.user_id, 'test msg', 'test msg', 'text', {})
         composer.flush_batch()
 
-        notifs = (
-            session.query(db_models.NotifByUser)
-            .filter(
-                db_models.NotifByUser.change_log_id == record.change_log_id,
-                db_models.NotifByUser.user_id == user.user_id,
-            )
-            .all()
+        notifs = list(
+            session.execute(
+                select(db_models.NotifByUser)
+                .filter(
+                    db_models.NotifByUser.change_log_id == record.change_log_id,
+                    db_models.NotifByUser.user_id == user.user_id,
+                )
+            ).scalars().all()
         )
         assert len(notifs) == 2
         messengers = {n.messenger for n in notifs}
@@ -277,12 +284,13 @@ class TestNotificationMaker:
         composer._save_to_sql_notif_by_user(record.change_log_id, user_tg.user_id, 'msg', 'msg', 'text', {})
         composer.flush_batch()
 
-        notifs = (
-            session.query(db_models.NotifByUser)
-            .filter(
-                db_models.NotifByUser.change_log_id == record.change_log_id,
-            )
-            .all()
+        notifs = list(
+            session.execute(
+                select(db_models.NotifByUser)
+                .filter(
+                    db_models.NotifByUser.change_log_id == record.change_log_id,
+                )
+            ).scalars().all()
         )
         assert len(notifs) == 3
 
@@ -308,13 +316,14 @@ class TestNotificationMaker:
         composer = NotificationMaker(connection, record, [user])
         composer.generate_notifications_for_users(1)
 
-        notifs = (
-            session.query(db_models.NotifByUser)
-            .filter(
-                db_models.NotifByUser.change_log_id == record.change_log_id,
-                db_models.NotifByUser.user_id == user.user_id,
-            )
-            .all()
+        notifs = list(
+            session.execute(
+                select(db_models.NotifByUser)
+                .filter(
+                    db_models.NotifByUser.change_log_id == record.change_log_id,
+                    db_models.NotifByUser.user_id == user.user_id,
+                )
+            ).scalars().all()
         )
         assert len(notifs) == 2
         assert {n.messenger for n in notifs} == {'telegram', 'vk'}
@@ -339,13 +348,14 @@ class TestNotificationMaker:
         composer = NotificationMaker(connection, record, [user])
         composer.generate_notifications_for_users(1)
 
-        notifs = (
-            session.query(db_models.NotifByUser)
-            .filter(
-                db_models.NotifByUser.change_log_id == record.change_log_id,
-                db_models.NotifByUser.user_id == user.user_id,
-            )
-            .all()
+        notifs = list(
+            session.execute(
+                select(db_models.NotifByUser)
+                .filter(
+                    db_models.NotifByUser.change_log_id == record.change_log_id,
+                    db_models.NotifByUser.user_id == user.user_id,
+                )
+            ).scalars().all()
         )
         # 2 messengers × (1 text + 1 coords) = 4
         assert len(notifs) == 4
@@ -367,12 +377,13 @@ class TestNotificationMaker:
         composer = NotificationMaker(connection, record, [user_tg, user_vk])
         composer.generate_notifications_for_users(1)
 
-        notifs = (
-            session.query(db_models.NotifByUser)
-            .filter(
-                db_models.NotifByUser.change_log_id == record.change_log_id,
-            )
-            .all()
+        notifs = list(
+            session.execute(
+                select(db_models.NotifByUser)
+                .filter(
+                    db_models.NotifByUser.change_log_id == record.change_log_id,
+                )
+            ).scalars().all()
         )
         assert len(notifs) == 2
 

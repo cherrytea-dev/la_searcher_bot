@@ -1,6 +1,7 @@
 from random import randint
 
 import pytest
+from sqlalchemy import select
 
 from _dependencies.forum.topic_management import save_status_for_topic
 from tests.common import find_model
@@ -39,8 +40,12 @@ class TestSaveStatusForTopic:
 
         assert find_model(get_session(), Search, search_forum_num=topic_id, status=existing_status)
 
-        change_log_count = get_session().query(ChangeLog).filter_by(search_forum_num=topic_id).count()
-        assert change_log_count == 0
+        change_log_entries = list(
+            get_session().execute(
+                select(ChangeLog).filter_by(search_forum_num=topic_id)
+            ).scalars().all()
+        )
+        assert len(change_log_entries) == 0
 
     def test_save_status_for_nonexistent_topic(self, topic_id: int, connection):
         new_status = 'new_status'

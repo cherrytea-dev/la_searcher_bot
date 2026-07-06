@@ -8,6 +8,7 @@ from typing import Any, TypeVar
 from dotenv import load_dotenv
 from faker import Faker
 from pydantic_settings import SettingsConfigDict
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from _dependencies.common.commons import AppConfig
@@ -82,10 +83,10 @@ def topic_to_receiver_function(topic_name: Topics):
 
 
 def find_model(session: Session, model: type[T], **kwargs: Any) -> T | None:
-    query = session.query(model)
+    stmt = select(model)
     for key, value in kwargs.items():
-        query = query.filter_by(**{key: value})
-    return query.first()
+        stmt = stmt.filter_by(**{key: value})
+    return session.execute(stmt).scalars().first()
 
 
 @lru_cache

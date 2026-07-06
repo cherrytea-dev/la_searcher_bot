@@ -2,6 +2,7 @@ from datetime import datetime
 from random import randint
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
@@ -72,7 +73,9 @@ class TestSaveOnboardingStep:
         for step_name, timestamp in steps:
             save_onboarding_step(user_id, step_name)
 
-        saved_steps: list[UserOnboarding] = list(session.query(UserOnboarding).filter_by(user_id=user_id).all())
+        saved_steps: list[UserOnboarding] = list(
+            session.execute(select(UserOnboarding).filter_by(user_id=user_id)).scalars().all()
+        )
         assert len(saved_steps) == 3
 
         for i, (step_name, timestamp_) in enumerate(steps):
@@ -120,7 +123,9 @@ class TestSaveNewUser:
         _save_new_user(connection, user_id, username, timestamp, Messenger.TELEGRAM)
 
         # Check that no new user was created
-        users: list[User] = list(session.query(User).filter_by(user_id=user_id).all())
+        users: list[User] = list(
+            session.execute(select(User).filter_by(user_id=user_id)).scalars().all()
+        )
         assert len(users) == 1
         assert users[0].username_telegram == username
         assert users[0].reg_date == timestamp
