@@ -96,7 +96,7 @@ class TestGetNotifsToSendMessenger:
         """Insert a notification directly via SQL to control messenger value precisely."""
         pool = sqlalchemy_get_pool()
         user_id = randint(10_000_000, 99_999_999)
-        with pool.connect() as conn:
+        with pool.begin() as conn:
             result = conn.execute(
                 sqlalchemy.text("""
                     INSERT INTO notif_by_user
@@ -192,7 +192,7 @@ class TestFillVkUserIds:
         user_id = randint(10_000_000, 99_999_999)
         vk_user_id = str(randint(100_000, 999_999))
         pool = sqlalchemy_get_pool()
-        with pool.connect() as conn:
+        with pool.begin() as conn:
             _ensure_identity_map(conn, user_id, 'vk', vk_user_id)
 
         msg = self._make_vk_notification(user_id=user_id)
@@ -216,7 +216,7 @@ class TestFillVkUserIds:
         vk_a = str(randint(100_000, 999_999))
 
         pool = sqlalchemy_get_pool()
-        with pool.connect() as conn:
+        with pool.begin() as conn:
             _ensure_identity_map(conn, user_a, 'vk', vk_a)
         UserFactory.create_sync(user_id=user_b, internal_user_id=user_b, vk_id=None)
 
@@ -285,7 +285,7 @@ class TestFillMaxUserIds:
         user_id = randint(10_000_000, 99_999_999)
         max_user_id = str(randint(100_000, 999_999))
         pool = sqlalchemy_get_pool()
-        with pool.connect() as conn:
+        with pool.begin() as conn:
             _ensure_identity_map(conn, user_id, 'max', max_user_id)
 
         msg = self._make_max_notification(user_id=user_id)
@@ -306,7 +306,7 @@ class TestFillMaxUserIds:
         max_a = str(randint(100_000, 999_999))
 
         pool = sqlalchemy_get_pool()
-        with pool.connect() as conn:
+        with pool.begin() as conn:
             _ensure_identity_map(conn, user_a, 'max', max_a)
 
         msgs = [
@@ -636,7 +636,7 @@ class TestIntegration:
         vk_user_id = str(randint(100_000, 999_999))
 
         pool = sqlalchemy_get_pool()
-        with pool.connect() as conn:
+        with pool.begin() as conn:
             _ensure_identity_map(conn, user_id, 'vk', vk_user_id)
 
         NotSentNotificationFactory.create_sync(
@@ -665,7 +665,7 @@ class TestIntegration:
         vk_uid_str = str(randint(100_000, 999_999))
 
         pool = sqlalchemy_get_pool()
-        with pool.connect() as conn:
+        with pool.begin() as conn:
             _ensure_identity_map(conn, vk_user_id, 'vk', vk_uid_str)
 
         NotSentNotificationFactory.create_sync(
@@ -700,7 +700,7 @@ class TestIntegration:
         max_user_id = str(randint(100_000, 999_999))
 
         pool = sqlalchemy_get_pool()
-        with pool.connect() as conn:
+        with pool.begin() as conn:
             _ensure_identity_map(conn, user_id, 'max', max_user_id)
 
         NotSentNotificationFactory.create_sync(

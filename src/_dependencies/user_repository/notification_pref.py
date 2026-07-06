@@ -15,7 +15,7 @@ class NotificationPrefMixin(DBClientMixinBase):
             stmt = sqlalchemy.text(
                 """SELECT preference FROM user_preferences WHERE user_id=:user_id ORDER BY preference;"""
             )
-            result = connection.execute(stmt, user_id=user_id)
+            result = connection.execute(stmt, dict(user_id=user_id))
             return [x[0] for x in result.fetchall()]
 
     def save_preference(self, user_id: int, preference_name: str) -> None:
@@ -30,9 +30,11 @@ class NotificationPrefMixin(DBClientMixinBase):
             )
             connection.execute(
                 stmt,
-                user_id=user_id,
-                preference=preference_name,
-                pref_id=preference_id,
+                dict(
+                    user_id=user_id,
+                    preference=preference_name,
+                    pref_id=preference_id,
+                ),
             )
 
     def delete_preferences(self, user_id: int, preferences: list[str]) -> None:
@@ -44,10 +46,10 @@ class NotificationPrefMixin(DBClientMixinBase):
                     stmt = sqlalchemy.text(
                         """DELETE FROM user_preferences WHERE user_id=:user_id AND pref_id=:pref_id;"""
                     )
-                    connection.execute(stmt, user_id=user_id, pref_id=pref_id)
+                    connection.execute(stmt, dict(user_id=user_id, pref_id=pref_id))
             else:
                 stmt = sqlalchemy.text("""DELETE FROM user_preferences WHERE user_id=:user_id;""")
-                connection.execute(stmt, user_id=user_id)
+                connection.execute(stmt, dict(user_id=user_id))
 
     def preference_exists(self, user_id: int, preferences: list[str]) -> bool:
         """Check if any of the given preferences exist for a user."""
@@ -57,7 +59,7 @@ class NotificationPrefMixin(DBClientMixinBase):
                     """SELECT id FROM user_preferences
                        WHERE user_id=:user_id AND preference=:preference LIMIT 1;"""
                 )
-                result = connection.execute(stmt, user_id=user_id, preference=pref)
+                result = connection.execute(stmt, dict(user_id=user_id, preference=pref))
                 if result.fetchone():
                     return True
             return False

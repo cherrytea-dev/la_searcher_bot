@@ -33,7 +33,7 @@ def register_new_user(user_id: int, user_name: str | None, timestamp: datetime, 
     """
 
     pool = sqlalchemy_get_pool()
-    with pool.connect() as conn:
+    with pool.begin() as conn:
         # compose & execute the query for USER_STATUSES_HISTORY table
         _write_new_user_status(conn, ManageUserAction.new, user_id, timestamp)
 
@@ -50,7 +50,7 @@ def update_user_status(action: ManageUserAction, user_id: int) -> None:
     action_to_write = action.action_to_write()
 
     pool = sqlalchemy_get_pool()
-    with pool.connect() as conn:
+    with pool.begin() as conn:
         _change_status_in_table_users(conn, user_id, timestamp, action_to_write)
         _write_new_user_status(conn, action, user_id, timestamp)
 
@@ -71,7 +71,7 @@ def save_onboarding_step(user_id: int, step: str) -> None:
     step_id = dict_steps.get(step, 99)
 
     pool = sqlalchemy_get_pool()
-    with pool.connect() as conn:
+    with pool.begin() as conn:
         conn.execute(
             sqlalchemy.text("""
                 INSERT INTO user_onboarding (user_id, step_id, step_name, timestamp) 

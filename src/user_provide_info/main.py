@@ -162,7 +162,7 @@ def get_user_data_from_db(user_id: int) -> BaseUserParams:
     searches for Moscow Region"""
 
     pool = sqlalchemy_get_pool()
-    with pool.connect() as conn:
+    with pool.begin() as conn:
         user_params = _compose_basic_user_params(user_id, conn)
         if not user_params:
             return DemoUserParams(
@@ -226,7 +226,7 @@ def _get_searches_from_db(user_id: int, conn: sqlalchemy.engine.Connection, user
     result = conn.execute(sqlalchemy.text(query), {'user_id': user_id})
     raw_data = result.fetchall()
 
-    return _compose_searches(raw_data)
+    return _compose_searches(list(raw_data))  # type: ignore[arg-type]
 
 
 def _get_user_regions(user_id: int, conn: sqlalchemy.engine.Connection) -> list[int]:
@@ -397,7 +397,7 @@ def save_user_statistics_to_db(user_id: int, response: bool) -> None:
     json_to_save = json.dumps({'ok': response})
 
     pool = sqlalchemy_get_pool()
-    with pool.connect() as conn:
+    with pool.begin() as conn:
         try:
             conn.execute(
                 sqlalchemy.text("""

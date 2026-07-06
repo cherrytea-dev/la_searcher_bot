@@ -58,11 +58,13 @@ class TestDBClient:
         session.commit()
 
         with db_client.connect() as conn:
-            row = conn.execute(
+            vk_id = conn.execute(
                 sa_text('SELECT vk_id FROM users WHERE user_id = :uid'),
-                uid=user_id,
-            ).fetchone()
-        assert row[0] == '99999'
+                dict(
+                    uid=user_id,
+                ),
+            ).scalar()
+        assert vk_id == '99999'
 
     def test_set_user_vk_id_not_found(self, db_client: DBClient):
         """set_user_vk_id returns False when user doesn't exist."""
@@ -282,10 +284,12 @@ class TestDispatcherMessageNew:
 
         # Cleanup: remove the vk_id link
         with db().connect() as conn:
-            conn.execute(sa_text('UPDATE users SET vk_id = NULL WHERE user_id = :uid'), uid=telegram_user_id)
+            conn.execute(sa_text('UPDATE users SET vk_id = NULL WHERE user_id = :uid'), dict(uid=telegram_user_id))
             conn.execute(
                 sa_text("DELETE FROM user_identity_map WHERE messenger = 'vk' AND messenger_user_id = :vid"),
-                vid=str(vk_user_id),
+                dict(
+                    vid=str(vk_user_id),
+                ),
             )
 
     def test_message_new_with_stale_invite(self, mock_vk_sender: MagicMock | AsyncMock):

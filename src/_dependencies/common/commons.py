@@ -117,8 +117,6 @@ def sqlalchemy_get_pool_inner() -> sqlalchemy.engine.Engine:
         **db_config,
     )
 
-    pool.dialect.description_encoding = None
-
     return pool
 
 

@@ -19,10 +19,12 @@ class DialogHistoryMixin(DBClientMixinBase):
             )
             connection.execute(
                 stmt,
-                user_id=user_id,
-                author='user',
-                timestamp=datetime.datetime.now(),
-                message_text=text,
+                dict(
+                    user_id=user_id,
+                    author='user',
+                    timestamp=datetime.datetime.now(),
+                    message_text=text,
+                ),
             )
 
     def save_bot_reply(self, user_id: int, text: str) -> None:
@@ -34,8 +36,10 @@ class DialogHistoryMixin(DBClientMixinBase):
             )
             connection.execute(
                 stmt,
-                user_id=user_id,
-                author='bot',
-                timestamp=datetime.datetime.now(),
-                message_text=text,
+                dict(
+                    user_id=user_id,
+                    author='bot',
+                    timestamp=datetime.datetime.now(),
+                    message_text=text,
+                ),
             )

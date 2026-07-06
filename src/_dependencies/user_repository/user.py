@@ -17,7 +17,7 @@ class UserMixin(DBClientMixinBase):
         """Check if user exists in the database."""
         with self.connect() as connection:
             stmt = sqlalchemy.text("""SELECT user_id FROM users WHERE user_id=:user_id LIMIT 1;""")
-            result = connection.execute(stmt, user_id=user_id)
+            result = connection.execute(stmt, dict(user_id=user_id))
             return result.fetchone() is None
 
     def register_user(self, user_id: int, messenger: Messenger, username: str | None = None) -> None:
@@ -44,7 +44,7 @@ class UserMixin(DBClientMixinBase):
                     """SELECT step_id, step_name, timestamp FROM user_onboarding
                        WHERE user_id=:user_id ORDER BY step_id DESC;"""
                 )
-                result = connection.execute(stmt, user_id=user_id)
+                result = connection.execute(stmt, dict(user_id=user_id))
                 raw_data = result.fetchone()
                 if raw_data:
                     step_id, step_name, _time = list(raw_data)
@@ -67,7 +67,7 @@ class UserMixin(DBClientMixinBase):
         """
         with self.connect() as connection:
             stmt = sqlalchemy.text("""UPDATE users SET role=:role where user_id=:user_id;""")
-            connection.execute(stmt, role=role, user_id=user_id)
+            connection.execute(stmt, dict(role=role, user_id=user_id))
             logging.info(f'[settings] user {user_id} selected role {role}')
             return role
 
@@ -75,6 +75,6 @@ class UserMixin(DBClientMixinBase):
         """Get user's role."""
         with self.connect() as connection:
             stmt = sqlalchemy.text('SELECT role FROM users WHERE user_id=:user_id LIMIT 1;')
-            result = connection.execute(stmt, user_id=user_id)
+            result = connection.execute(stmt, dict(user_id=user_id))
             row = result.fetchone()
             return row[0] if row else None

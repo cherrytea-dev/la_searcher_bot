@@ -38,6 +38,6 @@ class SettingsSummaryMixin(DBClientMixinBase):
                        THEN TRUE ELSE FALSE END AS forum
                 FROM users WHERE user_id=:user_id;
             """)
-            result = connection.execute(stmt, user_id=user_id)
+            result = connection.execute(stmt, dict(user_id=user_id))
             raw_data = result.fetchone()
             return UserSettingsSummary(*raw_data) if raw_data else None
