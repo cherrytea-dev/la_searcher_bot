@@ -23,4 +23,5 @@ RUN --mount=type=cache,destination=/root/.cache/uv <<EOF
 EOF
 
 COPY src ./src
+COPY tools ./tools
 COPY tests ./tests
