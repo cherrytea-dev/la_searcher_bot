@@ -12,6 +12,8 @@ Key differences from the non-legacy DBClient:
 
 from datetime import datetime
 
+import sqlalchemy
+
 import pytest
 from freezegun import freeze_time
 from sqlalchemy.orm import Session
@@ -26,6 +28,21 @@ from tests.factories import db_factories, db_models
 def db_client(connection_pool):
     """Create a legacy DBClient connected to the test pool."""
     return LegacyDBClient(connection_pool)
+
+
+@pytest.fixture(autouse=True)
+def _clean_test_data(connection_pool):
+    """Clean tables used by these tests to prevent cross-test contamination.
+
+    The test database is shared and factories commit data directly, so we
+    need explicit cleanup between tests. Only touches tables that this
+    test file exercises.
+    """
+    with connection_pool.begin() as conn:
+        conn.execute(sqlalchemy.text('DELETE FROM search_health_check'))
+        conn.execute(sqlalchemy.text('DELETE FROM search_first_posts'))
+        conn.execute(sqlalchemy.text('DELETE FROM geo_folders'))
+        conn.execute(sqlalchemy.text('DELETE FROM searches'))
 
 
 class TestGetRandomHiddenTopic:
@@ -178,10 +195,12 @@ class TestGetListOfTopics:
         """Both NULL folder_type and 'searches' are valid."""
         search = db_factories.SearchFactory.create_sync(status='Ищем')
 
-        kwargs = {'folder_id': search.forum_folder_id}
-        if folder_type is not None:
-            kwargs['folder_type'] = folder_type
-        db_factories.GeoFolderFactory.create_sync(**kwargs)
+        # Explicitly pass folder_type=None for the NULL case; the factory
+        # would otherwise generate a random string.
+        db_factories.GeoFolderFactory.create_sync(
+            folder_id=search.forum_folder_id,
+            folder_type=folder_type,
+        )
 
         results = db_client.get_list_of_topics()
 
