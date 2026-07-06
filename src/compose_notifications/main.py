@@ -33,9 +33,9 @@ def get_list_of_admins_and_testers(conn: Connection) -> tuple[list[int], list[in
     list_of_testers = []
 
     try:
-        user_roles = conn.execute("""
+        user_roles = conn.execute(sqlalchemy.text("""
             SELECT user_id, role FROM user_roles;
-                                  """).fetchall()
+                                  """)).fetchall()
 
         for line in user_roles:
             if line[1] == 'admin':
@@ -54,11 +54,11 @@ def get_list_of_admins_and_testers(conn: Connection) -> tuple[list[int], list[in
 def call_self_if_need_compose_more(conn: Connection, function_id: int) -> None:
     """check if there are any notifications remained to be composed"""
 
-    check = conn.execute("""
+    check = conn.execute(sqlalchemy.text("""
         SELECT 1 FROM change_log
         WHERE notification_sent is NULL
         OR notification_sent='s' LIMIT 1; 
-                         """).fetchall()
+                         """)).fetchall()
     if check:
         logging.info('we checked – there is still something to compose: re-initiating [compose_notification]')
         pubsub_compose_notifications(function_id, 're-run from same script')

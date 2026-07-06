@@ -19,7 +19,7 @@ class DBClient:
 
     def get_random_hidden_topic_id(self) -> int | None:
         with self.connect() as conn:
-            hidden_topic = conn.execute("""
+            hidden_topic = conn.execute(sqlalchemy.text("""
                 SELECT h.search_forum_num
                 FROM search_health_check AS h
                     LEFT JOIN searches AS s
@@ -29,7 +29,7 @@ class DBClient:
                     and s.status in ('Ищем', 'Возобновлен')
                 ORDER BY RANDOM() LIMIT 1;
                 /*action='get_one_hidden_topic' */;
-                                        """).fetchone()
+                                        """)).fetchone()
 
             return int(hidden_topic[0]) if hidden_topic else None
 
@@ -53,7 +53,7 @@ class DBClient:
         """get best list of searches for which first posts should be checked"""
 
         with self.connect() as conn:
-            raw_sql_extract = conn.execute("""
+            raw_sql_extract = conn.execute(sqlalchemy.text("""
                     WITH
                     s AS (SELECT search_forum_num, search_start_time, forum_folder_id FROM searches
                         WHERE status = 'Ищем'),
@@ -71,7 +71,7 @@ class DBClient:
                     ORDER BY s.search_start_time DESC
                     /*action='get_list_of_searches_for_first_post_and_status_update 3.0' */
                     ;
-                                            """).fetchall()
+                                            """)).fetchall()
 
             # form the list-like table
             return [Search(topic_id=line[0]) for line in raw_sql_extract]
