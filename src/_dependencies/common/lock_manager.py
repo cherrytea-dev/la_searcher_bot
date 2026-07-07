@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import Iterator
 
 from sqlalchemy import text
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, Engine
 
 logger = logging.getLogger(__name__)
 
@@ -14,28 +14,35 @@ class FunctionLockError(Exception):
 
 
 @contextmanager
-def lock_manager(conn: Connection, func_name: str, timeout_in_seconds: int) -> Iterator[None]:
-    """Context manager to avoid situation when many instances running one function"""
+def lock_manager(engine: Engine, func_name: str, timeout_in_seconds: int) -> Iterator[None]:
+    """Context manager to avoid situation when many instances running one function.
 
-    logger.info(f'Trying to lock function {func_name}')
-    if _check_if_another_function_is_running(conn, func_name, timeout_in_seconds):
-        logger.warning('Lock failed: another function is in progress')
-        raise FunctionLockError()
+    Uses its own short-lived transactions for lock acquire/release,
+    so connections are never left idle-in-transaction.
+    """
+    with engine.begin() as conn:
+        logger.info(f'Trying to lock function {func_name}')
+        if _check_if_another_function_is_running(conn, func_name, timeout_in_seconds):
+            logger.warning('Lock failed: another function is in progress')
+            raise FunctionLockError()
 
-    record_id = _write_function_start(conn, func_name)
+        record_id = _write_function_start(conn, func_name)
 
-    if _check_if_another_function_is_running(conn, func_name, timeout_in_seconds, record_id):
-        logger.warning('Lock failed: another function started in same time, cancelling current.')
-        _write_function_finish(conn, func_name, record_id)
-        raise FunctionLockError()
+        if _check_if_another_function_is_running(conn, func_name, timeout_in_seconds, record_id):
+            logger.warning('Lock failed: another function started in same time, cancelling current.')
+            _write_function_finish(conn, func_name, record_id)
+            raise FunctionLockError()
 
-    logger.info(f'Lock for function {func_name} is acuqired; {record_id=}')
+        logger.info(f'Lock for function {func_name} is acquired; {record_id=}')
+    # Transaction committed — lock record is visible, connection is freed
 
-    yield None
-
-    logger.info(f'Releasing function {func_name}')
-    _write_function_finish(conn, func_name, record_id)
-    logger.info(f'Lock for function {func_name} is released')
+    try:
+        yield None
+    finally:
+        with engine.begin() as conn:
+            logger.info(f'Releasing function {func_name}')
+            _write_function_finish(conn, func_name, record_id)
+            logger.info(f'Lock for function {func_name} is released')
 
 
 def _check_if_another_function_is_running(
