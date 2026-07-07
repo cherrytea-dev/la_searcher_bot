@@ -7,7 +7,7 @@ from zipfile import ZipFile
 import pytest
 from sqlalchemy.orm.session import Session
 
-from archive_to_bigquery.main import Archiver, main
+from archive_to_bigquery.main import Archiver, DBClient, main
 from tests.common import find_model
 from tests.factories.db_factories import NotifByUserHistory, NotifByUserHistoryFactory, faker
 
@@ -17,7 +17,7 @@ class TestArchiveNotifications:
     def archiver(self, connection_pool) -> Archiver:
         return Archiver(
             archive_date=faker.date_object(),
-            engine=connection_pool,
+            db=DBClient(db=connection_pool),
             s3_client=Mock(),
         )
 
