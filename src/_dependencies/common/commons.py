@@ -55,8 +55,8 @@ class AppConfig(BaseSettings):
     forum_legacy_data_source: bool = False
 
     # Database connection pool settings
-    db_pool_size: int = 2
-    db_max_overflow: int = 4
+    db_pool_size: int = 1
+    db_max_overflow: int = 2
     db_pool_timeout: int = 10  # seconds
 
     @property
@@ -101,7 +101,7 @@ def sqlalchemy_get_pool_inner() -> sqlalchemy.engine.Engine:
         'pool_size': config.db_pool_size,
         'max_overflow': config.db_max_overflow,
         'pool_timeout': config.db_pool_timeout,  # seconds
-        'pool_recycle': 1,  # seconds
+        'pool_recycle': 3600,  # seconds (1 hour)
         'pool_pre_ping': True,
     }
 

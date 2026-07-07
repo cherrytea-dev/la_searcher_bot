@@ -139,10 +139,10 @@ def main(event: dict, context: Ctx) -> None:
 
     function_id = generate_random_function_id()
 
-    pool = sqlalchemy_get_pool()
-    with pool.begin() as conn:
-        try:
-            with lock_manager(conn, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
+    engine = sqlalchemy_get_pool()
+    try:
+        with lock_manager(engine, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
+            with engine.begin() as conn:
                 # compose New Records List: the delta from Change log
                 new_record = LogRecordComposer(conn).get_line()
 
@@ -159,11 +159,10 @@ def main(event: dict, context: Ctx) -> None:
                     )
 
                 call_self_if_need_compose_more(conn, function_id)
-            # engine.begin() auto-commits on success, auto-rollbacks on exception
-        except FunctionLockError:
-            logging.info('function execution stopped due to parallel run with another function')
-            logging.info('script cancelled')
-            return None
+    except FunctionLockError:
+        logging.info('function execution stopped due to parallel run with another function')
+        logging.info('script cancelled')
+        return None
 
     analytics_finish = datetime.datetime.now()
     if new_record:

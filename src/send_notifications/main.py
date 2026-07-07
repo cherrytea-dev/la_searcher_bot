@@ -656,15 +656,13 @@ def main(event: dict, context: Ctx) -> str | None:
 
     function_id = generate_random_function_id()
 
-    pool = sqlalchemy_get_pool()
-    with pool.begin() as connection:
-        try:
-            with lock_manager(connection, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
-                changed_ids = iterate_over_notifications(function_id, time_analytics)
-            # engine.begin() auto-commits on success, auto-rollbacks on exception
-        except FunctionLockError:
-            logging.info('script cancelled')
-            return None
+    engine = sqlalchemy_get_pool()
+    try:
+        with lock_manager(engine, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
+            changed_ids = iterate_over_notifications(function_id, time_analytics)
+    except FunctionLockError:
+        logging.info('script cancelled')
+        return None
 
     finish_time_analytics(time_analytics, changed_ids)
 
