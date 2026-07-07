@@ -9,7 +9,6 @@ from typing import Any
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import boto3
-import sqlalchemy
 from sqlalchemy import text
 
 from _dependencies.common.commons import get_app_config, setup_logging
@@ -21,14 +20,14 @@ setup_logging(__package__)
 
 DAYS_AGO_TO_START = 40  # temporarily increase
 DAYS_AGO_TO_FINISH = 1  # at least 1 day ago to avoid timezone problems
-BATCH_SIZE = 1000
+BATCH_SIZE = 10_000  # rows per paginated query (keeps memory < 100 MB per iteration)
 
 
 class DBClient(DBClientBase):
     """DB client for archive_to_bigquery."""
 
     def delete_exported_records(self, date_from: date, date_to: date) -> None:
-        stmt = sqlalchemy.text("""
+        stmt = text("""
             DELETE FROM notif_by_user__history
             WHERE created >= :date_from AND created < :date_to
         """)
@@ -122,7 +121,6 @@ class Archiver:
                             last_message_id = rows[-1].message_id
 
         if total_count == 0:
-            buf.close()
             return None
 
         logging.info(f'records to archive: {total_count}')
