@@ -55,7 +55,7 @@ class AppConfig(BaseSettings):
     forum_legacy_data_source: bool = False
 
     # Database connection pool settings
-    db_pool_size: int = 1
+    db_pool_size: int = 2
     db_max_overflow: int = 2
     db_pool_timeout: int = 10  # seconds
 
