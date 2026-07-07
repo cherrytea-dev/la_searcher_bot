@@ -5,7 +5,6 @@ import pytest
 from sqlalchemy.orm import Session
 
 from identify_updates_of_first_posts import main
-from identify_updates_of_first_posts._utils.database import DBClient
 from src.identify_updates_of_first_posts.main import (
     process_first_page_comparison,
     split_text_to_deleted_and_regular_parts,
@@ -56,11 +55,6 @@ class TestSplitText:
 def session() -> Session:
     with db_factories.get_session() as session:
         yield session
-
-
-@pytest.fixture
-def db_client(connection_pool) -> DBClient:
-    return DBClient(connection_pool)
 
 
 class TestProcessFirstPageComparison:
