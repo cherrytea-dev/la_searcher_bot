@@ -129,7 +129,7 @@ def main(event, context):  # noqa
     print('this is 1st print line')
     # FIXME ^^^
 
-    db = DBClient()
+    db = DBClient()  # noqa: F841
     try:
         # mark_up_onboarding_status_0(db)
         # mark_up_onboarding_status_10(db)
