@@ -179,6 +179,10 @@ class ForumSummarySnapshotFactory(BaseFactory[db_models.ForumSummarySnapshot]):
     pass
 
 
+class DialogFactory(BaseFactory[db_models.Dialog]):
+    author = 'user'
+
+
 class UserRoleFactory(BaseFactory[db_models.UserRole]):
     pass
 
