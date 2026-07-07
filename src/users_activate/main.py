@@ -121,28 +121,6 @@ def mark_up_onboarding_status_80_have_all_settings(db: DBClient) -> None:
         logging.info('There are no users to assign onboarding pref_id=80.')
 
 
-def mark_up_onboarding_status_80_self_deactivated(db: DBClient) -> None:
-    """marks up Onboarding step_id=80 for existing old users"""
-    user_id_to_update = db.get_user_for_onboarding_step_80_self_deactivated()
-    if user_id_to_update:
-        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
-        db.insert_onboarding_step(user_id_to_update, 'finished', 80)
-        db.delete_temp_onboarding_user(user_id_to_update)
-    else:
-        logging.info('There are no users to assign onboarding pref_id=80.')
-
-
-def mark_up_onboarding_status_99(db: DBClient) -> None:
-    """marks up Onboarding step_id=99 for existing old users"""
-    user_id_to_update = db.get_user_for_onboarding_step_99()
-    if user_id_to_update:
-        logging.info(f'User {user_id_to_update}, will be assigned with onboarding pref_id=80')
-        db.insert_onboarding_step(user_id_to_update, 'unrecognized', 99)
-        db.delete_temp_onboarding_user(user_id_to_update)
-    else:
-        logging.info('There are no users to assign onboarding pref_id=80.')
-
-
 def main(event, context):  # noqa
     """main function"""
 
@@ -166,8 +144,6 @@ def main(event, context):  # noqa
             # mark_up_onboarding_status_10_2(db)
             # mark_up_onboarding_status_80_just_got_summaries(db)
             # mark_up_onboarding_status_80_have_all_settings(db)
-            # mark_up_onboarding_status_80_self_deactivated(db)
-            # mark_up_onboarding_status_99(db)
             pass
 
     except Exception as e:

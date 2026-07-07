@@ -24,17 +24,6 @@ class DBClient(DBClientBase):
                 dict(user_id=user_id, step_name=step_name, step_id=step_id),
             )
 
-    def delete_temp_onboarding_user(self, user_id: int) -> None:
-        """Delete a user from temp_onb_step_157."""
-        with self.connect() as conn:
-            conn.execute(
-                sqlalchemy.text("""
-                    DELETE FROM temp_onb_step_157
-                    WHERE user_id = :user_id
-                """),
-                dict(user_id=user_id),
-            )
-
     # ── Step-specific queries ─────────────────────────────────────────
 
     def get_user_for_onboarding_step_0(self) -> int | None:
@@ -235,37 +224,6 @@ class DBClient(DBClientBase):
                     select user_id
                     from user_view
                     where notif_setting='yes' and folder_setting='yes' and onb_step is null
-                    limit 1
-                """)
-            ).scalar()
-            return result
-
-    def get_user_for_onboarding_step_80_self_deactivated(self) -> int | None:
-        """Get next user needing onboarding step_id=80 (self-deactivated)."""
-        with self.connect() as conn:
-            result = conn.execute(
-                sqlalchemy.text("""
-                    WITH step_0 AS (
-                        select t.user_id, CASE WHEN d.message_text LIKE 'отключ%' THEN 1 ELSE 0 END user_forced
-                        from temp_onb_step_157 AS t
-                        LEFT JOIN dialogs as d
-                        ON t.user_id=d.user_id)
-                    select user_id
-                    from step_0
-                    GROUP BY 1
-                    HAVING max(user_forced) > 0
-                    limit 1
-                """)
-            ).scalar()
-            return result
-
-    def get_user_for_onboarding_step_99(self) -> int | None:
-        """Get next user needing onboarding step_id=99 (unrecognized)."""
-        with self.connect() as conn:
-            result = conn.execute(
-                sqlalchemy.text("""
-                    select user_id
-                    from temp_onb_step_157
                     limit 1
                 """)
             ).scalar()
