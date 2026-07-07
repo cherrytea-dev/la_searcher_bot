@@ -12,7 +12,7 @@ class DBClient(DBClientBase):
     def get_search_status(self, search_id: int) -> str | None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
-                SELECT display_name, status, family_name, age, status
+                SELECT display_name, status, family_name, age
                 FROM searches WHERE search_forum_num=:search_id;
             """)
             row = conn.execute(stmt, dict(search_id=search_id)).fetchone()
@@ -42,8 +42,8 @@ class DBClient(DBClientBase):
             assert change_log_id is not None, f'Failed to insert change_log for search {search_id}'
             return change_log_id
 
-    def get_actual_page_content(self, search_id: int) -> tuple[str, str | None]:
-        """Returns (content, content_compact) or ('', None)."""
+    def get_actual_page_content(self, search_id: int) -> tuple[str | None, str | None]:
+        """Returns (content, content_compact) or (None, None) if no row found."""
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
                 SELECT content, content_compact
@@ -52,7 +52,7 @@ class DBClient(DBClientBase):
             """)
             row = conn.execute(stmt, dict(search_id=search_id)).fetchone()
             if not row:
-                return '', None
+                return None, None
             return row[0], row[1]
 
     def save_compact_content(self, search_id: int, content_compact: str) -> None:
