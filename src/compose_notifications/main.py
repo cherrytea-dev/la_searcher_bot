@@ -161,12 +161,14 @@ def main(event: dict, context: Ctx) -> None:
             call_self_if_need_compose_more(conn, function_id)
         conn.commit()
     except FunctionLockError:
-        conn.rollback()
         logging.info('function execution stopped due to parallel run with another function')
         logging.info('script cancelled')
         return None
     except:
-        conn.rollback()
+        try:
+            conn.rollback()
+        except Exception:
+            pass
         raise
     finally:
         conn.close()

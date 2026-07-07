@@ -663,11 +663,13 @@ def main(event: dict, context: Ctx) -> str | None:
             changed_ids = iterate_over_notifications(function_id, time_analytics)
         connection.commit()
     except FunctionLockError:
-        connection.rollback()
         logging.info('script cancelled')
         return None
     except:
-        connection.rollback()
+        try:
+            connection.rollback()
+        except Exception:
+            pass
         raise
     finally:
         connection.close()
