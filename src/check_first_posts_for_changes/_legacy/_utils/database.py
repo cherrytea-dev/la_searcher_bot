@@ -1,21 +1,15 @@
 import datetime
-from contextlib import _GeneratorContextManager
 from functools import lru_cache
 
 import sqlalchemy
-from sqlalchemy.engine.base import Engine
 
-from _dependencies.common.commons import sqlalchemy_get_pool
+from _dependencies.common.db_client import DBClientBase
 
 from .commons import RSSItem, Search
 
 
-class DBClient:
-    def __init__(self, db: Engine) -> None:
-        self._db = db
-
-    def connect(self) -> _GeneratorContextManager:
-        return self._db.begin()
+class DBClient(DBClientBase):
+    """Legacy DBClient — now inherits from DBClientBase."""
 
     def get_random_hidden_topic_id(self) -> int | None:
         with self.connect() as conn:
@@ -162,4 +156,4 @@ class DBClient:
 
 @lru_cache
 def get_db_client() -> DBClient:
-    return DBClient(db=sqlalchemy_get_pool())
+    return DBClient()
