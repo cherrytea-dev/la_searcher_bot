@@ -1,14 +1,21 @@
-"""Tests for YC Log Inspector — YC Logging API client."""
+"""Tests for YC Log Inspector — gRPC-based YC Logging client."""
 
 import json
 from datetime import datetime, timezone
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
+from google.protobuf.timestamp_pb2 import Timestamp
+from yandex.cloud.logging.v1.log_entry_pb2 import LogEntry, LogLevel
+from yandex.cloud.logging.v1.log_group_service_pb2 import (
+    ListLogGroupsRequest,
+)
+from yandex.cloud.logging.v1.log_group_service_pb2_grpc import LogGroupServiceStub
+from yandex.cloud.logging.v1.log_reading_service_pb2_grpc import LogReadingServiceStub
 
 from tools.log_inspector._utils.yc_logging import (
     AuthError,
-    IamTokenAuth,
+    LogGroup,
     YCLoggingClient,
 )
 
@@ -49,193 +56,261 @@ SERVICE_ACCOUNT_KEY = {
 
 
 # ---------------------------------------------------------------------------
-# IamTokenAuth
+# Helpers
 # ---------------------------------------------------------------------------
 
 
-class TestIamTokenAuth:
-    def test_uses_sa_json_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv('YC_SERVICE_ACCOUNT_JSON', json.dumps(SERVICE_ACCOUNT_KEY))
+def _make_mock_sdk() -> MagicMock:
+    """Create a mock SDK with mock gRPC stubs."""
+    sdk = MagicMock()
+    sdk.client = MagicMock()
+    return sdk
 
-        mock_resp = Mock()
-        mock_resp.raise_for_status = Mock()
-        mock_resp.json.return_value = {
-            'iamToken': 't1.sa...xyz',
-            'expiresAt': '2099-01-01T00:00:00Z',
-        }
 
-        with (
-            patch.object(IamTokenAuth, '_make_jwt', return_value='mock-jwt-token') as mock_jwt,
-            patch('httpx.post', return_value=mock_resp) as mock_post,
-        ):
-            auth = IamTokenAuth()
-            token = auth.get_token()
-            assert token == 't1.sa...xyz'
-            mock_jwt.assert_called_once()
-            mock_post.assert_called_once()
+def _make_entry(uid: str, level: int, message: str, timestamp: datetime) -> MagicMock:
+    """Create a mock LogEntry-like object."""
+    entry = MagicMock(spec=LogEntry)
+    entry.uid = uid
+    entry.level = level
+    entry.message = message
 
-    def test_caches_token(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv('YC_SERVICE_ACCOUNT_JSON', json.dumps(SERVICE_ACCOUNT_KEY))
+    ts_proto = Timestamp()
+    ts_proto.FromDatetime(timestamp)
+    entry.timestamp = ts_proto
 
-        mock_resp = Mock()
-        mock_resp.raise_for_status = Mock()
-        mock_resp.json.return_value = {'iamToken': 't1.sa...xyz'}
+    entry.stream_name = ''
+    entry.HasField.return_value = False
+    entry.json_payload = None
+    return entry
 
-        with (
-            patch('httpx.post', return_value=mock_resp) as mock_post,
-            patch.object(IamTokenAuth, '_make_jwt', return_value='mock-jwt'),
-        ):
-            auth = IamTokenAuth()
-            auth.get_token()
-            assert mock_post.call_count == 1
 
-            # Second call should use cache
-            auth.get_token()
-            assert mock_post.call_count == 1
+def _make_log_group(id_: str, name: str, folder_id: str) -> MagicMock:
+    """Create a mock log group protobuf message."""
+    g = MagicMock()
+    g.id = id_
+    g.name = name
+    g.folder_id = folder_id
+    return g
 
+
+# ---------------------------------------------------------------------------
+# YCLoggingClient — Auth
+# ---------------------------------------------------------------------------
+
+
+class TestYCLoggingClientAuth:
     def test_fails_without_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.delenv('YC_SERVICE_ACCOUNT_JSON', raising=False)
-        with pytest.raises(AuthError, match='YC_SERVICE_ACCOUNT_JSON'):
-            IamTokenAuth().get_token()
+        monkeypatch.delenv('YC_LOG_INSPECTOR_SA_JSON', raising=False)
+        with pytest.raises(AuthError, match='YC_LOG_INSPECTOR_SA_JSON'):
+            YCLoggingClient()
 
-    def test_invalidate_clears_cache(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv('YC_SERVICE_ACCOUNT_JSON', json.dumps(SERVICE_ACCOUNT_KEY))
+    def test_uses_sa_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv('YC_LOG_INSPECTOR_SA_JSON', json.dumps(SERVICE_ACCOUNT_KEY))
 
-        mock_resp = Mock()
-        mock_resp.raise_for_status = Mock()
-        mock_resp.json.return_value = {'iamToken': 't1.sa...xyz'}
-
-        with (
-            patch('httpx.post', return_value=mock_resp) as mock_post,
-            patch.object(IamTokenAuth, '_make_jwt', return_value='mock-jwt'),
-        ):
-            auth = IamTokenAuth()
-            auth.get_token()
-            assert mock_post.call_count == 1
-
-            auth.invalidate()
-            auth.get_token()
-            assert mock_post.call_count == 2
+        with patch('tools.log_inspector._utils.yc_logging.SDK') as mock_sdk_cls:
+            client = YCLoggingClient()
+            mock_sdk_cls.assert_called_once_with(service_account_key=SERVICE_ACCOUNT_KEY)
+            assert client._sdk is not None
 
 
 # ---------------------------------------------------------------------------
-# YCLoggingClient
+# YCLoggingClient — Log Groups
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture
-def client() -> YCLoggingClient:
-    """Return a client with a mocked auth that always returns 'test-token'."""
-    auth = Mock(spec=IamTokenAuth)
-    auth.get_token.return_value = 'test-token'
-    return YCLoggingClient(auth=auth)
+class TestListLogGroups:
+    def test_lists_groups(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv('YC_LOG_INSPECTOR_SA_JSON', json.dumps(SERVICE_ACCOUNT_KEY))
 
+        mock_sdk = _make_mock_sdk()
+        mock_stub = MagicMock()
+        mock_group_1 = _make_log_group('lg-001', 'bot-logs', 'fc-test')
+        mock_group_2 = _make_log_group('lg-002', 'api-logs', 'fc-test')
 
-def _mock_response(json_data: dict, status: int = 200) -> Mock:
-    """Build a mock HTTP response."""
-    resp = Mock()
-    resp.status_code = status
-    resp.raise_for_status = Mock()
-    resp.json.return_value = json_data
-    return resp
+        resp = MagicMock()
+        resp.groups = [mock_group_1, mock_group_2]
+        mock_stub.List.return_value = resp
 
+        def client_side_effect(stub_cls):
+            if stub_cls == LogGroupServiceStub:
+                return mock_stub
+            return MagicMock()
 
-class TestYCLoggingClient:
-    def test_list_log_groups(self, client: YCLoggingClient) -> None:
-        mock_resp = _mock_response(
-            {
-                'groups': [
-                    {'id': 'lg-001', 'name': 'bot-logs', 'folderId': 'fc-test'},
-                    {'id': 'lg-002', 'name': 'api-logs', 'folderId': 'fc-test'},
-                ],
-            }
-        )
+        mock_sdk.client.side_effect = client_side_effect
 
-        with patch.object(client._http, 'request', return_value=mock_resp) as mock_request:
+        with patch('tools.log_inspector._utils.yc_logging.SDK', return_value=mock_sdk):
+            client = YCLoggingClient()
             groups = client.list_log_groups('fc-test')
-            assert len(groups) == 2
-            assert groups[0].id == 'lg-001'
-            assert groups[0].name == 'bot-logs'
-            mock_request.assert_called_once()
 
-    def test_read_single_page(self, client: YCLoggingClient) -> None:
-        mock_resp = _mock_response(
-            {
-                'entries': [
-                    {
-                        'uid': '1',
-                        'level': 'ERROR',
-                        'message': 'something broke',
-                        'timestamp': '2026-07-04T18:00:00Z',
-                    },
-                ],
-                'next_page_token': 'page2',
-            }
-        )
+        assert len(groups) == 2
+        assert groups[0] == LogGroup(id='lg-001', name='bot-logs', folder_id='fc-test')
+        assert groups[1] == LogGroup(id='lg-002', name='api-logs', folder_id='fc-test')
+        mock_stub.List.assert_called_once_with(ListLogGroupsRequest(folder_id='fc-test'))
 
-        with patch.object(client._http, 'request', return_value=mock_resp) as mock_request:
+
+# ---------------------------------------------------------------------------
+# YCLoggingClient — Read Logs
+# ---------------------------------------------------------------------------
+
+
+class TestReadLogs:
+    def test_read_single_page(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv('YC_LOG_INSPECTOR_SA_JSON', json.dumps(SERVICE_ACCOUNT_KEY))
+
+        mock_sdk = _make_mock_sdk()
+        mock_reading_stub = MagicMock()
+        mock_group_stub = MagicMock()
+
+        now = datetime(2026, 7, 4, 18, 0, 0, tzinfo=timezone.utc)
+        entry = _make_entry('uid-1', LogLevel.ERROR, 'something broke', now)
+
+        read_resp = MagicMock()
+        read_resp.entries = [entry]
+        read_resp.next_page_token = 'page2'
+        mock_reading_stub.Read.return_value = read_resp
+
+        def client_side_effect(stub_cls):
+            if stub_cls == LogGroupServiceStub:
+                return mock_group_stub
+            if stub_cls == LogReadingServiceStub:
+                return mock_reading_stub
+            return MagicMock()
+
+        mock_sdk.client.side_effect = client_side_effect
+
+        with patch('tools.log_inspector._utils.yc_logging.SDK', return_value=mock_sdk):
+            client = YCLoggingClient()
             result = client.read_logs('lg-xxx', levels=['ERROR'])
-            assert len(result['entries']) == 1
-            assert result['next_page_token'] == 'page2'
-            mock_request.assert_called_once()
 
-    def test_read_all_logs_paginates(self, client: YCLoggingClient) -> None:
-        page_1_resp = _mock_response(
-            {
-                'entries': [
-                    {'uid': '1', 'level': 'ERROR', 'message': 'err1', 'timestamp': 't1'},
-                ],
-                'next_page_token': 'p2',
-            }
-        )
-        page_2_resp = _mock_response(
-            {
-                'entries': [
-                    {'uid': '2', 'level': 'ERROR', 'message': 'err2', 'timestamp': 't2'},
-                ],
-            }
-        )
+        assert len(result['entries']) == 1
+        assert result['next_page_token'] == 'page2'
+        assert result['entries'][0]['uid'] == 'uid-1'
+        assert result['entries'][0]['level'] == 'ERROR'
+        assert result['entries'][0]['message'] == 'something broke'
 
-        with patch.object(client._http, 'request', side_effect=[page_1_resp, page_2_resp]):
+    def test_read_all_logs_paginates(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv('YC_LOG_INSPECTOR_SA_JSON', json.dumps(SERVICE_ACCOUNT_KEY))
+
+        mock_sdk = _make_mock_sdk()
+        mock_reading_stub = MagicMock()
+        mock_group_stub = MagicMock()
+
+        now = datetime(2026, 7, 4, 18, 0, 0, tzinfo=timezone.utc)
+
+        resp_1 = MagicMock()
+        resp_1.entries = [_make_entry('uid-1', LogLevel.ERROR, 'err1', now)]
+        resp_1.next_page_token = 'p2'
+
+        resp_2 = MagicMock()
+        resp_2.entries = [_make_entry('uid-2', LogLevel.ERROR, 'err2', now)]
+        resp_2.next_page_token = ''
+
+        mock_reading_stub.Read.side_effect = [resp_1, resp_2]
+
+        def client_side_effect(stub_cls):
+            if stub_cls == LogGroupServiceStub:
+                return mock_group_stub
+            if stub_cls == LogReadingServiceStub:
+                return mock_reading_stub
+            return MagicMock()
+
+        mock_sdk.client.side_effect = client_side_effect
+
+        with patch('tools.log_inspector._utils.yc_logging.SDK', return_value=mock_sdk):
+            client = YCLoggingClient()
             entries = client.read_all_logs('lg-xxx')
-            assert len(entries) == 2
 
-    def test_read_all_logs_respects_max_pages(self, client: YCLoggingClient) -> None:
-        page_resp = _mock_response(
-            {
-                'entries': [
-                    {'uid': '1', 'level': 'INFO', 'message': 'msg', 'timestamp': 't'},
-                ],
-                'next_page_token': 'still-more',
-            }
-        )
+        assert len(entries) == 2
 
-        with patch.object(client._http, 'request', return_value=page_resp):
+    def test_read_all_logs_respects_max_pages(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv('YC_LOG_INSPECTOR_SA_JSON', json.dumps(SERVICE_ACCOUNT_KEY))
+
+        mock_sdk = _make_mock_sdk()
+        mock_reading_stub = MagicMock()
+        mock_group_stub = MagicMock()
+
+        now = datetime(2026, 7, 4, 18, 0, 0, tzinfo=timezone.utc)
+
+        resp = MagicMock()
+        resp.entries = [_make_entry('uid-1', LogLevel.INFO, 'msg', now)]
+        resp.next_page_token = 'still-more'
+
+        mock_reading_stub.Read.return_value = resp
+
+        def client_side_effect(stub_cls):
+            if stub_cls == LogGroupServiceStub:
+                return mock_group_stub
+            if stub_cls == LogReadingServiceStub:
+                return mock_reading_stub
+            return MagicMock()
+
+        mock_sdk.client.side_effect = client_side_effect
+
+        with patch('tools.log_inspector._utils.yc_logging.SDK', return_value=mock_sdk):
+            client = YCLoggingClient()
             entries = client.read_all_logs('lg-xxx', max_pages=2)
-            assert len(entries) == 2
 
-    def test_passes_time_range(self, client: YCLoggingClient) -> None:
+        assert len(entries) == 2
+
+    def test_passes_time_range(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv('YC_LOG_INSPECTOR_SA_JSON', json.dumps(SERVICE_ACCOUNT_KEY))
+
+        mock_sdk = _make_mock_sdk()
+        mock_reading_stub = MagicMock()
+        mock_group_stub = MagicMock()
+
         from_time = datetime(2026, 7, 4, 0, 0, 0, tzinfo=timezone.utc)
-        mock_resp = _mock_response({'entries': []})
 
-        with patch.object(client._http, 'request', return_value=mock_resp) as mock_request:
+        resp = MagicMock()
+        resp.entries = []
+        resp.next_page_token = ''
+        mock_reading_stub.Read.return_value = resp
+
+        def client_side_effect(stub_cls):
+            if stub_cls == LogGroupServiceStub:
+                return mock_group_stub
+            if stub_cls == LogReadingServiceStub:
+                return mock_reading_stub
+            return MagicMock()
+
+        mock_sdk.client.side_effect = client_side_effect
+
+        with patch('tools.log_inspector._utils.yc_logging.SDK', return_value=mock_sdk):
+            client = YCLoggingClient()
             client.read_logs('lg-x', from_time=from_time)
-            call_args = mock_request.call_args
-            body = call_args[1]['json']
-            assert body['from'] == '2026-07-04T00:00:00Z'
 
-    def test_retries_on_401(self, client: YCLoggingClient) -> None:
-        """Should refresh token on 401 and retry the request once."""
-        fail_resp = _mock_response({'error': 'unauthorized'}, status=401)
-        ok_resp = _mock_response(
-            {
-                'entries': [
-                    {'uid': '1', 'level': 'ERROR', 'message': 'ok after retry', 'timestamp': 't1'},
-                ],
-            }
-        )
+        call_args = mock_reading_stub.Read.call_args
+        request = call_args[0][0]
+        assert request.HasField('criteria')
+        # Proto Timestamp.ToDatetime() returns naive UTC
+        assert request.criteria.since.ToDatetime() == from_time.replace(tzinfo=None)
 
-        with patch.object(client._http, 'request', side_effect=[fail_resp, ok_resp]):
-            result = client.read_logs('lg-x', levels=['ERROR'])
-            assert len(result['entries']) == 1
-            assert result['entries'][0]['message'] == 'ok after retry'
+    def test_uses_page_token_when_provided(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv('YC_LOG_INSPECTOR_SA_JSON', json.dumps(SERVICE_ACCOUNT_KEY))
+
+        mock_sdk = _make_mock_sdk()
+        mock_reading_stub = MagicMock()
+        mock_group_stub = MagicMock()
+
+        resp = MagicMock()
+        resp.entries = []
+        resp.next_page_token = ''
+        mock_reading_stub.Read.return_value = resp
+
+        def client_side_effect(stub_cls):
+            if stub_cls == LogGroupServiceStub:
+                return mock_group_stub
+            if stub_cls == LogReadingServiceStub:
+                return mock_reading_stub
+            return MagicMock()
+
+        mock_sdk.client.side_effect = client_side_effect
+
+        with patch('tools.log_inspector._utils.yc_logging.SDK', return_value=mock_sdk):
+            client = YCLoggingClient()
+            client.read_logs('lg-x', page_token='next-page')
+
+        call_args = mock_reading_stub.Read.call_args
+        request = call_args[0][0]
+        assert request.page_token == 'next-page'
+        assert not request.HasField('criteria')

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """YC Log Inspector — Yandex Cloud Logging error investigation tool.
 
+Uses yandexcloud SDK (gRPC) instead of REST API.
+
 Ref: https://github.com/volodkindv/la_searcher_bot/issues/4
 Ref: https://github.com/volodkindv/la_searcher_bot/issues/5
 
@@ -11,7 +13,7 @@ Modes:
   raw          Raw JSON dump for programmatic use.
 
 Auth:
-  YC_SERVICE_ACCOUNT_JSON env var (service account key file)
+  YC_LOG_INSPECTOR_SA_JSON env var (service account key JSON)
 
 Usage:
   uv run python tools/log_inspector/main.py top-errors <log-group-id> --hours 24 --top 10
