@@ -1,14 +1,10 @@
-import json
 import logging
-from contextlib import _GeneratorContextManager
 from datetime import datetime, timezone
 from functools import lru_cache
-from typing import Any
 
 import sqlalchemy
-from sqlalchemy.engine.base import Engine
 
-from _dependencies.common.commons import sqlalchemy_get_pool
+from _dependencies.common.db_client import DBClientBase, DBKeyValueStorageMixin
 
 from .topics_commons import (
     ChangeLogLine,
@@ -18,12 +14,8 @@ from .topics_commons import (
 )
 
 
-class DBClient:
-    def __init__(self, db: Engine) -> None:
-        self._db = db
-
-    def connect(self) -> _GeneratorContextManager:
-        return self._db.begin()
+class DBClient(DBClientBase, DBKeyValueStorageMixin):
+    """Legacy DBClient — now inherits from DBClientBase and DBKeyValueStorageMixin."""
 
     def get_the_list_of_ignored_folders(self) -> list[int]:
         """get the list of folders which does not contain searches – thus should be ignored"""
@@ -411,33 +403,7 @@ class DBClient:
 
             return conn.execute(stmt).fetchall()
 
-    def get_key_value_item(self, key: str) -> Any:
-        with self.connect() as conn:
-            stmt = sqlalchemy.text("""
-                SELECT value FROM key_value_storage WHERE key=:key;
-                                   """)
-            raw_data = conn.execute(stmt, key=key).fetchone()
-            return raw_data[0] if raw_data else None
-
-    def set_key_value_item(self, key: str, value: Any) -> None:
-        with self.connect() as conn:
-            stmt = sqlalchemy.text("""
-                INSERT INTO key_value_storage 
-                (key, value) 
-                VALUES (:key, :value) 
-                ON CONFLICT (key) DO UPDATE SET value = :value ; 
-                                   """)
-            conn.execute(stmt, key=key, value=json.dumps(value))
-
-    def delete_key_value_item(self, key: str) -> None:
-        with self.connect() as conn:
-            stmt = sqlalchemy.text("""
-                DELETE FROM key_value_storage 
-                WHERE key=:key; 
-                                   """)
-            conn.execute(stmt, key=key)
-
 
 @lru_cache
 def get_db_client() -> DBClient:
-    return DBClient(db=sqlalchemy_get_pool())
+    return DBClient()
