@@ -139,31 +139,37 @@ def main(event: dict, context: Ctx) -> None:
 
     function_id = generate_random_function_id()
 
+    pool = sqlalchemy_get_pool()
+    conn = pool.connect()
     try:
-        pool = sqlalchemy_get_pool()
-        with pool.begin() as conn:
-            with lock_manager(conn, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
-                # compose New Records List: the delta from Change log
-                new_record = LogRecordComposer(conn).get_line()
+        with lock_manager(conn, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
+            # compose New Records List: the delta from Change log
+            new_record = LogRecordComposer(conn).get_line()
 
-                if new_record:
-                    list_of_users = UsersListComposer(conn).get_users_list_for_line_in_change_log(new_record)
-                    list_of_users = UserListFilter(conn, new_record, list_of_users).apply()
+            if new_record:
+                list_of_users = UsersListComposer(conn).get_users_list_for_line_in_change_log(new_record)
+                list_of_users = UserListFilter(conn, new_record, list_of_users).apply()
 
-                    analytics_iterations_finish = create_user_notifications_from_change_log_record(
-                        analytics_start_of_func,
-                        function_id,
-                        conn,
-                        new_record,
-                        list_of_users,
-                    )
+                analytics_iterations_finish = create_user_notifications_from_change_log_record(
+                    analytics_start_of_func,
+                    function_id,
+                    conn,
+                    new_record,
+                    list_of_users,
+                )
 
-                call_self_if_need_compose_more(conn, function_id)
-
+            call_self_if_need_compose_more(conn, function_id)
+        conn.commit()
     except FunctionLockError:
+        conn.rollback()
         logging.info('function execution stopped due to parallel run with another function')
         logging.info('script cancelled')
         return None
+    except:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
     analytics_finish = datetime.datetime.now()
     if new_record:
