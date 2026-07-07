@@ -1,7 +1,7 @@
 import datetime
 
+import pytest
 from polyfactory import Use
-from sqlalchemy.engine.base import Engine
 
 from api_get_active_searches import main
 from tests.common import get_http_request
@@ -16,6 +16,11 @@ from tests.factories.db_factories import (
 class ActiveSearchFactory(SearchFactory):
     search_start_time = Use(datetime.datetime.now)
     status = 'Active'
+
+
+@pytest.fixture()
+def db_client(connection_pool):
+    return main.DBClient(db=connection_pool)
 
 
 class TestMain:
@@ -62,18 +67,17 @@ class TestMain:
         assert resp['statusCode'] == 204
 
 
-def test_get_searches_from_db(connection_pool: Engine) -> None:
+def test_get_searches_from_db(db_client) -> None:
     folder1 = GeoFolderFactory.create_sync(folder_type='searches')
     search1 = ActiveSearchFactory.create_sync(forum_folder_id=folder1.folder_id)
     SearchHealthCheckFactory.create_sync(search_forum_num=search1.search_forum_num, status='ok')
     SearchFirstPostFactory.create_sync(search_id=search1.search_forum_num, actual=True)
 
-    db = main.DBClient(db=connection_pool)
-    searches = db.get_active_searches(main.UserRequest(app_id=1))
+    searches = db_client.get_active_searches(main.UserRequest(app_id=1))
     assert searches  # TODO find correct params for db factory
 
 
-def test_get_query_results_with_folders(connection_pool: Engine) -> None:
+def test_get_query_results_with_folders(db_client) -> None:
     folder1, folder2 = GeoFolderFactory.create_batch_sync(2, folder_type='searches')
 
     search1 = ActiveSearchFactory.create_sync(forum_folder_id=folder1.folder_id)
@@ -85,10 +89,9 @@ def test_get_query_results_with_folders(connection_pool: Engine) -> None:
     SearchHealthCheckFactory.create_sync(search_forum_num=search2.search_forum_num, status='ok')
     SearchFirstPostFactory.create_sync(search_id=search2.search_forum_num, actual=True)
 
-    db = main.DBClient(db=connection_pool)
     depth_days = 30
     folders_list = [int(folder1.folder_id), int(folder2.folder_id)]
-    result = db._get_query_results(depth_days, folders_list)
+    result = db_client._get_query_results(depth_days, folders_list)
 
     # Assert that the result is a list of Search objects with the correct data
     assert len(result) == 2
@@ -99,16 +102,15 @@ def test_get_query_results_with_folders(connection_pool: Engine) -> None:
     assert result[1].forum_folder_id == search2.forum_folder_id
 
 
-def test_get_query_results_with_no_folders(connection_pool: Engine) -> None:
+def test_get_query_results_with_no_folders(db_client) -> None:
     folder1 = GeoFolderFactory.create_sync(folder_type='searches')
     search1 = ActiveSearchFactory.create_sync(forum_folder_id=folder1.folder_id)
     SearchHealthCheckFactory.create_sync(search_forum_num=search1.search_forum_num, status='ok')
     SearchFirstPostFactory.create_sync(search_id=search1.search_forum_num, actual=True)
 
-    db = main.DBClient(db=connection_pool)
     depth_days = 30
     folders_list: list[int] = []
-    result = db._get_query_results(depth_days, folders_list)
+    result = db_client._get_query_results(depth_days, folders_list)
 
     assert result
     assert isinstance(result[0], main.Search)

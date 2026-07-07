@@ -116,9 +116,7 @@ class DBClient(DBClientBase):
             """)
             conn.execute(stmt)
 
-            logging.info(
-                'first_posts for elder snapshots are copied to __history and deleted from search_first_posts'
-            )
+            logging.info('first_posts for elder snapshots are copied to __history and deleted from search_first_posts')
 
             # 3. TTL PURGE
             stmt = sqlalchemy.text("""
