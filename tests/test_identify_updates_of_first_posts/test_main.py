@@ -15,7 +15,7 @@ from tests.factories import db_factories
 
 def test_main():
     # TODO paste some posts in db
-    main.main(get_event_with_data('[1,2]'), 'context')
+    main.main(get_event_with_data([1, 2]), 'context')
     assert True
 
 
