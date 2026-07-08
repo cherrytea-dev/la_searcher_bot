@@ -263,74 +263,72 @@ def main(event: Dict[str, bytes], context: Ctx) -> None:
 
     user = None
     if message_in_ascii:
-            f_usr_id = get_user_id(f_username)
+        f_usr_id = get_user_id(f_username)
 
-            if f_usr_id:
-                block_of_user_data = get_user_attributes(f_usr_id)
+        if f_usr_id:
+            block_of_user_data = get_user_attributes(f_usr_id)
 
-                if block_of_user_data:
-                    user = get_user_data(block_of_user_data)
+            if block_of_user_data:
+                user = get_user_data(block_of_user_data)
 
     if user:
-            bot_message = 'Посмотрите, Бот нашел следующий аккаунт на форуме, это Вы?\n'
-            bot_message += 'username: ' + f_username + ', '
-            if user.callsign:
-                bot_message += 'позывной: ' + user.callsign + ', '
-            # if user.region:
-            #     bot_message += 'регион: ' + user.region + ', '
-            if user.phone:
-                bot_message += 'телефон оканчивается на ' + str(user.phone)[-5:] + ', '
-            if user.age:
-                bot_message += 'возраст: ' + str(user.age) + ', '
-            if user.reg_date:
-                bot_message += 'дата регистрации: ' + str(user.reg_date)[:-7] + ', '
-            bot_message = bot_message[:-2]
+        bot_message = 'Посмотрите, Бот нашел следующий аккаунт на форуме, это Вы?\n'
+        bot_message += 'username: ' + f_username + ', '
+        if user.callsign:
+            bot_message += 'позывной: ' + user.callsign + ', '
+        # if user.region:
+        #     bot_message += 'регион: ' + user.region + ', '
+        if user.phone:
+            bot_message += 'телефон оканчивается на ' + str(user.phone)[-5:] + ', '
+        if user.age:
+            bot_message += 'возраст: ' + str(user.age) + ', '
+        if user.reg_date:
+            bot_message += 'дата регистрации: ' + str(user.reg_date)[:-7] + ', '
+        bot_message = bot_message[:-2]
 
-            keyboard = [['да, это я'], ['нет, это не я'], ['в начало']]
+        keyboard = [['да, это я'], ['нет, это не я'], ['в начало']]
 
-            # Delete previous records for this user
-            db.delete_user_forum_attributes(tg_user_id)
-            db.insert_user_forum_attributes(
-                tg_user_id,
-                f_usr_id,
-                f_username,
-                user.age,
-                user.sex,
-                user.region,
-                user.auto_num,
-                user.callsign,
-                user.phone,
-                user.reg_date,
-            )
-            user_has_region_set = db.user_has_region_set(tg_user_id)
-            logging.info(f'user_has_region_set = {user_has_region_set}')
+        # Delete previous records for this user and insert new ones
+        db.replace_user_forum_attributes(
+            tg_user_id,
+            f_usr_id,
+            f_username,
+            user.age,
+            user.sex,
+            user.region,
+            user.auto_num,
+            user.callsign,
+            user.phone,
+            user.reg_date,
+        )
+        user_has_region_set = db.user_has_region_set(tg_user_id)
+        logging.info(f'user_has_region_set = {user_has_region_set}')
 
-            if not user_has_region_set and user.region:
-                resulting_region_in_bot = match_user_region_from_forum_to_bot(user.region)  # noqa
+        if not user_has_region_set and user.region:
+            match_user_region_from_forum_to_bot(user.region)
 
     else:
-            bot_message = (
-                'Бот не смог найти такого пользователя на форуме. '
-                'Пожалуйста, проверьте правильность написания имени пользователя (логина). '
-                'Важно, чтобы каждый знак в точности соответствовал тому, что указано в вашем профиле на форуме'
-            )
-            keyboard = [['в начало']]
-            bot_request_aft_usr_msg = 'input_of_forum_username'
+        bot_message = (
+            'Бот не смог найти такого пользователя на форуме. '
+            'Пожалуйста, проверьте правильность написания имени пользователя (логина). '
+            'Важно, чтобы каждый знак в точности соответствовал тому, что указано в вашем профиле на форуме'
+        )
+        keyboard = [['в начало']]
+        bot_request_aft_usr_msg = 'input_of_forum_username'
 
-            try:
-                db.delete_msg_from_bot(tg_user_id)
-                db.insert_msg_from_bot(tg_user_id, bot_request_aft_usr_msg)
+        try:
+            db.replace_msg_from_bot(tg_user_id, bot_request_aft_usr_msg)
 
-            except Exception:
-                logging.exception('failed to update the last saved message from bot')
+        except Exception:
+            logging.exception('failed to update the last saved message from bot')
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     data = {
-            'text': bot_message,
-            'reply_markup': reply_markup,
-            'parse_mode': 'HTML',
-            'disable_web_page_preview': True,
-            'chat_id': tg_user_id,
+        'text': bot_message,
+        'reply_markup': reply_markup,
+        'parse_mode': 'HTML',
+        'disable_web_page_preview': True,
+        'chat_id': tg_user_id,
     }
 
     tg_api = tg_api_main_account()
@@ -338,4 +336,4 @@ def main(event: Dict[str, bytes], context: Ctx) -> None:
 
     # save bot's reply to incoming request
     if bot_message:
-            db.insert_dialog_message(tg_user_id, 'bot', bot_message)
+        db.insert_dialog_message(tg_user_id, 'bot', bot_message)

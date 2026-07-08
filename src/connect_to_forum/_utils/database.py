@@ -10,14 +10,7 @@ from _dependencies.common.db_client import DBClientBase
 class DBClient(DBClientBase):
     """DB client for connect_to_forum."""
 
-    def delete_user_forum_attributes(self, user_id: int) -> None:
-        with self.connect() as conn:
-            conn.execute(
-                sqlalchemy.text("""DELETE FROM user_forum_attributes WHERE user_id=:user_id"""),
-                dict(user_id=user_id),
-            )
-
-    def insert_user_forum_attributes(
+    def replace_user_forum_attributes(
         self,
         user_id: int,
         forum_user_id: str,
@@ -30,7 +23,12 @@ class DBClient(DBClientBase):
         forum_phone: str | None,
         forum_reg_date: str | None,
     ) -> None:
+        """Delete old forum attributes and insert new ones in one transaction."""
         with self.connect() as conn:
+            conn.execute(
+                sqlalchemy.text("""DELETE FROM user_forum_attributes WHERE user_id=:user_id"""),
+                dict(user_id=user_id),
+            )
             conn.execute(
                 sqlalchemy.text("""
                 INSERT INTO user_forum_attributes
@@ -42,7 +40,7 @@ class DBClient(DBClientBase):
                 dict(
                     user_id=user_id,
                     forum_user_id=forum_user_id,
-                    status='non-varified',
+                    status='non-verified',
                     timestamp=datetime.datetime.now(),
                     forum_username=forum_username,
                     forum_age=forum_age,
@@ -58,20 +56,18 @@ class DBClient(DBClientBase):
     def user_has_region_set(self, user_id: int) -> bool:
         with self.connect() as conn:
             result = conn.execute(
-                sqlalchemy.text("""SELECT forum_folder_num FROM user_regional_preferences WHERE user_id=:user_id"""),
+                sqlalchemy.text("""SELECT 1 FROM user_regional_preferences WHERE user_id=:user_id"""),
                 dict(user_id=user_id),
             ).fetchone()
             return result is not None
 
-    def delete_msg_from_bot(self, user_id: int) -> None:
+    def replace_msg_from_bot(self, user_id: int, msg_type: str) -> None:
+        """Delete old msg_from_bot records and insert new one in one transaction."""
         with self.connect() as conn:
             conn.execute(
                 sqlalchemy.text("""DELETE FROM msg_from_bot WHERE user_id=:user_id"""),
                 dict(user_id=user_id),
             )
-
-    def insert_msg_from_bot(self, user_id: int, msg_type: str) -> None:
-        with self.connect() as conn:
             conn.execute(
                 sqlalchemy.text("""
                 INSERT INTO msg_from_bot (user_id, time, msg_type) values (:user_id, :time, :msg_type)
