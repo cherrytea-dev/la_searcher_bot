@@ -1,11 +1,8 @@
 import datetime
 import logging
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any
-
-import sqlalchemy
-from sqlalchemy.engine.base import Connection
 
 from _dependencies.common.commons import ChangeType, get_app_config
 from _dependencies.common.pubsub import notify_admin, pubsub_send_notifications
@@ -15,6 +12,7 @@ from .commons import (
     LineInChangeLog,
     User,
 )
+from .database import DBClient
 from .message_composer import MessageComposer
 
 
@@ -42,8 +40,8 @@ RE_LONGITUDE = re.compile(r'(?<=\D)[\d.]{2,12}$')
 
 
 class NotificationMaker:
-    def __init__(self, conn: Connection, new_record: LineInChangeLog, list_of_users: list[User]) -> None:
-        self.conn = conn
+    def __init__(self, db: DBClient, new_record: LineInChangeLog, list_of_users: list[User]) -> None:
+        self.db = db
         self.stat_list_of_recipients: list[int] = []  # list of users who received notification on new search
         self.new_record = new_record
         self.list_of_users = list_of_users
@@ -190,32 +188,7 @@ class NotificationMaker:
         TODO not used, remove it
         """
 
-        sql_text_ = sqlalchemy.text("""
-            SELECT EXISTS (
-                SELECT
-                    message_id
-                FROM
-                    notif_by_user
-                WHERE
-                    completed IS NOT NULL AND
-                    user_id=:b AND
-                    message_type=:c AND
-                    change_log_id=:a
-            )
-            /*action='get_from_sql_if_was_notified_already_new'*/
-            ;
-        """)
-
-        user_was_already_notified = self.conn.execute(
-            sql_text_,
-            dict(
-                a=self.new_record.change_log_id,
-                b=user_id,
-                c=message_type,
-            ),
-        ).scalar()
-
-        return bool(user_was_already_notified)
+        return self.db.check_user_notified(user_id, self.new_record.change_log_id)
 
     def _save_to_sql_notif_by_user(
         self,
@@ -261,21 +234,11 @@ class NotificationMaker:
             return
 
         user_ids = [user.user_id for user in self.list_of_users]
-
-        result = self.conn.execute(
-            sqlalchemy.text("""
-                SELECT internal_user_id, messenger
-                FROM user_identity_map
-                WHERE internal_user_id = ANY(:user_ids)
-            """),
-            {'user_ids': user_ids},
-        )
+        rows = self.db.resolve_messengers(user_ids)
 
         # Build map: user_id -> set of messengers
         temp: dict[int, set[str]] = {}
-        for row in result.fetchall():
-            uid = row[0]
-            messenger = row[1]
+        for uid, messenger in rows:
             if uid not in temp:
                 temp[uid] = set()
             temp[uid].add(messenger)
@@ -293,20 +256,9 @@ class NotificationMaker:
         # DIAG: check if any records in this batch would create duplicates
         change_log_id = self.new_record.change_log_id
         for record in self._batch_buffer:
-            existing_count = self.conn.execute(
-                sqlalchemy.text("""
-                    SELECT count(*) FROM notif_by_user
-                    WHERE change_log_id = :cl AND user_id = :uid
-                      AND message_type = :mt AND messenger = :msgr
-                      AND completed IS NULL AND cancelled IS NULL
-                """),
-                dict(
-                    cl=change_log_id,
-                    uid=record.user_id,
-                    mt=record.message_type,
-                    msgr=record.messenger,
-                ),
-            ).scalar()
+            existing_count = self.db.check_notification_duplicate(
+                change_log_id, record.user_id, record.message_type, record.messenger
+            )
             if existing_count and existing_count > 0:
                 logging.warning(
                     f'DOUBLING_DIAG: flush_batch would create duplicate! '
@@ -315,32 +267,23 @@ class NotificationMaker:
                     f'existing_count={existing_count}'
                 )
 
-        sql_text = sqlalchemy.text("""
-            INSERT INTO notif_by_user (
-                user_id,
-                message_content,
-                message_text,
-                message_type,
-                message_params,
-                message_group_id,
-                change_log_id,
-                created,
-                messenger)
-            VALUES (
-                :user_id,
-                :message,
-                :message_without_html,
-                :message_type,
-                :message_params,
-                :message_group,
-                :change_log_id,
-                :created,
-                :messenger
-                    );
-        """)
-
-        params_list = [asdict(record) for record in self._batch_buffer]
-        self.conn.execute(sql_text, params_list)
+        # Convert NotificationRecord dataclass instances to dicts with
+        # column names matching the notif_by_user table.
+        records = [
+            {
+                'user_id': r.user_id,
+                'message_content': r.message,
+                'message_text': r.message_without_html,
+                'message_type': r.message_type,
+                'message_params': r.message_params,
+                'message_group_id': r.message_group,
+                'change_log_id': r.change_log_id,
+                'created': r.created,
+                'messenger': r.messenger,
+            }
+            for r in self._batch_buffer
+        ]
+        self.db.batch_insert_notifications(records)
         logging.debug(f'Flushed {len(self._batch_buffer)} records to notif_by_user table')
         self._batch_buffer.clear()
 
@@ -354,16 +297,7 @@ class NotificationMaker:
         try:
             for user_id in dict_of_user_and_number_of_new_notifs:
                 number_to_add = dict_of_user_and_number_of_new_notifs[user_id]
-
-                sql_text = sqlalchemy.text("""
-                    INSERT INTO user_stat (user_id, num_of_new_search_notifs)
-                    VALUES(:user_id, :number_to_add)
-                    ON CONFLICT (user_id) DO
-                    UPDATE SET num_of_new_search_notifs = :number_to_add +
-                    (SELECT num_of_new_search_notifs from user_stat WHERE user_id = :user_id)
-                    WHERE user_stat.user_id = :user_id;
-                """)
-                self.conn.execute(sql_text, dict(user_id=int(user_id), number_to_add=int(number_to_add)))
+                self.db.record_user_stat_notifications(int(user_id), int(number_to_add))
 
         except Exception as e:
             logging.error('Recording statistics in notification script failed' + repr(e))
@@ -375,13 +309,7 @@ class NotificationMaker:
         if not self.new_record.processed:
             return
 
-        sql_text = sqlalchemy.text("""
-            UPDATE change_log SET notification_sent = 'y' WHERE id=:change_log_id;
-                                    """)
-        self.conn.execute(
-            sql_text,
-            dict(change_log_id=self.new_record.change_log_id),
-        )
+        self.db.mark_change_log_processed(self.new_record.change_log_id)
         record_status = 'IGNORED' if self.new_record.ignore else 'processed'
         logging.info(f'The New Record {self.new_record.change_log_id} was marked as {record_status} in PSQL')
 
@@ -393,34 +321,17 @@ class NotificationMaker:
         if not (self.new_record.processed and not self.new_record.ignore):
             return
         try:
-            if self.new_record.change_type == ChangeType.topic_comment_new:
-                sql_text = sqlalchemy.text("""
-                    UPDATE comments SET notification_sent = 'y' WHERE search_forum_num=:forum_search_num;
-                                           """)
-                self.conn.execute(sql_text, dict(forum_search_num=self.new_record.forum_search_num))
-
-            elif self.new_record.change_type == ChangeType.topic_inforg_comment_new:
-                sql_text = sqlalchemy.text("""
-                    UPDATE comments SET notif_sent_inforg = 'y' WHERE search_forum_num=:forum_search_num;
-                                           """)
-                self.conn.execute(sql_text, dict(forum_search_num=self.new_record.forum_search_num))
-            # FIXME ^^^
+            self.db.mark_comments_processed_by_change_type(
+                self.new_record.forum_search_num,
+                int(self.new_record.change_type),
+            )
 
             logging.info(f'The Update {self.new_record.change_log_id} with Comments that are processed and not ignored')
             logging.info('All Comments are marked as processed')
 
         except Exception:
             # TODO – seems a vary vague solution: to mark all
-            sql_text = sqlalchemy.text("""
-                UPDATE comments SET notification_sent = 'y' WHERE notification_sent is Null
-                OR notification_sent = 's';
-                                       """)
-            self.conn.execute(sql_text)
-
-            sql_text = sqlalchemy.text("""
-                UPDATE comments SET notif_sent_inforg = 'y' WHERE notif_sent_inforg is Null;
-                """)
-            self.conn.execute(sql_text)
+            self.db.mark_all_comments_processed_fallback()
 
             logging.exception('Not able to mark Comments as Processed:')
             logging.info('Due to error, all Comments are marked as processed')

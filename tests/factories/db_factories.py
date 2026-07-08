@@ -72,7 +72,7 @@ class SearchFactory(BaseFactory[db_models.Search]):
 
 
 class SearchFirstPostFactory(BaseFactory[db_models.SearchFirstPost]):
-    pass
+    search_id = Use(faker.pyint, min_value=1_000_000_000, max_value=2_000_000_000)
 
 
 class GeoFolderFactory(BaseFactory[db_models.GeoFolder]):
