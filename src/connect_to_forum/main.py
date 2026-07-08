@@ -12,7 +12,7 @@ from telegram import ReplyKeyboardMarkup
 
 from _dependencies.bot.messaging import tg_api_main_account
 from _dependencies.common.commons import get_app_config, get_forum_proxies, setup_logging
-from _dependencies.common.pubsub import Ctx, process_pubsub_message
+from _dependencies.common.pubsub import Ctx, MessageForParseUserProfile, process_pubsub_message
 from _dependencies.models import DialogState
 
 from ._utils.database import DBClient
@@ -260,10 +260,8 @@ def main(event: Dict[str, bytes], context: Ctx) -> None:
 
     db = DBClient()
     message_in_ascii = process_pubsub_message(event)
-
-    tg_user_id: int  # TODO make contracts for pub-sub messages
-    f_username: str
-    tg_user_id, f_username = list(message_in_ascii)  # type:ignore [assignment]
+    msg = MessageForParseUserProfile.model_validate(message_in_ascii)
+    tg_user_id, f_username = msg.root
 
     user = None
     if message_in_ascii:

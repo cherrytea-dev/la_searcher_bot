@@ -1,7 +1,6 @@
 """Check if the first post of the search was updated in terms of field trips and coordinates change.
 Result to be recorded into Change_log and triggered another script identify_updates_of_folders."""
 
-import ast
 import copy
 import datetime
 import difflib
@@ -24,6 +23,7 @@ from _dependencies.common.commons import (
 from _dependencies.common.misc import generate_random_function_id
 from _dependencies.common.pubsub import (
     Ctx,
+    MessageForCheckFirstPosts,
     notify_admin,
     process_pubsub_message,
     pubsub_compose_notifications,
@@ -342,7 +342,8 @@ def main(event: dict, context: Ctx) -> str:  # noqa
 
     # receive a list of searches where first post was updated
     message_from_pubsub = process_pubsub_message(event)
-    list_of_updated_searches = ast.literal_eval(str(message_from_pubsub))
+    msg = MessageForCheckFirstPosts.model_validate(message_from_pubsub)
+    list_of_updated_searches = msg.root
 
     if not list_of_updated_searches:
         return 'ok'
