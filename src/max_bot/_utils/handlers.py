@@ -211,8 +211,6 @@ async def on_bot_started(event: BotStarted) -> None:
         return
 
     try:
-        _ensure_user_registered(user_id)
-
         await bot.send_message(
             chat_id=chat_id,
             text=WELCOME_TEXT,
@@ -234,8 +232,6 @@ async def on_start(event: MessageCreated) -> None:
         return
 
     try:
-        _ensure_user_registered(user_id)
-
         await event.message.answer(
             text=WELCOME_TEXT,
             attachments=[MaxKeyboardPresets.main_menu()],
@@ -558,9 +554,6 @@ async def on_radius_text(event: MessageCreated) -> None:
 
     text = body.text.strip()
 
-    # Register user if this is their first interaction (e.g., sent radius before /start)
-    _ensure_user_registered(user_id)
-
     # Clear DB state
     db = _get_db()
     db.clear_user_state(user_id)
@@ -609,9 +602,6 @@ async def on_coords_text(event: MessageCreated) -> None:
         return
 
     text = body.text.strip()
-
-    # Register user if this is their first interaction (e.g., sent coords before /start)
-    _ensure_user_registered(user_id)
 
     # Clear DB state
     db = _get_db()
@@ -669,9 +659,6 @@ async def on_geo_location(event: MessageCreated) -> None:
 
     if user_id is None or chat_id is None:
         return
-
-    # Register user if this is their first interaction (e.g., sent location before /start)
-    _ensure_user_registered(user_id)
 
     if not attachments:
         return
@@ -734,9 +721,6 @@ async def on_unknown_text(event: MessageCreated) -> None:
 
     if user_id is None or chat_id is None:
         return
-
-    # Register user if this is their first interaction
-    _ensure_user_registered(user_id)
 
     # Check if user is in a DB dialog state
     db = _get_db()
