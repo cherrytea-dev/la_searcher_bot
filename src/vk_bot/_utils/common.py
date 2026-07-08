@@ -109,6 +109,8 @@ class VKHandlerContext:
         state: DialogState | None,
         sender: 'VKMessageSender',
         db: 'DBClient',
+        *,
+        is_new_user: bool = False,
     ) -> None:
         # ── Incoming data ──────────────────────────────────────────────
         self.message: VKMessage = message
@@ -119,6 +121,9 @@ class VKHandlerContext:
 
         self.state: DialogState | None = state
         """Current dialog state (what input the bot expects), or None."""
+
+        self.is_new_user: bool = is_new_user
+        """Whether this user was just registered (first interaction)."""
 
         # ── Internal dependencies ──────────────────────────────────────
         self._sender: VKMessageSender = sender

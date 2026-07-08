@@ -161,6 +161,23 @@ def _parse_payload(payload_str: str | None) -> dict[str, Any]:
         return {}
 
 
+def _ensure_user_registered(user_id: int) -> bool:
+    """Register user if new. Returns True if freshly registered.
+
+    Must be called at the start of every message handler that processes
+    user input, not just bot_started/start. Otherwise users who skip
+    /start (e.g., send arbitrary text or location right away) can save
+    settings without a corresponding record in the ``users`` table.
+    """
+    db = _get_db()
+    is_new = db.check_if_new_user(user_id)
+    if is_new:
+        db.register_user(user_id, Messenger.MAX)
+        db.save_default_topic_types(user_id, None)
+        logger.info('Registered new user %s via ensure_user_registered', user_id)
+    return is_new
+
+
 def _get_regions_for_district(district: str) -> list[tuple[int, str]]:
     """Get (folder_id, display_name) list for a federal district."""
     db = _get_db()
@@ -194,12 +211,7 @@ async def on_bot_started(event: BotStarted) -> None:
         return
 
     try:
-        db = _get_db()
-        is_new = db.check_if_new_user(user_id)
-        if is_new:
-            db.register_user(user_id, Messenger.MAX)
-            db.save_default_topic_types(user_id, None)
-            logger.info('Registered new user %s', user_id)
+        _ensure_user_registered(user_id)
 
         await bot.send_message(
             chat_id=chat_id,
@@ -222,12 +234,7 @@ async def on_start(event: MessageCreated) -> None:
         return
 
     try:
-        db = _get_db()
-        is_new = db.check_if_new_user(user_id)
-        if is_new:
-            db.register_user(user_id, Messenger.MAX)
-            db.save_default_topic_types(user_id, None)
-            logger.info('Registered new user %s', user_id)
+        _ensure_user_registered(user_id)
 
         await event.message.answer(
             text=WELCOME_TEXT,
@@ -325,10 +332,11 @@ async def on_paginate_nav(event: MessageCallback) -> None:
     district = payload.get('district', '')
     page = payload.get('page', 0)
 
+    user_id = _get_user_id(event)
+
     regions = _get_regions_for_district(district)
     region_names = [name for _fid, name in regions]
 
-    user_id = _get_user_id(event)
     subscribed_names = _get_subscribed_region_names(user_id) if user_id else set()
 
     await event.ack(notification='...')
@@ -550,6 +558,9 @@ async def on_radius_text(event: MessageCreated) -> None:
 
     text = body.text.strip()
 
+    # Register user if this is their first interaction (e.g., sent radius before /start)
+    _ensure_user_registered(user_id)
+
     # Clear DB state
     db = _get_db()
     db.clear_user_state(user_id)
@@ -598,6 +609,9 @@ async def on_coords_text(event: MessageCreated) -> None:
         return
 
     text = body.text.strip()
+
+    # Register user if this is their first interaction (e.g., sent coords before /start)
+    _ensure_user_registered(user_id)
 
     # Clear DB state
     db = _get_db()
@@ -655,6 +669,9 @@ async def on_geo_location(event: MessageCreated) -> None:
 
     if user_id is None or chat_id is None:
         return
+
+    # Register user if this is their first interaction (e.g., sent location before /start)
+    _ensure_user_registered(user_id)
 
     if not attachments:
         return
@@ -717,6 +734,9 @@ async def on_unknown_text(event: MessageCreated) -> None:
 
     if user_id is None or chat_id is None:
         return
+
+    # Register user if this is their first interaction
+    _ensure_user_registered(user_id)
 
     # Check if user is in a DB dialog state
     db = _get_db()
