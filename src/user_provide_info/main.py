@@ -11,10 +11,9 @@ from ast import literal_eval
 from typing import Any
 from urllib.parse import unquote
 
-import sqlalchemy
 from pydantic import BaseModel
 
-from _dependencies.common.commons import TopicType, get_app_config, setup_logging, sqlalchemy_get_pool
+from _dependencies.common.commons import TopicType, get_app_config, setup_logging
 from _dependencies.common.misc import (
     RequestWrapper,
     ResponseWrapper,
@@ -22,6 +21,8 @@ from _dependencies.common.misc import (
     time_counter_since_search_start,
 )
 from _dependencies.forum.content import clean_up_content
+
+from ._utils.database import DBClient
 
 setup_logging(__package__)
 
@@ -161,131 +162,18 @@ def get_user_data_from_db(user_id: int) -> BaseUserParams:
     if user_id is not a user of bot – than retrieves a "demo" data with fake home coords, radius and real list of
     searches for Moscow Region"""
 
-    pool = sqlalchemy_get_pool()
-    with pool.begin() as conn:
-        user_params = _compose_basic_user_params(user_id, conn)
-        if not user_params:
-            return DemoUserParams(
-                searches=_get_searches_from_db(user_id, conn, False),
-            )
+    db = DBClient()
+    user_params = db.get_basic_user_params(user_id)
+    if not user_params:
+        return DemoUserParams(
+            searches=_compose_searches(db.get_searches_for_user(user_id, False)),
+        )
 
-        user_params['regions'] = _get_user_regions(user_id, conn)
-        user_params['searches'] = _get_searches_from_db(user_id, conn, True)
+    user_params['regions'] = db.get_user_regions(user_id)
+    user_params['searches'] = _compose_searches(db.get_searches_for_user(user_id, True))
 
     return FoundUserParams(**user_params)
 
-
-def _get_searches_from_db(user_id: int, conn: sqlalchemy.engine.Connection, user_was_found: bool) -> list[Search]:
-    filter_condition = (
-        'WHERE user_id=:user_id' if user_was_found else 'WHERE forum_folder_num=276 OR forum_folder_num=41'
-    )
-    # create searches list – FOR DEMO ONLY Moscow Region (folders 276 and 41)
-
-    query = f"""
-    WITH
-        user_regions AS (
-            SELECT forum_folder_num from user_regional_preferences
-            {filter_condition}),
-        user_regions_filtered AS (
-            SELECT ur.*
-            FROM user_regions AS ur
-            LEFT JOIN geo_folders AS f
-            ON ur.forum_folder_num=f.folder_id
-            WHERE f.folder_type='searches'),
-        s2 AS (SELECT search_forum_num, search_start_time, display_name, status, family_name,
-            topic_type, topic_type_id, city_locations, age_min, age_max
-            FROM searches
-            WHERE forum_folder_id IN (SELECT forum_folder_num FROM user_regions_filtered)
-            AND status != 'НЖ'
-            AND status != 'НП'
-            AND status != 'Завершен'
-            AND status != 'Найден'
-            AND topic_type_id != 1
-            ORDER BY search_start_time DESC
-            LIMIT 30),
-        s3 AS (SELECT s2.*
-            FROM s2
-            LEFT JOIN search_health_check shc
-            ON s2.search_forum_num=shc.search_forum_num
-            WHERE (shc.status is NULL OR shc.status='ok' OR shc.status='regular')
-            ORDER BY s2.search_start_time DESC),
-        s4 AS (SELECT s3.*, sfp.content
-            FROM s3
-            LEFT JOIN search_first_posts AS sfp
-            ON s3.search_forum_num=sfp.search_id
-            WHERE sfp.actual = True),
-        s5 AS (SELECT s4.*, sc.latitude, sc.longitude, sc.coord_type
-            FROM s4
-            LEFT JOIN search_coordinates AS sc
-            ON s4.search_forum_num=sc.search_id)
-        SELECT distinct s5.*, max(parsed_time) OVER (PARTITION BY cl.search_forum_num) AS last_change_time
-            FROM s5
-            LEFT JOIN change_log AS cl
-            ON s5.search_forum_num=cl.search_forum_num;
-            """
-    result = conn.execute(sqlalchemy.text(query), {'user_id': user_id})
-    raw_data = result.fetchall()
-
-    return _compose_searches(list(raw_data))  # type: ignore[arg-type]
-
-
-def _get_user_regions(user_id: int, conn: sqlalchemy.engine.Connection) -> list[int]:
-    # create folders (regions) list
-    result = conn.execute(
-        sqlalchemy.text("""
-        WITH
-            step_0 AS (
-                SELECT
-                    urp.forum_folder_num,
-                    f.division_id AS region_id,
-                    r.polygon_id
-                FROM user_regional_preferences AS urp
-                LEFT JOIN geo_folders AS f
-                ON urp.forum_folder_num=f.folder_id
-                JOIN geo_regions AS r
-                ON f.division_id=r.division_id
-                WHERE urp.user_id=:user_id
-            )
-        SELECT distinct polygon_id
-        FROM step_0
-        ORDER BY 1;
-        """),
-        {'user_id': user_id},
-    )
-    raw_data = result.fetchall()
-    if not raw_data:
-        return []
-    return [line[0] for line in raw_data]
-
-
-def _compose_basic_user_params(user_id: int, conn: sqlalchemy.engine.Connection) -> dict[str, Any] | None:
-    # create user basic parameters
-    result = conn.execute(
-        sqlalchemy.text("""
-        SELECT u.user_id, uc.latitude, uc.longitude, ur.radius
-        FROM users AS u
-        LEFT JOIN user_coordinates AS uc
-        ON u.user_id=uc.user_id
-        LEFT JOIN user_pref_radius AS ur
-        ON uc.user_id=ur.user_id
-        WHERE u.user_id=:user_id;
-        """),
-        {'user_id': user_id},
-    )
-    raw_data = result.fetchone()
-
-    if not raw_data:
-        return None
-
-    else:
-        user_params = {
-            'curr_user': True,
-            'user_id': raw_data[0],
-            'home_lat': float(raw_data[1]) if raw_data[1] else None,
-            'home_lon': float(raw_data[2]) if raw_data[2] else None,
-            'radius': raw_data[3],
-        }
-    return user_params
 
 
 def evaluate_city_locations(city_locations: str) -> list[list[Any]] | None:
@@ -396,21 +284,10 @@ def save_user_statistics_to_db(user_id: int, response: bool) -> None:
 
     json_to_save = json.dumps({'ok': response})
 
-    pool = sqlalchemy_get_pool()
-    with pool.begin() as conn:
-        try:
-            conn.execute(
-                sqlalchemy.text("""
-                INSERT INTO stat_map_usage
-                (user_id, timestamp, response)
-                VALUES (:user_id, CURRENT_TIMESTAMP, :response);
-                """),
-                {'user_id': user_id, 'response': json_to_save},
-            )
-        except Exception as e:
-            logging.exception(e)
-
-    return None
+    try:
+        DBClient().save_stat_map_usage(user_id, json_to_save)
+    except Exception as e:
+        logging.exception(e)
 
 
 def get_origin_to_show(request: RequestWrapper) -> str:
