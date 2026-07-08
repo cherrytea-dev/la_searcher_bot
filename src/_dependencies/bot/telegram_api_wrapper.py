@@ -68,10 +68,10 @@ class TGApiBase:
         response = self._make_api_call('sendLocation', params)
         return self._process_response_of_api_call(user_id, response)
 
-    def edit_message_text(self, params: dict, call_context: str = '') -> None:
+    def edit_message_text(self, params: dict, call_context: str = '') -> str:
         response = self._make_api_call('editMessageText', params, call_context)
         user_id = params['chat_id']
-        self._process_response_of_api_call(user_id, response)
+        return self._process_response_of_api_call(user_id, response)
 
     def delete_message(self, chat_id: int, message_id: int) -> requests.Response | None:
         params = {'chat_id': chat_id, 'message_id': message_id}
@@ -110,6 +110,13 @@ class TGApiBase:
             params['reply_markup'] = params['reply_markup'].to_dict()
 
         json_params = json.dumps(params)
+
+        json_size = len(json_params.encode('utf-8'))
+        logging.info(
+            f'_make_api_call: method={method}, json_body_size={json_size} bytes, '
+            f'chat_id={params.get("chat_id") or params.get("scope", {}).get("chat_id", "?")}, '
+            f'call_context={call_context}'
+        )
 
         try:
             response = retry_call(
