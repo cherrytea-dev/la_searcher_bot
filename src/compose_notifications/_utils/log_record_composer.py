@@ -1,21 +1,16 @@
 import datetime
 import logging
 
-import sqlalchemy
-import sqlalchemy.connectors
-import sqlalchemy.ext
-import sqlalchemy.pool
-from sqlalchemy.engine.base import Connection
-
 from _dependencies.common.commons import ChangeType
 from _dependencies.common.misc import age_writer
 
 from .commons import SEARCH_TOPIC_TYPES, WINDOW_FOR_NOTIFICATIONS_DAYS, Comment, LineInChangeLog
+from .database import DBClient
 
 
 class LogRecordComposer:
-    def __init__(self, conn: Connection, record_id: int | None = None) -> None:
-        self.conn = conn
+    def __init__(self, db: DBClient, record_id: int | None = None) -> None:
+        self.db = db
         self.record_id = record_id
 
     def get_line(self) -> LineInChangeLog | None:
@@ -29,32 +24,10 @@ class LogRecordComposer:
     def _select_first_record_from_change_log(self, record_id: int | None = None) -> LineInChangeLog | None:
         """compose the New Records list of the unique New Records in Change Log: one Record = One line in Change Log"""
 
-        query = sqlalchemy.text(f"""
-            SELECT 
-                search_forum_num, new_value, id, change_type 
-            FROM change_log
-            WHERE 
-                (notification_sent is NULL
-                OR notification_sent='s')
-                
-                {"AND id=:record_id" if record_id is not None else ""}
-
-            ORDER BY id LIMIT 1; 
-            """)
-
-        query_args = {'record_id': record_id} if record_id is not None else {}
-        delta_in_cl = self.conn.execute(query, query_args).fetchall()
-
-        if not delta_in_cl:
-            logging.info('no new records found in PSQL')
-            return None
-
-        one_line_in_change_log = delta_in_cl[0]
+        one_line_in_change_log = self.db.select_first_change_log_record(self.record_id)
 
         if not one_line_in_change_log:
-            logging.info(
-                f'new record is found in PSQL, however it is not list: {delta_in_cl}, {one_line_in_change_log}'
-            )
+            logging.info('no new records found in PSQL')
             return None
 
         logging.info(f'new record is {one_line_in_change_log}')
@@ -66,7 +39,7 @@ class LogRecordComposer:
             change_type=one_line_in_change_log[3],
         )
 
-        # TODO – there was a filtering for duplication: Inforg comments vs All Comments, but after restructuring
+        # TODO - there was a filtering for duplication: Inforg comments vs All Comments, but after restructuring
         #  of the scrip tech solution stopped working. The new filtering solution to be developed
 
         logging.info(f'New Record composed from Change Log: {str(new_record)}')
@@ -89,37 +62,11 @@ class LogRecordComposer:
         """add the additional data from Searches into New Records"""
 
         try:
-            sql_text = sqlalchemy.text(
-                """
-                WITH
-                s AS (
-                    SELECT search_forum_num, forum_search_title, num_of_replies, family_name, age,
-                        forum_folder_id, search_start_time, display_name, age_min, age_max, status, city_locations,
-                        topic_type_id
-                    FROM searches
-                    WHERE search_forum_num = :forum_search_num
-                ),
-                ns AS (
-                    SELECT s.search_forum_num, s.status, s.forum_search_title, s.num_of_replies, s.family_name,
-                        s.age, s.forum_folder_id, sa.latitude, sa.longitude, s.search_start_time, s.display_name,
-                        s.age_min, s.age_max, s.status, s.city_locations, s.topic_type_id
-                    FROM s
-                    LEFT JOIN search_coordinates as sa
-                    ON s.search_forum_num=sa.search_id
-                )
-                SELECT ns.*, f.folder_display_name
-                FROM ns
-                LEFT JOIN geo_folders_view AS f
-                ON ns.forum_folder_id = f.folder_id;
-                """
-            )
-
-            s_line = self.conn.execute(sql_text, dict(forum_search_num=r_line.forum_search_num)).fetchone()
+            s_line = self.db.get_enriched_search_info(r_line.forum_search_num)
 
             if not s_line:
                 logging.info('New Record WERE NOT enriched from Searches as there was no record in searches')
                 logging.info(f'New Record is {r_line}')
-                logging.info(f'extract from searches is {s_line}')
                 logging.exception(f'no search in searches table! forum_search_num={r_line.forum_search_num}')
                 return
 
@@ -142,10 +89,10 @@ class LogRecordComposer:
             r_line.topic_type_id = s_line[15]
             r_line.region = s_line[16]
 
-            logging.info(f'TEMP – FORUM_FOLDER = {r_line.forum_folder}, while s_line = {str(s_line)}')
-            logging.info(f'TEMP – CITY LOCS = {r_line.city_locations}')
-            logging.info(f'TEMP – STATUS_OLD = {r_line.status}, STATUS_NEW = {r_line.new_status}')
-            logging.info(f'TEMP – TOPIC_TYPE = {r_line.topic_type_id}')
+            logging.info(f'TEMP - FORUM_FOLDER = {r_line.forum_folder}, while s_line = {str(s_line)}')
+            logging.info(f'TEMP - CITY LOCS = {r_line.city_locations}')
+            logging.info(f'TEMP - STATUS_OLD = {r_line.status}, STATUS_NEW = {r_line.new_status}')
+            logging.info(f'TEMP - TOPIC_TYPE = {r_line.topic_type_id}')
 
             self._set_ignorance_mark(r_line)
 
@@ -158,11 +105,11 @@ class LogRecordComposer:
     def _set_ignorance_mark(self, r_line: LineInChangeLog) -> None:
         """mark line as ignored in some cases"""
 
-        if r_line.status != 'Ищем' and r_line.change_type in {
+        if r_line.status != '\u0418\u0449\u0435\u043c' and r_line.change_type in {
             ChangeType.topic_new,
             ChangeType.topic_first_post_change,
         }:
-            # case: when new search's status is already not "Ищем" – to be ignored
+            # case: when new search's status is already not "\u0418\u0449\u0435\u043c" - to be ignored
             r_line.ignore = True
 
         if r_line.change_type == ChangeType.topic_new:
@@ -173,7 +120,7 @@ class LogRecordComposer:
                 r_line.ignore = True
 
         # limit notification sending only for searches started 60 days ago
-        # 60 days – is a compromise and can be reviewed if community votes for another setting
+        # 60 days - is a compromise and can be reviewed if community votes for another setting
         latest_when_alert = r_line.start_time + datetime.timedelta(days=WINDOW_FOR_NOTIFICATIONS_DAYS)
         if latest_when_alert < datetime.datetime.now():
             FORUM_FOLDERS_OF_SAMARA = {333, 305, 334, 306, 190}
@@ -183,41 +130,21 @@ class LogRecordComposer:
     def _enrich_new_record_with_search_activities(self, r_line: LineInChangeLog) -> None:
         """add the lists of current searches' activities to New Record"""
 
-        query = sqlalchemy.text("""
-            SELECT dsa.activity_name from search_activities sa
-            LEFT JOIN dict_search_activities dsa ON sa.activity_type=dsa.activity_id
-            WHERE
-                sa.search_forum_num = :forum_search_num AND
-                sa.activity_type <> '9 - hq closed' AND
-                sa.activity_type <> '8 - info' AND
-                sa.activity_status = 'ongoing' 
-            ORDER BY sa.id; 
-                                                """)
-
-        list_of_activities = self.conn.execute(query, dict(forum_search_num=r_line.forum_search_num)).fetchall()
-        r_line.activities = [a_line[0] for a_line in list_of_activities]
+        r_line.activities = self.db.get_ongoing_activity_names(r_line.forum_search_num)
 
         logging.info('New Record enriched with Search Activities')
 
     def _enrich_new_record_with_managers(self, r_line: LineInChangeLog) -> None:
         """add the lists of current searches' managers to the New Record"""
 
-        query = sqlalchemy.text("""
-            SELECT attribute_value
-            FROM search_attributes
-            WHERE 
-                attribute_name='managers'
-                AND search_forum_num = :forum_search_num
-            ORDER BY id; 
-                                """)
-        list_of_managers = self.conn.execute(query, dict(forum_search_num=r_line.forum_search_num)).fetchall()
+        list_of_managers = self.db.get_all_manager_entries(r_line.forum_search_num)
 
         # look for matching Forum Search Numbers in New Records List & Search Managers
 
-        for m_line in list_of_managers:
+        for m_val in list_of_managers:
             # TODO can be multiple lines with 'managers'?
-            if m_line[0] != '[]':
-                r_line.managers = m_line[0]
+            if m_val != '[]':
+                r_line.managers = m_val
 
         logging.info('New Record enriched with Managers')
 
@@ -228,18 +155,8 @@ class LogRecordComposer:
         if r_line.change_type not in {ChangeType.topic_inforg_comment_new, ChangeType.topic_comment_new}:
             return
 
-        query = sqlalchemy.text("""
-                SELECT
-                comment_url, comment_text, comment_author_nickname, comment_author_link,
-                search_forum_num, comment_num, comment_global_num
-                FROM comments 
-                WHERE 
-                    notification_sent IS NULL
-                    AND search_forum_num = :forum_search_num;
-                                """)
-
-        comments = self.conn.execute(query, dict(forum_search_num=r_line.forum_search_num)).fetchall()
-        r_line.comments = self._get_comments_from_query_result(list(comments))  # type: ignore[arg-type]
+        comments = self.db.get_unprocessed_comments_for_search(r_line.forum_search_num)
+        r_line.comments = self._get_comments_from_query_result(list(comments))
         logging.info('New Record enriched with Comments for all')
 
     def _enrich_new_record_with_inforg_comments(self, r_line: LineInChangeLog) -> None:
@@ -249,20 +166,8 @@ class LogRecordComposer:
         if r_line.change_type not in {ChangeType.topic_inforg_comment_new, ChangeType.topic_comment_new}:
             return
 
-        query = sqlalchemy.text("""
-            SELECT
-            comment_url, comment_text, comment_author_nickname, comment_author_link,
-            search_forum_num, comment_num, comment_global_num
-            FROM comments 
-            WHERE 
-                notif_sent_inforg IS NULL
-                AND LOWER(LEFT(comment_author_nickname,6))='инфорг'
-                AND comment_author_nickname!='Инфорг кинологов'
-                AND search_forum_num = :forum_search_num;
-                                """)
-
-        comments = self.conn.execute(query, dict(forum_search_num=r_line.forum_search_num)).fetchall()
-        r_line.comments_inforg = self._get_comments_from_query_result(list(comments))  # type: ignore[arg-type]
+        comments = self.db.get_unprocessed_inforg_comments_for_search(r_line.forum_search_num)
+        r_line.comments_inforg = self._get_comments_from_query_result(list(comments))
         logging.info('New Record enriched with Comments for inforg')
 
     def _get_comments_from_query_result(self, query_result: list[tuple]) -> list[Comment]:
@@ -278,10 +183,10 @@ class LogRecordComposer:
                 num=c_line[5],
             )
             # check for empty comments
-            if not comment.text or comment.text.lower().startswith('резерв'):
+            if not comment.text or comment.text.lower().startswith('\u0440\u0435\u0437\u0435\u0440\u0432'):
                 continue
 
-                # some nicknames can be like >>Белый<< which crashes html markup -> we delete symbols
+                # some nicknames can be like >>\u0411\u0435\u043b\u044b\u0439<< which crashes html markup -> we delete symbols
             comment.author_nickname = comment.author_nickname.replace('>', '')
             comment.author_nickname = comment.author_nickname.replace('<', '')
 
@@ -300,12 +205,12 @@ def make_emoji(line: LineInChangeLog) -> None:
     topic_type_id = line.topic_type_id
     topic_type_dict = {
         0: '',  # search regular
-        1: '🏠',  # search reverse
-        2: '🚓',  # search patrol
-        3: '🎓',  # search training
-        4: 'ℹ️',  # search info support
-        5: '🚨',  # search resonance
-        10: '📝',  # event
+        1: '\U0001f3e0',  # search reverse
+        2: '\U0001f6a3',  # search patrol
+        3: '\U0001f393',  # search training
+        4: '\u2139\ufe0f',  # search info support
+        5: '\U0001f6a8',  # search resonance
+        10: '\U0001f4dd',  # event
     }
     line.topic_emoji = topic_type_dict.get(topic_type_id, '')
 
@@ -318,7 +223,7 @@ def make_clickable_name(line: LineInChangeLog) -> None:
         if line.display_name:
             link_text = line.display_name
         else:
-            name = line.name if line.name else 'БВП'
+            name = line.name if line.name else '\u0411\u0412\u041f'
             age_info = f'{line.age_wording}' if (name[0].isupper() and line.age) else ''
             link_text = f'{name} {age_info}'.strip()
     else:  # if it's event or something else
@@ -338,16 +243,16 @@ def define_family_name(title_string: str, predefined_fam_name: str | None) -> st
         # if family name needs to be defined
         string_by_word = title_string.split()
         # exception case: when Family Name is third word
-        # it happens when first two either Найден Жив or Найден Погиб with different word forms
-        if string_by_word[0].lower().startswith('найд'):
+        # it happens when first two either \u041d\u0430\u0439\u0434\u0435\u043d \u0416\u0438\u0432 or \u041d\u0430\u0439\u0434\u0435\u043d \u041f\u043e\u0433\u0438\u0431 with different word forms
+        if string_by_word[0].lower().startswith('\u043d\u0430\u0439\u0434'):
             return string_by_word[2]
 
-        # case when "Поиск приостановлен"
-        elif string_by_word[1].lower().startswith('приостан'):
+        # case when "\u041f\u043e\u0438\u0441\u043a \u043f\u0440\u0438\u043e\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d"
+        elif string_by_word[1].lower().startswith('\u043f\u0440\u0438\u043e\u0441\u0442\u0430\u043d'):
             return string_by_word[2]
 
-        # case when "Поиск остановлен"
-        elif string_by_word[1].lower().startswith('остановл'):
+        # case when "\u041f\u043e\u0438\u0441\u043a \u043e\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d"
+        elif string_by_word[1].lower().startswith('\u043e\u0441\u0442\u0430\u043d\u043e\u0432\u043b'):
             return string_by_word[2]
 
         # all the other cases

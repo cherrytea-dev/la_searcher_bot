@@ -3,15 +3,18 @@ from unittest.mock import MagicMock
 
 import pytest
 
-# from tests.factories.db_models import ChangeLog, User
-from sqlalchemy.engine import Connection
-
 from _dependencies.common.commons import ChangeType, TopicType
 from compose_notifications import main
+from compose_notifications._utils.database import DBClient
 from compose_notifications.main import LineInChangeLog
 from tests.common import fake, get_event_with_data
 from tests.factories import db_factories, db_models
 from tests.test_compose_notifications.factories import LineInChangeLogFactory
+
+
+@pytest.fixture
+def db_client() -> DBClient:
+    return DBClient()
 
 
 class NotSentChangeLogFactory(db_factories.ChangeLogFactory):
@@ -78,21 +81,21 @@ def test_main_entrypoint(
 
 class TestChangeLogExtractor:
     def test_get_change_log_record_any(
-        self, connection: Connection, change_log_db_record_status_change: db_models.ChangeLog
+        self, db_client: DBClient, change_log_db_record_status_change: db_models.ChangeLog
     ):
         """
         get one record in change_log and assert that it is enriched with other fields
         """
-        record = main.LogRecordComposer(conn=connection).get_line()
+        record = main.LogRecordComposer(db=db_client).get_line()
         assert record
 
     def test_get_change_log_record_by_id(
         self,
-        connection: Connection,
+        db_client: DBClient,
         change_log_db_record_status_change: db_models.ChangeLog,
         search_record: db_models.Search,
     ):
-        record = main.LogRecordComposer(conn=connection, record_id=change_log_db_record_status_change.id).get_line()
+        record = main.LogRecordComposer(db=db_client, record_id=change_log_db_record_status_change.id).get_line()
         assert record.change_log_id == change_log_db_record_status_change.id
         assert record.forum_search_num == change_log_db_record_status_change.search_forum_num
 
@@ -101,19 +104,19 @@ class TestChangeLogExtractor:
 
     def test_get_change_log_record_with_managers(
         self,
-        connection: Connection,
+        db_client: DBClient,
         change_log_db_record_status_change: db_models.ChangeLog,
         search_record: db_models.Search,
     ):
         managers_record = db_factories.SearchAttributeFactory.create_sync(
             search_forum_num=search_record.search_forum_num, attribute_name='managers'
         )
-        record = main.LogRecordComposer(conn=connection, record_id=change_log_db_record_status_change.id).get_line()
+        record = main.LogRecordComposer(db=db_client, record_id=change_log_db_record_status_change.id).get_line()
         assert record.managers == managers_record.attribute_value
 
     def test_get_change_log_record_with_search_activity(
         self,
-        connection: Connection,
+        db_client: DBClient,
         change_log_db_record_status_change: db_models.ChangeLog,
         search_record: db_models.Search,
     ):
@@ -121,12 +124,12 @@ class TestChangeLogExtractor:
         db_factories.SearchActivityFactory.create_sync(
             search_forum_num=search_record.search_forum_num, activity_type=dict_activity_record.activity_id
         )
-        record = main.LogRecordComposer(conn=connection, record_id=change_log_db_record_status_change.id).get_line()
+        record = main.LogRecordComposer(db=db_client, record_id=change_log_db_record_status_change.id).get_line()
         assert record.activities == [dict_activity_record.activity_name]
 
     def test_get_change_log_record_with_search_activity_and_comments(
         self,
-        connection: Connection,
+        db_client: DBClient,
         change_log_db_record_topic_comment_new: db_models.ChangeLog,
         search_record: db_models.Search,
         comment: db_models.Comment,
@@ -135,7 +138,7 @@ class TestChangeLogExtractor:
         db_factories.SearchActivityFactory.create_sync(
             search_forum_num=search_record.search_forum_num, activity_type=dict_activity_record.activity_id
         )
-        record = main.LogRecordComposer(conn=connection, record_id=change_log_db_record_topic_comment_new.id).get_line()
+        record = main.LogRecordComposer(db=db_client, record_id=change_log_db_record_topic_comment_new.id).get_line()
         assert record.activities == [dict_activity_record.activity_name]
         assert len(record.comments) == 1
         assert record.comments[0].text == comment.comment_text

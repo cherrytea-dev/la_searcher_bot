@@ -2,17 +2,15 @@ import datetime
 import logging
 from ast import literal_eval
 
-import sqlalchemy
-from sqlalchemy.engine.base import Connection
-
 from _dependencies.common.commons import ChangeType, SearchFollowingMode
 
 from .commons import LineInChangeLog, User, define_dist_and_dir_to_search
+from .database import DBClient
 
 
 class UsersListComposer:
-    def __init__(self, conn: Connection):
-        self.conn = conn
+    def __init__(self, db: DBClient):
+        self.db = db
 
     def get_users_list_for_line_in_change_log(self, new_record: LineInChangeLog) -> list[User]:
         list_of_users = self.compose_users_list_from_users(new_record)
@@ -25,127 +23,18 @@ class UsersListComposer:
         analytics_prefix = 'users list'
         analytics_start = datetime.datetime.now()
 
-        sql_text_psy = sqlalchemy.text("""
-            WITH
-                user_list AS (
-                    SELECT user_id, username_telegram, role
-                    FROM users WHERE status IS NULL or status='unblocked'),
-                ---
-                user_notif_pref_prep AS (
-                    SELECT user_id, array_agg(pref_id) AS agg
-                    FROM user_preferences GROUP BY user_id),
-                ---
-                user_notif_type_pref AS 
-                (
-                    SELECT ulist.user_id, CASE WHEN 30 = ANY(agg) THEN True ELSE False END AS all_notifs
-                    FROM user_notif_pref_prep unpp
-                    JOIN user_list ulist ON ulist.user_id=unpp.user_id
-                    WHERE 
-                        (30 = ANY(agg) OR :change_type = ANY(agg)
-                            OR 
-                            (/* 'all types in a followed search' mode is on*/
-                                (
-                                    exists(select 1 from user_preferences up
-                                        where up.user_id=ulist.user_id and up.pref_id=9 
-                                        /*it is equal to up.preference='all_in_followed_search'*/
-                                        )
-                                    or :change_type = 1  -- status_changes
-                                )
-                                and /*following mode is on*/
-                                    exists (select 1 from user_pref_search_filtering upsf
-                                                where upsf.user_id=ulist.user_id and 'whitelist' = ANY(upsf.filter_name)
-                                    )
-                                and  /*this is followed search*/
-                                    exists(
-                                        select 1 FROM user_pref_search_whitelist upswls
-                                        where 
-                                            upswls.user_id=ulist.user_id 
-                                            and upswls.search_id = :forum_search_num 
-                                            and upswls.search_following_mode=:following_mode_on
-                                    )
-                            )
-                        )
-                        AND NOT 
-                        (
-                            4 = ANY(agg)  /* 4 is topic_inforg_comment_new */
-                            AND :change_type = 2 /* 2 is topic_title_change */ /*AK20240409:issue13*/
-                        )
-                    ), 
-                ---
-                user_folders_prep AS (
-                    SELECT user_id, forum_folder_num,
-                        CASE WHEN count(forum_folder_num) OVER (PARTITION BY user_id) > 1
-                            THEN TRUE ELSE FALSE END as multi_folder
-                    FROM user_regional_preferences),
-                ---
-                user_folders AS (
-                    SELECT user_id, forum_folder_num, multi_folder
-                    FROM user_folders_prep WHERE forum_folder_num= :forum_folder),
-                ---
-                user_topic_pref_prep AS (
-                    SELECT user_id, array_agg(topic_type_id) aS agg
-                    FROM user_pref_topic_type GROUP BY user_id),
-                ---
-                user_topic_type_pref AS (
-                    SELECT user_id, agg AS all_types
-                    FROM user_topic_pref_prep
-                    WHERE 30 = ANY(agg) OR :topic_type_id = ANY(agg)),
-                ---
-                user_short_list AS (
-                    SELECT ul.user_id, ul.username_telegram, ul.role , uf.multi_folder, up.all_notifs
-                    FROM user_list as ul
-                    LEFT JOIN user_notif_type_pref AS up
-                    ON ul.user_id=up.user_id
-                    LEFT JOIN user_folders AS uf
-                    ON ul.user_id=uf.user_id
-                    LEFT JOIN user_topic_type_pref AS ut
-                    ON ul.user_id=ut.user_id
-                    WHERE
-                        uf.forum_folder_num IS NOT NULL AND
-                        up.all_notifs IS NOT NULL AND
-                        ut.all_types IS NOT NULL),
-                ---
-                user_with_loc AS (
-                    SELECT u.user_id, u.username_telegram, uc.latitude, uc.longitude,
-                        u.role, u.multi_folder, u.all_notifs
-                    FROM user_short_list AS u
-                    LEFT JOIN user_coordinates as uc
-                    ON u.user_id=uc.user_id),
-                ---
-                user_age_prefs AS (
-                    SELECT user_id, array_agg(array[period_min, period_max]) as age_prefs 
-                    FROM user_pref_age 
-                    GROUP BY user_id)
-            ----------------------------------------------------------------
-            SELECT DISTINCT  ns.user_id, ns.username_telegram, ns.latitude, ns.longitude, ns.role,
-                    st.num_of_new_search_notifs, ns.multi_folder, ns.all_notifs, 
-                    upr.radius, uap.age_prefs
-            FROM user_with_loc AS ns
-            LEFT JOIN user_stat st
-                ON ns.user_id=st.user_id
-            LEFT JOIN user_pref_radius upr
-                ON ns.user_id=upr.user_id
-            LEFT JOIN user_age_prefs AS uap
-                ON ns.user_id=uap.user_id
-            -----
-            /*action='get_user_list_filtered_by_folder_and_notif_type' */;
-                                        """)
-
-        users_short_version = self.conn.execute(
-            sql_text_psy,
-            dict(
-                change_type=new_record.change_type,
-                forum_folder=new_record.forum_folder,
-                topic_type_id=new_record.topic_type_id,
-                forum_search_num=int(new_record.forum_search_num),
-                following_mode_on=SearchFollowingMode.ON,
-            ),
+        users_short_version = self.db.compose_users_list_for_change_log(
+            change_type=new_record.change_type,
+            forum_folder=new_record.forum_folder,
+            topic_type_id=new_record.topic_type_id,
+            forum_search_num=int(new_record.forum_search_num),
+            following_mode_on=SearchFollowingMode.ON,
         )
 
         logging.info(f'Fetched users for search {new_record.forum_search_num=} with {new_record.new_status=}.')
         analytics_sql_finish = datetime.datetime.now()
         duration_sql = round((analytics_sql_finish - analytics_start).total_seconds(), 2)
-        logging.info(f'time: {analytics_prefix} sql – {duration_sql} sec')
+        logging.info(f'time: {analytics_prefix} sql - {duration_sql} sec')
 
         logging.debug(f'{users_short_version}')
 
@@ -176,9 +65,9 @@ class UsersListComposer:
 
         analytics_match_finish = datetime.datetime.now()
         duration_match = round((analytics_match_finish - analytics_sql_finish).total_seconds(), 2)
-        logging.info(f'time: {analytics_prefix} match – {duration_match} sec')
+        logging.info(f'time: {analytics_prefix} match - {duration_match} sec')
         duration_full = round((analytics_match_finish - analytics_start).total_seconds(), 2)
-        logging.info(f'time: {analytics_prefix} end-to-end – {duration_full} sec')
+        logging.info(f'time: {analytics_prefix} end-to-end - {duration_full} sec')
 
         logging.info('User List composed')
 
@@ -186,8 +75,8 @@ class UsersListComposer:
 
 
 class UserListFilter:
-    def __init__(self, conn: Connection, new_record: LineInChangeLog, users: list[User]):
-        self.conn = conn
+    def __init__(self, db: DBClient, new_record: LineInChangeLog, users: list[User]):
+        self.db = db
         self.new_record = new_record
         self.users = users.copy()
 
@@ -315,7 +204,7 @@ class UserListFilter:
         users_with_prepared_messages = self._get_from_sql_list_of_users_with_prepared_message()
         if users_with_prepared_messages:
             logging.warning(
-                f'DOUBLING_DIAG: change_log_id={self.new_record.change_log_id} — '
+                f'DOUBLING_DIAG: change_log_id={self.new_record.change_log_id} - '
                 f'{len(users_with_prepared_messages)} users already have notif_by_user records. '
                 f'Users: {sorted(users_with_prepared_messages)}. '
                 f'This indicates compose_notifications is reprocessing the same change_log record!'
@@ -339,109 +228,18 @@ class UserListFilter:
 
         logging.info(f'{record=}')
 
-        sql_text_ = sqlalchemy.text("""
-            SELECT * FROM user_pref_search_filtering upsf
-            WHERE upsf.user_id=:debug_user_id;
-        """)
-        upsf_for_debug_user = self.conn.execute(
-            sql_text_,
-            dict(
-                debug_user_id=debug_user_id,
-            ),
+        following_users_ids = set(
+            self.db.get_users_passing_following_filter(
+                forum_search_num=record.forum_search_num,
+                search_new_status=record.new_status,
+                change_type=record.change_type,
+                following_mode_on=SearchFollowingMode.ON,
+                following_mode_off=SearchFollowingMode.OFF,
+            )
         )
-        logging.info(f'{upsf_for_debug_user=}')
-
-        sql_text_ = sqlalchemy.text("""
-            SELECT 'upswls*',upswls.*, 's*', s.* FROM user_pref_search_whitelist upswls
-            LEFT JOIN searches s on s.search_forum_num=upswls.search_id
-            WHERE upswls.user_id=:debug_user_id;
-        """)
-        upswls_for_debug_user = self.conn.execute(
-            sql_text_,
-            dict(
-                debug_user_id=debug_user_id,
-            ),
-        )
-        logging.info(f'{upswls_for_debug_user=}')
+        logging.info(f'Crop user list due to whitelisting: len(following_users_ids)=={len(following_users_ids)}')
 
         temp_user_list: list[User] = []
-        sql_text_ = sqlalchemy.text("""
-SELECT u.user_id FROM users u
-LEFT JOIN user_pref_search_filtering upsf 
-    ON upsf.user_id=u.user_id and 'whitelist' = ANY(upsf.filter_name)
-WHERE upsf.filter_name is not null /* user has activated following mode */
-    AND
-    (   
-        (
-            NOT /* 1st condition to suppress notifications */
-                (   /* the user is not following this search */
-                    (   not exists
-                        (
-                            select 1 from user_pref_search_whitelist upswls 
-                            WHERE 
-                                upswls.user_id=u.user_id 
-                                and upswls.search_id = :forum_search_num 
-                                and upswls.search_following_mode=:following_mode_on
-                        )
-                        and exists /*another followed search in active status*/
-                        (
-                            select 1 from user_pref_search_whitelist upswls
-                            join searches s on s.search_forum_num=upswls.search_id and s.search_forum_num != :forum_search_num
-                            WHERE 
-                                upswls.user_id=u.user_id 
-                                and upswls.search_following_mode=:following_mode_on
-                                and s.status not in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
-                        )
-                    )
-                ) /* end of 1st condition to suppress notifications */
-        OR  /* condition to process the message */
-            ( /*this search is followed*/
-                exists
-                (
-                    select 1 from user_pref_search_whitelist upswls 
-                    WHERE 
-                        upswls.user_id=u.user_id 
-                        and upswls.search_id = :forum_search_num 
-                        and upswls.search_following_mode=:following_mode_on
-                )
-                AND 
-                ( /*and this search is active*/
-                    :search_new_status NOT in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
-                    or 		/* or not active but the message has change_type=1(status_change) */
-                        (	/* which we should send even for non-active search */
-                            :search_new_status in ('СТОП', 'Завершен', 'НЖ', 'НП', 'Найден')
-                            AND :change_type = 1 
-                        )
-                )
-            )
-        )
-        AND NOT exists -- 2nd suppressing condition: the search is in blacklist for this user 
-            (
-                select 1 from user_pref_search_whitelist upswls 
-                WHERE 
-                    upswls.user_id=u.user_id 
-                    and upswls.search_id = :forum_search_num 
-                    and upswls.search_following_mode=:following_mode_off
-            )
-    )
-    OR upsf.filter_name is null
-    ;
-        """)
-        rows = list(
-            self.conn.execute(
-                sql_text_,
-                dict(
-                    forum_search_num=record.forum_search_num,
-                    search_new_status=record.new_status,
-                    change_type=record.change_type,
-                    following_mode_on=SearchFollowingMode.ON,
-                    following_mode_off=SearchFollowingMode.OFF,
-                ),
-            )
-        )
-        logging.info(f'Crop user list due to whitelisting: len(rows)=={len(rows)}')
-
-        following_users_ids = {row[0] for row in rows}
         temp_user_list = [user for user in users_list_outcome if user.user_id in following_users_ids]
 
         debug_user_id = 552487421
@@ -455,30 +253,11 @@ WHERE upsf.filter_name is not null /* user has activated following mode */
     def _get_from_sql_list_of_users_with_prepared_message(self) -> set[int]:
         """check what is the list of users for whom we already composed messages for the given change_log record"""
 
-        sql_text_ = sqlalchemy.text("""
-            SELECT
-                user_id
-            FROM
-                notif_by_user
-            WHERE
-                created IS NOT NULL AND
-                change_log_id=:change_log_id
-
-            /*action='get_from_sql_list_of_users_with_already_composed_messages 2.0'*/
-            ;
-            """)
-
-        raw_data_ = self.conn.execute(sql_text_, dict(change_log_id=self.new_record.change_log_id)).fetchall()
-        # TODO: to delete
+        user_ids = self.db.get_users_with_prepared_message(self.new_record.change_log_id)
         logging.info('list of user with composed messages:')
-        logging.info(raw_data_)
-
-        users_who_were_composed = [line[0] for line in raw_data_]
-
-        logging.info('users_who_should_not_be_informed:')
-        logging.info(users_who_were_composed)
-        logging.info(f'in total {len(users_who_were_composed)}')
-        return set(users_who_were_composed)
+        logging.info(user_ids)
+        logging.info(f'in total {len(user_ids)}')
+        return set(user_ids)
 
 
 def check_if_age_requirements_met(search_ages: tuple[int | None, int | None], user_ages: list[tuple[int, int]]) -> bool:
