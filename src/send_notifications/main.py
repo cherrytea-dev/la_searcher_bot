@@ -10,17 +10,16 @@ from dataclasses import dataclass, field
 from functools import cache, lru_cache
 from typing import Any
 
-import sqlalchemy
-
 from _dependencies.bot.messaging import tg_api_main_account
 from _dependencies.bot.messenger_clients import MaxClient
 from _dependencies.bot.telegram_api_wrapper import TGApiBase
 from _dependencies.bot.vk_api_client import VKApi, get_default_vk_api_client
 from _dependencies.common.commons import Messenger, UserIdentity, setup_logging, sqlalchemy_get_pool
-from _dependencies.common.db_client import DBClientBase
 from _dependencies.common.lock_manager import FunctionLockError, lock_manager
 from _dependencies.common.misc import generate_random_function_id
 from _dependencies.common.pubsub import Ctx, notify_admin, pubsub_send_notifications
+
+from ._utils.database import DBClient
 
 setup_logging(__package__)
 
@@ -60,189 +59,6 @@ class MessageToSend:
     messenger: str = 'telegram'
     vk_id: str | None = None
     max_id: str | None = None
-
-
-class DBClient(DBClientBase):
-    def get_notifs_to_send(self, select_doubling: bool) -> list['MessageToSend']:
-        """return notifications which should be sent"""
-        with self.connect() as conn:
-            duplicated_notifications_query = """
-                SELECT
-                    change_log_id, user_id, message_type, COALESCE(messenger, 'telegram')
-                FROM
-                    notif_by_user
-                WHERE
-                    completed IS NULL AND
-                    cancelled IS null
-                group by change_log_id, user_id, message_type, COALESCE(messenger, 'telegram')
-                having count(message_id) > 1
-            """
-
-            notifications_query = f"""
-                SELECT
-                    message_id,
-                    user_id,
-                    created,
-                    completed,
-                    cancelled,
-                    message_content,
-                    message_type,
-                    message_params,
-                    message_group_id,
-                    change_log_id,
-                    failed,
-                    messenger
-                FROM
-                    notif_by_user
-                WHERE
-                    completed IS NULL AND
-                    cancelled IS NULL AND
-                    (failed IS NULL OR failed < :retry_delay) AND
-                    (change_log_id, user_id, message_type, COALESCE(messenger, 'telegram')) {"IN" if select_doubling else "NOT IN"} (
-                        {duplicated_notifications_query}
-                    )
-                ORDER BY user_id
-                LIMIT {MESSAGES_BATCH_SIZE}
-                FOR NO KEY UPDATE
-                /*action='check_for_notifs_to_send 3.0' */
-            """
-
-            delay_to_retry_send_failed_messages = datetime.timedelta(minutes=5)
-            stmt = sqlalchemy.text(notifications_query)
-            notifications = conn.execute(
-                stmt,
-                dict(
-                    retry_delay=datetime.datetime.now() - delay_to_retry_send_failed_messages,
-                ),
-            )
-            return [MessageToSend(*notification) for notification in notifications]
-
-    def fill_max_user_ids(self, messages: list['MessageToSend']) -> None:
-        """Resolve max_id from user_identity_map for MAX-destined messages."""
-        with self.connect() as conn:
-            max_messages = [m for m in messages if m.messenger == Messenger.MAX]
-            if not max_messages:
-                return
-
-            user_ids = list(set([x.user_id for x in max_messages]))
-
-            identity_query = """
-                SELECT internal_user_id, messenger_user_id
-                FROM user_identity_map
-                WHERE internal_user_id = ANY(:user_ids)
-                  AND messenger = 'max'
-            """
-            stmt = sqlalchemy.text(identity_query)
-            rows = conn.execute(stmt, dict(user_ids=user_ids)).fetchall()
-            user_ids_map = {internal_user_id: messenger_user_id for internal_user_id, messenger_user_id in rows}
-
-            for message in max_messages:
-                message.max_id = user_ids_map.get(message.user_id, None)
-
-    def fill_vk_user_ids(self, messages: list['MessageToSend']) -> None:
-        """Append vk_id to MessageToSend for VK-destined messages.
-
-        Resolves ``vk_id`` from ``user_identity_map``.
-        """
-        with self.connect() as conn:
-            vk_messages = [m for m in messages if m.messenger == Messenger.VK]
-            if not vk_messages:
-                return
-
-            user_ids = list(set([x.user_id for x in vk_messages]))
-
-            identity_query = """
-                SELECT internal_user_id, messenger_user_id
-                FROM user_identity_map
-                WHERE internal_user_id = ANY(:user_ids)
-                  AND messenger = 'vk'
-            """
-            stmt = sqlalchemy.text(identity_query)
-            rows = conn.execute(stmt, dict(user_ids=user_ids)).fetchall()
-            user_ids_map = {internal_user_id: messenger_user_id for internal_user_id, messenger_user_id in rows}
-
-            for message in vk_messages:
-                message.vk_id = user_ids_map.get(message.user_id, None)
-
-    def check_for_number_of_notifs_to_send(self) -> int:
-        """return a number of notifications to be sent"""
-        with self.connect() as conn:
-            sql_text_psy = """
-                WITH notification AS (
-                SELECT
-                    DISTINCT change_log_id, user_id, message_type
-                FROM
-                    notif_by_user
-                WHERE 
-                    completed IS NULL AND
-                    cancelled IS NULL
-                )
-
-                SELECT
-                    count(*)
-                FROM
-                    notification
-                /*action='check_for_number_of_notifs_to_send' */
-            """
-
-            stmt = sqlalchemy.text(sql_text_psy)
-            res = conn.execute(stmt).fetchone()
-            return int(res[0]) if res else 0
-
-    def save_sending_status_to_notif_by_user(self, message_id: int, result: str | None) -> None:
-        """save the telegram sending status to sql table notif_by_user"""
-        if not result:
-            result = 'failed'
-
-        if result.startswith('cancelled'):
-            result = 'cancelled'
-        elif result.startswith('failed'):
-            result = 'failed'
-
-        if result not in {'completed', 'cancelled', 'failed'}:
-            return
-
-        with self.connect() as conn:
-            sql_text_psy = f"""
-                UPDATE notif_by_user
-                SET {result} = :now
-                WHERE message_id = :message_id;
-                /*action='save_sending_status_to_notif_by_user_{result}' */
-            """
-            stmt = sqlalchemy.text(sql_text_psy)
-            conn.execute(stmt, dict(now=datetime.datetime.now(), message_id=message_id))
-
-    def get_change_log_update_time(self, change_log_id: int) -> datetime.datetime | None:
-        """get the time of parsing of the change, saved in PSQL"""
-        if not change_log_id:
-            return None
-
-        with self.connect() as conn:
-            sql_text_psy = """
-                SELECT parsed_time 
-                FROM change_log 
-                WHERE id = :change_log_id;
-                /*action='getting_change_log_parsing_time' */
-            """
-            stmt = sqlalchemy.text(sql_text_psy)
-            record = conn.execute(stmt, dict(change_log_id=change_log_id)).fetchone()
-            return record[0] if record else None
-
-    def save_sending_analytics(self, num_msgs: int, speed: float, ttl_time: float) -> None:
-        """save analytics on sending speed to PSQL"""
-        with self.connect() as conn:
-            try:
-                sql_text = """
-                    INSERT INTO notif_stat_sending_speed
-                    (timestamp, num_of_msgs, speed, ttl_time)
-                    VALUES
-                    (:now, :num_msgs, :speed, :ttl_time);
-                    /*action='notif_stat_sending_speed' */
-                """
-                stmt = sqlalchemy.text(sql_text)
-                conn.execute(stmt, dict(now=datetime.datetime.now(), num_msgs=num_msgs, speed=speed, ttl_time=ttl_time))
-            except:  # noqa
-                pass
 
 
 def _prepare_message(message_to_send: MessageToSend) -> tuple[str, dict[str, Any]]:
