@@ -4,7 +4,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from _dependencies.common.commons import SearchFollowingMode
 
-from ..buttons import TopicTypeInlineKeyboardBuilder, reply_markup_main
+from ..buttons import TopicTypeInlineKeyboardBuilder
 from ..common import (
     NOT_FOLLOWING_MARK,
     InlineButtonCallbackData,
@@ -128,7 +128,7 @@ def handle_search_follow_mode(ctx: TGHandlerContext) -> None:
         bot_message = 'Все пометки отслеживания поисков сброшены. Переоткройте список активных поисков.'
 
     ctx.answer_callback(bot_message)
-    ctx.reply(text=bot_message, reply_markup=reply_markup_main)
+    ctx.reply(text=bot_message)
 
 
 @tg_handle(callback_data='search_follow_mode')
