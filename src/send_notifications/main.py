@@ -19,7 +19,7 @@ from _dependencies.common.lock_manager import FunctionLockError, lock_manager
 from _dependencies.common.misc import generate_random_function_id
 from _dependencies.common.pubsub import Ctx, notify_admin, pubsub_send_notifications
 
-from ._utils.database import DBClient
+from ._utils.database import DBClient, MessageToSend
 
 setup_logging(__package__)
 
@@ -29,7 +29,6 @@ FUNC_NAME = 'send_notifications'
 SCRIPT_SOFT_TIMEOUT_SECONDS = 40  # after which iterations should stop to prevent the whole script timeout
 INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 50  # window within which we check for started parallel function
 SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS = 5
-MESSAGES_BATCH_SIZE = 100
 WORKERS_COUNT = 2
 
 USE_VK_API = True  # feature-flag
@@ -41,24 +40,6 @@ class TimeAnalytics:
     notif_times: list[float] = field(default_factory=list)
     delays: list[float] = field(default_factory=list)
     parsed_times: list[float] = field(default_factory=list)
-
-
-@dataclass
-class MessageToSend:
-    message_id: int
-    user_id: int
-    created: datetime.datetime
-    completed: datetime.datetime | None
-    cancelled: datetime.datetime | None
-    message_content: str
-    message_type: str
-    message_params: str
-    message_group_id: int | None
-    change_log_id: int
-    failed: datetime.datetime | None
-    messenger: str = 'telegram'
-    vk_id: str | None = None
-    max_id: str | None = None
 
 
 def _prepare_message(message_to_send: MessageToSend) -> tuple[str, dict[str, Any]]:

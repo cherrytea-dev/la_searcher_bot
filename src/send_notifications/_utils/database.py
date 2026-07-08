@@ -1,6 +1,7 @@
 """DB client for send_notifications — extracts all SQL into DBClient methods."""
 
 import datetime
+from dataclasses import dataclass
 from typing import Any
 
 import sqlalchemy
@@ -11,14 +12,29 @@ from _dependencies.common.db_client import DBClientBase
 MESSAGES_BATCH_SIZE = 100
 
 
+@dataclass
+class MessageToSend:
+    message_id: int
+    user_id: int
+    created: datetime.datetime
+    completed: datetime.datetime | None
+    cancelled: datetime.datetime | None
+    message_content: str
+    message_type: str
+    message_params: str
+    message_group_id: int | None
+    change_log_id: int
+    failed: datetime.datetime | None
+    messenger: str = 'telegram'
+    vk_id: str | None = None
+    max_id: str | None = None
+
+
 class DBClient(DBClientBase):
     """DB client for send_notifications."""
 
-    def get_notifs_to_send(self, select_doubling: bool) -> list:
+    def get_notifs_to_send(self, select_doubling: bool) -> list[MessageToSend]:
         """Return notifications which should be sent, as MessageToSend objects."""
-        # Lazy import to avoid circular dependency
-        from send_notifications.main import MessageToSend
-
         with self.connect() as conn:
             duplicated_notifications_query = """
                 SELECT
@@ -63,7 +79,9 @@ class DBClient(DBClientBase):
 
             delay_to_retry_send_failed_messages = datetime.timedelta(minutes=5)
             stmt = sqlalchemy.text(notifications_query)
-            return [MessageToSend(*row) for row in conn.execute(
+            return [
+                MessageToSend(*row)
+                for row in conn.execute(
                     stmt,
                     dict(
                         retry_delay=datetime.datetime.now() - delay_to_retry_send_failed_messages,
