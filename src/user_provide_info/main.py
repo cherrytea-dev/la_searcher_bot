@@ -175,7 +175,6 @@ def get_user_data_from_db(user_id: int) -> BaseUserParams:
     return FoundUserParams(**user_params)
 
 
-
 def evaluate_city_locations(city_locations: str) -> list[list[Any]] | None:
     if not city_locations:
         logging.info('no city_locations')

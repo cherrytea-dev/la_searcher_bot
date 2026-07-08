@@ -159,7 +159,9 @@ class TestGetUserDataFromDb:
         SearchHealthCheckFactory.create_sync(search_forum_num=search.search_forum_num, status='ok')
         ChangeLogFactory.create_sync(search_forum_num=search.search_forum_num)
 
-        result = main._get_searches_from_db(user_id, connection, True)
+        db = main.DBClient()
+        raw_data = db.get_searches_for_user(user_id, True)
+        result = main._compose_searches(raw_data)
 
         assert len(result) == 1
         first_item = result[0].model_dump()
