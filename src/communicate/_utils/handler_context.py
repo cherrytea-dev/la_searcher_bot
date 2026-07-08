@@ -114,8 +114,9 @@ class TGHandlerContext:
             'chat_id': self.user_id,
             'text': text,
             'message_id': message_id,
-            'reply_markup': reply_markup,
         }
+        if reply_markup is not None:
+            params['reply_markup'] = reply_markup
         self._tg_api.edit_message_text(params)
         self._save_dialog(text)
 
@@ -145,10 +146,11 @@ class TGHandlerContext:
         params = {
             'parse_mode': parse_mode,
             'disable_web_page_preview': disable_web_page_preview,
-            'reply_markup': reply_markup,
             'chat_id': self.user_id,
             'text': text,
         }
+        if reply_markup is not None:
+            params['reply_markup'] = reply_markup
         self._tg_api.send_message(params)
         self._save_dialog(text)
 
@@ -197,17 +199,19 @@ class TGHandlerContext:
                     'chat_id': self.user_id,
                     'text': text,
                     'message_id': last_user_message_id,
-                    'reply_markup': reply_markup,
                 }
+                if reply_markup is not None:
+                    params['reply_markup'] = reply_markup
                 self._tg_api.edit_message_text(params)
         else:
             params = {
                 'parse_mode': parse_mode,
                 'disable_web_page_preview': disable_web_page_preview,
-                'reply_markup': reply_markup,
                 'chat_id': self.user_id,
                 'text': text,
             }
+            if reply_markup is not None:
+                params['reply_markup'] = reply_markup
             self._tg_api.send_message(params)
 
     def _save_dialog(self, text: str) -> None:

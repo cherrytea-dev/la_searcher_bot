@@ -105,7 +105,7 @@ def _get_basic_update_parameters(update: Update) -> UpdateBasicParams:
     if callback_query:
         callback_data_text = callback_query.data
         try:
-            got_callback = InlineButtonCallbackData.model_validate_json(callback_data_text)
+            got_callback = InlineButtonCallbackData.deserialize(callback_data_text)
         except Exception:
             logging.exception(f'callback dict was not recognized for {callback_data_text=}')
             notify_admin(f'callback dict was not recognized for {callback_data_text=}')

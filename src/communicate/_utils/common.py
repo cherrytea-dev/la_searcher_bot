@@ -1,7 +1,7 @@
 import math
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Sequence, Union
+from typing import Any, ClassVar, Sequence, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 from telegram import (
@@ -28,10 +28,36 @@ class InlineButtonCallbackData(BaseModel):
     hash: int | None = Field(default=None)
     letter_to_show: str = Field(default='', alias='bs')
 
+    SEP: ClassVar[str] = '|'
+
     def as_str(self) -> str:
-        res = self.model_dump_json(by_alias=True, exclude_none=True, exclude_unset=True)
-        assert len(res) <= InlineKeyboardButton.MAX_CALLBACK_DATA
-        return res
+        return self.serialize()
+
+    def serialize(self) -> str:
+        parts = [
+            self.keyboard_name or '',
+            str(self.action) if self.action is not None else '',
+            str(self.hash) if self.hash is not None else '',
+            self.letter_to_show or '',
+        ]
+        result = self.SEP.join(parts)
+        assert (
+            len(result) <= InlineKeyboardButton.MAX_CALLBACK_DATA
+        ), f'callback_data too long ({len(result)} > {InlineKeyboardButton.MAX_CALLBACK_DATA}): {result!r}'
+        return result
+
+    @classmethod
+    def deserialize(cls, data: str) -> 'InlineButtonCallbackData':
+        parts = data.split(cls.SEP)
+        parts += [''] * (4 - len(parts))  # pad to 4 parts
+        kb_name = parts[0] or None
+        action_raw = parts[1]
+        action: str | int | None = action_raw if action_raw else None
+        if action is not None and action_raw.isdigit():
+            action = int(action_raw)
+        hash_val = int(parts[2]) if parts[2] else None
+        letter = parts[3] or ''
+        return cls(keyboard_name=kb_name, action=action, hash=hash_val, letter_to_show=letter)
 
 
 class UserInputState(str, Enum):
