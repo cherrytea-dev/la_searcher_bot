@@ -42,6 +42,10 @@ class RegionMixin(DBClientMixinBase):
             result = connection.execute(stmt, dict(user_id=user_id))
             return result.fetchone() is None
 
+    def user_has_region_set(self, user_id: int) -> bool:
+        """Check if user has at least one region subscribed (inverse of check_if_user_has_no_regions)."""
+        return not self.check_if_user_has_no_regions(user_id)
+
     def add_user_region_setting(self, user_id: int, region_id: int) -> None:
         """Record that the user has configured a region setting.
 

@@ -13,6 +13,7 @@ from telegram import ReplyKeyboardMarkup
 from _dependencies.bot.messaging import tg_api_main_account
 from _dependencies.common.commons import get_app_config, get_forum_proxies, setup_logging
 from _dependencies.common.pubsub import Ctx, process_pubsub_message
+from _dependencies.models import DialogState
 
 from ._utils.database import DBClient
 
@@ -259,7 +260,10 @@ def main(event: Dict[str, bytes], context: Ctx) -> None:
 
     db = DBClient()
     message_in_ascii = process_pubsub_message(event)
-    tg_user_id, f_username = list(message_in_ascii)
+
+    tg_user_id: int  # TODO make contracts for pub-sub messages
+    f_username: str
+    tg_user_id, f_username = list(message_in_ascii)  # type:ignore [assignment]
 
     user = None
     if message_in_ascii:
@@ -317,7 +321,7 @@ def main(event: Dict[str, bytes], context: Ctx) -> None:
         bot_request_aft_usr_msg = 'input_of_forum_username'
 
         try:
-            db.replace_msg_from_bot(tg_user_id, bot_request_aft_usr_msg)
+            db.set_user_state(tg_user_id, DialogState(bot_request_aft_usr_msg))
 
         except Exception:
             logging.exception('failed to update the last saved message from bot')
@@ -336,4 +340,4 @@ def main(event: Dict[str, bytes], context: Ctx) -> None:
 
     # save bot's reply to incoming request
     if bot_message:
-        db.insert_dialog_message(tg_user_id, 'bot', bot_message)
+        db.save_bot_reply(tg_user_id, bot_message)
