@@ -72,6 +72,7 @@ def handle_new_message(
     """
 
     vk_user_id = vk_message.user_id
+    is_new_user = False
 
     logging.info(f'handle_new_message: vk_user={vk_user_id}, text="{vk_message.text}"')
 
@@ -100,6 +101,7 @@ def handle_new_message(
         # 3. Register as VK-only user
         logging.info(f'handle_new_message: registering VK-only user {vk_user_id}')
         user_id = register_vk_only_user(vk_user_id)
+        is_new_user = True
 
     try:
         db().save_user_message(user_id, vk_message.text)
@@ -114,6 +116,7 @@ def handle_new_message(
         state=state,
         sender=sender,
         db=db(),
+        is_new_user=is_new_user,
     )
 
     # Normalize text for matching

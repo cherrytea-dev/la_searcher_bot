@@ -70,6 +70,47 @@ async def _init_dispatcher() -> None:
     logger.info('MAX bot dispatcher initialized (webhook mode)')
 
 
+def _extract_user_id(event_json: dict) -> int | None:
+    """Extract user_id from a MAX API event JSON.
+
+    Covers all event types: ``message_created``, ``message_callback``,
+    ``bot_started``. Returns ``None`` if no user_id is found (should not
+    happen for legitimate webhook events).
+    """
+    user_id = (
+        event_json.get('message', {}).get('sender', {}).get('user_id')
+        or event_json.get('callback', {}).get('user', {}).get('user_id')
+        or event_json.get('user', {}).get('user_id')
+        or None
+    )
+    # Normalise to int or None (fallback `or None` may still return a str '?').
+    if not isinstance(user_id, int):
+        return None
+    return user_id
+
+
+def _fmt_user_input(event_json: dict) -> str:
+    """Format a one-line log of user input from a MAX API event JSON.
+
+    Covers all event types: ``message_created`` (text), ``message_callback`` (payload),
+    ``bot_started``, and unknown types. Returns a stable summary for logging.
+    """
+    update_type = event_json.get('update_type', '?')
+    user_id = _extract_user_id(event_json) or '?'
+    parts = [f'type={update_type}', f'user={user_id}']
+
+    if update_type == 'message_created':
+        text = event_json.get('message', {}).get('body', {}).get('text', '')
+        parts.append(f'text="{text}"')
+    elif update_type == 'message_callback':
+        payload = event_json.get('callback', {}).get('payload', '')
+        parts.append(f'payload="{payload}"')
+    elif update_type == 'bot_started':
+        parts.append('(chat opened)')
+
+    return ' | '.join(parts)
+
+
 async def _handle_webhook_async(event_json: dict) -> None:
     """Initialize dispatcher (if needed), parse and dispatch a single webhook event.
 
@@ -84,6 +125,16 @@ async def _handle_webhook_async(event_json: dict) -> None:
     if _dp is None or _bot is None:
         logger.error('Dispatcher not initialized')
         return
+
+    # Log user input (text or inline payload) in one place for all handlers
+    logger.info('MAX event: %s', _fmt_user_input(event_json))
+
+    # ── Register user if this is their first interaction ───────────────
+    # Centralised here so every handler (including future ones) gets it for free.
+    # Previously each handler called _ensure_user_registered() individually.
+    user_id = _extract_user_id(event_json)
+    if user_id is not None:
+        handlers._ensure_user_registered(user_id)
 
     event_object = await process_update_webhook(event_json=event_json, bot=_bot)
     if event_object is None:

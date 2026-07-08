@@ -21,9 +21,13 @@ from ..services.message_formatter import (
 
 @vk_handle(text='/start')
 def handle_command_start(ctx: VKHandlerContext) -> None:
-    """Handle /start command — show welcome message and main menu."""
-    is_new = ctx.db.check_if_new_user(ctx.user_id)
-    text = welcome_new_user() if is_new else welcome_back_user()
+    """Handle /start command — show welcome message and main menu.
+
+    Uses ``ctx.is_new_user`` (set by ``handle_new_message`` when the user
+    was just registered) instead of ``ctx.db.check_if_new_user()`` because
+    the user is already registered by the time the handler chain runs.
+    """
+    text = welcome_new_user() if ctx.is_new_user else welcome_back_user()
     ctx.reply(text=text, keyboard=VKKeyboardPresets.main_menu())
 
 
