@@ -208,5 +208,10 @@ class TopicTypeInlineKeyboardBuilder:
 
 
 # basic markup which will be substituted for all specific cases
-_keyboard_main = [[MainMenu.b_map], [MainMenu.b_view_act_searches], [MainMenu.b_settings], [MainMenu.b_other]]
+_keyboard_main = [
+    [MainMenu.b_map.value],
+    [MainMenu.b_view_act_searches.value],
+    [MainMenu.b_settings.value],
+    [MainMenu.b_other.value],
+]
 reply_markup_main = ReplyKeyboardMarkup(_keyboard_main, resize_keyboard=True)

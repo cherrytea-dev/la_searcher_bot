@@ -34,7 +34,7 @@ class TGApiCommunicate(TGApiBase):
         _inline_processing(response, params)
         return result
 
-    def edit_message_text(self, params: dict, call_context: str = '') -> None:
+    def edit_message_text(self, params: dict, call_context: str = '') -> str:
         response = self._make_api_call('editMessageText', params, call_context)
         user_id = params['chat_id']
         result = self._process_response_of_api_call(user_id, response)
@@ -43,6 +43,7 @@ class TGApiCommunicate(TGApiBase):
         logging.info(f'RESULT {result}')
 
         _inline_processing(response, params)
+        return result
 
 
 def _inline_processing(response: Response | None, params: dict) -> None:

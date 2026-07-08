@@ -117,7 +117,19 @@ class TGHandlerContext:
         }
         if reply_markup is not None:
             params['reply_markup'] = reply_markup
-        self._tg_api.edit_message_text(params)
+        result = self._tg_api.edit_message_text(params)
+        if result == 'cancelled_bad_request' and reply_markup is not None:
+            # Telegram says MESSAGE_TOO_LONG — retry without reply_markup
+            logging.error(
+                f'MESSAGE_TOO_LONG on editMessageText (edit method) for user {self.user_id}, '
+                f'retrying without reply_markup'
+            )
+            fallback_params = {
+                'chat_id': self.user_id,
+                'text': text,
+                'message_id': message_id,
+            }
+            self._tg_api.edit_message_text(fallback_params)
         self._save_dialog(text)
 
     def answer_callback(self, text: str = '') -> None:
@@ -202,7 +214,19 @@ class TGHandlerContext:
                 }
                 if reply_markup is not None:
                     params['reply_markup'] = reply_markup
-                self._tg_api.edit_message_text(params)
+                result = self._tg_api.edit_message_text(params)
+                if result == 'cancelled_bad_request' and reply_markup is not None:
+                    # Telegram says MESSAGE_TOO_LONG — retry without reply_markup
+                    logging.error(
+                        f'MESSAGE_TOO_LONG on editMessageText for user {self.user_id}, '
+                        f'retrying without reply_markup'
+                    )
+                    fallback_params = {
+                        'chat_id': self.user_id,
+                        'text': text,
+                        'message_id': last_user_message_id,
+                    }
+                    self._tg_api.edit_message_text(fallback_params)
         else:
             params = {
                 'parse_mode': parse_mode,
@@ -212,7 +236,19 @@ class TGHandlerContext:
             }
             if reply_markup is not None:
                 params['reply_markup'] = reply_markup
-            self._tg_api.send_message(params)
+            result = self._tg_api.send_message(params)
+            if result == 'cancelled_bad_request' and reply_markup is not None:
+                # Telegram says MESSAGE_TOO_LONG — retry without reply_markup
+                logging.error(
+                    f'MESSAGE_TOO_LONG on sendMessage for user {self.user_id}, ' f'retrying without reply_markup'
+                )
+                fallback_params = {
+                    'parse_mode': parse_mode,
+                    'disable_web_page_preview': disable_web_page_preview,
+                    'chat_id': self.user_id,
+                    'text': text,
+                }
+                self._tg_api.send_message(fallback_params)
 
     def _save_dialog(self, text: str) -> None:
         """Save bot reply to dialog history."""
