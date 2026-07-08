@@ -1,5 +1,4 @@
 import logging
-from ast import literal_eval
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
@@ -8,6 +7,7 @@ from _dependencies.common.commons import SearchFollowingMode
 from ..buttons import TopicTypeInlineKeyboardBuilder, reply_markup_main
 from ..common import (
     NOT_FOLLOWING_MARK,
+    InlineButtonCallbackData,
 )
 from ..decorators import tg_handle
 from ..handler_context import TGHandlerContext
@@ -200,10 +200,9 @@ def _get_pressed_button_row_index(markup: InlineKeyboardMarkup, pressed_button_h
     for index, ikb_row in enumerate(ikb):
         logging.info(f'{ikb_row=}')
         if ikb_row[0].callback_data:
-            button_data = literal_eval(str(ikb_row[0].callback_data))
-            # Check if the pushed button matches the one in the callback
+            button_data = InlineButtonCallbackData.deserialize(str(ikb_row[0].callback_data))
 
-            if button_data.get('hash') and int(button_data['hash']) == pressed_button_hash:
+            if button_data.hash and button_data.hash == pressed_button_hash:
                 return index
 
     return None
