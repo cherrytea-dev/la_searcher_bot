@@ -32,9 +32,7 @@ NOTIFICATIONS_ENABLED: str = (
 
 FED_DISTRICTS_PROMPT: str = 'Выбери федеральный округ, чтобы настроить регионы поисков:'
 
-REGION_EMOJI_LEGEND: str = (
-    '🔍 — активные поиски\n' '✅ — завершённые поиски\n' 'ℹ️ — инфорг / поддержка\n' '📅 — мероприятия'
-)
+REGION_EMOJI_LEGEND: str = '🔍 — активные поиски\n' 'ℹ️ — инфорг / поддержка\n' '📅 — мероприятия'
 
 REGION_LIST_PROMPT: str = (
     f'{REGION_EMOJI_LEGEND}\n\n'

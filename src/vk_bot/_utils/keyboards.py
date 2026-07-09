@@ -14,7 +14,6 @@ _MAX_INLINE_BUTTONS = 10
 # Replaces verbose subtype suffixes like " – Активные поиски" with short emoji markers.
 _SUFFIX_TO_EMOJI: dict[str, str] = {
     ' – Активные поиски': '🔍',
-    ' – Завершенные поиски': '✅',
     ' – Инфо поддержка': 'ℹ️',
     ' – Мероприятия': '📅',
 }
@@ -23,16 +22,14 @@ _COMPACT_REGION_RE = re.compile('(' + '|'.join(re.escape(s) for s in _SUFFIX_TO_
 
 # Emoji legend shown above region selection keyboards so users understand
 # what each emoji marker means.
-REGION_EMOJI_LEGEND: str = (
-    '🔍 — активные поиски\n' '✅ — завершённые поиски\n' 'ℹ️ — инфорг / поддержка\n' '📅 — мероприятия'
-)
+REGION_EMOJI_LEGEND: str = '🔍 — активные поиски\n' 'ℹ️ — инфорг / поддержка\n' '📅 — мероприятия'
 
 
 def _compact_region_name(name: str) -> str:
     """Replace verbose subtype suffix with a short emoji marker at the BEGINNING.
 
     "Москва – Активные поиски" → "🔍 Москва"
-    "Ханты-Мансийский АО – Завершенные поиски" → "✅ Ханты-Мансийский АО"
+    "Ханты-Мансийский АО – Инфо поддержка" → "ℹ️ Ханты-Мансийский АО"
     """
     match = _COMPACT_REGION_RE.search(name)
     if match:
