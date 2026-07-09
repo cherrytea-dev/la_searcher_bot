@@ -24,6 +24,7 @@ from maxapi.enums.attachment import AttachmentType
 from maxapi.filters.command import Command
 from maxapi.filters.filter import BaseFilter
 from maxapi.types.attachments import Location
+from maxapi.types.attachments.buttons.attachment_button import AttachmentButton
 from maxapi.types.updates import UpdateUnion
 from maxapi.types.updates.bot_started import BotStarted
 from maxapi.types.updates.message_callback import MessageCallback
@@ -186,7 +187,7 @@ def _notifications_disabled(user_id: int) -> bool:
     return _get_db().get_user_status(user_id) == 'unsubscribed'
 
 
-def _main_menu_for_user(user_id: int):
+def _main_menu_for_user(user_id: int) -> AttachmentButton:
     """Return MAX main menu with the delivery-status action matching user status."""
     return MaxKeyboardPresets.main_menu(notifications_disabled=_notifications_disabled(user_id))
 
@@ -224,7 +225,6 @@ async def on_bot_started(event: BotStarted) -> None:
         return
 
     try:
-        _ensure_user_registered(user_id)
         await bot.send_message(
             chat_id=chat_id,
             text=WELCOME_TEXT,
@@ -246,7 +246,6 @@ async def on_start(event: MessageCreated) -> None:
         return
 
     try:
-        _ensure_user_registered(user_id)
         await event.message.answer(
             text=WELCOME_TEXT,
             attachments=[_main_menu_for_user(user_id)],
@@ -307,7 +306,6 @@ async def on_disable_notifications(event: MessageCallback) -> None:
         return
 
     db = _get_db()
-    _ensure_user_registered(user_id)
     db.update_user_status(user_id, ManageUserAction.unsubscribe_user)
     await event.ack(notification='...')
     await event.edit(
@@ -324,7 +322,6 @@ async def on_enable_notifications(event: MessageCallback) -> None:
         return
 
     db = _get_db()
-    _ensure_user_registered(user_id)
     db.update_user_status(user_id, ManageUserAction.subscribe_user)
     await event.ack(notification='...')
     await event.edit(

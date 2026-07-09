@@ -91,7 +91,9 @@ class MaxKeyboardPresets(MaxKeyboardButtons):
     @classmethod
     def main_menu(cls, notifications_disabled: bool = False) -> AttachmentButton:
         """Main menu with settings options."""
-        delivery_status_button = cls.BTN_ENABLE_NOTIFICATIONS if notifications_disabled else cls.BTN_DISABLE_NOTIFICATIONS
+        delivery_status_button = (
+            cls.BTN_ENABLE_NOTIFICATIONS if notifications_disabled else cls.BTN_DISABLE_NOTIFICATIONS
+        )
         delivery_status_cmd = 'enable_notifications' if notifications_disabled else 'disable_notifications'
         return (
             InlineKeyboardBuilder()

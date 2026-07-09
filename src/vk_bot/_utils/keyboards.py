@@ -390,7 +390,9 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
     @classmethod
     def settings_menu(cls, notifications_disabled: bool = False) -> dict:
         """Settings menu — simplified."""
-        delivery_status_button = cls.BTN_ENABLE_NOTIFICATIONS if notifications_disabled else cls.BTN_DISABLE_NOTIFICATIONS
+        delivery_status_button = (
+            cls.BTN_ENABLE_NOTIFICATIONS if notifications_disabled else cls.BTN_DISABLE_NOTIFICATIONS
+        )
         return cls.one_column(
             [
                 cls.BTN_SETTINGS_REGION,
