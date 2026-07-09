@@ -12,6 +12,10 @@ import logging
 
 from .account_linking import handle_unregistered_user, register_vk_only_user
 from .common import VKHandlerContext, VKMessage, get_invite_from_message
+
+# VK peer_id above this value means a group chat (conversation), not a private dialog.
+# See: https://dev.vk.com/ru/reference/objects/user#peer_id
+_VK_CHAT_START_ID = 2_000_000_000
 from .database import db
 from .decorators import vk_registry
 from .handler_chain import handle_unknown
@@ -73,6 +77,14 @@ def handle_new_message(
 
     vk_user_id = vk_message.user_id
     is_new_user = False
+
+    # Ignore messages from group chats — bot should only respond in private dialogs
+    if vk_message.peer_id > _VK_CHAT_START_ID:
+        logging.info(
+            f'handle_new_message: ignoring group chat message '
+            f'from vk_user={vk_user_id}, peer_id={vk_message.peer_id}'
+        )
+        return
 
     logging.info(f'handle_new_message: vk_user={vk_user_id}, text="{vk_message.text}"')
 
@@ -164,6 +176,14 @@ def handle_callback_event(
     payload = vk_message.payload
     logging.info(f'handle_callback_event: user_id={vk_message.user_id}, payload="{payload}"')
     if not payload:
+        return
+
+    # Ignore callbacks from group chats — same as handle_new_message
+    if vk_message.peer_id > _VK_CHAT_START_ID:
+        logging.info(
+            f'handle_callback_event: ignoring group chat callback '
+            f'from vk_user={vk_message.user_id}, peer_id={vk_message.peer_id}'
+        )
         return
 
     # Resolve identity
