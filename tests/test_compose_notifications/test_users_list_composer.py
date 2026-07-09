@@ -42,8 +42,9 @@ def create_user_with_preferences(
     user_coordinates: tuple[str, str] | None = None,
     age_periods: list[tuple[int, int]] = [],
     radius: int | None = None,
+    status: str | None = None,
 ) -> db_models.User:
-    user = db_factories.UserFactory.create_sync()
+    user = db_factories.UserFactory.create_sync(status=status)
 
     for pref_id in pref_ids:
         db_factories.UserPreferenceFactory.create_sync(user_id=user.user_id, pref_id=pref_id)
@@ -94,6 +95,22 @@ class TestUsersListComposer:
         assert first_user.radius == 0
         assert not first_user.user_latitude
         assert not first_user.user_longitude
+
+    def test_unsubscribed_user_is_excluded(self, db_client: DBClient):
+        record = LineInChangeLogFactory.build(change_type=ChangeType.topic_first_post_change)
+
+        create_user_with_preferences(
+            pref_ids=[ChangeType.all],
+            region_ids=[1],
+            topic_type_ids=[record.topic_type_id],
+            forum_folder_ids=[record.forum_folder],
+            status='unsubscribed',
+        )
+
+        users_list_composer = UsersListComposer(db_client)
+        res = users_list_composer.get_users_list_for_line_in_change_log(record)
+
+        assert not res
 
     def test_one_change_type(self, db_client: DBClient):
         """ToDo: fix this test because now it sometimes fails with error:

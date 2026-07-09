@@ -87,6 +87,8 @@ class HelpNeeded(str, ExtendedEnum):
 
 class MainSettingsMenu(str, ExtendedEnum):
     # Settings menu
+    b_disable_notifications = 'полностью отключить уведомления'
+    b_enable_notifications = 'включить уведомления'
     b_set_pref_notif_type = 'настроить виды уведомлений'
     b_set_pref_coords = 'настроить "домашние координаты"'
     b_set_pref_radius = 'настроить максимальный радиус'
