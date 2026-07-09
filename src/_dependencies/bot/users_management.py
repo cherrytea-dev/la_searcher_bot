@@ -10,6 +10,8 @@ from _dependencies.common.commons import Messenger, sqlalchemy_get_pool
 class ManageUserAction(str, Enum):
     block_user = 'block_user'
     unblock_user = 'unblock_user'
+    unsubscribe_user = 'unsubscribe_user'
+    subscribe_user = 'subscribe_user'
     new = 'new'
     delete_user = 'delete_user'
 
@@ -17,6 +19,8 @@ class ManageUserAction(str, Enum):
         return {
             self.block_user: 'blocked',
             self.unblock_user: 'unblocked',
+            self.unsubscribe_user: 'unsubscribed',
+            self.subscribe_user: 'unblocked',
             self.new: 'new',
             self.delete_user: 'deleted',
         }[self]

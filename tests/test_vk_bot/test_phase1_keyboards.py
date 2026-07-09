@@ -118,11 +118,19 @@ class TestVKKeyboardPresets:
     def test_settings_menu(self):
         result = VKKeyboardPresets.settings_menu()
         labels = [btn[0]['action']['label'] for btn in result['buttons']]
-        assert len(labels) == 4
+        assert len(labels) == 5
         assert labels[0] == 'настроить регион поисков'
         assert labels[1] == 'настроить "домашние координаты"'
         assert labels[2] == 'настроить максимальный радиус'
-        assert labels[3] == 'в начало'
+        assert labels[3] == 'полностью отключить уведомления'
+        assert labels[4] == 'в начало'
+
+    def test_settings_menu_for_unsubscribed_user(self):
+        result = VKKeyboardPresets.settings_menu(notifications_disabled=True)
+        labels = [btn[0]['action']['label'] for btn in result['buttons']]
+
+        assert 'включить уведомления' in labels
+        assert 'полностью отключить уведомления' not in labels
 
     def test_coords_menu(self):
         result = VKKeyboardPresets.coords_menu()

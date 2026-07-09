@@ -5,6 +5,7 @@ import pytest
 from communicate._utils.database import DBClient
 from communicate._utils.handler_context import TGHandlerContext
 from communicate._utils.handlers import button_handlers, notification_settings_handlers
+from tests.common import find_model
 from tests.factories import db_factories, db_models
 
 
@@ -42,3 +43,23 @@ def test_compose_user_preferences_message(
 
     assert pref_list == ['status_changes']
     assert 'об изменении статуса' in summary
+
+
+def test_handle_disable_notifications(session, tg_handler_context: TGHandlerContext):
+    db_factories.UserFactory.create_sync(user_id=0, status='unblocked')
+
+    button_handlers.handle_disable_notifications(tg_handler_context)
+
+    assert find_model(session, db_models.User, user_id=0, status='unsubscribed')
+    assert find_model(session, db_models.UserStatusesHistory, user_id=0, status='unsubscribed')
+    tg_handler_context.tg_api.send_message.assert_called_once()
+
+
+def test_handle_enable_notifications(session, tg_handler_context: TGHandlerContext):
+    db_factories.UserFactory.create_sync(user_id=0, status='unsubscribed')
+
+    button_handlers.handle_enable_notifications(tg_handler_context)
+
+    assert find_model(session, db_models.User, user_id=0, status='unblocked')
+    assert find_model(session, db_models.UserStatusesHistory, user_id=0, status='unblocked')
+    tg_handler_context.tg_api.send_message.assert_called_once()

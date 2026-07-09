@@ -12,7 +12,7 @@ from telegram import (
 )
 
 from _dependencies.bot.telegram_api_wrapper import make_invite_text_for_user
-from _dependencies.bot.users_management import save_onboarding_step
+from _dependencies.bot.users_management import ManageUserAction, save_onboarding_step
 from _dependencies.common.commons import add_tel_link, get_app_config
 from _dependencies.common.pubsub import notify_admin
 from _dependencies.models import AgePeriod
@@ -446,7 +446,13 @@ def handle_main_settings(ctx: TGHandlerContext) -> None:
     if message_prefix:
         bot_message = f'{bot_message}\n\n{message_prefix}'
 
+    delivery_status_button = (
+        MainSettingsMenu.b_enable_notifications
+        if ctx.db.get_user_status(ctx.user_id) == 'unsubscribed'
+        else MainSettingsMenu.b_disable_notifications
+    )
     keyboard = [
+        delivery_status_button,
         MainSettingsMenu.b_set_pref_notif_type,
         b_menu_set_region,
         MainSettingsMenu.b_set_topic_type,
@@ -457,6 +463,31 @@ def handle_main_settings(ctx: TGHandlerContext) -> None:
         MainSettingsMenu.b_set_vkontakte_nick,
         b_back_to_start,
     ]  # #AK added b_set_forum_nick for issue #6
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
+
+
+@tg_handle(text=MainSettingsMenu.b_disable_notifications)
+def handle_disable_notifications(ctx: TGHandlerContext) -> None:
+    """Explicitly unsubscribe a user from all notification composing."""
+    ctx.db.update_user_status(ctx.user_id, ManageUserAction.unsubscribe_user)
+    bot_message = (
+        'Уведомления полностью отключены. Бот больше не будет готовить для вас '
+        'новые уведомления о поисках.\n\n'
+        'Если захотите вернуться, нажмите «включить уведомления».'
+    )
+    keyboard = [MainSettingsMenu.b_enable_notifications, b_back_to_start]
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
+
+
+@tg_handle(text=MainSettingsMenu.b_enable_notifications)
+def handle_enable_notifications(ctx: TGHandlerContext) -> None:
+    """Re-enable notification composing for a user."""
+    ctx.db.update_user_status(ctx.user_id, ManageUserAction.subscribe_user)
+    bot_message = (
+        'Уведомления снова включены. Бот будет присылать сообщения согласно '
+        'вашим сохранённым настройкам регионов и типов уведомлений.'
+    )
+    keyboard = [MainSettingsMenu.b_set_pref_notif_type, b_menu_set_region, b_back_to_start]
     ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
 
 

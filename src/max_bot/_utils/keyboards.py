@@ -54,6 +54,8 @@ class MaxKeyboardButtons:
     BTN_NEXT: str = 'ещё →'
 
     # Main menu
+    BTN_DISABLE_NOTIFICATIONS: str = 'полностью отключить уведомления'
+    BTN_ENABLE_NOTIFICATIONS: str = 'включить уведомления'
     BTN_SETTINGS_REGION: str = 'настроить регион поисков'
     BTN_SETTINGS_COORDS: str = 'настроить "домашние координаты"'
     BTN_SETTINGS_RADIUS: str = 'настроить максимальный радиус'
@@ -87,13 +89,16 @@ class MaxKeyboardPresets(MaxKeyboardButtons):
     # ─── Main Menu ────────────────────────────────────────────────────────
 
     @classmethod
-    def main_menu(cls) -> AttachmentButton:
+    def main_menu(cls, notifications_disabled: bool = False) -> AttachmentButton:
         """Main menu with settings options."""
+        delivery_status_button = cls.BTN_ENABLE_NOTIFICATIONS if notifications_disabled else cls.BTN_DISABLE_NOTIFICATIONS
+        delivery_status_cmd = 'enable_notifications' if notifications_disabled else 'disable_notifications'
         return (
             InlineKeyboardBuilder()
             .row(CallbackButton(text=cls.BTN_SETTINGS_REGION, payload=json.dumps({'cmd': 'region'})))
             .row(CallbackButton(text=cls.BTN_SETTINGS_RADIUS, payload=json.dumps({'cmd': 'radius'})))
             .row(CallbackButton(text=cls.BTN_SETTINGS_COORDS, payload=json.dumps({'cmd': 'coords'})))
+            .row(CallbackButton(text=delivery_status_button, payload=json.dumps({'cmd': delivery_status_cmd})))
             .as_markup()
         )
 

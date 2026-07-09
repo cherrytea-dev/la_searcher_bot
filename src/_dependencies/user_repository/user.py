@@ -5,7 +5,12 @@ import logging
 
 import sqlalchemy
 
-from _dependencies.bot.users_management import register_new_user, save_onboarding_step
+from _dependencies.bot.users_management import (
+    ManageUserAction,
+    register_new_user,
+    save_onboarding_step,
+    update_user_status,
+)
 from _dependencies.common.commons import Messenger
 from _dependencies.common.db_client import DBClientMixinBase
 
@@ -58,6 +63,18 @@ class UserMixin(DBClientMixinBase):
     def save_onboarding_step(self, user_id: int, step: str) -> None:
         """Save onboarding step progress."""
         save_onboarding_step(user_id, step)
+
+    def update_user_status(self, user_id: int, action: ManageUserAction) -> None:
+        """Update user delivery/account status and write status history."""
+        update_user_status(action, user_id)
+
+    def get_user_status(self, user_id: int) -> str | None:
+        """Return current user status from users table."""
+        with self.connect() as connection:
+            stmt = sqlalchemy.text('SELECT status FROM users WHERE user_id=:user_id LIMIT 1;')
+            result = connection.execute(stmt, dict(user_id=user_id))
+            row = result.fetchone()
+            return row[0] if row else None
 
     def save_user_role(self, user_id: int, role: str) -> str:
         """Save user's role (member, new_member, relative, etc.).

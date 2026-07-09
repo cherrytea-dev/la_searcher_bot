@@ -62,6 +62,8 @@ class VKKeyboardButtons:
     BTN_SETTINGS_BOT: str = 'настроить бот'
 
     # Settings menu
+    BTN_DISABLE_NOTIFICATIONS: str = 'полностью отключить уведомления'
+    BTN_ENABLE_NOTIFICATIONS: str = 'включить уведомления'
     BTN_SETTINGS_REGION: str = 'настроить регион поисков'
     BTN_SETTINGS_COORDS: str = 'настроить "домашние координаты"'
     BTN_SETTINGS_RADIUS: str = 'настроить максимальный радиус'
@@ -386,13 +388,15 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
         )
 
     @classmethod
-    def settings_menu(cls) -> dict:
+    def settings_menu(cls, notifications_disabled: bool = False) -> dict:
         """Settings menu — simplified."""
+        delivery_status_button = cls.BTN_ENABLE_NOTIFICATIONS if notifications_disabled else cls.BTN_DISABLE_NOTIFICATIONS
         return cls.one_column(
             [
                 cls.BTN_SETTINGS_REGION,
                 cls.BTN_SETTINGS_COORDS,
                 cls.BTN_SETTINGS_RADIUS,
+                delivery_status_button,
                 cls.BTN_BACK_TO_START,
             ]
         )

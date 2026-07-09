@@ -41,6 +41,22 @@ class TestSaveUpdatedStatusForUser:
         assert find_model(session, User, user_id=user_id, status='unblocked')
         assert find_model(session, UserStatusesHistory, user_id=user_id, status='unblocked')
 
+    def test_unsubscribe_user(self, user_id: int, session: Session):
+        UserFactory.create_sync(user_id=user_id, status='unblocked')
+
+        update_user_status(ManageUserAction.unsubscribe_user, user_id)
+
+        assert find_model(session, User, user_id=user_id, status='unsubscribed')
+        assert find_model(session, UserStatusesHistory, user_id=user_id, status='unsubscribed')
+
+    def test_subscribe_user(self, user_id: int, session: Session):
+        UserFactory.create_sync(user_id=user_id, status='unsubscribed')
+
+        update_user_status(ManageUserAction.subscribe_user, user_id)
+
+        assert find_model(session, User, user_id=user_id, status='unblocked')
+        assert find_model(session, UserStatusesHistory, user_id=user_id, status='unblocked')
+
 
 class TestSaveOnboardingStep:
     def test_save_valid_onboarding_step(self, user_id: int, session: Session):
