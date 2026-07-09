@@ -38,7 +38,7 @@ def run_polling() -> None:
                     'message': {
                         'from_id': event.from_user,
                         'text': event.text,
-                        'peer_id': event.from_user,
+                        'peer_id': event.peer_id,
                     },
                 },
             }
