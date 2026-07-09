@@ -119,9 +119,10 @@ class TGHandlerContext:
             params['reply_markup'] = reply_markup
         result = self._tg_api.edit_message_text(params)
         if result == 'cancelled_bad_request' and reply_markup is not None:
-            # Telegram says MESSAGE_TOO_LONG — retry without reply_markup
+            # Bad Request on edit — possibly MESSAGE_TOO_LONG or payload too large.
+            # Fall back to editing without reply_markup.
             logging.error(
-                f'MESSAGE_TOO_LONG on editMessageText (edit method) for user {self.user_id}, '
+                f'cancelled_bad_request on editMessageText (edit method) for user {self.user_id}, '
                 f'retrying without reply_markup'
             )
             fallback_params = {
@@ -216,9 +217,10 @@ class TGHandlerContext:
                     params['reply_markup'] = reply_markup
                 result = self._tg_api.edit_message_text(params)
                 if result == 'cancelled_bad_request' and reply_markup is not None:
-                    # Telegram says MESSAGE_TOO_LONG — retry without reply_markup
+                    # Bad Request on edit — possibly MESSAGE_TOO_LONG or payload too large.
+                    # Fall back to editing without reply_markup.
                     logging.error(
-                        f'MESSAGE_TOO_LONG on editMessageText for user {self.user_id}, '
+                        f'cancelled_bad_request on editMessageText for user {self.user_id}, '
                         f'retrying without reply_markup'
                     )
                     fallback_params = {
@@ -238,9 +240,10 @@ class TGHandlerContext:
                 params['reply_markup'] = reply_markup
             result = self._tg_api.send_message(params)
             if result == 'cancelled_bad_request' and reply_markup is not None:
-                # Telegram says MESSAGE_TOO_LONG — retry without reply_markup
+                # Bad Request on send — possibly MESSAGE_TOO_LONG or payload too large.
+                # Fall back to sending without reply_markup.
                 logging.error(
-                    f'MESSAGE_TOO_LONG on sendMessage for user {self.user_id}, ' f'retrying without reply_markup'
+                    f'cancelled_bad_request on sendMessage for user {self.user_id}, ' f'retrying without reply_markup'
                 )
                 fallback_params = {
                     'parse_mode': parse_mode,
