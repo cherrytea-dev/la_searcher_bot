@@ -413,11 +413,19 @@ async def on_paginate_toggle(event: MessageCallback) -> None:
 
     db = _get_db()
 
-    # Build folder_dict: region_name -> (folder_id,)
-    regions = _get_regions_for_district(district)
+    # Build folder_dict: region_name -> (folder_id, ...).
+    # Use ALL geo folders (not the grouped district list) because a display
+    # name can map to multiple folder IDs (e.g., Москва и МО – Завершенные
+    # поиски has folder_ids 411, 412, 415).  Toggling MUST cover all of
+    # them to avoid stale checkmarks.
+    all_folders = db.get_geo_folders()
     folder_dict: dict[str, tuple[int, ...]] = {}
-    for fid, name in regions:
-        folder_dict[name] = (fid,)
+    for fid, name in all_folders:
+        if name:
+            folder_dict[name] = folder_dict.get(name, ()) + (fid,)
+
+    # Keep the district-scoped list for keyboard building
+    regions = _get_regions_for_district(district)
 
     try:
         success = db.toggle_region_by_name(user_id, region_name, folder_dict)
