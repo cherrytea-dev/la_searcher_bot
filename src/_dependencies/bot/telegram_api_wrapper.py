@@ -1,7 +1,6 @@
 import hashlib
 import json
 import logging
-import urllib.parse
 
 import requests
 from requests.models import Response
@@ -35,10 +34,9 @@ class TGApiBase:
         try:
             # NB! only 200 characters
             message = message[:200]
-            message_encoded = urllib.parse.quote(message)
 
             url = self.bot_api_path_start / 'answerCallbackQuery'
-            query_params = {'callback_query_id': callback_query_id, 'text': message_encoded}
+            query_params = {'callback_query_id': callback_query_id, 'text': message}
             url = url.with_query(query_params)
 
             response = self._session.get(str(url))

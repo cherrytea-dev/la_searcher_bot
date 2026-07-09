@@ -127,7 +127,6 @@ def handle_search_follow_mode(ctx: TGHandlerContext) -> None:
         ctx.db.delete_search_whiteness(user_id)
         bot_message = 'Все пометки отслеживания поисков сброшены. Переоткройте список активных поисков.'
 
-    ctx.answer_callback(bot_message)
     ctx.reply(text=bot_message)
 
 
