@@ -71,7 +71,8 @@ class RegionMixin(DBClientMixinBase):
         with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """SELECT folder_id, folder_display_name FROM geo_folders_view
-                   WHERE folder_type='searches';"""
+                   WHERE folder_type = 'searches'
+                     AND folder_subtype != 'searches finished';"""
             )
             result = connection.execute(stmt)
             return result.fetchall()
@@ -91,6 +92,7 @@ class RegionMixin(DBClientMixinBase):
                 JOIN geo_divisions d ON fv.division_id = d.division_id
                 JOIN geo_regions r ON d.division_id = r.division_id
                 WHERE fv.folder_type = 'searches'
+                  AND fv.folder_subtype != 'searches finished'
                   AND r.federal_district = :district_name
                 GROUP BY fv.folder_display_name
                 ORDER BY fv.folder_display_name;
