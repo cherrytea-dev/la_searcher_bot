@@ -171,6 +171,10 @@ class TGApiBase:
                 return 'completed'
 
             elif response.status_code == 400:  # Bad Request
+                description = response_json.get('description', '')
+                if 'message is not modified' in description:
+                    logging.info(f'message not modified for user {user_id} (no-op), {response_json=}')
+                    return 'completed'
                 logging.exception(f'Bad Request: message to {user_id} was not sent, {response_json=}')
                 return 'cancelled_bad_request'
 
