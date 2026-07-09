@@ -5,14 +5,15 @@ import pytest
 from communicate._utils.database import DBClient
 from communicate._utils.handler_context import TGHandlerContext
 from communicate._utils.handlers import button_handlers, notification_settings_handlers
+from tests.common import find_model
 from tests.factories import db_factories, db_models
 
 
 @pytest.fixture
-def tg_handler_context(db_client: DBClient) -> TGHandlerContext:
+def tg_handler_context(db_client: DBClient, user_id: int) -> TGHandlerContext:
     """Create a minimal TGHandlerContext for testing helper functions."""
     update_params = MagicMock()
-    update_params.user_id = 0
+    update_params.user_id = user_id
     return TGHandlerContext(
         update_params=update_params,
         extra_params=MagicMock(),
@@ -42,3 +43,19 @@ def test_compose_user_preferences_message(
 
     assert pref_list == ['status_changes']
     assert 'об изменении статуса' in summary
+
+
+def test_handle_disable_notifications(session, user_id: int, tg_handler_context: TGHandlerContext):
+    button_handlers.handle_disable_notifications(tg_handler_context)
+
+    assert find_model(session, db_models.User, user_id=user_id, status='unsubscribed')
+    assert find_model(session, db_models.UserStatusesHistory, user_id=user_id, status='unsubscribed')
+    tg_handler_context.tg_api.send_message.assert_called_once()
+
+
+def test_handle_enable_notifications(session, user_id: int, tg_handler_context: TGHandlerContext):
+    button_handlers.handle_enable_notifications(tg_handler_context)
+
+    assert find_model(session, db_models.User, user_id=user_id, status='unblocked')
+    assert find_model(session, db_models.UserStatusesHistory, user_id=user_id, status='unblocked')
+    tg_handler_context.tg_api.send_message.assert_called_once()

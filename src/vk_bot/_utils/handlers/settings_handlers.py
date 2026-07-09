@@ -10,6 +10,7 @@ Uses ``ctx.reply()`` to send responses and ``ctx.is_consumed`` to signal handlin
 from __future__ import annotations
 
 from _dependencies.bot.telegram_api_wrapper import make_invite_text_for_user
+from _dependencies.bot.users_management import ManageUserAction
 from _dependencies.models import AgePeriod, DialogState
 from vk_bot._utils.services.message_formatter import (
     community_intro,
@@ -76,6 +77,33 @@ def handle_settings_radius(ctx: VKHandlerContext) -> None:
     ctx.reply(
         text=radius_intro_no_radius(),
         keyboard=VKKeyboardPresets.radius_settings(),
+    )
+
+
+@vk_handle(text=VKKeyboardButtons.BTN_DISABLE_NOTIFICATIONS)
+def handle_disable_notifications(ctx: VKHandlerContext) -> None:
+    """Explicitly unsubscribe from all notifications."""
+    ctx.db.update_user_status(ctx.user_id, ManageUserAction.unsubscribe_user)
+    ctx.reply(
+        text=(
+            'Уведомления полностью отключены. Бот больше не будет готовить для вас '
+            'новые уведомления о поисках.\n\n'
+            'Если захотите вернуться, нажмите «включить уведомления».'
+        ),
+        keyboard=VKKeyboardPresets.settings_menu(notifications_disabled=True),
+    )
+
+
+@vk_handle(text=VKKeyboardButtons.BTN_ENABLE_NOTIFICATIONS)
+def handle_enable_notifications(ctx: VKHandlerContext) -> None:
+    """Re-enable notifications after explicit unsubscribe."""
+    ctx.db.update_user_status(ctx.user_id, ManageUserAction.subscribe_user)
+    ctx.reply(
+        text=(
+            'Уведомления снова включены. Бот будет присылать сообщения согласно '
+            'вашим сохранённым настройкам регионов и типов уведомлений.'
+        ),
+        keyboard=VKKeyboardPresets.settings_menu(notifications_disabled=False),
     )
 
 

@@ -24,11 +24,13 @@ from maxapi.enums.attachment import AttachmentType
 from maxapi.filters.command import Command
 from maxapi.filters.filter import BaseFilter
 from maxapi.types.attachments import Location
+from maxapi.types.attachments.buttons.attachment_button import AttachmentButton
 from maxapi.types.updates import UpdateUnion
 from maxapi.types.updates.bot_started import BotStarted
 from maxapi.types.updates.message_callback import MessageCallback
 from maxapi.types.updates.message_created import MessageCreated
 
+from _dependencies.bot.users_management import ManageUserAction
 from _dependencies.common.commons import Messenger
 from _dependencies.models import DialogState
 from _dependencies.user_repository import UserRepository
@@ -47,6 +49,8 @@ from .message_formatter import (
     FSM_CANCELLED,
     INTERNAL_ERROR,
     MAIN_MENU_TEXT,
+    NOTIFICATIONS_DISABLED,
+    NOTIFICATIONS_ENABLED,
     RADIUS_DELETED,
     RADIUS_INVALID,
     RADIUS_MENU_TEXT,
@@ -178,6 +182,16 @@ def _ensure_user_registered(user_id: int) -> bool:
     return is_new
 
 
+def _notifications_disabled(user_id: int) -> bool:
+    """Return whether the user explicitly unsubscribed from notifications."""
+    return _get_db().get_user_status(user_id) == 'unsubscribed'
+
+
+def _main_menu_for_user(user_id: int) -> AttachmentButton:
+    """Return MAX main menu with the delivery-status action matching user status."""
+    return MaxKeyboardPresets.main_menu(notifications_disabled=_notifications_disabled(user_id))
+
+
 def _get_regions_for_district(district: str) -> list[tuple[int, str]]:
     """Get (folder_id, display_name) list for a federal district."""
     db = _get_db()
@@ -214,7 +228,7 @@ async def on_bot_started(event: BotStarted) -> None:
         await bot.send_message(
             chat_id=chat_id,
             text=WELCOME_TEXT,
-            attachments=[MaxKeyboardPresets.main_menu()],  # type: ignore[arg-type]
+            attachments=[_main_menu_for_user(user_id)],  # type: ignore[arg-type]
         )
     except Exception:
         logger.exception('Error in bot_started for user %s', user_id)
@@ -234,7 +248,7 @@ async def on_start(event: MessageCreated) -> None:
     try:
         await event.message.answer(
             text=WELCOME_TEXT,
-            attachments=[MaxKeyboardPresets.main_menu()],
+            attachments=[_main_menu_for_user(user_id)],
         )
     except Exception:
         logger.exception('Error in /start for user %s', user_id)
@@ -250,7 +264,7 @@ async def on_back_to_main(event: MessageCallback) -> None:
     await event.ack(notification='...')
     await event.edit(
         text=MAIN_MENU_TEXT,
-        attachments=[MaxKeyboardPresets.main_menu()],
+        attachments=[_main_menu_for_user(event.callback.user.user_id)],
     )
 
 
@@ -281,6 +295,38 @@ async def on_coords_menu(event: MessageCallback) -> None:
     await event.edit(
         text=COORDS_MENU_TEXT,
         attachments=[MaxKeyboardPresets.coords_menu()],
+    )
+
+
+@router.message_callback(PayloadCmd('disable_notifications'))
+async def on_disable_notifications(event: MessageCallback) -> None:
+    """Explicitly unsubscribe from all notifications."""
+    user_id = _get_user_id(event)
+    if user_id is None:
+        return
+
+    db = _get_db()
+    db.update_user_status(user_id, ManageUserAction.unsubscribe_user)
+    await event.ack(notification='...')
+    await event.edit(
+        text=NOTIFICATIONS_DISABLED,
+        attachments=[MaxKeyboardPresets.main_menu(notifications_disabled=True)],
+    )
+
+
+@router.message_callback(PayloadCmd('enable_notifications'))
+async def on_enable_notifications(event: MessageCallback) -> None:
+    """Re-enable notifications after explicit unsubscribe."""
+    user_id = _get_user_id(event)
+    if user_id is None:
+        return
+
+    db = _get_db()
+    db.update_user_status(user_id, ManageUserAction.subscribe_user)
+    await event.ack(notification='...')
+    await event.edit(
+        text=NOTIFICATIONS_ENABLED,
+        attachments=[MaxKeyboardPresets.main_menu(notifications_disabled=False)],
     )
 
 
@@ -411,9 +457,12 @@ async def on_paginate_toggle(event: MessageCallback) -> None:
 async def on_paginate_finish(event: MessageCallback) -> None:
     """Finish region selection and return to main menu."""
     await event.ack(notification=REGION_SELECTION_DONE)
+    user_id = _get_user_id(event)
+    if user_id is None:
+        return
     await event.edit(
         text=MAIN_MENU_TEXT,
-        attachments=[MaxKeyboardPresets.main_menu()],
+        attachments=[_main_menu_for_user(user_id)],
     )
 
 
@@ -679,7 +728,7 @@ async def on_geo_location(event: MessageCreated) -> None:
             db.clear_user_state(user_id)
             await event.message.answer(
                 text=FSM_CANCELLED,
-                attachments=[MaxKeyboardPresets.main_menu()],
+                attachments=[_main_menu_for_user(user_id)],
             )
         return
 
@@ -729,11 +778,11 @@ async def on_unknown_text(event: MessageCreated) -> None:
         db.clear_user_state(user_id)
         await event.message.answer(
             text=FSM_CANCELLED,
-            attachments=[MaxKeyboardPresets.main_menu()],
+            attachments=[_main_menu_for_user(user_id)],
         )
         return
 
     await event.message.answer(
         text=UNKNOWN_COMMAND,
-        attachments=[MaxKeyboardPresets.main_menu()],
+        attachments=[_main_menu_for_user(user_id)],
     )

@@ -140,9 +140,10 @@ def handle_help_needed(ctx: VKHandlerContext) -> None:
 def handle_main_menu(ctx: VKHandlerContext) -> None:
     """Handle main menu navigation buttons."""
     settings_text = settings_menu_intro()
+    notifications_disabled = ctx.db.get_user_status(ctx.user_id) == 'unsubscribed'
     ctx.reply(
         text=settings_text,
-        keyboard=VKKeyboardPresets.settings_menu(),
+        keyboard=VKKeyboardPresets.settings_menu(notifications_disabled=notifications_disabled),
     )
 
 

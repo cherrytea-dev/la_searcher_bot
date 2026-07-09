@@ -11,6 +11,7 @@ Each handler follows the pattern:
 
 import pytest
 
+from _dependencies.bot.users_management import ManageUserAction
 from _dependencies.models import DialogState
 from src.vk_bot._utils.handlers.onboarding_handlers import (
     handle_back_to_start,
@@ -28,6 +29,8 @@ from src.vk_bot._utils.handlers.settings_handlers import (
     handle_coords_delete,
     handle_coords_enter,
     handle_coords_view,
+    handle_disable_notifications,
+    handle_enable_notifications,
     handle_notification_toggle,
     handle_other_feedback,
     handle_settings_coords,
@@ -355,11 +358,12 @@ class TestHandleMainMenu:
         assert ctx.is_consumed
         ctx._sender.assert_sent_with_keyboard()
         labels = ctx._sender.last_sent_keyboard_labels
-        assert len(labels) == 4
+        assert len(labels) == 5
         assert labels[0] == 'настроить регион поисков'
         assert labels[1] == 'настроить "домашние координаты"'
         assert labels[2] == 'настроить максимальный радиус'
-        assert labels[3] == 'в начало'
+        assert labels[3] == 'полностью отключить уведомления'
+        assert labels[4] == 'в начало'
 
 
 class TestHandleSettingsRegion:
@@ -441,6 +445,30 @@ class TestHandleNotificationToggle:
 
         assert ctx.is_consumed
         self.mock_settings.delete_preferences.assert_called_once_with(12345, ['new_searches'])
+
+
+class TestHandleDeliveryStatus:
+    """Explicit notification unsubscribe/subscribe handlers."""
+
+    @pytest.fixture(autouse=True)
+    def _setup_mocks(self, mock_settings_service):
+        self.mock_settings = mock_settings_service
+
+    def test_disable_notifications(self, vk_handler_context):
+        ctx = vk_handler_context(text='полностью отключить уведомления', state=DialogState.not_defined)
+
+        handle_disable_notifications(ctx)
+
+        assert ctx.is_consumed
+        self.mock_settings.update_user_status.assert_called_once_with(12345, ManageUserAction.unsubscribe_user)
+
+    def test_enable_notifications(self, vk_handler_context):
+        ctx = vk_handler_context(text='включить уведомления', state=DialogState.not_defined)
+
+        handle_enable_notifications(ctx)
+
+        assert ctx.is_consumed
+        self.mock_settings.update_user_status.assert_called_once_with(12345, ManageUserAction.subscribe_user)
 
 
 class TestHandleCoordsEnter:
