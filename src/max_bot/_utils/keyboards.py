@@ -23,7 +23,6 @@ from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
 # are narrower than VK's and trailing emojis may be clipped.
 _SUFFIX_TO_EMOJI: dict[str, str] = {
     ' – Активные поиски': '🔍',
-    ' – Завершенные поиски': '✅',
     ' – Инфо поддержка': 'ℹ️',
     ' – Мероприятия': '📅',
 }
@@ -35,7 +34,7 @@ def _compact_region_name(name: str) -> str:
     """Replace verbose subtype suffix with a short emoji marker at the BEGINNING.
 
     "Москва – Активные поиски" → "🔍 Москва"
-    "Ханты-Мансийский АО – Завершенные поиски" → "✅ Ханты-Мансийский АО"
+    "Ханты-Мансийский АО – Инфо поддержка" → "ℹ️ Ханты-Мансийский АО"
     """
     match = _COMPACT_REGION_RE.search(name)
     if match:

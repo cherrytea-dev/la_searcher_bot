@@ -71,7 +71,8 @@ class RegionMixin(DBClientMixinBase):
         with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """SELECT folder_id, folder_display_name FROM geo_folders_view
-                   WHERE folder_type='searches';"""
+                   WHERE folder_type = 'searches'
+                     AND folder_subtype != 'searches finished';"""
             )
             result = connection.execute(stmt)
             return result.fetchall()
@@ -91,6 +92,7 @@ class RegionMixin(DBClientMixinBase):
                 JOIN geo_divisions d ON fv.division_id = d.division_id
                 JOIN geo_regions r ON d.division_id = r.division_id
                 WHERE fv.folder_type = 'searches'
+                  AND fv.folder_subtype != 'searches finished'
                   AND r.federal_district = :district_name
                 GROUP BY fv.folder_display_name
                 ORDER BY fv.folder_display_name;
@@ -101,23 +103,28 @@ class RegionMixin(DBClientMixinBase):
     def toggle_region_by_name(self, user_id: int, region_name: str, folder_dict: dict[str, tuple[int, ...]]) -> bool:
         """Toggle a region subscription by its display name.
 
+        When a display name maps to multiple folder IDs (e.g., multiple
+        forum subforums for the same division+subtype), ALL of them are
+        toggled together — subscribe adds all, unsubscribe removes all.
+
         Returns False if user tries to remove the last remaining region.
         """
         folder_ids = folder_dict.get(region_name)
         if not folder_ids:
             return False
 
-        user_curr_regs = self.get_user_regions(user_id)
-        region_was_in_db = any(folder_ids[0] == reg for reg in user_curr_regs)
-        region_is_the_only = region_was_in_db and len(user_curr_regs) - len(folder_ids) < 1
+        user_curr_regs = set(self.get_user_regions(user_id))
+        subscribed_fids = [fid for fid in folder_ids if fid in user_curr_regs]
 
-        if region_is_the_only:
-            return False
-
-        if region_was_in_db:
-            for folder_id in folder_ids:
+        if subscribed_fids:
+            # Some (or all) folder_ids are subscribed → unsubscribe them
+            remaining = user_curr_regs - set(subscribed_fids)
+            if not remaining:
+                return False  # Cannot remove the last region
+            for folder_id in subscribed_fids:
                 self.remove_region(user_id, folder_id)
         else:
+            # None are subscribed → subscribe all
             for folder_id in folder_ids:
                 self.add_region(user_id, folder_id)
 
