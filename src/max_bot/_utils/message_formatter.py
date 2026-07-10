@@ -32,7 +32,7 @@ NOTIFICATIONS_ENABLED: str = (
 
 FED_DISTRICTS_PROMPT: str = 'Выбери федеральный округ, чтобы настроить регионы поисков:'
 
-# ─── Welcome & Registration ──────────────────────────────────────────────
+# ─── Region List ────────────────────────────────────────────────────────
 
 REGION_LIST_PROMPT: str = (
     f'{REGION_EMOJI_LEGEND}\n\n'

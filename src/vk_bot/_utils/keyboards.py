@@ -22,7 +22,6 @@ _MAX_INLINE_ROWS = 6
 _MAX_INLINE_BUTTONS = 10
 
 
-
 class VKKeyboardButtons:
     """Mixin providing button label constants.
 
@@ -129,8 +128,6 @@ class VKKeyboardButtons:
     # Orders (relative role)
     BTN_ORDERED: str = 'уже заказал(а)'
     BTN_ORDER_LATER: str = 'закажу позже'
-
-
 
 
 class VKKeyboardBase:
@@ -490,12 +487,22 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
         rows: list[list[dict]] = []
         for i in range(0, len(FEDERAL_DISTRICTS), 2):
             label_a, district_a = FEDERAL_DISTRICTS[i]
-            row = [cls.inline_callback_button(label_a, RegionCallbackPayload(CMD_DISTRICT_SELECT, district=district_a).to_dict())]
+            row = [
+                cls.inline_callback_button(
+                    label_a, RegionCallbackPayload(CMD_DISTRICT_SELECT, district=district_a).to_dict()
+                )
+            ]
             if i + 1 < len(FEDERAL_DISTRICTS):
                 label_b, district_b = FEDERAL_DISTRICTS[i + 1]
-                row.append(cls.inline_callback_button(label_b, RegionCallbackPayload(CMD_DISTRICT_SELECT, district=district_b).to_dict()))
+                row.append(
+                    cls.inline_callback_button(
+                        label_b, RegionCallbackPayload(CMD_DISTRICT_SELECT, district=district_b).to_dict()
+                    )
+                )
             rows.append(row)
-        rows.append([cls.inline_callback_button(NavButton.FINISH, RegionCallbackPayload(CMD_PAGINATE_FINISH).to_dict())])
+        rows.append(
+            [cls.inline_callback_button(NavButton.FINISH, RegionCallbackPayload(CMD_PAGINATE_FINISH).to_dict())]
+        )
         cls.validate_rows(rows, inline=True)
         return {'inline': True, 'buttons': rows}
 
@@ -720,7 +727,9 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
         if p.has_next:
             payload = RegionCallbackPayload(CMD_PAGINATE_NAV, district=district, page=page + 1)
             bottom_row.append(cls.inline_callback_button(NavButton.NEXT, payload.to_dict()))
-        bottom_row.append(cls.inline_callback_button(NavButton.FINISH, RegionCallbackPayload(CMD_PAGINATE_FINISH).to_dict()))
+        bottom_row.append(
+            cls.inline_callback_button(NavButton.FINISH, RegionCallbackPayload(CMD_PAGINATE_FINISH).to_dict())
+        )
         rows.append(bottom_row)
 
         cls.validate_rows(rows, inline=True)

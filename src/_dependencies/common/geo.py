@@ -45,8 +45,6 @@ class NavButton:
     NEXT: str = 'ещё →'
     FINISH: str = 'Завершить'
     BACK_TO_START: str = 'в начало'
-    CHOOSE_OTHER: str = 'выбрать другой регион'
-    FED_DIST_PICK_OTHER: str = 'выбрать другой Федеральный Округ'
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -95,7 +93,6 @@ def get_fed_district_label(normalised: str) -> str | None:
 
 _SUFFIX_TO_EMOJI: dict[str, str] = {
     ' – Активные поиски': '🔍',
-    ' – Завершенные поиски': '✅',
     ' – Инфо поддержка': 'ℹ️',
     ' – Мероприятия': '📅',
 }
@@ -104,9 +101,7 @@ _COMPACT_REGION_RE = re.compile('(' + '|'.join(re.escape(s) for s in _SUFFIX_TO_
 
 # Emoji legend shown above region selection keyboards so users understand
 # what each emoji marker means.
-REGION_EMOJI_LEGEND: str = (
-    '🔍 — активные поиски\n' '✅ — завершённые поиски\n' 'ℹ️ — инфорг / поддержка\n' '📅 — мероприятия'
-)
+REGION_EMOJI_LEGEND: str = '🔍 — активные поиски\n' 'ℹ️ — инфорг / поддержка\n' '📅 — мероприятия'
 
 
 def compact_region_name(name: str) -> str:
@@ -209,37 +204,11 @@ def paginate_regions(regions: list[str], page: int, page_size: int = 6) -> PageI
 # Common text messages
 # ═══════════════════════════════════════════════════════════════════════════════
 
-REGION_SELECTION_INTRO: str = (
-    'Выберите федеральный округ, чтобы увидеть список регионов.\n\n'
-    'Нажмите на регион, чтобы подписаться или отписаться.'
-)
-
-REGION_LIST_PROMPT: str = (
-    '{district_text}\n\n' '{emoji_legend}\n\n' 'Нажмите на регион, чтобы подписаться или отписаться.'
-)
-
 REGION_SELECTION_DONE: str = '✅ Выбор региона завершён.'
 REGION_CANNOT_REMOVE_LAST: str = 'Нельзя удалить последний регион.'
 REGION_TOGGLED_ON: str = 'Регион добавлен!'
 REGION_TOGGLED_OFF: str = 'Регион удалён.'
 REGION_TOGGLED_ON_FMT: str = 'Регион "{}" добавлен!'
-REGION_TOGGLED_OFF_FMT: str = 'Регион "{}" удалён.'
+REGION_TOGGLED_OFF_FMT: str = 'Регион "{}" удален.'
 REGION_NOT_FOUND: str = 'Регион не найден.'
 REGION_ERROR: str = 'Произошла ошибка. Попробуйте позже.'
-
-
-def district_prompt(district_normalised: str) -> str:
-    """Return the full prompt for region selection within a district.
-
-    Args:
-        district_normalised: Normalised district name (e.g. ``'Центральный'``).
-
-    Returns:
-        A user-facing message including the district name and emoji legend.
-    """
-    label = get_fed_district_label(district_normalised) or district_normalised
-    return (
-        f'Выберите регион в округе "{label}":\n\n'
-        f'{REGION_EMOJI_LEGEND}\n\n'
-        'Нажмите на регион, чтобы подписаться или отписаться.'
-    )

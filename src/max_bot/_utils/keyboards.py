@@ -53,7 +53,6 @@ class MaxKeyboardButtons:
     BTN_RADIUS_DELETE: str = 'удалить радиус'
 
 
-
 class MaxKeyboardPresets(MaxKeyboardButtons):
     """Preset keyboard builders for the MAX bot."""
 

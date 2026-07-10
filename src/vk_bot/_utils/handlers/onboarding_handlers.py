@@ -4,10 +4,11 @@ Each handler is registered via @vk_handle decorator with conditions
 matching button text or command patterns.
 """
 
+from _dependencies.common.geo import NavButton
+
 from ..common import VKHandlerContext
 from ..decorators import vk_handle
 from ..keyboards import VKKeyboardButtons, VKKeyboardPresets
-from _dependencies.common.geo import NavButton
 from ..services.message_formatter import (
     onboarding_completed_message,
     region_selection_intro,

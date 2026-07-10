@@ -19,7 +19,14 @@ from _dependencies.common.geo import (
     CMD_PAGINATE_FINISH,
     CMD_PAGINATE_NAV,
     CMD_PAGINATE_TOGGLE,
+    FEDERAL_DISTRICTS,
+    REGION_CANNOT_REMOVE_LAST,
     REGION_EMOJI_LEGEND,
+    REGION_ERROR,
+    REGION_NOT_FOUND,
+    REGION_SELECTION_DONE,
+    REGION_TOGGLED_OFF_FMT,
+    REGION_TOGGLED_ON_FMT,
 )
 
 from ..common import VKHandlerContext
@@ -30,18 +37,8 @@ from ..services.message_formatter import (
     settings_menu_intro,
 )
 
-# Known federal districts from VKKeyboardPresets.fed_districts()
-_KNOWN_DISTRICTS = [
-    'центральный фо',
-    'северо-западный фо',
-    'южный фо',
-    'северо-кавказский фо',
-    'приволжский фо',
-    'уральский фо',
-    'сибирский фо',
-    'дальневосточный фо',
-    'прочие поиски по рф',
-]
+# Derived from FEDERAL_DISTRICTS — single source of truth
+_KNOWN_DISTRICTS = [label.lower() for label, _ in FEDERAL_DISTRICTS]
 
 
 def _get_district_name(text: str) -> str | None:
@@ -121,7 +118,7 @@ def _toggle_region_inline(ctx: VKHandlerContext, region_name: str) -> str:
     """
     folders = ctx.db.get_geo_folders()
     if not folders:
-        return 'Произошла ошибка. Попробуйте позже.'
+        return REGION_ERROR
 
     folder_dict: dict[str, tuple[int, ...]] = {}
     for fid, name in folders:
@@ -129,7 +126,7 @@ def _toggle_region_inline(ctx: VKHandlerContext, region_name: str) -> str:
             folder_dict[name] = folder_dict.get(name, ()) + (fid,)
 
     if region_name not in folder_dict:
-        return 'Регион не найден.'
+        return REGION_NOT_FOUND
 
     # Check current subscription state
     region_folder_ids = folder_dict[region_name]
@@ -141,18 +138,18 @@ def _toggle_region_inline(ctx: VKHandlerContext, region_name: str) -> str:
             result = ctx.db.toggle_region_by_name(ctx.user_id, region_name, folder_dict)
         except Exception:
             logging.exception(f'Failed to toggle region for user {ctx.user_id}: {region_name}')
-            return 'Произошла ошибка. Попробуйте позже.'
+            return REGION_ERROR
 
         if result is False:
-            return 'Нельзя удалить последний регион.'
-        return f'Регион "{region_name}" удален.'
+            return REGION_CANNOT_REMOVE_LAST
+        return REGION_TOGGLED_OFF_FMT.format(region_name)
     else:
         try:
             ctx.db.toggle_region_by_name(ctx.user_id, region_name, folder_dict)
         except Exception:
             logging.exception(f'Failed to toggle region for user {ctx.user_id}: {region_name}')
-            return 'Произошла ошибка. Попробуйте позже.'
-        return f'Регион "{region_name}" добавлен!'
+            return REGION_ERROR
+        return REGION_TOGGLED_ON_FMT.format(region_name)
 
 
 @vk_handle(callback_data=CMD_PAGINATE_NAV)
@@ -285,7 +282,7 @@ def handle_inline_pagination_finish(ctx: VKHandlerContext) -> None:
     ctx.answer_callback()
     empty_keyboard = {'inline': True, 'buttons': []}
     ctx.edit(
-        text='✅ Выбор региона завершён.',
+        text=REGION_SELECTION_DONE,
         keyboard=empty_keyboard,
         conversation_message_id=conversation_message_id,
         message_id=message_id,
