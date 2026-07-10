@@ -34,20 +34,42 @@ class NotificationRecordMixin(DBClientMixinBase):
             ).fetchone()
             return result[0] if result[0] is not None else 0
 
-    def batch_insert_notifications(self, records: list[dict]) -> None:
-        """Batch insert notification records. Each dict has keys matching notif_by_user columns."""
+    def batch_insert_notifications(self, records: list[dict]) -> int:
+        """Batch insert notification records. Each dict has keys matching notif_by_user columns.
+
+        Uses INSERT … ON CONFLICT DO NOTHING on the partial unique index
+        notif_by_user_unique_unsent_idx to silently skip duplicates that may
+        arise from YMQ redelivery or concurrent invocations processing the
+        same change_log_id.
+
+        Returns the number of rows actually inserted (may be less than len(records)
+        if duplicates were skipped).
+        """
         if not records:
-            return
+            return 0
 
         with self.connect() as conn:
-            columns = ', '.join(records[0].keys())
-            placeholders = ', '.join(f':{k}' for k in records[0].keys())
+            columns = list(records[0].keys())
+            col_list = ', '.join(columns)
+
+            # Build multi-row VALUES with per-row parameter suffixes to avoid collisions
+            all_placeholders: list[str] = []
+            all_params: dict[str, object] = {}
+            for i, rec in enumerate(records):
+                row_placeholders = ', '.join(f':{k}_{i}' for k in columns)
+                all_placeholders.append(f'({row_placeholders})')
+                for k in columns:
+                    all_params[f'{k}_{i}'] = rec[k]
+
             stmt = sqlalchemy.text(f"""
-                INSERT INTO notif_by_user ({columns})
-                VALUES ({placeholders})
+                INSERT INTO notif_by_user ({col_list})
+                VALUES {', '.join(all_placeholders)}
+                ON CONFLICT (change_log_id, user_id, message_type, (COALESCE(messenger, 'telegram')))
+                WHERE completed IS NULL AND cancelled IS NULL
+                DO NOTHING
             """)
-            for rec in records:
-                conn.execute(stmt, rec)
+            result = conn.execute(stmt, all_params)
+            return result.rowcount
 
     def resolve_messengers(self, user_ids: list[int]) -> list[tuple]:
         """Batch-resolve messengers for users from user_identity_map."""

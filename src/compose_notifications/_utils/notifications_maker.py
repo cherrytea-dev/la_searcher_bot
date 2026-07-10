@@ -249,23 +249,14 @@ class NotificationMaker:
             self._messenger_map[uid] = list(messengers)
 
     def flush_batch(self) -> None:
-        """Flush the batch buffer to the database"""
+        """Flush the batch buffer to the database.
+
+        Uses INSERT … ON CONFLICT DO NOTHING so duplicate records
+        (e.g. from YMQ redelivery) are silently skipped instead of
+        raising UniqueViolation.
+        """
         if not self._batch_buffer:
             return
-
-        # DIAG: check if any records in this batch would create duplicates
-        change_log_id = self.new_record.change_log_id
-        for record in self._batch_buffer:
-            existing_count = self.db.check_notification_duplicate(
-                change_log_id, record.user_id, record.message_type, record.messenger
-            )
-            if existing_count and existing_count > 0:
-                logging.warning(
-                    f'DOUBLING_DIAG: flush_batch would create duplicate! '
-                    f'change_log_id={change_log_id} user_id={record.user_id} '
-                    f'message_type={record.message_type} messenger={record.messenger} '
-                    f'existing_count={existing_count}'
-                )
 
         # Convert NotificationRecord dataclass instances to dicts with
         # column names matching the notif_by_user table.
@@ -283,8 +274,18 @@ class NotificationMaker:
             }
             for r in self._batch_buffer
         ]
-        self.db.batch_insert_notifications(records)
-        logging.debug(f'Flushed {len(self._batch_buffer)} records to notif_by_user table')
+
+        inserted = self.db.batch_insert_notifications(records)
+        skipped = len(records) - inserted
+
+        if skipped > 0:
+            logging.warning(
+                f'flush_batch: {inserted} inserted, {skipped} duplicates skipped '
+                f'(change_log_id={self.new_record.change_log_id})'
+            )
+        else:
+            logging.debug(f'Flushed {inserted} records to notif_by_user table')
+
         self._batch_buffer.clear()
 
     def record_notification_statistics(self) -> None:
