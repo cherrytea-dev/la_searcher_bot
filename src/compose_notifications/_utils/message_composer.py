@@ -234,7 +234,7 @@ class MessageComposer:
                 message += '➕Добавлено:\n'
                 for addition_line in saved_message.additions:
                     # majority of coords in RU: lat in [30-80], long in [20-180]
-                    updated_line = re.sub(COORD_PATTERN, '<code>\g<0></code>', addition_line)
+                    updated_line = re.sub(COORD_PATTERN, r'<code>\g<0></code>', addition_line)
                     message += f'{updated_line}\n'
         else:
             message = saved_message.message
