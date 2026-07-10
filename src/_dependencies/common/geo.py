@@ -145,7 +145,7 @@ class RegionCallbackPayload:
     cmd: str
     district: str | None = None
     region: str | None = None
-    page: int = 0
+    page: int | None = None
 
     def to_dict(self) -> dict[str, object]:
         d: dict[str, object] = {'cmd': self.cmd}
@@ -153,7 +153,7 @@ class RegionCallbackPayload:
             d['district'] = self.district
         if self.region is not None:
             d['region'] = self.region
-        if self.page:
+        if self.page is not None:
             d['page'] = self.page
         return d
 

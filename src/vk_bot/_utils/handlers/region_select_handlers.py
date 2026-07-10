@@ -14,7 +14,13 @@ Pagination (inline callback-based):
 
 import logging
 
-from _dependencies.common.geo import REGION_EMOJI_LEGEND
+from _dependencies.common.geo import (
+    CMD_DISTRICT_SELECT,
+    CMD_PAGINATE_FINISH,
+    CMD_PAGINATE_NAV,
+    CMD_PAGINATE_TOGGLE,
+    REGION_EMOJI_LEGEND,
+)
 
 from ..common import VKHandlerContext
 from ..decorators import vk_handle
@@ -149,7 +155,7 @@ def _toggle_region_inline(ctx: VKHandlerContext, region_name: str) -> str:
         return f'Регион "{region_name}" добавлен!'
 
 
-@vk_handle(callback_data='paginate_nav')
+@vk_handle(callback_data=CMD_PAGINATE_NAV)
 def handle_inline_pagination_nav(ctx: VKHandlerContext) -> None:
     """Handle inline pagination navigation callback.
 
@@ -200,7 +206,7 @@ def handle_inline_pagination_nav(ctx: VKHandlerContext) -> None:
     )
 
 
-@vk_handle(callback_data='paginate_toggle')
+@vk_handle(callback_data=CMD_PAGINATE_TOGGLE)
 def handle_inline_pagination_toggle(ctx: VKHandlerContext) -> None:
     """Handle inline pagination region toggle callback.
 
@@ -266,7 +272,7 @@ def handle_inline_pagination_back(ctx: VKHandlerContext) -> None:
     )
 
 
-@vk_handle(callback_data='paginate_finish')
+@vk_handle(callback_data=CMD_PAGINATE_FINISH)
 def handle_inline_pagination_finish(ctx: VKHandlerContext) -> None:
     """Handle inline pagination finish callback — end region selection."""
     payload = ctx.message.payload_as_dict
@@ -290,7 +296,7 @@ def handle_inline_pagination_finish(ctx: VKHandlerContext) -> None:
     )
 
 
-@vk_handle(callback_data='district_select')
+@vk_handle(callback_data=CMD_DISTRICT_SELECT)
 def handle_district_select(ctx: VKHandlerContext) -> None:
     """Handle federal district selection via inline callback.
 

@@ -5,7 +5,7 @@ hardcoded strings. Mirrors the structure of the VK bot's
 ``message_formatter.py``.
 """
 
-# ─── Welcome & Registration ──────────────────────────────────────────────
+from _dependencies.common.geo import REGION_EMOJI_LEGEND
 
 WELCOME_TEXT: str = (
     'Привет! Я бот LizaAlert. 👋\n\n'
@@ -32,7 +32,7 @@ NOTIFICATIONS_ENABLED: str = (
 
 FED_DISTRICTS_PROMPT: str = 'Выбери федеральный округ, чтобы настроить регионы поисков:'
 
-REGION_EMOJI_LEGEND: str = '🔍 — активные поиски\n' 'ℹ️ — инфорг / поддержка\n' '📅 — мероприятия'
+# ─── Welcome & Registration ──────────────────────────────────────────────
 
 REGION_LIST_PROMPT: str = (
     f'{REGION_EMOJI_LEGEND}\n\n'

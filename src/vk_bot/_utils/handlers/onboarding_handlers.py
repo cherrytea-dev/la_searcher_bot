@@ -7,6 +7,7 @@ matching button text or command patterns.
 from ..common import VKHandlerContext
 from ..decorators import vk_handle
 from ..keyboards import VKKeyboardButtons, VKKeyboardPresets
+from _dependencies.common.geo import NavButton
 from ..services.message_formatter import (
     onboarding_completed_message,
     region_selection_intro,
@@ -147,7 +148,7 @@ def handle_main_menu(ctx: VKHandlerContext) -> None:
     )
 
 
-@vk_handle(text=VKKeyboardButtons.BTN_BACK_TO_START)
+@vk_handle(text=NavButton.BACK_TO_START)
 def handle_back_to_start(ctx: VKHandlerContext) -> None:
     """Handle 'в начало' button — return to main menu."""
     ctx.reply(
