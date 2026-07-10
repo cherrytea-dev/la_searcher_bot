@@ -4,6 +4,8 @@ Each handler is registered via @vk_handle decorator with conditions
 matching button text or command patterns.
 """
 
+from _dependencies.common.geo import NavButton
+
 from ..common import VKHandlerContext
 from ..decorators import vk_handle
 from ..keyboards import VKKeyboardButtons, VKKeyboardPresets
@@ -147,7 +149,7 @@ def handle_main_menu(ctx: VKHandlerContext) -> None:
     )
 
 
-@vk_handle(text=VKKeyboardButtons.BTN_BACK_TO_START)
+@vk_handle(text=NavButton.BACK_TO_START)
 def handle_back_to_start(ctx: VKHandlerContext) -> None:
     """Handle 'в начало' button — return to main menu."""
     ctx.reply(

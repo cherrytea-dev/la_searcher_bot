@@ -32,6 +32,12 @@ from maxapi.types.updates.message_created import MessageCreated
 
 from _dependencies.bot.users_management import ManageUserAction
 from _dependencies.common.commons import Messenger
+from _dependencies.common.geo import (
+    CMD_DISTRICT_SELECT,
+    CMD_PAGINATE_FINISH,
+    CMD_PAGINATE_NAV,
+    CMD_PAGINATE_TOGGLE,
+)
 from _dependencies.models import DialogState
 from _dependencies.user_repository import UserRepository
 
@@ -333,7 +339,7 @@ async def on_enable_notifications(event: MessageCallback) -> None:
 # ─── Region Selection: Federal Districts ─────────────────────────────────
 
 
-@router.message_callback(PayloadCmd('district_select'))
+@router.message_callback(PayloadCmd(CMD_DISTRICT_SELECT))
 async def on_district_select(event: MessageCallback) -> None:
     """Show paginated regions for the selected federal district."""
     payload = _parse_payload(event.callback.payload)
@@ -367,7 +373,7 @@ async def on_district_select(event: MessageCallback) -> None:
 # ─── Region Selection: Pagination ────────────────────────────────────────
 
 
-@router.message_callback(PayloadCmd('paginate_nav'))
+@router.message_callback(PayloadCmd(CMD_PAGINATE_NAV))
 async def on_paginate_nav(event: MessageCallback) -> None:
     """Navigate between pages of regions."""
     payload = _parse_payload(event.callback.payload)
@@ -398,7 +404,7 @@ async def on_paginate_nav(event: MessageCallback) -> None:
 # ─── Region Selection: Toggle Subscribe ──────────────────────────────────
 
 
-@router.message_callback(PayloadCmd('paginate_toggle'))
+@router.message_callback(PayloadCmd(CMD_PAGINATE_TOGGLE))
 async def on_paginate_toggle(event: MessageCallback) -> None:
     """Toggle subscription for a region."""
     payload = _parse_payload(event.callback.payload)
@@ -461,7 +467,7 @@ async def on_paginate_toggle(event: MessageCallback) -> None:
     )
 
 
-@router.message_callback(PayloadCmd('paginate_finish'))
+@router.message_callback(PayloadCmd(CMD_PAGINATE_FINISH))
 async def on_paginate_finish(event: MessageCallback) -> None:
     """Finish region selection and return to main menu."""
     await event.ack(notification=REGION_SELECTION_DONE)

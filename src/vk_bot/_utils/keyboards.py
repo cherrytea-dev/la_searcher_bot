@@ -1,5 +1,16 @@
 import json
-import re
+
+from _dependencies.common.geo import (
+    CMD_DISTRICT_SELECT,
+    CMD_PAGINATE_FINISH,
+    CMD_PAGINATE_NAV,
+    CMD_PAGINATE_TOGGLE,
+    FEDERAL_DISTRICTS,
+    NavButton,
+    RegionCallbackPayload,
+    compact_region_name,
+    paginate_regions,
+)
 
 from .common import ButtonColor
 
@@ -9,34 +20,6 @@ _MAX_KEYBOARD_ROWS = 10
 _MAX_INLINE_ROWS = 6
 # Inline keyboard: max 10 buttons total, grouped into max 6 rows, max 5 buttons per row.
 _MAX_INLINE_BUTTONS = 10
-
-# Suffix-to-emoji mapping for compact region display names.
-# Replaces verbose subtype suffixes like " – Активные поиски" with short emoji markers.
-_SUFFIX_TO_EMOJI: dict[str, str] = {
-    ' – Активные поиски': '🔍',
-    ' – Инфо поддержка': 'ℹ️',
-    ' – Мероприятия': '📅',
-}
-# Build a regex once for efficient matching
-_COMPACT_REGION_RE = re.compile('(' + '|'.join(re.escape(s) for s in _SUFFIX_TO_EMOJI) + ')$')
-
-# Emoji legend shown above region selection keyboards so users understand
-# what each emoji marker means.
-REGION_EMOJI_LEGEND: str = '🔍 — активные поиски\n' 'ℹ️ — инфорг / поддержка\n' '📅 — мероприятия'
-
-
-def _compact_region_name(name: str) -> str:
-    """Replace verbose subtype suffix with a short emoji marker at the BEGINNING.
-
-    "Москва – Активные поиски" → "🔍 Москва"
-    "Ханты-Мансийский АО – Инфо поддержка" → "ℹ️ Ханты-Мансийский АО"
-    """
-    match = _COMPACT_REGION_RE.search(name)
-    if match:
-        suffix = match.group(1)
-        region_part = name[: match.start()].strip()
-        return _SUFFIX_TO_EMOJI[suffix] + ' ' + region_part
-    return name
 
 
 class VKKeyboardButtons:
@@ -49,11 +32,7 @@ class VKKeyboardButtons:
     """
 
     # Navigation
-    BTN_BACK_TO_START: str = 'в начало'
     BTN_MORE_SEARCHES: str = 'еще поиски'
-    BTN_FINISH: str = 'Завершить'
-    BTN_BACK: str = '← назад'
-    BTN_NEXT: str = 'ещё →'
 
     # Main menu
     BTN_SETTINGS_BOT: str = 'настроить бот'
@@ -149,17 +128,6 @@ class VKKeyboardButtons:
     # Orders (relative role)
     BTN_ORDERED: str = 'уже заказал(а)'
     BTN_ORDER_LATER: str = 'закажу позже'
-
-    # Federal districts
-    BTN_DISTRICT_CFO: str = 'Центральный ФО'
-    BTN_DISTRICT_SZFO: str = 'Северо-Западный ФО'
-    BTN_DISTRICT_YUFO: str = 'Южный ФО'
-    BTN_DISTRICT_SKFO: str = 'Северо-Кавказский ФО'
-    BTN_DISTRICT_PFO: str = 'Приволжский ФО'
-    BTN_DISTRICT_UFO: str = 'Уральский ФО'
-    BTN_DISTRICT_SFO: str = 'Сибирский ФО'
-    BTN_DISTRICT_DFO: str = 'Дальневосточный ФО'
-    BTN_DISTRICT_OTHER: str = 'Прочие поиски по РФ'
 
 
 class VKKeyboardBase:
@@ -322,11 +290,11 @@ class VKKeyboardLayouts(VKKeyboardBase):
         if selected_regions is None:
             selected_regions = set()
         for i in range(0, len(buttons), 2):
-            btn1_name = _compact_region_name(buttons[i])
+            btn1_name = compact_region_name(buttons[i])
             btn1_color = 'primary' if buttons[i] in selected_regions else color
             row = [cls.text_button(btn1_name, btn1_color)]
             if i + 1 < len(buttons):
-                btn2_name = _compact_region_name(buttons[i + 1])
+                btn2_name = compact_region_name(buttons[i + 1])
                 btn2_color = 'primary' if buttons[i + 1] in selected_regions else color
                 row.append(cls.text_button(btn2_name, btn2_color))
             rows.append(row)
@@ -396,7 +364,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
                 cls.BTN_SETTINGS_COORDS,
                 cls.BTN_SETTINGS_RADIUS,
                 delivery_status_button,
-                cls.BTN_BACK_TO_START,
+                NavButton.BACK_TO_START,
             ]
         )
 
@@ -408,7 +376,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
                 cls.BTN_COORDS_ENTER,
                 cls.BTN_COORDS_VIEW,
                 cls.BTN_COORDS_DELETE,
-                cls.BTN_BACK_TO_START,
+                NavButton.BACK_TO_START,
             ]
         )
 
@@ -434,7 +402,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
     @classmethod
     def back_to_start(cls) -> dict:
         """Single 'back to start' button."""
-        return cls.one_column([cls.BTN_BACK_TO_START])
+        return cls.one_column([NavButton.BACK_TO_START])
 
     @classmethod
     def other_menu(cls) -> dict:
@@ -445,7 +413,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
                 cls.BTN_OTHER_FEEDBACK,
                 cls.BTN_OTHER_NEWBIE_INFO,
                 cls.BTN_OTHER_PHOTOS,
-                cls.BTN_BACK_TO_START,
+                NavButton.BACK_TO_START,
             ]
         )
 
@@ -457,7 +425,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
                 cls.BTN_RADIUS_ENABLE,
                 cls.BTN_RADIUS_DISABLE,
                 cls.BTN_RADIUS_CHANGE,
-                cls.BTN_BACK_TO_START,
+                NavButton.BACK_TO_START,
             ]
         )
 
@@ -490,27 +458,15 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
                     cls.text_button(cls.BTN_NOTIF_FLEXIBLE),
                     cls.text_button(cls.BTN_NOTIF_ALL_OFF, 'negative'),
                 ],
-                [cls.text_button(cls.BTN_BACK_TO_START)],
+                [cls.text_button(NavButton.BACK_TO_START)],
             ],
         }
 
     @classmethod
     def fed_districts(cls) -> dict:
         """Federal districts selection (regular text buttons)."""
-        return cls.one_column(
-            [
-                cls.BTN_DISTRICT_CFO,
-                cls.BTN_DISTRICT_SZFO,
-                cls.BTN_DISTRICT_YUFO,
-                cls.BTN_DISTRICT_SKFO,
-                cls.BTN_DISTRICT_PFO,
-                cls.BTN_DISTRICT_UFO,
-                cls.BTN_DISTRICT_SFO,
-                cls.BTN_DISTRICT_DFO,
-                cls.BTN_DISTRICT_OTHER,
-                cls.BTN_BACK_TO_START,
-            ]
-        )
+        labels = [label for label, _ in FEDERAL_DISTRICTS] + [NavButton.BACK_TO_START]
+        return cls.one_column(labels)
 
     @classmethod
     def fed_districts_inline(cls) -> dict:
@@ -528,36 +484,25 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
         Returns:
             An inline VK keyboard dict with district callback buttons.
         """
-        districts = [
-            (cls.BTN_DISTRICT_CFO, 'Центральный'),
-            (cls.BTN_DISTRICT_SZFO, 'Северо-Западный'),
-            (cls.BTN_DISTRICT_YUFO, 'Южный'),
-            (cls.BTN_DISTRICT_SKFO, 'Северо-Кавказский'),
-            (cls.BTN_DISTRICT_PFO, 'Приволжский'),
-            (cls.BTN_DISTRICT_UFO, 'Уральский'),
-            (cls.BTN_DISTRICT_SFO, 'Сибирский'),
-            (cls.BTN_DISTRICT_DFO, 'Дальневосточный'),
-            (cls.BTN_DISTRICT_OTHER, 'Прочие поиски по РФ'),
-        ]
         rows: list[list[dict]] = []
-        for i in range(0, len(districts), 2):
-            label_a, district_a = districts[i]
+        for i in range(0, len(FEDERAL_DISTRICTS), 2):
+            label_a, district_a = FEDERAL_DISTRICTS[i]
             row = [
                 cls.inline_callback_button(
-                    label_a,
-                    {'cmd': 'district_select', 'district': district_a},
+                    label_a, RegionCallbackPayload(CMD_DISTRICT_SELECT, district=district_a).to_dict()
                 )
             ]
-            if i + 1 < len(districts):
-                label_b, district_b = districts[i + 1]
+            if i + 1 < len(FEDERAL_DISTRICTS):
+                label_b, district_b = FEDERAL_DISTRICTS[i + 1]
                 row.append(
                     cls.inline_callback_button(
-                        label_b,
-                        {'cmd': 'district_select', 'district': district_b},
+                        label_b, RegionCallbackPayload(CMD_DISTRICT_SELECT, district=district_b).to_dict()
                     )
                 )
             rows.append(row)
-        rows.append([cls.inline_callback_button(cls.BTN_FINISH, {'cmd': 'paginate_finish'})])
+        rows.append(
+            [cls.inline_callback_button(NavButton.FINISH, RegionCallbackPayload(CMD_PAGINATE_FINISH).to_dict())]
+        )
         cls.validate_rows(rows, inline=True)
         return {'inline': True, 'buttons': rows}
 
@@ -586,7 +531,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
                 cls.BTN_AGE_TEENS,
                 cls.BTN_AGE_ADULTS,
                 cls.BTN_AGE_ELDERLY,
-                cls.BTN_BACK_TO_START,
+                NavButton.BACK_TO_START,
             ]
         )
 
@@ -597,7 +542,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
             [
                 cls.BTN_TYPE_SEARCH,
                 cls.BTN_TYPE_INFO,
-                cls.BTN_BACK_TO_START,
+                NavButton.BACK_TO_START,
             ]
         )
 
@@ -609,7 +554,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
             [
                 action_btn,
                 cls.BTN_REGION_CHOOSE_OTHER,
-                cls.BTN_BACK_TO_START,
+                NavButton.BACK_TO_START,
             ]
         )
 
@@ -621,13 +566,13 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
                 [
                     cls.BTN_RADIUS_EDIT,
                     cls.BTN_RADIUS_DISABLE,
-                    cls.BTN_BACK_TO_START,
+                    NavButton.BACK_TO_START,
                 ]
             )
         return cls.one_column(
             [
                 cls.BTN_RADIUS_ENABLE,
-                cls.BTN_BACK_TO_START,
+                NavButton.BACK_TO_START,
             ]
         )
 
@@ -642,7 +587,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
         return cls.one_column(
             [
                 cls.BTN_FORUM_ENTER_NICK,
-                cls.BTN_BACK_TO_START,
+                NavButton.BACK_TO_START,
             ]
         )
 
@@ -652,7 +597,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
         return cls.one_column(
             [
                 cls.BTN_VK_LINK,
-                cls.BTN_BACK_TO_START,
+                NavButton.BACK_TO_START,
             ]
         )
 
@@ -686,7 +631,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
                 cls.BTN_SEARCH_ACTIVE,
                 cls.BTN_SEARCH_LAST_20,
                 cls.BTN_SEARCH_FOLLOW_MGMT,
-                cls.BTN_BACK_TO_START,
+                NavButton.BACK_TO_START,
             ]
         )
 
@@ -698,7 +643,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
                 cls.BTN_FOLLOW_ENABLE,
                 cls.BTN_FOLLOW_DISABLE,
                 cls.BTN_FOLLOW_SHOW,
-                cls.BTN_BACK_TO_START,
+                NavButton.BACK_TO_START,
             ]
         )
 
@@ -710,7 +655,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
                 f'+{topic_id} — следить',
                 f'-{topic_id} — игнорировать',
                 cls.BTN_MORE_SEARCHES,
-                cls.BTN_BACK_TO_START,
+                NavButton.BACK_TO_START,
             ]
         )
 
@@ -721,7 +666,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
             [
                 cls.BTN_MORE_SEARCHES,
                 cls.BTN_FOLLOW_MANAGE,
-                cls.BTN_BACK_TO_START,
+                NavButton.BACK_TO_START,
             ]
         )
 
@@ -742,7 +687,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
 
         Already-selected regions are highlighted with 'primary' (green) color.
 
-        Region names are compacted via ``_compact_region_name()`` — verbose
+        Region names are compacted via ``compact_region_name()`` — verbose
         subtype suffixes (e.g., " – Активные поиски") are replaced with short
         emoji markers (e.g., "🔍") to fit within VK's 40-character button limit.
 
@@ -759,59 +704,32 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
         Returns:
             An inline VK keyboard dict with region + navigation buttons.
         """
-        total_pages = (len(region_buttons) + page_size - 1) // page_size
-        start = page * page_size
-        end = start + page_size
-        page_items = region_buttons[start:end]
+        p = paginate_regions(region_buttons, page, page_size)
 
         if selected_regions is None:
             selected_regions = set()
 
-        compacted = [(_compact_region_name(name), name) for name in page_items]
+        compacted = [(compact_region_name(name), name) for name in p.items]
 
         rows: list[list[dict]] = []
         for i in range(0, len(compacted), 2):
             row: list[dict] = []
             for compact_name, original_name in compacted[i : i + 2]:
                 btn_color: ButtonColor = 'primary' if original_name in selected_regions else 'secondary'
-                row.append(
-                    cls.inline_callback_button(
-                        compact_name,
-                        {
-                            'cmd': 'paginate_toggle',
-                            'region': original_name,
-                            'district': district,
-                            'page': page,
-                        },
-                        color=btn_color,
-                    )
-                )
+                payload = RegionCallbackPayload(CMD_PAGINATE_TOGGLE, district=district, region=original_name, page=page)
+                row.append(cls.inline_callback_button(compact_name, payload.to_dict(), color=btn_color))
             rows.append(row)
 
         bottom_row: list[dict] = []
-        if page > 0:
-            bottom_row.append(
-                cls.inline_callback_button(
-                    cls.BTN_BACK,
-                    {
-                        'cmd': 'paginate_nav',
-                        'district': district,
-                        'page': page - 1,
-                    },
-                )
-            )
-        if page < total_pages - 1:
-            bottom_row.append(
-                cls.inline_callback_button(
-                    cls.BTN_NEXT,
-                    {
-                        'cmd': 'paginate_nav',
-                        'district': district,
-                        'page': page + 1,
-                    },
-                )
-            )
-        bottom_row.append(cls.inline_callback_button(cls.BTN_FINISH, {'cmd': 'paginate_finish'}))
+        if p.has_prev:
+            payload = RegionCallbackPayload(CMD_PAGINATE_NAV, district=district, page=page - 1)
+            bottom_row.append(cls.inline_callback_button(NavButton.BACK, payload.to_dict()))
+        if p.has_next:
+            payload = RegionCallbackPayload(CMD_PAGINATE_NAV, district=district, page=page + 1)
+            bottom_row.append(cls.inline_callback_button(NavButton.NEXT, payload.to_dict()))
+        bottom_row.append(
+            cls.inline_callback_button(NavButton.FINISH, RegionCallbackPayload(CMD_PAGINATE_FINISH).to_dict())
+        )
         rows.append(bottom_row)
 
         cls.validate_rows(rows, inline=True)

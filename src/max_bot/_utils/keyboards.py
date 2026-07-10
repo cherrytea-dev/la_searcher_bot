@@ -8,7 +8,6 @@ structure of ``VKKeyboardPresets`` in the VK bot.
 """
 
 import json
-import re
 
 from maxapi.types.attachments.buttons.attachment_button import AttachmentButton
 from maxapi.types.attachments.buttons.callback_button import CallbackButton
@@ -17,40 +16,23 @@ from maxapi.types.attachments.buttons.request_geo_location_button import (
 )
 from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
 
-# Suffix-to-emoji mapping for compact region display names.
-# Replaces verbose subtype suffixes like " – Активные поиски" with short emoji markers.
-# Emoji is placed at the BEGINNING of the label because Max's keyboard buttons
-# are narrower than VK's and trailing emojis may be clipped.
-_SUFFIX_TO_EMOJI: dict[str, str] = {
-    ' – Активные поиски': '🔍',
-    ' – Инфо поддержка': 'ℹ️',
-    ' – Мероприятия': '📅',
-}
-# Build a regex once for efficient matching
-_COMPACT_REGION_RE = re.compile('(' + '|'.join(re.escape(s) for s in _SUFFIX_TO_EMOJI) + ')$')
-
-
-def _compact_region_name(name: str) -> str:
-    """Replace verbose subtype suffix with a short emoji marker at the BEGINNING.
-
-    "Москва – Активные поиски" → "🔍 Москва"
-    "Ханты-Мансийский АО – Инфо поддержка" → "ℹ️ Ханты-Мансийский АО"
-    """
-    match = _COMPACT_REGION_RE.search(name)
-    if match:
-        suffix = match.group(1)
-        region_part = name[: match.start()].strip()
-        return _SUFFIX_TO_EMOJI[suffix] + ' ' + region_part
-    return name
+from _dependencies.common.geo import (
+    CMD_DISTRICT_SELECT,
+    CMD_PAGINATE_FINISH,
+    CMD_PAGINATE_NAV,
+    CMD_PAGINATE_TOGGLE,
+    FEDERAL_DISTRICTS,
+    NavButton,
+    RegionCallbackPayload,
+    compact_region_name,
+    paginate_regions,
+)
 
 
 class MaxKeyboardButtons:
     """Button label constants — single source of truth for all button labels."""
 
     # Navigation
-    BTN_BACK: str = '← назад'
-    BTN_FINISH: str = 'Завершить'
-    BTN_NEXT: str = 'ещё →'
 
     # Main menu
     BTN_DISABLE_NOTIFICATIONS: str = 'полностью отключить уведомления'
@@ -69,17 +51,6 @@ class MaxKeyboardButtons:
     BTN_RADIUS_SET: str = 'установить радиус'
     BTN_RADIUS_VIEW: str = 'посмотреть радиус'
     BTN_RADIUS_DELETE: str = 'удалить радиус'
-
-    # Federal districts
-    BTN_DISTRICT_CFO: str = 'Центральный ФО'
-    BTN_DISTRICT_SZFO: str = 'Северо-Западный ФО'
-    BTN_DISTRICT_YUFO: str = 'Южный ФО'
-    BTN_DISTRICT_SKFO: str = 'Северо-Кавказский ФО'
-    BTN_DISTRICT_PFO: str = 'Приволжский ФО'
-    BTN_DISTRICT_UFO: str = 'Уральский ФО'
-    BTN_DISTRICT_SFO: str = 'Сибирский ФО'
-    BTN_DISTRICT_DFO: str = 'Дальневосточный ФО'
-    BTN_DISTRICT_OTHER: str = 'Прочие поиски по РФ'
 
 
 class MaxKeyboardPresets(MaxKeyboardButtons):
@@ -108,24 +79,13 @@ class MaxKeyboardPresets(MaxKeyboardButtons):
     @classmethod
     def fed_districts_inline(cls) -> AttachmentButton:
         """Federal districts selection as inline callback buttons."""
-        districts = [
-            (cls.BTN_DISTRICT_CFO, 'Центральный'),
-            (cls.BTN_DISTRICT_SZFO, 'Северо-Западный'),
-            (cls.BTN_DISTRICT_YUFO, 'Южный'),
-            (cls.BTN_DISTRICT_SKFO, 'Северо-Кавказский'),
-            (cls.BTN_DISTRICT_PFO, 'Приволжский'),
-            (cls.BTN_DISTRICT_UFO, 'Уральский'),
-            (cls.BTN_DISTRICT_SFO, 'Сибирский'),
-            (cls.BTN_DISTRICT_DFO, 'Дальневосточный'),
-            (cls.BTN_DISTRICT_OTHER, 'Прочие поиски по РФ'),
-        ]
         builder = InlineKeyboardBuilder()
-        for label, district in districts:
-            builder.add(
-                CallbackButton(text=label, payload=json.dumps({'cmd': 'district_select', 'district': district}))
-            )
+        for label, district in FEDERAL_DISTRICTS:
+            payload = RegionCallbackPayload(CMD_DISTRICT_SELECT, district=district)
+            builder.add(CallbackButton(text=label, payload=json.dumps(payload.to_dict())))
         builder.adjust(2)
-        builder.row(CallbackButton(text=cls.BTN_FINISH, payload=json.dumps({'cmd': 'paginate_finish'})))
+        finish_payload = RegionCallbackPayload(CMD_PAGINATE_FINISH)
+        builder.row(CallbackButton(text=NavButton.FINISH, payload=json.dumps(finish_payload.to_dict())))
         return builder.as_markup()
 
     @classmethod
@@ -139,7 +99,7 @@ class MaxKeyboardPresets(MaxKeyboardButtons):
     ) -> AttachmentButton:
         """Inline keyboard with paginated region selection callback buttons.
 
-        Region names are compacted via ``_compact_region_name()`` — verbose
+        Region names are compacted via ``compact_region_name()`` — verbose
         subtype suffixes (e.g., " – Активные поиски") are replaced with short
         emoji markers (e.g., "🔍") to keep buttons readable.
 
@@ -152,50 +112,29 @@ class MaxKeyboardPresets(MaxKeyboardButtons):
             page_size: Number of items per page (default: 6).
             subscribed_ids: Set of region names that are already subscribed.
         """
-        total_pages = max(1, (len(region_buttons) + page_size - 1) // page_size)
-        start = page * page_size
-        end = start + page_size
-        page_items = region_buttons[start:end]
+        p = paginate_regions(region_buttons, page, page_size)
 
         if subscribed_ids is None:
             subscribed_ids = set()
 
         builder = InlineKeyboardBuilder()
-        for region_name in page_items:
-            compact_name = _compact_region_name(region_name)
+        for region_name in p.items:
+            compact_name = compact_region_name(region_name)
             display_name = f'✓ {compact_name}' if region_name in subscribed_ids else compact_name
-            builder.add(
-                CallbackButton(
-                    text=display_name,
-                    payload=json.dumps(
-                        {
-                            'cmd': 'paginate_toggle',
-                            'region': region_name,
-                            'district': district,
-                            'page': page,
-                        }
-                    ),
-                )
-            )
+            payload = RegionCallbackPayload(CMD_PAGINATE_TOGGLE, district=district, region=region_name, page=page)
+            builder.add(CallbackButton(text=display_name, payload=json.dumps(payload.to_dict())))
         builder.adjust(2)
 
         # Navigation row
         nav_builder = InlineKeyboardBuilder()
-        if page > 0:
-            nav_builder.add(
-                CallbackButton(
-                    text=cls.BTN_BACK,
-                    payload=json.dumps({'cmd': 'paginate_nav', 'district': district, 'page': page - 1}),
-                )
-            )
-        if page < total_pages - 1:
-            nav_builder.add(
-                CallbackButton(
-                    text=cls.BTN_NEXT,
-                    payload=json.dumps({'cmd': 'paginate_nav', 'district': district, 'page': page + 1}),
-                )
-            )
-        nav_builder.add(CallbackButton(text=cls.BTN_FINISH, payload=json.dumps({'cmd': 'paginate_finish'})))
+        if p.has_prev:
+            payload = RegionCallbackPayload(CMD_PAGINATE_NAV, district=district, page=page - 1)
+            nav_builder.add(CallbackButton(text=NavButton.BACK, payload=json.dumps(payload.to_dict())))
+        if p.has_next:
+            payload = RegionCallbackPayload(CMD_PAGINATE_NAV, district=district, page=page + 1)
+            nav_builder.add(CallbackButton(text=NavButton.NEXT, payload=json.dumps(payload.to_dict())))
+        finish_payload = RegionCallbackPayload(CMD_PAGINATE_FINISH)
+        nav_builder.add(CallbackButton(text=NavButton.FINISH, payload=json.dumps(finish_payload.to_dict())))
         builder.row(*nav_builder.payload[0])
         return builder.as_markup()
 
@@ -209,7 +148,7 @@ class MaxKeyboardPresets(MaxKeyboardButtons):
             .row(CallbackButton(text=cls.BTN_RADIUS_SET, payload=json.dumps({'cmd': 'radius_set'})))
             .row(CallbackButton(text=cls.BTN_RADIUS_VIEW, payload=json.dumps({'cmd': 'radius_view'})))
             .row(CallbackButton(text=cls.BTN_RADIUS_DELETE, payload=json.dumps({'cmd': 'radius_delete'})))
-            .row(CallbackButton(text=cls.BTN_BACK, payload=json.dumps({'cmd': 'back_to_main'})))
+            .row(CallbackButton(text=NavButton.BACK, payload=json.dumps({'cmd': 'back_to_main'})))
             .as_markup()
         )
 
@@ -224,7 +163,7 @@ class MaxKeyboardPresets(MaxKeyboardButtons):
             .row(RequestGeoLocationButton(text=cls.BTN_COORDS_SEND_GEO))
             .row(CallbackButton(text=cls.BTN_COORDS_VIEW, payload=json.dumps({'cmd': 'coords_view'})))
             .row(CallbackButton(text=cls.BTN_COORDS_DELETE, payload=json.dumps({'cmd': 'coords_delete'})))
-            .row(CallbackButton(text=cls.BTN_BACK, payload=json.dumps({'cmd': 'back_to_main'})))
+            .row(CallbackButton(text=NavButton.BACK, payload=json.dumps({'cmd': 'back_to_main'})))
             .as_markup()
         )
 
@@ -235,6 +174,6 @@ class MaxKeyboardPresets(MaxKeyboardButtons):
         """Single 'back to main menu' button."""
         return (
             InlineKeyboardBuilder()
-            .row(CallbackButton(text=cls.BTN_BACK, payload=json.dumps({'cmd': 'back_to_main'})))
+            .row(CallbackButton(text=NavButton.BACK, payload=json.dumps({'cmd': 'back_to_main'})))
             .as_markup()
         )
