@@ -8,7 +8,6 @@ structure of ``VKKeyboardPresets`` in the VK bot.
 """
 
 import json
-import re
 
 from maxapi.types.attachments.buttons.attachment_button import AttachmentButton
 from maxapi.types.attachments.buttons.callback_button import CallbackButton
@@ -17,31 +16,7 @@ from maxapi.types.attachments.buttons.request_geo_location_button import (
 )
 from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
 
-# Suffix-to-emoji mapping for compact region display names.
-# Replaces verbose subtype suffixes like " – Активные поиски" with short emoji markers.
-# Emoji is placed at the BEGINNING of the label because Max's keyboard buttons
-# are narrower than VK's and trailing emojis may be clipped.
-_SUFFIX_TO_EMOJI: dict[str, str] = {
-    ' – Активные поиски': '🔍',
-    ' – Инфо поддержка': 'ℹ️',
-    ' – Мероприятия': '📅',
-}
-# Build a regex once for efficient matching
-_COMPACT_REGION_RE = re.compile('(' + '|'.join(re.escape(s) for s in _SUFFIX_TO_EMOJI) + ')$')
-
-
-def _compact_region_name(name: str) -> str:
-    """Replace verbose subtype suffix with a short emoji marker at the BEGINNING.
-
-    "Москва – Активные поиски" → "🔍 Москва"
-    "Ханты-Мансийский АО – Инфо поддержка" → "ℹ️ Ханты-Мансийский АО"
-    """
-    match = _COMPACT_REGION_RE.search(name)
-    if match:
-        suffix = match.group(1)
-        region_part = name[: match.start()].strip()
-        return _SUFFIX_TO_EMOJI[suffix] + ' ' + region_part
-    return name
+from _dependencies.common.geo import compact_region_name
 
 
 class MaxKeyboardButtons:
@@ -139,7 +114,7 @@ class MaxKeyboardPresets(MaxKeyboardButtons):
     ) -> AttachmentButton:
         """Inline keyboard with paginated region selection callback buttons.
 
-        Region names are compacted via ``_compact_region_name()`` — verbose
+        Region names are compacted via ``compact_region_name()`` — verbose
         subtype suffixes (e.g., " – Активные поиски") are replaced with short
         emoji markers (e.g., "🔍") to keep buttons readable.
 
@@ -162,7 +137,7 @@ class MaxKeyboardPresets(MaxKeyboardButtons):
 
         builder = InlineKeyboardBuilder()
         for region_name in page_items:
-            compact_name = _compact_region_name(region_name)
+            compact_name = compact_region_name(region_name)
             display_name = f'✓ {compact_name}' if region_name in subscribed_ids else compact_name
             builder.add(
                 CallbackButton(

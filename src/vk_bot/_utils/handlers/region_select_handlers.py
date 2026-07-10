@@ -14,9 +14,11 @@ Pagination (inline callback-based):
 
 import logging
 
+from _dependencies.common.geo import REGION_EMOJI_LEGEND
+
 from ..common import VKHandlerContext
 from ..decorators import vk_handle
-from ..keyboards import REGION_EMOJI_LEGEND, VKKeyboardPresets
+from ..keyboards import VKKeyboardPresets
 from ..services.message_formatter import (
     region_selection_intro,
     settings_menu_intro,

@@ -1,5 +1,6 @@
 import json
-import re
+
+from _dependencies.common.geo import compact_region_name
 
 from .common import ButtonColor
 
@@ -10,33 +11,6 @@ _MAX_INLINE_ROWS = 6
 # Inline keyboard: max 10 buttons total, grouped into max 6 rows, max 5 buttons per row.
 _MAX_INLINE_BUTTONS = 10
 
-# Suffix-to-emoji mapping for compact region display names.
-# Replaces verbose subtype suffixes like " – Активные поиски" with short emoji markers.
-_SUFFIX_TO_EMOJI: dict[str, str] = {
-    ' – Активные поиски': '🔍',
-    ' – Инфо поддержка': 'ℹ️',
-    ' – Мероприятия': '📅',
-}
-# Build a regex once for efficient matching
-_COMPACT_REGION_RE = re.compile('(' + '|'.join(re.escape(s) for s in _SUFFIX_TO_EMOJI) + ')$')
-
-# Emoji legend shown above region selection keyboards so users understand
-# what each emoji marker means.
-REGION_EMOJI_LEGEND: str = '🔍 — активные поиски\n' 'ℹ️ — инфорг / поддержка\n' '📅 — мероприятия'
-
-
-def _compact_region_name(name: str) -> str:
-    """Replace verbose subtype suffix with a short emoji marker at the BEGINNING.
-
-    "Москва – Активные поиски" → "🔍 Москва"
-    "Ханты-Мансийский АО – Инфо поддержка" → "ℹ️ Ханты-Мансийский АО"
-    """
-    match = _COMPACT_REGION_RE.search(name)
-    if match:
-        suffix = match.group(1)
-        region_part = name[: match.start()].strip()
-        return _SUFFIX_TO_EMOJI[suffix] + ' ' + region_part
-    return name
 
 
 class VKKeyboardButtons:
@@ -322,11 +296,11 @@ class VKKeyboardLayouts(VKKeyboardBase):
         if selected_regions is None:
             selected_regions = set()
         for i in range(0, len(buttons), 2):
-            btn1_name = _compact_region_name(buttons[i])
+            btn1_name = compact_region_name(buttons[i])
             btn1_color = 'primary' if buttons[i] in selected_regions else color
             row = [cls.text_button(btn1_name, btn1_color)]
             if i + 1 < len(buttons):
-                btn2_name = _compact_region_name(buttons[i + 1])
+                btn2_name = compact_region_name(buttons[i + 1])
                 btn2_color = 'primary' if buttons[i + 1] in selected_regions else color
                 row.append(cls.text_button(btn2_name, btn2_color))
             rows.append(row)
@@ -742,7 +716,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
 
         Already-selected regions are highlighted with 'primary' (green) color.
 
-        Region names are compacted via ``_compact_region_name()`` — verbose
+        Region names are compacted via ``compact_region_name()`` — verbose
         subtype suffixes (e.g., " – Активные поиски") are replaced with short
         emoji markers (e.g., "🔍") to fit within VK's 40-character button limit.
 
@@ -767,7 +741,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
         if selected_regions is None:
             selected_regions = set()
 
-        compacted = [(_compact_region_name(name), name) for name in page_items]
+        compacted = [(compact_region_name(name), name) for name in page_items]
 
         rows: list[list[dict]] = []
         for i in range(0, len(compacted), 2):
