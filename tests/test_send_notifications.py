@@ -15,14 +15,13 @@ from send_notifications._utils.clients.telegram_notificator import TelegramNotif
 from send_notifications._utils.clients.vk_notificator import VKNotificator
 from send_notifications._utils.database import DBClient, MessageToSend
 from send_notifications._utils.helpers import (
-    _prepare_message,
     format_message_for_vk,
     seconds_between,
     seconds_between_round_2,
     time_is_out,
 )
 from send_notifications._utils.models import TimeAnalytics
-from send_notifications._utils.services.notification_sender import NotificationSender
+from send_notifications._utils.services.notification_sender import NotificationSender, _prepare_message
 from tests.common import find_model
 from tests.factories.db_factories import NotifByUserFactory, UserFactory, get_session
 from tests.factories.db_models import NotifByUser

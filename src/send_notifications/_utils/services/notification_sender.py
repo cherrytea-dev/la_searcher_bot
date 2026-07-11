@@ -1,9 +1,11 @@
 """NotificationSender — orchestrates reading, sending, and tracking notifications."""
 
+import ast
 import datetime
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, wait
+from typing import Any
 
 from _dependencies.common.commons import Messenger
 from _dependencies.common.pubsub import notify_admin, pubsub_send_notifications
@@ -15,7 +17,6 @@ from send_notifications._utils.helpers import (
     SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS,
     USE_VK_API,
     WORKERS_COUNT,
-    _prepare_message,
     seconds_between,
     seconds_between_round_2,
     time_is_out,
@@ -220,3 +221,21 @@ class NotificationSender:
         )
         logging.debug(f'metric: parsing to completion time – {duration_complete_vs_parsed_time_minutes} min')
         time_analytics.parsed_times.append(duration_complete_vs_parsed_time_minutes)
+
+
+def _prepare_message(message_to_send: MessageToSend) -> tuple[str, dict[str, Any]]:
+    """Truncate long content and parse message_params from string."""
+    message_content = message_to_send.message_content
+    message_params_str = message_to_send.message_params
+
+    # limitation to avoid telegram "message too long"
+    if message_content and len(message_content) > 3000:
+        message_content = f'{message_content[:1500]}...{message_content[-1000:]}'
+
+    message_params: dict[str, Any] = ast.literal_eval(message_params_str) if message_params_str else {}
+    if message_params:
+        # convert string to bool
+        if 'disable_web_page_preview' in message_params:
+            message_params['disable_web_page_preview'] = message_params['disable_web_page_preview'] == 'True'
+
+    return message_content, message_params

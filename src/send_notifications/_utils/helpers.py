@@ -1,11 +1,7 @@
 """Utility functions for send_notifications — pure helpers, no side effects."""
 
-import ast
 import datetime
 import re
-from typing import Any
-
-from send_notifications._utils.database import MessageToSend
 
 FUNC_NAME = 'send_notifications'
 
@@ -15,24 +11,6 @@ SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS = 5
 WORKERS_COUNT = 2
 
 USE_VK_API = True  # feature-flag
-
-
-def _prepare_message(message_to_send: MessageToSend) -> tuple[str, dict[str, Any]]:
-    """Truncate long content and parse message_params from string."""
-    message_content = message_to_send.message_content
-    message_params_str = message_to_send.message_params
-
-    # limitation to avoid telegram "message too long"
-    if message_content and len(message_content) > 3000:
-        message_content = f'{message_content[:1500]}...{message_content[-1000:]}'
-
-    message_params: dict[str, Any] = ast.literal_eval(message_params_str) if message_params_str else {}
-    if message_params:
-        # convert string to bool
-        if 'disable_web_page_preview' in message_params:
-            message_params['disable_web_page_preview'] = message_params['disable_web_page_preview'] == 'True'
-
-    return message_content, message_params
 
 
 def seconds_between(datetime1: datetime.datetime, datetime2: datetime.datetime | None = None) -> float:
