@@ -8,7 +8,8 @@ into the abstract ``MessengerClient`` interface defined in
 
 import asyncio
 import random
-from typing import cast
+from collections.abc import Coroutine
+from typing import Any, cast
 
 from maxapi import Bot as MaxBot
 
@@ -122,6 +123,12 @@ class MaxClient(MessengerClient):
     The maxapi library is fully async, so synchronous ``send_message``
     and ``send_coordinates`` calls are bridged via ``asyncio.run()``.
 
+    Can be used as a context manager to ensure the underlying aiohttp
+    session is properly closed::
+
+        with MaxClient() as client:
+            client.send_message(...)
+
     NOTE: This is a minimal integration for sending notifications.
     Full interactive bot features (Dispatcher, webhooks, FSM) will
     be added separately in a dedicated MAX bot module.
@@ -139,6 +146,39 @@ class MaxClient(MessengerClient):
             self._bot: MaxBot = bot_instance
         else:
             self._bot = MaxBot()
+
+    def __enter__(self) -> 'MaxClient':
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        """Close the underlying aiohttp session if still open."""
+
+        async def _close() -> None:
+            session = self._bot.session
+            if session is not None and not session.closed:
+                await self._bot.close_session()
+
+        try:
+            asyncio.run(_close())
+        except RuntimeError:
+            pass  # event loop already closed — nothing we can do
+
+    def _run_and_close(self, coro: Coroutine[Any, Any, Any]) -> None:
+        """Run an async operation in its own event loop and close the session.
+
+        Ensures ``aiohttp.ClientSession`` is always closed within the
+        same event loop it was created on, preventing ``Unclosed client
+        session`` warnings on garbage collection.
+        """
+
+        async def _wrapped() -> None:
+            await self._bot.ensure_session()
+            try:
+                await coro
+            finally:
+                await self._bot.close_session()
+
+        asyncio.run(_wrapped())
 
     def send_message(self, user_identity: UserIdentity, text: str, **kwargs: object) -> SendResult:
         """Send a text message to a MAX user.
@@ -159,14 +199,13 @@ class MaxClient(MessengerClient):
             if parse_mode_str:
                 parse_mode = ParseMode(parse_mode_str)
 
-            async def _send() -> None:
-                await self._bot.send_message(
+            self._run_and_close(
+                self._bot.send_message(
                     user_id=user_id,
                     text=text,
                     parse_mode=parse_mode,
                 )
-
-            asyncio.run(_send())
+            )
             return SendResult(success=True, status='completed')
         except ValueError:
             return SendResult(success=False, status='cancelled_bad_request')
@@ -185,13 +224,12 @@ class MaxClient(MessengerClient):
             maps_url = f'https://yandex.ru/maps/?pt={lng},{lat}&z=15&l=map'
             text = f'📍 Координаты: {lat}, {lng}\n{maps_url}'
 
-            async def _send() -> None:
-                await self._bot.send_message(
+            self._run_and_close(
+                self._bot.send_message(
                     user_id=user_id,
                     text=text,
                 )
-
-            asyncio.run(_send())
+            )
             return SendResult(success=True, status='completed')
         except ValueError:
             return SendResult(success=False, status='cancelled_bad_request')

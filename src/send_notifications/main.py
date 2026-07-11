@@ -26,26 +26,26 @@ def main(event: dict, context: Ctx) -> str | None:
     db_client = DBClient()
     vk_api = get_default_vk_api_client()
     tg_api = tg_api_main_account()
-    max_client = MaxClient()
 
-    sender = NotificationSender(
-        db_client=db_client,
-        vk_notificator=VKNotificator(vk_api),
-        tg_notificator=TelegramNotificator(tg_api),
-        max_notificator=MaxNotificator(max_client),
-    )
+    with MaxClient() as max_client:
+        sender = NotificationSender(
+            db_client=db_client,
+            vk_notificator=VKNotificator(vk_api),
+            tg_notificator=TelegramNotificator(tg_api),
+            max_notificator=MaxNotificator(max_client),
+        )
 
-    time_analytics = TimeAnalytics(script_start_time=datetime.datetime.now())
-    function_id = generate_random_function_id()
-    engine = sqlalchemy_get_pool()
+        time_analytics = TimeAnalytics(script_start_time=datetime.datetime.now())
+        function_id = generate_random_function_id()
+        engine = sqlalchemy_get_pool()
 
-    try:
-        with lock_manager(engine, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
-            changed_ids = sender.send_all(function_id, time_analytics)
-    except FunctionLockError:
-        logging.info('script cancelled')
-        return None
+        try:
+            with lock_manager(engine, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
+                changed_ids = sender.send_all(function_id, time_analytics)
+        except FunctionLockError:
+            logging.info('script cancelled')
+            return None
 
-    sender.finish_analytics(time_analytics, changed_ids)
-    logging.info('script finished')
-    return 'ok'
+        sender.finish_analytics(time_analytics, changed_ids)
+        logging.info('script finished')
+        return 'ok'
