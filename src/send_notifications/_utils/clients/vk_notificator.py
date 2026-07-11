@@ -5,7 +5,7 @@ from typing import Any
 
 from _dependencies.bot.vk_api_client import VKApi
 from send_notifications._utils.database import MessageToSend
-from send_notifications._utils.helpers import format_mesage_for_vk
+from send_notifications._utils.helpers import format_message_for_vk
 
 
 class VKNotificator:
@@ -18,7 +18,7 @@ class VKNotificator:
         """Send a text message via VK API."""
         try:
             logging.info(f'Sending message to VK: {recipient=} {message_to_send=}')
-            self._vk_api.send(recipient, message_to_send.message_id, format_mesage_for_vk(content))
+            self._vk_api.send(recipient, message_to_send.message_id, format_message_for_vk(content))
             return 'completed'
         except Exception:
             logging.exception(f'Sending message to VK: failed {recipient=} {message_to_send=}')

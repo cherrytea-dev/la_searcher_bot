@@ -46,6 +46,6 @@ def main(event: dict, context: Ctx) -> str | None:
         logging.info('script cancelled')
         return None
 
-    sender._finish_analytics(time_analytics, changed_ids)
+    sender.finish_analytics(time_analytics, changed_ids)
     logging.info('script finished')
     return 'ok'

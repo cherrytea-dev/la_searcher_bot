@@ -50,8 +50,8 @@ def time_is_out(start: datetime.datetime) -> bool:
     return delta.total_seconds() > SCRIPT_SOFT_TIMEOUT_SECONDS
 
 
-def format_mesage_for_vk(message: str) -> str:
-    """Clean HTML for VK messages (preserved typo for backward compatibility)."""
+def format_message_for_vk(message: str) -> str:
+    """Clean HTML for VK messages."""
     # Handle different types of <a> tags based on their href
     # Pattern to match <a href="URL">text</a>
     a_tag_pattern = re.compile(r'<a\s+href="([^"]+)"[^>]*>([^<]+)</a>')

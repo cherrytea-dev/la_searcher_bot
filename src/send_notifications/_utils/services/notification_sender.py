@@ -81,7 +81,7 @@ class NotificationSender:
                 for future in futures:
                     try:
                         future.result()
-                    except:  # noqa
+                    except Exception:
                         logging.exception("can't send message")
 
                 if time_is_out(time_analytics.script_start_time):
@@ -91,7 +91,7 @@ class NotificationSender:
 
         return list(set_of_change_ids)
 
-    def _finish_analytics(self, time_analytics: TimeAnalytics, change_ids: list[int]) -> None:
+    def finish_analytics(self, time_analytics: TimeAnalytics, change_ids: list[int]) -> None:
         """Finalize: record metrics to DB, notify admin."""
         notif_times = time_analytics.notif_times
         delays = time_analytics.delays

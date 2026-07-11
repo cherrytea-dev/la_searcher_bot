@@ -16,7 +16,7 @@ from send_notifications._utils.clients.vk_notificator import VKNotificator
 from send_notifications._utils.database import DBClient, MessageToSend
 from send_notifications._utils.helpers import (
     _prepare_message,
-    format_mesage_for_vk,
+    format_message_for_vk,
     seconds_between,
     seconds_between_round_2,
     time_is_out,
@@ -884,11 +884,11 @@ class TestSendAll:
         assert len(result) >= 1
 
 
-# ─── Category 10: _finish_analytics tests ──────────────────────────
+# ─── Category 10: finish_analytics tests ─────────────────────────
 
 
 class TestFinishAnalytics:
-    """Tests for NotificationSender._finish_analytics()."""
+    """Tests for NotificationSender.finish_analytics()."""
 
     def test_with_data(self, sender: NotificationSender, fake_db: FakeDBClient):
         """Analytics with data → DB gets analytics, no crash."""
@@ -898,17 +898,17 @@ class TestFinishAnalytics:
             parsed_times=[1, 2, 3],
             script_start_time=datetime.datetime.now(),
         )
-        sender._finish_analytics(time_analytics, [1])
+        sender.finish_analytics(time_analytics, [1])
         assert len(fake_db.saved_analytics) == 1
 
     def test_without_data(self, sender: NotificationSender, fake_db: FakeDBClient):
         """Analytics without notif_times → no DB write, no crash."""
         time_analytics = TimeAnalytics(script_start_time=datetime.datetime.now())
-        sender._finish_analytics(time_analytics, [])
+        sender.finish_analytics(time_analytics, [])
         assert len(fake_db.saved_analytics) == 0
 
 
-# ─── Category 11: format_mesage_for_vk tests (pure function) ───────
+# ─── Category 11: format_message_for_vk tests (pure function) ─────
 
 
 class TestFormatMessageForVK:
@@ -950,7 +950,7 @@ class TestFormatMessageForVK:
         ],
     )
     def test_format(self, input: str, result: str):
-        assert format_mesage_for_vk(input) == result
+        assert format_message_for_vk(input) == result
 
 
 # ─── Helper for identity map ───────────────────────────────────────
