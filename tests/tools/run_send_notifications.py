@@ -36,7 +36,7 @@ if __name__ == '__main__':
     with (
         patch('_dependencies.common.commons._get_config', get_dotenv_config),
         # patch('_dependencies.pubsub.send_topic_google'),
-        patch('send_notifications.main.SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS', 0),
+        patch('send_notifications._utils.helpers.SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS', 0),
     ):
         generate_messages(1)
         context = Mock()

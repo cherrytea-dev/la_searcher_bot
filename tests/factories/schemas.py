@@ -1,6 +1,6 @@
 from polyfactory.factories import DataclassFactory
 
-from send_notifications.main import MessageToSend
+from send_notifications._utils.database import MessageToSend
 
 
 class MessageFactory(DataclassFactory[MessageToSend]):
