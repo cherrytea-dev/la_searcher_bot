@@ -54,8 +54,8 @@ def register_vk_only_user(vk_user_id: int, vk_user_name: str | None = None) -> i
         now = datetime.datetime.now()
         conn.execute(
             sqlalchemy.text("""
-                INSERT INTO users (user_id, internal_user_id, username_telegram, reg_date, status)
-                VALUES (:user_id, :internal_user_id, :username, :reg_date, :status)
+                INSERT INTO users (user_id, internal_user_id, username_telegram, reg_date)
+                VALUES (:user_id, :internal_user_id, :username, :reg_date)
                 ON CONFLICT (user_id) DO NOTHING
             """),
             {
@@ -63,7 +63,6 @@ def register_vk_only_user(vk_user_id: int, vk_user_name: str | None = None) -> i
                 'internal_user_id': internal_user_id,
                 'username': vk_user_name,
                 'reg_date': now,
-                'status': 'new',
             },
         )
 
