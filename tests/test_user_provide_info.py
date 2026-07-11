@@ -119,9 +119,9 @@ class TestGetUserDataFromDb:
         user_id = user.user_id
         UserCoordinateFactory.create_sync(user_id=user_id, latitude='55.7558', longitude='37.6173')
         UserPrefRadiusFactory.create_sync(user_id=user_id, radius=50)
-        region1 = UserRegionalPreferenceFactory.create_sync(user_id=user_id)
 
-        geo_folder = GeoFolderFactory.create_sync(folder_id=region1.forum_folder_num)
+        geo_folder = GeoFolderFactory.create_sync()
+        UserRegionalPreferenceFactory.create_sync(user_id=user_id, forum_folder_num=geo_folder.folder_id)
         geo_region = GeoRegionFactory.create_sync(division_id=geo_folder.division_id)
 
         with (

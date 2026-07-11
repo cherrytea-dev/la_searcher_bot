@@ -435,7 +435,10 @@ class TestUsersFilter:
     def test_filter_apply_1(self, db_client: DBClient, dict_notif_type_status_change):
         # complex filter
         line_in_change_log = LineInChangeLogFactory.build(
-            city_locations='', search_latitude='54.1234', search_longitude='55.1234'
+            city_locations='',
+            search_latitude='54.1234',
+            search_longitude='55.1234',
+            change_type=ChangeType.topic_status_change,
         )
         user = UserFactory.build(user_latitude='', user_longitude='', radius=0, age_periods=[])
         db_factories.UserFactory.create_sync(user_id=user.user_id)
