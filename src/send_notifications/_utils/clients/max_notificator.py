@@ -5,7 +5,7 @@ import logging
 from _dependencies.bot.messenger_clients import MaxClient
 from _dependencies.common.commons import Messenger, UserIdentity
 from send_notifications._utils.database import MessageToSend
-from send_notifications._utils.models import CoordsMessageParams, TextMessageParams
+from send_notifications._utils.models import MessageParams
 
 
 class MaxNotificator:
@@ -53,12 +53,16 @@ class MaxNotificator:
         self,
         message_to_send: MessageToSend,
         content: str,
-        message_params: TextMessageParams | CoordsMessageParams,
+        message_params: MessageParams,
     ) -> str | None:
         """Dispatch a message exclusively via MAX (messenger == MAX)."""
-        if isinstance(message_params, TextMessageParams):
+        assert message_params.kind in ('text', 'coords')
+
+        if message_params.kind == 'text':
             return self.send_text(message_to_send, content)
-        elif isinstance(message_params, CoordsMessageParams):
-            return self.send_coords(message_to_send, message_params.latitude, message_params.longitude)
         else:
-            raise ValueError(f'unknown message_params type for MAX: {type(message_params)}')
+            return self.send_coords(
+                message_to_send,
+                message_params.latitude,  # type: ignore[arg-type]
+                message_params.longitude,  # type: ignore[arg-type]
+            )

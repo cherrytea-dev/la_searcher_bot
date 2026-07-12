@@ -7,11 +7,11 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from _dependencies.common.commons import ChangeType, TopicType
+from _dependencies.common.message_params import MessageParams
 from compose_notifications._utils.database import DBClient
 from compose_notifications._utils.notifications_maker import (
     NotificationMaker,
 )
-from send_notifications._utils.models import TextMessageParams
 from tests.factories import db_models
 from tests.test_compose_notifications.factories import LineInChangeLogFactory, UserFactory
 
@@ -223,7 +223,7 @@ class TestNotificationMaker:
         db = db_client
         composer = NotificationMaker(db, record, [user])
         composer._resolve_messengers_batch()
-        text_params = TextMessageParams(parse_mode='HTML', disable_web_page_preview=True)
+        text_params = MessageParams.new_text(parse_mode='HTML', disable_web_page_preview=True)
         composer._save_to_sql_notif_by_user(
             record.change_log_id, user.user_id, 'test msg', 'test msg', 'text', text_params
         )
@@ -253,7 +253,7 @@ class TestNotificationMaker:
         db = db_client
         composer = NotificationMaker(db, record, [user])
         composer._resolve_messengers_batch()
-        text_params = TextMessageParams(parse_mode='HTML', disable_web_page_preview=True)
+        text_params = MessageParams.new_text(parse_mode='HTML', disable_web_page_preview=True)
         composer._save_to_sql_notif_by_user(
             record.change_log_id, user.user_id, 'test msg', 'test msg', 'text', text_params
         )
@@ -284,7 +284,7 @@ class TestNotificationMaker:
         db = db_client
         composer = NotificationMaker(db, record, [user])
         composer._resolve_messengers_batch()
-        text_params = TextMessageParams(parse_mode='HTML', disable_web_page_preview=True)
+        text_params = MessageParams.new_text(parse_mode='HTML', disable_web_page_preview=True)
         composer._save_to_sql_notif_by_user(
             record.change_log_id, user.user_id, 'test msg', 'test msg', 'text', text_params
         )
@@ -319,7 +319,7 @@ class TestNotificationMaker:
         composer = NotificationMaker(db, record, [user_both, user_tg])
         composer._resolve_messengers_batch()
 
-        text_params = TextMessageParams(parse_mode='HTML', disable_web_page_preview=True)
+        text_params = MessageParams.new_text(parse_mode='HTML', disable_web_page_preview=True)
         composer._save_to_sql_notif_by_user(record.change_log_id, user_both.user_id, 'msg', 'msg', 'text', text_params)
         composer._save_to_sql_notif_by_user(record.change_log_id, user_tg.user_id, 'msg', 'msg', 'text', text_params)
         composer.flush_batch()

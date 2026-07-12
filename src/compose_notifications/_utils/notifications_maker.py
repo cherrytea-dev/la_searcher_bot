@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from _dependencies.common.commons import ChangeType, get_app_config
+from _dependencies.common.message_params import MessageParams
 from _dependencies.common.pubsub import notify_admin, pubsub_send_notifications
-from send_notifications._utils.models import CoordsMessageParams, TextMessageParams
 
 from .commons import (
     SEARCH_TOPIC_TYPES,
@@ -134,7 +134,7 @@ class NotificationMaker:
             map_button = {'text': 'Смотреть на Карте Поисков', 'web_app': {'url': get_app_config().web_app_url}}
             reply_markup = {'inline_keyboard': [[map_button]]}
 
-        message_params = TextMessageParams(
+        message_params = MessageParams.new_text(
             parse_mode='HTML',
             disable_web_page_preview=True,
             reply_markup=reply_markup,
@@ -158,7 +158,7 @@ class NotificationMaker:
         new_record = self.new_record
         if not (new_record.search_latitude or new_record.search_longitude):
             return
-        message_params = CoordsMessageParams(
+        message_params = MessageParams.new_coords(
             latitude=float(new_record.search_latitude),  # type: ignore[arg-type]
             longitude=float(new_record.search_longitude),  # type: ignore[arg-type]
         )
@@ -182,7 +182,7 @@ class NotificationMaker:
         if not coords:
             return
         new_lat, new_lon = coords
-        message_params = CoordsMessageParams(
+        message_params = MessageParams.new_coords(
             latitude=float(new_lat),
             longitude=float(new_lon),
         )
@@ -210,7 +210,7 @@ class NotificationMaker:
         message: str | None,
         message_without_html: str | None,
         message_type: str,
-        message_params: TextMessageParams | CoordsMessageParams,
+        message_params: MessageParams,
     ) -> None:
         """save to sql table notif_by_user the new message
 
@@ -226,7 +226,7 @@ class NotificationMaker:
                 message=message,
                 message_without_html=message_without_html,
                 message_type=message_type,
-                message_params=str(message_params.model_dump(exclude_none=True)),
+                message_params=message_params.model_dump_json(exclude_none=True),
                 change_log_id=change_log_id,
                 created=datetime.datetime.now(),
                 messenger=messenger,

@@ -5,7 +5,7 @@ import logging
 from _dependencies.bot.vk_api_client import VKApi
 from send_notifications._utils.database import MessageToSend
 from send_notifications._utils.helpers import format_message_for_vk
-from send_notifications._utils.models import CoordsMessageParams, TextMessageParams
+from send_notifications._utils.models import MessageParams
 
 
 class VKNotificator:
@@ -50,14 +50,18 @@ class VKNotificator:
         self,
         message_to_send: MessageToSend,
         content: str,
-        message_params: TextMessageParams | CoordsMessageParams,
+        message_params: MessageParams,
     ) -> str | None:
         """Dispatch a message exclusively via VK (messenger == VK)."""
         recipient = message_to_send.vk_id or message_to_send.user_id
+        assert message_params.kind in ('text', 'coords')
 
-        if isinstance(message_params, TextMessageParams):
+        if message_params.kind == 'text':
             return self.send_text(recipient, message_to_send, content)
-        elif isinstance(message_params, CoordsMessageParams):
-            return self.send_coords(recipient, message_to_send, message_params.latitude, message_params.longitude)
         else:
-            raise ValueError(f'unknown message_params type for VK: {type(message_params)}')
+            return self.send_coords(
+                recipient,
+                message_to_send,
+                message_params.latitude,  # type: ignore[arg-type]
+                message_params.longitude,  # type: ignore[arg-type]
+            )

@@ -2,7 +2,7 @@
 
 from _dependencies.bot.telegram_api_wrapper import TGApiBase
 from send_notifications._utils.database import MessageToSend
-from send_notifications._utils.models import CoordsMessageParams, TextMessageParams
+from send_notifications._utils.models import MessageParams
 
 
 class TelegramNotificator:
@@ -11,7 +11,7 @@ class TelegramNotificator:
     def __init__(self, tg_api: TGApiBase) -> None:
         self._tg_api = tg_api
 
-    def send_text(self, user_id: int, content: str, message_params: TextMessageParams) -> str | None:
+    def send_text(self, user_id: int, content: str, message_params: MessageParams) -> str | None:
         """Send a text message via Telegram API."""
         payload: dict = {
             'chat_id': user_id,
@@ -31,14 +31,13 @@ class TelegramNotificator:
         self,
         message_to_send: MessageToSend,
         content: str,
-        message_params: TextMessageParams | CoordsMessageParams,
+        message_params: MessageParams,
     ) -> str | None:
         """Dispatch a message via Telegram."""
         user_id = message_to_send.user_id
+        assert message_params.kind in ('text', 'coords')
 
-        if isinstance(message_params, TextMessageParams):
+        if message_params.kind == 'text':
             return self.send_text(user_id, content, message_params)
-        elif isinstance(message_params, CoordsMessageParams):
-            return self.send_location(user_id, message_params.latitude, message_params.longitude)
         else:
-            raise ValueError(f'unknown message_params type: {type(message_params)}')
+            return self.send_location(user_id, message_params.latitude, message_params.longitude)  # type: ignore[arg-type]
