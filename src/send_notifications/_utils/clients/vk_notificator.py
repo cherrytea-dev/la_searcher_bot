@@ -3,9 +3,9 @@
 import logging
 
 from _dependencies.bot.vk_api_client import VKApi
+from _dependencies.common.message_params import MessageParams
 from send_notifications._utils.database import MessageToSend
 from send_notifications._utils.helpers import format_message_for_vk
-from send_notifications._utils.models import MessageParams
 
 
 class VKNotificator:

@@ -1,8 +1,8 @@
 """Telegram notification client — wraps Telegram API calls for sending notifications."""
 
 from _dependencies.bot.telegram_api_wrapper import TGApiBase
+from _dependencies.common.message_params import MessageParams
 from send_notifications._utils.database import MessageToSend
-from send_notifications._utils.models import MessageParams
 
 
 class TelegramNotificator:

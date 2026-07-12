@@ -3,10 +3,6 @@
 import datetime
 from dataclasses import dataclass, field
 
-from _dependencies.common.message_params import (
-    MessageParams,
-)
-
 
 @dataclass
 class TimeAnalytics:
@@ -16,6 +12,4 @@ class TimeAnalytics:
     parsed_times: list[float] = field(default_factory=list)
 
 
-# Re-export the unified MessageParams for backward compatibility
-# until all consumers are migrated to _dependencies.common.message_params.
-__all__ = ['TimeAnalytics', 'MessageParams']
+__all__ = ['TimeAnalytics']

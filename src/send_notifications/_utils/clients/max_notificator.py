@@ -4,8 +4,8 @@ import logging
 
 from _dependencies.bot.messenger_clients import MaxClient
 from _dependencies.common.commons import Messenger, UserIdentity
+from _dependencies.common.message_params import MessageParams
 from send_notifications._utils.database import MessageToSend
-from send_notifications._utils.models import MessageParams
 
 
 class MaxNotificator:
