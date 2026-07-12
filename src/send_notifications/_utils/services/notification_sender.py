@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Any
 
 from _dependencies.common.commons import Messenger
+from _dependencies.common.message_params import MessageParams
 from _dependencies.common.pubsub import notify_admin, pubsub_send_notifications
 from send_notifications._utils.clients.max_notificator import MaxNotificator
 from send_notifications._utils.clients.telegram_notificator import TelegramNotificator
@@ -21,7 +22,9 @@ from send_notifications._utils.helpers import (
     seconds_between_round_2,
     time_is_out,
 )
-from send_notifications._utils.models import TimeAnalytics
+from send_notifications._utils.models import (
+    TimeAnalytics,
+)
 
 
 class NotificationSender:
@@ -223,7 +226,9 @@ class NotificationSender:
         time_analytics.parsed_times.append(duration_complete_vs_parsed_time_minutes)
 
 
-def _prepare_message(message_to_send: MessageToSend) -> tuple[str, dict[str, Any]]:
+def _prepare_message(
+    message_to_send: MessageToSend,
+) -> tuple[str, MessageParams]:
     """Truncate long content and parse message_params from string."""
     message_content = message_to_send.message_content
     message_params_str = message_to_send.message_params
@@ -232,10 +237,19 @@ def _prepare_message(message_to_send: MessageToSend) -> tuple[str, dict[str, Any
     if message_content and len(message_content) > 3000:
         message_content = f'{message_content[:1500]}...{message_content[-1000:]}'
 
-    message_params: dict[str, Any] = ast.literal_eval(message_params_str) if message_params_str else {}
-    if message_params:
-        # convert string to bool
-        if 'disable_web_page_preview' in message_params:
-            message_params['disable_web_page_preview'] = message_params['disable_web_page_preview'] == 'True'
+    if message_params_str:
+        try:
+            message_params = MessageParams.model_validate_json(message_params_str)
+        except Exception:
+            # Fallback: legacy Python repr (ast.literal_eval) — infer kind from fields.
+            raw: dict[str, Any] = ast.literal_eval(message_params_str)
+            if 'latitude' in raw or 'longitude' in raw:
+                raw.setdefault('kind', 'coords')
+            else:
+                raw.setdefault('kind', 'text')
+            message_params = MessageParams(**raw)
+    else:
+        # Fallback: empty text params for legacy records with no message_params
+        message_params = MessageParams.new_text(parse_mode='HTML', disable_web_page_preview=True)
 
     return message_content, message_params

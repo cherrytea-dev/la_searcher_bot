@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from _dependencies.common.commons import ChangeType, get_app_config
+from _dependencies.common.message_params import MessageParams
 from _dependencies.common.pubsub import notify_admin, pubsub_send_notifications
 
 from .commons import (
@@ -126,14 +127,20 @@ class NotificationMaker:
     ) -> None:
         # TODO: make text more compact within 50 symbols
         message_without_html = re.sub(CLEANER_RE, '', user_message)
-        message_params: dict[str, Any] = {'parse_mode': 'HTML', 'disable_web_page_preview': 'True'}
+        reply_markup: dict[str, Any] | None = None
 
         # for the new searches we add a link to web_app map
         if self.new_record.change_type == ChangeType.topic_new:
             map_button = {'text': 'Смотреть на Карте Поисков', 'web_app': {'url': get_app_config().web_app_url}}
-            message_params['reply_markup'] = {'inline_keyboard': [[map_button]]}
+            reply_markup = {'inline_keyboard': [[map_button]]}
 
-            # record into SQL table notif_by_user
+        message_params = MessageParams.new_text(
+            parse_mode='HTML',
+            disable_web_page_preview=True,
+            reply_markup=reply_markup,
+        )
+
+        # record into SQL table notif_by_user
         self._save_to_sql_notif_by_user(
             change_log_id,
             user.user_id,
@@ -151,7 +158,10 @@ class NotificationMaker:
         new_record = self.new_record
         if not (new_record.search_latitude or new_record.search_longitude):
             return
-        message_params = {'latitude': new_record.search_latitude, 'longitude': new_record.search_longitude}
+        message_params = MessageParams.new_coords(
+            latitude=float(new_record.search_latitude),  # type: ignore[arg-type]
+            longitude=float(new_record.search_longitude),  # type: ignore[arg-type]
+        )
         # record into SQL table notif_by_user (not text, but coords only)
         self._save_to_sql_notif_by_user(
             change_log_id,
@@ -172,7 +182,10 @@ class NotificationMaker:
         if not coords:
             return
         new_lat, new_lon = coords
-        message_params = {'latitude': new_lat, 'longitude': new_lon}
+        message_params = MessageParams.new_coords(
+            latitude=float(new_lat),
+            longitude=float(new_lon),
+        )
         self._save_to_sql_notif_by_user(
             change_log_id,
             user.user_id,
@@ -197,7 +210,7 @@ class NotificationMaker:
         message: str | None,
         message_without_html: str | None,
         message_type: str,
-        message_params: dict,
+        message_params: MessageParams,
     ) -> None:
         """save to sql table notif_by_user the new message
 
@@ -213,7 +226,7 @@ class NotificationMaker:
                 message=message,
                 message_without_html=message_without_html,
                 message_type=message_type,
-                message_params=str(message_params),
+                message_params=message_params.model_dump_json(exclude_none=True),
                 change_log_id=change_log_id,
                 created=datetime.datetime.now(),
                 messenger=messenger,

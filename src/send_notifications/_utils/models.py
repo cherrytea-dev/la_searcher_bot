@@ -10,3 +10,6 @@ class TimeAnalytics:
     notif_times: list[float] = field(default_factory=list)
     delays: list[float] = field(default_factory=list)
     parsed_times: list[float] = field(default_factory=list)
+
+
+__all__ = ['TimeAnalytics']

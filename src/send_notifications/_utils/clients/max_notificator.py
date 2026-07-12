@@ -1,10 +1,10 @@
 """MAX notification client — wraps MAX API calls for sending notifications."""
 
 import logging
-from typing import Any
 
 from _dependencies.bot.messenger_clients import MaxClient
 from _dependencies.common.commons import Messenger, UserIdentity
+from _dependencies.common.message_params import MessageParams
 from send_notifications._utils.database import MessageToSend
 
 
@@ -53,12 +53,16 @@ class MaxNotificator:
         self,
         message_to_send: MessageToSend,
         content: str,
-        message_params: dict[str, Any],
+        message_params: MessageParams,
     ) -> str | None:
         """Dispatch a message exclusively via MAX (messenger == MAX)."""
-        if message_to_send.message_type == 'text':
+        assert message_params.kind in ('text', 'coords')
+
+        if message_params.kind == 'text':
             return self.send_text(message_to_send, content)
-        elif message_to_send.message_type == 'coords':
-            return self.send_coords(message_to_send, message_params['latitude'], message_params['longitude'])
         else:
-            raise ValueError(f'unknown message_type for MAX: {message_to_send.message_type}')
+            return self.send_coords(
+                message_to_send,
+                message_params.latitude,  # type: ignore[arg-type]
+                message_params.longitude,  # type: ignore[arg-type]
+            )
