@@ -12,6 +12,7 @@ from collections.abc import Coroutine
 from typing import Any, cast
 
 from maxapi import Bot as MaxBot
+from maxapi.enums import ParseMode
 
 from _dependencies.bot.telegram_api_wrapper import TGApiBase
 from _dependencies.bot.vk_api_client import VKApi, VkApiError
@@ -192,8 +193,6 @@ class MaxClient(MessengerClient):
         try:
             user_id = int(user_identity.messenger_user_id)
             parse_mode_str = cast('str | None', kwargs.get('parse_mode'))
-
-            from maxapi.enums import ParseMode
 
             parse_mode: ParseMode | None = None
             if parse_mode_str:
