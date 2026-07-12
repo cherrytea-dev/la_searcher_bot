@@ -654,7 +654,7 @@ def handle_user_role(ctx: TGHandlerContext) -> None:
         return
 
     # all other cases
-    bot_message = 'Спасибо. Теперь уточните, пожалуйста, ваш основной регион – это ' 'Москва и Московская Область?'
+    bot_message = 'Спасибо. Теперь уточните, пожалуйста, ваш основной регион – это Москва и Московская Область?'
     keyboard_coordinates_admin = [IsMoscow.b_reg_moscow, IsMoscow.b_reg_not_moscow]
     ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard_coordinates_admin))
 

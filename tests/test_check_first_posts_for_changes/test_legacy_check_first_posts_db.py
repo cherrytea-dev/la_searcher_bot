@@ -392,8 +392,7 @@ class TestRssItems:
     """
 
     @pytest.mark.skip(
-        reason='rss_items table not present in test database schema '
-        '(see tests/tools/db.sql). Add it to run RSS tests.'
+        reason='rss_items table not present in test database schema (see tests/tools/db.sql). Add it to run RSS tests.'
     )
     def test_save_and_get_rss_item(self, db_client: LegacyDBClient, session: Session):
         item = RSSItem(
@@ -415,16 +414,14 @@ class TestRssItems:
         assert result.updated_at == item.updated_at
 
     @pytest.mark.skip(
-        reason='rss_items table not present in test database schema '
-        '(see tests/tools/db.sql). Add it to run RSS tests.'
+        reason='rss_items table not present in test database schema (see tests/tools/db.sql). Add it to run RSS tests.'
     )
     def test_get_rss_item_none_when_not_found(self, db_client: LegacyDBClient, session: Session):
         result = db_client.get_rss_item('nonexistent-url')
         assert result is None
 
     @pytest.mark.skip(
-        reason='rss_items table not present in test database schema '
-        '(see tests/tools/db.sql). Add it to run RSS tests.'
+        reason='rss_items table not present in test database schema (see tests/tools/db.sql). Add it to run RSS tests.'
     )
     def test_get_rss_item_returns_full_dataclass(self, db_client: LegacyDBClient, session: Session):
         item = RSSItem(

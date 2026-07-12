@@ -41,9 +41,9 @@ class InlineButtonCallbackData(BaseModel):
             self.letter_to_show or '',
         ]
         result = self.SEP.join(parts)
-        assert (
-            len(result) <= InlineKeyboardButton.MAX_CALLBACK_DATA
-        ), f'callback_data too long ({len(result)} > {InlineKeyboardButton.MAX_CALLBACK_DATA}): {result!r}'
+        assert len(result) <= InlineKeyboardButton.MAX_CALLBACK_DATA, (
+            f'callback_data too long ({len(result)} > {InlineKeyboardButton.MAX_CALLBACK_DATA}): {result!r}'
+        )
         return result
 
     @classmethod

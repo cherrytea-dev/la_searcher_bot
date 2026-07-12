@@ -205,14 +205,13 @@ def handle_notification_settings(ctx: TGHandlerContext) -> None:
 
     elif got_message == NotificationSettingsMenu.b_act_all_comments:
         bot_message = (
-            'Отлично! Теперь все новые комментарии будут у вас! Вы в любой момент ' 'можете изменить список уведомлений'
+            'Отлично! Теперь все новые комментарии будут у вас! Вы в любой момент можете изменить список уведомлений'
         )
         _preference_turn_on(ctx, user_id, NotificationSettingsMenuOptions.comments_changes)
 
     elif got_message == NotificationSettingsMenu.b_deact_all_comments:
         bot_message = (
-            'Записали. Мы только оставили вам включенными уведомления о '
-            'комментариях Инфорга. Их тоже можно отключить'
+            'Записали. Мы только оставили вам включенными уведомления о комментариях Инфорга. Их тоже можно отключить'
         )
         _preference_turn_off(ctx, user_id, NotificationSettingsMenuOptions.comments_changes)
 

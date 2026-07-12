@@ -159,7 +159,7 @@ class VKKeyboardBase:
     def validate_label(label: str, max_len: int = _MAX_BUTTON_LABEL_LENGTH) -> str:
         """Validate a button label does not exceed VK API limits."""
         if len(label) > max_len:
-            raise ValueError(f'VK button label exceeds {max_len} character limit ' f'({len(label)} chars): "{label}"')
+            raise ValueError(f'VK button label exceeds {max_len} character limit ({len(label)} chars): "{label}"')
         return label
 
     @staticmethod
@@ -181,9 +181,7 @@ class VKKeyboardBase:
         row_count = len(buttons)
         if row_count > max_rows:
             raise ValueError(
-                f'VK keyboard exceeds {max_rows} row limit '
-                f'({row_count} rows). '
-                f'Use two_columns or paginate the content.'
+                f'VK keyboard exceeds {max_rows} row limit ({row_count} rows). Use two_columns or paginate the content.'
             )
         if inline:
             total_buttons = sum(len(row) for row in buttons)

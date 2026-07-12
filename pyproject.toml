@@ -6,14 +6,14 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic-settings>=2.14.2",
-    "psycopg2-binary==2.9.11",
+    "psycopg2-binary>=2.9.11",
     "SQLAlchemy>=2.0.0",
-    "python-telegram-bot[rate-limiter, job-queue]==21.*",
-    "retry2==0.9.5",
+    "python-telegram-bot[rate-limiter, job-queue]>=21.0,<22",
+    "retry2>=0.9.5",
     "requests>=2.33.0",
-    "httpx==0.27.*",
+    "httpx>=0.27.0",
     "beautifulsoup4>=4.12.0",                             # BS4
-    "lxml==6.1.0",                                        # for BS4
+    "lxml>=6.1.0",                                        # for BS4
     "boto3>=1.38.27",
     "python-json-logger>=3.3.0",
     "yarl>=1.18.3",
@@ -29,19 +29,19 @@ dev = [
     "freezegun>=1.5.1",
     "pytest-cov>=6.0",
     "python-dotenv>=1.2.2",
-    "ruff==0.8.6",
+    "ruff>=0.8.6",
     "uv>=0.5.15",
-    "pytest-xdist==3.*",
+    "pytest-xdist>=3.0,<4",
     "pytest-benchmark>=5.0",
     "pytest-timeout>=2.4.0",
-    "pyannotate==1.2.*",
+    "pyannotate>=1.2.0",
     "flask>=3.0.0",
     "click>=8.1",
 
     "types-beautifulsoup4",
     "types-psycopg2",
     "types-python-dateutil",
-    "sqlacodegen==2.3.*",
+    "sqlacodegen>=2.3.0",
     "setuptools>=80.9.0",    # for sqlacodegen
 
     "mypy>=1.14.1",
@@ -76,9 +76,9 @@ check_first_posts_for_changes = ["PyMySQL>=1.1.3", "feedparser>=6.0"]
 communicate = []
 
 compose_notifications = [
-    "idna==3.15",        # translation of domain names
-    "certifi==2024.7.4", # SSL certificates
-    "chardet==4.0.0",    # encoding detector
+    "idna>=3.15",        # translation of domain names
+    "certifi>=2024.7.4", # SSL certificates
+    "chardet>=4.0.0",    # encoding detector
     "python-dateutil",   # extension to datetime module
     "pytz>=2024.2",      # timezone
 ]
@@ -88,15 +88,15 @@ connect_to_forum = []
 identify_updates_of_first_posts = []
 
 identify_updates_of_topics = [
-    "idna==3.15",             # translation of domain names
-    "certifi==2024.7.4",      # SSL certificates
-    "chardet==4.0.0",         # encoding detector
-    "faust-cchardet==2.1.19", # encoding detector
+    "idna>=3.15",             # translation of domain names
+    "certifi>=2024.7.4",      # SSL certificates
+    "chardet>=4.0.0",         # encoding detector
+    "faust-cchardet>=2.1.19", # encoding detector
     "python-dateutil>=2.9.0", # extension to datetime module
-    "geopy==2.2.0",           # geocoding / coordinates
-    "yandex-geocoder==3.0.1", # # geocoding / coordinates
+    "geopy>=2.2.0",           # geocoding / coordinates
+    "yandex-geocoder>=3.0.1", # # geocoding / coordinates
     # "natasha==1.4.0",         # recognition of person and location within text string
-    "yarl==1.18.3",
+    "yarl>=1.18.3",
 ]
 
 send_debug_to_admin = []
@@ -105,7 +105,7 @@ send_notifications = ["maxapi>=1.2.0"]
 
 title_recognize = [
     "python-dateutil>=2.9.0", # extension to datetime module
-    "natasha==1.4.0",         # recognition of person and location within text string
+    "natasha>=1.4.0",         # recognition of person and location within text string
 ]
 
 user_provide_info = ["urllib3>=2.7.0"]

@@ -135,9 +135,7 @@ class TGApiBase:
 
         # Detect transient errors (503, connection resets) for upper-level retry
         if response is not None and response.status_code == 503:
-            raise TelegramTransientError(
-                f'Telegram API returned 503: {response.reason}. ' f'body={response.text[:500]!r}'
-            )
+            raise TelegramTransientError(f'Telegram API returned 503: {response.reason}. body={response.text[:500]!r}')
 
         return response
 

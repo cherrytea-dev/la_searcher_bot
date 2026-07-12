@@ -145,12 +145,12 @@ def role_volunteer_instructions() -> str:
 
 def role_other_ask_region() -> str:
     """Ask about Moscow region after role selection (non-relative, non-volunteer)."""
-    return 'Спасибо. Теперь уточните, пожалуйста, ваш основной регион – это ' 'Москва и Московская Область?'
+    return 'Спасибо. Теперь уточните, пожалуйста, ваш основной регион – это Москва и Московская Область?'
 
 
 def region_selection_intro() -> str:
     """Intro message when entering region selection."""
-    return 'Бот может показывать поиски в любом регионе работы ЛА.\n' 'Вы можете подписаться на несколько регионов'
+    return 'Бот может показывать поиски в любом регионе работы ЛА.\nВы можете подписаться на несколько регионов'
 
 
 def region_selection_help() -> str:
@@ -304,11 +304,11 @@ def notif_title_change_enabled() -> str:
 
 
 def notif_all_comments_enabled() -> str:
-    return 'Отлично! Теперь все новые комментарии будут у вас! ' 'Вы в любой момент можете изменить список уведомлений'
+    return 'Отлично! Теперь все новые комментарии будут у вас! Вы в любой момент можете изменить список уведомлений'
 
 
 def notif_all_comments_disabled() -> str:
-    return 'Записали. Мы только оставили вам включенными уведомления о ' 'комментариях Инфорга. Их тоже можно отключить'
+    return 'Записали. Мы только оставили вам включенными уведомления о комментариях Инфорга. Их тоже можно отключить'
 
 
 def notif_inforg_comments_enabled() -> str:
@@ -368,7 +368,7 @@ def notif_first_post_change_enabled() -> str:
 
 
 def notif_first_post_change_disabled() -> str:
-    return 'Вы отписались от уведомлений о важных изменениях в Первом Посте ' 'Инфорга c описанием каждого поиска'
+    return 'Вы отписались от уведомлений о важных изменениях в Первом Посте Инфорга c описанием каждого поиска'
 
 
 def notif_all_in_followed_enabled() -> str:

@@ -29,7 +29,7 @@ class ChangeLogMixin(DBClientMixinBase):
                 SELECT search_forum_num, new_value, id, change_type
                 FROM change_log
                 WHERE (notification_sent IS NULL OR notification_sent = 's')
-                {"AND id=:record_id" if record_id is not None else ""}
+                {'AND id=:record_id' if record_id is not None else ''}
                 ORDER BY id ASC
                 LIMIT 1;
             """)

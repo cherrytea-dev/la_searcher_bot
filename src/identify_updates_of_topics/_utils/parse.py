@@ -37,7 +37,7 @@ def parse_address_from_title(initial_title: str) -> str:
                 after_age = address_string.find(word) + len(word)
                 address_string = address_string[after_age:]
 
-    useless_symbols = {'.', ',', ' ', ':', ';' '!', ')'}
+    useless_symbols = {'.', ',', ' ', ':', ';!', ')'}
     trigger_of_useless_symbols = True
 
     while trigger_of_useless_symbols:

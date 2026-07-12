@@ -81,8 +81,7 @@ def handle_new_message(
     # Ignore messages from group chats — bot should only respond in private dialogs
     if vk_message.peer_id > _VK_CHAT_START_ID:
         logging.info(
-            f'handle_new_message: ignoring group chat message '
-            f'from vk_user={vk_user_id}, peer_id={vk_message.peer_id}'
+            f'handle_new_message: ignoring group chat message from vk_user={vk_user_id}, peer_id={vk_message.peer_id}'
         )
         return
 
