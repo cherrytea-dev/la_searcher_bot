@@ -21,7 +21,12 @@ from send_notifications._utils.helpers import (
     seconds_between_round_2,
     time_is_out,
 )
-from send_notifications._utils.models import TimeAnalytics
+from send_notifications._utils.models import (
+    CoordsMessageParams,
+    TextMessageParams,
+    TimeAnalytics,
+    parse_message_params,
+)
 
 
 class NotificationSender:
@@ -223,7 +228,9 @@ class NotificationSender:
         time_analytics.parsed_times.append(duration_complete_vs_parsed_time_minutes)
 
 
-def _prepare_message(message_to_send: MessageToSend) -> tuple[str, dict[str, Any]]:
+def _prepare_message(
+    message_to_send: MessageToSend,
+) -> tuple[str, TextMessageParams | CoordsMessageParams]:
     """Truncate long content and parse message_params from string."""
     message_content = message_to_send.message_content
     message_params_str = message_to_send.message_params
@@ -232,10 +239,11 @@ def _prepare_message(message_to_send: MessageToSend) -> tuple[str, dict[str, Any
     if message_content and len(message_content) > 3000:
         message_content = f'{message_content[:1500]}...{message_content[-1000:]}'
 
-    message_params: dict[str, Any] = ast.literal_eval(message_params_str) if message_params_str else {}
-    if message_params:
-        # convert string to bool
-        if 'disable_web_page_preview' in message_params:
-            message_params['disable_web_page_preview'] = message_params['disable_web_page_preview'] == 'True'
+    if message_params_str:
+        raw: dict[str, Any] = ast.literal_eval(message_params_str)
+        message_params = parse_message_params(raw)
+    else:
+        # Fallback: empty text params for legacy records with no message_params
+        message_params = TextMessageParams(parse_mode='HTML', disable_web_page_preview=True)
 
     return message_content, message_params

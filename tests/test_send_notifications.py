@@ -20,7 +20,11 @@ from send_notifications._utils.helpers import (
     seconds_between_round_2,
     time_is_out,
 )
-from send_notifications._utils.models import TimeAnalytics
+from send_notifications._utils.models import (
+    CoordsMessageParams,
+    TextMessageParams,
+    TimeAnalytics,
+)
 from send_notifications._utils.services.notification_sender import NotificationSender, _prepare_message
 from tests.common import find_model
 from tests.factories.db_factories import NotifByUserFactory, UserFactory, get_session
@@ -59,7 +63,7 @@ def _make_msg(**kwargs: Any) -> MessageToSend:
         cancelled=None,
         message_content='test message',
         message_type='text',
-        message_params='{}',
+        message_params='{"parse_mode": "HTML", "disable_web_page_preview": True}',
         message_group_id=None,
         change_log_id=randint(1, 9999),
         failed=None,
@@ -99,15 +103,15 @@ class FakeVKNotificator(VKNotificator):
         self,
         message_to_send: MessageToSend,
         content: str,
-        message_params: dict[str, Any],
+        message_params: TextMessageParams | CoordsMessageParams,
     ) -> str | None:
         recipient = message_to_send.vk_id or message_to_send.user_id
-        if message_to_send.message_type == 'text':
+        if isinstance(message_params, TextMessageParams):
             return self.send_text(recipient, message_to_send, content)
-        elif message_to_send.message_type == 'coords':
-            return self.send_coords(recipient, message_to_send, message_params['latitude'], message_params['longitude'])
+        elif isinstance(message_params, CoordsMessageParams):
+            return self.send_coords(recipient, message_to_send, message_params.latitude, message_params.longitude)
         else:
-            raise ValueError(f'unknown message_type for VK: {message_to_send.message_type}')
+            raise ValueError(f'unknown message_params type for VK: {type(message_params)}')
 
 
 class FakeTelegramNotificator(TelegramNotificator):
@@ -117,7 +121,7 @@ class FakeTelegramNotificator(TelegramNotificator):
         # Skip TelegramNotificator.__init__ — no real TGApiBase needed
         self.sent_messages: list[tuple] = []
 
-    def send_text(self, user_id: int, content: str, message_params: dict[str, Any]) -> str | None:
+    def send_text(self, user_id: int, content: str, message_params: TextMessageParams) -> str | None:
         self.sent_messages.append(('text', user_id, content, message_params))
         return 'completed'
 
@@ -129,14 +133,14 @@ class FakeTelegramNotificator(TelegramNotificator):
         self,
         message_to_send: MessageToSend,
         content: str,
-        message_params: dict[str, Any],
+        message_params: TextMessageParams | CoordsMessageParams,
     ) -> str | None:
-        if message_to_send.message_type == 'text':
+        if isinstance(message_params, TextMessageParams):
             return self.send_text(message_to_send.user_id, content, message_params)
-        elif message_to_send.message_type == 'coords':
-            return self.send_location(message_to_send.user_id, message_params['latitude'], message_params['longitude'])
+        elif isinstance(message_params, CoordsMessageParams):
+            return self.send_location(message_to_send.user_id, message_params.latitude, message_params.longitude)
         else:
-            raise ValueError(f'unknown message_type: {message_to_send.message_type}')
+            raise ValueError(f'unknown message_params type: {type(message_params)}')
 
 
 class FakeMaxNotificator(MaxNotificator):
@@ -160,14 +164,14 @@ class FakeMaxNotificator(MaxNotificator):
         self,
         message_to_send: MessageToSend,
         content: str,
-        message_params: dict[str, Any],
+        message_params: TextMessageParams | CoordsMessageParams,
     ) -> str | None:
-        if message_to_send.message_type == 'text':
+        if isinstance(message_params, TextMessageParams):
             return self.send_text(message_to_send, content)
-        elif message_to_send.message_type == 'coords':
-            return self.send_coords(message_to_send, message_params['latitude'], message_params['longitude'])
+        elif isinstance(message_params, CoordsMessageParams):
+            return self.send_coords(message_to_send, message_params.latitude, message_params.longitude)
         else:
-            raise ValueError(f'unknown message_type for MAX: {message_to_send.message_type}')
+            raise ValueError(f'unknown message_params type for MAX: {type(message_params)}')
 
 
 class FakeDBClient(DBClient):
@@ -487,14 +491,16 @@ class TestHelpers:
         assert content.endswith('A' * 1000)
 
     def test_prepare_message_parses_disable_web_page_preview(self):
-        msg = _make_msg(message_params='{"disable_web_page_preview": "True"}')
+        msg = _make_msg(message_params='{"parse_mode": "HTML", "disable_web_page_preview": "True"}')
         _, params = _prepare_message(msg)
-        assert params['disable_web_page_preview'] is True
+        assert isinstance(params, TextMessageParams)
+        assert params.disable_web_page_preview is True
 
     def test_prepare_message_parses_disable_web_page_preview_false(self):
-        msg = _make_msg(message_params='{"disable_web_page_preview": "False"}')
+        msg = _make_msg(message_params='{"parse_mode": "HTML", "disable_web_page_preview": "False"}')
         _, params = _prepare_message(msg)
-        assert params['disable_web_page_preview'] is False
+        assert isinstance(params, TextMessageParams)
+        assert params.disable_web_page_preview is False
 
 
 # ─── Category 4: VKNotificator unit tests ─────────────────────────
@@ -517,7 +523,8 @@ class TestVKNotificator:
     def test_dispatch_text(self):
         msg = _make_msg(messenger='vk', vk_id='999', message_type='text', message_content='hello vk')
         vk = FakeVKNotificator()
-        result = vk.dispatch(msg, 'hello vk', {})
+        params = TextMessageParams(parse_mode='HTML', disable_web_page_preview=True)
+        result = vk.dispatch(msg, 'hello vk', params)
         assert result == 'completed'
         assert len(vk.sent_messages) == 1
         _, recipient, _, content = vk.sent_messages[0]
@@ -527,7 +534,8 @@ class TestVKNotificator:
     def test_dispatch_coords(self):
         msg = _make_msg(messenger='vk', vk_id='999', message_type='coords')
         vk = FakeVKNotificator()
-        result = vk.dispatch(msg, '', {'latitude': 55.75, 'longitude': 37.62})
+        params = CoordsMessageParams(latitude=55.75, longitude=37.62)
+        result = vk.dispatch(msg, '', params)
         assert result == 'completed'
         _, _, _, lat, long = vk.sent_messages[0]
         assert lat == 55.75
@@ -536,8 +544,8 @@ class TestVKNotificator:
     def test_dispatch_unknown_type_raises(self):
         msg = _make_msg(messenger='vk', message_type='unknown')
         vk = FakeVKNotificator()
-        with pytest.raises(ValueError, match='unknown message_type for VK'):
-            vk.dispatch(msg, '', {})
+        with pytest.raises(ValueError, match='unknown message_params type for VK'):
+            vk.dispatch(msg, '', object())  # type: ignore[arg-type]
 
 
 # ─── Category 5: TelegramNotificator unit tests ────────────────────
@@ -548,13 +556,14 @@ class TestTelegramNotificator:
 
     def test_send_text_ok(self):
         tg = FakeTelegramNotificator()
-        result = tg.send_text(12345, 'hello', {'parse_mode': 'HTML'})
+        params = TextMessageParams(parse_mode='HTML', disable_web_page_preview=True)
+        result = tg.send_text(12345, 'hello', params)
         assert result == 'completed'
         assert len(tg.sent_messages) == 1
-        _, user_id, content, params = tg.sent_messages[0]
+        _, user_id, content, return_params = tg.sent_messages[0]
         assert user_id == 12345
         assert content == 'hello'
-        assert params['parse_mode'] == 'HTML'
+        assert return_params.parse_mode == 'HTML'
 
     def test_send_location_ok(self):
         tg = FakeTelegramNotificator()
@@ -569,17 +578,19 @@ class TestTelegramNotificator:
     def test_dispatch_text(self):
         msg = _make_msg(messenger='telegram', message_type='text', message_content='hello tg')
         tg = FakeTelegramNotificator()
-        result = tg.dispatch(msg, 'hello tg', {'parse_mode': 'HTML'})
+        params = TextMessageParams(parse_mode='HTML', disable_web_page_preview=True)
+        result = tg.dispatch(msg, 'hello tg', params)
         assert result == 'completed'
         assert len(tg.sent_messages) == 1
-        _, user_id, content, params = tg.sent_messages[0]
+        _, user_id, content, return_params = tg.sent_messages[0]
         assert user_id == msg.user_id
         assert content == 'hello tg'
 
     def test_dispatch_coords(self):
         msg = _make_msg(messenger='telegram', message_type='coords')
         tg = FakeTelegramNotificator()
-        result = tg.dispatch(msg, '', {'latitude': 55.75, 'longitude': 37.62})
+        params = CoordsMessageParams(latitude=55.75, longitude=37.62)
+        result = tg.dispatch(msg, '', params)
         assert result == 'completed'
         _, user_id, lat, long = tg.sent_messages[0]
         assert user_id == msg.user_id
@@ -606,7 +617,8 @@ class TestMaxNotificator:
     def test_dispatch_text(self):
         msg = _make_msg(messenger='max', max_id='54321', message_type='text', message_content='hello max')
         mx = FakeMaxNotificator()
-        result = mx.dispatch(msg, 'hello max', {})
+        params = TextMessageParams(parse_mode='HTML', disable_web_page_preview=True)
+        result = mx.dispatch(msg, 'hello max', params)
         assert result == 'completed'
         _, recipient, _, content = mx.sent_messages[0]
         assert recipient == '54321'
@@ -614,7 +626,8 @@ class TestMaxNotificator:
     def test_dispatch_coords(self):
         msg = _make_msg(messenger='max', max_id='54321', message_type='coords')
         mx = FakeMaxNotificator()
-        result = mx.dispatch(msg, '', {'latitude': 55.75, 'longitude': 37.62})
+        params = CoordsMessageParams(latitude=55.75, longitude=37.62)
+        result = mx.dispatch(msg, '', params)
         assert result == 'completed'
         _, recipient, _, lat, long = mx.sent_messages[0]
         assert recipient == '54321'
@@ -720,18 +733,24 @@ class TestSendOne:
 
     def test_parses_disable_web_page_preview(self, sender: NotificationSender, fake_tg: FakeTelegramNotificator):
         """message_params with disable_web_page_preview='True' → converted to bool True."""
-        msg = _make_msg(messenger='telegram', message_params='{"disable_web_page_preview": "True"}')
+        msg = _make_msg(
+            messenger='telegram',
+            message_params='{"parse_mode": "HTML", "disable_web_page_preview": "True"}',
+        )
         sender._send_one(msg)
         assert len(fake_tg.sent_messages) == 1
         _, _, _, params = fake_tg.sent_messages[0]
-        assert params['disable_web_page_preview'] is True
+        assert params.disable_web_page_preview is True
 
     def test_parses_disable_web_page_preview_false(self, sender: NotificationSender, fake_tg: FakeTelegramNotificator):
-        msg = _make_msg(messenger='telegram', message_params='{"disable_web_page_preview": "False"}')
+        msg = _make_msg(
+            messenger='telegram',
+            message_params='{"parse_mode": "HTML", "disable_web_page_preview": "False"}',
+        )
         sender._send_one(msg)
         assert len(fake_tg.sent_messages) == 1
         _, _, _, params = fake_tg.sent_messages[0]
-        assert params['disable_web_page_preview'] is False
+        assert params.disable_web_page_preview is False
 
 
 # ─── Category 8: NotificationSender._process_message_sending tests ─
