@@ -17,6 +17,7 @@ from maxapi.enums import ParseMode
 from _dependencies.bot.telegram_api_wrapper import TGApiBase
 from _dependencies.bot.vk_api_client import VKApi, VkApiError
 from _dependencies.common.commons import Messenger, MessengerClient, SendResult, UserIdentity, get_app_config
+from _dependencies.common.telegram_message import TelegramMessage
 
 
 class TelegramClient(MessengerClient):
@@ -34,18 +35,14 @@ class TelegramClient(MessengerClient):
         self._api = tg_api or TGApiBase(prod_token, config.bot_api_host)
 
     def send_message(self, user_identity: UserIdentity, text: str, **kwargs: object) -> SendResult:
-        params: dict[str, object] = {
-            'chat_id': user_identity.messenger_user_id,
-            'text': text,
-        }
-        # Pop known Telegram-specific kwargs
-        disable_preview = kwargs.pop('disable_web_page_preview', None)
-        if disable_preview is not None:
-            params['disable_web_page_preview'] = bool(disable_preview)
-
-        params.update(kwargs)
-
-        status = self._api.send_message(params)
+        message = TelegramMessage(
+            text=text,
+            parse_mode=cast('str | None', kwargs.get('parse_mode')),
+            disable_web_page_preview=cast('bool | None', kwargs.get('disable_web_page_preview')),
+            reply_markup=kwargs.get('reply_markup'),
+        )
+        user_id = int(user_identity.messenger_user_id)
+        status = self._api.send_message(user_id, message)
         return self._to_send_result(status)
 
     def send_coordinates(self, user_identity: UserIdentity, lat: float, lng: float) -> SendResult:

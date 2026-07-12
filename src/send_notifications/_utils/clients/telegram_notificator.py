@@ -2,6 +2,7 @@
 
 from _dependencies.bot.telegram_api_wrapper import TGApiBase
 from _dependencies.common.message_params import MessageParams
+from _dependencies.common.telegram_message import TelegramMessage
 from send_notifications._utils.database import MessageToSend
 
 
@@ -13,15 +14,13 @@ class TelegramNotificator:
 
     def send_text(self, user_id: int, content: str, message_params: MessageParams) -> str | None:
         """Send a text message via Telegram API."""
-        payload: dict = {
-            'chat_id': user_id,
-            'text': content,
-            'parse_mode': message_params.parse_mode,
-            'disable_web_page_preview': message_params.disable_web_page_preview,
-        }
-        if message_params.reply_markup is not None:
-            payload['reply_markup'] = message_params.reply_markup
-        return self._tg_api.send_message(payload)
+        message = TelegramMessage(
+            text=content,
+            parse_mode=message_params.parse_mode,
+            disable_web_page_preview=message_params.disable_web_page_preview,
+            reply_markup=message_params.reply_markup,
+        )
+        return self._tg_api.send_message(user_id, message)
 
     def send_location(self, user_id: int, latitude: float, longitude: float) -> str | None:
         """Send coordinates via Telegram API."""

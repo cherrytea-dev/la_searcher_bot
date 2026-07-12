@@ -3,6 +3,7 @@ import logging
 from telegram import Update
 
 from _dependencies.common.pubsub import notify_admin
+from _dependencies.common.telegram_message import TelegramMessage
 
 from ..buttons import CoordinateSettingsMenu, b_back_to_start, b_menu_set_region
 from ..common import (
@@ -67,8 +68,7 @@ def process_unneeded_messages(update: Update, update_params: UpdateBasicParams) 
             'Пожалуйста, воспользуйтесь текстовыми кнопками бота, находящимися на '
             'месте обычной клавиатуры телеграм.'
         )
-        data = {'text': bot_message, 'chat_id': user_id}
-        tg_api().send_message(data)
+        tg_api().send_message(user_id, TelegramMessage(text=bot_message))
         return True
 
     # CASE 4 – when some Channel writes to bot
@@ -90,8 +90,7 @@ def process_unneeded_messages(update: Update, update_params: UpdateBasicParams) 
             'Спасибо, буду знать. Вот только бот не работает с контактами и отвечает '
             'только на определенные текстовые команды.'
         )
-        data = {'text': bot_message, 'chat_id': user_id}
-        tg_api().send_message(data)
+        tg_api().send_message(user_id, TelegramMessage(text=bot_message))
         return True
 
     # CASE 6 – when user mentions bot as @LizaAlert_Searcher_Bot in another telegram chat. Bot should do nothing

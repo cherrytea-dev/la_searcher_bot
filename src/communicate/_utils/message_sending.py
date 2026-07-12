@@ -4,8 +4,9 @@ from functools import lru_cache
 import requests
 from requests.models import Response
 
-from _dependencies.bot.telegram_api_wrapper import TGApiBase
+from _dependencies.bot.telegram_api_wrapper import TGApiBase, _build_telegram_params
 from _dependencies.common.commons import get_app_config
+from _dependencies.common.telegram_message import TelegramMessage
 
 from .database import db
 
@@ -23,9 +24,9 @@ class TGApiCommunicate(TGApiBase):
         logging.info(f'_make_api_call. {method=}, {params=}, {call_context=}')
         return super()._make_api_call(method, params, call_context)
 
-    def send_message(self, params: dict, call_context: str = '') -> str:
+    def send_message(self, user_id: int, message: TelegramMessage, call_context: str = '') -> str:
+        params = _build_telegram_params(user_id, message)
         response = self._make_api_call('sendMessage', params, call_context)
-        user_id = params['chat_id']
         result = self._process_response_of_api_call(user_id, response)
 
         logging.info(f'RESPONSE {response}')
@@ -34,9 +35,11 @@ class TGApiCommunicate(TGApiBase):
         _inline_processing(response, params)
         return result
 
-    def edit_message_text(self, params: dict, call_context: str = '') -> str:
+    def edit_message_text(self, user_id: int, message: TelegramMessage, call_context: str = '') -> str:
+        params = _build_telegram_params(user_id, message)
+        if message.message_id is not None:
+            params['message_id'] = message.message_id
         response = self._make_api_call('editMessageText', params, call_context)
-        user_id = params['chat_id']
         result = self._process_response_of_api_call(user_id, response)
 
         logging.info(f'RESPONSE {response}')

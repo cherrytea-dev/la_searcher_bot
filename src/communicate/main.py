@@ -16,6 +16,7 @@ from _dependencies.bot.users_management import (
 from _dependencies.common.commons import Messenger, get_app_config, setup_logging
 from _dependencies.common.misc import RequestWrapper, ResponseWrapper, request_response_converter
 from _dependencies.common.pubsub import notify_admin
+from _dependencies.common.telegram_message import TelegramMessage
 
 from ._utils.buttons import reply_markup_main
 from ._utils.common import (
@@ -154,14 +155,13 @@ def _process_block_unblock_user(user_id: int, user_new_status: str) -> None:
     keyboard_main = [['посмотреть актуальные поиски'], ['настроить бот'], ['другие возможности']]
     reply_markup = ReplyKeyboardMarkup(keyboard_main, resize_keyboard=True)
 
-    data = {
-        'text': bot_message,
-        'reply_markup': reply_markup,
-        'parse_mode': 'HTML',
-        'chat_id': user_id,
-        'disable_web_page_preview': True,
-    }
-    tg_api().send_message(data)
+    message = TelegramMessage(
+        text=bot_message,
+        parse_mode='HTML',
+        disable_web_page_preview=True,
+        reply_markup=reply_markup,
+    )
+    tg_api().send_message(user_id, message)
 
 
 def _run_onboarding(user_id: int, username: str, onboarding_step_id: int, got_message: str) -> int:

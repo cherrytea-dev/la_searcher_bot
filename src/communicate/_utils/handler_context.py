@@ -8,6 +8,8 @@ import logging
 
 from telegram import InlineKeyboardMarkup, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove
 
+from _dependencies.common.telegram_message import TelegramMessage
+
 from .common import UpdateBasicParams, UpdateExtraParams, UserInputState
 from .database import DBClient
 from .message_sending import TGApiCommunicate
@@ -110,14 +112,12 @@ class TGHandlerContext:
             if isinstance(message, Message):
                 message_id = message.id
 
-        params = {
-            'chat_id': self.user_id,
-            'text': text,
-            'message_id': message_id,
-        }
-        if reply_markup is not None:
-            params['reply_markup'] = reply_markup
-        result = self._tg_api.edit_message_text(params)
+        tg_message = TelegramMessage(
+            text=text,
+            reply_markup=reply_markup,
+            message_id=message_id,
+        )
+        result = self._tg_api.edit_message_text(self.user_id, tg_message)
         if result == 'cancelled_bad_request' and reply_markup is not None:
             # Bad Request on edit — possibly MESSAGE_TOO_LONG or payload too large.
             # Fall back to editing without reply_markup.
@@ -125,12 +125,12 @@ class TGHandlerContext:
                 f'cancelled_bad_request on editMessageText (edit method) for user {self.user_id}, '
                 f'retrying without reply_markup'
             )
-            fallback_params = {
-                'chat_id': self.user_id,
-                'text': text,
-                'message_id': message_id,
-            }
-            self._tg_api.edit_message_text(fallback_params)
+            fallback_message = TelegramMessage(
+                text=text,
+                message_id=message_id,
+            )
+            self._tg_api.edit_message_text(self.user_id, fallback_message)
+
         self._save_dialog(text)
 
     def answer_callback(self, text: str = '') -> None:
@@ -156,15 +156,13 @@ class TGHandlerContext:
         and does NOT clear dialog state. Use for multi-message responses
         after the primary ``.reply()``.
         """
-        params = {
-            'parse_mode': parse_mode,
-            'disable_web_page_preview': disable_web_page_preview,
-            'chat_id': self.user_id,
-            'text': text,
-        }
-        if reply_markup is not None:
-            params['reply_markup'] = reply_markup
-        self._tg_api.send_message(params)
+        message = TelegramMessage(
+            text=text,
+            parse_mode=parse_mode,
+            disable_web_page_preview=disable_web_page_preview,
+            reply_markup=reply_markup,
+        )
+        self._tg_api.send_message(self.user_id, message)
         self._save_dialog(text)
 
     def delete_inline_dialogue(self) -> None:
@@ -208,14 +206,12 @@ class TGHandlerContext:
                     logging.warning(f'no reply_markup or text in {callback_query=}')
 
                 last_user_message_id = message.id
-                params = {
-                    'chat_id': self.user_id,
-                    'text': text,
-                    'message_id': last_user_message_id,
-                }
-                if reply_markup is not None:
-                    params['reply_markup'] = reply_markup
-                result = self._tg_api.edit_message_text(params)
+                edit_message = TelegramMessage(
+                    text=text,
+                    reply_markup=reply_markup,
+                    message_id=last_user_message_id,
+                )
+                result = self._tg_api.edit_message_text(self.user_id, edit_message)
                 if result == 'cancelled_bad_request' and reply_markup is not None:
                     # Bad Request on edit — possibly MESSAGE_TOO_LONG or payload too large.
                     # Fall back to editing without reply_markup.
@@ -223,35 +219,31 @@ class TGHandlerContext:
                         f'cancelled_bad_request on editMessageText for user {self.user_id}, '
                         f'retrying without reply_markup'
                     )
-                    fallback_params = {
-                        'chat_id': self.user_id,
-                        'text': text,
-                        'message_id': last_user_message_id,
-                    }
-                    self._tg_api.edit_message_text(fallback_params)
+                    fallback_message = TelegramMessage(
+                        text=text,
+                        message_id=last_user_message_id,
+                    )
+                    self._tg_api.edit_message_text(self.user_id, fallback_message)
         else:
-            params = {
-                'parse_mode': parse_mode,
-                'disable_web_page_preview': disable_web_page_preview,
-                'chat_id': self.user_id,
-                'text': text,
-            }
-            if reply_markup is not None:
-                params['reply_markup'] = reply_markup
-            result = self._tg_api.send_message(params)
+            send_message = TelegramMessage(
+                text=text,
+                parse_mode=parse_mode,
+                disable_web_page_preview=disable_web_page_preview,
+                reply_markup=reply_markup,
+            )
+            result = self._tg_api.send_message(self.user_id, send_message)
             if result == 'cancelled_bad_request' and reply_markup is not None:
                 # Bad Request on send — possibly MESSAGE_TOO_LONG or payload too large.
                 # Fall back to sending without reply_markup.
                 logging.error(
                     f'cancelled_bad_request on sendMessage for user {self.user_id}, ' f'retrying without reply_markup'
                 )
-                fallback_params = {
-                    'parse_mode': parse_mode,
-                    'disable_web_page_preview': disable_web_page_preview,
-                    'chat_id': self.user_id,
-                    'text': text,
-                }
-                self._tg_api.send_message(fallback_params)
+                fallback_message = TelegramMessage(
+                    text=text,
+                    parse_mode=parse_mode,
+                    disable_web_page_preview=disable_web_page_preview,
+                )
+                self._tg_api.send_message(self.user_id, fallback_message)
 
     def _save_dialog(self, text: str) -> None:
         """Save bot reply to dialog history."""

@@ -1,6 +1,7 @@
 from telegram import ReplyKeyboardRemove
 
 from _dependencies.bot.users_management import save_onboarding_step
+from _dependencies.common.telegram_message import TelegramMessage
 
 from ..buttons import (
     IsMoscow,
@@ -108,11 +109,11 @@ def _handle_region_selection_inline_menu(ctx: TGHandlerContext) -> None:
     selected_regions = geography.forum_folders_to_regions_list(user_curr_regs_list)
 
     ctx.tg_api.send_message(
-        {
-            'chat_id': ctx.user_id,
-            'text': bot_message,
-            'reply_markup': ReplyKeyboardRemove(),
-        }
+        ctx.user_id,
+        TelegramMessage(
+            text=bot_message,
+            reply_markup=ReplyKeyboardRemove(),
+        ),
     )
 
     reply_keyboard = geography.get_inline_keyboard_by_first_letter('+', selected_regions)

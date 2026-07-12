@@ -6,6 +6,7 @@ from retry import retry
 from _dependencies.bot.messaging import tg_api_service_account
 from _dependencies.common.commons import get_app_config, setup_logging
 from _dependencies.common.pubsub import Ctx, process_pubsub_message
+from _dependencies.common.telegram_message import TelegramMessage
 
 setup_logging(__package__)
 
@@ -20,8 +21,8 @@ def send_message(admin_user_id: int, message: str) -> None:
     if len(message) > 3500:
         message = message[:1500]
 
-    params = {'chat_id': admin_user_id, 'text': message}
-    tg_api.send_message(params)
+    tg_message = TelegramMessage(text=message)
+    tg_api.send_message(admin_user_id, tg_message)
 
 
 def main(event: dict[str, bytes], context: Ctx) -> None:
