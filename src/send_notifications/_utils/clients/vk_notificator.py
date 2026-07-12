@@ -2,7 +2,8 @@
 
 import logging
 
-from _dependencies.bot.vk_api_client import VKApi
+from _dependencies.bot.users_management import ManageUserAction, update_user_status
+from _dependencies.bot.vk_api_client import VKApi, VkApiError
 from _dependencies.common.message_params import MessageParams
 from send_notifications._utils.database import MessageToSend
 from send_notifications._utils.helpers import format_message_for_vk
@@ -11,8 +12,16 @@ from send_notifications._utils.helpers import format_message_for_vk
 class VKNotificator:
     """Send notifications via VK API."""
 
+    # VK API errors indicating the user can't receive messages (blocked/permission)
+    _BLOCK_ERROR_CODES = {VkApiError.CANNOT_SEND_TO_USER, VkApiError.CANNOT_SEND_FIRST_MESSAGE}
+
     def __init__(self, vk_api: VKApi) -> None:
         self._vk_api = vk_api
+
+    def _handle_block_error(self, error_code: int, user_id: int) -> None:
+        """Mark user as blocked and log."""
+        logging.warning(f'VK API error {error_code}: marking user {user_id} as blocked')
+        update_user_status(ManageUserAction.block_user, user_id)
 
     def send_text(self, recipient: str | int, message_to_send: MessageToSend, content: str) -> str | None:
         """Send a text message via VK API."""
@@ -20,6 +29,12 @@ class VKNotificator:
             logging.info(f'Sending message to VK: {recipient=} {message_to_send=}')
             self._vk_api.send(recipient, message_to_send.message_id, format_message_for_vk(content))
             return 'completed'
+        except VkApiError as e:
+            if e.error_code in self._BLOCK_ERROR_CODES:
+                self._handle_block_error(e.error_code, message_to_send.user_id)
+                return 'cancelled'
+            logging.exception(f'Sending message to VK: failed {recipient=} {message_to_send=}')
+            return 'failed'
         except Exception:
             logging.exception(f'Sending message to VK: failed {recipient=} {message_to_send=}')
             return 'failed'
@@ -42,6 +57,12 @@ class VKNotificator:
                 long=str(longitude),
             )
             return 'completed'
+        except VkApiError as e:
+            if e.error_code in self._BLOCK_ERROR_CODES:
+                self._handle_block_error(e.error_code, message_to_send.user_id)
+                return 'cancelled'
+            logging.exception(f'Sending coordinates to VK: failed {recipient=} {message_to_send=}')
+            return 'failed'
         except Exception:
             logging.exception(f'Sending coordinates to VK: failed {recipient=} {message_to_send=}')
             return 'failed'
