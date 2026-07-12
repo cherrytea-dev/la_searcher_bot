@@ -33,6 +33,7 @@ jobs:
           filters: |
             communicate:
               - '.github/workflows/deploy.yml'
+              - 'uv.lock'
               - 'src/communicate/**'
               - 'src/_dependencies/common/**'
               - 'src/_dependencies/bot/**'
@@ -40,6 +41,7 @@ jobs:
               - 'src/_dependencies/user_repository/**'
             vk_bot:
               - '.github/workflows/deploy.yml'
+              - 'uv.lock'
               - 'src/vk_bot/**'
               - 'src/_dependencies/common/**'
               - 'src/_dependencies/bot/**'
@@ -47,6 +49,7 @@ jobs:
               - 'src/_dependencies/user_repository/**'
             max_bot:
               - '.github/workflows/deploy.yml'
+              - 'uv.lock'
               - 'src/max_bot/**'
               - 'src/_dependencies/common/**'
               - 'src/_dependencies/bot/**'
@@ -54,67 +57,81 @@ jobs:
               - 'src/_dependencies/user_repository/**'
             send_notifications:
               - '.github/workflows/deploy.yml'
+              - 'uv.lock'
               - 'src/send_notifications/**'
               - 'src/_dependencies/common/**'
               - 'src/_dependencies/bot/**'
             connect_to_forum:
               - '.github/workflows/deploy.yml'
+              - 'uv.lock'
               - 'src/connect_to_forum/**'
               - 'src/_dependencies/common/**'
               - 'src/_dependencies/bot/**'
             send_debug_to_admin:
               - '.github/workflows/deploy.yml'
+              - 'uv.lock'
               - 'src/send_debug_to_admin/**'
               - 'src/_dependencies/common/**'
               - 'src/_dependencies/bot/**'
             compose_notifications:
               - '.github/workflows/deploy.yml'
+              - 'uv.lock'
               - 'src/compose_notifications/**'
               - 'src/_dependencies/common/**'
             check_first_posts_for_changes:
               - '.github/workflows/deploy.yml'
+              - 'uv.lock'
               - 'src/check_first_posts_for_changes/**'
               - 'src/_dependencies/common/**'
               - 'src/_dependencies/forum/**'
             identify_updates_of_topics:
               - '.github/workflows/deploy.yml'
+              - 'uv.lock'
               - 'src/identify_updates_of_topics/**'
               - 'src/_dependencies/common/**'
               - 'src/_dependencies/forum/**'
             identify_updates_of_first_posts:
               - '.github/workflows/deploy.yml'
+              - 'uv.lock'
               - 'src/identify_updates_of_first_posts/**'
               - 'src/_dependencies/common/**'
               - 'src/_dependencies/forum/**'
             title_recognize:
               - '.github/workflows/deploy.yml'
+              - 'uv.lock'
               - 'src/title_recognize/**'
               - 'src/_dependencies/common/**'
               - 'src/_dependencies/forum/**'
             api_get_active_searches:
               - '.github/workflows/deploy.yml'
+              - 'uv.lock'
               - 'src/api_get_active_searches/**'
               - 'src/_dependencies/common/**'
               - 'src/_dependencies/forum/**'
             user_provide_info:
               - '.github/workflows/deploy.yml'
+              - 'uv.lock'
               - 'src/user_provide_info/**'
               - 'src/_dependencies/common/**'
               - 'src/_dependencies/forum/**'
             archive_notifications:
               - '.github/workflows/deploy.yml'
+              - 'uv.lock'
               - 'src/archive_notifications/**'
               - 'src/_dependencies/common/**'
             archive_to_bigquery:
               - '.github/workflows/deploy.yml'
+              - 'uv.lock'
               - 'src/archive_to_bigquery/**'
               - 'src/_dependencies/common/**'
             check_topics_by_upd_time:
               - '.github/workflows/deploy.yml'
+              - 'uv.lock'
               - 'src/check_topics_by_upd_time/**'
               - 'src/_dependencies/common/**'
             users_activate:
               - '.github/workflows/deploy.yml'
+              - 'uv.lock'
               - 'src/users_activate/**'
               - 'src/_dependencies/common/**'
 
@@ -185,9 +202,13 @@ jobs:
       - uses: actions/checkout@v3
         if: ${{ needs.changes.outputs[matrix.function] == 'true' }}
 
-      - name: make requirements
+      - name: Setup uv
         if: ${{ needs.changes.outputs[matrix.function] == 'true' }}
-        run: cp src/${{ matrix.function }}/requirements.txt src/requirements.txt
+        uses: astral-sh/setup-uv@v5
+
+      - name: Generate requirements.txt
+        if: ${{ needs.changes.outputs[matrix.function] == 'true' }}
+        run: uv export --extra ${{ matrix.function }} --no-hashes --no-dev > src/requirements.txt
 
       - name: Process function name
         if: ${{ needs.changes.outputs[matrix.function] == 'true' }}
