@@ -13,6 +13,7 @@ from telegram import ReplyKeyboardMarkup
 from _dependencies.bot.messaging import tg_api_main_account
 from _dependencies.common.commons import get_app_config, get_forum_proxies, setup_logging
 from _dependencies.common.pubsub import Ctx, MessageForParseUserProfile, process_pubsub_message
+from _dependencies.common.telegram_message import TelegramMessage
 from _dependencies.models import DialogState
 
 from ._utils.database import DBClient
@@ -325,16 +326,13 @@ def main(event: Dict[str, bytes], context: Ctx) -> None:
             logging.exception('failed to update the last saved message from bot')
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    data = {
-        'text': bot_message,
-        'reply_markup': reply_markup,
-        'parse_mode': 'HTML',
-        'disable_web_page_preview': True,
-        'chat_id': tg_user_id,
-    }
+    tg_message = TelegramMessage(
+        text=bot_message,
+        reply_markup=reply_markup,
+    )
 
     tg_api = tg_api_main_account()
-    tg_api.send_message(data)
+    tg_api.send_message(tg_user_id, tg_message)
 
     # save bot's reply to incoming request
     if bot_message:

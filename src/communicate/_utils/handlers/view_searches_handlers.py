@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from _dependencies.common.misc import age_writer, time_counter_since_search_start
+from _dependencies.common.telegram_message import TelegramMessage
 
 from ..buttons import Commands, MainMenu, OtherOptionsMenu, reply_markup_main
 from ..common import (
@@ -251,17 +252,15 @@ def _show_button_to_turn_on_following_searches(ctx: TGHandlerContext) -> None:
     ]
     reply_markup = InlineKeyboardMarkup(search_follow_mode_ikb)
     ctx.tg_api.send_message(
-        {
-            'parse_mode': 'HTML',
-            'disable_web_page_preview': True,
-            'reply_markup': reply_markup.to_dict(),
-            'chat_id': ctx.user_id,
-            'text': (
+        ctx.user_id,
+        TelegramMessage(
+            text=(
                 'Вы можете включить возможность выбора поисков для отслеживания, '
                 'чтобы получать уведомления не со всех актуальных поисков, '
                 'а только с выбранных Вами.'
             ),
-        },
+            reply_markup=reply_markup.to_dict(),
+        ),
         f'{ctx.user_id=}, context_step=a01',
     )
 
@@ -338,13 +337,11 @@ def _handle_view_searches_experimental_view(ctx: TGHandlerContext, search_list_t
         logging.info(f'{bot_message=}; {region_data.rows=}; context_step=b00')
 
         ctx.tg_api.send_message(
-            {
-                'parse_mode': 'HTML',
-                'disable_web_page_preview': True,
-                'reply_markup': reply_markup_inline,
-                'chat_id': user_id,
-                'text': bot_message,
-            },
+            user_id,
+            TelegramMessage(
+                text=bot_message,
+                reply_markup=reply_markup_inline,
+            ),
             f'{user_id=}, context_step=b03',
         )
 

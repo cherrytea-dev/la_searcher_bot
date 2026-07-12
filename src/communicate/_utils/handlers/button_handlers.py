@@ -15,6 +15,7 @@ from _dependencies.bot.telegram_api_wrapper import make_invite_text_for_user
 from _dependencies.bot.users_management import ManageUserAction, save_onboarding_step
 from _dependencies.common.commons import add_tel_link, get_app_config
 from _dependencies.common.pubsub import notify_admin
+from _dependencies.common.telegram_message import TelegramMessage
 from _dependencies.models import AgePeriod
 
 from ..buttons import (
@@ -877,11 +878,11 @@ def send_invite_vk_message_to_user(ctx: TGHandlerContext) -> None:
     inline_markup = InlineKeyboardMarkup([[btn_open_vk_chat]])
 
     ctx.tg_api.send_message(
-        {
-            'chat_id': ctx.user_id,
-            'text': bot_message,
-            'parse_mode': 'markdown',
-            'disable_web_page_preview': True,
-            'reply_markup': inline_markup,
-        }
+        ctx.user_id,
+        TelegramMessage(
+            text=bot_message,
+            parse_mode='markdown',
+            disable_web_page_preview=True,
+            reply_markup=inline_markup,
+        ),
     )
