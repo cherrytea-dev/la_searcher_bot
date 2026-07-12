@@ -100,7 +100,7 @@ class TitleRecognizer:
                 return final_pseudonym
 
             first_group_num_of_pers = persons_groups[0].num_of_per if persons_groups else 0
-            return f'{final_pseudonym} + {final_num_of_pers - first_group_num_of_pers} ' f'чел.{final_age_words}'
+            return f'{final_pseudonym} + {final_num_of_pers - first_group_num_of_pers} чел.{final_age_words}'
 
         if final_pseudonym and num_of_per_groups == 1 and final_num_of_pers == -1:
             return f'{final_pseudonym}{final_age_words}'

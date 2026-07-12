@@ -250,22 +250,22 @@ class FakeVKMessageSender:
 
     def assert_edited(self, count: int = 1) -> None:
         """Assert that exactly ``count`` messages were edited."""
-        assert (
-            len(self.edited_messages) == count
-        ), f'Expected {count} edited message(s), got {len(self.edited_messages)}'
+        assert len(self.edited_messages) == count, (
+            f'Expected {count} edited message(s), got {len(self.edited_messages)}'
+        )
 
     def assert_callback_answered(self, count: int = 1) -> None:
         """Assert that exactly ``count`` callback answers were sent."""
-        assert (
-            len(self.callback_answers) == count
-        ), f'Expected {count} callback answer(s), got {len(self.callback_answers)}'
+        assert len(self.callback_answers) == count, (
+            f'Expected {count} callback answer(s), got {len(self.callback_answers)}'
+        )
 
     def assert_sent_text(self, text: str) -> None:
         """Assert that the last sent message contains ``text`` (case-insensitive)."""
         assert self.last_sent is not None, 'No messages were sent'
-        assert (
-            text.lower() in self.last_sent.text.lower()
-        ), f'Expected text "{text}" in last sent message, got "{self.last_sent.text}"'
+        assert text.lower() in self.last_sent.text.lower(), (
+            f'Expected text "{text}" in last sent message, got "{self.last_sent.text}"'
+        )
 
     def assert_sent_with_keyboard(self) -> None:
         """Assert that the last sent message had a keyboard."""
@@ -275,20 +275,20 @@ class FakeVKMessageSender:
     def assert_edited_text(self, text: str) -> None:
         """Assert that the last edited message contains ``text``."""
         assert self.last_edited is not None, 'No messages were edited'
-        assert (
-            text in self.last_edited.text
-        ), f'Expected text "{text}" in last edited message, got "{self.last_edited.text}"'
+        assert text in self.last_edited.text, (
+            f'Expected text "{text}" in last edited message, got "{self.last_edited.text}"'
+        )
 
     def assert_callback_snackbar(self, text: str) -> None:
         """Assert that the last callback answer was a snackbar with ``text``."""
         assert self.last_callback is not None, 'No callback answers were sent'
         assert self.last_callback.event_data is not None, 'Last callback has no event_data'
-        assert (
-            self.last_callback.event_data.get('type') == 'show_snackbar'
-        ), f'Expected show_snackbar, got {self.last_callback.event_data.get("type")}'
-        assert text in self.last_callback.event_data.get(
-            'text', ''
-        ), f'Expected snackbar text "{text}", got "{self.last_callback.event_data.get("text")}"'
+        assert self.last_callback.event_data.get('type') == 'show_snackbar', (
+            f'Expected show_snackbar, got {self.last_callback.event_data.get("type")}'
+        )
+        assert text in self.last_callback.event_data.get('text', ''), (
+            f'Expected snackbar text "{text}", got "{self.last_callback.event_data.get("text")}"'
+        )
 
     def assert_no_calls(self) -> None:
         """Assert that no VK API calls were made at all."""

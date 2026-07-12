@@ -236,7 +236,7 @@ class TGHandlerContext:
                 # Bad Request on send — possibly MESSAGE_TOO_LONG or payload too large.
                 # Fall back to sending without reply_markup.
                 logging.error(
-                    f'cancelled_bad_request on sendMessage for user {self.user_id}, ' f'retrying without reply_markup'
+                    f'cancelled_bad_request on sendMessage for user {self.user_id}, retrying without reply_markup'
                 )
                 fallback_message = TelegramMessage(
                     text=text,

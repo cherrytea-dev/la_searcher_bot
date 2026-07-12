@@ -130,9 +130,9 @@ class PersonRecognizer:
         display_name = name
         if age_min and age_max:
             if age_min != age_max:
-                display_name = f'{name} ' f'{age_min}–{age_max}' f' {age_wording(age_max)}'
+                display_name = f'{name} {age_min}–{age_max} {age_wording(age_max)}'
             else:
-                display_name = f'{name} ' f'{age_max}' f' {age_wording(age_max)}'
+                display_name = f'{name} {age_max} {age_wording(age_max)}'
 
         return PersonGroup(
             num_of_per=num_of_per,
@@ -172,9 +172,9 @@ class PersonRecognizer:
 
         if age_min and age_max:
             if age_min != age_max:
-                display_name = f'{name} ' f'{age_min}–{age_max}' f' {age_wording(age_max)}'
+                display_name = f'{name} {age_min}–{age_max} {age_wording(age_max)}'
             else:
-                display_name = f'{name} ' f'{age_max}' f' {age_wording(age_max)}'
+                display_name = f'{name} {age_max} {age_wording(age_max)}'
 
         return PersonGroup(
             num_of_per=-1,
@@ -293,7 +293,7 @@ class PersonRecognizer:
         if dashes_in_names:
             letter_to_up = dashes_in_names.span()[0] + 2
             d = person_reco.display_name
-            person_reco.display_name = f'{d[:letter_to_up]}{d[letter_to_up].capitalize()}{d[letter_to_up + 1:]}'
+            person_reco.display_name = f'{d[:letter_to_up]}{d[letter_to_up].capitalize()}{d[letter_to_up + 1 :]}'
 
     def _define_number_of_persons_by_natasha(self, person_reco: PersonGroup, name_string: str) -> None:
         """Check if name_string is a name and set num_of_per to 1 if yes"""

@@ -101,9 +101,7 @@ def handle_set_region(ctx: TGHandlerContext) -> None:
 
 
 def _handle_region_selection_inline_menu(ctx: TGHandlerContext) -> None:
-    bot_message = (
-        'Бот может показывать поиски в любом регионе работы ЛА.\n' 'Вы можете подписаться на несколько регионов'
-    )
+    bot_message = 'Бот может показывать поиски в любом регионе работы ЛА.\nВы можете подписаться на несколько регионов'
 
     user_curr_regs_list = ctx.db.get_user_regions(ctx.user_id)
     selected_regions = geography.forum_folders_to_regions_list(user_curr_regs_list)

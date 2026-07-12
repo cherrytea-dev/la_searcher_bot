@@ -101,7 +101,7 @@ _COMPACT_REGION_RE = re.compile('(' + '|'.join(re.escape(s) for s in _SUFFIX_TO_
 
 # Emoji legend shown above region selection keyboards so users understand
 # what each emoji marker means.
-REGION_EMOJI_LEGEND: str = '🔍 — активные поиски\n' 'ℹ️ — инфорг / поддержка\n' '📅 — мероприятия'
+REGION_EMOJI_LEGEND: str = '🔍 — активные поиски\nℹ️ — инфорг / поддержка\n📅 — мероприятия'
 
 
 def compact_region_name(name: str) -> str:

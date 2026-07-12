@@ -167,7 +167,7 @@ def _format_search_text(search: dict, is_followed: bool, is_blacklisted: bool) -
 
     name = search['display_name'] or f'Поиск #{search["search_forum_num"]}'
 
-    return f'{status_emoji}{follow_mark} {name}{age_text}{time_text}\n' f'{link}\n'
+    return f'{status_emoji}{follow_mark} {name}{age_text}{time_text}\n{link}\n'
 
 
 def _group_searches_by_folder(searches: list[dict]) -> dict[int, list[dict]]:
@@ -383,7 +383,7 @@ def handle_follow_unfollow_command(ctx: VKHandlerContext) -> None:
             return
         ctx.db.record_search_whiteness(ctx.user_id, topic_id, SearchFollowingMode.ON)
         ctx.reply(
-            text=f'✅ Теперь вы следите за поиском #{topic_id}\n' f'Вы будете получать уведомления об изменениях.',
+            text=f'✅ Теперь вы следите за поиском #{topic_id}\nВы будете получать уведомления об изменениях.',
             keyboard=VKKeyboardPresets.search_navigation(),
         )
         return

@@ -68,7 +68,7 @@ class DBClient(DBClientBase):
                     completed IS NULL AND
                     cancelled IS NULL AND
                     (failed IS NULL OR failed < :retry_delay) AND
-                    (change_log_id, user_id, message_type, COALESCE(messenger, 'telegram')) {"IN" if select_doubling else "NOT IN"} (
+                    (change_log_id, user_id, message_type, COALESCE(messenger, 'telegram')) {'IN' if select_doubling else 'NOT IN'} (
                         {duplicated_notifications_query}
                     )
                 ORDER BY user_id

@@ -91,9 +91,7 @@ class MessageComposer:
                 direction = f'\n\nОт вас ~{dist} км {direct}'
 
                 message += generate_yandex_maps_place_link2(s_lat, s_lon, direction)
-                message += (
-                    f'\n<code>{COORD_FORMAT.format(float(s_lat))}, ' f'{COORD_FORMAT.format(float(s_lon))}</code>'
-                )
+                message += f'\n<code>{COORD_FORMAT.format(float(s_lat))}, {COORD_FORMAT.format(float(s_lon))}</code>'
 
             except Exception as e:
                 logging.info(

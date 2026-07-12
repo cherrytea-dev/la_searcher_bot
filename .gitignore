@@ -13,6 +13,7 @@ venv/
 type_info.json
 *.pkl
 src/requirements.txt
+src/*/requirements.txt
 *.log
 plans/
 frontend/
