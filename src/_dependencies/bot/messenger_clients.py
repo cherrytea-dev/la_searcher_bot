@@ -146,37 +146,49 @@ class MaxClient(MessengerClient):
             self._bot = MaxBot()
 
     def __enter__(self) -> 'MaxClient':
+        """Create a persistent event loop and ensure the aiohttp session.
+
+        The event loop is reused across all ``send_message`` / ``send_coordinates``
+        calls within the ``with`` block. The session is created once and closed
+        once in ``__exit__``, preventing ``Unclosed client session`` warnings.
+        """
+        self._loop = asyncio.new_event_loop()
+        self._loop.run_until_complete(self._bot.ensure_session())
         return self
 
     def __exit__(self, *args: object) -> None:
-        """Close the underlying aiohttp session if still open."""
-
-        async def _close() -> None:
+        """Close the underlying aiohttp session and event loop."""
+        try:
             session = self._bot.session
             if session is not None and not session.closed:
-                await self._bot.close_session()
-
-        try:
-            asyncio.run(_close())
-        except RuntimeError:
-            pass  # event loop already closed — nothing we can do
+                self._loop.run_until_complete(self._bot.close_session())
+        finally:
+            self._loop.close()
 
     def _run_and_close(self, coro: Coroutine[Any, Any, Any]) -> None:
-        """Run an async operation in its own event loop and close the session.
+        """Run an async coroutine, using the context manager's event loop if available.
 
-        Ensures ``aiohttp.ClientSession`` is always closed within the
-        same event loop it was created on, preventing ``Unclosed client
-        session`` warnings on garbage collection.
+        When used inside a ``with MaxClient() as client:`` block, the persistent
+        event loop from ``__enter__`` is reused — the session stays alive across
+        calls and is only closed once in ``__exit__``.
+
+        Fallback (no context manager): creates a fresh session, runs the coroutine,
+        and closes the session within its own ``asyncio.run()``.
         """
+        loop = getattr(self, '_loop', None)
+        if loop is not None and not loop.is_closed():
+            # Inside a ``with`` block — session already exists from __enter__
+            loop.run_until_complete(coro)
+        else:
+            # Standalone usage — one-shot: create, run, close
+            async def _wrapped() -> None:
+                await self._bot.ensure_session()
+                try:
+                    await coro
+                finally:
+                    await self._bot.close_session()
 
-        async def _wrapped() -> None:
-            await self._bot.ensure_session()
-            try:
-                await coro
-            finally:
-                await self._bot.close_session()
-
-        asyncio.run(_wrapped())
+            asyncio.run(_wrapped())
 
     def send_message(self, user_identity: UserIdentity, text: str, **kwargs: object) -> SendResult:
         """Send a text message to a MAX user.
