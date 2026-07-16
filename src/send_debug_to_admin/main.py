@@ -1,6 +1,8 @@
 """Script send the Debug messages to Admin via special Debug Bot in telegram https://t.me/la_test_1_bot
 To receive notifications one should be marked as Admin in PSQL"""
 
+import html
+
 from retry import retry
 
 from _dependencies.bot.messaging import tg_api_service_account
@@ -21,7 +23,11 @@ def send_message(admin_user_id: int, message: str) -> None:
     if len(message) > 3500:
         message = message[:1500]
 
-    tg_message = TelegramMessage(text=message)
+    # Debug messages may contain repr of PTB objects (e.g. ChatType.PRIVATE)
+    # wrapped in angle brackets that Telegram would try to parse as HTML.
+    # Escape HTML entities to avoid parse errors.
+    safe_message = html.escape(message)
+    tg_message = TelegramMessage(text=safe_message)
     tg_api.send_message(admin_user_id, tg_message)
 
 
