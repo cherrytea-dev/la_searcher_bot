@@ -94,6 +94,12 @@ def _change_topic_status(topic_id: int, topic_content: str) -> None:
     if not title:
         return
 
+    # if the title hasn't changed since last check, status cannot have changed — skip
+    db_title = get_db_client().get_search_title(topic_id)
+    if db_title and db_title == title:
+        logging.debug(f'Title for topic {topic_id} unchanged, skipping status check')
+        return
+
     status = _parse_status_from_title(title)
 
     if not status:
@@ -180,9 +186,6 @@ def get_first_post(search_num: int) -> FirstPostData | None:
     if not_found:
         return None
 
-    # FIXME – deactivated on Feb 6 2023 because seems it's not correct that this script should check status
-    # FIXME – activated on Feb 7 2023 –af far as there were 2 searches w/o status updated
-    _change_topic_status(search_num, raw_content)
     topic_visibility = _define_topic_visibility_by_content(raw_content)
 
     prettified_content = prettify_content(raw_content)

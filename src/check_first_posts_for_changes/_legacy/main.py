@@ -1,6 +1,6 @@
 """Script does several things:
 1. checks if the first posts of the searches were changed
-2. FIXME - checks active searches' status (Ищем, НЖ, НП, etc.)
+2. checks active searches' status (Ищем, НЖ, НП, etc.)
 3. checks active searches' visibility (accessible for everyone, restricted to a certain group or permanently deleted).
 Updates are either saved in PSQL or send via pub/sub to other scripts"""
 
@@ -19,7 +19,7 @@ from _dependencies.common.pubsub import Ctx, pubsub_check_first_posts
 
 from ._utils.commons import PercentGroup, RSSItem, Search
 from ._utils.database import DBClient, get_db_client
-from ._utils.forum import ForumUnavailable, get_first_post, get_search_id_by_comment
+from ._utils.forum import ForumUnavailable, _change_topic_status, get_first_post, get_search_id_by_comment
 
 setup_logging(__package__)
 
@@ -177,6 +177,8 @@ def _update_one_topic_hash(db_client: DBClient, cancel_token: CancelToken, topic
 
     # if record for this search – outdated
     if post_data.hash_num != last_hash and post_data.topic_visibility == 'regular':
+        # content changed — check if the search status has changed too
+        _change_topic_status(topic_id, post_data.raw_content)
         db_client.mark_search_first_post_as_not_actual(topic_id)
         db_client.create_search_first_post(topic_id, post_data.hash_num, post_data.prettified_content)
         return True
