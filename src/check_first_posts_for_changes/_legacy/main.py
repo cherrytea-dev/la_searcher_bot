@@ -23,8 +23,8 @@ from ._utils.forum import ForumUnavailable, get_first_post, get_search_id_by_com
 
 setup_logging(__package__)
 
-WORKERS_COUNT = 2
-FUNCTION_TIMEOUT_SECONDS = 50
+WORKERS_COUNT = 8
+FUNCTION_TIMEOUT_SECONDS = 5
 random.seed()
 
 
