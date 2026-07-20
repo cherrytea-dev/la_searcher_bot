@@ -103,8 +103,8 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
     def get_search_first_post_actual_hash(self, topic_id: int) -> str | None:
         with self.connect() as conn:
             stmt = sqlalchemy.text("""
-                SELECT content_hash, num_of_checks, content 
-                FROM search_first_posts 
+                SELECT content_hash, num_of_checks, content
+                FROM search_first_posts
                 WHERE
                     search_id = :topic_id
                     AND actual = TRUE;
@@ -113,6 +113,15 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
             if raw_data:
                 return raw_data[0]
         return None
+
+    def get_search_title(self, topic_id: int) -> str | None:
+        """get the current search title from the searches table"""
+        with self.connect() as conn:
+            stmt = sqlalchemy.text("""
+                SELECT forum_search_title FROM searches WHERE search_forum_num=:topic_id;
+            """)
+            result = conn.execute(stmt, dict(topic_id=topic_id)).fetchone()
+            return result[0] if result else None
 
 
 @lru_cache
