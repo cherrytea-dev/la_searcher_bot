@@ -27,8 +27,8 @@ from ._utils.forum import ForumUnavailable, get_first_post
 
 setup_logging(__package__)
 
-WORKERS_COUNT = 2
-FUNCTION_TIMEOUT_SECONDS = 50
+WORKERS_COUNT = 8
+FUNCTION_TIMEOUT_SECONDS = 5
 LAST_CHANGE_ID_IN_PHPBB_DB = 'LAST_CHANGE_ID_IN_PHPBB_DB'
 USELESS_FOLDERS = {84, 113, 112, 270, 86, 87, 88, 165, 365, 89, 172, 91, 90, 316, 234, 230, 319}
 

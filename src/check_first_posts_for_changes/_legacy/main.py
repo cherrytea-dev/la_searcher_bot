@@ -6,6 +6,7 @@ Updates are either saved in PSQL or send via pub/sub to other scripts"""
 
 import datetime
 import logging
+import random
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from itertools import repeat
@@ -24,6 +25,7 @@ setup_logging(__package__)
 
 WORKERS_COUNT = 2
 FUNCTION_TIMEOUT_SECONDS = 50
+random.seed()
 
 
 def update_one_topic_visibility(search_id: int, visibility: str) -> None:
@@ -94,7 +96,6 @@ def get_topics_to_check() -> list[Search]:
     """add searches to the chosen groups"""
     topics_to_check: list[Search] = []
 
-    # TODO maybe there is better method of randomizing?
     searches = get_db_client().get_list_of_topics()
 
     list_of_groups = _define_which_topic_groups_to_be_checked()
@@ -110,7 +111,8 @@ def get_topics_to_check() -> list[Search]:
             if group_2.start_num <= j <= group_2.finish_num:
                 topics_to_check.append(search)
 
-    return topics_to_check  # TODO randomize?
+    random.shuffle(topics_to_check)
+    return topics_to_check
 
 
 @dataclass
