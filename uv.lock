@@ -1268,8 +1268,8 @@ requires-dist = [
     { name = "retry2", specifier = ">=0.9.5" },
     { name = "sqlalchemy", specifier = ">=2.0.0" },
     { name = "urllib3", marker = "extra == 'user-provide-info'", specifier = ">=2.7.0" },
-    { name = "vk-api", specifier = ">=11.10.0" },
-    { name = "vk-api", marker = "extra == 'vk-bot'", specifier = ">=11.10.0" },
+    { name = "vk-api", specifier = ">=11.10.1" },
+    { name = "vk-api", marker = "extra == 'vk-bot'", specifier = ">=11.10.1" },
     { name = "yandex-geocoder", marker = "extra == 'identify-updates-of-topics'", specifier = ">=3.0.1" },
     { name = "yarl", specifier = ">=1.18.3" },
     { name = "yarl", marker = "extra == 'identify-updates-of-topics'", specifier = ">=1.18.3" },
@@ -2809,14 +2809,14 @@ wheels = [
 
 [[package]]
 name = "vk-api"
-version = "11.10.0"
+version = "11.10.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1d/19/1c2733571bb38f8846d6048eb6c756b7651960c73561741ccdb41f6c31bf/vk_api-11.10.0.tar.gz", hash = "sha256:a63fbd7d7a9d39348638d3eade49f964e8ebeba0898a070b03a7f082dbf5d112", size = 46642, upload-time = "2025-07-18T17:08:00.324Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/58/90cc48d80e355cbdc5ef7c920cee554270b2ebebeb2663edf9344f3bb643/vk_api-11.10.1.tar.gz", hash = "sha256:88eaf5ab7fe171f5b67de976db53c9e1bedefc6b30017e364a544b22dd037fde", size = 46753, upload-time = "2026-07-17T14:12:11.263Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/92/ac/4d14b592c62a18c0d5441105f284db4211f39904d65509ce98df7981a872/vk_api-11.10.0-py3-none-any.whl", hash = "sha256:2032127a64433c307559a0f8d2501eea1415dcfd5408fc398b1e837b6fcfbfe1", size = 53994, upload-time = "2025-07-18T17:07:59.146Z" },
+    { url = "https://files.pythonhosted.org/packages/92/5a/aa2b4c2ad0aa5202ac9cf51d30b827ff0b88b76459d6105102c17b385750/vk_api-11.10.1-py3-none-any.whl", hash = "sha256:895d5b9e5f7156443a5b50d09ac03c8527a7f6eb64c95948f9baebf9fd568e78", size = 54083, upload-time = "2026-07-17T14:12:10.039Z" },
 ]
 
 [[package]]

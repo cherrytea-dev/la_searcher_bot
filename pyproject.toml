@@ -17,7 +17,7 @@ dependencies = [
     "boto3>=1.43.51",
     "python-json-logger>=3.3.0",
     "yarl>=1.18.3",
-    "vk-api>=11.10.0",
+    "vk-api>=11.10.1",
 ]
 [dependency-groups]
 
@@ -114,7 +114,7 @@ users_activate = []
 
 test_func = []
 
-vk_bot = ["vk-api>=11.10.0", "click>=8.0"]
+vk_bot = ["vk-api>=11.10.1", "click>=8.0"]
 
 max_bot = ["maxapi>=1.2.0", "click>=8.0"]
 
