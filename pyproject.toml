@@ -16,7 +16,7 @@ dependencies = [
     "lxml>=6.1.0",                                        # for BS4
     "boto3>=1.43.51",
     "python-json-logger>=3.3.0",
-    "yarl>=1.18.3",
+    "yarl>=1.24.5",
     "vk-api>=11.10.0",
 ]
 [dependency-groups]
@@ -96,7 +96,7 @@ identify_updates_of_topics = [
     "geopy>=2.2.0",           # geocoding / coordinates
     "yandex-geocoder>=3.0.1", # # geocoding / coordinates
     # "natasha==1.4.0",         # recognition of person and location within text string
-    "yarl>=1.18.3",
+    "yarl>=1.24.5",
 ]
 
 send_debug_to_admin = []
