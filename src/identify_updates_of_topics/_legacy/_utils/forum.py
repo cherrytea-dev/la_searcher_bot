@@ -275,6 +275,10 @@ class ForumClient:
     def _get_comment_content(self, search_num: int, comment_num: int) -> bytes:
         url = self._get_comment_url(search_num, comment_num)
         resp = self.session.get(url, timeout=self._TIMEOUT)
+        # 404 means the topic (or this comment page) no longer exists.
+        # Return the content as-is so is_content_visible() can detect it.
+        if resp.status_code == 404:
+            return resp.content
         resp.raise_for_status()
         return resp.content
 
@@ -282,6 +286,11 @@ class ForumClient:
     def _get_topic_content(self, search_num: int) -> bytes:
         url = self._get_topic_url(search_num)
         resp = self.session.get(url, timeout=self._TIMEOUT)
+        # 404 means the topic was deleted or doesn't exist on the forum.
+        # Return the content as-is so is_content_visible() can detect
+        # the "Запрошенной темы не существует" text and mark it as deleted.
+        if resp.status_code == 404:
+            return resp.content
         resp.raise_for_status()
         return resp.content
 

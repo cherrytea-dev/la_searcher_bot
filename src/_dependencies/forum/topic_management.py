@@ -54,16 +54,13 @@ def save_status_for_topic(conn: sqlalchemy.engine.Connection, topic_id: int, sta
 
 
 def save_visibility_for_topic(conn: sqlalchemy.engine.Connection, topic_id: int, visibility: str) -> None:
-    """save in SQL if topic was deleted, hidden or unhidden"""
+    """save in SQL if topic was deleted, hidden or unhidden
 
-    notify_admin(f'WE FAKED VISIBILITY UPDATE: topic_id={topic_id}, visibility={visibility}')
-    return
-    # TODO for what this function is?
-
-    # MEMO: visibility can be only:
-    # 'deleted' – topic is permanently deleted
-    # 'hidden' – topic is hidden from public access, can become visible in the future
-    # 'ok' – regular topics with public visibility
+    MEMO: visibility can be only:
+    'deleted' – topic is permanently deleted
+    'hidden' – topic is hidden from public access, can become visible in the future
+    'ok' – regular topics with public visibility
+    """
 
     # clear the prev visibility status
     stmt = sqlalchemy.text("""DELETE FROM search_health_check WHERE search_forum_num=:topic_id;""")
