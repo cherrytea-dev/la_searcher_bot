@@ -256,9 +256,9 @@ jobs:
             VK_CONFIRMATION_CODE=${{ secrets.VK_CONFIRMATION_CODE }}
             VK_GROUP_ID=${{ secrets.VK_GROUP_ID }}
             BOT_API_HOST=${{ secrets.BOT_API_HOST }}
-            FORUM_LEGACY_DATA_SOURCE=True
             MAX_BOT_TOKEN=${{ secrets.MAX_BOT_TOKEN }}
             MAX_BOT_WEBHOOK_SECRET=${{ secrets.MAX_BOT_WEBHOOK_SECRET }}
+            FORUM_LEGACY_DATA_SOURCE=${{ secrets.FORUM_LEGACY_DATA_SOURCE }}
           secrets: |
             MYSQL_HOST=e6qsc5sqd7db7gk4m9u8/latest/MYSQL_HOST
             MYSQL_DB=e6qsc5sqd7db7gk4m9u8/latest/MYSQL_DB
