@@ -20,6 +20,14 @@ Usage:
   uv run python tools/log_inspector/main.py trace <log-group-id> <request-id> --hours 24
   uv run python tools/log_inspector/main.py list-groups <folder-id>
   uv run python tools/log_inspector/main.py raw <log-group-id> --hours 1 --level ERROR
+
+Known YC Logging quirks (handled automatically):
+  * Page token without criteria returns empty pages — criteria is always sent
+    together with the page token.
+  * `until` in criteria can make pagination return empty pages for large
+    windows — the window is split into `--slice-hours` chunks (default 1h).
+  * gRPC UNAVAILABLE / transient errors are retried per chunk.
+  * A session caps at ~20k entries — slicing also works around this.
 """
 
 import json
@@ -49,7 +57,8 @@ def cli() -> None:
 @click.argument('log_group_id')
 @click.option('--hours', default=24, show_default=True, help='Time window (hours)')
 @click.option('--top', default=10, show_default=True, help='Number of top error patterns')
-def top_errors(log_group_id: str, hours: int, top: int) -> None:
+@click.option('--slice-hours', default=1.0, show_default=True, help='Window slice size (hours) for stable pagination')
+def top_errors(log_group_id: str, hours: int, top: int, slice_hours: float) -> None:
     """Aggregate ERROR logs by normalized pattern."""
     client = _make_client()
     to_time = datetime.now(timezone.utc)
@@ -61,6 +70,7 @@ def top_errors(log_group_id: str, hours: int, top: int) -> None:
         levels=['ERROR'],
         from_time=from_time,
         to_time=to_time,
+        slice_hours=slice_hours,
     )
     error_entries = [e for e in entries if e.get('level') == 'ERROR']
     click.echo(
@@ -89,8 +99,9 @@ def top_errors(log_group_id: str, hours: int, top: int) -> None:
 @click.argument('log_group_id')
 @click.argument('request_id')
 @click.option('--hours', default=24, show_default=True, help='Time window (hours)')
+@click.option('--slice-hours', default=1.0, show_default=True, help='Window slice size (hours) for stable pagination')
 @click.option('--filter', '-f', help='Custom filter expression (overrides request_id filter)')
-def trace(log_group_id: str, request_id: str, hours: int, filter: str | None) -> None:
+def trace(log_group_id: str, request_id: str, hours: int, slice_hours: float, filter: str | None) -> None:
     """Trace all log entries for a specific request_id."""
     client = _make_client()
     to_time = datetime.now(timezone.utc)
@@ -104,6 +115,7 @@ def trace(log_group_id: str, request_id: str, hours: int, filter: str | None) ->
         filter_str=filter_expr,
         from_time=from_time,
         to_time=to_time,
+        slice_hours=slice_hours,
     )
     click.echo(f'📊 Found {len(entries)} entries.\n', err=True)
 
@@ -137,7 +149,8 @@ def list_groups(folder_id: str) -> None:
 @click.argument('log_group_id')
 @click.option('--hours', default=1, show_default=True, help='Time window (hours)')
 @click.option('--level', default='ERROR', show_default=True, help='Log level filter')
-def raw(log_group_id: str, hours: int, level: str) -> None:
+@click.option('--slice-hours', default=1.0, show_default=True, help='Window slice size (hours) for stable pagination')
+def raw(log_group_id: str, hours: int, level: str, slice_hours: float) -> None:
     """Dump raw JSON for a time window."""
     client = _make_client()
     to_time = datetime.now(timezone.utc)
@@ -148,6 +161,7 @@ def raw(log_group_id: str, hours: int, level: str) -> None:
         levels=[level],
         from_time=from_time,
         to_time=to_time,
+        slice_hours=slice_hours,
     )
     click.echo(json.dumps(entries, indent=2, ensure_ascii=False))
 

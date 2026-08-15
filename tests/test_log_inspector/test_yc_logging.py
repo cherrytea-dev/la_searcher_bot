@@ -1,7 +1,7 @@
 """Tests for YC Log Inspector — gRPC-based YC Logging client."""
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -248,7 +248,7 @@ class TestReadLogs:
 
         with patch('tools.log_inspector._utils.yc_logging.SDK', return_value=mock_sdk):
             client = YCLoggingClient()
-            entries = client.read_all_logs('lg-xxx', max_pages=2)
+            entries = client.read_all_logs('lg-xxx', max_pages=2, slice_hours=0)
 
         assert len(entries) == 2
 
@@ -312,5 +312,98 @@ class TestReadLogs:
 
         call_args = mock_reading_stub.Read.call_args
         request = call_args[0][0]
+        # NB: page_token and criteria are a protobuf `oneof` — for subsequent
+        # pages only the token is sent (sending both silently drops criteria).
         assert request.page_token == 'next-page'
         assert not request.HasField('criteria')
+
+    def test_read_all_logs_slices_window(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Window is split into chunks; each chunk reads without until."""
+        monkeypatch.setenv('YC_LOG_INSPECTOR_SA_JSON', json.dumps(SERVICE_ACCOUNT_KEY))
+
+        mock_sdk = _make_mock_sdk()
+        mock_reading_stub = MagicMock()
+        mock_group_stub = MagicMock()
+
+        now = datetime(2026, 7, 4, 12, 0, 0, tzinfo=timezone.utc)
+        # one page per chunk, each with a timestamp inside that chunk
+        resp_1 = MagicMock()
+        resp_1.entries = [_make_entry('uid-1', LogLevel.INFO, 'msg', now - timedelta(hours=3, minutes=30))]
+        resp_1.next_page_token = ''
+        resp_2 = MagicMock()
+        resp_2.entries = [_make_entry('uid-2', LogLevel.INFO, 'msg', now - timedelta(hours=2, minutes=30))]
+        resp_2.next_page_token = ''
+        resp_3 = MagicMock()
+        resp_3.entries = [_make_entry('uid-3', LogLevel.INFO, 'msg', now - timedelta(hours=1, minutes=30))]
+        resp_3.next_page_token = ''
+        resp_4 = MagicMock()
+        resp_4.entries = [_make_entry('uid-4', LogLevel.INFO, 'msg', now - timedelta(minutes=30))]
+        resp_4.next_page_token = ''
+        mock_reading_stub.Read.side_effect = [resp_1, resp_2, resp_3, resp_4]
+
+        def client_side_effect(stub_cls):
+            if stub_cls == LogGroupServiceStub:
+                return mock_group_stub
+            if stub_cls == LogReadingServiceStub:
+                return mock_reading_stub
+            return MagicMock()
+
+        mock_sdk.client.side_effect = client_side_effect
+
+        from_time = now - timedelta(hours=4)
+
+        with patch('tools.log_inspector._utils.yc_logging.SDK', return_value=mock_sdk):
+            client = YCLoggingClient()
+            entries = client.read_all_logs(
+                'lg-x',
+                from_time=from_time,
+                to_time=now,
+                slice_hours=1.0,
+            )
+
+        assert len(entries) == 4  # 4 chunks, one entry each
+        assert mock_reading_stub.Read.call_count == 4
+        # each chunk sends criteria with since, but NEVER until
+        for call in mock_reading_stub.Read.call_args_list:
+            request = call[0][0]
+            assert request.HasField('criteria')
+            assert request.criteria.HasField('since')
+            assert not request.criteria.HasField('until')
+
+    def test_read_all_logs_retries_transient_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """gRPC errors are retried per chunk."""
+        monkeypatch.setenv('YC_LOG_INSPECTOR_SA_JSON', json.dumps(SERVICE_ACCOUNT_KEY))
+
+        mock_sdk = _make_mock_sdk()
+        mock_reading_stub = MagicMock()
+        mock_group_stub = MagicMock()
+
+        now = datetime(2026, 7, 4, 12, 0, 0, tzinfo=timezone.utc)
+        resp_ok = MagicMock()
+        resp_ok.entries = [_make_entry('uid-1', LogLevel.INFO, 'msg', now)]
+        resp_ok.next_page_token = ''
+
+        mock_reading_stub.Read.side_effect = [RuntimeError('boom'), resp_ok]
+
+        def client_side_effect(stub_cls):
+            if stub_cls == LogGroupServiceStub:
+                return mock_group_stub
+            if stub_cls == LogReadingServiceStub:
+                return mock_reading_stub
+            return MagicMock()
+
+        mock_sdk.client.side_effect = client_side_effect
+
+        from_time = now - timedelta(hours=1)
+
+        with patch('tools.log_inspector._utils.yc_logging.SDK', return_value=mock_sdk):
+            client = YCLoggingClient()
+            entries = client.read_all_logs(
+                'lg-x',
+                from_time=from_time,
+                to_time=now,
+                slice_hours=1.0,
+            )
+
+        assert len(entries) == 1
+        assert mock_reading_stub.Read.call_count == 2  # 1 failed + 1 ok
