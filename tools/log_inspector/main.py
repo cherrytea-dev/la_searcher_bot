@@ -22,12 +22,14 @@ Usage:
   uv run python tools/log_inspector/main.py raw <log-group-id> --hours 1 --level ERROR
 
 Known YC Logging quirks (handled automatically):
-  * Page token without criteria returns empty pages — criteria is always sent
-    together with the page token.
-  * `until` in criteria can make pagination return empty pages for large
-    windows — the window is split into `--slice-hours` chunks (default 1h).
-  * gRPC UNAVAILABLE / transient errors are retried per chunk.
-  * A session caps at ~20k entries — slicing also works around this.
+  * Filtered reads (levels / filter): page_token pagination returns empty
+    pages after a criteria with levels+until, so each window is read with one
+    criteria request (since+until+levels); a full page (page_size) triggers
+    recursive window bisection until every half fits in one page.
+  * Unfiltered reads: page_token pagination works; `until` is not sent and
+    `to_time` is applied client-side. The window is split into
+    `--slice-hours` chunks (default 1h).
+  * gRPC UNAVAILABLE / transient errors are retried per request.
 """
 
 import json

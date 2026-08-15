@@ -36,6 +36,15 @@ _LEVEL_TO_PROTO: dict[str, int] = {
     'FATAL': LogLevel.FATAL,
 }
 
+# Below this window size filtered reads stop bisecting and accept a full page.
+_MIN_WINDOW = timedelta(minutes=1)
+
+# Pause between gRPC Read requests to stay under YC's ~5 rps limit.
+_THROTTLE_SECONDS = 0.3
+
+# YC caps Criteria.page_size at 1000.
+_MAX_PAGE_SIZE = 1000
+
 
 class AuthError(RuntimeError):
     """Authentication-related errors."""
@@ -73,6 +82,20 @@ def _entry_to_dict(entry: Any) -> dict[str, Any]:
     if entry.HasField('json_payload') and entry.json_payload:
         d['json_payload'] = MessageToDict(entry.json_payload)
     return d
+
+
+def _dedupe_by_uid(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Drop duplicate entries by 'uid', keeping the first occurrence."""
+    seen: set[str] = set()
+    deduped: list[dict[str, Any]] = []
+    for entry in entries:
+        uid = entry.get('uid')
+        if uid and uid in seen:
+            continue
+        if uid:
+            seen.add(uid)
+        deduped.append(entry)
+    return deduped
 
 
 class YCLoggingClient:
@@ -159,43 +182,54 @@ class YCLoggingClient:
         max_pages: int = 500,
         slice_hours: float = 1.0,
         retries: int = 3,
+        page_size: int = 1000,
+        throttle_seconds: float = _THROTTLE_SECONDS,
     ) -> list[dict[str, Any]]:
-        """Read all matching log entries (auto-paginated, window-sliced).
+        """Read all matching log entries.
 
-        Observed YC Logging quirks (2026-08-15):
+        Filtered reads (``levels`` and/or ``filter_str``) cannot rely on
+        page_token pagination: after a criteria that combines levels and
+        ``until``, a page_token request comes back **empty**, silently
+        dropping matches. So filtered reads never paginate — one criteria
+        request (since+until+levels) per window. If the page comes back full
+        (``len(entries) == page_size``) the window may hold more matches, so
+        it is bisected in half recursively (down to ``_MIN_WINDOW``) and each
+        half is read the same way. The full page's own entries are kept too;
+        results are deduplicated by ``uid`` (bisected halves may overlap at
+        the boundary).
 
-        * ``page_token`` and ``criteria`` are a protobuf ``oneof`` — sending
-          both silently drops criteria. First request uses criteria, subsequent
-          pages use the token alone.
-        * ``until`` in criteria breaks pagination: the first page returns a
-          token, but the next ``page_token`` request comes back **empty**.
-          Workaround: never send ``until``; filter ``to_time`` client-side.
-        * Large windows / heavy filters may raise gRPC UNAVAILABLE — split
-          the window into ``slice_hours`` chunks and retry each chunk.
-        * A read session caps at ~20k entries — slicing also works around this.
+        Unfiltered reads keep page_token pagination (tokens work there):
+        ``until`` is NOT sent and ``to_time`` is applied client-side.
+
+        Read requests are throttled (``throttle_seconds``) to respect YC's
+        ~5 requests/second limit; transient gRPC errors are retried.
 
         Args:
             log_group_id: YC log group id.
             levels: log levels to filter by (e.g. ['ERROR']).
             filter_str: custom YC filter expression.
-            from_time / to_time: window bounds (UTC). ``to_time`` is applied
-                client-side because ``until`` breaks pagination.
-            max_pages: max pages per chunk (page_size=100).
-            slice_hours: window slice size in hours. Set to 0 to disable slicing.
-            retries: how many times to retry a failed chunk read.
+            from_time / to_time: window bounds (UTC).
+            max_pages: max pages per chunk (unfiltered path only).
+            slice_hours: window slice size in hours. Set to 0 to disable
+                slicing — filtered reads then rely on bisection.
+            retries: how many times to retry a failed Read call.
+            page_size: page size for Read requests (max 1000).
+            throttle_seconds: pause between Read requests (~0.3-0.5s).
         """
         if from_time is None:
             from_time = datetime.now(timezone.utc) - timedelta(hours=1)
         if to_time is None:
             to_time = datetime.now(timezone.utc)
 
+        page_size = max(1, min(page_size, _MAX_PAGE_SIZE))
+
+        entries: list[dict[str, Any]] = []
         if slice_hours and slice_hours > 0:
-            entries: list[dict[str, Any]] = []
             t = from_time
             while t < to_time:
                 chunk_to = min(t + timedelta(hours=slice_hours), to_time)
                 entries.extend(
-                    self._read_chunk(
+                    self._read_window(
                         log_group_id,
                         levels=levels,
                         filter_str=filter_str,
@@ -203,11 +237,53 @@ class YCLoggingClient:
                         to_time=chunk_to,
                         max_pages=max_pages,
                         retries=retries,
+                        page_size=page_size,
+                        throttle_seconds=throttle_seconds,
                     )
                 )
                 t = chunk_to
-            return entries
+        else:
+            entries.extend(
+                self._read_window(
+                    log_group_id,
+                    levels=levels,
+                    filter_str=filter_str,
+                    from_time=from_time,
+                    to_time=to_time,
+                    max_pages=max_pages,
+                    retries=retries,
+                    page_size=page_size,
+                    throttle_seconds=throttle_seconds,
+                )
+            )
 
+        return _dedupe_by_uid(entries)
+
+    def _read_window(
+        self,
+        log_group_id: str,
+        *,
+        levels: list[str] | None,
+        filter_str: str | None,
+        from_time: datetime,
+        to_time: datetime,
+        max_pages: int,
+        retries: int,
+        page_size: int,
+        throttle_seconds: float,
+    ) -> list[dict[str, Any]]:
+        """Read one time slice, picking the strategy by whether a filter is set."""
+        if levels or filter_str:
+            return self._read_filtered_window(
+                log_group_id,
+                levels=levels,
+                filter_str=filter_str,
+                from_time=from_time,
+                to_time=to_time,
+                page_size=page_size,
+                retries=retries,
+                throttle_seconds=throttle_seconds,
+            )
         return self._read_chunk(
             log_group_id,
             levels=levels,
@@ -216,7 +292,68 @@ class YCLoggingClient:
             to_time=to_time,
             max_pages=max_pages,
             retries=retries,
+            page_size=page_size,
+            throttle_seconds=throttle_seconds,
         )
+
+    def _read_filtered_window(
+        self,
+        log_group_id: str,
+        *,
+        levels: list[str] | None,
+        filter_str: str | None,
+        from_time: datetime,
+        to_time: datetime,
+        page_size: int,
+        retries: int,
+        throttle_seconds: float,
+    ) -> list[dict[str, Any]]:
+        """Read a filtered window with one criteria request (since+until+levels).
+
+        A full page (``len(entries) == page_size``) means the window may hold
+        more matches than fit in one page — bisect the window and read each
+        half recursively until every half fits in a page or ``_MIN_WINDOW``
+        is reached. Overlaps between halves are removed by uid dedup in
+        ``read_all_logs``.
+        """
+        page = self._read_page(
+            log_group_id,
+            levels=levels,
+            filter_str=filter_str,
+            from_time=from_time,
+            to_time=to_time,
+            page_size=page_size,
+            page_token=None,
+            retries=retries,
+            throttle_seconds=throttle_seconds,
+        )
+        entries = page.get('entries', [])
+
+        if len(entries) < page_size or to_time - from_time <= _MIN_WINDOW:
+            return entries
+
+        mid = from_time + (to_time - from_time) / 2
+        left = self._read_filtered_window(
+            log_group_id,
+            levels=levels,
+            filter_str=filter_str,
+            from_time=from_time,
+            to_time=mid,
+            page_size=page_size,
+            retries=retries,
+            throttle_seconds=throttle_seconds,
+        )
+        right = self._read_filtered_window(
+            log_group_id,
+            levels=levels,
+            filter_str=filter_str,
+            from_time=mid,
+            to_time=to_time,
+            page_size=page_size,
+            retries=retries,
+            throttle_seconds=throttle_seconds,
+        )
+        return entries + left + right
 
     def _read_chunk(
         self,
@@ -228,42 +365,30 @@ class YCLoggingClient:
         to_time: datetime | None,
         max_pages: int,
         retries: int,
+        page_size: int,
+        throttle_seconds: float,
     ) -> list[dict[str, Any]]:
-        """Read one time slice with pagination and per-chunk retries.
+        """Read one time slice via page_token pagination (unfiltered path).
 
-        ``until`` is NOT sent to YC (it breaks page tokens); instead we filter
-        ``to_time`` on the client side.
+        ``until`` is NOT sent to YC (it breaks page tokens); ``to_time`` is
+        filtered on the client side instead.
         """
         entries: list[dict[str, Any]] = []
         page_token: str | None = None
         pages = 0
 
         while pages < max_pages:
-            attempt = 0
-            while True:
-                try:
-                    result = self.read_logs(
-                        log_group_id,
-                        levels=levels,
-                        filter_str=filter_str,
-                        from_time=from_time,
-                        to_time=None,  # NB: until breaks pagination — filter below
-                        page_token=page_token,
-                    )
-                    break
-                except Exception as exc:
-                    attempt += 1
-                    if attempt >= retries:
-                        logger.warning(
-                            'read_logs failed after %d attempts (%s); chunk from=%s to=%s',
-                            attempt,
-                            exc,
-                            from_time,
-                            to_time,
-                        )
-                        return entries
-                    time.sleep(1 * attempt)
-
+            result = self._read_page(
+                log_group_id,
+                levels=levels,
+                filter_str=filter_str,
+                from_time=from_time,
+                to_time=None,  # NB: until breaks pagination — filter below
+                page_size=page_size,
+                page_token=page_token,
+                retries=retries,
+                throttle_seconds=throttle_seconds,
+            )
             batch = result.get('entries', [])
             if to_time is not None:
                 batch = [e for e in batch if e.get('timestamp', '') < to_time.isoformat()]
@@ -275,6 +400,51 @@ class YCLoggingClient:
                 break
 
         return entries
+
+    def _read_page(
+        self,
+        log_group_id: str,
+        *,
+        levels: list[str] | None,
+        filter_str: str | None,
+        from_time: datetime | None,
+        to_time: datetime | None,
+        page_size: int,
+        page_token: str | None,
+        retries: int,
+        throttle_seconds: float,
+    ) -> dict[str, Any]:
+        """Single Read call with throttling and per-call retries.
+
+        Returns ``{'entries': [...], 'next_page_token': ...}`` or an empty
+        page dict if all retries are exhausted.
+        """
+        attempt = 0
+        while True:
+            try:
+                if throttle_seconds > 0:
+                    time.sleep(throttle_seconds)
+                return self.read_logs(
+                    log_group_id,
+                    levels=levels,
+                    filter_str=filter_str,
+                    from_time=from_time,
+                    to_time=to_time,
+                    page_size=page_size,
+                    page_token=page_token,
+                )
+            except Exception as exc:
+                attempt += 1
+                if attempt >= retries:
+                    logger.warning(
+                        'read_logs failed after %d attempts (%s); window from=%s to=%s',
+                        attempt,
+                        exc,
+                        from_time,
+                        to_time,
+                    )
+                    return {'entries': [], 'next_page_token': None}
+                time.sleep(1 * attempt)
 
     def close(self) -> None:
         """No-op for compatibility; gRPC channels managed by SDK."""

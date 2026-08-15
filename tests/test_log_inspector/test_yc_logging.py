@@ -218,7 +218,7 @@ class TestReadLogs:
 
         with patch('tools.log_inspector._utils.yc_logging.SDK', return_value=mock_sdk):
             client = YCLoggingClient()
-            entries = client.read_all_logs('lg-xxx')
+            entries = client.read_all_logs('lg-xxx', throttle_seconds=0)
 
         assert len(entries) == 2
 
@@ -231,11 +231,14 @@ class TestReadLogs:
 
         now = datetime(2026, 7, 4, 18, 0, 0, tzinfo=timezone.utc)
 
-        resp = MagicMock()
-        resp.entries = [_make_entry('uid-1', LogLevel.INFO, 'msg', now)]
-        resp.next_page_token = 'still-more'
+        resp_1 = MagicMock()
+        resp_1.entries = [_make_entry('uid-1', LogLevel.INFO, 'msg', now)]
+        resp_1.next_page_token = 'still-more'
+        resp_2 = MagicMock()
+        resp_2.entries = [_make_entry('uid-2', LogLevel.INFO, 'msg', now)]
+        resp_2.next_page_token = 'still-more'
 
-        mock_reading_stub.Read.return_value = resp
+        mock_reading_stub.Read.side_effect = [resp_1, resp_2]
 
         def client_side_effect(stub_cls):
             if stub_cls == LogGroupServiceStub:
@@ -248,7 +251,7 @@ class TestReadLogs:
 
         with patch('tools.log_inspector._utils.yc_logging.SDK', return_value=mock_sdk):
             client = YCLoggingClient()
-            entries = client.read_all_logs('lg-xxx', max_pages=2, slice_hours=0)
+            entries = client.read_all_logs('lg-xxx', max_pages=2, slice_hours=0, throttle_seconds=0)
 
         assert len(entries) == 2
 
@@ -359,6 +362,7 @@ class TestReadLogs:
                 from_time=from_time,
                 to_time=now,
                 slice_hours=1.0,
+                throttle_seconds=0,
             )
 
         assert len(entries) == 4  # 4 chunks, one entry each
@@ -403,7 +407,141 @@ class TestReadLogs:
                 from_time=from_time,
                 to_time=now,
                 slice_hours=1.0,
+                throttle_seconds=0,
             )
 
         assert len(entries) == 1
         assert mock_reading_stub.Read.call_count == 2  # 1 failed + 1 ok
+
+    def test_read_all_logs_bisects_full_page(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Filtered read: a full page triggers window bisection; union is deduped."""
+        monkeypatch.setenv('YC_LOG_INSPECTOR_SA_JSON', json.dumps(SERVICE_ACCOUNT_KEY))
+
+        mock_sdk = _make_mock_sdk()
+        mock_reading_stub = MagicMock()
+        mock_group_stub = MagicMock()
+
+        to_time = datetime(2026, 7, 4, 12, 0, 0, tzinfo=timezone.utc)
+        from_time = to_time - timedelta(hours=24)
+        page_size = 10
+        mid = from_time + (to_time - from_time) / 2
+
+        def entries_for(uids: range) -> list[MagicMock]:
+            return [_make_entry(f'uid-{i}', LogLevel.ERROR, 'err', to_time) for i in uids]
+
+        resp_full = MagicMock()
+        resp_full.entries = entries_for(range(1, page_size + 1))  # 10 == page_size → full
+        resp_full.next_page_token = ''
+        resp_left = MagicMock()
+        resp_left.entries = entries_for(range(1, 7))  # 6 → fits in a page
+        resp_left.next_page_token = ''
+        resp_right = MagicMock()
+        resp_right.entries = entries_for(range(4, 11))  # 7, overlaps left by uid-4..6
+        resp_right.next_page_token = ''
+
+        mock_reading_stub.Read.side_effect = [resp_full, resp_left, resp_right]
+
+        def client_side_effect(stub_cls):
+            if stub_cls == LogGroupServiceStub:
+                return mock_group_stub
+            if stub_cls == LogReadingServiceStub:
+                return mock_reading_stub
+            return MagicMock()
+
+        mock_sdk.client.side_effect = client_side_effect
+
+        with patch('tools.log_inspector._utils.yc_logging.SDK', return_value=mock_sdk):
+            client = YCLoggingClient()
+            entries = client.read_all_logs(
+                'lg-x',
+                levels=['ERROR'],
+                from_time=from_time,
+                to_time=to_time,
+                slice_hours=0,
+                page_size=page_size,
+                throttle_seconds=0,
+            )
+
+        assert {e['uid'] for e in entries} == {f'uid-{i}' for i in range(1, 11)}
+        assert len(entries) == 10  # raw 10+6+7 = 23, deduped to 10 unique
+        assert mock_reading_stub.Read.call_count == 3
+
+        # filtered path sends since+until+levels in criteria on every call
+        for call in mock_reading_stub.Read.call_args_list:
+            request = call[0][0]
+            assert request.HasField('criteria')
+            assert request.criteria.HasField('since')
+            assert request.criteria.HasField('until')
+            assert list(request.criteria.levels) == [LogLevel.ERROR]
+            assert request.criteria.page_size == page_size
+
+        # the window is actually bisected in half
+        left_req = mock_reading_stub.Read.call_args_list[1][0][0]
+        right_req = mock_reading_stub.Read.call_args_list[2][0][0]
+        assert left_req.criteria.since.ToDatetime() == from_time.replace(tzinfo=None)
+        assert left_req.criteria.until.ToDatetime() == mid.replace(tzinfo=None)
+        assert right_req.criteria.since.ToDatetime() == mid.replace(tzinfo=None)
+        assert right_req.criteria.until.ToDatetime() == to_time.replace(tzinfo=None)
+
+    def test_read_all_logs_propagates_page_size(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Explicit page_size reaches the Read criteria."""
+        monkeypatch.setenv('YC_LOG_INSPECTOR_SA_JSON', json.dumps(SERVICE_ACCOUNT_KEY))
+
+        mock_sdk = _make_mock_sdk()
+        mock_reading_stub = MagicMock()
+        mock_group_stub = MagicMock()
+
+        now = datetime(2026, 7, 4, 12, 0, 0, tzinfo=timezone.utc)
+        resp = MagicMock()
+        resp.entries = [_make_entry('uid-1', LogLevel.INFO, 'msg', now)]
+        resp.next_page_token = ''
+        mock_reading_stub.Read.return_value = resp
+
+        def client_side_effect(stub_cls):
+            if stub_cls == LogGroupServiceStub:
+                return mock_group_stub
+            if stub_cls == LogReadingServiceStub:
+                return mock_reading_stub
+            return MagicMock()
+
+        mock_sdk.client.side_effect = client_side_effect
+
+        with patch('tools.log_inspector._utils.yc_logging.SDK', return_value=mock_sdk):
+            client = YCLoggingClient()
+            client.read_all_logs('lg-x', slice_hours=0, page_size=500, throttle_seconds=0)
+
+        request = mock_reading_stub.Read.call_args[0][0]
+        assert request.criteria.page_size == 500
+
+    def test_read_all_logs_default_and_clamped_page_size(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Default page_size is 1000; values above the YC cap are clamped."""
+        monkeypatch.setenv('YC_LOG_INSPECTOR_SA_JSON', json.dumps(SERVICE_ACCOUNT_KEY))
+
+        mock_sdk = _make_mock_sdk()
+        mock_reading_stub = MagicMock()
+        mock_group_stub = MagicMock()
+
+        now = datetime(2026, 7, 4, 12, 0, 0, tzinfo=timezone.utc)
+        resp = MagicMock()
+        resp.entries = [_make_entry('uid-1', LogLevel.INFO, 'msg', now)]
+        resp.next_page_token = ''
+        mock_reading_stub.Read.return_value = resp
+
+        def client_side_effect(stub_cls):
+            if stub_cls == LogGroupServiceStub:
+                return mock_group_stub
+            if stub_cls == LogReadingServiceStub:
+                return mock_reading_stub
+            return MagicMock()
+
+        mock_sdk.client.side_effect = client_side_effect
+
+        with patch('tools.log_inspector._utils.yc_logging.SDK', return_value=mock_sdk):
+            client = YCLoggingClient()
+            client.read_all_logs('lg-x', slice_hours=0, throttle_seconds=0)
+            client.read_all_logs('lg-x', slice_hours=0, page_size=5000, throttle_seconds=0)
+
+        default_req = mock_reading_stub.Read.call_args_list[0][0][0]
+        clamped_req = mock_reading_stub.Read.call_args_list[1][0][0]
+        assert default_req.criteria.page_size == 1000
+        assert clamped_req.criteria.page_size == 1000
