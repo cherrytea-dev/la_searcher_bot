@@ -52,6 +52,11 @@ class MaxKeyboardButtons:
     BTN_RADIUS_VIEW: str = 'посмотреть радиус'
     BTN_RADIUS_DELETE: str = 'удалить радиус'
 
+    # Reset settings
+    BTN_RESET_SETTINGS: str = 'снести все настройки на дефолт'
+    BTN_RESET_CONFIRM: str = 'да, снести настройки'
+    BTN_RESET_KEEP: str = 'нет, оставить как есть'
+
 
 class MaxKeyboardPresets(MaxKeyboardButtons):
     """Preset keyboard builders for the MAX bot."""
@@ -71,6 +76,7 @@ class MaxKeyboardPresets(MaxKeyboardButtons):
             .row(CallbackButton(text=cls.BTN_SETTINGS_RADIUS, payload=json.dumps({'cmd': 'radius'})))
             .row(CallbackButton(text=cls.BTN_SETTINGS_COORDS, payload=json.dumps({'cmd': 'coords'})))
             .row(CallbackButton(text=delivery_status_button, payload=json.dumps({'cmd': delivery_status_cmd})))
+            .row(CallbackButton(text=cls.BTN_RESET_SETTINGS, payload=json.dumps({'cmd': 'reset_settings'})))
             .as_markup()
         )
 
@@ -175,5 +181,15 @@ class MaxKeyboardPresets(MaxKeyboardButtons):
         return (
             InlineKeyboardBuilder()
             .row(CallbackButton(text=NavButton.BACK, payload=json.dumps({'cmd': 'back_to_main'})))
+            .as_markup()
+        )
+
+    @classmethod
+    def reset_confirm(cls) -> AttachmentButton:
+        """Confirmation keyboard for resetting all settings to defaults."""
+        return (
+            InlineKeyboardBuilder()
+            .row(CallbackButton(text=cls.BTN_RESET_CONFIRM, payload=json.dumps({'cmd': 'reset_confirm'})))
+            .row(CallbackButton(text=cls.BTN_RESET_KEEP, payload=json.dumps({'cmd': 'reset_cancel'})))
             .as_markup()
         )

@@ -29,6 +29,7 @@ from ..buttons import (
     MainSettingsMenu,
     OrdersState,
     OtherOptionsMenu,
+    ResetSettingsConfirm,
     RoleChoice,
     TopicTypeInlineKeyboardBuilder,
     b_admin_menu,
@@ -462,6 +463,7 @@ def handle_main_settings(ctx: TGHandlerContext) -> None:
         MainSettingsMenu.b_set_pref_age,
         MainSettingsMenu.b_set_forum_nick,
         MainSettingsMenu.b_set_vkontakte_nick,
+        MainSettingsMenu.b_reset_settings,
         b_back_to_start,
     ]  # #AK added b_set_forum_nick for issue #6
     ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
@@ -488,6 +490,39 @@ def handle_enable_notifications(ctx: TGHandlerContext) -> None:
         'Уведомления снова включены. Бот будет присылать сообщения согласно '
         'вашим сохранённым настройкам регионов и типов уведомлений.'
     )
+    keyboard = [MainSettingsMenu.b_set_pref_notif_type, b_menu_set_region, b_back_to_start]
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
+
+
+@tg_handle(text=MainSettingsMenu.b_reset_settings)
+def handle_reset_settings_confirm_prompt(ctx: TGHandlerContext) -> None:
+    """Show confirmation before wiping all settings to defaults."""
+    bot_message = (
+        'Точно снести все настройки на дефолт?\n\n'
+        'Будут удалены: регионы, домашние координаты, радиус, возрастные группы, '
+        'отслеживание поисков. Уведомления и виды поисков вернутся к стандартным.\n\n'
+        'Роль и привязка аккаунтов не изменятся.'
+    )
+    keyboard = [ResetSettingsConfirm.b_reset_confirm, ResetSettingsConfirm.b_reset_cancel]
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
+
+
+@tg_handle(text=ResetSettingsConfirm.b_reset_confirm)
+def handle_reset_settings_confirm(ctx: TGHandlerContext) -> None:
+    """Wipe settings, restore defaults, then prompt region re-selection."""
+    ctx.db.reset_user_settings(ctx.user_id)
+    bot_message = (
+        'Готово, все настройки сброшены на дефолт.\n\n'
+        'Регион теперь не выбран — настройте его заново, чтобы получать уведомления.'
+    )
+    keyboard = [b_menu_set_region, b_back_to_start]
+    ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
+
+
+@tg_handle(text=ResetSettingsConfirm.b_reset_cancel)
+def handle_reset_settings_cancel(ctx: TGHandlerContext) -> None:
+    """Cancel the reset — keep settings as-is."""
+    bot_message = 'Ок, ничего не трогаю. Ваши настройки не изменились.'
     keyboard = [MainSettingsMenu.b_set_pref_notif_type, b_menu_set_region, b_back_to_start]
     ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
 

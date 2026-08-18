@@ -7,6 +7,16 @@ import sqlalchemy
 from _dependencies.common.db_client import DBClientMixinBase
 
 
+def default_topic_type_ids(user_role: str | None) -> list[int]:
+    """Return default topic type IDs for a given user role.
+
+    Single source of truth used both on registration and on settings reset.
+    """
+    if user_role in {'member', 'new_member'}:
+        return [0, 3, 4, 5]  # regular, training, info_support, resonance
+    return [0, 4, 5]  # regular, info_support, resonance
+
+
 class TopicTypeMixin(DBClientMixinBase):
     """User topic type preference operations."""
 
@@ -49,10 +59,5 @@ class TopicTypeMixin(DBClientMixinBase):
         if not user_id:
             return
 
-        if user_role in {'member', 'new_member'}:
-            default_ids = [0, 3, 4, 5]  # regular, training, info_support, resonance
-        else:
-            default_ids = [0, 4, 5]  # regular, info_support, resonance
-
-        for type_id in default_ids:
+        for type_id in default_topic_type_ids(user_role):
             self.save_topic_type(user_id, type_id)

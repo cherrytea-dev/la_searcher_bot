@@ -121,6 +121,11 @@ class VKKeyboardButtons:
     BTN_CONFIRM_DELETE: str = 'да, удалить'
     BTN_CONFIRM_KEEP: str = 'нет, оставить'
 
+    # Reset settings
+    BTN_RESET_SETTINGS: str = 'снести все настройки на дефолт'
+    BTN_RESET_CONFIRM: str = 'да, снести настройки'
+    BTN_RESET_KEEP: str = 'нет, оставить как есть'
+
     # Forum / VK linking
     BTN_FORUM_ENTER_NICK: str = 'ввести ник с форума'
     BTN_VK_LINK: str = 'связать аккаунты'
@@ -362,6 +367,7 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
                 cls.BTN_SETTINGS_COORDS,
                 cls.BTN_SETTINGS_RADIUS,
                 delivery_status_button,
+                cls.BTN_RESET_SETTINGS,
                 NavButton.BACK_TO_START,
             ]
         )
@@ -578,6 +584,11 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
     def confirm_delete(cls) -> dict:
         """Confirmation keyboard for destructive actions."""
         return cls.two_columns([cls.BTN_CONFIRM_DELETE, cls.BTN_CONFIRM_KEEP], color='positive')
+
+    @classmethod
+    def reset_confirm(cls) -> dict:
+        """Confirmation keyboard for resetting all settings to defaults."""
+        return cls.two_columns([cls.BTN_RESET_CONFIRM, cls.BTN_RESET_KEEP], color='negative')
 
     @classmethod
     def forum_linking(cls) -> dict:

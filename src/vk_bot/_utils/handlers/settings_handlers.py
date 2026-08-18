@@ -26,6 +26,9 @@ from vk_bot._utils.services.message_formatter import (
     radius_intro_no_radius,
     radius_intro_with_radius,
     region_selection_intro,
+    reset_settings_cancelled,
+    reset_settings_confirm,
+    reset_settings_done,
     vk_already_linked,
     vk_link_instructions,
 )
@@ -125,6 +128,39 @@ def handle_radius_disable(ctx: VKHandlerContext) -> None:
     ctx.db.delete_radius(ctx.user_id)
     ctx.reply(
         text=radius_deleted(),
+        keyboard=VKKeyboardPresets.settings_menu(),
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Reset settings to defaults
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@vk_handle(text=VKKeyboardButtons.BTN_RESET_SETTINGS)
+def handle_reset_settings(ctx: VKHandlerContext) -> None:
+    """Handle 'снести все настройки на дефолт' button — show confirmation."""
+    ctx.reply(
+        text=reset_settings_confirm(),
+        keyboard=VKKeyboardPresets.reset_confirm(),
+    )
+
+
+@vk_handle(text=VKKeyboardButtons.BTN_RESET_CONFIRM)
+def handle_reset_settings_confirm(ctx: VKHandlerContext) -> None:
+    """Handle confirmed reset — wipe settings, restore defaults, re-pick region."""
+    ctx.db.reset_user_settings(ctx.user_id)
+    ctx.reply(
+        text=reset_settings_done(),
+        keyboard=VKKeyboardPresets.fed_districts_inline(),
+    )
+
+
+@vk_handle(text=VKKeyboardButtons.BTN_RESET_KEEP)
+def handle_reset_settings_cancel(ctx: VKHandlerContext) -> None:
+    """Handle cancelled reset — keep settings as-is."""
+    ctx.reply(
+        text=reset_settings_cancelled(),
         keyboard=VKKeyboardPresets.settings_menu(),
     )
 

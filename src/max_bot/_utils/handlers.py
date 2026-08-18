@@ -69,6 +69,9 @@ from .message_formatter import (
     REGION_SELECTION_DONE,
     REGION_TOGGLED_OFF,
     REGION_TOGGLED_ON,
+    RESET_CANCELLED,
+    RESET_CONFIRM,
+    RESET_DONE,
     UNKNOWN_COMMAND,
     WELCOME_TEXT,
 )
@@ -333,6 +336,45 @@ async def on_enable_notifications(event: MessageCallback) -> None:
     await event.edit(
         text=NOTIFICATIONS_ENABLED,
         attachments=[MaxKeyboardPresets.main_menu(notifications_disabled=False)],
+    )
+
+
+@router.message_callback(PayloadCmd('reset_settings'))
+async def on_reset_settings(event: MessageCallback) -> None:
+    """Show confirmation before wiping all settings to defaults."""
+    await event.ack(notification='...')
+    await event.edit(
+        text=RESET_CONFIRM,
+        attachments=[MaxKeyboardPresets.reset_confirm()],
+    )
+
+
+@router.message_callback(PayloadCmd('reset_confirm'))
+async def on_reset_confirm(event: MessageCallback) -> None:
+    """Wipe settings, restore defaults, then prompt region re-selection."""
+    user_id = _get_user_id(event)
+    if user_id is None:
+        return
+
+    db = _get_db()
+    db.reset_user_settings(user_id)
+    logger.info('User %s reset settings to defaults', user_id)
+
+    await event.ack(notification='...')
+    await event.edit(
+        text=RESET_DONE,
+        attachments=[MaxKeyboardPresets.fed_districts_inline()],
+    )
+
+
+@router.message_callback(PayloadCmd('reset_cancel'))
+async def on_reset_cancel(event: MessageCallback) -> None:
+    """Cancel the reset — keep settings as-is."""
+    user_id = _get_user_id(event)
+    await event.ack(notification='...')
+    await event.edit(
+        text=RESET_CANCELLED,
+        attachments=[_main_menu_for_user(user_id) if user_id else MaxKeyboardPresets.main_menu()],
     )
 
 

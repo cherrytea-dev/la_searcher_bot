@@ -118,8 +118,22 @@ def _write_new_user_status(
     )
 
 
-def _save_default_notif_settings(conn: sqlalchemy.engine.Connection, user_id: int) -> None:
-    """if the user is new – set the default notification categories in user_preferences table"""
+# Default notification preferences assigned on registration and restored on reset.
+# Single source of truth: (preference_name, pref_id) pairs matching PREF_DICT in commons.
+DEFAULT_NOTIFICATION_PREFS: tuple[tuple[str, int], ...] = (
+    ('new_searches', 0),
+    ('status_changes', 1),
+    ('inforg_comments', 4),
+    ('first_post_changes', 8),
+    ('bot_news', 20),
+)
+
+
+def save_default_notification_settings(conn: sqlalchemy.engine.Connection, user_id: int) -> None:
+    """Insert the default notification categories into user_preferences table.
+
+    Idempotent: ``ON CONFLICT DO NOTHING`` means calling it twice is harmless.
+    """
 
     stmt = sqlalchemy.text("""
                 INSERT INTO user_preferences (user_id, preference, pref_id)
@@ -127,20 +141,15 @@ def _save_default_notif_settings(conn: sqlalchemy.engine.Connection, user_id: in
                 ON CONFLICT (user_id, pref_id) DO NOTHING
         """)
 
-    # default notification settings
-    list_of_parameters = [
-        (user_id, 'new_searches', 0),
-        (user_id, 'status_changes', 1),
-        (user_id, 'inforg_comments', 4),
-        (user_id, 'first_post_changes', 8),
-        (user_id, 'bot_news', 20),
-    ]
-    # apply default notification settings – write to PSQL in not exist (due to repetitions of pub/sub messages)
-    for params in list_of_parameters:
-        params_dict = {'user_id': params[0], 'preference': params[1], 'pref_id': params[2]}
-        conn.execute(stmt, params_dict)
+    for pref_name, pref_id in DEFAULT_NOTIFICATION_PREFS:
+        conn.execute(stmt, {'user_id': user_id, 'preference': pref_name, 'pref_id': pref_id})
 
-    logging.info(f'New user with id: {user_id}, default notif categories were set.')
+    logging.info(f'Default notification categories set for user {user_id}.')
+
+
+def _save_default_notif_settings(conn: sqlalchemy.engine.Connection, user_id: int) -> None:
+    """Backward-compatible alias for registration flow."""
+    save_default_notification_settings(conn, user_id)
 
 
 def _save_new_user(
