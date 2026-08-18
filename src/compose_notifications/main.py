@@ -14,7 +14,6 @@ from ._utils.log_record_composer import LogRecordComposer
 from ._utils.notifications_maker import NotificationMaker
 from ._utils.users_list_composer import UserListFilter, UsersListComposer
 
-INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 250
 FUNC_NAME = 'compose_notifications'
 
 
@@ -76,7 +75,7 @@ def main(event: dict, context: Ctx) -> None:
     new_record: LineInChangeLog | None = None
     analytics_iterations_finish: datetime.datetime | None = None
     try:
-        with lock_manager(db._db, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
+        with lock_manager(db._db, FUNC_NAME):
             # compose New Records List: the delta from Change log
             new_record = LogRecordComposer(db).get_line()
 
