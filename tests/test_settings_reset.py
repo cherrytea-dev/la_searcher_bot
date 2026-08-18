@@ -2,9 +2,11 @@
 
 Covers the shared ``SettingsResetMixin`` exposed via ``UserRepository``:
 - wipes all per-user preference tables
-- re-seeds default notification prefs and default topic types (by role)
+- re-seeds default notification prefs and default topic types (registration state)
+- restores subscription (unsubscribed → unblocked)
+- rolls onboarding back to region selection
 - is idempotent
-- leaves identity/delivery untouched (role, system roles, forum link)
+- leaves identity/delivery untouched (role, system roles, forum link, blocked status)
 """
 
 from random import randint
@@ -15,6 +17,9 @@ import pytest
 from _dependencies.user_repository import UserRepository
 
 DEFAULT_PREFS = {'new_searches', 'status_changes', 'inforg_comments', 'first_post_changes', 'bot_news'}
+# Registration seeds topic types with role=None → [0, 4, 5], regardless of the
+# user's actual role (role-aware [0,3,4,5] is only applied during onboarding).
+REGISTRATION_TOPIC_TYPES = {0, 4, 5}
 
 
 @pytest.fixture
@@ -82,6 +87,18 @@ def _seed_user_with_full_settings(pool, user_id: int, role: str = 'member') -> N
             sqlalchemy.text("INSERT INTO user_roles (user_id, role) VALUES (:u, 'tester')"),
             {'u': user_id},
         )
+        conn.execute(
+            sqlalchemy.text("INSERT INTO user_onboarding (user_id, step_id, step_name) VALUES (:u, 0, 'start')"),
+            {'u': user_id},
+        )
+        conn.execute(
+            sqlalchemy.text("INSERT INTO user_onboarding (user_id, step_id, step_name) VALUES (:u, 10, 'role_set')"),
+            {'u': user_id},
+        )
+        conn.execute(
+            sqlalchemy.text("INSERT INTO user_onboarding (user_id, step_id, step_name) VALUES (:u, 80, 'finished')"),
+            {'u': user_id},
+        )
 
 
 def _count(pool, table: str, user_id: int) -> int:
@@ -114,6 +131,20 @@ def _user_role(pool, user_id: int) -> str | None:
         ).scalar()
 
 
+def _user_status(pool, user_id: int) -> str | None:
+    with pool.begin() as conn:
+        return conn.execute(
+            sqlalchemy.text('SELECT status FROM users WHERE user_id=:u'), {'u': user_id}
+        ).scalar()
+
+
+def _max_onboarding_step(pool, user_id: int) -> int | None:
+    with pool.begin() as conn:
+        return conn.execute(
+            sqlalchemy.text('SELECT MAX(step_id) FROM user_onboarding WHERE user_id=:u'), {'u': user_id}
+        ).scalar()
+
+
 class TestResetUserSettings:
     def test_reset_wipes_preferences_and_reseeds_defaults(self, pool, repo, user_id: int):
         _seed_user_with_full_settings(pool, user_id, role='member')
@@ -122,8 +153,8 @@ class TestResetUserSettings:
 
         # notification prefs → exactly the 5 defaults
         assert _pref_names(pool, user_id) == DEFAULT_PREFS
-        # topic types → default set for member (regular, training, info_support, resonance)
-        assert _topic_type_ids(pool, user_id) == {0, 3, 4, 5}
+        # topic types → registration default (role=None), NOT role-aware onboarding set
+        assert _topic_type_ids(pool, user_id) == REGISTRATION_TOPIC_TYPES
         # everything else wiped
         for table in (
             'user_pref_age',
@@ -136,13 +167,45 @@ class TestResetUserSettings:
         ):
             assert _count(pool, table, user_id) == 0, f'{table} not wiped'
 
-    def test_reset_topic_types_by_role_non_member(self, pool, repo, user_id: int):
-        _seed_user_with_full_settings(pool, user_id, role='relative')
+    def test_reset_is_registration_state_for_any_role(self, pool, repo, user_id: int):
+        """Even a member gets registration topic types [0,4,5], not [0,3,4,5]."""
+        _seed_user_with_full_settings(pool, user_id, role='member')
 
         repo.reset_user_settings(user_id)
 
-        # relative (non member/new_member) → [0, 4, 5]
         assert _topic_type_ids(pool, user_id) == {0, 4, 5}
+
+    def test_reset_restores_subscription(self, pool, repo, user_id: int):
+        _seed_user_with_full_settings(pool, user_id)
+        with pool.begin() as conn:
+            conn.execute(
+                sqlalchemy.text("UPDATE users SET status='unsubscribed' WHERE user_id=:u"),
+                {'u': user_id},
+            )
+
+        repo.reset_user_settings(user_id)
+
+        assert _user_status(pool, user_id) == 'unblocked'
+
+    def test_reset_does_not_unblock_admin_blocked_user(self, pool, repo, user_id: int):
+        _seed_user_with_full_settings(pool, user_id)
+        with pool.begin() as conn:
+            conn.execute(
+                sqlalchemy.text("UPDATE users SET status='blocked' WHERE user_id=:u"),
+                {'u': user_id},
+            )
+
+        repo.reset_user_settings(user_id)
+
+        assert _user_status(pool, user_id) == 'blocked'
+
+    def test_reset_rolls_onboarding_back_to_region_selection(self, pool, repo, user_id: int):
+        _seed_user_with_full_settings(pool, user_id)
+
+        repo.reset_user_settings(user_id)
+
+        # finished(80) removed; max step should now be role_set(10)
+        assert _max_onboarding_step(pool, user_id) == 10
 
     def test_reset_preserves_identity(self, pool, repo, user_id: int):
         _seed_user_with_full_settings(pool, user_id, role='member')
@@ -163,4 +226,5 @@ class TestResetUserSettings:
         repo.reset_user_settings(user_id)
 
         assert _pref_names(pool, user_id) == DEFAULT_PREFS
-        assert _topic_type_ids(pool, user_id) == {0, 3, 4, 5}
+        assert _topic_type_ids(pool, user_id) == REGISTRATION_TOPIC_TYPES
+        assert _max_onboarding_step(pool, user_id) == 10

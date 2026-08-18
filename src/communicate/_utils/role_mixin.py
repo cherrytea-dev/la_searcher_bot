@@ -11,6 +11,7 @@ import logging
 import sqlalchemy
 
 from _dependencies.common.db_client import DBClientMixinBase
+from _dependencies.user_repository.topic_type import default_topic_type_ids
 
 
 class TelegramRoleMixin(DBClientMixinBase):
@@ -57,9 +58,5 @@ class TelegramRoleMixin(DBClientMixinBase):
         """Save default topic type preferences based on user role."""
         if not user_id:
             return
-        if user_role in {'member', 'new_member'}:
-            default_topic_type_id = [0, 3, 4, 5]
-        else:
-            default_topic_type_id = [0, 4, 5]
-        for type_id in default_topic_type_id:
+        for type_id in default_topic_type_ids(user_role):
             self._save_user_pref_topic_type(user_id, type_id)

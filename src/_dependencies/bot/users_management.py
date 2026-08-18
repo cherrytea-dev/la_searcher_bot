@@ -4,7 +4,11 @@ from enum import Enum
 
 import sqlalchemy
 
-from _dependencies.common.commons import Messenger, sqlalchemy_get_pool
+from _dependencies.common.commons import (
+    Messenger,
+    save_default_notification_settings,
+    sqlalchemy_get_pool,
+)
 
 
 class ManageUserAction(str, Enum):
@@ -116,35 +120,6 @@ def _write_new_user_status(
         """),
         {'status': action_to_write, 'date': timestamp, 'user_id': user_id},
     )
-
-
-# Default notification preferences assigned on registration and restored on reset.
-# Single source of truth: (preference_name, pref_id) pairs matching PREF_DICT in commons.
-DEFAULT_NOTIFICATION_PREFS: tuple[tuple[str, int], ...] = (
-    ('new_searches', 0),
-    ('status_changes', 1),
-    ('inforg_comments', 4),
-    ('first_post_changes', 8),
-    ('bot_news', 20),
-)
-
-
-def save_default_notification_settings(conn: sqlalchemy.engine.Connection, user_id: int) -> None:
-    """Insert the default notification categories into user_preferences table.
-
-    Idempotent: ``ON CONFLICT DO NOTHING`` means calling it twice is harmless.
-    """
-
-    stmt = sqlalchemy.text("""
-                INSERT INTO user_preferences (user_id, preference, pref_id)
-                VALUES (:user_id, :preference, :pref_id)
-                ON CONFLICT (user_id, pref_id) DO NOTHING
-        """)
-
-    for pref_name, pref_id in DEFAULT_NOTIFICATION_PREFS:
-        conn.execute(stmt, {'user_id': user_id, 'preference': pref_name, 'pref_id': pref_id})
-
-    logging.info(f'Default notification categories set for user {user_id}.')
 
 
 def _save_default_notif_settings(conn: sqlalchemy.engine.Connection, user_id: int) -> None:
