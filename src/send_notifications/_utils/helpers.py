@@ -6,7 +6,6 @@ import re
 FUNC_NAME = 'send_notifications'
 
 SCRIPT_SOFT_TIMEOUT_SECONDS = 40  # after which iterations should stop to prevent the whole script timeout
-INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS = 50  # window within which we check for started parallel function
 SLEEP_TIME_FOR_NEW_NOTIFS_RECHECK_SECONDS = 5
 WORKERS_COUNT = 2
 

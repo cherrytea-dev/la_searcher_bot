@@ -14,7 +14,7 @@ from send_notifications._utils.clients.max_notificator import MaxNotificator
 from send_notifications._utils.clients.telegram_notificator import TelegramNotificator
 from send_notifications._utils.clients.vk_notificator import VKNotificator
 from send_notifications._utils.database import DBClient
-from send_notifications._utils.helpers import FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS
+from send_notifications._utils.helpers import FUNC_NAME
 from send_notifications._utils.models import TimeAnalytics
 from send_notifications._utils.services.notification_sender import NotificationSender
 
@@ -40,7 +40,7 @@ def main(event: dict, context: Ctx) -> str | None:
         engine = sqlalchemy_get_pool()
 
         try:
-            with lock_manager(engine, FUNC_NAME, INTERVAL_TO_CHECK_PARALLEL_FUNCTION_SECONDS):
+            with lock_manager(engine, FUNC_NAME):
                 changed_ids = sender.send_all(function_id, time_analytics)
         except FunctionLockError:
             logging.info('script cancelled')
