@@ -16,6 +16,7 @@ from maxapi.types.attachments.buttons.request_geo_location_button import (
 )
 from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
 
+from _dependencies.bot.button_texts import ButtonTexts
 from _dependencies.common.geo import (
     CMD_DISTRICT_SELECT,
     CMD_PAGINATE_FINISH,
@@ -29,23 +30,15 @@ from _dependencies.common.geo import (
 )
 
 
-class MaxKeyboardButtons:
-    """Button label constants — single source of truth for all button labels."""
+class MaxKeyboardButtons(ButtonTexts):
+    """Button label constants.
 
-    # Navigation
-
-    # Main menu
-    BTN_DISABLE_NOTIFICATIONS: str = 'полностью отключить уведомления'
-    BTN_ENABLE_NOTIFICATIONS: str = 'включить уведомления'
-    BTN_SETTINGS_REGION: str = 'настроить регион поисков'
-    BTN_SETTINGS_COORDS: str = 'настроить "домашние координаты"'
-    BTN_SETTINGS_RADIUS: str = 'настроить максимальный радиус'
+    Labels shared with the VK bot are inherited from :class:`ButtonTexts`
+    (:mod:`_dependencies.bot.button_texts`); Max-specific labels are defined here.
+    """
 
     # Coordinates sub-menu
-    BTN_COORDS_ENTER: str = 'ввести "домашние координаты" вручную'
     BTN_COORDS_SEND_GEO: str = 'отправить геолокацию'
-    BTN_COORDS_VIEW: str = 'посмотреть сохраненные координаты'
-    BTN_COORDS_DELETE: str = 'удалить "домашние координаты"'
 
     # Radius settings
     BTN_RADIUS_SET: str = 'установить радиус'
@@ -71,6 +64,7 @@ class MaxKeyboardPresets(MaxKeyboardButtons):
             .row(CallbackButton(text=cls.BTN_SETTINGS_RADIUS, payload=json.dumps({'cmd': 'radius'})))
             .row(CallbackButton(text=cls.BTN_SETTINGS_COORDS, payload=json.dumps({'cmd': 'coords'})))
             .row(CallbackButton(text=delivery_status_button, payload=json.dumps({'cmd': delivery_status_cmd})))
+            .row(CallbackButton(text=cls.BTN_RESET_SETTINGS, payload=json.dumps({'cmd': 'reset_settings'})))
             .as_markup()
         )
 
@@ -175,5 +169,15 @@ class MaxKeyboardPresets(MaxKeyboardButtons):
         return (
             InlineKeyboardBuilder()
             .row(CallbackButton(text=NavButton.BACK, payload=json.dumps({'cmd': 'back_to_main'})))
+            .as_markup()
+        )
+
+    @classmethod
+    def reset_confirm(cls) -> AttachmentButton:
+        """Confirmation keyboard for resetting all settings to defaults."""
+        return (
+            InlineKeyboardBuilder()
+            .row(CallbackButton(text=cls.BTN_RESET_CONFIRM, payload=json.dumps({'cmd': 'reset_confirm'})))
+            .row(CallbackButton(text=cls.BTN_RESET_KEEP, payload=json.dumps({'cmd': 'reset_cancel'})))
             .as_markup()
         )

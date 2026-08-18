@@ -18,6 +18,7 @@ from .geo_pref import GeoPrefMixin
 from .notification_pref import NotificationPrefMixin
 from .region import RegionMixin
 from .search_following import SearchFollowingMixin
+from .settings_reset import SettingsResetMixin
 from .settings_summary import SettingsSummaryMixin
 from .system_role import SystemRoleMixin
 from .topic_type import TopicTypeMixin
@@ -38,6 +39,7 @@ class UserRepository(
     DialogHistoryMixin,
     ForumAttributeMixin,
     UserMixin,
+    SettingsResetMixin,
     SettingsSummaryMixin,
     VKIdentityMixin,
 ):

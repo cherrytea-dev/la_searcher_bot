@@ -17,6 +17,7 @@ from _dependencies.user_repository import (
     NotificationPrefMixin,
     RegionMixin,
     SearchFollowingMixin,
+    SettingsResetMixin,
     SettingsSummaryMixin,
     SystemRoleMixin,
     TopicTypeMixin,
@@ -39,6 +40,7 @@ class DBClient(
     ForumAttributeMixin,
     SystemRoleMixin,
     DialogHistoryMixin,
+    SettingsResetMixin,
     SettingsSummaryMixin,
 ):
     """VK bot DB client composed from consolidated domain-specific mixins.

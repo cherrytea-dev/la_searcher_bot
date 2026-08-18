@@ -1,4 +1,5 @@
 import ast
+import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -211,6 +212,32 @@ PREF_DICT: dict[str, int] = {
     'first_post_changes': 8,
     'all_in_followed_search': 9,
 }
+
+
+# Default notification preferences assigned on registration and restored on
+# reset. Single source of truth — values are pref_ids from PREF_DICT above.
+DEFAULT_NOTIFICATION_PREFS: tuple[tuple[str, int], ...] = (
+    ('new_searches', 0),
+    ('status_changes', 1),
+    ('inforg_comments', 4),
+    ('first_post_changes', 8),
+    ('bot_news', 20),
+)
+
+
+def save_default_notification_settings(conn: sqlalchemy.engine.Connection, user_id: int) -> None:
+    """Insert the default notification categories into user_preferences.
+
+    Idempotent: ``ON CONFLICT DO NOTHING`` makes a second call harmless.
+    """
+    stmt = sqlalchemy.text("""
+        INSERT INTO user_preferences (user_id, preference, pref_id)
+        VALUES (:user_id, :preference, :pref_id)
+        ON CONFLICT (user_id, pref_id) DO NOTHING
+    """)
+    for pref_name, pref_id in DEFAULT_NOTIFICATION_PREFS:
+        conn.execute(stmt, {'user_id': user_id, 'preference': pref_name, 'pref_id': pref_id})
+    logging.info(f'Default notification categories set for user {user_id}.')
 
 
 def add_tel_link(incoming_text: str) -> str:
