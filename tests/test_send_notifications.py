@@ -24,7 +24,12 @@ from send_notifications._utils.helpers import (
 from send_notifications._utils.models import (
     TimeAnalytics,
 )
-from send_notifications._utils.services.notification_sender import NotificationSender, _prepare_message
+from send_notifications._utils.services.notification_sender import (
+    MAX_TELEGRAM_MESSAGE_CHARS,
+    NotificationSender,
+    _close_open_tags,
+    _prepare_message,
+)
 from tests.common import find_model
 from tests.factories.db_factories import NotifByUserFactory, UserFactory, get_session
 from tests.factories.db_models import NotifByUser
@@ -495,12 +500,62 @@ class TestHelpers:
         assert not time_is_out(start)
 
     def test_prepare_message_truncates_long_text(self):
-        long_text = 'A' * 4000
+        """Plain text > Telegram limit → cut at the limit, no tags to break."""
+        long_text = 'A' * 4500
         msg = _make_msg(message_content=long_text)
         content, _ = _prepare_message(msg)
-        assert len(content) == 1500 + 3 + 1000  # 1500 + '...' + 1000
-        assert content.startswith('A' * 1500)
-        assert content.endswith('A' * 1000)
+        assert len(content) == MAX_TELEGRAM_MESSAGE_CHARS
+        assert content == 'A' * MAX_TELEGRAM_MESSAGE_CHARS
+
+    def test_prepare_message_truncates_at_comment_boundary(self):
+        """Long comment message → cut at a comment block boundary, tags stay balanced."""
+        header = 'Новые комментарии по поиску <a href="https://lizaalert.org/forum/viewtopic.php?t=1">Тест</a>:\n'
+        comment = (
+            ' &#8226; <a href="https://lizaalert.org/forum/memberlist.php?mode=viewprofile&u=1">Ник</a>: '
+            '<i>«<a href="https://lizaalert.org/forum/viewtopic.php?&t=1&start=1">комментарий</a>»</i>\n'
+        )
+        long_text = header + comment * 25
+        assert len(long_text) > MAX_TELEGRAM_MESSAGE_CHARS
+
+        msg = _make_msg(message_content=long_text)
+        content, _ = _prepare_message(msg)
+        assert len(content) <= MAX_TELEGRAM_MESSAGE_CHARS
+        assert content.count('<i>') == content.count('</i>')
+        assert content.count('<a ') == content.count('</a>')
+        assert content.rstrip().endswith('»</i>')
+
+    def test_prepare_message_closes_open_tags(self):
+        """Generic HTML cut mid-tag → open tags are closed, result stays valid."""
+        long_text = '<i>«<a href="https://lizaalert.org/forum/viewtopic.php?&t=1&start=1">' + 'A' * 4500
+        msg = _make_msg(message_content=long_text)
+        content, _ = _prepare_message(msg)
+        assert content.count('<i>') == content.count('</i>')
+        assert content.count('<a ') == content.count('</a>')
+        assert content.endswith('</a></i>')
+
+    def test_prepare_message_never_exceeds_telegram_hard_limit(self):
+        """Even with extreme tag nesting, appended closing tags can't push past 4096."""
+        long_text = 'A' * 3900 + '<i>' * 34 + 'X' * 5000
+        msg = _make_msg(message_content=long_text)
+        content, _ = _prepare_message(msg)
+        assert len(content) <= 4096
+        assert content.count('<i>') == content.count('</i>')
+
+    def test_prepare_message_keeps_br_void_element_unclosed(self):
+        """<br> must not get a spurious closing tag when tags are balanced around it."""
+        long_text = '<i>текст<br>ещё текст</i>' + 'A' * 4500
+        msg = _make_msg(message_content=long_text)
+        content, _ = _prepare_message(msg)
+        assert '</br>' not in content
+        assert content.count('<i>') == content.count('</i>')
+        assert '<br>' in content
+
+    def test_close_open_tags_ignores_void_elements(self):
+        """Void elements (<br>) are not pushed to the open-tags stack."""
+        fragment = '<i>текст<br><a href="https://x">ссылка'
+        result = _close_open_tags(fragment)
+        assert result == '<i>текст<br><a href="https://x">ссылка</a></i>'
+        assert '</br>' not in result
 
     def test_prepare_message_parses_disable_web_page_preview(self):
         msg = _make_msg(message_params='{"parse_mode": "HTML", "disable_web_page_preview": "True"}')
@@ -733,15 +788,14 @@ class TestSendOne:
         assert recipient == '54321'
 
     def test_truncates_long_text(self, sender: NotificationSender, fake_tg: FakeTelegramNotificator):
-        """message_content > 3000 chars → truncated to 1500 + ... + 1000."""
-        long_text = 'A' * 4000
+        """message_content > Telegram limit → truncated without breaking HTML tags."""
+        long_text = 'A' * 4500
         msg = _make_msg(messenger='telegram', message_content=long_text)
         sender._send_one(msg)
         assert len(fake_tg.sent_messages) == 1
         _, _, content, _ = fake_tg.sent_messages[0]
-        assert len(content) == 1500 + 3 + 1000  # 1500 + '...' + 1000
-        assert content.startswith('A' * 1500)
-        assert content.endswith('A' * 1000)
+        assert len(content) == MAX_TELEGRAM_MESSAGE_CHARS
+        assert content == 'A' * MAX_TELEGRAM_MESSAGE_CHARS
 
     def test_parses_disable_web_page_preview(self, sender: NotificationSender, fake_tg: FakeTelegramNotificator):
         """message_params with disable_web_page_preview='True' → converted to bool True."""

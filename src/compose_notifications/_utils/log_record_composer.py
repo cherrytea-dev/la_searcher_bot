@@ -1,4 +1,5 @@
 import datetime
+import html
 import logging
 
 from _dependencies.common.commons import ChangeType
@@ -229,7 +230,9 @@ def make_clickable_name(line: LineInChangeLog) -> None:
     else:  # if it's event or something else
         link_text = line.title
 
-    line.clickable_name = f'<a href="{line.link}">{link_text}</a>'
+    # link_text is forum-derived (display_name / title) — escape so raw < > & in it
+    # can't break Telegram's parse_mode=HTML (the href itself is built from numbers).
+    line.clickable_name = f'<a href="{line.link}">{html.escape(link_text)}</a>'
 
 
 def define_family_name(title_string: str, predefined_fam_name: str | None) -> str:
