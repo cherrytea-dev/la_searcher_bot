@@ -1,5 +1,6 @@
 import json
 
+from _dependencies.bot.button_texts import ButtonTexts
 from _dependencies.common.geo import (
     CMD_DISTRICT_SELECT,
     CMD_PAGINATE_FINISH,
@@ -22,13 +23,16 @@ _MAX_INLINE_ROWS = 6
 _MAX_INLINE_BUTTONS = 10
 
 
-class VKKeyboardButtons:
+class VKKeyboardButtons(ButtonTexts):
     """Mixin providing button label constants.
 
     These constants are the single source of truth for all button labels.
     Handler modules reference them (e.g., ``VKKeyboardButtons.BTN_SETTINGS_REGION``)
     instead of duplicating raw strings, ensuring keyboard and handler
     always stay in sync.
+
+    Labels shared with the MAX bot are inherited from :class:`ButtonTexts`
+    (:mod:`_dependencies.bot.button_texts`); VK-specific labels are defined here.
     """
 
     # Navigation
@@ -36,18 +40,6 @@ class VKKeyboardButtons:
 
     # Main menu
     BTN_SETTINGS_BOT: str = 'настроить бот'
-
-    # Settings menu
-    BTN_DISABLE_NOTIFICATIONS: str = 'полностью отключить уведомления'
-    BTN_ENABLE_NOTIFICATIONS: str = 'включить уведомления'
-    BTN_SETTINGS_REGION: str = 'настроить регион поисков'
-    BTN_SETTINGS_COORDS: str = 'настроить "домашние координаты"'
-    BTN_SETTINGS_RADIUS: str = 'настроить максимальный радиус'
-
-    # Coordinates sub-menu
-    BTN_COORDS_ENTER: str = 'ввести "домашние координаты" вручную'
-    BTN_COORDS_VIEW: str = 'посмотреть сохраненные координаты'
-    BTN_COORDS_DELETE: str = 'удалить "домашние координаты"'
 
     # Distance / radius settings
     BTN_RADIUS_ENABLE: str = 'включить ограничение по расстоянию'
@@ -120,11 +112,6 @@ class VKKeyboardButtons:
     # Confirm / delete
     BTN_CONFIRM_DELETE: str = 'да, удалить'
     BTN_CONFIRM_KEEP: str = 'нет, оставить'
-
-    # Reset settings
-    BTN_RESET_SETTINGS: str = 'снести все настройки на дефолт'
-    BTN_RESET_CONFIRM: str = 'да, снести настройки'
-    BTN_RESET_KEEP: str = 'нет, оставить как есть'
 
     # Forum / VK linking
     BTN_FORUM_ENTER_NICK: str = 'ввести ник с форума'

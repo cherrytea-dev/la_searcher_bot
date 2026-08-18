@@ -16,6 +16,7 @@ from maxapi.types.attachments.buttons.request_geo_location_button import (
 )
 from maxapi.utils.inline_keyboard import InlineKeyboardBuilder
 
+from _dependencies.bot.button_texts import ButtonTexts
 from _dependencies.common.geo import (
     CMD_DISTRICT_SELECT,
     CMD_PAGINATE_FINISH,
@@ -29,33 +30,20 @@ from _dependencies.common.geo import (
 )
 
 
-class MaxKeyboardButtons:
-    """Button label constants — single source of truth for all button labels."""
+class MaxKeyboardButtons(ButtonTexts):
+    """Button label constants.
 
-    # Navigation
-
-    # Main menu
-    BTN_DISABLE_NOTIFICATIONS: str = 'полностью отключить уведомления'
-    BTN_ENABLE_NOTIFICATIONS: str = 'включить уведомления'
-    BTN_SETTINGS_REGION: str = 'настроить регион поисков'
-    BTN_SETTINGS_COORDS: str = 'настроить "домашние координаты"'
-    BTN_SETTINGS_RADIUS: str = 'настроить максимальный радиус'
+    Labels shared with the VK bot are inherited from :class:`ButtonTexts`
+    (:mod:`_dependencies.bot.button_texts`); Max-specific labels are defined here.
+    """
 
     # Coordinates sub-menu
-    BTN_COORDS_ENTER: str = 'ввести "домашние координаты" вручную'
     BTN_COORDS_SEND_GEO: str = 'отправить геолокацию'
-    BTN_COORDS_VIEW: str = 'посмотреть сохраненные координаты'
-    BTN_COORDS_DELETE: str = 'удалить "домашние координаты"'
 
     # Radius settings
     BTN_RADIUS_SET: str = 'установить радиус'
     BTN_RADIUS_VIEW: str = 'посмотреть радиус'
     BTN_RADIUS_DELETE: str = 'удалить радиус'
-
-    # Reset settings
-    BTN_RESET_SETTINGS: str = 'снести все настройки на дефолт'
-    BTN_RESET_CONFIRM: str = 'да, снести настройки'
-    BTN_RESET_KEEP: str = 'нет, оставить как есть'
 
 
 class MaxKeyboardPresets(MaxKeyboardButtons):
