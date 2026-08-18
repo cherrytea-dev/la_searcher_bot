@@ -5,6 +5,7 @@ import datetime
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, wait
+from html.parser import HTMLParser
 from typing import Any
 
 from _dependencies.common.commons import Messenger
@@ -226,6 +227,91 @@ class NotificationSender:
         time_analytics.parsed_times.append(duration_complete_vs_parsed_time_minutes)
 
 
+MAX_TELEGRAM_MESSAGE_CHARS = 4000  # Telegram hard limit is 4096 chars; leave headroom
+MAX_TELEGRAM_MESSAGE_HARD_LIMIT = 4096
+
+_VOID_ELEMENTS = {
+    'area',
+    'base',
+    'br',
+    'col',
+    'embed',
+    'hr',
+    'img',
+    'input',
+    'link',
+    'meta',
+    'param',
+    'source',
+    'track',
+    'wbr',
+}
+
+
+class _OpenTagsCollector(HTMLParser):
+    """Track tags that are opened but not closed in an HTML fragment."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.stack: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        # void elements (e.g. <br>) never need a closing tag
+        if tag not in _VOID_ELEMENTS:
+            self.stack.append(tag)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in self.stack:
+            while self.stack and self.stack[-1] != tag:
+                self.stack.pop()
+            if self.stack:
+                self.stack.pop()
+
+
+def _close_open_tags(fragment: str) -> str:
+    """Append closing tags for any tags left open in `fragment`."""
+    collector = _OpenTagsCollector()
+    collector.feed(fragment)
+    collector.close()
+    return fragment + ''.join(f'</{tag}>' for tag in reversed(collector.stack))
+
+
+def _cut_after_last_tag(fragment: str) -> str:
+    """Cut `fragment` right after its last complete tag, never splitting a tag in half."""
+    last_gt = fragment.rfind('>')
+    if last_gt > 0:
+        return fragment[: last_gt + 1]
+    return fragment
+
+
+def _truncate_html_message(content: str, limit: int = MAX_TELEGRAM_MESSAGE_CHARS) -> str:
+    """Truncate `content` to `limit` chars without breaking HTML tags.
+
+    A naive mid-text cut slices through ``<a>``/``<i>`` tags and makes Telegram's
+    parse_mode=HTML fail with "Can't find end tag corresponding to start tag ...".
+    This cuts at the last comment block boundary (``\\n &#8226;``) when present,
+    otherwise backs up to the last completed tag and closes any tags left open,
+    so the result stays valid HTML and never exceeds Telegram's 4096-char limit.
+    """
+    if len(content) <= limit:
+        return content
+
+    head = content[:limit]
+
+    # Prefer a clean cut between comment blocks: tags are always balanced there.
+    boundary = head.rfind('\n &#8226;')
+    if boundary > 0:
+        return head[:boundary].rstrip()
+
+    head = _cut_after_last_tag(head)
+    result = _close_open_tags(head)
+    # Appended closing tags must not push the message past Telegram's hard limit.
+    while len(result) > MAX_TELEGRAM_MESSAGE_HARD_LIMIT:
+        head = _cut_after_last_tag(head[:-1])
+        result = _close_open_tags(head)
+    return result
+
+
 def _prepare_message(
     message_to_send: MessageToSend,
 ) -> tuple[str, MessageParams]:
@@ -234,8 +320,8 @@ def _prepare_message(
     message_params_str = message_to_send.message_params
 
     # limitation to avoid telegram "message too long"
-    if message_content and len(message_content) > 3000:
-        message_content = f'{message_content[:1500]}...{message_content[-1000:]}'
+    if message_content:
+        message_content = _truncate_html_message(message_content)
 
     if message_params_str:
         try:

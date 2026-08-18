@@ -1,4 +1,5 @@
 import ast
+import html
 import logging
 import re
 from functools import lru_cache
@@ -16,6 +17,24 @@ from .commons import (
 )
 
 FIB_LIST = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987]
+
+# Tags that legacy first-post diffs embed intentionally around deleted/added forum text.
+# Everything else in such messages is raw forum content and must be escaped.
+_LEGACY_FIRST_POST_TAG_RE = re.compile(r'(</?s>|</?code>)')
+
+
+def _escape_legacy_first_post_message(fragment: str) -> str:
+    """Escape raw forum text in a legacy first-post diff, keeping only <s>/<code> tags.
+
+    Old change_log records store the diff as a plain string with ``<s>``/``<code>``
+    already embedded — escape the surrounding text (which may contain raw ``< > &``)
+    while preserving those structural tags.
+    """
+    return ''.join(
+        part if part in ('<s>', '</s>', '<code>', '</code>') else html.escape(part)
+        for part in _LEGACY_FIRST_POST_TAG_RE.split(fragment)
+        if part
+    )
 
 
 class MessageComposer:
@@ -143,7 +162,7 @@ class MessageComposer:
         else:
             status_info = line.status
 
-        message = f'{status_info} – изменение статуса по {line.clickable_name}'
+        message = f'{html.escape(status_info)} – изменение статуса по {line.clickable_name}'
 
         if user.user_in_multi_folders and line.region:
             message += f' ({line.region})'
@@ -155,7 +174,7 @@ class MessageComposer:
         line = self.new_record
 
         activity = 'мероприятия' if line.topic_type_id == TopicType.event else 'поиска'
-        msg = f'{line.title} – обновление заголовка {activity} по {line.clickable_name}'
+        msg = f'{html.escape(line.title)} – обновление заголовка {activity} по {line.clickable_name}'
 
         return msg
 
@@ -170,9 +189,13 @@ class MessageComposer:
         for comment in line.comments:
             if comment.text:
                 comment_text = f'{comment.text[:500]}...' if len(comment.text) > 500 else comment.text
+                # Forum text may contain raw < > & (phpBB entities are decoded by BeautifulSoup),
+                # which breaks Telegram's parse_mode=HTML — escape before embedding.
+                comment_text = html.escape(comment_text)
+                author_nickname = html.escape(comment.author_nickname)
 
                 msg += (
-                    f' &#8226; <a href="{url_prefix}{comment.author_link}">{comment.author_nickname}</a>: '
+                    f' &#8226; <a href="{url_prefix}{comment.author_link}">{author_nickname}</a>: '
                     f'<i>«<a href="{comment.url}">{comment_text}</a>»</i>\n'
                 )
 
@@ -193,8 +216,8 @@ class MessageComposer:
         title_str, region_str, comment_str, author = '', '', '', ''
         for comment in line.comments_inforg:
             if comment.text:
-                author = f'<a href="{url_prefix}{comment.author_link}">{comment.author_nickname}</a>'
-                comment_str += f'<i>«<a href="{comment.url}">{comment.text}</a>»</i>\n'
+                author = f'<a href="{url_prefix}{comment.author_link}">{html.escape(comment.author_nickname)}</a>'
+                comment_str += f'<i>«<a href="{comment.url}">{html.escape(comment.text)}</a>»</i>\n'
 
         comment_str = f':\n{comment_str}'
 
@@ -223,7 +246,8 @@ class MessageComposer:
             if saved_message.deletions:
                 message += '➖Удалено:\n<s>'
                 for deletion_line in saved_message.deletions:
-                    message += f'{deletion_line}\n'
+                    # raw forum text may contain < > & — escape before wrapping in <s>
+                    message += f'{html.escape(deletion_line)}\n'
                 message += '</s>'
 
             if saved_message.additions:
@@ -231,11 +255,14 @@ class MessageComposer:
                     message += '\n'
                 message += '➕Добавлено:\n'
                 for addition_line in saved_message.additions:
+                    # escape first: coords still match COORD_PATTERN (digits/dots/spaces only)
                     # majority of coords in RU: lat in [30-80], long in [20-180]
-                    updated_line = re.sub(COORD_PATTERN, r'<code>\g<0></code>', addition_line)
+                    updated_line = re.sub(COORD_PATTERN, r'<code>\g<0></code>', html.escape(addition_line))
                     message += f'{updated_line}\n'
         else:
-            message = saved_message.message
+            # legacy plain-string diffs already contain intentional <s>/<code> tags —
+            # escape the raw forum text around them
+            message = _escape_legacy_first_post_message(saved_message.message)
 
         if not message:
             return ''
@@ -339,7 +366,9 @@ def _get_managers_from_text(managers: str) -> str:
     try:
         managers_str = 'Ответственные:'
         for manager in ast.literal_eval(managers):
-            manager_line = add_tel_link(manager)
+            # manager is forum-derived text — escape before add_tel_link so raw < > & can't
+            # break HTML, while phone numbers (digits/spaces only) are still linked
+            manager_line = add_tel_link(html.escape(manager))
             managers_str += f'\n &#8226; {manager_line}'
 
     except Exception:
