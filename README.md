@@ -109,6 +109,10 @@ Now you can run tests from the tests menu
 
 Run tests with postgres database in docker container: `make ci-test`
 
+> Note: on machines without AVX/SSE4.2 support, pin `numpy==1.26.4`
+> (`uv pip install numpy==1.26.4`) and run tests without xdist:
+> `uv run --no-sync pytest`.
+
 Run bot locally: `uv run python tests/tools/run_bot.py` (example is in [launch.template.json](.vscode/launch.template.json) )
 
 Or run bot in container: `docker compose up -d`
