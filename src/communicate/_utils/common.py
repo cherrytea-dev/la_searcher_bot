@@ -1,3 +1,4 @@
+import json
 import math
 from dataclasses import dataclass
 from enum import Enum
@@ -48,6 +49,26 @@ class InlineButtonCallbackData(BaseModel):
 
     @classmethod
     def deserialize(cls, data: str) -> 'InlineButtonCallbackData':
+        # Backward compatibility: до 2026-07-08 (коммит 9b3be36) callback_data
+        # сериализовался в JSON ({"act": "...", "kb": "...", ...}). Старые
+        # inline-кнопки остаются в чатах пользователей, и нажатие на них
+        # присылает именно такой callback_data. Раньше такой апдейт не
+        # распознавался (action=None) и уходил в fallback «не понимаю такой
+        # команды» — issue #961. Парсим оба формата.
+        if not data.split(cls.SEP)[1:]:  # нет разделителя '|'
+            stripped = data.strip()
+            if stripped.startswith('{'):
+                try:
+                    payload = json.loads(stripped)
+                except json.JSONDecodeError:
+                    payload = {}
+                return cls(
+                    keyboard_name=payload.get('kb') or payload.get('keyboard_name'),
+                    action=payload.get('act') or payload.get('action'),
+                    hash=payload.get('hash'),
+                    letter_to_show=payload.get('bs') or payload.get('letter_to_show', ''),
+                )
+
         parts = data.split(cls.SEP)
         parts += [''] * (4 - len(parts))  # pad to 4 parts
         kb_name = parts[0] or None

@@ -328,6 +328,15 @@ def _run_handlers(update_params: UpdateBasicParams, extra_params: UpdateExtraPar
         return
 
     ### CUSTOM TEXT ###
+    # Нераспознанный callback (нажата inline-кнопка, но ни один хендлер не
+    # сработал — например, устаревшая кнопка с неизвестным action).
+    # Текстовый fallback «не понимаю такой команды» здесь неуместен:
+    # пользователь не вводил команду, а нажал кнопку (issue #961).
+    # Ответ на callback уже подтверждён в process_update, поэтому просто
+    # молча завершаем обработку.
+    if got_callback:
+        return
+
     user_regions = db().get_user_reg_folders_preferences(update_params.user_id)
     if not user_regions:
         # force user to input a region
