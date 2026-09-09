@@ -25,8 +25,6 @@ b_act_titles = 'названия'  # these are "Title update notification" butto
 # admin and experimental options
 b_admin_menu = 'admin'
 b_test_menu = 'test'
-b_test_search_follow_mode_on = 'test search follow mode on'  # noqa
-b_test_search_follow_mode_off = 'test search follow mode off'
 
 
 # Settings - Fed Dist - Regions

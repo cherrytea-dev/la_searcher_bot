@@ -37,8 +37,6 @@ from ..buttons import (
     b_coords_auto_def,
     b_menu_set_region,
     b_test_menu,
-    b_test_search_follow_mode_off,
-    b_test_search_follow_mode_on,
     c_start,
     reply_markup_main,
 )
@@ -134,8 +132,6 @@ def handle_command_other(ctx: TGHandlerContext) -> None:
         b_admin_menu,
         b_test_menu,
         'notest',
-        b_test_search_follow_mode_on,
-        b_test_search_follow_mode_off,
         'test msg 1',
         'test msg 2',
     ]
@@ -207,18 +203,6 @@ def handle_admin_experimental_settings(ctx: TGHandlerContext) -> None:
 Дуглас
 Герда (Арина) 89001234567 """
         bot_message = add_tel_link(bot_message)
-        ctx.reply(text=bot_message, reply_markup=reply_markup_main)
-        return
-
-    if got_message.lower() == b_test_search_follow_mode_on:  # issue425
-        ctx.db.set_search_follow_mode(user_id, True)
-        bot_message = 'Возможность отслеживания поисков включена. Возвращаемся в главное меню.'
-        ctx.reply(text=bot_message, reply_markup=reply_markup_main)
-        return
-
-    if got_message.lower() == b_test_search_follow_mode_off:  ##remains for some time for emrgency case
-        ctx.db.set_search_follow_mode(user_id, False)
-        bot_message = 'Возможность отслеживания поисков вЫключена. Возвращаемся в главное меню.'
         ctx.reply(text=bot_message, reply_markup=reply_markup_main)
         return
 

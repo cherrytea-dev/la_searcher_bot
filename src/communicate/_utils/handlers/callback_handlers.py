@@ -105,29 +105,11 @@ def _handle_topic_type_pressed_about(ctx: TGHandlerContext, welcome_message: str
     ctx.edit(text=bot_message, reply_markup=InlineKeyboardMarkup(keyboard))
 
 
-@tg_handle(callback_data=['search_follow_mode_on', 'search_follow_mode_off', 'search_follow_clear'])
-def handle_search_follow_mode(ctx: TGHandlerContext) -> None:
-    """Switches search following mode on/off, or clears search following marks"""
-
-    user_callback = ctx.update_params.got_callback
-    callback_query = ctx.update_params.callback_query
+@tg_handle(callback_data='search_follow_clear')
+def handle_search_follow_clear(ctx: TGHandlerContext) -> None:
     user_id = ctx.user_id
-
-    logging.info(f'{callback_query=}, {user_id=}')
-    # when user pushed INLINE BUTTON for topic following
-    if user_callback and user_callback.action == 'search_follow_mode_on':
-        ctx.db.set_search_follow_mode(user_id, True)
-        bot_message = 'Режим выбора поисков для отслеживания включен. Переоткройте список активных поисков.'
-
-    elif user_callback and user_callback.action == 'search_follow_mode_off':
-        ctx.db.set_search_follow_mode(user_id, False)
-        bot_message = 'Режим выбора поисков для отслеживания отключен. Переоткройте список активных поисков.'
-
-    elif user_callback and user_callback.action == 'search_follow_clear':
-        ctx.db.delete_search_whiteness(user_id)
-        bot_message = 'Все пометки отслеживания поисков сброшены. Переоткройте список активных поисков.'
-
-    ctx.reply(text=bot_message)
+    ctx.db.delete_search_whiteness(user_id)
+    ctx.reply(text='Все пометки отслеживания поисков сброшены. Переоткройте список активных поисков.')
 
 
 @tg_handle(callback_data='search_follow_mode')

@@ -153,118 +153,6 @@ def _compose_ikb_of_active_searches(
     return SearchesIKBData(msg, folder_url, rows)
 
 
-def _compose_text_message_of_all_searches(db_client: 'DBClient', forum_folder_num: int, region_name: str) -> str:
-    """Compose a Final message on the list of ALL searches in the given region"""
-
-    # download the list from SEARCHES sql table
-    searches = db_client.get_all_searches_in_one_region_limit_20(forum_folder_num)
-
-    _format_searches_for_display(searches)
-    lines = [
-        f'{search.new_status} <a href="{SEARCH_URL_PREFIX}{search.topic_id}">{search.display_name}</a>'
-        for search in searches
-    ]
-
-    folder_url = f'{FORUM_FOLDER_PREFIX}{forum_folder_num}'
-    # combine the list of last 20 searches
-
-    if lines:
-        lines.insert(0, f'Последние 20 поисков в разделе <a href="{folder_url}">{region_name}</a>:')
-        return '\n'.join(lines)
-    else:
-        return _get_message_last_searches_not_found(region_name, forum_folder_num)
-
-
-def _compose_text_message_on_active_searches(
-    db_client: 'DBClient', forum_folder_num: int, region_name: str, user_id: int
-) -> str:
-    """Compose a Final message on the list of ACTIVE searches in the given region"""
-
-    folder_url = f'{FORUM_FOLDER_PREFIX}{forum_folder_num}'
-    user_lat, user_lon = db_client.get_user_coordinates_or_none(user_id)
-    # Combine the list of the latest active searches
-
-    lines: list[str] = []
-
-    searches_list = db_client.get_active_searches_in_one_region(forum_folder_num)
-
-    for search in searches_list:
-        if time_counter_since_search_start(search.start_time)[1] >= 60:
-            continue
-
-        time_since_start = time_counter_since_search_start(search.start_time)[0]
-
-        if user_lat and user_lon and search.search_lat:
-            dist = define_dist_and_dir_to_search(search.search_lat, search.search_lon, user_lat, user_lon)
-            dist_and_dir = f' {dist[1]} {dist[0]} км'
-        else:
-            dist_and_dir = ''
-
-        if not search.display_name:
-            age_string = f' {age_writer(search.age)}' if search.age != 0 else ''
-            search.display_name = f'{search.name}{age_string}'
-
-        lines.append(
-            f'{time_since_start}{dist_and_dir} <a href="{SEARCH_URL_PREFIX}{search.topic_id}">{search.display_name}</a>'
-        )
-
-    msg = '\n'.join(lines)
-
-    if msg:
-        msg = f'Актуальные поиски за 60 дней в разделе <a href="{folder_url}">{region_name}</a>:\n{msg}'
-    else:
-        msg = f'В разделе <a href="{folder_url}">{region_name}</a> все поиски за последние 60 дней завершены.'
-
-    return msg
-
-
-def _handle_view_searches_usual_view(ctx: TGHandlerContext, search_list_type: SearchListType) -> None:
-    user_id = ctx.user_id
-    folders_list = ctx.db.get_geo_folders_db()
-
-    for forum_folder_num in ctx.db.get_user_reg_folders_preferences(user_id):
-        region_name = _get_region_name(folders_list, forum_folder_num)
-
-        # check if region – is an archive folder: if so – it can be sent only to 'all'
-        folder_is_archived = 'аверш' in region_name
-        if folder_is_archived and search_list_type != SearchListType.ALL:
-            continue
-
-        if search_list_type == SearchListType.ALL:
-            bot_message = _compose_text_message_of_all_searches(ctx.db, forum_folder_num, region_name)
-        else:
-            bot_message = _compose_text_message_on_active_searches(ctx.db, forum_folder_num, region_name, user_id)
-
-        ctx.send_message(text=bot_message, reply_markup=reply_markup_main)
-
-    _show_button_to_turn_on_following_searches(ctx)
-
-
-def _show_button_to_turn_on_following_searches(ctx: TGHandlerContext) -> None:
-    # issue425 add Button for turn on search following mode
-    search_follow_mode_ikb = [
-        [
-            InlineKeyboardButton(
-                text='Включить выбор поисков для отслеживания',
-                callback_data=InlineButtonCallbackData(action='search_follow_mode_on').as_str(),
-            )
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(search_follow_mode_ikb)
-    ctx.tg_api.send_message(
-        ctx.user_id,
-        TelegramMessage(
-            text=(
-                'Вы можете включить возможность выбора поисков для отслеживания, '
-                'чтобы получать уведомления не со всех актуальных поисков, '
-                'а только с выбранных Вами.'
-            ),
-            reply_markup=reply_markup.to_dict(),
-        ),
-        f'{ctx.user_id=}, context_step=a01',
-    )
-
-
 def _handle_view_searches_experimental_view(ctx: TGHandlerContext, search_list_type: SearchListType) -> None:
     # issue#425 make inline keyboard - list of searches
     user_id = ctx.user_id
@@ -324,14 +212,6 @@ def _handle_view_searches_experimental_view(ctx: TGHandlerContext, search_list_t
                     )
                 ]
             )
-            region_data.rows.append(
-                [
-                    InlineKeyboardButton(
-                        text='Отключить выбор поисков для отслеживания',
-                        callback_data=InlineButtonCallbackData(action='search_follow_mode_off').as_str(),
-                    )
-                ]
-            )
 
         reply_markup_inline = InlineKeyboardMarkup(region_data.rows)
         logging.info(f'{bot_message=}; {region_data.rows=}; context_step=b00')
@@ -370,11 +250,7 @@ def handle_view_searches(ctx: TGHandlerContext) -> None:
     # диспетчер уходит в fallback «не понимаю такой команды».
     search_list_type = temp_dict[ctx.update_params.got_message.strip().lower()]
 
-    use_experimental_view = ctx.db.get_search_follow_mode(ctx.user_id) and (ctx.db.is_user_tester(ctx.user_id))
-    if use_experimental_view:
-        _handle_view_searches_experimental_view(ctx, search_list_type)
-    else:
-        _handle_view_searches_usual_view(ctx, search_list_type)
+    _handle_view_searches_experimental_view(ctx, search_list_type)
 
     # Ответы уходят через ctx.send_message()/ctx.tg_api.send_message(), которые
     # НЕ помечают контекст consumed. Без явной пометки диспетчер считает, что
