@@ -31,6 +31,9 @@ uv run python -m tools.log_inspector.main list-groups <folder-id>
 
 # Сырой JSON (для скриптов)
 uv run python -m tools.log_inspector.main raw <log-group-id> --hours 1 --level ERROR
+
+# Объём логов по сервисам за сутки (читает окно по часам, ~1 мин на час)
+uv run python -m tools.log_inspector.main volume <log-group-id> --hours 24
 ```
 
 ## Как найти log-group-id
@@ -75,14 +78,45 @@ YC_LOG_INSPECTOR_SA_JSON="$YC_LOG_INSPECTOR_SA_JSON" \
 и выдавал «100 ERROR entries» даже за неделю, хотя реально ошибок было 497.
 **Если видите ровно 100 записей — это симптом, а не реальное число.**
 
+## Команда `volume` — кто съедает логи
+
+Отвечает на вопрос «сколько логов в сутки и какой сервис их пишет»: таблица по сервисам
+(записи, МБ, доля, байт на запись, МБ/сутки, записей/сутки), уровни, топ сообщений
+и самые «жирные» отдельные записи. Группировка — по `json_payload['stream_name']`
+(имя пакета из `setup_logging(__package__)`), иначе по платформенному `stream_name`.
+
+Чтение идёт часовыми слайсами с фолдом на лету — память не зависит от размера окна.
+На продовой группе ЛизаАлерт час — это ~50 тыс. записей и ~30 МБ, то есть ~70 секунд
+на слайс; полные сутки ≈ 25–30 минут:
+
+```bash
+# Полные сутки
+uv run python -m tools.log_inspector.main volume <log-group-id> --hours 24
+
+# Быстрая оценка: каждый шестой час, остальное экстраполируется (≈5 минут)
+uv run python -m tools.log_inspector.main volume <log-group-id> --hours 24 --sample-every 6
+
+# Машиночитаемо
+uv run python -m tools.log_inspector.main volume <log-group-id> --hours 24 --json
+```
+
+Для справки, замер на продовой группе (2026-09-14): **0,96 ГБ и ~1,62 млн записей в сутки**,
+больше половины объёма — `send_notifications` и `identify_updates_of_topics._legacy`.
+
+⚠️ **Что именно считается.** Размер записи — это её JSON в том виде, как его отдаёт Logging API
+(после `MessageToDict`), в UTF-8 байтах. Это стабильный **прокси** для объёма хранения, а не
+точная цифра биллинга YC: обвязка/метаданные платформы в него не входят. Ориентироваться стоит
+на соотношение сервисов и на порядок величины, а не на байт в байт.
+
 ## Структура
 
 ```
 tools/log_inspector/
-├── main.py                      # CLI (click): top-errors / trace / list-groups / raw
+├── main.py                      # CLI (click): top-errors / trace / list-groups / volume / raw
 ├── _utils/
 │   ├── yc_logging.py            # gRPC-клиент: YCLoggingClient (auth, list, read)
-│   └── analytics.py             # нормализация ошибок и агрегация по шаблонам
+│   ├── analytics.py             # нормализация ошибок и агрегация по шаблонам
+│   └── volume.py                # агрегация объёма по сервисам (команда volume)
 └── README.md
 ```
 
