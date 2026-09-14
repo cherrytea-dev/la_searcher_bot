@@ -42,9 +42,8 @@ from ._utils.message_sending import tg_api
 
 setup_logging(__package__)
 
-# To get rid of telegram "Retrying" Warning logs, which are shown in GCP Log Explorer as Errors.
-# Important – these are not errors, but jest informational warnings that there were retries, that's why we exclude them
-logging.getLogger('telegram.vendor.ptb_urllib3.urllib3').setLevel(logging.ERROR)
+# NB: third-party loggers (ptb_urllib3 'Retrying' warnings included) are pinned in
+# _dependencies.common.yandex_tools.NOISY_LOGGERS — do not silence loggers module by module.
 
 
 def _get_param_if_exists(upd: Update, func_input: Callable) -> Any:

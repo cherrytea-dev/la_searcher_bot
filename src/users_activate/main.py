@@ -6,9 +6,7 @@ from ._utils.database import DBClient
 
 setup_logging(__package__)
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-logging.warning('it is a synthetic warning')
+# NB: the level comes from LOG_LEVEL only (see _dependencies.common.yandex_tools).
 
 
 def mark_up_onboarding_status_0(db: DBClient) -> None:
@@ -123,11 +121,6 @@ def mark_up_onboarding_status_80_have_all_settings(db: DBClient) -> None:
 
 def main(event, context):  # noqa
     """main function"""
-
-    # FIXME –testing logging, which, seems, disappeared
-    logging.info('this is 1st logging line')
-    print('this is 1st print line')
-    # FIXME ^^^
 
     db = DBClient()  # noqa: F841
     try:

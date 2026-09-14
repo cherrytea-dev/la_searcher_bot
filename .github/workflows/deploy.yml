@@ -235,6 +235,7 @@ jobs:
             _dependencies
             requirements.txt
           environment: |
+            LOG_LEVEL=${{ vars.LOG_LEVEL || 'WARN' }}
             POSTGRES_HOST=${{ secrets.YC_POSTGRES_HOST }}
             POSTGRES_PORT=${{ secrets.YC_POSTGRES_PORT }}
             POSTGRES_DB=${{ secrets.YC_POSTGRES_DB }}
