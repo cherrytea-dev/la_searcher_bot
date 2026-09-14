@@ -214,3 +214,22 @@ def test_forum_unavailable(post_content):
 )
 def test_forum_available(post_content):
     assert not content.is_forum_unavailable(post_content)
+
+
+class TestCleanUpContentLogging:
+    """Regression: the cleaned first post is kilobytes of HTML — the log must not carry it."""
+
+    def test_logs_length_and_fingerprint_instead_of_content(self, caplog):
+        raw_content = '<span>Пропал человек, ищем в Казани</span>'
+
+        with caplog.at_level('INFO'):
+            result = content.clean_up_content(raw_content)
+
+        messages = [record.getMessage() for record in caplog.records]
+        info_messages = [message for message in messages if 'cleaned up content' in message]
+
+        assert info_messages, messages
+        assert 'chars' in info_messages[0]
+        assert 'fingerprint' in info_messages[0]
+        assert raw_content not in info_messages[0]
+        assert result is not None

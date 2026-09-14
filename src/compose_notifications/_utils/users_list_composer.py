@@ -61,7 +61,8 @@ class UsersListComposer:
             list_of_users.append(new_line)
 
         user_ids = [x.user_id for x in list_of_users]
-        logging.info(f'user_ids in compose_users_list_from_users: count={len(user_ids)}, ids={user_ids}')
+        logging.info(f'user_ids in compose_users_list_from_users: count={len(user_ids)}')
+        logging.debug(f'user_ids in compose_users_list_from_users: ids={user_ids[:5]}…')
 
         analytics_match_finish = datetime.datetime.now()
         duration_match = round((analytics_match_finish - analytics_sql_finish).total_seconds(), 2)
@@ -226,8 +227,8 @@ class UserListFilter:
                 break
         logging.info(f'Before User list crop due to whitelisting for {record.forum_search_num=}: {debug_user_inside=}')
 
-        logging.info(f'{record=}')
-
+        logging.info(f'processing record: forum_search_num={record.forum_search_num}, new_status={record.new_status}')
+        logging.debug(f'{record=}')
         following_users_ids = set(
             self.db.get_users_passing_following_filter(
                 forum_search_num=record.forum_search_num,

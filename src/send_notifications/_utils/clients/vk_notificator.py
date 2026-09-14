@@ -26,17 +26,23 @@ class VKNotificator:
     def send_text(self, recipient: str | int, message_to_send: MessageToSend, content: str) -> str | None:
         """Send a text message via VK API."""
         try:
-            logging.info(f'Sending message to VK: {recipient=} {message_to_send=}')
+            logging.debug(f'Sending message to VK: {recipient=}, message_id={message_to_send.message_id}')
             self._vk_api.send(recipient, message_to_send.message_id, format_message_for_vk(content))
             return 'completed'
         except VkApiError as e:
             if e.error_code in self._BLOCK_ERROR_CODES:
                 self._handle_block_error(e.error_code, message_to_send.user_id)
                 return 'cancelled'
-            logging.exception(f'Sending message to VK: failed {recipient=} {message_to_send=}')
+            logging.exception(
+                f'Sending message to VK: failed {recipient=}, message_id={message_to_send.message_id}, '
+                f'user_id={message_to_send.user_id}'
+            )
             return 'failed'
         except Exception:
-            logging.exception(f'Sending message to VK: failed {recipient=} {message_to_send=}')
+            logging.exception(
+                f'Sending message to VK: failed {recipient=}, message_id={message_to_send.message_id}, '
+                f'user_id={message_to_send.user_id}'
+            )
             return 'failed'
 
     def send_coords(
@@ -48,7 +54,7 @@ class VKNotificator:
     ) -> str | None:
         """Send coordinates via VK API."""
         try:
-            logging.info(f'Sending coordinates to VK: {recipient=} {message_to_send=}')
+            logging.debug(f'Sending coordinates to VK: {recipient=}, message_id={message_to_send.message_id}')
             self._vk_api.send(
                 recipient,
                 message_to_send.message_id,
@@ -61,10 +67,16 @@ class VKNotificator:
             if e.error_code in self._BLOCK_ERROR_CODES:
                 self._handle_block_error(e.error_code, message_to_send.user_id)
                 return 'cancelled'
-            logging.exception(f'Sending coordinates to VK: failed {recipient=} {message_to_send=}')
+            logging.exception(
+                f'Sending coordinates to VK: failed {recipient=}, message_id={message_to_send.message_id}, '
+                f'user_id={message_to_send.user_id}'
+            )
             return 'failed'
         except Exception:
-            logging.exception(f'Sending coordinates to VK: failed {recipient=} {message_to_send=}')
+            logging.exception(
+                f'Sending coordinates to VK: failed {recipient=}, message_id={message_to_send.message_id}, '
+                f'user_id={message_to_send.user_id}'
+            )
             return 'failed'
 
     def dispatch(

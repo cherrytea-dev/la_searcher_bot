@@ -25,19 +25,22 @@ class MaxNotificator:
         """Send a text message via MAX API."""
         recipient = message_to_send.max_id or str(message_to_send.user_id)
         try:
-            logging.info(f'Sending message to MAX: {recipient=} {message_to_send=}')
+            logging.debug(f'Sending message to MAX: {recipient=}, message_id={message_to_send.message_id}')
             user_identity = self._build_identity(message_to_send, recipient)
             result = self._max_client.send_message(user_identity, content, parse_mode='html')
             return result.status
         except Exception:
-            logging.exception(f'Sending message to MAX: failed {recipient=} {message_to_send=}')
+            logging.exception(
+                f'Sending message to MAX: failed {recipient=}, message_id={message_to_send.message_id}, '
+                f'user_id={message_to_send.user_id}'
+            )
             return 'failed'
 
     def send_coords(self, message_to_send: MessageToSend, latitude: float, longitude: float) -> str | None:
         """Send coordinates via MAX API."""
         recipient = message_to_send.max_id or str(message_to_send.user_id)
         try:
-            logging.info(f'Sending coordinates to MAX: {recipient=} {message_to_send=}')
+            logging.debug(f'Sending coordinates to MAX: {recipient=}, message_id={message_to_send.message_id}')
             user_identity = self._build_identity(message_to_send, recipient)
             result = self._max_client.send_coordinates(
                 user_identity,
@@ -46,7 +49,10 @@ class MaxNotificator:
             )
             return result.status
         except Exception:
-            logging.exception(f'Sending coordinates to MAX: failed {recipient=} {message_to_send=}')
+            logging.exception(
+                f'Sending coordinates to MAX: failed {recipient=}, message_id={message_to_send.message_id}, '
+                f'user_id={message_to_send.user_id}'
+            )
             return 'failed'
 
     def dispatch(
