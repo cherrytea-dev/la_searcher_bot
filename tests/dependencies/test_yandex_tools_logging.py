@@ -90,7 +90,7 @@ class TestSetupLoggingCloud:
 
         assert logging.getLogger().level == logging.DEBUG
 
-    def test_unknown_level_warns_and_keeps_working(
+    def test_unknown_level_logs_error_and_keeps_working(
         self,
         monkeypatch: pytest.MonkeyPatch,
         restore_logging,
@@ -100,9 +100,11 @@ class TestSetupLoggingCloud:
 
         setup_logging_cloud('some_service')
 
-        # NB: setup_logging_cloud replaces root handlers, so the warning is checked in stdout
+        # NB: setup_logging_cloud replaces root handlers, so the record is checked in stdout
         assert logging.getLogger().level == logging.WARNING
-        assert 'Unknown LOG_LEVEL' in capsys.readouterr().out
+        output = capsys.readouterr().out
+        assert 'Unknown LOG_LEVEL' in output
+        assert '"level": "ERROR"' in output
 
     def test_noisy_loggers_are_capped_at_warning(self, monkeypatch: pytest.MonkeyPatch, restore_logging) -> None:
         monkeypatch.setenv('LOG_LEVEL', 'DEBUG')

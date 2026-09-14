@@ -75,7 +75,9 @@ def setup_logging_cloud(package_name: str | None = None) -> None:
     _silence_noisy_loggers()
 
     if raw_level and raw_level.strip().upper() not in _LEVEL_TO_NUMBER:
-        root_logger.warning(f'Unknown LOG_LEVEL={raw_level!r}, falling back to {DEFAULT_LOG_LEVEL}')
+        # ERROR (not WARNING): a typo in the deployment env must be visible even when the function
+        # is otherwise quiet at the default WARN level.
+        root_logger.error(f'Unknown LOG_LEVEL={raw_level!r}, falling back to {DEFAULT_LOG_LEVEL}')
 
 
 @lru_cache
