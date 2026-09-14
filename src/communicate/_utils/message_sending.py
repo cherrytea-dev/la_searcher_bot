@@ -21,7 +21,7 @@ class TGApiCommunicate(TGApiBase):
     """need to extend base class with `_inline_processing` call"""
 
     def _make_api_call(self, method: str, params: dict, call_context: str = '') -> requests.Response | None:
-        logging.info(f'_make_api_call. {method=}, {params=}, {call_context=}')
+        logging.debug(f'_make_api_call. {method=}, {params=}, {call_context=}')
         return super()._make_api_call(method, params, call_context)
 
     def send_message(self, user_id: int, message: TelegramMessage, call_context: str = '') -> str:
