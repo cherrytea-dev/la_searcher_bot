@@ -26,17 +26,24 @@ _LEVEL_TO_NUMBER: dict[str, int] = {
     'DEBUG': logging.DEBUG,
 }
 
+#: Third-party loggers pinned to a fixed level: logger name -> level.
+#:
 #: Libraries that chat on INFO (botocore: 'Found credentials in environment variables.',
-#: httpx: one line per HTTP request). Their INFO/DEBUG says nothing about our business logic.
-NOISY_LOGGERS: tuple[str, ...] = (
-    'asyncio',
-    'boto3',
-    'botocore',
-    'httpcore',
-    'httpx',
-    's3transfer',
-    'urllib3',
-)
+#: httpx: one line per HTTP request). Their INFO/DEBUG says nothing about our business logic,
+#: so they stay at WARNING whatever LOG_LEVEL is.
+#: `telegram.vendor.ptb_urllib3.urllib3` is pinned to ERROR instead: its 'Retrying' WARNINGs show up
+#: in Cloud Logging as errors, although they only mean that the request was retried.
+#: This is the single place for such stubs — per-module ``setLevel()`` calls are not allowed.
+NOISY_LOGGERS: dict[str, int] = {
+    'asyncio': logging.WARNING,
+    'boto3': logging.WARNING,
+    'botocore': logging.WARNING,
+    'httpcore': logging.WARNING,
+    'httpx': logging.WARNING,
+    's3transfer': logging.WARNING,
+    'urllib3': logging.WARNING,
+    'telegram.vendor.ptb_urllib3.urllib3': logging.ERROR,
+}
 
 
 def resolve_log_level(raw_level: str | None = None) -> int:
@@ -51,8 +58,8 @@ def resolve_log_level(raw_level: str | None = None) -> int:
 
 
 def _silence_noisy_loggers() -> None:
-    for logger_name in NOISY_LOGGERS:
-        logging.getLogger(logger_name).setLevel(logging.WARNING)
+    for logger_name, level in NOISY_LOGGERS.items():
+        logging.getLogger(logger_name).setLevel(level)
 
 
 def setup_logging_cloud(package_name: str | None = None) -> None:

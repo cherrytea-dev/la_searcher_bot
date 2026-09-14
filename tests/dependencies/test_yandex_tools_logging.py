@@ -2,10 +2,12 @@
 
 Behaviour under test:
 - ``LOG_LEVEL`` drives the root logger level; unset/unrecognized falls back to WARN
-- noisy third-party loggers (botocore/httpx/...) are capped at WARNING
+- noisy third-party loggers (botocore/httpx/...) are pinned to the level from ``NOISY_LOGGERS``
+- the level is set in one place only: no module silences its own loggers
 """
 
 import logging
+import pathlib
 
 import pytest
 
@@ -134,3 +136,34 @@ class TestSetupLoggingCloud:
 
         assert logging.getLogger().isEnabledFor(logging.INFO) is False
         assert logging.getLogger().isEnabledFor(logging.WARNING) is True
+
+    @pytest.mark.parametrize(('logger_name', 'expected_level'), list(NOISY_LOGGERS.items()))
+    def test_noisy_logger_keeps_its_pinned_level(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        restore_logging,
+        logger_name: str,
+        expected_level: int,
+    ) -> None:
+        monkeypatch.setenv('LOG_LEVEL', 'DEBUG')
+        logging.getLogger(logger_name).setLevel(logging.DEBUG)
+
+        setup_logging_cloud('some_service')
+
+        assert logging.getLogger(logger_name).level == expected_level
+
+
+class TestNoPerModuleLevelOverrides:
+    """`LOG_LEVEL` is the only knob: per-module setLevel() calls are legacy (see #46 review)."""
+
+    def test_only_common_logging_module_touches_logger_levels(self) -> None:
+        src_root = pathlib.Path(__file__).resolve().parents[2] / 'src'
+
+        level_setters = [
+            f'{path.relative_to(src_root)}:{line_number}'
+            for path in sorted(src_root.rglob('*.py'))
+            for line_number, line in enumerate(path.read_text(encoding='utf-8').splitlines(), start=1)
+            if 'setLevel(' in line and path.name != 'yandex_tools.py'
+        ]
+
+        assert level_setters == []

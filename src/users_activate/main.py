@@ -6,8 +6,7 @@ from ._utils.database import DBClient
 
 setup_logging(__package__)
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+# NB: the level comes from LOG_LEVEL only (see _dependencies.common.yandex_tools).
 logging.warning('it is a synthetic warning')
 
 
