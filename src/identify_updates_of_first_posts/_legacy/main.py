@@ -20,7 +20,7 @@ from _dependencies.common.commons import (
     setup_logging,
     sqlalchemy_get_pool,
 )
-from _dependencies.common.misc import generate_random_function_id
+from _dependencies.common.misc import content_fingerprint, generate_random_function_id
 from _dependencies.common.pubsub import (
     Ctx,
     MessageForCheckFirstPosts,
@@ -328,8 +328,12 @@ def _get_actual_and_previous_page_content(conn: sqlalchemy.engine.Connection, se
     first_page_content_prev = raw_data[0]
 
     logging.info(f'topic id {search_id} has an update of first post:')
-    logging.info(f'first page content prev: {first_page_content_prev}')
-    logging.info(f'first page content curr: {first_page_content_curr}')
+    logging.info(
+        f'first page content: prev {len(first_page_content_prev)} chars, fingerprint {content_fingerprint(first_page_content_prev)}; '
+        f'curr {len(first_page_content_curr)} chars, fingerprint {content_fingerprint(first_page_content_curr)}'
+    )
+    logging.debug(f'first page content prev: {first_page_content_prev}')
+    logging.debug(f'first page content curr: {first_page_content_curr}')
 
     return first_page_content_curr, first_page_content_prev
 

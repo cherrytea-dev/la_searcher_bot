@@ -52,6 +52,10 @@ def main(request: RequestWrapper, *args: Any, **kwargs: Any) -> ResponseWrapper:
     if not reco_title or ('topic_type' in reco_title.keys() and reco_title['topic_type'] == 'UNRECOGNIZED'):
         return FailResponse(fail_reason='not able to recognize').as_response()
 
-    logging.info(f'Response: {reco_title}')
+    logging.info(
+        f'Recognized: topic_type={reco_title.get("topic_type")}, status={reco_title.get("status")}, '
+        f'keys={sorted(reco_title.keys())}'
+    )
+    logging.debug(f'Response: {reco_title}')
 
     return OkResponse(title=user_request.title, recognition=reco_title).as_response()

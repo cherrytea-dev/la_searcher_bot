@@ -3,6 +3,8 @@ import re
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 
+from _dependencies.common.misc import content_fingerprint
+
 PATTERNS_TO_CLEANUP = [
     r'(?i)Всем выезжающим иметь СИЗ',
     # INFO SUPPORT
@@ -186,7 +188,10 @@ def clean_up_content(init_content: str) -> str | None:
     reco_content_text = reco_content.text
     reco_content_text = _remove_irrelevant_content(reco_content_text)
     reco_content_text = _make_html(reco_content_text)
-    logging.info(f'{reco_content_text=}')
+    logging.info(
+        f'cleaned up content: {len(reco_content_text)} chars, fingerprint {content_fingerprint(reco_content_text)}'
+    )
+    logging.debug(f'{reco_content_text=}')
 
     return reco_content_text
 

@@ -55,7 +55,12 @@ class SearchParser:
         else:
             return None
 
-        logging.info(f'{title_reco_dict=}')
+        logging.info(
+            f'title recognized: topic_type={title_reco_dict.topic_type}, status={title_reco_dict.status}, '
+            f'avia={title_reco_dict.avia}, '
+            f'persons={title_reco_dict.persons.total_persons if title_reco_dict.persons else 0}'
+        )
+        logging.debug(f'{title_reco_dict=}')
 
         # FIXME – 06.11.2023 – work to delete function "define_family_name_from_search_title_new"
         if title_reco_dict.topic_type == RecognitionTopicType.event:

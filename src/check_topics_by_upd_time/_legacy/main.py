@@ -402,7 +402,7 @@ def process_folder(
     if folder.mother_folder_timestamp:
         saved_ts = folder_timestamps.get(folder.mother_folder_num)
         if saved_ts == folder.mother_folder_timestamp:
-            logging.info(f'Folder {folder.mother_folder_num}: no change since last check, skipping')
+            logging.debug(f'Folder {folder.mother_folder_num}: no change since last check, skipping')
             return
 
     decomposed_folder = FolderDecomposer().decompose_folder(folder.mother_folder_num)
