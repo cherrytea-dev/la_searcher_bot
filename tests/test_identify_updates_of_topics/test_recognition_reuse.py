@@ -27,8 +27,8 @@ from tests.test_identify_updates_of_topics.factories import ForumSearchItemFacto
 FOLDER_NUM = 276
 SEARCH_ID = 101
 PARSED_TIME = datetime(2026, 9, 15, 12, 0, 0)
-UNCHANGED_TITLE = 'Пропал кот, Екатеринбург'
-CHANGED_TITLE = 'Пропала собака, Екатеринбург'
+UNCHANGED_TITLE = 'Пропала Петрова Мария, Екатеринбург'
+CHANGED_TITLE = 'Найдена Петрова Мария, Екатеринбург'
 
 
 def legacy_search_item(search_id: int, title: str, replies_count: int = 3) -> LegacyForumSearchItem:
