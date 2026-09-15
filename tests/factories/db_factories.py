@@ -14,6 +14,14 @@ from tests.factories import db_models
 faker = Faker('ru_RU')
 faker.seed_instance()
 
+# Test folders live far above the real ones. `tests/tools/db_initial_data/geo_folders.sql`
+# loads the production geo_folders (215 rows, ids 41..459), and any generated id that lands on
+# one of them kills the test with `UniqueViolation: ... geo_folders_pkey`. Tests that create a
+# folder for a generated search (`folder_id=search.forum_folder_id`) clashed with the loaded
+# data in ~2% of runs each — that is what made `TestGetListOfTopics` flaky.
+TEST_FOLDER_ID_MIN = 1_000_000
+TEST_FOLDER_ID_MAX = 9_999_999
+
 
 @lru_cache
 def get_sessionmaner() -> sqlalchemy.orm.sessionmaker:
@@ -69,6 +77,9 @@ class ChangeLogFactory(BaseFactory[db_models.ChangeLog]):
 
 class SearchFactory(BaseFactory[db_models.Search]):
     search_forum_num = Use(faker.pyint, min_value=1_000_000_000, max_value=2_000_000_000)
+    # Folders referenced by a generated search must be creatable by the test itself
+    # (`folder_id=search.forum_folder_id`), so they stay inside the test id range.
+    forum_folder_id = Use(faker.pyint, min_value=TEST_FOLDER_ID_MIN, max_value=TEST_FOLDER_ID_MAX)
 
 
 class SearchFirstPostFactory(BaseFactory[db_models.SearchFirstPost]):
@@ -77,7 +88,7 @@ class SearchFirstPostFactory(BaseFactory[db_models.SearchFirstPost]):
 
 class GeoFolderFactory(BaseFactory[db_models.GeoFolder]):
     __set_primary_key__ = True
-    folder_id = Use(faker.pyint, min_value=1_000_000, max_value=9_999_999)
+    folder_id = Use(faker.pyint, min_value=TEST_FOLDER_ID_MIN, max_value=TEST_FOLDER_ID_MAX)
 
 
 class GeoRegionFactory(BaseFactory[db_models.GeoRegion]):
