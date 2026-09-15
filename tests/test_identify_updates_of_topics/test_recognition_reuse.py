@@ -24,6 +24,11 @@ from identify_updates_of_topics._utils.topic_updater import SearchUpdater
 from tests.factories import db_factories
 from tests.test_identify_updates_of_topics.factories import ForumSearchItemFactory, SearchSummaryFactory
 
+# The tests below share fixed ids (folder 276/991, searches 9911/9912) and store folder snapshots in
+# the common test database. Under xdist they land in different workers and overwrite each other's
+# snapshot, so the whole file runs in a single worker.
+pytestmark = pytest.mark.xdist_group('recognition_reuse')
+
 FOLDER_NUM = 276
 SEARCH_ID = 101
 PARSED_TIME = datetime(2026, 9, 15, 12, 0, 0)
