@@ -8,6 +8,12 @@ test:
 	make initdb
 	uv run pytest -v -n 4 --dist loadgroup
 
+# CI runs the tests in a single process: xdist workers share one test database and their
+# interleaving is a source of flaky runs. Slower, but stable (see .github/workflows/test.yml).
+test-serial:
+	make initdb
+	uv run pytest -v
+
 initdb:
 	PYTHONPATH=.:src uv run python tests/tools/init_testing_db.py --db=TEST
 
@@ -29,7 +35,7 @@ precommit: lint mypy
 
 ci-test:
 	# docker compose run --build --rm bot make initdb
-	docker compose run --rm bot make test
+	docker compose run --rm bot make test-serial
 
 dependencies:
 	echo "Copy common code to deploy Google Cloud Functions"
