@@ -77,12 +77,22 @@ class FolderUpdater:
             return False, []
 
         # title recognition is an HTTP call per search, so it is done only for folders with real updates
-        new_folder_summary = self._parse_one_folder(folder_content_items)
+        new_folder_summary, all_searches_parsed = self._parse_one_folder(folder_content_items)
         if not new_folder_summary:
             return False, []
 
-        # remember the snapshot only when the folder was parsed: a failed parse is retried next time
-        self._remember_snapshot(curr_snapshot_as_string, self.folder_num)
+        if not all_searches_parsed:
+            # The snapshot holds only the raw page data (titles + numbers of replies), so a failed
+            # recognition does not change it at all. Remembering it here would skip this folder until
+            # the next title/replies change — and the failed search would never be recognized again.
+            # So the snapshot stays unremembered: the folder is re-parsed on the next run.
+            logging.warning(
+                f'folder = {self.folder_num}: some searches were not parsed, the snapshot is not remembered '
+                f'so that they are retried on the next run'
+            )
+        else:
+            # remember the snapshot when the whole folder was parsed: a failed parse is retried next time
+            self._remember_snapshot(curr_snapshot_as_string, self.folder_num)
 
         logging.info(f'starting updating change_log and searches tables for folder {self.folder_num}')
 
@@ -98,22 +108,36 @@ class FolderUpdater:
         titles_and_num_of_replies = [[x.title, x.replies_count] for x in folder_content_items]
         return ','.join(map(str, [y for x in titles_and_num_of_replies for y in x]))
 
-    def _parse_one_folder(self, folder_content_items: list[ForumSearchItem]) -> list[SearchSummary]:
-        """parse forum folder with searches' summaries"""
+    def _parse_one_folder(self, folder_content_items: list[ForumSearchItem]) -> tuple[list[SearchSummary], bool]:
+        """parse forum folder with searches' summaries
+
+        Returns:
+            summaries of the searches parsed right now, and whether every item of the folder page was
+            parsed. A search whose recognition failed is absent from the summaries, so the caller must
+            not remember the folder snapshot: the raw snapshot does not change on such a failure, and
+            remembering it would skip the failed search forever.
+        """
 
         folder_summary: list[SearchSummary] = []
         current_datetime = datetime.now()
         prev_summaries = self._get_prev_summaries_by_topic_id()
+        all_searches_parsed = True
 
         for forum_search_item in folder_content_items:
             try:
-                self._parse_one_search(current_datetime, folder_summary, forum_search_item, prev_summaries)
+                search_parsed = self._parse_one_search(
+                    current_datetime, folder_summary, forum_search_item, prev_summaries
+                )
 
             except Exception:
                 logging.exception(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
                 notify_admin(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
+                search_parsed = False
 
-        return folder_summary
+            if not search_parsed:
+                all_searches_parsed = False
+
+        return folder_summary, all_searches_parsed
 
     def _get_prev_summaries_by_topic_id(self) -> dict[int, SearchSummary]:
         """snapshots of this folder from the previous parse, by topic id"""
@@ -171,7 +195,9 @@ class FolderUpdater:
         folder_summary: list[SearchSummary],
         forum_search_item: ForumSearchItem,
         prev_summaries: dict[int, SearchSummary],
-    ) -> None:
+    ) -> bool:
+        """recognize one search and append its summary, returns whether the summary was built"""
+
         prev_summary = prev_summaries.get(forum_search_item.search_id)
         if prev_summary is not None and can_reuse_recognition(
             prev_title=prev_summary.title,
@@ -181,7 +207,7 @@ class FolderUpdater:
             # the recognition result depends only on the title, so the previous one is still valid
             logging.debug(f'title of search {forum_search_item.search_id} is unchanged, skipping recognition')
             folder_summary.append(self._reuse_recognition(current_datetime, forum_search_item, prev_summary))
-            return
+            return True
 
         topic_type_dict = {
             RecognitionTopicType.search: TopicType.search_regular,
@@ -199,7 +225,8 @@ class FolderUpdater:
             title_reco_dict = RecognitionResult.model_validate(title_reco_response['recognition'])
             # TODO validate whole response
         else:
-            return
+            logging.warning(f'recognition of search {forum_search_item.search_id} failed, will be retried next time')
+            return False
 
         logging.info(
             f'title recognized: topic_type={title_reco_dict.topic_type}, status={title_reco_dict.status}, '
@@ -252,6 +279,8 @@ class FolderUpdater:
 
         logging.debug(f'search_summary_object={search_summary_object}')
         folder_summary.append(search_summary_object)
+
+        return True
 
     def _reuse_recognition(
         self,

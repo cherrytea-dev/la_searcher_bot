@@ -163,7 +163,10 @@ class TestFolderUpdaterRecognitionReuse:
         items = [legacy_search_item(SEARCH_ID, UNCHANGED_TITLE), legacy_search_item(SEARCH_ID + 1, 'Найдена!')]
         updater = FolderUpdater(legacy_db_client, FakeLegacyForum(items), FOLDER_NUM)
 
-        swapped_summary, recognized_summary = updater._parse_one_folder(items)
+        summaries, all_searches_parsed = updater._parse_one_folder(items)
+        assert all_searches_parsed
+
+        swapped_summary, recognized_summary = summaries
 
         assert recognized_titles == ['Найдена!']
         assert recognized_summary.name == 'Найденный Иван'
@@ -175,6 +178,120 @@ class TestFolderUpdaterRecognitionReuse:
         assert swapped_summary.topic_type_id == TopicType.search_regular
         assert swapped_summary.status == 'Ищем'
         assert swapped_summary.num_of_replies == 3
+
+
+class TestPartialParseIsNotSticky:
+    """A failed recognition must not be remembered as 'nothing has changed'.
+
+    The folder snapshot holds only the raw page data (title + number of replies), so it does not change
+    when the recognition of one search fails. Remembering it after a partial parse would make
+    `_has_updates` skip the whole folder on the next run — and the failed search would stay
+    unrecognized (e.g. a lost status change) until its title or number of replies changes.
+    """
+
+    STALE_SNAPSHOT = 'snapshot of the previous parse'
+    FOLDER_NUM = 991
+    SEARCH_IDS = (9911, 9912)
+
+    @pytest.fixture()
+    def folder_items(self, monkeypatch) -> list[LegacyForumSearchItem]:
+        monkeypatch.setattr(FolderUpdater, '_update_change_log_and_searches', lambda *args, **kwargs: [])
+        monkeypatch.setattr(FolderUpdater, '_update_coordinates', lambda *args, **kwargs: None)
+
+        return [
+            legacy_search_item(self.SEARCH_IDS[0], UNCHANGED_TITLE),
+            legacy_search_item(self.SEARCH_IDS[1], CHANGED_TITLE),
+        ]
+
+    @pytest.fixture()
+    def recognized_titles_with_a_broken_api(self, monkeypatch) -> list[str]:
+        """one search fails with an exception, like a broken `title_recognize` response"""
+
+        titles: list[str] = []
+
+        def broken_recognition(title: str, status_only: bool = False) -> dict:
+            titles.append(title)
+            if title == CHANGED_TITLE:
+                raise RuntimeError('title_recognize is not available')
+            return recognition_response()
+
+        monkeypatch.setattr(legacy_folder_updater, 'recognize_title_via_api', broken_recognition)
+
+        return titles
+
+    def test_exception_does_not_remember_the_snapshot(
+        self,
+        legacy_db_client,
+        folder_items,
+        recognized_titles_with_a_broken_api,
+    ) -> None:
+        storage = KeyValueStorage(legacy_db_client)
+        storage.write_folder_hash(self.STALE_SNAPSHOT, self.FOLDER_NUM)
+        updater = FolderUpdater(legacy_db_client, FakeLegacyForum(folder_items), self.FOLDER_NUM)
+
+        assert updater.run() == (True, [])
+
+        # остальные поиски обработаны, но папка не помечена как разобранная
+        assert recognized_titles_with_a_broken_api == [UNCHANGED_TITLE, CHANGED_TITLE]
+        assert storage.read_folder_hash(self.FOLDER_NUM) == self.STALE_SNAPSHOT
+
+    def test_not_ok_response_does_not_remember_the_snapshot(
+        self,
+        legacy_db_client,
+        folder_items,
+        monkeypatch,
+    ) -> None:
+        def not_ok_recognition(title: str, status_only: bool = False) -> dict:
+            if title == CHANGED_TITLE:
+                return {'status': 'failed'}
+            return recognition_response()
+
+        monkeypatch.setattr(legacy_folder_updater, 'recognize_title_via_api', not_ok_recognition)
+        storage = KeyValueStorage(legacy_db_client)
+        storage.write_folder_hash(self.STALE_SNAPSHOT, self.FOLDER_NUM)
+        updater = FolderUpdater(legacy_db_client, FakeLegacyForum(folder_items), self.FOLDER_NUM)
+
+        assert updater.run() == (True, [])
+        assert storage.read_folder_hash(self.FOLDER_NUM) == self.STALE_SNAPSHOT
+
+    def test_failed_recognition_is_retried_on_the_next_run(
+        self,
+        legacy_db_client,
+        folder_items,
+        monkeypatch,
+    ) -> None:
+        recognized: list[str] = []
+
+        def broken_once_recognition(title: str, status_only: bool = False) -> dict:
+            recognized.append(title)
+            if title == CHANGED_TITLE and recognized.count(CHANGED_TITLE) == 1:
+                raise RuntimeError('title_recognize is not available')
+            return recognition_response()
+
+        monkeypatch.setattr(legacy_folder_updater, 'recognize_title_via_api', broken_once_recognition)
+        storage = KeyValueStorage(legacy_db_client)
+        storage.write_folder_hash(self.STALE_SNAPSHOT, self.FOLDER_NUM)
+        updater = FolderUpdater(legacy_db_client, FakeLegacyForum(folder_items), self.FOLDER_NUM)
+
+        updater.run()
+        updater.run()
+
+        # упавший поиск распознан повторно, а не пропущен вместе с папкой; теперь снапшот записан
+        assert recognized.count(CHANGED_TITLE) == 2
+        assert storage.read_folder_hash(self.FOLDER_NUM) == updater._make_snapshot_as_string(folder_items)
+
+    def test_full_parse_remembers_the_snapshot(
+        self,
+        legacy_db_client,
+        folder_items,
+        recognized_titles,
+    ) -> None:
+        storage = KeyValueStorage(legacy_db_client)
+        storage.write_folder_hash(self.STALE_SNAPSHOT, self.FOLDER_NUM)
+        updater = FolderUpdater(legacy_db_client, FakeLegacyForum(folder_items), self.FOLDER_NUM)
+
+        assert updater.run() == (True, [])
+        assert storage.read_folder_hash(self.FOLDER_NUM) == updater._make_snapshot_as_string(folder_items)
 
 
 class TestSearchUpdaterRecognitionReuse:
