@@ -2,9 +2,11 @@ import logging
 import re
 import time
 from datetime import datetime, timedelta, timezone
+from typing import cast
 
 from _dependencies.common.commons import ChangeType, TopicType
 from _dependencies.common.pubsub import notify_admin, recognize_title_via_api
+from _dependencies.forum.recognition_reuse import can_reuse_recognition
 from _dependencies.forum.recognition_schema import RecognitionResult, RecognitionTopicType
 
 from .database import DBClient
@@ -61,22 +63,26 @@ class FolderUpdater:
         change_log_ids = []
 
         # parse a new version of summary page from the chosen folder
-        titles_and_num_of_replies, new_folder_summary = self._parse_one_folder()
+        folder_content_items = self.forum.get_folder_searches(self.folder_num)
+        if not folder_content_items:
+            return False, []
 
-        update_trigger = False
+        # transform the current snapshot into the string to be able to compare it: string vs string.
+        # Titles and numbers of replies are parsed from the folder page itself, so this check
+        # does not need any title recognition
+        curr_snapshot_as_string = self._make_snapshot_as_string(folder_content_items)
 
+        # get the prev snapshot as string from cloud storage & get the trigger if there are updates at all
+        if not self._has_updates(curr_snapshot_as_string, self.folder_num):
+            return False, []
+
+        # title recognition is an HTTP call per search, so it is done only for folders with real updates
+        new_folder_summary = self._parse_one_folder(folder_content_items)
         if not new_folder_summary:
             return False, []
 
-        # transform the current snapshot into the string to be able to compare it: string vs string
-        curr_snapshot_as_one_dimensional_list = [y for x in titles_and_num_of_replies for y in x]
-        curr_snapshot_as_string = ','.join(map(str, curr_snapshot_as_one_dimensional_list))
-
-        # get the prev snapshot as string from cloud storage & get the trigger if there are updates at all
-        update_trigger = self.update_checker(curr_snapshot_as_string, self.folder_num)
-
-        if not update_trigger:
-            return False, []
+        # remember the snapshot only when the folder was parsed: a failed parse is retried next time
+        self._remember_snapshot(curr_snapshot_as_string, self.folder_num)
 
         logging.info(f'starting updating change_log and searches tables for folder {self.folder_num}')
 
@@ -85,38 +91,50 @@ class FolderUpdater:
 
         return True, change_log_ids
 
-    def _parse_one_folder(self) -> tuple[list, list[SearchSummary]]:
+    @staticmethod
+    def _make_snapshot_as_string(folder_content_items: list[ForumSearchItem]) -> str:
+        """titles and numbers of replies of the folder page, flattened into one string"""
+
+        titles_and_num_of_replies = [[x.title, x.replies_count] for x in folder_content_items]
+        return ','.join(map(str, [y for x in titles_and_num_of_replies for y in x]))
+
+    def _parse_one_folder(self, folder_content_items: list[ForumSearchItem]) -> list[SearchSummary]:
         """parse forum folder with searches' summaries"""
 
         folder_summary: list[SearchSummary] = []
         current_datetime = datetime.now()
+        prev_summaries = self._get_prev_summaries_by_topic_id()
 
-        folder_content_items = self.forum.get_folder_searches(self.folder_num)
         for forum_search_item in folder_content_items:
             try:
-                self._parse_one_search(current_datetime, folder_summary, forum_search_item)
+                self._parse_one_search(current_datetime, folder_summary, forum_search_item, prev_summaries)
 
             except Exception:
                 logging.exception(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
                 notify_admin(f'TEMP - THIS BIG ERROR HAPPENED, {forum_search_item=}')
 
-        titles_and_num_of_replies = [[x.title, x.num_of_replies] for x in folder_summary]
-        return titles_and_num_of_replies, folder_summary
+        return folder_summary
 
-    def update_checker(self, current_hash: str, folder_num: int) -> bool:
-        """compare prev snapshot and freshly-parsed snapshot, returns NO or YES and Previous hash"""
+    def _get_prev_summaries_by_topic_id(self) -> dict[int, SearchSummary]:
+        """snapshots of this folder from the previous parse, by topic id"""
 
-        folder_hash_storage = KeyValueStorage(self.db)
+        return {summary.topic_id: summary for summary in self.db.get_current_snapshots_list(self.folder_num)}
 
-        previous_hash = folder_hash_storage.read_folder_hash(folder_num)
+    def _has_updates(self, current_hash: str, folder_num: int) -> bool:
+        """compare prev snapshot and freshly-parsed snapshot, returns NO or YES"""
+
+        previous_hash = KeyValueStorage(self.db).read_folder_hash(folder_num)
         if current_hash == previous_hash:
             return False
 
-        # update hash in Storage
-        folder_hash_storage.write_folder_hash(current_hash, folder_num)
-        logging.info(f'folder = {folder_num}, hash is updated, prev snapshot as string = {previous_hash}')
+        logging.info(f'folder = {folder_num}, has updates, prev snapshot as string = {previous_hash}')
 
         return True
+
+    def _remember_snapshot(self, current_hash: str, folder_num: int) -> None:
+        """write the freshly-parsed snapshot into cloud storage"""
+
+        KeyValueStorage(self.db).write_folder_hash(current_hash, folder_num)
 
     def _add_gender(self, total_display_name: str, title: str) -> str:
         space_pos = total_display_name.find(' ')
@@ -152,7 +170,19 @@ class FolderUpdater:
         current_datetime: datetime,
         folder_summary: list[SearchSummary],
         forum_search_item: ForumSearchItem,
+        prev_summaries: dict[int, SearchSummary],
     ) -> None:
+        prev_summary = prev_summaries.get(forum_search_item.search_id)
+        if prev_summary is not None and can_reuse_recognition(
+            prev_title=prev_summary.title,
+            prev_topic_type_id=prev_summary.topic_type_id,
+            new_title=forum_search_item.title,
+        ):
+            # the recognition result depends only on the title, so the previous one is still valid
+            logging.debug(f'title of search {forum_search_item.search_id} is unchanged, skipping recognition')
+            folder_summary.append(self._reuse_recognition(current_datetime, forum_search_item, prev_summary))
+            return
+
         topic_type_dict = {
             RecognitionTopicType.search: TopicType.search_regular,
             RecognitionTopicType.search_reverse: TopicType.search_reverse,
@@ -222,6 +252,39 @@ class FolderUpdater:
 
         logging.debug(f'search_summary_object={search_summary_object}')
         folder_summary.append(search_summary_object)
+
+    def _reuse_recognition(
+        self,
+        current_datetime: datetime,
+        forum_search_item: ForumSearchItem,
+        prev_summary: SearchSummary,
+    ) -> SearchSummary:
+        """build the search summary from the previous parse instead of calling the recognition API"""
+
+        topic_type = prev_summary.topic_type
+        if self.folder_num in self.folders_with_events:
+            topic_type = RecognitionTopicType.event
+
+        # in SQL 'city_locations' is a text column, so locations of a stored summary are already a string
+
+        return SearchSummary(
+            parsed_time=current_datetime,
+            topic_id=forum_search_item.search_id,
+            title=forum_search_item.title,
+            start_time=forum_search_item.start_datetime,
+            num_of_replies=forum_search_item.replies_count,
+            name=prev_summary.name,
+            folder_id=self.folder_num,
+            topic_type=topic_type,
+            topic_type_id=prev_summary.topic_type_id,
+            new_status=prev_summary.new_status,
+            status=prev_summary.status,
+            display_name=prev_summary.display_name,
+            age=prev_summary.age,
+            age_min=prev_summary.age_min,
+            age_max=prev_summary.age_max,
+            locations=cast('list[list[float]] | None', prev_summary.locations),
+        )
 
     def _update_change_log_and_searches(self, new_folder_summary: list[SearchSummary]) -> list[int]:
         """update of SQL tables 'searches' and 'change_log' on the changes vs previous parse"""

@@ -1,7 +1,10 @@
 import logging
 from datetime import datetime
+from typing import cast
 
 from _dependencies.common.commons import ChangeType
+from _dependencies.forum.recognition_reuse import can_reuse_recognition
+from _dependencies.forum.recognition_schema import RecognitionTopicType
 
 from .change_detector import ChangeDetector
 from .coordinates import CoordinatesResolver
@@ -59,13 +62,62 @@ class SearchUpdater:
             return []
 
         now_ = datetime.now()
-        summary = self.search_parser.parse(now_, item, self.folders_with_events)
+        summary: SearchSummary | None = None
+        prev_search = self.db.get_search_by_id(search_id)
+        if prev_search is not None and can_reuse_recognition(
+            prev_title=prev_search.title,
+            prev_topic_type_id=prev_search.topic_type_id,
+            new_title=item.title,
+        ):
+            # the recognition result depends only on the title, so the previous one is still valid
+            logging.debug(f'title of search {search_id} is unchanged, skipping recognition')
+            summary = self._reuse_recognition(now_, item, prev_search)
+        else:
+            summary = self.search_parser.parse(now_, item, self.folders_with_events)
+
         if not summary:
             return []
 
         change_log_ids = self._update_change_log_and_search(summary, item)
 
         return change_log_ids
+
+    def _reuse_recognition(
+        self,
+        current_datetime: datetime,
+        forum_search_item: ForumSearchItem,
+        prev_search: SearchSummary,
+    ) -> SearchSummary:
+        """build the search summary from the previous parse instead of calling the recognition API"""
+
+        topic_type = prev_search.topic_type
+        if self.folders_with_events and forum_search_item.folder_id in self.folders_with_events:
+            topic_type = RecognitionTopicType.event
+
+        return SearchSummary(
+            parsed_time=current_datetime,
+            topic_id=forum_search_item.search_id,
+            title=forum_search_item.title,
+            start_time=forum_search_item.start_datetime,
+            num_of_replies=forum_search_item.replies_count,
+            name=prev_search.name,
+            folder_id=forum_search_item.folder_id,
+            topic_type=topic_type,
+            topic_type_id=prev_search.topic_type_id,
+            new_status=prev_search.new_status,
+            status=prev_search.status,
+            display_name=prev_search.display_name,
+            age=prev_search.age,
+            age_min=prev_search.age_min,
+            age_max=prev_search.age_max,
+            locations=self._locations_of_prev_search(prev_search),
+        )
+
+    @staticmethod
+    def _locations_of_prev_search(prev_search: SearchSummary) -> list[list[float]] | None:
+        """locations of a stored summary: in SQL 'city_locations' is a text column, so it is a string"""
+
+        return cast('list[list[float]] | None', prev_search.locations)
 
     def _update_change_log_and_search(self, search_summary: SearchSummary, item: ForumSearchItem) -> list[int]:
         """update of SQL tables 'searches' and 'change_log' on the changes vs previous parse"""
