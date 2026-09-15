@@ -19,7 +19,41 @@ services:
   postgres:
     env_file: *env_file
     image: postgres:15-alpine
-    command: ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"]
+    # Test database: the data is thrown away after the run (make initdb recreates it), so durability
+    # costs time and buys nothing. Every option below removes work whose result nobody will ever read:
+    # fsync of WAL/data, full-page images, WAL for replication, checkpoints, autovacuum and statistics.
+    # Startup-only options (wal_level, max_wal_senders) cannot be measured in a running server,
+    # the rest is measurable — see "Test database speed" in README.md.
+    command:
+      - postgres
+      - -c
+      - fsync=off                  # no fsync of WAL and data files
+      - -c
+      - synchronous_commit=off     # COMMIT does not wait for the WAL flush
+      - -c
+      - full_page_writes=off       # no full-page images of data pages after a checkpoint
+      - -c
+      - wal_level=minimal          # no WAL for replication/archiving, only crash recovery
+      - -c
+      - max_wal_senders=0          # without this wal_level=minimal still writes the extra WAL
+      - -c
+      - max_wal_size=4GB           # fewer checkpoints during a run
+      - -c
+      - min_wal_size=512MB         # keep the recycled segments instead of recreating them
+      - -c
+      - checkpoint_timeout=30min
+      - -c
+      - autovacuum=off             # the test DB lives for minutes, there is nothing to vacuum
+      - -c
+      - track_counts=off           # no statistics collection (pg_stat_* is not used by the tests)
+      - -c
+      - work_mem=64MB              # sorts and hashes in memory instead of temp files
+      - -c
+      - maintenance_work_mem=256MB # index creation while the schema is (re)built
+      - -c
+      - temp_buffers=64MB
+      - -c
+      - jit=off                    # JIT compilation of tiny queries costs more than it saves
     volumes:
       - pg_data:/var/lib/postgresql/data
     ports:

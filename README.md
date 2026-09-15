@@ -127,6 +127,28 @@ regardless of `LOG_LEVEL`; the single list lives in `NOISY_LOGGERS`
 
 Run tests with postgres database in docker container: `make ci-test`
 
+
+### Test database speed
+
+`make initdb` recreates the test database from `tests/tools/db.sql`, and the data is thrown away after
+the run, so durability costs time and buys nothing. The postgres service in `docker-compose.yml`
+therefore starts with the work nobody reads removed:
+
+| Option | Why it is safe for the test DB |
+| --- | --- |
+| `fsync=off`, `synchronous_commit=off`, `full_page_writes=off` | no fsync and no full-page images; a crash of the container loses only throwaway data |
+| `wal_level=minimal`, `max_wal_senders=0` | the DB is standalone: no replication, no archiving (both are startup-only options, they cannot be changed in a running server) |
+| `max_wal_size=4GB`, `min_wal_size=512MB`, `checkpoint_timeout=30min` | fewer checkpoints during a run |
+| `autovacuum=off`, `track_counts=off` | the DB lives for minutes and the tests do not read `pg_stat_*` |
+| `work_mem=64MB`, `maintenance_work_mem=256MB`, `temp_buffers=64MB` | sorts, hashes and index builds stay in memory |
+| `jit=off` | compiling a tiny query costs more than running it |
+
+These options do not make a local run shorter: the suite is CPU-bound and performs only ~2300 commits
+per run, while `fsync=off` saves ~0.3 ms per commit — under a second in total (measured on a 2 vCPU
+VM: 1021 tests, `pytest -n 4`, ~45 s either way). They are kept for CI, where the runner disk is cold
+and slower, and for runs against a much bigger database.
+
+
 > Note: on machines without AVX/SSE4.2 support, pin `numpy==1.26.4`
 > (`uv pip install numpy==1.26.4`) and run tests without xdist:
 > `uv run --no-sync pytest`.
