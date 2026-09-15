@@ -10,6 +10,7 @@ Modes:
   top-errors   Aggregate ERROR logs, group by pattern, show top-N with request_ids.
   trace        Get all logs for a specific request_id to reconstruct the full picture.
   list-groups  List available log groups in a YC folder.
+  volume       Report log volume per service, extrapolated to a day.
   raw          Raw JSON dump for programmatic use.
 
 Auth:
@@ -19,6 +20,7 @@ Usage:
   uv run python tools/log_inspector/main.py top-errors <log-group-id> --hours 24 --top 10
   uv run python tools/log_inspector/main.py trace <log-group-id> <request-id> --hours 24
   uv run python tools/log_inspector/main.py list-groups <folder-id>
+  uv run python tools/log_inspector/main.py volume <log-group-id> --hours 24
   uv run python tools/log_inspector/main.py raw <log-group-id> --hours 1 --level ERROR
 
 Known YC Logging quirks (handled automatically):
@@ -34,11 +36,13 @@ Known YC Logging quirks (handled automatically):
 
 import json
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 
 import click
 
 from tools.log_inspector._utils.analytics import group_errors
+from tools.log_inspector._utils.volume import VolumeAggregator
 from tools.log_inspector._utils.yc_logging import AuthError, YCLoggingClient
 
 _COLORS = {
@@ -166,6 +170,64 @@ def raw(log_group_id: str, hours: int, level: str, slice_hours: float) -> None:
         slice_hours=slice_hours,
     )
     click.echo(json.dumps(entries, indent=2, ensure_ascii=False))
+
+
+@cli.command()
+@click.argument('log_group_id')
+@click.option('--hours', default=24, show_default=True, help='Window length (hours) to report on')
+@click.option('--sample-every', default=1, show_default=True, help='Read every Nth hour only, then extrapolate')
+@click.option('--start-offset', default=0, show_default=True, help='Offset (hours) of the first sampled slice')
+@click.option('--top-messages', default=3, show_default=True, help='Top messages shown per service')
+@click.option('--top-biggest', default=5, show_default=True, help='Fattest records shown')
+@click.option('--json', 'as_json', is_flag=True, help='Emit JSON instead of a table')
+def volume(
+    log_group_id: str,
+    hours: int,
+    sample_every: int,
+    start_offset: int,
+    top_messages: int,
+    top_biggest: int,
+    as_json: bool,
+) -> None:
+    """Report log volume per service, extrapolated to a full day.
+
+    Reads the window hour by hour and folds entries as they arrive (~1.6M
+    records / ~1 GB a day on the prod group — far too much to hold in memory),
+    so the run is I/O bound: around a minute per hourly slice.
+    """
+    sample_every = max(1, sample_every)
+    client = _make_client()
+    to_time = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    from_time = to_time - timedelta(hours=hours)
+    aggregator = VolumeAggregator(top_biggest=top_biggest)
+
+    click.echo(
+        f'⏳ Reading log volume for the last {hours}h (every {sample_every}h slice, phase {start_offset}) …',
+        err=True,
+    )
+    hour = from_time + timedelta(hours=start_offset)
+    index = 0
+    while hour < to_time:
+        index += 1
+        if (index - 1) % sample_every == 0:
+            slice_end = min(hour + timedelta(hours=1), to_time)
+            started = time.monotonic()
+            entries = client.read_all_logs(log_group_id, from_time=hour, to_time=slice_end, slice_hours=0)
+            slice_bytes = aggregator.add_slice(entries)
+            click.echo(
+                f'  [{hour:%m-%d %H:%M}] {len(entries)} records, {slice_bytes / 1e6:.1f} MB, '
+                f'{time.monotonic() - started:.0f}s',
+                err=True,
+            )
+        hour += timedelta(hours=1)
+
+    report = aggregator.report(hours)
+    if as_json:
+        click.echo(
+            json.dumps(report.to_dict(top_messages=top_messages, top_biggest=top_biggest), indent=2, ensure_ascii=False)
+        )
+        return
+    click.echo(report.render(top_messages=top_messages, top_biggest=top_biggest))
 
 
 def _make_client() -> YCLoggingClient:

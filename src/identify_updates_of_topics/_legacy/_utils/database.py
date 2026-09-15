@@ -87,7 +87,7 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                                    """)
             saved_result = conn.execute(stmt, {'a': address_string}).fetchone()
 
-        logging.info(f'{address_string=}, {saved_result=}')
+        logging.debug(f'{address_string=}, {saved_result=}')
 
         # there is a psql record on this address - no geocoding activities are required
         if not saved_result:

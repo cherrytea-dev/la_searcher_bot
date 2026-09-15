@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import hashlib
 import json
 import math
 import random
@@ -76,6 +77,16 @@ def generate_random_function_id() -> int:
     random_id = random.randint(100000000000, 999999999999)
 
     return random_id
+
+
+def content_fingerprint(content: str, length: int = 12) -> str:
+    """Short stable fingerprint of a text.
+
+    Logs hold the fingerprint (plus the length) instead of the whole content: first pages of forum
+    topics are kilobytes of HTML, and dumping them floods the log and buries real errors.
+    """
+
+    return hashlib.sha256(content.encode('utf-8', errors='replace')).hexdigest()[:length]
 
 
 def calc_bearing(lat_2: float, lon_2: float, lat_1: float, lon_1: float) -> float:

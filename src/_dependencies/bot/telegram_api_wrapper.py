@@ -113,7 +113,7 @@ class TGApiBase:
         json_params = json.dumps(params)
 
         json_size = len(json_params.encode('utf-8'))
-        logging.info(
+        logging.debug(
             f'_make_api_call: method={method}, json_body_size={json_size} bytes, '
             f'chat_id={params.get("chat_id") or params.get("scope", {}).get("chat_id", "?")}, '
             f'call_context={call_context}'
@@ -168,13 +168,13 @@ class TGApiBase:
                 return 'failed'
 
             if response.ok:
-                logging.info(f'message to {user_id} was successfully sent')
+                logging.debug(f'message to {user_id} was successfully sent')
                 return 'completed'
 
             elif response.status_code == 400:  # Bad Request
                 description = response_json.get('description', '')
                 if 'message is not modified' in description:
-                    logging.info(f'message not modified for user {user_id} (no-op), {response_json=}')
+                    logging.debug(f'message not modified for user {user_id} (no-op), {response_json=}')
                     return 'completed'
                 logging.exception(f'Bad Request: message to {user_id} was not sent, {response_json=}')
                 return 'cancelled_bad_request'

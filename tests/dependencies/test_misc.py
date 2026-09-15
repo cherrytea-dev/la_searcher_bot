@@ -85,3 +85,22 @@ def test_convert_flask_request():
     assert request_wrapper.json_ == {'hello': 'world'}
     assert request_wrapper.method == 'POST'
     assert request_wrapper.headers['Content-Type'] == 'application/json'
+
+
+class TestContentFingerprint:
+    def test_is_stable_for_same_content(self):
+        assert misc.content_fingerprint('<span>same</span>') == misc.content_fingerprint('<span>same</span>')
+
+    def test_differs_for_different_content(self):
+        assert misc.content_fingerprint('a') != misc.content_fingerprint('b')
+
+    def test_default_length_is_short(self):
+        assert len(misc.content_fingerprint('x' * 1000)) == 12
+
+    def test_custom_length(self):
+        assert len(misc.content_fingerprint('x', length=6)) == 6
+
+    def test_handles_non_ascii_cyrillic_content(self):
+        fingerprint = misc.content_fingerprint('Пропал человек, г. Казань')
+
+        assert fingerprint.isalnum()

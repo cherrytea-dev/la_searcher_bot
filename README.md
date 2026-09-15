@@ -99,6 +99,24 @@ It will:
 
 Now you can run tests from the tests menu
 
+### Logging level
+
+All functions take their log level from the `LOG_LEVEL` environment variable:
+`DEBUG` / `INFO` / `WARNING` (alias `WARN`) / `ERROR` / `CRITICAL`, case-insensitive, spaces tolerated.
+If the variable is not set, or its value is not recognized, the code falls back to `WARN`
+(and writes an `ERROR` record about the unknown value, so a typo in the environment does not go unnoticed).
+
+Deployment passes `LOG_LEVEL` to every function from the repository variable of the same name
+(`Settings -> Secrets and variables -> Actions -> Variables`), defaulting to `WARN` while it is not set.
+The same level is used for all functions.
+
+Beware that the default `WARN` hides the `INFO` summary of long-running services (`script finished`,
+`Lock acquired`, sending analytics). Set the variable to `INFO` if you need those lines back.
+
+Third-party loggers that chat on INFO (`botocore`, `httpx`, `urllib3`, ...) are pinned to `WARNING`
+regardless of `LOG_LEVEL`; the single list lives in `NOISY_LOGGERS`
+(`src/_dependencies/common/yandex_tools.py`). Do not silence loggers inside other modules.
+
 ## Before commit:
 
 1. Run tests: `make test`

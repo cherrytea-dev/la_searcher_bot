@@ -153,7 +153,11 @@ class NotificationSender:
     ) -> None:
         """Log + DB update + metrics for one message."""
         logging.debug('time: -------------- loop start -------------')
-        logging.info(f'{message_to_send}')
+        logging.info(
+            f'message to send: message_id={message_to_send.message_id}, user_id={message_to_send.user_id}, '
+            f'messenger={message_to_send.messenger}, change_log_id={message_to_send.change_log_id}'
+        )
+        logging.debug(f'{message_to_send}')
         analytics_sm_start = datetime.datetime.now()
 
         change_log_upd_time = self._db_client.get_change_log_update_time(message_to_send.change_log_id)

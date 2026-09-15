@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import sys
 from functools import lru_cache
 from typing import Any
@@ -12,6 +13,53 @@ from pythonjsonlogger.json import JsonFormatter
 from retry import retry
 
 Ctx = dict
+
+#: Level used when LOG_LEVEL is not set (or is not understood).
+DEFAULT_LOG_LEVEL = 'WARN'
+
+_LEVEL_TO_NUMBER: dict[str, int] = {
+    'CRITICAL': logging.CRITICAL,
+    'ERROR': logging.ERROR,
+    'WARNING': logging.WARNING,
+    'WARN': logging.WARNING,
+    'INFO': logging.INFO,
+    'DEBUG': logging.DEBUG,
+}
+
+#: Third-party loggers pinned to a fixed level: logger name -> level.
+#:
+#: Libraries that chat on INFO (botocore: 'Found credentials in environment variables.',
+#: httpx: one line per HTTP request). Their INFO/DEBUG says nothing about our business logic,
+#: so they stay at WARNING whatever LOG_LEVEL is.
+#: `telegram.vendor.ptb_urllib3.urllib3` is pinned to ERROR instead: its 'Retrying' WARNINGs show up
+#: in Cloud Logging as errors, although they only mean that the request was retried.
+#: This is the single place for such stubs — per-module ``setLevel()`` calls are not allowed.
+NOISY_LOGGERS: dict[str, int] = {
+    'asyncio': logging.WARNING,
+    'boto3': logging.WARNING,
+    'botocore': logging.WARNING,
+    'httpcore': logging.WARNING,
+    'httpx': logging.WARNING,
+    's3transfer': logging.WARNING,
+    'urllib3': logging.WARNING,
+    'telegram.vendor.ptb_urllib3.urllib3': logging.ERROR,
+}
+
+
+def resolve_log_level(raw_level: str | None = None) -> int:
+    """Return the log level number for ``raw_level`` (defaults to the ``LOG_LEVEL`` env var).
+
+    Unset or unrecognized values fall back to :data:`DEFAULT_LOG_LEVEL` (``WARN``):
+    services must opt in explicitly (``LOG_LEVEL=INFO``) to write chatter.
+    """
+    if raw_level is None:
+        raw_level = os.environ.get('LOG_LEVEL', '')
+    return _LEVEL_TO_NUMBER.get(raw_level.strip().upper(), _LEVEL_TO_NUMBER[DEFAULT_LOG_LEVEL])
+
+
+def _silence_noisy_loggers() -> None:
+    for logger_name, level in NOISY_LOGGERS.items():
+        logging.getLogger(logger_name).setLevel(level)
 
 
 def setup_logging_cloud(package_name: str | None = None) -> None:
@@ -29,7 +77,14 @@ def setup_logging_cloud(package_name: str | None = None) -> None:
     root_logger.handlers.clear()
     root_logger.addHandler(handler)
 
-    logging.getLogger().setLevel(logging.INFO)  # yandex
+    raw_level = os.environ.get('LOG_LEVEL', '')
+    root_logger.setLevel(resolve_log_level(raw_level))  # yandex
+    _silence_noisy_loggers()
+
+    if raw_level and raw_level.strip().upper() not in _LEVEL_TO_NUMBER:
+        # ERROR (not WARNING): a typo in the deployment env must be visible even when the function
+        # is otherwise quiet at the default WARN level.
+        root_logger.error(f'Unknown LOG_LEVEL={raw_level!r}, falling back to {DEFAULT_LOG_LEVEL}')
 
 
 @lru_cache
