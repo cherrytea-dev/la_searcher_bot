@@ -128,6 +128,15 @@ regardless of `LOG_LEVEL`; the single list lives in `NOISY_LOGGERS`
 Run tests with postgres database in docker container: `make ci-test`
 
 
+> Note: on machines without AVX/SSE4.2 support, pin `numpy==1.26.4`
+> (`uv pip install numpy==1.26.4`) and run tests without xdist:
+> `uv run --no-sync pytest`.
+
+Run bot locally: `uv run python tests/tools/run_bot.py` (example is in [launch.template.json](.vscode/launch.template.json) )
+
+Or run bot in container: `docker compose up -d`
+
+
 ### Test database speed
 
 `make initdb` recreates the test database from `tests/tools/db.sql`, and the data is thrown away after
@@ -143,16 +152,9 @@ therefore starts with the work nobody reads removed:
 | `work_mem=64MB`, `maintenance_work_mem=256MB`, `temp_buffers=64MB` | sorts, hashes and index builds stay in memory |
 | `jit=off` | compiling a tiny query costs more than running it |
 
-These options do not make a local run shorter: the suite is CPU-bound and performs only ~2300 commits
-per run, while `fsync=off` saves ~0.3 ms per commit — under a second in total (measured on a 2 vCPU
-VM: 1021 tests, `pytest -n 4`, ~45 s either way). They are kept for CI, where the runner disk is cold
-and slower, and for runs against a much bigger database.
-
-
-> Note: on machines without AVX/SSE4.2 support, pin `numpy==1.26.4`
-> (`uv pip install numpy==1.26.4`) and run tests without xdist:
-> `uv run --no-sync pytest`.
-
-Run bot locally: `uv run python tests/tools/run_bot.py` (example is in [launch.template.json](.vscode/launch.template.json) )
-
-Or run bot in container: `docker compose up -d`
+These options buy almost nothing locally: the suite is CPU-bound and performs only ~2300 commits per
+run, while `fsync=off` saves ~0.3 ms per commit. Measured on a 2 vCPU VM (1021 tests): with
+`pytest -n 4` — ~45 s either way, because the workers hide the database latency behind their own CPU
+work; in a single process (no xdist) — ~36.4 s against ~35.6 s, i.e. the promised second shows up, but
+nothing more. The options are kept for CI, where the runner disk is cold and slower, and for runs
+against a much bigger database.
