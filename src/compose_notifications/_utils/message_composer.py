@@ -5,6 +5,7 @@ import re
 from functools import lru_cache
 
 from _dependencies.common.commons import ChangeLogSavedValue, ChangeType, TopicType, add_tel_link
+from _dependencies.common.misc import content_fingerprint
 
 from .commons import (
     COORD_FORMAT,
@@ -146,7 +147,9 @@ class MessageComposer:
                     '<i>Совет: Чтобы Бот показывал Направление и Расстояние до поиска – просто укажите ваши '
                     '"Домашние координаты" в Настройках Бота.</i>'
                 )
-        logging.info(f'OLD - FINAL NEW MESSAGE FOR NEW SEARCH: {message}')
+        logging.info(
+            f'OLD - FINAL NEW MESSAGE FOR NEW SEARCH: {len(message)} chars, fingerprint {content_fingerprint(message)}'
+        )
 
         return message
 
