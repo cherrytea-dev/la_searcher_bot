@@ -1,8 +1,26 @@
 import logging
 
 from _dependencies.common.commons import ChangeType
+from _dependencies.common.misc import content_fingerprint
 
 from .topics_commons import ChangeLogLine, SearchSummary
+
+# Values longer than this are logged as length + fingerprint instead of the raw text.
+MAX_VALUE_IN_DIGEST = 60
+
+
+def changes_digest(changes: list[ChangeLogLine]) -> str:
+    """compact one-liner of what changed for one search: the full old/new dumps live in DEBUG"""
+
+    topic_id = changes[0].topic_id
+    parts: list[str] = []
+    for change in changes:
+        value = str(change.new_value)
+        if len(value) > MAX_VALUE_IN_DIGEST:
+            value = f'{value[:MAX_VALUE_IN_DIGEST]}… ({len(value)} chars, fingerprint {content_fingerprint(value)})'
+        parts.append(f'{change.changed_field}={value}')
+
+    return f'changes for search {topic_id}: {len(changes)} — ' + '; '.join(parts)
 
 
 class ChangeDetector:
@@ -21,7 +39,7 @@ class ChangeDetector:
 
         Detects changes in: status, title, number of replies, inforg comments.
         """
-        logging.info(f'Comparing changes between new and old search info. Old: {prev_search}. New: {snapshot}')
+        logging.debug(f'Comparing changes between new and old search info. Old: {prev_search}. New: {snapshot}')
 
         change_log_updates_list: list[ChangeLogLine] = []
 
@@ -80,5 +98,8 @@ class ChangeDetector:
                     f'Old value: {prev_search.folder_id}, new value: {snapshot.folder_id}'
                 )
             )
+
+        if change_log_updates_list:
+            logging.info(changes_digest(change_log_updates_list))
 
         return change_log_updates_list

@@ -226,7 +226,7 @@ class SearchUpdater:
         if search_status not in {'Ищем', 'СТОП'}:
             return
 
-        logging.info(f'search coordinates should be saved for {search_id=}')
+        logging.debug(f'search coordinates should be saved for {search_id=}')
         coords = self._parse_coordinates_of_search(search_id, item)
 
         self.db.update_coordinates_in_db(search_id, coords[0], coords[1], coords[2])
@@ -258,7 +258,7 @@ class SearchUpdater:
         # DEBUG - function execution time counter
         func_finish = datetime.now()
         func_execution_time_ms = func_finish - func_start
-        logging.info(f'the coordinates for {search_num=} are defined as {lat}, {lon}, {coord_type}')
+        logging.debug(f'the coordinates for {search_num=} are defined as {lat}, {lon}, {coord_type}')
         logging.debug(f'DBG.P.5.parse_coordinates() exec time: {func_execution_time_ms}')
 
         return lat, lon, coord_type
