@@ -90,10 +90,10 @@ class LogRecordComposer:
             r_line.topic_type_id = s_line[15]
             r_line.region = s_line[16]
 
-            logging.info(f'TEMP - FORUM_FOLDER = {r_line.forum_folder}, while s_line = {str(s_line)}')
-            logging.info(f'TEMP - CITY LOCS = {r_line.city_locations}')
-            logging.info(f'TEMP - STATUS_OLD = {r_line.status}, STATUS_NEW = {r_line.new_status}')
-            logging.info(f'TEMP - TOPIC_TYPE = {r_line.topic_type_id}')
+            logging.debug(f'TEMP - FORUM_FOLDER = {r_line.forum_folder}, while s_line = {str(s_line)}')
+            logging.debug(f'TEMP - CITY LOCS = {r_line.city_locations}')
+            logging.debug(f'TEMP - STATUS_OLD = {r_line.status}, STATUS_NEW = {r_line.new_status}')
+            logging.debug(f'TEMP - TOPIC_TYPE = {r_line.topic_type_id}')
 
             self._set_ignorance_mark(r_line)
 
