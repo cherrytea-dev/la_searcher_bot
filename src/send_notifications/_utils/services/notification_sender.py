@@ -153,7 +153,7 @@ class NotificationSender:
     ) -> None:
         """Log + DB update + metrics for one message."""
         logging.debug('time: -------------- loop start -------------')
-        logging.info(
+        logging.debug(
             f'message to send: message_id={message_to_send.message_id}, user_id={message_to_send.user_id}, '
             f'messenger={message_to_send.messenger}, change_log_id={message_to_send.change_log_id}'
         )
