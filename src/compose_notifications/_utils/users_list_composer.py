@@ -104,7 +104,7 @@ class UserListFilter:
             for user_line in users_list_outcome:
                 # if this record is about inforg_comments and user already subscribed to all comments
                 check_passed = not user_line.all_notifs
-                logging.info(
+                logging.debug(
                     f'Inforg 2x CHECK for {user_line.user_id} is {"OK" if check_passed else "FAIL"}, record {record.change_type}, '
                     f'user {user_line.user_id} {user_line.all_notifs}. '
                     f'record {record.forum_search_num}'
@@ -128,7 +128,7 @@ class UserListFilter:
         for user_line in users_list_outcome:
             age_requirements_met = check_if_age_requirements_met(search_age_range, user_line.age_periods)
             if not age_requirements_met:
-                logging.info(
+                logging.debug(
                     f'AGE CHECK for {user_line.user_id} is FAIL, record {search_age_range}, '
                     f'user {user_line.age_periods}. record {record.forum_search_num}'
                 )
@@ -225,7 +225,7 @@ class UserListFilter:
             if user.user_id == debug_user_id:
                 debug_user_inside = True
                 break
-        logging.info(f'Before User list crop due to whitelisting for {record.forum_search_num=}: {debug_user_inside=}')
+        logging.debug(f'Before User list crop due to whitelisting for {record.forum_search_num=}: {debug_user_inside=}')
 
         logging.info(f'processing record: forum_search_num={record.forum_search_num}, new_status={record.new_status}')
         logging.debug(f'{record=}')
@@ -255,8 +255,7 @@ class UserListFilter:
         """check what is the list of users for whom we already composed messages for the given change_log record"""
 
         user_ids = self.db.get_users_with_prepared_message(self.new_record.change_log_id)
-        logging.info('list of user with composed messages:')
-        logging.info(user_ids)
+        logging.debug(f'list of user with composed messages: {user_ids}')
         logging.info(f'in total {len(user_ids)}')
         return set(user_ids)
 
