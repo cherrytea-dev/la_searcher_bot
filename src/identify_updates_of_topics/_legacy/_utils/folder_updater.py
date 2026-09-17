@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import cast
 
 from _dependencies.common.commons import ChangeType, TopicType
+from _dependencies.common.misc import content_fingerprint
 from _dependencies.common.pubsub import notify_admin, recognize_title_via_api
 from _dependencies.forum.recognition_reuse import can_reuse_recognition
 from _dependencies.forum.recognition_schema import RecognitionResult, RecognitionTopicType
@@ -26,6 +27,23 @@ from .topics_commons import (
     ForumSearchItem,
     SearchSummary,
 )
+
+# Values longer than this are logged as length + fingerprint instead of the raw text.
+MAX_VALUE_IN_DIGEST = 60
+
+
+def changes_digest(changes: list[ChangeLogLine]) -> str:
+    """compact one-liner of what changed for one search: the full old/new dumps live in DEBUG"""
+
+    topic_id = changes[0].topic_id
+    parts: list[str] = []
+    for change in changes:
+        value = str(change.new_value)
+        if len(value) > MAX_VALUE_IN_DIGEST:
+            value = f'{value[:MAX_VALUE_IN_DIGEST]}… ({len(value)} chars, fingerprint {content_fingerprint(value)})'
+        parts.append(f'{change.changed_field}={value}')
+
+    return f'changes for search {topic_id}: {len(changes)} — ' + '; '.join(parts)
 
 
 class KeyValueStorage:
@@ -151,7 +169,13 @@ class FolderUpdater:
         if current_hash == previous_hash:
             return False
 
-        logging.info(f'folder = {folder_num}, has updates, prev snapshot as string = {previous_hash}')
+        if previous_hash is None:
+            logging.info(f'folder = {folder_num}, has updates, prev snapshot is not stored yet')
+        else:
+            logging.info(
+                f'folder = {folder_num}, has updates, '
+                f'prev snapshot: {len(previous_hash)} chars, fingerprint {content_fingerprint(previous_hash)}'
+            )
 
         return True
 
@@ -444,7 +468,7 @@ class FolderUpdater:
             if search_status not in {'Ищем', 'СТОП'}:
                 continue
 
-            logging.info(f'search coordinates should be saved for {search_id=}')
+            logging.debug(f'search coordinates should be saved for {search_id=}')
             coords = self._parse_coordinates_of_search(search_id)
 
             self.db.update_coordinates_in_db(search_id, coords[0], coords[1], coords[2])
@@ -476,7 +500,7 @@ class FolderUpdater:
         # DEBUG - function execution time counter
         func_finish = datetime.now()
         func_execution_time_ms = func_finish - func_start
-        logging.info(f'the coordinates for {search_num=} are defined as {lat}, {lon}, {coord_type}')
+        logging.debug(f'the coordinates for {search_num=} are defined as {lat}, {lon}, {coord_type}')
         logging.debug(f'DBG.P.5.parse_coordinates() exec time: {func_execution_time_ms}')
 
         return lat, lon, coord_type
@@ -484,7 +508,7 @@ class FolderUpdater:
     def _detect_changes(
         self, snapshot_line: SearchSummary, searches_line: SearchSummary, there_are_inforg_comments: bool
     ) -> list[ChangeLogLine]:
-        logging.info(f'Comparing changes between new and old search info. Old: {searches_line}. New: {snapshot_line}')
+        logging.debug(f'Comparing changes between new and old search info. Old: {searches_line}. New: {snapshot_line}')
 
         change_log_updates_list: list[ChangeLogLine] = []
         # there_are_inforg_comments = False
@@ -543,6 +567,9 @@ class FolderUpdater:
                     f'Old value: {searches_line.folder_id}, new value: {snapshot_line.folder_id}'
                 )
             )
+
+        if change_log_updates_list:
+            logging.info(changes_digest(change_log_updates_list))
 
         return change_log_updates_list
 
