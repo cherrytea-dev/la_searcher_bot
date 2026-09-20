@@ -7,6 +7,7 @@ from typing import cast
 from _dependencies.common.commons import ChangeType, TopicType
 from _dependencies.common.misc import content_fingerprint
 from _dependencies.common.pubsub import notify_admin, recognize_title_via_api
+from _dependencies.forum.recognition_cache import recognize_title_cached
 from _dependencies.forum.recognition_reuse import can_reuse_recognition
 from _dependencies.forum.recognition_schema import RecognitionResult, RecognitionTopicType
 
@@ -243,7 +244,12 @@ class FolderUpdater:
             # TODO move mapping near enum definition
         }
 
-        title_reco_response = recognize_title_via_api(forum_search_item.title, False)
+        # a title that could not be recognized is cached too, so it is not sent to the API again
+        title_reco_response = recognize_title_cached(
+            self.db,
+            forum_search_item.title,
+            api_call=recognize_title_via_api,
+        )
 
         if title_reco_response and 'status' in title_reco_response.keys() and title_reco_response['status'] == 'ok':
             title_reco_dict = RecognitionResult.model_validate(title_reco_response['recognition'])

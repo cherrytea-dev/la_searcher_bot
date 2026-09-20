@@ -3,13 +3,13 @@ from functools import lru_cache
 
 import sqlalchemy
 
-from _dependencies.common.db_client import DBClientBase
+from _dependencies.common.db_client import DBClientBase, DBKeyValueStorageMixin
 
 from .commons import RSSItem, Search
 
 
-class DBClient(DBClientBase):
-    """Legacy DBClient — now inherits from DBClientBase."""
+class DBClient(DBClientBase, DBKeyValueStorageMixin):
+    """Legacy DBClient — now inherits from DBClientBase and DBKeyValueStorageMixin."""
 
     def get_random_hidden_topic_id(self) -> int | None:
         with self.connect() as conn:
