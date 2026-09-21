@@ -11,6 +11,7 @@ import pytest
 
 from _dependencies.common.commons import TopicType
 from _dependencies.forum.recognition_reuse import can_reuse_recognition
+from _dependencies.forum.recognition_schema import RecognitionTopicType
 from identify_updates_of_topics._legacy._utils import database as legacy_database
 from identify_updates_of_topics._legacy._utils import folder_updater as legacy_folder_updater
 from identify_updates_of_topics._legacy._utils.folder_updater import FolderUpdater, KeyValueStorage
@@ -416,3 +417,35 @@ class TestSearchParserRecognitionCache:
         assert parser._recognize_title(UNCHANGED_TITLE) == recognition_response()
         assert parser._recognize_title(UNCHANGED_TITLE) == recognition_response()
         assert recognized == [UNCHANGED_TITLE]
+
+
+class TestUnrecognizedTitle:
+    def test_an_unrecognized_title_does_not_break_the_parser(self, db_client, monkeypatch) -> None:
+        """An answer with topic_type=UNRECOGNIZED must not crash the parser.
+
+        The cloud function itself answers `fail` for such a title (see title_recognize/main.py), so
+        the status check in `parse` normally stops first. Still, the parser may see an `ok` answer
+        with an unrecognized type (that is what the in-process test harness returns), and it used to
+        die with `KeyError: unrecognized` on the type map. Titles that Natasha used to turn into
+        phantom searches now come back as unrecognized, which made the map hole visible.
+        """
+
+        def fake_recognition(title: str, status_only: bool = False) -> dict:
+            return {'status': 'ok', 'recognition': {'topic_type': 'UNRECOGNIZED'}}
+
+        monkeypatch.setattr(search_parser, 'recognize_title_via_api', fake_recognition)
+        parser = SearchParser(CoordinatesResolver(db_client))
+        item = ForumSearchItemFactory.build(
+            title='[ИНФО] сводка по отряду',
+            search_id=SEARCH_ID,
+            start_datetime=PARSED_TIME,
+            folder_id=FOLDER_NUM,
+            replies_count=0,
+        )
+
+        summary = parser.parse(PARSED_TIME, item)
+
+        assert summary is not None
+        assert summary.topic_type == RecognitionTopicType.unrecognized
+        assert summary.topic_type_id == TopicType.unrecognized
+        assert summary.name == 'БВП'
