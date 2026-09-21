@@ -26,7 +26,7 @@ from typing import Any, Protocol
 from _dependencies.common.pubsub import recognize_title_via_api
 
 # Bump to invalidate the whole cache when the recognition logic changes.
-CACHE_VERSION = 1
+CACHE_VERSION = 2
 
 CACHE_KEY_PREFIX = 'title-reco'
 SUCCESS_TTL = timedelta(days=180)

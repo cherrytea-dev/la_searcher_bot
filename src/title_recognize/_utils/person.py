@@ -6,7 +6,7 @@ from typing import Tuple
 
 from dateutil import relativedelta
 
-from .title_commons import Block, PersonGroup, age_wording, check_word_by_natasha
+from .title_commons import Block, PersonGroup, age_wording, check_word_by_pymorphy
 
 
 def is_child(age_max: int | None) -> bool:
@@ -220,7 +220,7 @@ class PersonRecognizer:
         )
 
         self._define_display_name(person_reco)
-        self._define_number_of_persons_by_natasha(person_reco, name_string)
+        self._define_number_of_persons_by_pymorphy(person_reco, name_string)
         return person_reco
 
     def _define_number_of_persons(self, name_string: str) -> Tuple[int, Match | None]:
@@ -295,10 +295,10 @@ class PersonRecognizer:
             d = person_reco.display_name
             person_reco.display_name = f'{d[:letter_to_up]}{d[letter_to_up].capitalize()}{d[letter_to_up + 1 :]}'
 
-    def _define_number_of_persons_by_natasha(self, person_reco: PersonGroup, name_string: str) -> None:
+    def _define_number_of_persons_by_pymorphy(self, person_reco: PersonGroup, name_string: str) -> None:
         """Check if name_string is a name and set num_of_per to 1 if yes"""
 
-        # last chance to define number of persons in group - with help of Natasha
+        # last chance to define number of persons in group - with help of the morphology dictionary
         if person_reco.num_of_per != -1:
             return
         patterns = [r'^\D*\w(?=\W{1,3}\d)', r'^\D*\w(?=\W{1,3}$)']
@@ -307,7 +307,7 @@ class PersonRecognizer:
             block_2 = re.search(pattern, name_string)
 
             if block_2:
-                name_string_is_a_name = check_word_by_natasha(block_2.group(), 'per')
+                name_string_is_a_name = check_word_by_pymorphy(block_2.group(), 'per')
                 if name_string_is_a_name:
                     person_reco.num_of_per = 1
                     break

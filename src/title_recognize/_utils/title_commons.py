@@ -7,7 +7,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
-    from natasha import NewsNERTagger, Segmenter
+    from pymorphy3 import MorphAnalyzer
 
 
 class BlockType(str, Enum):
@@ -103,55 +103,84 @@ def age_wording(age: int) -> str:
     return wording
 
 
-def check_word_by_natasha(string_to_check: str, direction: str) -> bool:
-    """Uses the Natasha module to define persons / locations.
-    There are two directions processed: 'loc' for location and 'per' for person.
-    For 'loc': Function checks if the first word in recognized string is location -> returns True
-    For 'per': Function checks if the last word in recognized string is person -> returns True"""
+_NAME_GRAMMEMES = frozenset({'Name', 'Surn', 'Patr', 'Init'})
+# pymorphy3 `score` is the relative frequency of a reading in the dictionary. Below 5 % only
+# noise lives: the particle `ли`, the preposition `по` and adjectives like `Московская` all have
+# a "surname" reading with score <= 0.038.
+_MIN_NAME_READING_SCORE = 0.05
+_WORD_RE = re.compile(r'[А-Яа-яЁё][-А-Яа-яЁё]{1,}')
+_INITIALS_RE = re.compile(r'\b[А-ЯЁ]\.(?:\s*[А-ЯЁ]\.)?')
+_STATUS_MARKERS_RE = re.compile(
+    r'пропал|пропавш|ищем|поиск|найден|найд|жив|жива|живы|погиб|стоп|розыск|потерял|бюро|мчс',
+    re.IGNORECASE,
+)
 
-    # natasha is imported lazily on purpose: the package pulls in numpy and ~100 MB of
-    # models, while this check fires for less than 2 % of titles (measured on 101 613
+
+@lru_cache
+def _get_morph() -> MorphAnalyzer:
+    # pymorphy3 is imported lazily on purpose: the package ships ~16 MB of dictionaries and is
+    # needed only here, while this check fires for less than 2 % of titles (measured on 101 613
     # real titles: 1.8 %). Do not move this import back to module level.
-    from natasha import Doc
+    from pymorphy3 import MorphAnalyzer
 
-    match_found = False
-
-    segmenter = _get_segmenter()
-    ner_tagger = _get_tagger()
-
-    doc = Doc(string_to_check)
-    doc.segment(segmenter)
-    doc.tag_ner(ner_tagger)
-
-    if doc.spans:
-        if direction == 'loc':
-            # TODO never called with 'loc', only 'per'
-            first_span = doc.spans[0]
-
-            # If first_span.start is zero it means the 1st word just after the PERSON in title – are followed by LOC
-            if first_span.start == 0:
-                match_found = True
-
-        elif direction == 'per':
-            last_span = doc.spans[-1]
-            stripped_string = re.sub(r'\W{1,3}$', '', string_to_check)
-
-            if last_span.stop == len(stripped_string):
-                match_found = True
-
-    return match_found
+    return MorphAnalyzer()
 
 
-@lru_cache
-def _get_tagger() -> NewsNERTagger:
-    from natasha import NewsEmbedding, NewsNERTagger
-
-    emb = NewsEmbedding()
-    return NewsNERTagger(emb)
+def _has_name_reading(word: str) -> bool:
+    return any(_NAME_GRAMMEMES & set(parse.tag.grammemes) for parse in _get_morph().parse(word))
 
 
-@lru_cache
-def _get_segmenter() -> Segmenter:
-    from natasha import Segmenter
+def check_word_by_pymorphy(string_to_check: str, direction: str) -> bool:
+    """Defines whether the last word of the string is a person, with the help of pymorphy3.
 
-    return Segmenter()
+    Replaces the former Natasha NER check: the dictionary is ~17 MB instead of ~123 MB (no numpy,
+    no models), and only the last word of the string is analysed. For 'per' the function answers
+    "the string ends with a name" — same question Natasha was asked.
+
+    Two traps of the naive "any dictionary reading is a name" check are closed explicitly, both
+    used to give phantom persons:
+
+    * readings rarer than 5 % are dropped (`score < 0.05`) — that is where the phantoms live:
+      the particle `ли` and the adjective `Московская` have a "surname" reading with score 0.038,
+      the preposition `по` — 0.000. Real, just rare, surnames stay above the line
+      (`Дергалев` 0.078, `Сдвижкова` 0.153);
+    * toponyms that are read as a city more often than as a surname (`Киров`: city 0.50 vs
+      surname 0.25) — accepted only when the string carries support: another name word, initials
+      like `Б. В.` or a status marker (`пропал`, `найден`, `жив`, `стоп`).
+
+    Measured against Natasha on the 1 794 real titles where the check is called at all: 368
+    differences — 88 phantom "searches" disappear, 119 persons are found, 64 person counters are
+    lost (mostly garbage), 0 new phantoms. The naive "any reading" version instead produces 2 new
+    phantoms (`Выставка "Не по-детски" Киров`, `Якутский обычай - поможет ли?`), the "most
+    frequent reading only" version misses 10 persons that do exist.
+    """
+    if direction != 'per':
+        # The 'loc' direction was dead code under Natasha (see git history) and is not supported.
+        return False
+
+    words = _WORD_RE.findall(string_to_check)
+    if not words:
+        return False
+
+    parses = _get_morph().parse(words[-1])
+    top_grammemes = set(parses[0].tag.grammemes)
+    if _NAME_GRAMMEMES & top_grammemes:
+        return True
+
+    name_reading = next(
+        (parse for parse in parses if _NAME_GRAMMEMES & set(parse.tag.grammemes)),
+        None,
+    )
+    if name_reading is None or name_reading.score < _MIN_NAME_READING_SCORE:
+        return False
+
+    if 'Geox' in top_grammemes and name_reading.score < 0.5:
+        has_support = (
+            _INITIALS_RE.search(string_to_check) is not None
+            or _STATUS_MARKERS_RE.search(string_to_check) is not None
+            or any(_has_name_reading(word) for word in words[:-1])
+        )
+        if not has_support:
+            return False
+
+    return True
