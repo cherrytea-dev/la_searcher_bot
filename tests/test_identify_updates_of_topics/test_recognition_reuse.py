@@ -20,6 +20,9 @@ from identify_updates_of_topics._legacy._utils.topics_commons import (
 from identify_updates_of_topics._legacy._utils.topics_commons import (
     SearchSummary as LegacySearchSummary,
 )
+from identify_updates_of_topics._utils import search_parser
+from identify_updates_of_topics._utils.coordinates import CoordinatesResolver
+from identify_updates_of_topics._utils.search_parser import SearchParser
 from identify_updates_of_topics._utils.topic_updater import SearchUpdater
 from tests.factories import db_factories
 from tests.test_identify_updates_of_topics.factories import ForumSearchItemFactory, SearchSummaryFactory
@@ -350,3 +353,66 @@ class TestSearchUpdaterRecognitionReuse:
         assert summary.display_name == 'Мария 40'
         assert summary.topic_type_id == TopicType.search_regular
         assert summary.status == 'Ищем'
+
+
+class TestRecognitionOfATitleHappensOnce:
+    """A title is sent to the recognition API once — even when the answer is a failure.
+
+    Production logs (2026-09-20, 6 hours) show what happens without this: 209 of 239 recognition
+    calls were repeats of titles the recognizer cannot parse at all, the same unchanged title every
+    ~2 minutes (`[ИНФО] Рязанскому отряду требуются!` — 170 calls).
+    """
+
+    FOLDER_NUM = 992
+    SEARCH_IDS = (9921, 9922)
+
+    @pytest.fixture()
+    def folder_items(self, monkeypatch) -> list[LegacyForumSearchItem]:
+        monkeypatch.setattr(FolderUpdater, '_update_change_log_and_searches', lambda *args, **kwargs: [])
+        monkeypatch.setattr(FolderUpdater, '_update_coordinates', lambda *args, **kwargs: None)
+
+        return [
+            legacy_search_item(self.SEARCH_IDS[0], UNCHANGED_TITLE),
+            legacy_search_item(self.SEARCH_IDS[1], CHANGED_TITLE),
+        ]
+
+    def test_the_second_pass_over_the_folder_does_not_ask_the_api(
+        self,
+        legacy_db_client,
+        folder_items,
+        monkeypatch,
+    ) -> None:
+        recognized: list[str] = []
+
+        def fake_recognition(title: str, status_only: bool = False) -> dict:
+            recognized.append(title)
+            if title == CHANGED_TITLE:
+                return {'status': 'fail', 'fail_reason': 'not able to recognize'}
+            return recognition_response()
+
+        monkeypatch.setattr(legacy_folder_updater, 'recognize_title_via_api', fake_recognition)
+        updater = FolderUpdater(legacy_db_client, FakeLegacyForum(folder_items), self.FOLDER_NUM)
+
+        updater.run()
+        assert recognized == [UNCHANGED_TITLE, CHANGED_TITLE]
+
+        # второй проход: папка всё ещё не разобрана (распознавание одного поиска упало),
+        # но оба ответа — и успешный, и неуспешный — взяты из кэша
+        updater.run()
+        assert recognized == [UNCHANGED_TITLE, CHANGED_TITLE]
+
+
+class TestSearchParserRecognitionCache:
+    def test_the_parser_reuses_the_stored_answer(self, db_client, monkeypatch) -> None:
+        recognized: list[str] = []
+
+        def fake_recognition(title: str, status_only: bool = False) -> dict:
+            recognized.append(title)
+            return recognition_response()
+
+        monkeypatch.setattr(search_parser, 'recognize_title_via_api', fake_recognition)
+        parser = SearchParser(CoordinatesResolver(db_client), cache_store=db_client)
+
+        assert parser._recognize_title(UNCHANGED_TITLE) == recognition_response()
+        assert parser._recognize_title(UNCHANGED_TITLE) == recognition_response()
+        assert recognized == [UNCHANGED_TITLE]

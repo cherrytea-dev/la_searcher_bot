@@ -44,7 +44,7 @@ class SearchUpdater:
         self.forum = forum_client
         self.db = db_client
         self.folders_with_events = set(self.db.get_folders_with_events_only())
-        self.search_parser = search_parser or SearchParser(CoordinatesResolver(db_client))
+        self.search_parser = search_parser or SearchParser(CoordinatesResolver(db_client), cache_store=db_client)
         self.change_detector = change_detector or ChangeDetector()
         self.coordinates_resolver = coordinates_resolver or CoordinatesResolver(db_client)
 

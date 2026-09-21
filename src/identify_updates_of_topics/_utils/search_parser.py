@@ -1,9 +1,11 @@
 import logging
 import re
 from datetime import datetime
+from typing import Any
 
 from _dependencies.common.commons import TopicType
 from _dependencies.common.pubsub import recognize_title_via_api
+from _dependencies.forum.recognition_cache import RecognitionCacheStore, recognize_title_cached
 from _dependencies.forum.recognition_schema import RecognitionResult, RecognitionTopicType
 
 from .coordinates import CoordinatesResolver
@@ -28,8 +30,25 @@ class SearchParser:
         RecognitionTopicType.info: TopicType.info,
     }
 
-    def __init__(self, coordinates_resolver: CoordinatesResolver) -> None:
+    def __init__(
+        self,
+        coordinates_resolver: CoordinatesResolver,
+        cache_store: RecognitionCacheStore | None = None,
+    ) -> None:
         self.coordinates_resolver = coordinates_resolver
+        self.cache_store = cache_store
+
+    def _recognize_title(self, title: str) -> dict[str, Any]:
+        """recognize the title, reusing a stored answer when there is one
+
+        Titles that cannot be recognized are cached too, so repeated passes over an unchanged
+        unparsable title (e.g. `[ИНФО] …`) do not call the cloud function again.
+        """
+
+        if self.cache_store is None:
+            return recognize_title_via_api(title, False)
+
+        return recognize_title_cached(self.cache_store, title, api_call=recognize_title_via_api)
 
     def parse(
         self,
@@ -48,7 +67,7 @@ class SearchParser:
         Returns:
             SearchSummary if recognition succeeded, None otherwise.
         """
-        title_reco_response = recognize_title_via_api(forum_search_item.title, False)
+        title_reco_response = self._recognize_title(forum_search_item.title)
 
         if title_reco_response and 'status' in title_reco_response and title_reco_response['status'] == 'ok':
             title_reco_dict = RecognitionResult.model_validate(title_reco_response['recognition'])

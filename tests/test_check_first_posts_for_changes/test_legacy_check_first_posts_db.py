@@ -17,6 +17,7 @@ import sqlalchemy
 from freezegun import freeze_time
 from sqlalchemy.orm import Session
 
+from check_first_posts_for_changes._legacy._utils import forum as legacy_forum
 from check_first_posts_for_changes._legacy._utils.commons import RSSItem, Search
 from check_first_posts_for_changes._legacy._utils.database import DBClient as LegacyDBClient
 from tests.common import fake, find_model
@@ -467,3 +468,42 @@ class TestIntegration:
         db_client.write_search_health_check(topic_id, 'regular')
         assert find_model(session, db_models.SearchHealthCheck, search_forum_num=topic_id, status='regular')
         assert not find_model(session, db_models.SearchHealthCheck, search_forum_num=topic_id, status='hidden')
+
+
+class TestStatusRecognitionIsAskedOnce:
+    """The status of a topic is recognized once per title — a failure included.
+
+    A title the recognizer cannot parse (e.g. `[ИНФО] …`) is checked on every pass in production:
+    209 of 239 recognition calls in 6 hours were such repeats and none of them could succeed.
+    """
+
+    UNRECOGNIZABLE_TITLE = '[ИНФО] Рязанскому отряду требуются!'
+    ORDINARY_TITLE = 'Пропала Петрова Мария, Екатеринбург'
+
+    def test_a_failed_recognition_is_not_asked_again(self, monkeypatch) -> None:
+        asked: list[str] = []
+
+        def fake_recognition(title: str, status_only: bool = False) -> dict:
+            asked.append(title)
+            return {'status': 'fail', 'fail_reason': 'not able to recognize'}
+
+        monkeypatch.setattr(legacy_forum, 'recognize_title_via_api', fake_recognition)
+
+        assert legacy_forum._recognize_status_with_title_recognize(self.UNRECOGNIZABLE_TITLE) is None
+        assert legacy_forum._recognize_status_with_title_recognize(self.UNRECOGNIZABLE_TITLE) is None
+
+        assert asked == [self.UNRECOGNIZABLE_TITLE]
+
+    def test_a_recognized_status_is_reused(self, monkeypatch) -> None:
+        asked: list[str] = []
+
+        def fake_recognition(title: str, status_only: bool = False) -> dict:
+            asked.append(title)
+            return {'status': 'ok', 'recognition': {'topic_type': 'search', 'status': 'НЖ'}}
+
+        monkeypatch.setattr(legacy_forum, 'recognize_title_via_api', fake_recognition)
+
+        assert legacy_forum._recognize_status_with_title_recognize(self.ORDINARY_TITLE) == 'НЖ'
+        assert legacy_forum._recognize_status_with_title_recognize(self.ORDINARY_TITLE) == 'НЖ'
+
+        assert asked == [self.ORDINARY_TITLE]

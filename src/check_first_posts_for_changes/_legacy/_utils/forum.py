@@ -11,6 +11,7 @@ from retry import retry
 from _dependencies.common.commons import get_forum_proxies
 from _dependencies.common.pubsub import recognize_title_via_api
 from _dependencies.forum.content import content_is_unaccessible, cook_soup, is_forum_unavailable
+from _dependencies.forum.recognition_cache import recognize_title_cached
 from _dependencies.forum.recognition_schema import RecognitionResult
 from _dependencies.forum.topic_management import save_status_for_topic
 
@@ -111,7 +112,13 @@ def _get_search_id_from_comment_html(text: str) -> int:
 
 
 def _recognize_status_with_title_recognize(title: str) -> str | None:
-    title_reco_response = recognize_title_via_api(title, status_only=True)
+    # a status-only answer is cached as well: a title that cannot be recognized is not asked again
+    title_reco_response = recognize_title_cached(
+        get_db_client(),
+        title,
+        status_only=True,
+        api_call=recognize_title_via_api,
+    )
 
     if title_reco_response and 'status' in title_reco_response.keys() and title_reco_response['status'] == 'ok':
         title_reco_dict = RecognitionResult.model_validate(title_reco_response['recognition'])
