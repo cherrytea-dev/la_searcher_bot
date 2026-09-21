@@ -28,6 +28,11 @@ class SearchParser:
         RecognitionTopicType.search_training: TopicType.search_training,
         RecognitionTopicType.event: TopicType.event,
         RecognitionTopicType.info: TopicType.info,
+        # The cloud function answers `fail` for an unrecognized title (see title_recognize/main.py),
+        # so `parse` usually stops at the status check earlier. The entry is kept anyway: an
+        # `ok` answer with topic_type=UNRECOGNIZED must end up as TopicType.unrecognized (= 99)
+        # instead of crashing the whole pass with a KeyError on this map.
+        RecognitionTopicType.unrecognized: TopicType.unrecognized,
     }
 
     def __init__(

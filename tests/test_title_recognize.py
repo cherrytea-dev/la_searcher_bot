@@ -6,7 +6,7 @@ from tests.common import get_http_request
 from title_recognize import main
 from title_recognize._utils.person import recognize_one_person_group
 from title_recognize._utils.recognizer import is_spam_message
-from title_recognize._utils.title_commons import Block, PersonGroup
+from title_recognize._utils.title_commons import Block, PersonGroup, check_word_by_pymorphy
 
 
 class TestMain:
@@ -309,11 +309,17 @@ class TestPersonRecognize:
         )
 
     def test_2(self):
+        """A location block must not become a person.
+
+        With Natasha this block produced one person named 'Ярославская' (a known Natasha mistake).
+        pymorphy3 reads 'Ярославская' as an adjective first (the surname reading is much rarer), so
+        the address stays an address.
+        """
         block = Block(init='Ярославская область.', type='LOC')
         res = recognize_one_person_group(block)
         assert res == PersonGroup(
             type_=None,
-            num_of_per=1,
+            num_of_per=-1,
             display_name='Ярославская',
             name='Ярославская',
             age=None,
@@ -321,6 +327,41 @@ class TestPersonRecognize:
             age_max=None,
             age_wording='',
         )
+
+
+class TestCheckWordByPymorphy:
+    """Traps the naive "any dictionary reading is a name" check used to fall into."""
+
+    @pytest.mark.parametrize(
+        ('string_to_check', 'expected'),
+        [
+            # immutable function words with a rarest 'surname' reading (Ли, по)
+            ('Якутский обычай - поможет ли?', False),
+            ('[ИНФО] FAQ по Рязанской области', False),
+            # a toponym that is read as a city more often than as a surname, no support in the string
+            ('Выставка "Не по-детски" Киров', False),
+            ('ЛизаАлерт Киров', False),
+            # rare, but real surnames must stay persons
+            ('Артем Дергалев', True),
+            ('Буренина К.А. и', True),
+            ('Злата и', True),
+            # the same toponym-surname is accepted when the string carries support
+            ('Киров Иван Петрович', True),
+            ('Сдвижкова А.М', True),
+            ('Пропал Киров', True),
+            # region adjectives with a rarest surname reading (score 0.038) are not persons
+            ('Московская', False),
+            ('Ярославская', False),
+            ('Кемеровская', False),
+            # no name reading at all
+            ('', False),
+        ],
+    )
+    def test_traps(self, string_to_check: str, expected: bool):
+        assert check_word_by_pymorphy(string_to_check, 'per') is expected
+
+    def test_other_directions_are_not_supported(self):
+        assert check_word_by_pymorphy('Иванов Иван Иванович', 'loc') is False
 
 
 # @pytest.mark.skip(reason='temporarily disabled to speed up')

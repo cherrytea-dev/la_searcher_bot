@@ -3,7 +3,7 @@ import re
 from itertools import chain
 
 from .pattern_collections import BlockTypePatternCollection, PatternCollectionbyBlockType
-from .title_commons import Block, BlockType, PatternType, check_word_by_natasha
+from .title_commons import Block, BlockType, PatternType, check_word_by_pymorphy
 
 
 def recognize_a_pattern(block_type: BlockType, input_string: str) -> tuple[list[Block], str | None]:
@@ -138,7 +138,7 @@ class Tokenizer:
             return marker_per
 
         # now we check, if the part of Title excl. recognized LOC finishes right before PER
-        last_not_loc_word_is_per = check_word_by_natasha(string_to_split[:marker_loc], 'per')
+        last_not_loc_word_is_per = check_word_by_pymorphy(string_to_split[:marker_loc], 'per')
         if last_not_loc_word_is_per:
             return marker_loc
 
@@ -151,7 +151,7 @@ class Tokenizer:
         for pattern_2 in patterns_2:
             temp_string = re.sub(pattern_2[0], pattern_2[1], temp_string)
 
-        last_not_loc_word_is_per = check_word_by_natasha(temp_string, 'per')
+        last_not_loc_word_is_per = check_word_by_pymorphy(temp_string, 'per')
 
         if last_not_loc_word_is_per:
             return marker_loc
