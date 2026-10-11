@@ -72,7 +72,14 @@ async def _telegram_loop(stop_event: threading.Event) -> None:
     async with updater:
         update_queue = await updater.start_polling(
             timeout=_TELEGRAM_POLL_TIMEOUT_SECS,
-            allowed_updates=['message', 'callback_query'],
+            allowed_updates=[
+                'message',
+                'callback_query',
+                'my_chat_member',
+                'inline_query',
+                'channel_post',
+                'edited_channel_post',
+            ],
         )
         logging.info('telegram bot: polling started')
         while not stop_event.is_set():

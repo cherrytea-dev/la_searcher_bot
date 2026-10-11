@@ -56,7 +56,10 @@ class QueueWorker(threading.Thread):
                 self._stop_event.wait(get_app_config().worker_poll_interval_secs)
                 continue
 
-            self._process(message)
+            try:
+                self._process(message)
+            except Exception:
+                logging.exception('worker %s: processing message %s failed', self.name, message.id)
 
         self._status.set_status(self.name, 'stopped')
         logging.info('worker %s stopped', self.name)

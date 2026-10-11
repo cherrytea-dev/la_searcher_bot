@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum, IntEnum, StrEnum
 from functools import lru_cache
-from typing import Literal
+from typing import Any, Literal
 
 import sqlalchemy
 from bs4 import BeautifulSoup
@@ -92,6 +92,18 @@ class AppConfig(BaseSettings):
     db_pool_size: int = 2
     db_max_overflow: int = 2
     db_pool_timeout: int = 10  # seconds
+
+    def model_post_init(self, __context: Any) -> None:
+        # The single container runs all functions in one process against a single shared
+        # engine (queue workers, both bots, the scheduler, lock_manager and the HTTP
+        # handlers). The cloud default of pool_size=2 + max_overflow=2 (4 connections) is
+        # too small there and times out under load, so raise the pg-backend defaults to 10.
+        # Values set explicitly via env still win.
+        if self.queue_backend == 'pg':
+            if 'db_pool_size' not in self.model_fields_set:
+                self.db_pool_size = 10
+            if 'db_max_overflow' not in self.model_fields_set:
+                self.db_max_overflow = 10
 
     @property
     def phpbb_db_url(self) -> str:
