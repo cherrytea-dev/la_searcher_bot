@@ -23,7 +23,7 @@ import json
 import logging
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Awaitable, Callable, cast
+from typing import Any, Awaitable, Callable, Sequence, cast
 from urllib.parse import parse_qs, urlparse
 
 from _dependencies.common import queue_pg
@@ -39,6 +39,11 @@ _MAX_HANDLER_THREADS = 32
 
 #: Socket timeout of a connection (seconds) — a stalled client does not hold a thread forever.
 _REQUEST_TIMEOUT_SECS = 30.0
+
+
+def _serialize_header(value: str | Sequence[str]) -> str:
+    """Render a response header value as a string; sequence values become comma-separated tokens."""
+    return value if isinstance(value, str) else ', '.join(map(str, value))
 
 
 def _build_routes() -> dict[str, str]:
@@ -192,7 +197,7 @@ class _RequestHandler(BaseHTTPRequestHandler):
             self._respond(
                 int(result.get('statusCode') or 200),
                 str(result.get('body') or ''),
-                {str(key): str(value) for key, value in dict(result.get('headers') or {}).items()},
+                {str(key): _serialize_header(value) for key, value in dict(result.get('headers') or {}).items()},
             )
         except Exception:
             logging.exception('request %s %s failed', method, parsed.path)

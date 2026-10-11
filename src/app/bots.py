@@ -4,6 +4,9 @@ The cloud deployment received Telegram/VK/MAX events through webhooks, which nee
 ingress. In a container it is cheaper to poll: Telegram through ``Updater.start_polling``,
 VK through ``VkLongPoll``, MAX through ``Dispatcher.start_polling``. Each runner is wrapped in
 a supervisor that restarts it with a delay if it crashes.
+
+A bot that has a configured webhook path is served over HTTP by :mod:`app.http_server` instead
+of being polled: its runner is skipped here, so events are never processed twice.
 """
 
 from __future__ import annotations
@@ -38,11 +41,11 @@ def start_bots(stop_event: threading.Event, status: StatusRegistry) -> list[thre
     """Start the enabled bots; returns their threads."""
     config = get_app_config()
     runners: list[tuple[str, Callable[[threading.Event], None]]] = []
-    if config.enable_tg_bot:
+    if config.enable_tg_bot and not config.webhook_path_telegram:
         runners.append(('telegram-bot', run_telegram))
-    if config.enable_vk_bot:
+    if config.enable_vk_bot and not config.webhook_path_vk:
         runners.append(('vk-bot', run_vk))
-    if config.enable_max_bot:
+    if config.enable_max_bot and not config.webhook_path_max:
         runners.append(('max-bot', run_max))
 
     threads = []

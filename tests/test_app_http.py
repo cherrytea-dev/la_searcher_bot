@@ -33,6 +33,11 @@ def test_call_function_returns_the_cloud_response(monkeypatch: pytest.MonkeyPatc
     assert result == {'statusCode': 201, 'body': 'created', 'headers': {'X-Test': 'yes'}}
 
 
+def test_serialize_header_renders_sequence_values_as_tokens() -> None:
+    assert http_server._serialize_header('GET, OPTIONS') == 'GET, OPTIONS'
+    assert http_server._serialize_header(['GET', 'OPTIONS']) == 'GET, OPTIONS'
+
+
 def test_call_function_runs_async_entry_points_on_the_shared_loop(monkeypatch: pytest.MonkeyPatch) -> None:
     """``max_bot`` has an async ``main`` and its module state is bound to one loop — so we keep one."""
 
@@ -135,3 +140,26 @@ def test_readiness_reports_a_broken_database_while_liveness_stays_up(
     health_code, health_body = _get(running_server, '/health')
     assert health_code == 200
     assert health_body['status'] == 'ok'
+
+
+def test_preflight_serializes_list_valued_headers(running_server: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A list header must become ``GET, OPTIONS`` — not the Python repr ``['GET', 'OPTIONS']``."""
+
+    def main(request_data: dict[str, Any]) -> dict[str, Any]:
+        return {
+            'statusCode': 204,
+            'body': '',
+            'headers': {'Access-Control-Allow-Methods': ['GET', 'OPTIONS']},
+        }
+
+    _install_fake_module(monkeypatch, 'fake_cors_function', main)
+    running_server.routes['/cors'] = 'fake_cors_function.main'
+
+    connection = http.client.HTTPConnection(*running_server.server_address, timeout=5)
+    try:
+        connection.request('OPTIONS', '/cors')
+        response = connection.getresponse()
+        assert response.status == 204
+        assert response.getheader('Access-Control-Allow-Methods') == 'GET, OPTIONS'
+    finally:
+        connection.close()
