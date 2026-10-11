@@ -19,6 +19,20 @@ from app.status import StatusRegistry
 _RESTART_DELAY_SECS = 15.0
 _TELEGRAM_POLL_TIMEOUT_SECS = 60
 
+#: Update types the bot asks Telegram for. The cloud functions never set ``allowed_updates``,
+#: so they received everything; the polling container has to ask for the same set explicitly,
+#: otherwise ``my_chat_member`` (the only thing that lifts a block), inline queries and channel
+#: posts are dropped without a trace. Shared with ``tests/tools/run_bot.py`` so the two lists
+#: cannot drift apart again.
+TELEGRAM_ALLOWED_UPDATES: tuple[str, ...] = (
+    'message',
+    'callback_query',
+    'my_chat_member',
+    'inline_query',
+    'channel_post',
+    'edited_channel_post',
+)
+
 
 def start_bots(stop_event: threading.Event, status: StatusRegistry) -> list[threading.Thread]:
     """Start the enabled bots; returns their threads."""
@@ -72,14 +86,7 @@ async def _telegram_loop(stop_event: threading.Event) -> None:
     async with updater:
         update_queue = await updater.start_polling(
             timeout=_TELEGRAM_POLL_TIMEOUT_SECS,
-            allowed_updates=[
-                'message',
-                'callback_query',
-                'my_chat_member',
-                'inline_query',
-                'channel_post',
-                'edited_channel_post',
-            ],
+            allowed_updates=TELEGRAM_ALLOWED_UPDATES,
         )
         logging.info('telegram bot: polling started')
         while not stop_event.is_set():

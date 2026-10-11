@@ -17,8 +17,8 @@ Design
   ``status='failed'`` (dead letter) instead of spinning forever.
 
 The surface mirrors :mod:`_dependencies.common.yandex_tools` closely enough for
-:mod:`_dependencies.common.pubsub` to switch backends by configuration
-(``QUEUE_BACKEND=pg|ymq``).
+:mod:`_dependencies.common.pubsub` to switch backends by configuration: the table is used in
+the container mode (``APP_MODE=k8s``), YMQ in the cloud mode (``yc``).
 """
 
 from __future__ import annotations

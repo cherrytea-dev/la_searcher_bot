@@ -8,10 +8,11 @@ Startup order matters: the queue table is created first, then the HTTP server (s
 On ``SIGTERM`` (what k8s sends) the container stops in the reverse order and gives the worker
 threads a moment to finish the message they hold.
 
-The queue workers and the scheduler only run in ``QUEUE_BACKEND=pg`` mode. With ``ymq`` the
-cloud triggers are still alive: a second copy of ``check_first_posts`` (every minute) would
-duplicate the parsing, and the ``queue:`` jobs would leave messages in a table nobody reads.
-The HTTP server and the bot pollers run in both modes.
+The queue workers and the scheduler only run in the container mode (``APP_MODE=k8s``). In the
+cloud mode (``yc``) the Yandex triggers are still alive: a second copy of ``check_first_posts``
+(every minute) would duplicate the parsing, and the ``queue:`` jobs would leave messages in a
+table nobody reads. The HTTP server and the bot pollers belong to the container as well — the
+mode decides all of it (see :class:`_dependencies.common.commons.AppMode`).
 """
 
 from __future__ import annotations
@@ -40,8 +41,9 @@ _SHUTDOWN_GRACE_SECS = 30.0
 
 def _log_startup(config: AppConfig) -> None:
     logging.info(
-        'single container starting: queue_backend=%s workers=%s scheduler=%s http=%s:%s bots(tg/vk/max)=%s/%s/%s '
-        'title_recognize_local=%s',
+        'single container starting: app_mode=%s queue_backend=%s workers=%s scheduler=%s http=%s:%s '
+        'bots(tg/vk/max)=%s/%s/%s title_recognize_local=%s',
+        config.app_mode,
         config.queue_backend,
         config.worker_threads,
         config.scheduler_enabled,
@@ -87,9 +89,9 @@ def main() -> int:
         queue_pg.ensure_schema()
     else:
         logging.warning(
-            'QUEUE_BACKEND=%s: queue workers and the scheduler are not started — the cloud triggers '
-            'are expected to be still running',
-            config.queue_backend,
+            'APP_MODE=%s: queue workers and the scheduler are not started — the cloud triggers are '
+            'expected to be still running',
+            config.app_mode,
         )
 
     if config.http_enabled:

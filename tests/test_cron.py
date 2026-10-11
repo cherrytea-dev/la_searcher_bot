@@ -1,4 +1,4 @@
-"""Unit tests for the local cron matcher (:mod:`_dependencies.common.cron`)."""
+"""Unit tests for the cron wrapper over ``cronsim`` (:mod:`_dependencies.common.cron`)."""
 
 from __future__ import annotations
 
@@ -92,3 +92,10 @@ def test_question_mark_is_a_wildcard() -> None:
 def test_bad_expressions_are_rejected(expression: str) -> None:
     with pytest.raises(CronParseError):
         CronExpression(expression)
+
+
+def test_impossible_day_of_month_is_rejected() -> None:
+    # The 31st of February never comes; the expression is refused instead of silently never
+    # matching (cronsim checks that the day exists in at least one of the listed months).
+    with pytest.raises(CronParseError):
+        CronExpression('0 0 31 2 *')

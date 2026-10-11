@@ -21,6 +21,28 @@ def setup_logging(package_name: str | None = None) -> None:
     setup_logging_cloud(package_name)
 
 
+class AppMode(StrEnum):
+    """Where the application runs — the single switch behind every mode-dependent setting.
+
+    ``YC``  — the functions of this repository deployed one by one into Yandex Cloud: the queue
+              is YMQ, titles are recognized by a separate function over HTTP, the cron jobs are
+              timer triggers, the bots are called by the API gateway and each of them is a
+              function of its own.
+
+    ``K8S`` — the whole repository as one long-running container (``python -m app.main``, see
+              ``doc/single-container.md``): the queue lives in PostgreSQL, the scheduler runs
+              in-process, titles are recognized in-process and the bots poll.
+
+    The two are mutually exclusive, so the settings they imply (``queue_backend``,
+    ``title_recognize_local``, ``scheduler_enabled``, ``http_enabled``, ``enable_*_bot``) are
+    read-only properties of :class:`AppConfig`: a half-cloud/half-container configuration is
+    not a state the deployment can actually be in.
+    """
+
+    YC = 'yc'
+    K8S = 'k8s'
+
+
 class AppConfig(BaseSettings):
     postgres_user: str
     postgres_password: str
@@ -58,10 +80,13 @@ class AppConfig(BaseSettings):
 
     # ── single-container runtime (see doc/single-container.md) ─────────────────────────────
     # Everything below only matters for `python -m app.main`; the cloud functions ignore it.
-    # The defaults are the *cloud* ones: a deploy of the cloud functions must not change
-    # behaviour because the single container landed. The container opts in via env
-    # (see .env.example) — QUEUE_BACKEND=pg, TITLE_RECOGNIZE_LOCAL=1.
-    queue_backend: Literal['pg', 'ymq'] = 'ymq'  # 'pg' (table in PostgreSQL) | 'ymq' (Yandex Message Queue)
+    # The default is the *cloud* mode: a deploy of the cloud functions must not change behaviour
+    # because the single container landed. The container switches the whole runtime with
+    # APP_MODE=k8s (see .env.example); what follows from the mode are the read-only properties
+    # below, not knobs of their own.
+    app_mode: AppMode = AppMode.YC
+
+    # ── queue (the PostgreSQL backend is used in the container mode only) ──────────────────
     queue_visibility_timeout_secs: int = 900
     queue_max_attempts: int = 5
     queue_retry_base_secs: float = 30.0
@@ -70,18 +95,16 @@ class AppConfig(BaseSettings):
     worker_threads: int = 2
     worker_poll_interval_secs: float = 1.0
     worker_id: str = ''
-    scheduler_enabled: bool = True
+
+    # ── cron scheduler (container mode only) ───────────────────────────────────────────────
     scheduler_timezone: str = 'UTC'
     cron_check_first_posts: str = '* * * * *'
     cron_archive_to_bigquery: str = '13 11 * * *'
     cron_archive_notifications: str = '0 * * * *'
-    http_enabled: bool = True
+
+    # ── HTTP server (container mode only) ──────────────────────────────────────────────────
     http_host: str = '0.0.0.0'
     http_port: int = 8080
-    enable_tg_bot: bool = True
-    enable_vk_bot: bool = True
-    enable_max_bot: bool = True
-    title_recognize_local: bool = False
     api_path_active_searches: str = '/api/v1/active-searches'
     api_path_user_info: str = '/api/v1/user-info'
     webhook_path_telegram: str = ''  # empty = webhook is not served (polling is the default)
@@ -93,13 +116,50 @@ class AppConfig(BaseSettings):
     db_max_overflow: int = 2
     db_pool_timeout: int = 10  # seconds
 
+    # ── derived from app_mode ──────────────────────────────────────────────────────────────
+    # Read-only on purpose: they describe *how the process is deployed*, and the two modes are
+    # mutually exclusive. As fields they made impossible states expressible — in-process title
+    # recognition on top of the YMQ queue, or the in-process scheduler next to the Yandex timer
+    # triggers doing the same job twice.
+    @property
+    def queue_backend(self) -> Literal['pg', 'ymq']:
+        """``pg`` (table in PostgreSQL) in the container, ``ymq`` (Yandex Message Queue) in the cloud."""
+        return 'pg' if self.app_mode is AppMode.K8S else 'ymq'
+
+    @property
+    def title_recognize_local(self) -> bool:
+        """The container recognizes titles in-process; in the cloud a function does it over HTTP."""
+        return self.app_mode is AppMode.K8S
+
+    @property
+    def scheduler_enabled(self) -> bool:
+        """The cron jobs run in the container only — in the cloud the timer triggers fire them."""
+        return self.app_mode is AppMode.K8S
+
+    @property
+    def http_enabled(self) -> bool:
+        """The container serves HTTP itself; in the cloud the API gateway calls the functions."""
+        return self.app_mode is AppMode.K8S
+
+    @property
+    def enable_tg_bot(self) -> bool:
+        """The bots poll in the container only — in the cloud each of them is a function."""
+        return self.app_mode is AppMode.K8S
+
+    @property
+    def enable_vk_bot(self) -> bool:
+        return self.app_mode is AppMode.K8S
+
+    @property
+    def enable_max_bot(self) -> bool:
+        return self.app_mode is AppMode.K8S
+
     def model_post_init(self, __context: Any) -> None:
-        # The single container runs all functions in one process against a single shared
-        # engine (queue workers, both bots, the scheduler, lock_manager and the HTTP
-        # handlers). The cloud default of pool_size=2 + max_overflow=2 (4 connections) is
-        # too small there and times out under load, so raise the pg-backend defaults to 10.
-        # Values set explicitly via env still win.
-        if self.queue_backend == 'pg':
+        # The single container runs all functions in one process against a single shared engine
+        # (queue workers, the bots, the scheduler, lock_manager and the HTTP handlers). The cloud
+        # default of pool_size=2 + max_overflow=2 (4 connections) is too small there and times out
+        # under load, so the container mode raises it to 10/10. Explicit env values still win.
+        if self.app_mode is AppMode.K8S:
             if 'db_pool_size' not in self.model_fields_set:
                 self.db_pool_size = 10
             if 'db_max_overflow' not in self.model_fields_set:

@@ -63,6 +63,10 @@ dev = [
 
 [project.optional-dependencies]
 
+# `app` is not a cloud function: it is the single-container runtime (see doc/single-container.md).
+# `cronsim` parses the cron expressions of the in-process scheduler (five fields, Debian cron).
+app = ["cronsim>=2.7"]
+
 api_get_active_searches = []
 
 archive_notifications = ["pytz"]

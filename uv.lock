@@ -564,6 +564,14 @@ wheels = [
 ]
 
 [[package]]
+name = "cronsim"
+version = "2.7"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fb/1a/02f105147f7f2e06ed4f734ff5a6439590bb275a53dd91fc73df6312298a/cronsim-2.7-py3-none-any.whl", hash = "sha256:1e1431fa08c51dc7f72e67e571c7c7a09af26420169b607badd4ca9677ffad1e", size = 14213, upload-time = "2025-10-21T16:38:20.431Z" },
+]
+
+[[package]]
 name = "cryptography"
 version = "50.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1066,6 +1074,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+app = [
+    { name = "cronsim" },
+]
 archive-notifications = [
     { name = "pytz" },
 ]
@@ -1157,6 +1168,7 @@ requires-dist = [
     { name = "chardet", marker = "extra == 'identify-updates-of-topics'", specifier = ">=4.0.0" },
     { name = "click", marker = "extra == 'max-bot'", specifier = ">=8.0" },
     { name = "click", marker = "extra == 'vk-bot'", specifier = ">=8.0" },
+    { name = "cronsim", marker = "extra == 'app'", specifier = ">=2.7" },
     { name = "faust-cchardet", marker = "extra == 'identify-updates-of-topics'", specifier = ">=2.2.1" },
     { name = "feedparser", marker = "extra == 'check-first-posts-for-changes'", specifier = ">=6.0" },
     { name = "geopy", marker = "extra == 'identify-updates-of-topics'", specifier = ">=2.2.0" },
@@ -1187,7 +1199,7 @@ requires-dist = [
     { name = "yarl", specifier = ">=1.24.5" },
     { name = "yarl", marker = "extra == 'identify-updates-of-topics'", specifier = ">=1.24.5" },
 ]
-provides-extras = ["api-get-active-searches", "archive-notifications", "archive-to-bigquery", "check-topics-by-upd-time", "check-first-posts-for-changes", "communicate", "compose-notifications", "connect-to-forum", "identify-updates-of-first-posts", "identify-updates-of-topics", "send-debug-to-admin", "send-notifications", "title-recognize", "user-provide-info", "users-activate", "test-func", "vk-bot", "max-bot"]
+provides-extras = ["app", "api-get-active-searches", "archive-notifications", "archive-to-bigquery", "check-topics-by-upd-time", "check-first-posts-for-changes", "communicate", "compose-notifications", "connect-to-forum", "identify-updates-of-first-posts", "identify-updates-of-topics", "send-debug-to-admin", "send-notifications", "title-recognize", "user-provide-info", "users-activate", "test-func", "vk-bot", "max-bot"]
 
 [package.metadata.requires-dev]
 dev = [

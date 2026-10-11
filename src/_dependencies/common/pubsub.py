@@ -84,8 +84,8 @@ class MessageForSendNotifications(BaseModel):
 def _send_to_queue(topic_name: str, message: str | dict | list | BaseModel) -> None:
     """Publish to the configured backend.
 
-    ``pg`` (default in the single container) writes the message into the ``pubsub_messages``
-    table; ``ymq`` keeps the legacy Yandex Message Queue for as long as both run side by side.
+    ``pg`` (the container mode, ``APP_MODE=k8s``) writes the message into the ``pubsub_messages``
+    table; ``ymq`` (the cloud mode) keeps the legacy Yandex Message Queue.
     """
     if get_app_config().queue_backend == 'ymq':
         send_topic_cloud(topic_name, message)
@@ -148,8 +148,8 @@ def recognize_title_via_api(title: str, status_only: bool) -> dict:
     """Recognize a title — in-process in the single container, over HTTP in the cloud.
 
     The function used to be a separate cloud function called through the API gateway; inside
-    one container that hop is pointless (and it was the 1 GB-memory function). The flag
-    ``TITLE_RECOGNIZE_LOCAL`` keeps the old path available.
+    one container that hop is pointless (and it was the 1 GB-memory function). The mode decides:
+    ``APP_MODE=k8s`` recognizes in-process, ``yc`` keeps calling the function over HTTP.
     """
     data = {'title': title}
     if status_only:

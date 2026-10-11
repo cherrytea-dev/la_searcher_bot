@@ -3,7 +3,7 @@ import json
 import logging
 import sys
 from functools import lru_cache
-from typing import Any, Literal, TypeVar
+from typing import Any, TypeVar
 
 from dotenv import load_dotenv
 from faker import Faker
@@ -11,7 +11,7 @@ from pydantic_settings import SettingsConfigDict
 from sqlalchemy import Table, select
 from sqlalchemy.orm import Session
 
-from _dependencies.common.commons import AppConfig
+from _dependencies.common.commons import AppConfig, AppMode
 from _dependencies.common.pubsub import Topics
 from compose_notifications.main import main as compose_notifications_main
 from connect_to_forum.main import main as connect_to_forum_main
@@ -26,10 +26,9 @@ T = TypeVar('T')
 class AppTestConfig(AppConfig):
     model_config = SettingsConfigDict(extra='ignore')
 
-    # The suite exercises the single-container path: the production defaults are the
-    # legacy cloud ones (see .env.example), so the container flags are set explicitly.
-    queue_backend: Literal['pg', 'ymq'] = 'pg'
-    title_recognize_local: bool = True
+    # The suite exercises the single-container path: the production default is the cloud mode
+    # (see .env.example), so the container mode is set explicitly here.
+    app_mode: AppMode = AppMode.K8S
 
     # Increase pool size for tests — the connection fixture + multiple get_session()
     # calls can exhaust the default pool_size=2, causing TimeoutError.

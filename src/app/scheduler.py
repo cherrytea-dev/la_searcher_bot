@@ -11,11 +11,12 @@ cloud functions use, so a second container (or an overlapping run) skips instead
 work twice. The schedule is evaluated in ``SCHEDULER_TIMEZONE`` (UTC by default — that is what
 the Yandex timers used).
 
-The scheduler is only started in ``QUEUE_BACKEND=pg`` mode (see :mod:`app.main`): with ``ymq``
-the cloud cron triggers are still alive, and a second ``check_first_posts`` every minute would
-duplicate the parsing. The expressions are the classic five fields (``minute hour day month
-weekday``); the Quartz-style six-field form used in terraform (``* * ? * * *``) is rejected at
-startup on purpose — see ``CRON_CHECK_FIRST_POSTS`` in ``.env.example``.
+The scheduler is only started in the container mode (``APP_MODE=k8s``, see :mod:`app.main`):
+in the cloud mode the Yandex cron triggers are still alive, and a second ``check_first_posts``
+every minute would duplicate the parsing. The expressions are the classic five fields
+(``minute hour day month weekday``) parsed by ``cronsim`` (:mod:`_dependencies.common.cron`);
+the Quartz-style six-field form used in terraform (``* * ? * * *``) is rejected at startup on
+purpose — see ``CRON_CHECK_FIRST_POSTS`` in ``.env.example``.
 """
 
 from __future__ import annotations
