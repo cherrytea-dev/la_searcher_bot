@@ -1,0 +1,142 @@
+# Единый контейнер: la_searcher_bot без Yandex Cloud Functions
+
+Статус: в работе (ветка `feat/single-container`).
+Цель: один контейнер, в котором живут все 18 функций репозитория. Целевые лимиты —
+**1 CPU / 1 GB RAM**. Причина переезда: облако больше не тянет.
+
+## Что было
+
+Три способа запуска (по `terraform/`):
+
+| Триггер | Функции |
+|---|---|
+| **Cron** | `check_first_posts_for_changes` (каждую минуту), `archive_to_bigquery` (11:13 ежедневно), `archive_notifications` (каждый час) |
+| **HTTP (API-gateway)** | `communicate` (вебхук Telegram), `vk_bot`, `max_bot`, `api_get_active_searches`, `user_provide_info`, `title_recognize` (вызывается по HTTP другими функциями) |
+| **Очередь YMQ** | `compose_notifications`, `send_notifications`, `identify_updates_of_topics`, `identify_updates_of_first_posts`, `connect_to_forum`, `send_debug_to_admin`, `archive_notifications` |
+
+Сердце системы — pub/sub-цепочка: `check_first_posts` → очередь → `identify_updates_of_topics`
+→ `compose_notifications` → `send_notifications`.
+
+## Что стало
+
+Один процесс (`python -m app.main`), внутри четыре подсистемы:
+
+1. **Очередь на PostgreSQL** (`_dependencies/common/queue_pg.py`) — вместо YMQ.
+   Таблица `pubsub_messages`: `INSERT` на публикацию, `UPDATE ... FOR UPDATE SKIP LOCKED`
+   на получение, backoff и dead-letter при ошибках, visibility timeout для сообщений,
+   чей воркер умер. Отдельный брокер не нужен — очередь живёт в той же БД, что и данные.
+2. **Воркеры** (`app/queue_worker.py`) — N потоков, каждый забирает сообщение из очереди и
+   вызывает существующую функцию `main(event, context)` **без изменений**: событие
+   собирается в том же YC-формате (`{'messages': [{'details': {'message': {'body': ...}}}]}`),
+   поэтому `process_pubsub_message(event)` продолжает работать как раньше.
+3. **Планировщик** (`app/scheduler.py` + `_dependencies/common/cron.py`) — три cron-джоба
+   вместо timer-триггеров. Матчер cron свой, без новых зависимостей.
+4. **HTTP-сервер** (`app/http_server.py`, стандартная библиотека) — эндпоинты веб-приложения
+   (`api_get_active_searches`, `user_provide_info`), `/health` для проб, и (по флагу)
+   вебхуки ботов. Функции вызываются через тот же `@request_response_converter`, что и в
+   облаке: сервер собирает YC-запрос `{'httpMethod', 'body', 'headers'}` и разбирает ответ.
+
+Дополнительно:
+
+* **Боты** (`app/bots.py`) — long-polling вместо вебхуков: Telegram (`Updater.start_polling`),
+  VK (`VkLongPoll`), MAX (`dp.start_polling`). Публичный ingress для ботов не нужен.
+* **`title_recognize`** — прямой вызов в процессе вместо HTTP-хопа
+  (`recognize_title_via_api`, флаг `TITLE_RECOGNIZE_LOCAL=1`).
+* **Снаружи остаются**: PostgreSQL, Object Storage (S3-совместимый), форумный phpbb (MySQL),
+  сами форумы. В контейнер их не тащим.
+
+## Конфигурация (env)
+
+Все новые ключи — в `AppConfig` (`_dependencies/common/commons.py`), читаются
+pydantic-settings'ом из окружения:
+
+| Переменная | По умолчанию | Смысл |
+|---|---|---|
+| `QUEUE_BACKEND` | `pg` | `pg` (таблица в Postgres) или `ymq` (старое поведение) |
+| `WORKER_THREADS` | `2` | сколько сообщений обрабатывается параллельно |
+| `WORKER_POLL_INTERVAL_SECS` | `1.0` | пауза, когда очередь пуста |
+| `QUEUE_VISIBILITY_TIMEOUT_SECS` | `900` | через сколько возвращать «зависшее» сообщение в очередь |
+| `QUEUE_MAX_ATTEMPTS` | `5` | после этого — dead letter (`status='failed'`) |
+| `QUEUE_RETRY_BASE_SECS` / `QUEUE_RETRY_MAX_SECS` | `30` / `900` | экспоненциальный backoff |
+| `SCHEDULER_ENABLED` | `1` | включить cron-джобы |
+| `HTTP_ENABLED` / `HTTP_HOST` / `HTTP_PORT` | `1` / `0.0.0.0` / `8080` | HTTP-сервер |
+| `ENABLE_TG_BOT` / `ENABLE_VK_BOT` / `ENABLE_MAX_BOT` | `1` | long-polling ботов |
+| `TITLE_RECOGNIZE_LOCAL` | `1` | вызывать распознавание в процессе, а не по HTTP |
+| `CRON_CHECK_FIRST_POSTS` | `* * * * *` | расписание джобов (5 полей) |
+| `CRON_ARCHIVE_TO_BIGQUERY` | `13 11 * * *` | |
+| `CRON_ARCHIVE_NOTIFICATIONS` | `0 * * * *` | |
+| `API_PATH_ACTIVE_SEARCHES` | `/api/v1/active-searches` | путь для веб-приложения |
+| `API_PATH_USER_INFO` | `/api/v1/user-info` | путь для веб-приложения |
+
+> Пути API настраиваемые: в облаке их задавал API-gateway, в репозитории их нет.
+> Перед выкаткой сверить с фронтендом и при необходимости поменять через env.
+
+## Схема БД
+
+Таблица создаётся самим приложением при старте (`CREATE TABLE IF NOT EXISTS`), отдельная
+миграция не нужна:
+
+```sql
+CREATE TABLE IF NOT EXISTS pubsub_messages (
+    id            bigserial PRIMARY KEY,
+    topic         text        NOT NULL,
+    payload       jsonb       NOT NULL,
+    status        text        NOT NULL DEFAULT 'pending',  -- pending|processing|done|failed
+    attempts      integer     NOT NULL DEFAULT 0,
+    available_at  timestamptz NOT NULL DEFAULT now(),
+    locked_at     timestamptz,
+    locked_by     text,
+    created_at    timestamptz NOT NULL DEFAULT now(),
+    finished_at   timestamptz,
+    last_error    text
+);
+```
+
+## Запуск
+
+```bash
+# локально: приложение + postgres
+docker compose -f docker-compose.app.yml up --build
+curl localhost:8080/health
+```
+
+## Бюджет 1 CPU / 1 GB
+
+* база процесса (Python + SQLAlchemy/psycopg2 + SDK мессенджеров + bs4/lxml) ≈ 200–350 MB;
+* пик даёт распознавание (pymorphy3, словари грузятся лениво) и параллельные воркеры;
+* рычаги, если упрёмся: `WORKER_THREADS=1`, выключить ненужных ботов (`ENABLE_*`),
+  `TITLE_RECOGNIZE_LOCAL=0` (вынести распознавание наружу), режим «процесс на сообщение»
+  (изоляция памяти, пока не реализован — потоки дешевле по CPU).
+
+## Что проверено
+
+* `make lint-check` и `make mypy` — чисто (182 файла).
+* Полный прогон тестов: **1080 passed, 18 skipped** — включая 46 новых тестов очереди, cron-матчера,
+  воркеров, реестра топиков и HTTP-слоя.
+* Очередь на живой PostgreSQL 16 (локальный инструмент `verify_queue_pg.py`): 20/20 проверок —
+  publish/claim, фильтр по топику, отложенные сообщения, visibility timeout, backoff, dead letter,
+  `release` без списания попытки; и главное — 4 воркера разобрали 60 сообщений, ни одно не выдано
+  дважды (`FOR UPDATE SKIP LOCKED`).
+* Смоук всего контейнера (`python -m app.main`: HTTP + 2 воркера): `/health` → 200 со статистикой
+  очереди, неизвестный путь → 404, сообщение, положенное в таблицу руками, разобрано воркером
+  (хендлер `send_debug_to_admin` импортировался лениво, вызвался и вернул ответ), `SIGTERM` →
+  корректная остановка компонентов.
+
+## Известные мелочи
+
+* `setup_logging_cloud` при импорте каждой функции перевешивает root-хендлер на свой
+  `stream_name` — в одном процессе поле `stream_name` в логах становится именем последней
+  импортированной функции. В облаке это было незаметно (у каждой функции свой процесс).
+  Косметика, не трогал.
+* Очередь живёт в той же БД, что и данные: при пересоздании базы (как `make initdb`) сообщения
+  теряются. Для боевой базы это не проблема (её не пересоздают), но помнить стоит.
+
+## Открытые вопросы
+
+* Реальный пик RSS/CPU на боевом профиле нагрузки — замерить на месте (в облаке замер снять
+  не успели).
+* Пути API-эндпоинтов сверить с фронтендом «Карты».
+* `check_first_posts_for_changes` раз в минуту с `ThreadPoolExecutor(max_workers=8)` —
+  единственное место, которое может упереться в 1 vCPU.
+* Что перезапускается при падении: контейнер целиком (k8s restartPolicy) — окно простоя
+  ≈ время старта процесса.

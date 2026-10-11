@@ -1,0 +1,44 @@
+# Local run of the single container: the app plus the PostgreSQL it needs.
+#   cp .env.example .env.app     # then fill in the real tokens
+#   docker compose -f docker-compose.app.yml up --build
+#   curl -s localhost:8080/health | python -m json.tool
+#
+# The resource limits below are the target profile (1 CPU / 1 GB): keep them while testing so
+# that "does it fit" is answered by the container, not by a spreadsheet.
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    env_file:
+      - .env.app
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      LOG_LEVEL: INFO
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1g
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    env_file:
+      - .env.app
+    volumes:
+      - pg_app_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pg_app_data:

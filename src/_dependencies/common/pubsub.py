@@ -1,8 +1,12 @@
+import json
 import logging
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, RootModel
 
+from _dependencies.common.commons import get_app_config
+from _dependencies.common.queue_pg import enqueue as queue_pg_enqueue
 from _dependencies.common.yandex_tools import (
     Ctx as YandexCtx,
 )
@@ -77,10 +81,27 @@ class MessageForSendNotifications(BaseModel):
     text: str
 
 
+def _send_to_queue(topic_name: str, message: str | dict | list | BaseModel) -> None:
+    """Publish to the configured backend.
+
+    ``pg`` (default in the single container) writes the message into the ``pubsub_messages``
+    table; ``ymq`` keeps the legacy Yandex Message Queue for as long as both run side by side.
+    """
+    if get_app_config().queue_backend == 'ymq':
+        send_topic_cloud(topic_name, message)
+        return
+
+    try:
+        queue_pg_enqueue(topic_name, message)
+    except Exception:
+        # Mirrors the old behaviour: a broken publish must not take the handler down.
+        logging.exception(f'Not able to send pub/sub message to topic {topic_name}')
+
+
 def publish_to_pubsub(topic_name: Topics, message: str | dict | list | BaseModel) -> None:
     """publish a new message to pub/sub"""
     topic_name_str = topic_name.value if isinstance(topic_name, Topics) else topic_name
-    send_topic_cloud(topic_name_str, message)
+    _send_to_queue(topic_name_str, message)
 
 
 def pubsub_parse_user_profile(user_id: int, got_message: str) -> None:
@@ -124,13 +145,37 @@ def notify_admin(message: str) -> None:
 
 
 def recognize_title_via_api(title: str, status_only: bool) -> dict:
-    """makes an API call to another Google Cloud Function"""
+    """Recognize a title — in-process in the single container, over HTTP in the cloud.
+
+    The function used to be a separate cloud function called through the API gateway; inside
+    one container that hop is pointless (and it was the 1 GB-memory function). The flag
+    ``TITLE_RECOGNIZE_LOCAL`` keeps the old path available.
+    """
     data = {'title': title}
     if status_only:
         data['reco_type'] = 'status_only'
 
     logging.info(f'request to title recognition: {data}')
+    if get_app_config().title_recognize_local:
+        return _recognize_title_locally(data)
+
     return make_api_call_cloud('title_recognize', data)
+
+
+def _recognize_title_locally(data: dict) -> dict:
+    """Call ``title_recognize`` in this process through its regular HTTP-shaped entry point."""
+    # Imported lazily: pymorphy3 and its dictionaries must stay out of the import graph of
+    # every other function (they are only needed once recognition is actually requested).
+    from title_recognize.main import main as title_recognize_main
+
+    response: dict[str, Any] = title_recognize_main({'httpMethod': 'POST', 'body': json.dumps(data), 'headers': {}})
+
+    status_code = int(response.get('statusCode') or 200)
+    body = response.get('body') or '{}'
+    if status_code >= 400:
+        raise RuntimeError(f'title_recognize failed with {status_code}: {body}')
+
+    return dict(json.loads(body))
 
 
 def process_pubsub_message(event: dict) -> str:

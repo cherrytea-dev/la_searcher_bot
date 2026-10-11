@@ -1,6 +1,7 @@
 *.pyc
 .env
 .env.test
+.env.app
 .vscode/*
 !.vscode/launch.template.json
 !.vscode/settings.template.json

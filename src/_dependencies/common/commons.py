@@ -55,6 +55,35 @@ class AppConfig(BaseSettings):
 
     forum_legacy_data_source: bool = False
 
+    # ── single-container runtime (see doc/single-container.md) ─────────────────────────────
+    # Everything below only matters for `python -m app.main`; the cloud functions ignore it.
+    queue_backend: str = 'pg'  # 'pg' (table in PostgreSQL) | 'ymq' (legacy Yandex Message Queue)
+    queue_visibility_timeout_secs: int = 900
+    queue_max_attempts: int = 5
+    queue_retry_base_secs: float = 30.0
+    queue_retry_max_secs: float = 900.0
+    queue_purge_after_secs: int = 7 * 24 * 3600
+    worker_threads: int = 2
+    worker_poll_interval_secs: float = 1.0
+    worker_id: str = ''
+    scheduler_enabled: bool = True
+    scheduler_timezone: str = 'UTC'
+    cron_check_first_posts: str = '* * * * *'
+    cron_archive_to_bigquery: str = '13 11 * * *'
+    cron_archive_notifications: str = '0 * * * *'
+    http_enabled: bool = True
+    http_host: str = '0.0.0.0'
+    http_port: int = 8080
+    enable_tg_bot: bool = True
+    enable_vk_bot: bool = True
+    enable_max_bot: bool = True
+    title_recognize_local: bool = True
+    api_path_active_searches: str = '/api/v1/active-searches'
+    api_path_user_info: str = '/api/v1/user-info'
+    webhook_path_telegram: str = ''  # empty = webhook is not served (polling is the default)
+    webhook_path_vk: str = ''
+    webhook_path_max: str = ''
+
     # Database connection pool settings
     db_pool_size: int = 2
     db_max_overflow: int = 2
