@@ -13,8 +13,8 @@ import time
 from _dependencies.common import queue_pg
 from _dependencies.common.commons import get_app_config
 from _dependencies.common.lock_manager import FunctionLockError
-from app import status
 from app.dispatch import build_event, resolve_handler
+from app.status import StatusRegistry
 
 #: Sleep after a failed poll (the database may be restarting).
 _POLL_ERROR_SLEEP_SECS = 5.0
@@ -29,15 +29,18 @@ _JOIN_TIMEOUT_SECS = 30.0
 class QueueWorker(threading.Thread):
     """Pulls messages from ``pubsub_messages`` and calls the topic's handler."""
 
-    def __init__(self, name: str, stop_event: threading.Event, *, sweep_stale: bool = False) -> None:
+    def __init__(
+        self, name: str, stop_event: threading.Event, status: StatusRegistry, *, sweep_stale: bool = False
+    ) -> None:
         super().__init__(name=name, daemon=True)
         self._stop_event = stop_event
+        self._status = status
         self._worker_id = f'{queue_pg.worker_id()}#{name}'
         self._sweep_stale = sweep_stale
         self._next_sweep = 0.0
 
     def run(self) -> None:
-        status.set_status(self.name, 'running')
+        self._status.set_status(self.name, 'running')
         logging.info('worker %s started (id=%s)', self.name, self._worker_id)
 
         while not self._stop_event.is_set():
@@ -55,7 +58,7 @@ class QueueWorker(threading.Thread):
 
             self._process(message)
 
-        status.set_status(self.name, 'stopped')
+        self._status.set_status(self.name, 'stopped')
         logging.info('worker %s stopped', self.name)
 
     def stop(self) -> None:
@@ -131,10 +134,12 @@ class QueueWorker(threading.Thread):
             logging.info('housekeeping: removed %d finished message(s)', purged)
 
 
-def start_workers(stop_event: threading.Event) -> list[QueueWorker]:
+def start_workers(stop_event: threading.Event, status: StatusRegistry) -> list[QueueWorker]:
     """Start the configured number of workers (the first one also does housekeeping)."""
     count = max(1, get_app_config().worker_threads)
-    workers = [QueueWorker(f'queue-worker-{index}', stop_event, sweep_stale=index == 0) for index in range(count)]
+    workers = [
+        QueueWorker(f'queue-worker-{index}', stop_event, status, sweep_stale=index == 0) for index in range(count)
+    ]
     for worker in workers:
         worker.start()
     return workers

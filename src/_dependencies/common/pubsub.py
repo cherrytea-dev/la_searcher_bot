@@ -98,7 +98,7 @@ def _send_to_queue(topic_name: str, message: str | dict | list | BaseModel) -> N
         logging.exception(f'Not able to send pub/sub message to topic {topic_name}')
 
 
-def publish_to_pubsub(topic_name: Topics, message: str | dict | list | BaseModel) -> None:
+def publish_to_pubsub(topic_name: Topics | str, message: str | dict | list | BaseModel) -> None:
     """publish a new message to pub/sub"""
     topic_name_str = topic_name.value if isinstance(topic_name, Topics) else topic_name
     _send_to_queue(topic_name_str, message)

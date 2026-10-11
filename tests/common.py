@@ -3,7 +3,7 @@ import json
 import logging
 import sys
 from functools import lru_cache
-from typing import Any, TypeVar
+from typing import Any, Literal, TypeVar
 
 from dotenv import load_dotenv
 from faker import Faker
@@ -25,6 +25,11 @@ T = TypeVar('T')
 
 class AppTestConfig(AppConfig):
     model_config = SettingsConfigDict(extra='ignore')
+
+    # The suite exercises the single-container path: the production defaults are the
+    # legacy cloud ones (see .env.example), so the container flags are set explicitly.
+    queue_backend: Literal['pg', 'ymq'] = 'pg'
+    title_recognize_local: bool = True
 
     # Increase pool size for tests — the connection fixture + multiple get_session()
     # calls can exhaust the default pool_size=2, causing TimeoutError.

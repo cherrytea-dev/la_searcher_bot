@@ -10,6 +10,12 @@ Each job runs in its own thread and is protected by the same PostgreSQL advisory
 cloud functions use, so a second container (or an overlapping run) skips instead of doing the
 work twice. The schedule is evaluated in ``SCHEDULER_TIMEZONE`` (UTC by default — that is what
 the Yandex timers used).
+
+The scheduler is only started in ``QUEUE_BACKEND=pg`` mode (see :mod:`app.main`): with ``ymq``
+the cloud cron triggers are still alive, and a second ``check_first_posts`` every minute would
+duplicate the parsing. The expressions are the classic five fields (``minute hour day month
+weekday``); the Quartz-style six-field form used in terraform (``* * ? * * *``) is rejected at
+startup on purpose — see ``CRON_CHECK_FIRST_POSTS`` in ``.env.example``.
 """
 
 from __future__ import annotations
@@ -23,12 +29,11 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from _dependencies.common import queue_pg
 from _dependencies.common.commons import AppConfig, get_app_config, sqlalchemy_get_pool
 from _dependencies.common.cron import CronExpression
 from _dependencies.common.lock_manager import FunctionLockError, lock_manager
-from _dependencies.common.pubsub import Topics
-from app import status
+from _dependencies.common.pubsub import Topics, publish_to_pubsub
+from app.status import StatusRegistry
 
 _TICK_SECS = 1.0
 
@@ -63,15 +68,16 @@ def default_jobs(config: AppConfig) -> list[CronJob]:
 class CronScheduler(threading.Thread):
     """Fires :class:`CronJob` targets when their cron expression says so."""
 
-    def __init__(self, stop_event: threading.Event, jobs: list[CronJob] | None = None) -> None:
+    def __init__(self, stop_event: threading.Event, status: StatusRegistry, jobs: list[CronJob] | None = None) -> None:
         super().__init__(name='cron-scheduler', daemon=True)
         self._stop_event = stop_event
+        self._status = status
         self._timezone = ZoneInfo(get_app_config().scheduler_timezone)
         self._jobs = jobs if jobs is not None else default_jobs(get_app_config())
         self._running: dict[str, threading.Thread] = {}
 
     def run(self) -> None:
-        status.set_status('scheduler', 'running')
+        self._status.set_status('scheduler', 'running')
         now = datetime.now(self._timezone)
         for job in self._jobs:
             job.next_run = job.cron.next_after(now)
@@ -85,7 +91,7 @@ class CronScheduler(threading.Thread):
                     job.next_run = job.cron.next_after(moment)
             self._stop_event.wait(_TICK_SECS)
 
-        status.set_status('scheduler', 'stopped')
+        self._status.set_status('scheduler', 'stopped')
         logging.info('scheduler stopped')
 
     def stop(self) -> None:
@@ -122,7 +128,8 @@ class CronScheduler(threading.Thread):
 
         if job.target.startswith('queue:'):
             topic = job.target.partition(':')[2]
-            queue_pg.enqueue(topic, 'go')
+            # Publish through the regular routing point, so the backend is decided in one place.
+            publish_to_pubsub(topic, 'go')
             return
 
         target = job.target.partition(':')[2]

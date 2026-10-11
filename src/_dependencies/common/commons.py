@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum, IntEnum, StrEnum
 from functools import lru_cache
+from typing import Literal
 
 import sqlalchemy
 from bs4 import BeautifulSoup
@@ -57,7 +58,10 @@ class AppConfig(BaseSettings):
 
     # ── single-container runtime (see doc/single-container.md) ─────────────────────────────
     # Everything below only matters for `python -m app.main`; the cloud functions ignore it.
-    queue_backend: str = 'pg'  # 'pg' (table in PostgreSQL) | 'ymq' (legacy Yandex Message Queue)
+    # The defaults are the *cloud* ones: a deploy of the cloud functions must not change
+    # behaviour because the single container landed. The container opts in via env
+    # (see .env.example) — QUEUE_BACKEND=pg, TITLE_RECOGNIZE_LOCAL=1.
+    queue_backend: Literal['pg', 'ymq'] = 'ymq'  # 'pg' (table in PostgreSQL) | 'ymq' (Yandex Message Queue)
     queue_visibility_timeout_secs: int = 900
     queue_max_attempts: int = 5
     queue_retry_base_secs: float = 30.0
@@ -77,7 +81,7 @@ class AppConfig(BaseSettings):
     enable_tg_bot: bool = True
     enable_vk_bot: bool = True
     enable_max_bot: bool = True
-    title_recognize_local: bool = True
+    title_recognize_local: bool = False
     api_path_active_searches: str = '/api/v1/active-searches'
     api_path_user_info: str = '/api/v1/user-info'
     webhook_path_telegram: str = ''  # empty = webhook is not served (polling is the default)

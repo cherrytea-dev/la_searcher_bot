@@ -14,13 +14,13 @@ import threading
 from typing import Any, Callable
 
 from _dependencies.common.commons import get_app_config
-from app import status
+from app.status import StatusRegistry
 
 _RESTART_DELAY_SECS = 15.0
 _TELEGRAM_POLL_TIMEOUT_SECS = 60
 
 
-def start_bots(stop_event: threading.Event) -> list[threading.Thread]:
+def start_bots(stop_event: threading.Event, status: StatusRegistry) -> list[threading.Thread]:
     """Start the enabled bots; returns their threads."""
     config = get_app_config()
     runners: list[tuple[str, Callable[[threading.Event], None]]] = []
@@ -33,13 +33,15 @@ def start_bots(stop_event: threading.Event) -> list[threading.Thread]:
 
     threads = []
     for name, runner in runners:
-        thread = threading.Thread(target=_supervise, args=(name, stop_event, runner), name=name, daemon=True)
+        thread = threading.Thread(target=_supervise, args=(name, stop_event, status, runner), name=name, daemon=True)
         thread.start()
         threads.append(thread)
     return threads
 
 
-def _supervise(name: str, stop_event: threading.Event, runner: Callable[[threading.Event], None]) -> None:
+def _supervise(
+    name: str, stop_event: threading.Event, status: StatusRegistry, runner: Callable[[threading.Event], None]
+) -> None:
     status.set_status(name, 'starting')
     while not stop_event.is_set():
         try:
@@ -63,25 +65,23 @@ async def _telegram_loop(stop_event: threading.Event) -> None:
     from telegram import Bot
     from telegram.ext import Updater
 
-    from communicate._utils.database import db
     from communicate.main import process_update
 
     bot = Bot(get_app_config().bot_api_token__prod)
     updater = Updater(bot, asyncio.Queue())
     async with updater:
-        with db().connect():
-            update_queue = await updater.start_polling(
-                timeout=_TELEGRAM_POLL_TIMEOUT_SECS,
-                allowed_updates=['message', 'callback_query'],
-            )
-            logging.info('telegram bot: polling started')
-            while not stop_event.is_set():
-                try:
-                    update: Any = await asyncio.wait_for(update_queue.get(), timeout=5)
-                except TimeoutError:
-                    continue
-                # process_update talks to Telegram and PostgreSQL: keep the event loop free.
-                await asyncio.to_thread(process_update, update)
+        update_queue = await updater.start_polling(
+            timeout=_TELEGRAM_POLL_TIMEOUT_SECS,
+            allowed_updates=['message', 'callback_query'],
+        )
+        logging.info('telegram bot: polling started')
+        while not stop_event.is_set():
+            try:
+                update: Any = await asyncio.wait_for(update_queue.get(), timeout=5)
+            except TimeoutError:
+                continue
+            # process_update talks to Telegram and PostgreSQL: keep the event loop free.
+            await asyncio.to_thread(process_update, update)
 
 
 def run_vk(stop_event: threading.Event) -> None:

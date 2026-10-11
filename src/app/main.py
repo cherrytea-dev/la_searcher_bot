@@ -7,6 +7,11 @@ Startup order matters: the queue table is created first, then the HTTP server (s
 ``/health`` answers while the rest warms up), then the scheduler, the workers and the bots.
 On ``SIGTERM`` (what k8s sends) the container stops in the reverse order and gives the worker
 threads a moment to finish the message they hold.
+
+The queue workers and the scheduler only run in ``QUEUE_BACKEND=pg`` mode. With ``ymq`` the
+cloud triggers are still alive: a second copy of ``check_first_posts`` (every minute) would
+duplicate the parsing, and the ``queue:`` jobs would leave messages in a table nobody reads.
+The HTTP server and the bot pollers run in both modes.
 """
 
 from __future__ import annotations
@@ -21,10 +26,11 @@ from typing import Any
 
 from _dependencies.common import queue_pg
 from _dependencies.common.commons import AppConfig, get_app_config, setup_logging
-from app import bots, status
+from app import bots
 from app.http_server import HttpServer
 from app.queue_worker import start_workers
 from app.scheduler import CronScheduler, default_jobs
+from app.status import StatusRegistry
 
 setup_logging('app')
 
@@ -73,32 +79,35 @@ def main() -> int:
     stop_event = threading.Event()
     _install_signal_handlers(stop_event)
 
+    registry = StatusRegistry()
     components: list[Any] = []
+    uses_pg_queue = config.queue_backend == 'pg'
 
-    if config.queue_backend == 'pg':
+    if uses_pg_queue:
         queue_pg.ensure_schema()
     else:
         logging.warning(
-            'QUEUE_BACKEND=%s: queue workers are not started — messages arrive through the YMQ triggers',
+            'QUEUE_BACKEND=%s: queue workers and the scheduler are not started — the cloud triggers '
+            'are expected to be still running',
             config.queue_backend,
         )
 
     if config.http_enabled:
-        http = HttpServer(stop_event)
+        http = HttpServer(stop_event, registry)
         http.start()
         components.append(http)
 
-    if config.scheduler_enabled:
-        scheduler = CronScheduler(stop_event)
+    if uses_pg_queue and config.scheduler_enabled:
+        scheduler = CronScheduler(stop_event, registry)
         scheduler.start()
         components.append(scheduler)
 
-    if config.queue_backend == 'pg':
-        components.extend(start_workers(stop_event))
+    if uses_pg_queue:
+        components.extend(start_workers(stop_event, registry))
 
-    components.extend(bots.start_bots(stop_event))
+    components.extend(bots.start_bots(stop_event, registry))
 
-    status.set_status('container', 'running')
+    registry.set_status('container', 'running')
     logging.info('single container is up (%d components)', len(components))
 
     try:
@@ -107,11 +116,11 @@ def main() -> int:
     except KeyboardInterrupt:
         stop_event.set()
 
-    return _shutdown(components)
+    return _shutdown(components, registry)
 
 
-def _shutdown(components: list[Any]) -> int:
-    status.set_status('container', 'stopping')
+def _shutdown(components: list[Any], registry: StatusRegistry) -> int:
+    registry.set_status('container', 'stopping')
     logging.info('shutting down %d components', len(components))
 
     deadline = time.monotonic() + _SHUTDOWN_GRACE_SECS
@@ -124,7 +133,7 @@ def _shutdown(components: list[Any]) -> int:
         except Exception:
             logging.exception('stopping %s failed', component)
 
-    status.set_status('container', 'stopped')
+    registry.set_status('container', 'stopped')
     logging.info('single container stopped')
     return 0
 

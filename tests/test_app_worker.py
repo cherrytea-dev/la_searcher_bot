@@ -15,11 +15,12 @@ from _dependencies.common import queue_pg
 from _dependencies.common.lock_manager import FunctionLockError
 from app import queue_worker as worker_module
 from app.queue_worker import QueueWorker
+from app.status import StatusRegistry
 
 
 @pytest.fixture
 def worker() -> QueueWorker:
-    return QueueWorker('test-worker', threading.Event())
+    return QueueWorker('test-worker', threading.Event(), StatusRegistry())
 
 
 @pytest.fixture
