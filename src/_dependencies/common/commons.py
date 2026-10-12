@@ -100,6 +100,7 @@ class AppConfig(BaseSettings):
     # ── cron scheduler (container mode only) ───────────────────────────────────────────────
     scheduler_timezone: str = 'UTC'
     cron_check_first_posts: str = '* * * * *'
+    cron_check_topics_by_upd_time: str = '*/5 * * * *'
     cron_archive_to_bigquery: str = '13 11 * * *'
     cron_archive_notifications: str = '0 * * * *'
 

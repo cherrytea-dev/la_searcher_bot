@@ -3,6 +3,8 @@
 The jobs mirror ``terraform/_func_cron_trigger.tf``:
 
 * ``check_first_posts`` — every minute;
+* ``check_topics_by_upd_time`` — every 5 minutes, and only with ``FORUM_LEGACY_DATA_SOURCE=true``
+  (in the legacy mode it is the folder-tree scanner that discovers changed folders);
 * ``archive_to_bigquery`` — daily at 11:13; skipped when ``ARCHIVE_TO_BIGQUERY_ENABLED`` is
   false, because it uploads to Object Storage (see :func:`default_jobs`);
 * ``archive_notifications`` — hourly (it just publishes to its topic, as in the cloud).
@@ -59,6 +61,16 @@ def default_jobs(config: AppConfig) -> list[CronJob]:
     jobs = [
         CronJob('check_first_posts', config.cron_check_first_posts, 'call:check_first_posts_for_changes.main.main'),
     ]
+    # Folder-tree scanning exists only in the legacy (no forum MySQL) data source; without it
+    # the function is a no-op, so it is not scheduled at all.
+    if config.forum_legacy_data_source:
+        jobs.append(
+            CronJob(
+                'check_topics_by_upd_time',
+                config.cron_check_topics_by_upd_time,
+                'call:check_topics_by_upd_time.main.main',
+            )
+        )
     # Skipped when Object Storage is unavailable: archiving would fail on every run.
     if config.archive_to_bigquery_enabled:
         jobs.append(
