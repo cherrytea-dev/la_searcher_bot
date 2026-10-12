@@ -647,4 +647,3 @@ class FolderUpdater:
         if time_delta_bw_now_and_next_request.total_seconds() > 0:
             time.sleep(time_delta_bw_now_and_next_request.total_seconds())
             logging.debug(f'rate limit for {geocoder}: sleep {time_delta_bw_now_and_next_request.total_seconds()}')
-            notify_admin(f'rate limit for {geocoder}: sleep {time_delta_bw_now_and_next_request.total_seconds()}')

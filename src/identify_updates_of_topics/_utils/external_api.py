@@ -33,7 +33,14 @@ def get_coordinates_from_address_by_osm(address_string: str) -> tuple[float, flo
 def get_coordinates_from_address_by_yandex(address_string: str) -> tuple[float, float]:
     """return coordinates on the request of address string, geocoded by yandex"""
 
-    yandex_client = Client(get_app_config().yandex_api_key)
+    api_key = get_app_config().yandex_api_key
+    if not api_key.strip():
+        # No key is configured: the call would only come back 403 and raise InvalidKey, so skip
+        # the request entirely. The caller treats (0.0, 0.0) as "not geocoded" (see CoordinatesResolver).
+        logging.info('yandex api key is not set, skipping geocoding by yandex')
+        return 0.0, 0.0
+
+    yandex_client = Client(api_key)
 
     try:
         coordinates = yandex_client.coordinates(address_string)
