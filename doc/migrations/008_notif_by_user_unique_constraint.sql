@@ -8,9 +8,8 @@
 -- Before adding the constraint, clean up any existing duplicates by keeping
 -- only the earliest message_id per group.
 
-BEGIN;
-
--- Step 1: Remove duplicates — keep only the earliest message_id per group
+-- Step 1: Remove duplicates — keep only the earliest message_id per group.
+-- (Autocommit: the two steps cannot share a transaction — see step 2.)
 DELETE FROM notif_by_user nbu
 WHERE nbu.message_id NOT IN (
     SELECT MIN(message_id)
@@ -31,10 +30,10 @@ AND EXISTS (
       AND nbu2.completed IS NULL AND nbu2.cancelled IS NULL
 );
 
--- Step 2: Add the unique constraint (partially, only for unsent notifications)
+-- Step 2: Add the unique constraint (partially, only for unsent notifications).
+-- Deliberately NOT wrapped in BEGIN/COMMIT: CREATE INDEX CONCURRENTLY cannot run inside a
+-- transaction block, and wrapping it there made this whole migration fail.
 CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS
     notif_by_user_unique_unsent_idx
     ON notif_by_user (change_log_id, user_id, message_type, COALESCE(messenger, 'telegram'))
     WHERE completed IS NULL AND cancelled IS NULL;
-
-COMMIT;
