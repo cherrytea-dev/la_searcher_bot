@@ -1,4 +1,5 @@
 import ast
+import datetime
 import logging
 import re
 from abc import ABC, abstractmethod
@@ -9,7 +10,7 @@ from typing import Any, Literal
 
 import sqlalchemy
 from bs4 import BeautifulSoup
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings
 
 from _dependencies.common.yandex_tools import setup_logging_cloud
@@ -101,6 +102,25 @@ class AppConfig(BaseSettings):
     cron_check_first_posts: str = '* * * * *'
     cron_archive_to_bigquery: str = '13 11 * * *'
     cron_archive_notifications: str = '0 * * * *'
+
+    # ── temporary deployments (see doc/runbooks/temp-db-cutover.md) ────────────────────────
+    # Absolute lower bound on a search's start time for notifications: changes of searches
+    # started before it are composed but never sent. ``None`` (default) = no bound — the cloud
+    # behaviour, so deploying the functions changes nothing. Set it when the bot runs against
+    # a stale database, so users do not receive the whole backlog at once.
+    notify_searches_since: datetime.datetime | None = None
+
+    # BigQuery/S3 archiving needs the Object Storage bucket; when it is unavailable (or not
+    # wanted) the daily job is skipped entirely instead of failing on every run.
+    archive_to_bigquery_enabled: bool = True
+
+    @field_validator('notify_searches_since', mode='before')
+    @classmethod
+    def _blank_notify_cutoff_means_none(cls, value: Any) -> Any:
+        """an empty env value means "no cutoff", not a parse error"""
+        if isinstance(value, str) and value.strip().lower() in {'', 'none', 'null'}:
+            return None
+        return value
 
     # ── HTTP server (container mode only) ──────────────────────────────────────────────────
     http_host: str = '0.0.0.0'

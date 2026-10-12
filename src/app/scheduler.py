@@ -1,9 +1,10 @@
 """Cron scheduler for the single container (replaces the Yandex timer triggers).
 
-Three jobs, matching ``terraform/_func_cron_trigger.tf``:
+The jobs mirror ``terraform/_func_cron_trigger.tf``:
 
 * ``check_first_posts`` — every minute;
-* ``archive_to_bigquery`` — daily at 11:13;
+* ``archive_to_bigquery`` — daily at 11:13; skipped when ``ARCHIVE_TO_BIGQUERY_ENABLED`` is
+  false, because it uploads to Object Storage (see :func:`default_jobs`);
 * ``archive_notifications`` — hourly (it just publishes to its topic, as in the cloud).
 
 Each job runs in its own thread and is protected by the same PostgreSQL advisory lock the
@@ -55,15 +56,22 @@ class CronJob:
 
 def default_jobs(config: AppConfig) -> list[CronJob]:
     """The jobs of the cloud deployment, expressed as cron entries."""
-    return [
+    jobs = [
         CronJob('check_first_posts', config.cron_check_first_posts, 'call:check_first_posts_for_changes.main.main'),
-        CronJob('archive_to_bigquery', config.cron_archive_to_bigquery, 'call:archive_to_bigquery.main.main'),
+    ]
+    # Skipped when Object Storage is unavailable: archiving would fail on every run.
+    if config.archive_to_bigquery_enabled:
+        jobs.append(
+            CronJob('archive_to_bigquery', config.cron_archive_to_bigquery, 'call:archive_to_bigquery.main.main')
+        )
+    jobs.append(
         CronJob(
             'archive_notifications',
             config.cron_archive_notifications,
             f'queue:{Topics.topic_to_archive_notifs.value}',
-        ),
-    ]
+        )
+    )
+    return jobs
 
 
 class CronScheduler(threading.Thread):
