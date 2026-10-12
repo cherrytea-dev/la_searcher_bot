@@ -10,8 +10,11 @@ based on extracted conditions (text, state, callback_data).
 
 import logging
 
+from _dependencies.bot.readonly_mode import READONLY_NOTICE, READONLY_SAFE_VK, is_readonly
+
 from .account_linking import handle_unregistered_user, register_vk_only_user
 from .common import VKHandlerContext, VKMessage, get_invite_from_message
+from .keyboards import VKKeyboardPresets
 
 # VK peer_id above this value means a group chat (conversation), not a private dialog.
 # See: https://dev.vk.com/ru/reference/objects/user#peer_id
@@ -31,6 +34,9 @@ def _run_registered_handlers(
 ) -> bool:
     """Run handlers from vk_registry that match the given conditions.
 
+    In read-only mode handlers that are not on the view-only allowlist are skipped, so an action
+    that would write falls through to the stub instead.
+
     Returns True if a handler consumed the message, False otherwise.
     """
     kwargs: dict[str, str] = {}
@@ -42,6 +48,9 @@ def _run_registered_handlers(
         kwargs['callback_data'] = callback_data
 
     for handler in vk_registry.match(**kwargs):
+        if is_readonly() and handler.func.__name__ not in READONLY_SAFE_VK:
+            logging.info(f'readonly mode: skipping handler {handler.func.__name__}')
+            continue
         try:
             handler.func(ctx)
         except Exception:
@@ -56,6 +65,11 @@ def _run_registered_handlers(
             return True
 
     return False
+
+
+def _send_readonly_stub(sender: VKMessageSender, peer_id: int) -> None:
+    """Tell the user the bot is read-only. Sends a plain message: nothing is written to the DB."""
+    sender.send_message(peer_id=peer_id, text=READONLY_NOTICE, keyboard=VKKeyboardPresets.main_menu())
 
 
 def handle_new_message(
@@ -87,6 +101,8 @@ def handle_new_message(
 
     logging.info(f'handle_new_message: vk_user={vk_user_id}, text="{vk_message.text}"')
 
+    readonly = is_readonly()
+
     # 1. Resolve identity from user_identity_map
     identity = db().get_identity_by_messenger_user_id(vk_user_id)
     if identity is not None:
@@ -98,6 +114,10 @@ def handle_new_message(
 
         telegram_user_id, invite_hash = get_invite_from_message(vk_message.text)
         if telegram_user_id and invite_hash:
+            if readonly:
+                logging.info('readonly mode: skipping account linking')
+                _send_readonly_stub(sender, vk_message.peer_id)
+                return
             # Let account_linking handle the invite validation
             ctx = VKHandlerContext(
                 message=vk_message,
@@ -109,15 +129,20 @@ def handle_new_message(
             handle_unregistered_user(ctx)
             return
 
-        # 3. Register as VK-only user
+        # 3. Register as VK-only user — a write, skipped in read-only mode
+        if readonly:
+            logging.info(f'readonly mode: not registering VK-only user {vk_user_id}')
+            _send_readonly_stub(sender, vk_message.peer_id)
+            return
         logging.info(f'handle_new_message: registering VK-only user {vk_user_id}')
         user_id = register_vk_only_user(vk_user_id)
         is_new_user = True
 
-    try:
-        db().save_user_message(user_id, vk_message.text)
-    except Exception:
-        logging.exception(f'Failed to save user message to dialog history for user {user_id}')
+    if not readonly:
+        try:
+            db().save_user_message(user_id, vk_message.text)
+        except Exception:
+            logging.exception(f'Failed to save user message to dialog history for user {user_id}')
 
     state = db().get_user_state(user_id)
 
@@ -145,7 +170,11 @@ def handle_new_message(
     if _run_registered_handlers(ctx, text=text):
         return
 
-    # 4. Unknown command
+    # 4. Unknown command — or a blocked write in read-only mode
+    if readonly:
+        _send_readonly_stub(sender, vk_message.peer_id)
+        return
+
     handle_unknown(ctx)
 
 
@@ -217,6 +246,11 @@ def handle_callback_event(
 
     # Run registered handlers matching callback_data
     if _run_registered_handlers(ctx, callback_data=callback_data):
+        return
+
+    if is_readonly():
+        logging.info(f'readonly mode: callback cmd="{callback_data}" blocked')
+        _send_readonly_stub(sender, vk_message.peer_id)
         return
 
     logging.info(f'handle_callback_event: no handler matched for cmd="{callback_data}"')

@@ -115,6 +115,13 @@ class AppConfig(BaseSettings):
     # wanted) the daily job is skipped entirely instead of failing on every run.
     archive_to_bigquery_enabled: bool = True
 
+    # ── emergency read-only mode ───────────────────────────────────────────────────────────
+    # When true the bots keep answering user actions but never write: view-only screens stay
+    # available, every other action gets a stub reply (see _dependencies/bot/readonly_mode.py).
+    # The background pipeline (parsing, composing, sending notifications) keeps running — only
+    # user-facing writes are locked.
+    emergency_readonly_mode: bool = False
+
     @field_validator('notify_searches_since', mode='before')
     @classmethod
     def _blank_notify_cutoff_means_none(cls, value: Any) -> Any:

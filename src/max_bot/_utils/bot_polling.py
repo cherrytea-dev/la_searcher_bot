@@ -14,6 +14,7 @@ import logging
 from maxapi import Bot, Dispatcher
 
 from . import handlers
+from .readonly_middleware import ReadonlyMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ async def run_polling_async() -> None:
     bot = Bot()
     dp = Dispatcher()
     dp.include_routers(handlers.router)
+    dp.register_outer_middleware(ReadonlyMiddleware())
 
     # Dialog state is persisted in PostgreSQL via DialogStateMixin,
     # not in maxapi's in-memory FSM. No need to inject dp.fsm.
