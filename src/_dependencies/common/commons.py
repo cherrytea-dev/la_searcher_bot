@@ -122,6 +122,22 @@ class AppConfig(BaseSettings):
             return None
         return value
 
+    @field_validator('notify_searches_since')
+    @classmethod
+    def _notify_cutoff_must_be_naive(cls, value: datetime.datetime | None) -> datetime.datetime | None:
+        """reject a tz-aware cutoff: it is compared with naive ``searches.search_start_time``
+
+        An aware value would make every comparison raise, and that error is swallowed upstream
+        (``_enrich_new_record_from_searches``) — the cutoff would silently stop filtering the
+        whole backlog instead of failing loudly.
+        """
+        if value is not None and value.tzinfo is not None:
+            raise ValueError(
+                'NOTIFY_SEARCHES_SINCE must be naive (no UTC offset): it is compared with '
+                'searches.search_start_time, which is stored without a timezone'
+            )
+        return value
+
     # ── HTTP server (container mode only) ──────────────────────────────────────────────────
     http_host: str = '0.0.0.0'
     http_port: int = 8080

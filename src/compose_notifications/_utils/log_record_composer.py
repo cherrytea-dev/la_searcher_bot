@@ -109,9 +109,13 @@ class LogRecordComposer:
         # Temporary deployments against a stale database: never notify about searches started
         # before the configured cutoff, whatever their folder. Placed before the Samara
         # exception on purpose — the cutoff must cover it too (that is the whole point).
+        # A NULL start_time fails closed (everything below needs a datetime); the early return
+        # is safe because every rule below only ever sets ``ignore`` to True.
         cutoff = get_app_config().notify_searches_since
-        if cutoff is not None and r_line.start_time < cutoff:
-            r_line.ignore = True
+        if cutoff is not None:
+            if r_line.start_time is None or r_line.start_time < cutoff:
+                r_line.ignore = True
+                return
 
         if r_line.status != '\u0418\u0449\u0435\u043c' and r_line.change_type in {
             ChangeType.topic_new,
