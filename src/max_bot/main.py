@@ -31,6 +31,7 @@ import secrets
 from maxapi import Bot, Dispatcher
 from maxapi.methods.types.getted_updates import process_update_webhook
 
+from _dependencies.bot.readonly_mode import is_readonly
 from _dependencies.common.commons import AppConfig, get_app_config, setup_logging
 from _dependencies.common.misc import (
     RequestWrapper,
@@ -39,6 +40,7 @@ from _dependencies.common.misc import (
 )
 
 from ._utils import handlers
+from ._utils.readonly_middleware import ReadonlyMiddleware
 
 setup_logging(__package__)
 
@@ -61,6 +63,9 @@ async def _init_dispatcher() -> None:
     _bot = Bot()
     _dp = Dispatcher()
     _dp.include_routers(handlers.router)
+    # Emergency read-only mode must also cover the webhook path (the container serves MAX
+    # over ``/webhook/max``, not long polling): without this the flag would be ignored here.
+    _dp.register_outer_middleware(ReadonlyMiddleware())
 
     # Dialog state is persisted in PostgreSQL via DialogStateMixin,
     # not in maxapi's in-memory FSM. No need to inject dp.fsm.
@@ -132,8 +137,9 @@ async def _handle_webhook_async(event_json: dict) -> None:
     # ── Register user if this is their first interaction ───────────────
     # Centralised here so every handler (including future ones) gets it for free.
     # Previously each handler called _ensure_user_registered() individually.
+    # Skipped in read-only mode: registration writes to the ``users`` table.
     user_id = _extract_user_id(event_json)
-    if user_id is not None:
+    if user_id is not None and not is_readonly():
         handlers._ensure_user_registered(user_id)
 
     event_object = await process_update_webhook(event_json=event_json, bot=_bot)

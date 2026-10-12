@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Any
 
-from maxapi.filters.middleware import BaseMiddleware
+from maxapi.filters.middleware import BaseMiddleware, HandlerCallable
 from maxapi.types.updates import UpdateUnion
 from maxapi.types.updates.bot_started import BotStarted
 from maxapi.types.updates.message_callback import MessageCallback
@@ -31,7 +32,8 @@ def _is_read_safe(event: UpdateUnion) -> bool:
     if isinstance(event, BotStarted):
         return True
     if isinstance(event, MessageCreated):
-        text = (event.message.body.text or '').strip()
+        body = event.message.body
+        text = (body.text or '').strip() if body is not None else ''
         if not text.startswith('/'):
             return False
         command = text[1:].split()[0].split('@')[0].lower()
@@ -52,7 +54,7 @@ async def _send_readonly_stub(event: UpdateUnion) -> None:
             await event.ack()
             if event.message is not None:
                 await event.edit(text=READONLY_NOTICE)
-            else:
+            elif event.bot is not None:
                 await event.bot.send_message(chat_id=event.callback.user.user_id, text=READONLY_NOTICE)
         elif isinstance(event, MessageCreated):
             await event.message.answer(text=READONLY_NOTICE)
@@ -63,7 +65,7 @@ async def _send_readonly_stub(event: UpdateUnion) -> None:
 class ReadonlyMiddleware(BaseMiddleware):
     """Outer middleware that blocks every non-view update while read-only mode is on."""
 
-    async def __call__(self, handler, event_object: UpdateUnion, data: dict) -> object:
+    async def __call__(self, handler: HandlerCallable, event_object: UpdateUnion, data: dict[str, Any]) -> Any:
         if not is_readonly():
             return await handler(event_object, data)
 

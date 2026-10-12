@@ -4,7 +4,8 @@ These tests cover the handler-filtering core only — the actual stub message an
 points are exercised by the smoke run of the bot.
 """
 
-from unittest.mock import MagicMock
+import asyncio
+from unittest.mock import AsyncMock, MagicMock
 
 from _dependencies.bot import readonly_mode
 from _dependencies.bot.handler_registry import Handler, HandlerConditions, HandlerRegistry
@@ -143,3 +144,66 @@ def test_process_update_readonly_sends_stub_and_skips_writes(monkeypatch):
     db.delete_last_user_inline_dialogue.assert_not_called()
     register.assert_not_called()
     onboarding.assert_not_called()
+
+
+# ── MAX: the webhook entry point (what the container actually uses) ─────────────
+
+
+def test_max_webhook_dispatcher_installs_the_readonly_middleware(monkeypatch):
+    """MAX is served over ``/webhook/max`` in the container: the gate must be wired there too."""
+    from max_bot import main as max_main
+    from max_bot._utils.readonly_middleware import ReadonlyMiddleware
+
+    dp = MagicMock()
+    dp.startup = AsyncMock()
+    monkeypatch.setattr(max_main, 'Dispatcher', lambda: dp)
+    monkeypatch.setattr(max_main, 'Bot', MagicMock)
+    monkeypatch.setattr(max_main, '_initialized', False)
+    monkeypatch.setattr(max_main, '_bot', None)
+    monkeypatch.setattr(max_main, '_dp', None)
+
+    asyncio.run(max_main._init_dispatcher())
+
+    assert dp.register_outer_middleware.call_count == 1
+    assert isinstance(dp.register_outer_middleware.call_args.args[0], ReadonlyMiddleware)
+
+
+def _max_event(user_id: int = 42) -> dict:
+    return {
+        'update_type': 'message_created',
+        'message': {'sender': {'user_id': user_id}, 'body': {'text': 'привет'}},
+    }
+
+
+def _prepare_max_webhook(monkeypatch, *, readonly: bool) -> MagicMock:
+    from max_bot import main as max_main
+
+    register = MagicMock()
+    monkeypatch.setattr(max_main.handlers, '_ensure_user_registered', register)
+    monkeypatch.setattr(max_main, 'is_readonly', lambda: readonly)
+    monkeypatch.setattr(max_main, '_initialized', True)
+    monkeypatch.setattr(max_main, '_bot', MagicMock())
+    monkeypatch.setattr(max_main, '_dp', MagicMock(handle=AsyncMock()))
+    monkeypatch.setattr(max_main, 'process_update_webhook', AsyncMock(return_value=MagicMock()))
+    return register
+
+
+def test_max_webhook_readonly_skips_user_registration(monkeypatch):
+    """Registration writes to ``users``, so it must be skipped while read-only mode is on."""
+    from max_bot import main as max_main
+
+    register = _prepare_max_webhook(monkeypatch, readonly=True)
+
+    asyncio.run(max_main._handle_webhook_async(_max_event()))
+
+    register.assert_not_called()
+
+
+def test_max_webhook_registers_user_when_not_readonly(monkeypatch):
+    from max_bot import main as max_main
+
+    register = _prepare_max_webhook(monkeypatch, readonly=False)
+
+    asyncio.run(max_main._handle_webhook_async(_max_event()))
+
+    register.assert_called_once_with(42)
