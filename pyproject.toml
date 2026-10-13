@@ -18,6 +18,8 @@ dependencies = [
     "python-json-logger>=3.3.0",
     "yarl>=1.24.5",
     "vk-api>=11.10.1",
+    "opentelemetry-sdk>=1.29,<2",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.29,<2",
 ]
 [dependency-groups]
 

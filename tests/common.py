@@ -1,6 +1,7 @@
 import base64
 import json
 import logging
+import os
 import sys
 from functools import lru_cache
 from typing import Any, TypeVar
@@ -110,6 +111,14 @@ def setup_logging_to_console() -> None:
         level=logging.INFO,
         force=True,
     )
+    # Логи в сервис Логи Selectel через общий коллектор ядра (OTLP): включается
+    # OTEL_EXPORTER_OTLP_ENDPOINT (в проде — из файла секретов ядра).
+    # Импорт ленивый: opentelemetry нужен только когда эндпоинт задан.
+    # См. _dependencies/common/telemetry.py.
+    if os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT'):
+        from _dependencies.common.telemetry import attach_otlp_handler
+
+        attach_otlp_handler(logging.getLogger(), logging.INFO)
 
 
 fake = Faker()

@@ -81,10 +81,28 @@ def setup_logging_cloud(package_name: str | None = None) -> None:
     root_logger.setLevel(resolve_log_level(raw_level))  # yandex
     _silence_noisy_loggers()
 
+    # Логи в сервис Логи Selectel через общий коллектор ядра (OTLP): включается
+    # OTEL_EXPORTER_OTLP_ENDPOINT. См. _dependencies/common/telemetry.py.
+    _enable_otlp_logging(root_logger, root_logger.level)
+
     if raw_level and raw_level.strip().upper() not in _LEVEL_TO_NUMBER:
         # ERROR (not WARNING): a typo in the deployment env must be visible even when the function
         # is otherwise quiet at the default WARN level.
         root_logger.error(f'Unknown LOG_LEVEL={raw_level!r}, falling back to {DEFAULT_LOG_LEVEL}')
+
+
+def _enable_otlp_logging(root_logger: logging.Logger, level: int) -> None:
+    """Включить отправку логов в сервис Логи Selectel, если задан эндпоинт коллектора.
+
+    Импорт telemetry ленивый: opentelemetry нужен только когда эндпоинт задан,
+    поэтому дефолтный путь (только stdout) не тянет новую зависимость.
+    """
+    if not os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT'):
+        return
+
+    from _dependencies.common.telemetry import attach_otlp_handler
+
+    attach_otlp_handler(root_logger, level)
 
 
 @lru_cache
