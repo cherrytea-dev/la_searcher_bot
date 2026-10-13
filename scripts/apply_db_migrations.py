@@ -61,12 +61,33 @@ def _has_column(cur: 'psycopg2.extensions.cursor', table: str, column: str) -> b
     return bool(row and row[0])
 
 
+def _split_statements(sql: str) -> list[str]:
+    """Split a migration file into single statements (``--`` comments stripped).
+
+    Needed because libpq runs a multi-statement string inside ONE implicit transaction:
+    ``CREATE INDEX CONCURRENTLY`` there dies with "cannot run inside a transaction block" —
+    exactly what happened to 008 on the first deploy of the container (the file is a DELETE
+    followed by the CREATE INDEX, and the whole string went as one query). A single statement
+    is not wrapped, so a migration containing CONCURRENTLY has to be sent statement by statement.
+    """
+    without_comments = '\n'.join(line.split('--', 1)[0] for line in sql.splitlines())
+    return [statement.strip() for statement in without_comments.split(';') if statement.strip()]
+
+
 def _run(cur: 'psycopg2.extensions.cursor', label: str, sql: str, dry_run: bool) -> None:
     if dry_run:
         log.info('[dry-run] would apply: %s', label)
         return
     log.info('applying: %s', label)
-    cur.execute(sql)
+    statements = _split_statements(sql)
+    if len(statements) < 2 or not any('CONCURRENTLY' in statement.upper() for statement in statements):
+        # A single statement, or none of them is CONCURRENTLY: send the file as one query so the
+        # statements stay in a single transaction (atomicity for multi-statement migrations).
+        cur.execute(sql)
+        return
+    # CONCURRENTLY has to be alone in its transaction: send the statements one by one.
+    for statement in statements:
+        cur.execute(statement)
 
 
 def main() -> None:
