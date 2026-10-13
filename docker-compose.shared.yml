@@ -30,6 +30,14 @@ networks:
   #   name: edge
 
 services:
+  # Одноразовый прогон миграций: те же секреты и сеть, что у бота (схема накатывается
+  # в базу ядра). Живёт до старта бота — см. depends_on в docker-compose.prod.yml.
+  migrate:
+    env_file:
+      - /srv/infra/secrets/la_searcher.env
+    networks: [data]
+    logging: *logging
+
   bot:
     # Секреты проекта живут на хосте: файл создаёт `make db-create APP=la_searcher`
     # в репозитории infra (роль, база, PGPASSWORD). Туда же дописываются токены и

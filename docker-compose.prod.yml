@@ -9,11 +9,26 @@
 #   * наружу порты публикует только caddy ядра (и только если нужен домен/вебхуки);
 #   * секреты приходят из /srv/infra/secrets/la_searcher.env (docker-compose.shared.yml).
 services:
+  # Схема БД: одноразовый сервис — миграции из doc/migrations накатываются ДО старта бота.
+  # Отдельным сервисом, а не в старте приложения: падение бота на неполной схеме выглядит
+  # как «миграции не накатились», а две точки входа гнали бы их наперегонки.
+  # Скрипт идемпотентен: применяет только отсутствующее, повторный прогон — no-op.
+  # Критична 008 (unique index): без неё compose_notifications падает на каждом ON CONFLICT.
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    command: ["python", "scripts/apply_db_migrations.py"]
+    restart: "no"
+
   bot:
     build:
       context: .
       dockerfile: Dockerfile.app
     restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     # Целевой профиль (1 CPU / 1 GB) — тот же, что в docker-compose.app.yml:
     # «влезает ли» должен отвечать контейнер, а не таблица.
     deploy:

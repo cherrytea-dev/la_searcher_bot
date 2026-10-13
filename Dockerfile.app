@@ -23,6 +23,9 @@ RUN uv sync --locked --no-dev --all-extras
 
 COPY src ./src
 COPY doc ./doc
+# The one-shot `migrate` service runs scripts/apply_db_migrations.py (it reads doc/migrations/),
+# so the image has to carry the script — otherwise the container has no `scripts/` at all.
+COPY scripts ./scripts
 
 # The app writes nothing inside the image: it only needs to reach PostgreSQL.
 RUN useradd --create-home --uid 10001 bot && \
