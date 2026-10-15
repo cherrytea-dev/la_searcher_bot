@@ -104,13 +104,19 @@ def get_dotenv_config() -> AppConfig:
 
 
 def setup_logging_to_console() -> None:
+    # stream_name — имя выполняемой функции (см. _dependencies/common/log_context.py):
+    # в консоли это подсказка, а в OTLP-атрибутах — то же поле, что в JSON-логах контейнера.
+    from _dependencies.common.log_context import StreamNameFilter
+
     logging.basicConfig(
         encoding='utf-8',
         stream=sys.stdout,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        format='%(asctime)s - %(stream_name)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO,
         force=True,
     )
+    for handler in logging.getLogger().handlers:
+        handler.addFilter(StreamNameFilter(None))
     # Логи в сервис Логи Selectel через общий коллектор ядра (OTLP): включается
     # OTEL_EXPORTER_OTLP_ENDPOINT (в проде — из файла секретов ядра).
     # Импорт ленивый: opentelemetry нужен только когда эндпоинт задан.

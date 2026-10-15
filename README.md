@@ -149,6 +149,12 @@ Deployment passes `LOG_LEVEL` to every function from the repository variable of 
 (`Settings -> Secrets and variables -> Actions -> Variables`), defaulting to `WARN` while it is not set.
 The same level is used for all functions.
 
+Every record carries `stream_name` — the name of the function that is running. In the cloud that
+was the function's package (each function had its own process); in the single container the queue
+worker, the cron job, the HTTP route and the bot poller each set it around their call
+(`src/_dependencies/common/log_context.py`), so the field points at the function, not at the last
+imported module.
+
 Beware that the default `WARN` hides the `INFO` summary of long-running services (`script finished`,
 `Lock acquired`, sending analytics). Set the variable to `INFO` if you need those lines back.
 

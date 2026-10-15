@@ -65,5 +65,11 @@ def resolve_handler(topic: str) -> Handler:
     return handler  # type: ignore[no-any-return]
 
 
+def stream_for_topic(topic: str) -> str:
+    """Name of the function (its package) serving ``topic`` — the log ``stream_name``."""
+    path = TOPIC_HANDLERS.get(topic)
+    return path.split('.', 1)[0] if path else 'unknown'
+
+
 def known_topics() -> list[str]:
     return sorted(TOPIC_HANDLERS)

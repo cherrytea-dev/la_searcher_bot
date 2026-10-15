@@ -17,10 +17,18 @@ import threading
 from typing import Any, Callable
 
 from _dependencies.common.commons import get_app_config
+from _dependencies.common.log_context import log_stream
 from app.status import StatusRegistry
 
 _RESTART_DELAY_SECS = 15.0
 _TELEGRAM_POLL_TIMEOUT_SECS = 60
+
+#: Which function each poller runs — its name goes into ``stream_name`` (see log_context).
+_BOT_STREAMS: dict[str, str] = {
+    'telegram-bot': 'communicate',
+    'vk-bot': 'vk_bot',
+    'max-bot': 'max_bot',
+}
 
 #: Update types the bot asks Telegram for. The cloud functions never set ``allowed_updates``,
 #: so they received everything; the polling container has to ask for the same set explicitly,
@@ -63,7 +71,8 @@ def _supervise(
     while not stop_event.is_set():
         try:
             status.set_status(name, 'running')
-            runner(stop_event)
+            with log_stream(_BOT_STREAMS.get(name, name)):
+                runner(stop_event)
         except Exception:
             logging.exception('%s crashed; restarting in %.0fs', name, _RESTART_DELAY_SECS)
             status.set_status(name, 'error')

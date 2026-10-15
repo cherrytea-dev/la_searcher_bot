@@ -36,6 +36,7 @@ from zoneinfo import ZoneInfo
 from _dependencies.common.commons import AppConfig, get_app_config, sqlalchemy_get_pool
 from _dependencies.common.cron import CronExpression
 from _dependencies.common.lock_manager import FunctionLockError, lock_manager
+from _dependencies.common.log_context import log_stream
 from _dependencies.common.pubsub import Topics, publish_to_pubsub
 from app.status import StatusRegistry
 
@@ -131,8 +132,10 @@ class CronScheduler(threading.Thread):
 
     def _run_job(self, job: CronJob) -> None:
         started = time.monotonic()
+        # Имя функции для логов: у 'call:' — её пакет, у 'queue:' — имя джоба.
+        stream = job.name if job.target.startswith('queue:') else job.target.partition(':')[2].split('.', 1)[0]
         try:
-            with lock_manager(sqlalchemy_get_pool(), f'cron:{job.name}'):
+            with log_stream(stream), lock_manager(sqlalchemy_get_pool(), f'cron:{job.name}'):
                 self._execute(job)
         except FunctionLockError:
             logging.info('job %s is already running elsewhere — skipped', job.name)

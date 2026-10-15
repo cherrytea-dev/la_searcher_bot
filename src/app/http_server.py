@@ -28,6 +28,7 @@ from urllib.parse import parse_qs, urlparse
 
 from _dependencies.common import queue_pg
 from _dependencies.common.commons import get_app_config
+from _dependencies.common.log_context import log_stream
 from app.status import StatusRegistry
 
 _HEALTH_PATHS = {'/health'}
@@ -193,7 +194,8 @@ class _RequestHandler(BaseHTTPRequestHandler):
                 'queryStringParameters': {key: values[0] for key, values in parse_qs(parsed.query).items()},
                 'path': parsed.path,
             }
-            result = _call_function(target, request_data, self._server.async_runner)
+            with log_stream(target.split('.', 1)[0]):
+                result = _call_function(target, request_data, self._server.async_runner)
             self._respond(
                 int(result.get('statusCode') or 200),
                 str(result.get('body') or ''),

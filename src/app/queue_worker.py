@@ -13,7 +13,8 @@ import time
 from _dependencies.common import queue_pg
 from _dependencies.common.commons import get_app_config
 from _dependencies.common.lock_manager import FunctionLockError
-from app.dispatch import build_event, resolve_handler
+from _dependencies.common.log_context import log_stream
+from app.dispatch import build_event, resolve_handler, stream_for_topic
 from app.status import StatusRegistry
 
 #: Sleep after a failed poll (the database may be restarting).
@@ -94,7 +95,8 @@ class QueueWorker(threading.Thread):
             return
 
         try:
-            handler(build_event(message.payload), {})
+            with log_stream(stream_for_topic(message.topic)):
+                handler(build_event(message.payload), {})
         except FunctionLockError:
             # Not an error: another container instance is already running this function.
             # Put the message back without burning an attempt.
