@@ -94,7 +94,7 @@ def setup_logging_cloud(package_name: str | None = None) -> None:
 
     # Логи в сервис Логи Selectel через общий коллектор ядра (OTLP): включается
     # OTEL_EXPORTER_OTLP_ENDPOINT. См. _dependencies/common/telemetry.py.
-    _enable_otlp_logging(root_logger, root_logger.level)
+    _enable_otlp_logging(root_logger, root_logger.level, package_name)
 
     if raw_level and raw_level.strip().upper() not in _LEVEL_TO_NUMBER:
         # ERROR (not WARNING): a typo in the deployment env must be visible even when the function
@@ -102,7 +102,9 @@ def setup_logging_cloud(package_name: str | None = None) -> None:
         root_logger.error(f'Unknown LOG_LEVEL={raw_level!r}, falling back to {DEFAULT_LOG_LEVEL}')
 
 
-def _enable_otlp_logging(root_logger: logging.Logger, level: int) -> None:
+def _enable_otlp_logging(
+    root_logger: logging.Logger, level: int, package_name: str | None = None
+) -> None:
     """Включить отправку логов в сервис Логи Selectel, если задан эндпоинт коллектора.
 
     Импорт telemetry ленивый: opentelemetry нужен только когда эндпоинт задан,
@@ -113,7 +115,7 @@ def _enable_otlp_logging(root_logger: logging.Logger, level: int) -> None:
 
     from _dependencies.common.telemetry import attach_otlp_handler
 
-    attach_otlp_handler(root_logger, level)
+    attach_otlp_handler(root_logger, level, package_name)
 
 
 @lru_cache

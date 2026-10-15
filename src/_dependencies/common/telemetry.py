@@ -58,7 +58,9 @@ def configure_telemetry(endpoint: str, *, service_name: str) -> LoggerProvider:
     return provider
 
 
-def attach_otlp_handler(root_logger: logging.Logger, level: int) -> bool:
+def attach_otlp_handler(
+    root_logger: logging.Logger, level: int, stream_default: str | None = None
+) -> bool:
     """Включить отправку логов в сервис Логи Selectel, если задан эндпоинт коллектора.
 
     Читает из окружения ``OTEL_EXPORTER_OTLP_ENDPOINT`` и ``OTEL_SERVICE_NAME``
@@ -70,6 +72,8 @@ def attach_otlp_handler(root_logger: logging.Logger, level: int) -> bool:
     Args:
         root_logger: логгер, к которому добавляется OTLP-хендлер.
         level: минимальный уровень записей, попадающих в OTLP.
+        stream_default: fallback для ``record.stream_name`` (тот же, что у stdout-JSON),
+            когда запись сделана вне :func:`log_stream` и логгер не даёт имени.
 
     Returns:
         ``True``, если OTLP-хендлер был добавлен; ``False``, если переменная
@@ -82,7 +86,14 @@ def attach_otlp_handler(root_logger: logging.Logger, level: int) -> bool:
     service_name = os.environ.get('OTEL_SERVICE_NAME', '').strip() or DEFAULT_SERVICE_NAME
 
     configure_telemetry(endpoint, service_name=service_name)
-    root_logger.addHandler(LoggingHandler(level=level))
+
+    # stream_name проставляется фильтром не только на stdout-хендлере, но и здесь:
+    # порядок хендлеров не должен влиять на то, видит ли OTLP-хендлер поле.
+    from _dependencies.common.log_context import StreamNameFilter
+
+    otlp_handler = LoggingHandler(level=level)
+    otlp_handler.addFilter(StreamNameFilter(stream_default))
+    root_logger.addHandler(otlp_handler)
 
     # Внутренние логи OTel (в т.ч. ошибки экспорта) не должны возвращаться в root:
     # иначе при недоступном коллекторе они через OTLP-хендлер могли бы зациклиться.
