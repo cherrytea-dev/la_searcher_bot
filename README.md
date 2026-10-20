@@ -1,5 +1,27 @@
 # LizaAlert "Searcher Bot"
 
+## Start here
+
+There are three ways to run the project. They share the same function code; only the way the
+functions are called differs.
+
+| Mode | How to run | What it is |
+| --- | --- | --- |
+| **Yandex Cloud Functions** (historical cloud path) | deploy from [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) | timer, YMQ queue and HTTP triggers call one function each. `APP_MODE=yc` (the code default). |
+| **Single container** | `make run-app` (or `PYTHONPATH=src uv run python -m app.main`) with `APP_MODE=k8s` and the environment from `.env.example` | one process: HTTP server, cron scheduler, PostgreSQL queue workers and long-polling bots. Docker: `docker compose -f docker-compose.app.yml up --build`. |
+| **One bot locally** | `uv run python tests/tools/run_bot.py` | Telegram long polling against your `.env`. Also `run_vk_bot.py` and `run_max_bot.py`. |
+
+How the project is put together: `check_first_posts_for_changes` watches the phpBB forum and
+publishes changed topics; `identify_updates_of_*` write diffs to `change_log`;
+`compose_notifications` matches them against user preferences and creates `notif_by_user` rows;
+`send_notifications` delivers them to Telegram, VK or MAX. Users talk to the same database
+through the `communicate`, `vk_bot` and `max_bot` functions. The shared code lives in
+[`src/_dependencies/`](src/_dependencies/), and the container runtime in [`src/app/`](src/app/).
+
+[`AGENTS.md`](AGENTS.md) is the project map. Runtime details:
+[`doc/single-container.md`](doc/single-container.md) and the
+[parse → compose → send runbook](doc/runbooks/parse-compose-send-container.md).
+
 ## What is LA Searcher Bot
 [LizaAlert](https://lizaalert.org/) (aka LA) – is a non-profit volunteer
 Search & Rescue Organization, which helps to find and
@@ -102,9 +124,11 @@ root logger в `setup_logging_cloud` (`src/_dependencies/common/yandex_tools.py`
 
 ## Repository
 
-This repository covers only Python scripts, which are deployed to
-Yandex Cloud Functions, and GitHub Actions Workflow files.
-[Architecture of Yandex Cloud Functions](https://htmlpreview.github.io/?https://github.com/cherrytea-dev/la_searcher_bot/blob/main/doc/cloud_functions_architecture.html)
+The repository contains the Python functions, the single-container runtime (`src/app/`), the
+shared library (`src/_dependencies/`) and the GitHub Actions workflows that deploy the functions
+to Yandex Cloud Functions. The cloud functions are no longer the only way to run the bot: the
+same code runs as one container (see [`doc/single-container.md`](doc/single-container.md)).
+[Architecture of the original Yandex Cloud Functions deployment](https://htmlpreview.github.io/?https://github.com/cherrytea-dev/la_searcher_bot/blob/main/doc/cloud_functions_architecture.html)
 
 ## Contribution
 
@@ -176,6 +200,8 @@ Run tests with postgres database in docker container: `make ci-test`
 > (`uv pip install numpy==1.26.4`) and run tests without xdist:
 > `uv run --no-sync pytest`.
 
-Run bot locally: `uv run python tests/tools/run_bot.py` (example is in [launch.template.json](.vscode/launch.template.json) )
+Run the Telegram bot locally: `uv run python tests/tools/run_bot.py` (example is in
+[launch.template.json](.vscode/launch.template.json)).
 
-Or run bot in container: `docker compose up -d`
+Or run the Telegram bot in the test container: `docker compose up -d`. This is not the single
+container; for that use `docker compose -f docker-compose.app.yml up --build` (or `make run-app`).

@@ -1,728 +1,177 @@
-# LA Searcher Bot — Project Overview
+# LA Searcher Bot — Project Map
 
-## What is this project?
+**LA Searcher Bot** is the [LizaAlert](https://lizaalert.org/) bot for volunteer searchers. It
+monitors the LA phpBB forum, detects new and updated searches, and sends personalized
+notifications through Telegram, VK and MAX. It also gives users a settings interface in all
+three messengers. Around 9.7k active users and ~30k messages per day as of 2023.
 
-**LA Searcher Bot** is a Telegram bot for [LizaAlert](https://lizaalert.org/) — a non-profit volunteer Search & Rescue organization. The bot monitors the [LA phpBB Forum](https://lizaalert.org/forum/), detects new/updated searches (lost people), and sends **personalized notifications** to volunteer searchers via Telegram, VKontakte, and Max messenger.
+This file is the map, not the encyclopedia:
 
-As of early 2023: ~9700 active users, ~6000 DAU, ~30000 daily messages. Annual growth ~2x.
+- [`README.md`](README.md) — what the project is and how to start.
+- [`doc/components.md`](doc/components.md) — detailed per-function and per-bot descriptions.
+- [`doc/reference.md`](doc/reference.md) — stack, data flow, topics, DB, configuration, HTTP contracts.
+- [`doc/single-container.md`](doc/single-container.md) — the single-container runtime.
 
----
+## Start here: three run modes
 
-## System Architecture
+| Mode | How to run | What it is |
+| --- | --- | --- |
+| **Yandex Cloud Functions** | deploy from [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) | historical cloud path: timer, queue and HTTP triggers call one function each. The code default is `APP_MODE=yc`. |
+| **Single container** | `make run-app` (or `PYTHONPATH=src uv run python -m app.main`) with `APP_MODE=k8s` and the environment from `.env.example` | one process with HTTP server, cron scheduler, PostgreSQL queue workers and long-polling bots. Docker: `docker compose -f docker-compose.app.yml up --build`. |
+| **One bot locally** | `uv run python tests/tools/run_bot.py` | Telegram long polling against your `.env`. Also `run_vk_bot.py` and `run_max_bot.py` in the same folder. |
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                          Yandex Cloud (or GCP)                               │
-│                                                                              │
-│  ┌─────────────────┐    ┌──────────────┐    ┌─────────────────────────┐     │
-│  │  Cron Triggers   │    │  Message     │    │  HTTP Gateways          │     │
-│  │  (every minute,  │───▶│  Queues      │◀───│  (Telegram / Map API)   │     │
-│  │   hourly, daily) │    │  (YMQ/SQS)   │    └─────────────────────────┘     │
-│  └─────────────────┘    └──────┬───────┘                                     │
-│                                │                                             │
-│         ┌──────────────────────┼──────────────────────┐                      │
-│         ▼                      ▼                      ▼                      │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────┐           │
-│  │ Forum        │    │ Notification │    │ User Communication   │           │
-│  │ Parsing      │───▶│ Pipeline     │───▶│ & Sending            │           │
-│  │ Functions    │    │ Functions    │    │ Functions            │           │
-│  └──────────────┘    └──────────────┘    └──────────────────────┘           │
-│         │                   │                       │                       │
-│         ▼                   ▼                       ▼                       │
-│  ┌────────────────────────────────────────────────────────────────────┐     │
-│  │                    PostgreSQL (Yandex Managed DB)                   │     │
-│  └────────────────────────────────────────────────────────────────────┘     │
-│         │                                                                   │
-│         ▼                                                                   │
-│  ┌────────────────────────────────────────────────────────────────────┐     │
-│  │            S3 Object Storage (Yandex Object Storage)                │     │
-│  │            (archived notifications backup)                          │     │
-│  └────────────────────────────────────────────────────────────────────┘     │
-└──────────────────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                     External Systems                                         │
-│                                                                              │
-│  ┌────────────────┐    ┌──────────────┐    ┌──────────────────────┐         │
-│  │ LA phpBB Forum  │    │  Telegram    │    │  VKontakte API       │         │
-│  │ (parsed via     │    │  Bot API     │    │  (notifications      │         │
-│  │  HTTP + BS4)    │    │              │    │   + user settings)   │         │
-│  └────────────────┘    └──────────────┘    └──────────────────────┘         │
-│                                                                              │
-│  ┌──────────────────────────────────────────────────────────────┐           │
-│  │  Max Messenger API (maxapi library, user settings only)       │           │
-│  └──────────────────────────────────────────────────────────────┘           │
-│                                                                              │
-│  ┌──────────────┐    ┌──────────────────────┐                               │
-│  │ LA Map       │    │ Forum phpMyAdmin DB   │                               │
-│  │ (WebApp)     │    │ (MySQL, read-only     │                               │
-│  │              │    │  for change detection)│                               │
-│  └──────────────┘    └──────────────────────┘                               │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
+Both production paths share the same function code: handlers keep `main(event, context)` (queue)
+or `main(request)` (HTTP), so the container only changes how they are called.
 
----
+## System architecture
 
-## Component Catalog
-
-The project is decomposed into **independent serverless functions**, each with a single responsibility. Functions communicate via **Yandex Message Queue (YMQ, SQS-compatible)** pub/sub topics.
-
-### 1. Forum Parsing Pipeline
-
-These functions monitor the LA phpBB forum and detect changes.
-
-#### [`check_first_posts_for_changes`](src/check_first_posts_for_changes/main.py)
-- **Trigger**: Cron (every minute)
-- **Purpose**: Detects changes in the forum's MySQL database (via direct MySQL connection), identifies which topics/folders were modified, and:
-  - Updates first-post content hashes in PSQL
-  - Sends changed topic IDs to `topic_for_first_post_processing`
-  - Sends changed folder IDs to `topic_to_run_parsing_script`
-- **Key logic**: Compares content hashes, detects new/modified first posts
-
-#### [`identify_updates_of_topics`](src/identify_updates_of_topics/main.py)
-- **Trigger**: Pub/sub (`topic_to_run_parsing_script`)
-- **Purpose**: Parses forum folders, retrieves lists of topics (searches), detects status/title/comment/field-trip changes. Saves changes to `change_log` table. Triggers notification composition via `topic_for_notification`.
-- **Key sub-modules**: [`folder_updater.py`](src/identify_updates_of_topics/_utils/folder_updater.py), [`forum.py`](src/identify_updates_of_topics/_utils/forum.py), [`parse.py`](src/identify_updates_of_topics/_utils/parse.py)
-
-#### [`identify_updates_of_first_posts`](src/identify_updates_of_first_posts/main.py)
-- **Trigger**: Pub/sub (`topic_for_first_post_processing`)
-- **Purpose**: Compares previous vs current first-post content for searches that had their first post changed. Saves diffs to `change_log` with `ChangeType.topic_first_post_change`. Triggers folder re-parsing and notification composition.
-
-#### [`connect_to_forum`](src/connect_to_forum/main.py)
-- **Trigger**: Pub/sub (`parse_user_profile_from_forum`)
-- **Purpose**: When a user links their forum account, this function logs into the forum as a bot, scrapes the user's profile data (callsign, region, phone, age, etc.), saves it to `user_forum_attributes`, and sends a confirmation message via Telegram.
-
-### 2. Notification Pipeline
-
-These functions process `change_log` records and create/send notifications.
-
-#### [`compose_notifications`](src/compose_notifications/main.py)
-- **Trigger**: Pub/sub (`topic_for_notification`)
-- **Purpose**: Reads the latest unprocessed record from `change_log`, determines which users should receive a notification (based on region preferences, search whitelist, notification type preferences), composes personalized text/location messages, saves them to `notif_by_user` table, and triggers `topic_to_send_notifications`.
-- **Locking**: Uses [`lock_manager`](src/_dependencies/lock_manager.py) to prevent parallel execution.
-- **Sub-modules**: [`notifications_maker.py`](src/compose_notifications/_utils/notifications_maker.py), [`users_list_composer.py`](src/compose_notifications/_utils/users_list_composer.py), [`message_composer.py`](src/compose_notifications/_utils/message_composer.py)
-
-#### [`send_notifications`](src/send_notifications/main.py)
-- **Trigger**: Pub/sub (`topic_to_send_notifications`)
-- **Purpose**: Fetches unsent notifications from `notif_by_user`, sends them via Telegram Bot API (and VK API for users with a VK identity). Uses `ThreadPoolExecutor` for parallel sending. Handles rate limits, blocked users, retries. Auto-re-triggers itself if time runs out with more messages pending.
-- **Locking**: Uses `lock_manager` to prevent parallel execution.
-- **Key features**: Deadlock detection, message deduplication, analytics logging
-
-#### [`send_debug_to_admin`](src/send_debug_to_admin/main.py)
-- **Trigger**: Pub/sub (`topic_notify_admin`)
-- **Purpose**: Sends debug/error notification messages to the bot admin via a service Telegram bot account.
-
-### 3. User Communication
-
-#### [`communicate`](src/communicate/main.py)
-- **Trigger**: HTTP (Telegram webhook)
-- **Purpose**: Main user-facing function. Receives Telegram updates (messages, button clicks, commands), processes them via a chain of handlers, and replies. Handles:
-  - User onboarding (region selection, notification settings)
-  - View active searches
-  - Link forum/VK accounts
-  - Settings management
-  - Help & feedback
-- **Handlers**: Each handler is a separate file in [`_utils/handlers/`](src/communicate/_utils/handlers/)
-
-### 4. API Endpoints
-
-#### [`api_get_active_searches`](src/api_get_active_searches/main.py)
-- **Trigger**: HTTP (public)
-- **Purpose**: Returns JSON list of active searches for external apps (e.g., phone-call group app). Accepts `app_id`, folder list filter, depth in days. Validates `app_id` against configured list.
-- **CORS**: Supports OPTIONS preflight.
-
-#### [`user_provide_info`](src/user_provide_info/main.py)
-- **Trigger**: HTTP (public)
-- **Purpose**: Serves the [LA Map WebApp](https://github.com/cherrytea-dev/la_map). Verifies Telegram login, returns user's saved coordinates, radius, regions, and a list of active searches with coordinates for map display.
-- **CORS**: Supports OPTIONS preflight, validates allowed origins.
-
-#### [`title_recognize`](src/title_recognize/main.py)
-- **Trigger**: HTTP (internal, called by other functions)
-- **Purpose**: NLP service that recognizes topic type (search/event/info), person info (name/age), and location from forum topic titles. Uses `natasha` library for Russian-language NER.
-- **Models**: [`recognizer.py`](src/title_recognize/_utils/recognizer.py), [`person.py`](src/title_recognize/_utils/person.py), [`tokenizer.py`](src/title_recognize/_utils/tokenizer.py)
-
-### 5. Housekeeping
-
-#### [`archive_notifications`](src/archive_notifications/main.py)
-- **Trigger**: Pub/sub (`topic_to_archive_notifs`) + cron (hourly)
-- **Purpose**: Moves completed notifications from `notif_by_user` to `notif_by_user__history` table. Also archives old first-post snapshots.
-
-#### [`archive_to_bigquery`](src/archive_to_bigquery/main.py)
-- **Trigger**: Cron (daily)
-- **Purpose**: Unloads archived notifications from `notif_by_user__history` to CSV, zips them, uploads to S3-compatible storage (Yandex Object Storage), then deletes from DB. Used for long-term cost-effective storage.
-
-#### [`users_activate`](src/users_activate/main.py)
-- **Purpose**: One-time migration script for onboarding old users. Iterates through users and assigns onboarding steps based on historical data. Currently mostly commented out.
-
-### 6. VK Bot
-
-The VK bot provides a full-featured VKontakte interface for the LA Searcher Bot. Users can manage all their settings and view searches directly from VK, without needing the Telegram bot at all.
-
-#### [`vk_bot`](src/vk_bot/main.py)
-- **Trigger**: HTTP (VK Callback API webhook) or LongPoll polling mode
-- **Purpose**: Full-featured VKontakte bot for user settings management and search viewing. Shares the same PostgreSQL database as the Telegram bot — all changes made in VK are immediately reflected in Telegram and vice versa.
-
-**Deployment modes** (via [`cli.py`](src/vk_bot/cli.py)):
-- **Flask web server** (default): Receives VK Callback API events via HTTP POST. Designed to run behind ngrok/localhost.run for local development, or as a Yandex Cloud Function in production.
-- **LongPoll polling** (legacy): Uses VK LongPoll API for testing without a webhook. Launched with `--polling` flag.
-
-**Architecture**:
-```
-┌──────────────────────────────────────────────────────┐
-│  vk_bot/main.py (entry point)                        │
-│  └─ @request_response_converter                      │
-│     └─ dispatch_event(raw_event)                     │
-│        ├─ message_new → handle_new_message()         │
-│        ├─ message_event → handle_callback_event()    │
-│        ├─ confirmation → return VK confirmation code │
-│        ├─ message_edit → ignored                     │
-│        └─ message_reply → ignored                    │
-└──────────────────────────────────────────────────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────┐
-│  Handler Chain (dispatcher.py:90-104)                 │
-│  ┌─ state_handlers (radius, coords, forum username)  │
-│  ├─ onboarding_handlers (start, role, moscow, ...)   │
-│  ├─ view_searches_handlers (active/latest/follow)    │
-│  ├─ region_select_handlers (districts, toggle)       │
-│  ├─ settings_handlers (notifs, coords, age, ...)     │
-│  └─ handle_unknown (fallback)                        │
-└──────────────────────────────────────────────────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────┐
-│  DBClient (database.py) — composed from 13 mixins    │
-│  Shared DB tables: users, user_preferences,           │
-│  user_regional_preferences, user_coordinates,         │
-│  user_pref_radius, searches, geo_folders, ...         │
-└──────────────────────────────────────────────────────┘
-```
-
-**Features offered to users**:
-
-| Feature                  | Handler Module                         | Description                                                                                         |
-| ------------------------ | -------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Onboarding               | `onboarding_handlers.py`               | Role selection (member/volunteer/relative/other), Moscow region subscription                        |
-| Region management        | `region_select_handlers.py`            | Federal district selection, region subscribe/unsubscribe with inline pagination for large districts |
-| Search viewing           | `view_searches_handlers.py`            | Active searches, latest 20 searches, search follow/unfollow with `+12345`/`-12345` text commands    |
-| Notification preferences | `settings_handlers.py`                 | Toggle notification types (new searches, status changes, comments, inforg, first post, followed)    |
-| Coordinates              | `settings_handlers.py`                 | Enter/view/delete home coordinates (manual input or via map)                                        |
-| Radius                   | `settings_handlers.py`                 | Set/edit/delete notification radius in km                                                           |
-| Age preferences          | `settings_handlers.py`                 | Toggle age groups (children, teens, adults, elderly)                                                |
-| Topic type preferences   | `settings_handlers.py`                 | Toggle topic types (search works, informational search)                                             |
-| Forum linking            | `state_handlers.py`                    | Link forum account — triggers `connect_to_forum` via `pubsub_parse_user_profile`                    |
-
-#### Key Sub-components
-
-##### `dispatcher.py`
-- **Event handling**: `dispatch_event()` is the main entry point. Returns `'ok'` immediately (VK requires response within ~8 seconds), then processes in a background thread.
-- **Deduplication**: Maintains an LRU cache (`_event_cache`) to prevent duplicate event processing from VK resends.
-- **Callback handling**: Inline keyboard callbacks (`message_event`) are parsed via JSON payload with `cmd` field. Supports: `paginate_nav`, `paginate_toggle`, `paginate_back`, `paginate_finish`, `district_select`.
-- **Registration flow**: a VK user missing from `user_identity_map` is auto-registered as a VK-only user (`register_vk_only_user`). There is no invite/account-linking flow.
-
-##### `database.py` — DBClient
-- Composed from 13 domain-specific mixins (see list below), all sharing a single DB connection pool via `DBClientBase`.
-- Mixins: `VKIdentityMixin`, `DialogStateMixin`, `UserMixin`, `RegionMixin`, `NotificationPrefMixin`, `GeoPrefMixin`, `AgePrefMixin`, `TopicTypeMixin`, `SearchFollowingMixin`, `ForumAttributeMixin`, `SystemRoleMixin`, `DialogHistoryMixin`, `SettingsSummaryMixin`.
-- `VKIdentityMixin` provides `get_identity_by_messenger_user_id(vk_user_id)` — resolves `internal_user_id` from `user_identity_map`.
-
-##### `message_sending.py` — VKMessageSender
-- Wraps `VKApi` client with rate limiting and error handling.
-- Handles per-minute flood control (914) with automatic retry after 1 second.
-- Handles per-day flood control (917) by stopping all sends for the session.
-- Handles `cannot_send_to_user` (901) and `cannot_send_first_message` (902) gracefully.
-- Supports `send_message()`, `edit_message()`, `delete_message()`, `send_callback_answer()` (snackbar/popup).
-
-##### `keyboards.py` — VK Keyboard Layout Engine
-- `VKKeyboardButtons`: Centralized constants for all button labels (single source of truth shared between keyboard builder and handlers).
-- `VKKeyboardBase`: Low-level building blocks with VK API limit enforcement (max 40 chars per button, max 10 rows for regular keyboard, max 6 rows for inline).
-- `VKKeyboardPresets`: High-level presets — `main_menu()`, `settings_menu()`, `coords_menu()`, `notification_settings()`, `fed_districts()`, `fed_districts_inline()`, `paginated_regions_inline()`, `age_settings()`, `topic_type_settings()`, etc.
-- Supports inline keyboards (callback-based) for paginated region selection.
-
-##### `services/message_formatter.py`
-- Formatted text templates for all bot responses (onboarding messages, settings descriptions, error messages, search display, etc.).
-- Contains constants for LA organization links (website, forum, newbie article, photos channel, hotline phone, etc.).
-
-##### `bot_polling.py`
-- Alternative entry point using VK LongPoll API (vk_api library).
-- Transforms LongPoll events into the same format as Callback API events and delegates to `dispatch_event()`.
-
-##### `cli.py`
-- CLI launcher with `--polling`, `--port`, `--host` options.
-- Default: Flask web server on `0.0.0.0:8888`.
-
-#### Integration with the rest of the system
-
-```
-Telegram Bot (communicate)                    VK Bot (vk_bot)
-        │                                           │
-        ├─ Settings → users table ←── VK bot reads/writes same DB tables
-        │                                           │
-        └─ Forum linking:                          │
-           pubsub_parse_user_profile ────→ connect_to_forum (same for both)
-```
-
-- **Shared database**: Both bots read/write the same `users`, `user_preferences`, `user_regional_preferences`, `user_coordinates`, `user_pref_radius`, `user_pref_search_whitelist`, etc. tables. Changes in one bot are immediately visible in the other.
-- **Forum linking**: VK bot triggers `pubsub_parse_user_profile()` — the same `connect_to_forum` function that Telegram uses.
-- **VK notifications**: The `send_notifications` function also sends notifications to VK users (via `vk_api_client.VKApi.send()`) for users with a VK identity in `user_identity_map`.
-
-### 7. Max Bot
-
-The Max bot provides a settings-management interface for the LA Searcher Bot via the [Max messenger](https://max.ru/). It replicates the core user-facing functionality of the VK bot (registration, region selection, radius/coordinate input) using the [`maxapi`](.vendor/maxapi/) Python library (v1.2.0), which provides a native Dispatcher/Router pattern, FSM (Finite State Machine), and InlineKeyboardBuilder — replacing the custom event loop and keyboard engine used by the VK bot.
-
-#### [`max_bot`](src/max_bot/main.py)
-- **Trigger**: HTTP (Max webhook) or LongPoll polling mode
-- **Purpose**: User settings management for Max messenger users. Shares the same PostgreSQL database as the Telegram and VK bots — all changes made in Max are immediately reflected in Telegram/VK and vice versa.
-
-**Deployment modes** (via [`cli.py`](src/max_bot/cli.py)):
-- **LongPoll polling** (default): Uses `maxapi.Bot.start_polling()` for local development and testing. Launched with `uv run python -m src.max_bot.cli` or via [`run_max_bot.py`](tests/tools/run_max_bot.py).
-- **Webhook**: Uses `maxapi.Dispatcher.handle()` via the Yandex Cloud Function entry point ([`main.py`](src/max_bot/main.py)). The ``Bot`` and ``Dispatcher`` are created once at module level and reused across warm invocations. Incoming events are parsed via ``process_update_webhook()`` and dispatched through the same handler chain as polling mode.
-
-**Architecture**:
-```
-┌──────────────────────────────────────────────────────┐
-│  max_bot/main.py (entry point)                        │
-│  └─ @request_response_converter                      │
-│     └─ (webhook handler — planned)                   │
-└──────────────────────────────────────────────────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────┐
-│  max_bot/_utils/bot_polling.py                       │
-│  └─ Dispatcher + Router (maxapi)                     │
-│     └─ handlers.router (all handlers registered)     │
-└──────────────────────────────────────────────────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────┐
-│  max_bot/_utils/handlers.py                          │
-│  ┌─ on_bot_started (bot_started event)              │
-│  ├─ on_start (/start command)                       │
-│  ├─ on_back_to_main / on_region_menu                │
-│  ├─ on_radius_menu / on_radius_set / on_radius_view │
-│  │  / on_radius_delete                              │
-│  ├─ on_coords_menu / on_coords_enter / on_coords_   │
-│  │  view / on_coords_delete                         │
-│  ├─ on_district_select / on_paginate_nav /          │
-│  │  on_paginate_toggle / on_paginate_finish         │
-│  ├─ on_radius_text (FSM) / on_coords_text (FSM)    │
-│  ├─ on_geo_location (native geo button)             │
-│  └─ on_unknown_text (fallback)                      │
-└──────────────────────────────────────────────────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────┐
-│  UserRepository (src/_dependencies/user_repository/) │
-│  Shared DB mixins: UserMixin, RegionMixin,           │
-│  GeoPrefMixin, VKIdentityMixin                       │
-└──────────────────────────────────────────────────────┘
-```
-
-**Features offered to users**:
-
-| Feature           | Handler(s)                            | Description                                                              |
-| ----------------- | ------------------------------------- | ------------------------------------------------------------------------ |
-| Registration      | `on_bot_started`, `on_start`          | Auto-register on first interaction, show main menu with settings buttons |
-| Region management | `on_district_select`, `on_paginate_*` | Federal district selection, region subscribe/unsubscribe with pagination |
-| Radius            | `on_radius_*`, `on_radius_text` (FSM) | Set/view/delete notification radius in km via FSM text input             |
-| Coordinates       | `on_coords_*`, `on_coords_text` (FSM) | Enter/view/delete home coordinates (manual text or native geo button)    |
-
-#### Key Sub-components
-
-##### `handlers.py` — Handler Chain
-- Uses `maxapi.Router` with typed event decorators: `@router.bot_started()`, `@router.message_created()`, `@router.message_callback()`.
-- **FSM**: Uses `maxapi.StatesGroup` (`MaxStates` with `waiting_for_radius`, `waiting_for_coords`). State is managed via `Dispatcher.fsm` (a `ContextManager`), injected into the module via `set_fsm()` because `Router.fsm` raises `RuntimeError`.
-- **Callback filtering**: Uses a custom `PayloadCmd(BaseFilter)` class that parses JSON from `Callback.payload` (which is `str | None`, not a dict) and checks `data.get('cmd')`. This replaces `F.callback.payload.cmd` which doesn't work on JSON-encoded strings.
-- **`event.ack()`**: All callback handlers pass `notification='...'` because the Max API requires at least one of `message` or `notification` — calling `await event.ack()` without arguments causes `MaxApiError`.
-- **Geo location**: Handles native `RequestGeoLocationButton` attachments via `F.message.body.attachments` filter.
-
-##### `keyboards.py` — Keyboard Presets
-- `MaxKeyboardButtons`: Centralized constants for all button labels.
-- `MaxKeyboardPresets`: High-level presets using `maxapi.InlineKeyboardBuilder` — `main_menu()`, `fed_districts_inline()`, `paginated_regions_inline()`, `radius_menu()`, `coords_menu()`, `back_to_main()`.
-- `paginated_regions_inline()`: Supports pagination with `page_size=6`, prepends `✓ ` to subscribed region names (since `Intent.POSITIVE`/`DEFAULT`/`NEGATIVE` are sent correctly but the Max UI doesn't render different intents with different visual styles).
-
-##### `message_formatter.py` — Text Templates
-- All bot response templates: `WELCOME_TEXT`, `MAIN_MENU_TEXT`, `FED_DISTRICTS_PROMPT`, `REGION_LIST_PROMPT`, `RADIUS_PROMPT`, `RADIUS_SAVED`, `COORDS_MANUAL_PROMPT`, `COORDS_SAVED`, `COORDS_VIEW`, `COORDS_DELETED`, `RADIUS_DELETED`, `RADIUS_VIEW`, `ERROR_TEXT`, etc.
-- Contains constants for LA organization links (same as VK bot's `message_formatter.py`).
-
-##### `states.py` — FSM States
-```python
-class MaxStates(StatesGroup):
-    waiting_for_radius = State()
-    waiting_for_coords = State()
-```
-
-##### `bot_polling.py` — LongPoll Runner
-- Creates `maxapi.Bot` with `MAX_BOT_TOKEN` from config.
-- Creates `Dispatcher`, includes `handlers.router`, injects `Dispatcher.fsm` into handlers via `handlers.set_fsm(dp.fsm)`.
-- Calls `await dp.start_polling(bot)`.
-
-#### Key Differences from VK Bot
-
-| Aspect                 | VK Bot                               | Max Bot                                              |
-| ---------------------- | ------------------------------------ | ---------------------------------------------------- |
-| **Framework**          | Custom event loop + handler chain    | `maxapi` library (Dispatcher/Router)                 |
-| **FSM**                | `DialogState` enum in DB             | `maxapi.StatesGroup` + `ContextManager`              |
-| **Keyboards**          | Custom dict-based JSON builder       | `maxapi.InlineKeyboardBuilder`                       |
-| **Callback payload**   | Dict in JSON string, parsed manually | `Callback.payload` is `str`, parsed via `PayloadCmd` |
-| **Geo button**         | VK `location` button type            | `RequestGeoLocationButton` attachment                |
-| **Event ack**          | VK `send_callback_answer()`          | `event.ack(notification='...')`                      |
-| **Onboarding**         | Role selection, Moscow prompt, etc.  | Simple welcome + main menu                           |
-| **Search viewing**     | Full search list + follow/unfollow   | Not implemented yet                                  |
-| **Notification prefs** | Toggle all notification types        | Not implemented yet                                  |
-
-#### Integration with the rest of the system
-
-```
-Telegram Bot (communicate)          Max Bot (max_bot)
-        │                                   │
-        ├─ Settings → users table ←── Max bot reads/writes same DB tables
-        │                                   │
-        └─ Forum linking:                  │
-           pubsub_parse_user_profile ──→ connect_to_forum (planned)
-```
-
-- **Shared database**: Max bot reads/writes the same `users`, `user_regional_preferences`, `user_coordinates`, `user_pref_radius`, etc. tables. Changes in any bot are immediately visible in all others.
-- **Forum linking**: Planned — will trigger `pubsub_parse_user_profile()` like Telegram and VK bots.
-- **Notifications**: Not yet implemented — Max users currently receive notifications only via Telegram or VK.
-
----
-
-## Data Flow (Pipeline)
-
-```
+```text
 LA Forum (phpBB)
-    │
-    ▼
-[check_first_posts_for_changes]  ← Cron: every minute
-    │  Reads MySQL change log
-    │  Compares first-post hashes
-    ├──▶ topic_for_first_post_processing ──▶ [identify_updates_of_first_posts]
-    │                                            │ Compares old/new content
-    │                                            │ Saves diff to change_log
-    │                                            └──▶ topic_for_notification
-    │
-    └──▶ topic_to_run_parsing_script ──▶ [identify_updates_of_topics]
-                                             │ Parses forum folders
-                                             │ Detects status/title/comment changes
-                                             │ Saves to change_log
-                                             └──▶ topic_for_notification
-                                                      │
-                                                      ▼
-                                             [compose_notifications]
-                                               │ Reads change_log
-                                               │ Matches users by preferences
-                                               │ Creates notif_by_user records
-                                               └──▶ topic_to_send_notifications
-                                                        │
-                                                        ▼
-                                               [send_notifications]
-                                                 │ Sends via Telegram/VK API
-                                                 │ Marks as completed/cancelled
-                                                 │
-                                                 └──▶ topic_to_archive_notifs ──▶ [archive_notifications]
-                                                                                    │ Moves to __history
-                                                                                    │
-                                                                                    └──▶ [archive_to_bigquery]  ← Cron: daily
-                                                                                         │ Exports to S3
-                                                                                         │ Deletes from DB
+   |  check_first_posts_for_changes (cron, every minute)
+   v
+queue topics  -->  identify_updates_of_first_posts / identify_updates_of_topics
+   |                    |  change_log
+   |                    v
+   |              compose_notifications
+   |                    |  notif_by_user
+   |                    v
+   |              send_notifications  --> Telegram / VK / MAX
+   |                    |  completed
+   |                    v
+   +--> archive_notifications (hourly) --> archive_to_bigquery (daily) --> Object Storage
 
-[communicate]  ← HTTP (Telegram webhook)
-    │ Handles user messages, settings, commands
-    └──▶ parse_user_profile_from_forum ──▶ [connect_to_forum]
-                                             │ Logs into forum
-                                             │ Scrapes user profile
-                                             │ Saves to user_forum_attributes
-
-[vk_bot]  ← HTTP (VK Callback API)
-    │ Full settings management, search viewing, account linking
-    │ Shares PostgreSQL DB with Telegram bot
-    └──▶ parse_user_profile_from_forum ──▶ [connect_to_forum]
-                                             (same forum linking as Telegram)
-
-[max_bot]  ← LongPoll / HTTP (Max API)
-    │ User settings management (region, radius, coordinates)
-    │ Shares PostgreSQL DB with Telegram and VK bots
-    └──▶ parse_user_profile_from_forum ──▶ [connect_to_forum] (planned)
-
-[title_recognize]  ← HTTP (internal)
-    │ Called by identify_updates_of_topics
-    │ Parses topic title for person/location info
-
-[api_get_active_searches]  ← HTTP (public)
-    │ Serves active searches JSON for external apps
-
-[user_provide_info]  ← HTTP (public)
-    │ Serves user data + searches for LA Map WebApp
-
-[send_debug_to_admin]  ← Pub/sub (notify_admin)
-    │ Sends debug/error messages to admin's Telegram
+Telegram/VK/MAX updates --> communicate / vk_bot / max_bot
+LA Map / external apps  --> user_provide_info / api_get_active_searches
 ```
 
----
+In the cloud the edges are YMQ topics and API Gateway routes. In the container they are the
+`pubsub_messages` table, an in-process scheduler and an HTTP server (`src/app/`). PostgreSQL,
+Object Storage and the forum stay outside in both modes.
 
-## Technology Stack
+## Components
 
-| Layer           | Technology                                                    |
-| --------------- | ------------------------------------------------------------- |
-| **Runtime**     | Python 3.12+                                                  |
-| **Framework**   | Serverless (Yandex Cloud Functions)                           |
-| **Message Bus** | Yandex Message Queue (YMQ, SQS-compatible) via boto3          |
-| **Database**    | PostgreSQL (Yandex Managed DB) via SQLAlchemy 1.4 + psycopg2  |
-| **External DB** | MySQL (phpBB forum, direct connection, read-only) via PyMySQL |
-| **Storage**     | Yandex Object Storage (S3-compatible) via boto3               |
-| **Telegram**    | python-telegram-bot 21.x (webhook mode)                       |
-| **VK API**      | vk-api library                                                |
-| **Max API**     | maxapi 1.2.0 (native Dispatcher/Router, FSM, keyboards)       |
-| **NLP**         | natasha (Russian NER), python-dateutil                        |
-| **Parsing**     | BeautifulSoup 4 + lxml                                        |
-| **Geocoding**   | yandex-geocoder, geopy                                        |
-| **Config**      | pydantic-settings (environment variables)                     |
-| **Deploy**      | GitHub Actions + Terraform                                    |
-| **Monorepo**    | UV package manager                                            |
+| Component | What it does | Code |
+| --- | --- | --- |
+| `check_first_posts_for_changes` | Finds changed forum topics, compares first-post hashes, saves hashes/statuses, publishes the next topics | [`src/check_first_posts_for_changes/main.py`](src/check_first_posts_for_changes/main.py) |
+| `identify_updates_of_topics` | Parses folders, detects status/title/comment/trip changes, writes `change_log` | [`src/identify_updates_of_topics/main.py`](src/identify_updates_of_topics/main.py) |
+| `identify_updates_of_first_posts` | Diffs old/new first posts and writes the diff to `change_log` | [`src/identify_updates_of_first_posts/main.py`](src/identify_updates_of_first_posts/main.py) |
+| `check_topics_by_upd_time` | Legacy folder-tree scanner over HTTP (only with `FORUM_LEGACY_DATA_SOURCE=true`) | [`src/check_topics_by_upd_time/main.py`](src/check_topics_by_upd_time/main.py) |
+| `connect_to_forum` | Logs into the forum, scrapes the linked profile, saves `user_forum_attributes` | [`src/connect_to_forum/main.py`](src/connect_to_forum/main.py) |
+| `compose_notifications` | Matches `change_log` against user preferences and writes personalized `notif_by_user` rows | [`src/compose_notifications/main.py`](src/compose_notifications/main.py) |
+| `send_notifications` | Sends pending notifications via Telegram, VK or MAX; handles retries and rate limits | [`src/send_notifications/main.py`](src/send_notifications/main.py) |
+| `send_debug_to_admin` | Sends debug/error messages to the admin's Telegram | [`src/send_debug_to_admin/main.py`](src/send_debug_to_admin/main.py) |
+| `communicate` | Telegram user-facing handler chain: onboarding, searches, settings | [`src/communicate/main.py`](src/communicate/main.py) |
+| `vk_bot` | Full VK interface: onboarding, regions, searches, settings, forum linking | [`src/vk_bot/main.py`](src/vk_bot/main.py) |
+| `max_bot` | MAX interface: registration, regions, radius, coordinates | [`src/max_bot/main.py`](src/max_bot/main.py) |
+| `api_get_active_searches` | JSON API with active searches for external apps | [`src/api_get_active_searches/main.py`](src/api_get_active_searches/main.py) |
+| `user_provide_info` | LA Map API: user settings plus searches with coordinates | [`src/user_provide_info/main.py`](src/user_provide_info/main.py) |
+| `title_recognize` | Russian title NER: topic type, person, age, location | [`src/title_recognize/main.py`](src/title_recognize/main.py) |
+| `archive_notifications` | Moves completed rows and old first posts to `__history`, purges old history | [`src/archive_notifications/main.py`](src/archive_notifications/main.py) |
+| `archive_to_bigquery` | Exports `notif_by_user__history` to CSV/zip and uploads it to Object Storage | [`src/archive_to_bigquery/main.py`](src/archive_to_bigquery/main.py) |
+| `users_activate` | One-time onboarding migration utility (manual, no trigger) | [`src/users_activate/main.py`](src/users_activate/main.py) |
+| `src/app` | Single-container entry point: queue, scheduler, HTTP, bots | [`src/app/main.py`](src/app/main.py) |
 
----
+## Function → trigger → handler
 
-## Key Design Patterns
+The queue rows come from [`src/app/dispatch.py`](src/app/dispatch.py); the cloud matrix comes
+from [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml).
 
-### 1. Serverless Function Chain via Message Queue
+| Function | Trigger | Handler |
+| --- | --- | --- |
+| `check_first_posts_for_changes` | cron every minute (cloud timer or container scheduler) | `check_first_posts_for_changes.main.main` |
+| `check_topics_by_upd_time` | cron `*/5 * * * *` in the container, only with `FORUM_LEGACY_DATA_SOURCE=true` | `check_topics_by_upd_time.main.main` |
+| `archive_to_bigquery` | cron `13 11 * * *` (daily) | `archive_to_bigquery.main.main` |
+| `archive_notifications` | queue `topic_to_archive_notifs` and hourly cron | `archive_notifications.main.main` |
+| `identify_updates_of_topics` | queue `topic_to_run_parsing_script` | `identify_updates_of_topics.main.main` |
+| `identify_updates_of_first_posts` | queue `topic_for_first_post_processing` | `identify_updates_of_first_posts.main.main` |
+| `compose_notifications` | queue `topic_for_notification` | `compose_notifications.main.main` |
+| `send_notifications` | queue `topic_to_send_notifications` | `send_notifications.main.main` |
+| `send_debug_to_admin` | queue `topic_notify_admin` | `send_debug_to_admin.main.main` |
+| `connect_to_forum` | queue `parse_user_profile_from_forum` | `connect_to_forum.main.main` |
+| `communicate` | Telegram webhook (cloud) / polling (container) | `communicate.main.main` |
+| `vk_bot` | VK Callback API webhook (cloud) / polling (container) | `vk_bot.main.main` |
+| `max_bot` | MAX webhook (cloud) / polling (container) | `max_bot.main.main` |
+| `api_get_active_searches` | HTTP API | `api_get_active_searches.main.main` |
+| `user_provide_info` | HTTP API | `user_provide_info.main.main` |
+| `title_recognize` | HTTP call from `identify_updates_of_topics`; in-process in the container | `title_recognize.main.main` |
+| `users_activate` | none (manual one-off) | `users_activate.main.main` |
 
-Functions never call each other directly. Instead:
-- A function publishes a message to a YMQ topic
-- The topic triggers the next function
-- This provides: decoupling, retry semantics, async processing, independent scaling
+## Single container (`src/app`)
 
-### 2. Distributed Locking via DB
+[`src/app/main.py`](src/app/main.py) starts and stops all components. The routing lives in
+[`dispatch.py`](src/app/dispatch.py) (topic → handler), [`http_server.py`](src/app/http_server.py)
+(HTTP routes and `/health` / `/ready`), [`scheduler.py`](src/app/scheduler.py) (cron jobs),
+[`queue_worker.py`](src/app/queue_worker.py) (PostgreSQL queue) and [`bots.py`](src/app/bots.py)
+(long polling). It is active only with `APP_MODE=k8s`; see
+[`doc/single-container.md`](doc/single-container.md).
 
-[`lock_manager.py`](src/_dependencies/lock_manager.py) provides a context manager that:
-- Writes a `time_start` record in `functions_registry` table
-- Checks if another instance of the same function is already running
-- Prevents parallel execution (critical for `compose_notifications` and `send_notifications`)
+## Shared code
 
-### 3. Request/Response HTTP Wrapper
+[`src/_dependencies/`](src/_dependencies/) is copied into each cloud function by
+`make dependencies`; `app` imports it in place. It is split into `common/` (config, DB, queue,
+pub/sub, locking, logging, cron, telemetry, HTTP wrappers), `bot/` (Telegram/VK clients, user
+management), `forum/` (content cleaning, topic management, recognition models) and
+`user_repository/` (user and preference mixins shared by all three bots). See
+[`doc/reference.md`](doc/reference.md) for the module list.
 
-[`misc.py`](src/_dependencies/misc.py) provides:
-- [`request_response_converter`](src/_dependencies/misc.py:123) — decorator that converts Yandex Cloud Functions HTTP request format to a standardized [`RequestWrapper`](src/_dependencies/misc.py:108) / [`ResponseWrapper`](src/_dependencies/misc.py:116) format
-- Enables smooth migration between GCP Cloud Functions and Yandex Cloud Functions
+## Conventions
 
-### 4. Pub/Sub Helper Layer
+### Code
 
-[`pubsub.py`](src/_dependencies/pubsub.py) provides:
-- Typed [`Topics`](src/_dependencies/pubsub.py:9) enum for all message queue topics
-- Helper functions for each pipeline step (e.g., `pubsub_compose_notifications`, `pubsub_parse_folders`)
-- `process_pubsub_message` to parse incoming YMQ messages
-- `recognize_title_via_api` for HTTP call to title recognition service
+- Python 3.12+, type-annotated; `mypy` strict for `src/`.
+- `ruff` (line length 120, single quotes): `make lint` writes, `make lint-check` only checks.
+- SQLAlchemy 2.0 Core (not ORM); Pydantic v2 for models and validation.
+- **Imports at the top of the file.** A lazy import is allowed only to break a circular
+  dependency inside `_dependencies/` (for example `common/yandex_tools.py` ↔
+  `common/commons.py`). In every other case, refactor.
+- Comments: minimal. Explain non-obvious edge cases and API quirks, not the obvious structure.
+- Do not add comments that restate code; module docstrings are fine.
 
-### 5. Content Cleaning Pipeline
-
-[`content.py`](src/_dependencies/content.py) provides a comprehensive set of regex patterns to clean up forum post content (remove irrelevant boilerplate, formatting, phone numbers, coordinator info) before sending to users.
-
----
-
-## Message Queue Topics (YMQ / SQS)
-
-| Topic Name                        | Producer(s)                                                                                                                                              | Consumer(s)                                                                      |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `topic_notify_admin`              | Any function (via `notify_admin()`)                                                                                                                      | [`send_debug_to_admin`](src/send_debug_to_admin/main.py)                         |
-| `topic_to_run_parsing_script`     | [`check_first_posts_for_changes`](src/check_first_posts_for_changes/main.py)                                                                             | [`identify_updates_of_topics`](src/identify_updates_of_topics/main.py)           |
-| `topic_for_first_post_processing` | [`check_first_posts_for_changes`](src/check_first_posts_for_changes/main.py)                                                                             | [`identify_updates_of_first_posts`](src/identify_updates_of_first_posts/main.py) |
-| `topic_for_notification`          | [`identify_updates_of_topics`](src/identify_updates_of_topics/main.py), [`identify_updates_of_first_posts`](src/identify_updates_of_first_posts/main.py) | [`compose_notifications`](src/compose_notifications/main.py)                     |
-| `topic_to_send_notifications`     | [`compose_notifications`](src/compose_notifications/main.py)                                                                                             | [`send_notifications`](src/send_notifications/main.py)                           |
-| `topic_to_archive_notifs`         | [`send_notifications`](src/send_notifications/main.py)                                                                                                   | [`archive_notifications`](src/archive_notifications/main.py)                     |
-| `parse_user_profile_from_forum`   | [`communicate`](src/communicate/main.py)                                                                                                                 | [`connect_to_forum`](src/connect_to_forum/main.py)                               |
-
----
-
-## Shared Library (`_dependencies`)
-
-Located at [`src/_dependencies/`](src/_dependencies/). This package is copied into each function's deployment package during CI/CD build.
-
-| File                                                                   | Responsibility                                                                                                      |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| [`commons.py`](src/_dependencies/commons.py)                           | `AppConfig` (env-based config), DB pool, `ChangeLogSavedValue`, enums (`ChangeType`, `TopicType`), phone formatting |
-| [`db_client.py`](src/_dependencies/db_client.py)                       | Base DB client, key-value storage mixin                                                                             |
-| [`content.py`](src/_dependencies/content.py)                           | Forum content cleaning, regex patterns, HTML soup processing                                                        |
-| [`pubsub.py`](src/_dependencies/pubsub.py)                             | Typed topics enum, publish helpers, message parsing                                                                 |
-| [`yandex_tools.py`](src/_dependencies/yandex_tools.py)                 | JSON logging setup, YMQ (SQS) client via boto3, HTTP API call helper, pub/sub message parsing                       |
-| [`lock_manager.py`](src/_dependencies/lock_manager.py)                 | DB-based distributed lock (context manager)                                                                         |
-| [`telegram_api_wrapper.py`](src/_dependencies/telegram_api_wrapper.py) | Raw Telegram Bot API client (sendMessage, editMessage, etc.), block/unblock handling                                |
-| [`users_management.py`](src/_dependencies/users_management.py)         | User CRUD (register, block, delete), onboarding step tracking                                                       |
-| [`topic_management.py`](src/_dependencies/topic_management.py)         | Save topic status/visibility changes to DB, trigger notifications                                                   |
-| [`misc.py`](src/_dependencies/misc.py)                                 | Telegram API clients, time formatting (Russian), bearing calc, HTTP request/response wrappers                       |
-| [`recognition_schema.py`](src/_dependencies/recognition_schema.py)     | Pydantic models for NLP recognition results (Person, Location, RecognitionResult)                                   |
-| [`vk_api_client.py`](src/_dependencies/vk_api_client.py)               | VK API client (send messages, get user by login)                                                                    |
-
----
-
-## Configuration (`AppConfig`)
-
-All configuration comes from **environment variables** via [`AppConfig`](src/_dependencies/commons.py:20) (pydantic-settings). Key variables:
-
-| Variable                                      | Purpose                                            |
-| --------------------------------------------- | -------------------------------------------------- |
-| `POSTGRES_*`                                  | PostgreSQL connection (host, port, user, pass, db) |
-| `BOT_API_TOKEN`                               | Telegram bot token (testing)                       |
-| `BOT_API_TOKEN__PROD`                         | Telegram bot token (production)                    |
-| `MY_TELEGRAM_ID`                              | Admin user ID for debug messages                   |
-| `WEB_APP_URL` / `WEB_APP_URL_TEST`            | LA Map WebApp URLs                                 |
-| `YANDEX_API_KEY`                              | Yandex Geocoder API key                            |
-| `TITLE_RECOGNIZE_URL`                         | Internal URL for title_recognize function          |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | YMQ + S3 credentials                               |
-| `AWS_BACKUP_BUCKET_NAME`                      | S3 bucket for notification archives                |
-| `VK_API_KEY`                                  | VK group API token                                 |
-| `MAX_BOT_TOKEN`                               | Max messenger bot token                            |
-| `FORUM_BOT_LOGIN` / `FORUM_BOT_PASSWORD`      | Forum login for scraping                           |
-| `MYSQL_*`                                     | MySQL connection for phpBB forum change detection  |
-
----
-
-## Deployment
-
-### Infrastructure (Terraform)
-
-See [`terraform/`](terraform/):
-- [`main.tf`](terraform/main.tf) — Yandex provider, AWS provider (for YMQ), service account, S3 bucket
-- [`_func_cron_trigger.tf`](terraform/_func_cron_trigger.tf) — Functions triggered by timer: `check-first-posts-for-changes`, `archive-to-bigquery`
-- [`_func_event_trigger.tf`](terraform/_func_event_trigger.tf) — Functions triggered by YMQ: `compose-notifications`, `connect-to-forum`, `identify-updates-of-*`, `send-*`, `archive-notifications`
-- [`_func_api_trigger.tf`](terraform/_func_api_trigger.tf) — HTTP-triggered functions: `communicate`, `api-get-active-searches`, `title-recognize`, `user-provide-info`, `max-bot`
-
-### CI/CD (GitHub Actions)
-
-Located in [`.github/`](.github/). Uses **reusable workflows** to:
-1. Package each function's code + dependencies into a zip archive
-2. Deploy to Yandex Cloud Functions
-3. Update environment variables
-
-### Local Development
+### Tests and checks
 
 ```bash
-make prepare-environment   # Install uv, create venv, start Postgres in Docker
-make test                  # Run tests
-make mypy                  # Type checking
-make lint                  # Format code
-make requirements          # Update requirements.txt for each function
-make ci-test               # Run tests in Docker with Postgres
+make test          # initdb + pytest -n 4 --dist loadgroup
+make test-serial   # same in one process (what CI uses)
+make mypy          # type checking
+make lint          # ruff format + fix
+make ci-test       # tests in Docker with PostgreSQL
 ```
 
----
+- Tests live in [`tests/`](tests/). PostgreSQL must be running in Docker; `make initdb`
+  initializes it.
+- The test database is **not** recreated between runs. Use unique values (for example
+  `random.randint()` or `uuid`) for columns with uniqueness constraints.
+- If you change a table, update both [`tests/tools/db.sql`](tests/tools/db.sql) and
+  [`tests/factories/db_models.py`](tests/factories/db_models.py).
+- `make requirements` **does not exist**. For cloud functions CI generates
+  `requirements.txt` with `uv export --extra <function> --no-hashes --no-dev` (see
+  [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)). `make dependencies` only
+  copies the shared package into the function folders.
 
-## Database Notes
+### Git
 
-The PostgreSQL database is central. Key tables (inferred from code):
+- Never push to `main` directly. Use a feature branch and open a Pull Request.
+- CI/CD details are in [`.github/workflows/`](.github/).
 
-| Table                         | Purpose                                            |
-| ----------------------------- | -------------------------------------------------- |
-| `users`                       | Bot users, Telegram ID, status, VK ID              |
-| `user_preferences`            | Notification type preferences per user             |
-| `user_regional_preferences`   | Region (forum folder) subscriptions                |
-| `user_coordinates`            | Home coordinates per user                          |
-| `user_pref_radius`            | Notification radius per user                       |
-| `user_pref_search_whitelist`  | Per-search follow/unfollow                         |
-| `searches`                    | Active/completed searches parsed from forum        |
-| `search_first_posts`          | Content + hash of first post per search            |
-| `search_first_posts__history` | Archived first post snapshots                      |
-| `search_health_check`         | Topic visibility (deleted/hidden/regular)          |
-| `search_coordinates`          | Geocoded coordinates per search                    |
-| `change_log`                  | All detected changes (status, title, content...)   |
-| `notif_by_user`               | Pending/completed notifications per user           |
-| `notif_by_user__history`      | Archived notifications                             |
-| `functions_registry`          | Distributed lock registry                          |
-| `user_onboarding`             | Onboarding step tracking                           |
-| `user_forum_attributes`       | Forum profile data linked to Telegram user         |
-| `user_roles`                  | Admin/tester roles                                 |
-| `dialogs`                     | User-bot message history                           |
-| `geo_folders`                 | Geographic folder hierarchy                        |
-| `geo_regions`                 | Geographic regions                                 |
-| `key_value_storage`           | Key-value settings (e.g., last processed MySQL ID) |
-| `geocoding`                   | Cached geocoding results                           |
+### For AI agents
 
----
+- Never read, reference or output `.env`, `.env.test` or credentials.
+- Prefix Python and test commands with `uv run` (the venv is managed by `uv`).
+- `src/` is already on `sys.path` in pytest (`pyproject.toml`), so `uv run pytest` works from
+  the repo root. For scripts use `PYTHONPATH=src uv run python ...` or `make initdb`.
+- Prefer `make test` / `make mypy` / `make lint`; they set all paths correctly.
+- Third-party sources are not vendored in this repo. Read the installed package in `.venv`
+  when you need its implementation, and record the finding in `doc/` if it matters.
 
-## HTTP Function Contracts
+## Where to look next
 
-### `communicate` (Telegram Webhook)
-- **Method**: POST
-- **Body**: Telegram `Update` JSON object
-- **Response**: `"finished successfully..."` or error
-
-### `api_get_active_searches`
-- **Method**: POST (JSON) or OPTIONS (CORS preflight)
-- **Body**: `{ "app_id": ..., "forum_folder_id_list": [...], "depth_days": ... }`
-- **Response**: `{ "ok": true, "searches": [...] }` or `{ "ok": false, "reason": "..." }`
-
-### `user_provide_info` (LA Map API)
-- **Method**: POST (JSON) or OPTIONS (CORS preflight)
-- **Body**: Telegram WebApp init data (with `hash` for verification) or `{ "id": <user_id> }`
-- **Response**: `{ "ok": true, "user_id": ..., "params": { ... } }` or `{ "ok": false, "reason": "..." }`
-- **Auth**: Telegram login verification via HMAC-SHA256
-
-### `title_recognize`
-- **Method**: POST (JSON)
-- **Body**: `{ "title": "...", "reco_type": "status_only" | null }`
-- **Response**: `{ "status": "ok", "recognition": { "topic_type": ..., "persons": ..., "locations": ... } }`
-- **Called by**: `identify_updates_of_topics` via internal HTTP
-
-### `vk_bot` (VK Callback API Webhook)
-- **Method**: POST
-- **Body**: VK Callback API JSON event (`message_new`, `message_event`, `confirmation`, etc.)
-- **Response**: `"ok"` or VK confirmation code (string)
-- **Note**: Returns `"ok"` immediately within ~8 seconds to prevent VK event resends. Heavy processing runs in a background thread.
-- **Confirmation**: VK sends a `confirmation` event with `group_id`; the bot returns `vk_confirmation_code` from config.
-- **Event types handled**: `message_new` (new user message), `message_event` (inline keyboard callback), `confirmation` (VK server handshake). `message_edit` and `message_reply` are ignored.
-
-### `max_bot` (Max Messenger API)
-- **Method**: POST (webhook, planned) or LongPoll polling
-- **Body**: Max API event object (`bot_started`, `message_created`, `message_callback`, etc.)
-- **Response**: `"ok"` (string)
-- **Note**: Webhook mode uses the Yandex Cloud Function entry point ([`main.py`](src/max_bot/main.py)). The ``Bot`` and ``Dispatcher`` are initialized lazily at module level and reused across warm container invocations. ``X-Max-Bot-Api-Secret`` is verified via ``secrets.compare_digest()`` against ``MAX_BOT_WEBHOOK_SECRET`` env var.
-- **Library**: Uses [`maxapi`](.vendor/maxapi/) v1.2.0 — native Python SDK for the Max messenger API.
-- **Event types handled**: `bot_started` (user opens chat), `message_created` (text/geo commands), `message_callback` (inline keyboard callbacks).
-- **Key implementation details**:
-  - `Router.fsm` raises `RuntimeError` — must use `Dispatcher.fsm` via injected `ContextManager`.
-  - `Callback.payload` is `str | None` (JSON-encoded) — use custom `PayloadCmd` filter instead of `F.callback.payload.cmd`.
-  - `event.ack()` requires `notification='...'` — calling without arguments causes `MaxApiError`.
-
----
-
-## Development Guidelines
-
-### Code Style
-- Python 3.12+, type-annotated (`mypy` strict mode)
-- Formatted with `ruff` (line length 120, single quotes)
-- SQLAlchemy 1.4 (Core, not ORM) for DB access
-- Pydantic v2 for data models and validation
-- **All imports must be at the top of the file** (PEP 8). Do not place `import` or `from ... import` statements inside functions, methods, or classes.
-- **Exception**: A lazy import inside a function is allowed **only** to break a circular dependency between two modules in `_dependencies/` (e.g., [`yandex_tools.py`](src/_dependencies/yandex_tools.py:79) imports `get_app_config` from [`commons.py`](src/_dependencies/commons.py) inside `make_api_call_cloud()` because [`commons.py`](src/_dependencies/commons.py) imports `setup_logging_cloud` from [`yandex_tools.py`](src/_dependencies/yandex_tools.py)). In all other cases, refactor to avoid circular imports.
-
-### Adding a New Feature
-1. Identify which function(s) need changes
-2. If adding a new function, create a new folder under `src/` with `main.py`
-3. Add to terraform configs if needed
-4. Add tests in `tests/`
-5. Run `make requirements` to update requirements.txt
-6. Run `make test && make mypy && make lint` before committing
-
-### Testing
-- Tests are in [`tests/`](tests/)
-- Run with: `make test` (or `uv run pytest . -v -n 4 --dist loadgroup`)
-- Requires PostgreSQL running in Docker
-- Test database is initialized via: `make initdb`
-- **IMPORTANT**: The test database is NOT recreated between test runs. Data persists across runs. When writing tests that insert data with specific values (e.g., `vk_id`), always use unique values per test run (e.g., `random.randint()` or `uuid`) to avoid collisions with stale data from previous runs.
-
-### Git Workflow
-- **NEVER push directly to `main`**. Always create a feature branch (`feature/<name>`), push it, and open a Pull Request.
-- After force-push on main, sync local: `git fetch origin && git reset --hard origin/main`
-- **Cloning new repos**: use `git clone https://oauth2:TOKEN@github.com/owner/repo.git` — this sets up authentication for pushes immediately.
-- **Existing repos**: `git remote set-url origin https://oauth2:TOKEN@github.com/owner/repo.git`
-
-### For AI agents:
-- NEVER read, reference, or output `.env`, `.env.test` files or hardcoded credentials, directly or via cli tools.
-- Always use `uv run` prefix (e.g., `uv run python foo.py`, `uv run pytest`) — the venv is managed by `uv`.
-- `src/` is already added to `sys.path` by pytest via `pyproject.toml` (`[tool.pytest.ini_options]`), so `uv run pytest` works out of the box.
-- For non-pytest scripts (e.g., `initdb`), use `PYTHONPATH=src uv run python ...` or simply `make initdb`.
-- Prefer `make test` / `make mypy` / `make lint` — they handle all paths correctly.
-- **Comments**: Keep them minimal. Section-separator comments like `# ─── Section Name ───` are useless — good function/variable names should make the structure obvious. Only add comments where the logic genuinely needs explanation (non-obvious edge cases, API quirks, design rationale). Module-level docstrings explaining the file's purpose are fine.
-- **Schema changes**: If you modify a table's columns in code or tests, also update the corresponding `CREATE TABLE` in [`tests/tools/db.sql`](tests/tools/db.sql) and the SQLAlchemy model in [`tests/factories/db_models.py`](tests/factories/db_models.py). These files must stay in sync with the actual DB schema used in production.
-- Source code of third party libraries are located in ./vendor.
-If you need to read them, then summarize info you have read and save it to .md file in ./vendor. Next time you will be able to get summarized info from .md file without reading whole sources.
+| Question | File |
+| --- | --- |
+| What does a specific function do? | [`doc/components.md`](doc/components.md) |
+| Which topics, tables and env vars exist? | [`doc/reference.md`](doc/reference.md) |
+| How does the single container work? | [`doc/single-container.md`](doc/single-container.md) |
+| How do I run parse → compose → send on a restored DB? | [`doc/runbooks/parse-compose-send-container.md`](doc/runbooks/parse-compose-send-container.md) |
+| How do I cut over a temporary DB? | [`doc/runbooks/temp-db-cutover.md`](doc/runbooks/temp-db-cutover.md) |
+| What does the old cloud architecture look like? | [`doc/cloud_functions_architecture.html`](doc/cloud_functions_architecture.html) |
+| How do I contribute? | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
+| Is Terraform the current deployment? | [`terraform/README.md`](terraform/README.md) — no, it is a first-time scaffold |
