@@ -119,7 +119,8 @@ management), `forum/` (content cleaning, topic management, recognition models) a
 
 ### Code
 
-- Python 3.12+, type-annotated; `mypy` strict for `src/`.
+- Python 3.12+, type-annotated; `mypy` with `disallow_untyped_defs` for `src/` (except
+  `src/users_activate/`).
 - `ruff` (line length 120, single quotes): `make lint` writes, `make lint-check` only checks.
 - SQLAlchemy 2.0 Core (not ORM); Pydantic v2 for models and validation.
 - **Imports at the top of the file.** A lazy import is allowed only to break a circular
