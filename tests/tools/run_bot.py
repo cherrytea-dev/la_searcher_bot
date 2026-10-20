@@ -5,6 +5,7 @@ from unittest.mock import patch
 from telegram import Bot
 from telegram.ext import Updater
 
+from app.bots import TELEGRAM_ALLOWED_UPDATES
 from communicate._utils.database import db
 from communicate.main import process_update
 from tests.common import get_dotenv_config, setup_logging_to_console
@@ -16,7 +17,7 @@ async def main_bot() -> None:
     updater = Updater(bot, update_queue)
     async with updater:
         with db().connect():
-            queue = await updater.start_polling(timeout=60, allowed_updates=['message', 'callback_query'])
+            queue = await updater.start_polling(timeout=60, allowed_updates=TELEGRAM_ALLOWED_UPDATES)
             while True:
                 update = await queue.get()
                 print(update)

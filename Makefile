@@ -41,9 +41,18 @@ dependencies:
 	echo "Copy common code to deploy Google Cloud Functions"
 	echo "Don't run locally"
 
-	for d in $$(ls -1 src | grep -E ${SRC_FUNCTIONS_REGEX}); do \
+	# `app` is the single-container runtime (see doc/single-container.md), not a cloud function:
+	# it imports src/_dependencies directly and must not get a copy of it.
+	for d in $$(ls -1 src | grep -E ${SRC_FUNCTIONS_REGEX} | grep -vx app); do \
 		cp src/_dependencies src/$$d/ -r ; \
 	done
+
+run-app:
+	# single container: HTTP + scheduler + queue workers + bots
+	PYTHONPATH=src uv run python -m app.main
+
+check-app-config:
+	PYTHONPATH=src uv run python -m app.main --check-config
 
 sqlalchemy-models:
 	uv run sqlacodegen \

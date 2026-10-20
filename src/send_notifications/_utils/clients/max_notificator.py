@@ -11,7 +11,10 @@ from send_notifications._utils.database import MessageToSend
 class MaxNotificator:
     """Send notifications via MAX API."""
 
-    def __init__(self, max_client: MaxClient) -> None:
+    def __init__(self, max_client: MaxClient | None) -> None:
+        # ``None`` = MAX is not configured (no MAX_BOT_TOKEN). The send methods then report
+        # ``'failed'`` instead of raising, so a deployment without a MAX bot still delivers
+        # Telegram/VK notifications.
         self._max_client = max_client
 
     def _build_identity(self, message_to_send: MessageToSend, recipient: str) -> UserIdentity:
@@ -24,6 +27,11 @@ class MaxNotificator:
     def send_text(self, message_to_send: MessageToSend, content: str) -> str | None:
         """Send a text message via MAX API."""
         recipient = message_to_send.max_id or str(message_to_send.user_id)
+        if self._max_client is None:
+            logging.warning(
+                f'MAX is not configured, skipping text {recipient=}, message_id={message_to_send.message_id}'
+            )
+            return 'failed'
         try:
             logging.debug(f'Sending message to MAX: {recipient=}, message_id={message_to_send.message_id}')
             user_identity = self._build_identity(message_to_send, recipient)
@@ -39,6 +47,11 @@ class MaxNotificator:
     def send_coords(self, message_to_send: MessageToSend, latitude: float, longitude: float) -> str | None:
         """Send coordinates via MAX API."""
         recipient = message_to_send.max_id or str(message_to_send.user_id)
+        if self._max_client is None:
+            logging.warning(
+                f'MAX is not configured, skipping coords {recipient=}, message_id={message_to_send.message_id}'
+            )
+            return 'failed'
         try:
             logging.debug(f'Sending coordinates to MAX: {recipient=}, message_id={message_to_send.message_id}')
             user_identity = self._build_identity(message_to_send, recipient)

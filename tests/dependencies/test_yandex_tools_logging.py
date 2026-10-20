@@ -26,6 +26,9 @@ def restore_logging():
     saved_level = root_logger.level
     saved_handlers = list(root_logger.handlers)
     saved_noisy = {name: logging.getLogger(name).level for name in NOISY_LOGGERS}
+    # setup_logging_cloud конфигурирует root один раз на процесс (см. log_context):
+    # без сброса флага повторный вызов в тесте стал бы no-op.
+    root_logger.__dict__.pop('_la_logging_configured', None)
 
     yield
 
@@ -34,6 +37,7 @@ def restore_logging():
     root_logger.handlers.extend(saved_handlers)
     for name, level in saved_noisy.items():
         logging.getLogger(name).setLevel(level)
+    root_logger.__dict__.pop('_la_logging_configured', None)
 
 
 class TestResolveLogLevel:

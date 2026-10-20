@@ -1,0 +1,49 @@
+# Накладка для деплоя в ядро инфраструктуры (репозиторий infra).
+#
+# doco-cd катит её вместе с docker-compose.prod.yml (список — в .doco-cd.yaml):
+# внешние сети ядра, секреты проекта с хоста, ротация логов. Локально и в CI этот
+# файл не подключается.
+#
+# Что даёт merge (см. infra/examples/app-compose.shared.yml):
+#   * сеть ядра data как external: база — postgres:5432;
+#   * env_file с секретами с хоста: /srv/infra/secrets/la_searcher.env;
+#   * ротацию json-file, иначе диск однажды кончится.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+networks:
+  # Сеть ядра с postgres (infra/docs/ARCHITECTURE.md).
+  data:
+    external: true
+    name: data
+  # edge нужна, только если бот отдаёт домен через caddy ядра (вебхуки TG/VK/MAX
+  # или веб-морда). Поллеры домена не требуют: при пустых WEBHOOK_PATH_* боты
+  # ходят в Telegram/VK/MAX сами, и тогда сеть не подключаем.
+  # Имя сервиса в edge — с префиксом проекта: сеть общая на весь хост, DNS в ней
+  # плоский (infra/docs/ADD-PROJECT.md → «Домен»).
+  # edge:
+  #   external: true
+  #   name: edge
+
+services:
+  # Одноразовый прогон миграций: те же секреты и сеть, что у бота (схема накатывается
+  # в базу ядра). Живёт до старта бота — см. depends_on в docker-compose.prod.yml.
+  migrate:
+    env_file:
+      - /srv/infra/secrets/la_searcher.env
+    networks: [data]
+    logging: *logging
+
+  bot:
+    # Секреты проекта живут на хосте: файл создаёт `make db-create APP=la_searcher`
+    # в репозитории infra (роль, база, PGPASSWORD). Туда же дописываются токены и
+    # конфиг приложения, включая POSTGRES_* — приложение читает именно их, а не
+    # DATABASE_URL из файла (см. infra/docs/ADD-PROJECT.md).
+    env_file:
+      - /srv/infra/secrets/la_searcher.env
+    networks: [data]
+    logging: *logging

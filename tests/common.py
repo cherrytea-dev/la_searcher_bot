@@ -1,6 +1,7 @@
 import base64
 import json
 import logging
+import os
 import sys
 from functools import lru_cache
 from typing import Any, TypeVar
@@ -11,7 +12,7 @@ from pydantic_settings import SettingsConfigDict
 from sqlalchemy import Table, select
 from sqlalchemy.orm import Session
 
-from _dependencies.common.commons import AppConfig
+from _dependencies.common.commons import AppConfig, AppMode
 from _dependencies.common.pubsub import Topics
 from compose_notifications.main import main as compose_notifications_main
 from connect_to_forum.main import main as connect_to_forum_main
@@ -25,6 +26,10 @@ T = TypeVar('T')
 
 class AppTestConfig(AppConfig):
     model_config = SettingsConfigDict(extra='ignore')
+
+    # The suite exercises the single-container path: the production default is the cloud mode
+    # (see .env.example), so the container mode is set explicitly here.
+    app_mode: AppMode = AppMode.K8S
 
     # Increase pool size for tests — the connection fixture + multiple get_session()
     # calls can exhaust the default pool_size=2, causing TimeoutError.
@@ -99,13 +104,27 @@ def get_dotenv_config() -> AppConfig:
 
 
 def setup_logging_to_console() -> None:
+    # stream_name — имя выполняемой функции (см. _dependencies/common/log_context.py):
+    # в консоли это подсказка, а в OTLP-атрибутах — то же поле, что в JSON-логах контейнера.
+    from _dependencies.common.log_context import StreamNameFilter
+
     logging.basicConfig(
         encoding='utf-8',
         stream=sys.stdout,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        format='%(asctime)s - %(stream_name)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO,
         force=True,
     )
+    for handler in logging.getLogger().handlers:
+        handler.addFilter(StreamNameFilter(None))
+    # Логи в сервис Логи Selectel через общий коллектор ядра (OTLP): включается
+    # OTEL_EXPORTER_OTLP_ENDPOINT (в проде — из файла секретов ядра).
+    # Импорт ленивый: opentelemetry нужен только когда эндпоинт задан.
+    # См. _dependencies/common/telemetry.py.
+    if os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT'):
+        from _dependencies.common.telemetry import attach_otlp_handler
+
+        attach_otlp_handler(logging.getLogger(), logging.INFO)
 
 
 fake = Faker()

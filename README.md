@@ -57,9 +57,48 @@ notification for every user.
 * Executors: Yandex Cloud Functions (serverless)
 * Message Broker: Yandex Message Queue (YMQ, SQS-compatible)
 * Storage: Yandex Managed Service for PostgreSQL, Yandex Object Storage (S3-compatible)
-* Monitoring: Yandex Cloud Logging
+* Monitoring: Yandex Cloud Logging, сервис Логи Selectel (через общий OTel-коллектор ядра — см. ниже)
 * VK API: vk-api library
 * Max API: maxapi 1.2.0 (native Python SDK)
+
+## Логи (сервис Логи Selectel)
+
+Логи приложений ядра доставляются в **сервис Логи Selectel** (его API совместим с AWS
+CloudWatch Logs). Приходит на смену Monium: датацентры Яндекса недоступны, адрес логов
+поменялся — см. `infra/docs/DECISIONS.md` (решение от 2026-10-13).
+
+Схема работы: приложение пишет логи в stdout (JSON через `JsonFormatter`) и дополнительно
+отправляет их по OpenTelemetry (OTLP, gRPC) в **общий OTel Collector ядра инфраструктуры**
+(`http://otel-collector:4317`, сеть `data`). Коллектор пересылает записи в сервис Логи
+Selectel (экспортёр `awscloudwatchlogs`). Ключи Selectel знает только коллектор — приложению
+они не нужны, доступа к `/var/lib/docker` коллектору тоже не требуется.
+
+Настройка приложения — `src/_dependencies/common/telemetry.py`. OTLP-хендлер вешается на
+root logger в `setup_logging_cloud` (`src/_dependencies/common/yandex_tools.py` — облачные
+функции и прод-контейнер) и в `setup_logging_to_console` (`tests/common.py` — запуск бота
+локально и в докере). Без `OTEL_EXPORTER_OTLP_ENDPOINT` поведение не меняется: логи идут
+только в stdout.
+
+### Как это устроено в проде
+
+Приложению не нужен ни свой коллектор, ни ключи логов — оно лишь читает две переменные,
+которые уже лежат в файле секретов проекта:
+
+* `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317` — адрес общего коллектора ядра;
+* `OTEL_SERVICE_NAME=la_searcher` — имя сервиса, оно же имя стрима в сервисе Логи.
+
+Файл `/srv/infra/secrets/la_searcher.env` создаёт `make db-create APP=la_searcher`
+в репозитории infra и подключается как `env_file` в `docker-compose.shared.yml` (вместе
+с внешней сетью `data` — там живёт коллектор). Свой коллектор в `docker-compose.prod.yml`
+намеренно НЕ поднимается: общий коллектор ядра обслуживает все приложения, а родовое имя
+`otel-collector` в плоской DNS сети `data` уже занято им (`infra/docker-compose.yml`).
+
+Если переменная `OTEL_EXPORTER_OTLP_ENDPOINT` пуста, приложение не шлёт логи в OTLP и пишет
+только в stdout (`docker compose -p la_searcher logs bot`).
+
+Просмотр логов — в сервисе Логи Selectel: группа логов `SELECTEL_LOGS_GROUP` (по умолчанию
+`/apps`), стрим = `OTEL_SERVICE_NAME` приложения (`la_searcher`). Параметры группы и креды
+(`SELECTEL_LOGS_*`) задаются в `.env` хоста ядра — приложения их не видят.
 
 ## Repository
 
@@ -109,6 +148,12 @@ If the variable is not set, or its value is not recognized, the code falls back 
 Deployment passes `LOG_LEVEL` to every function from the repository variable of the same name
 (`Settings -> Secrets and variables -> Actions -> Variables`), defaulting to `WARN` while it is not set.
 The same level is used for all functions.
+
+Every record carries `stream_name` — the name of the function that is running. In the cloud that
+was the function's package (each function had its own process); in the single container the queue
+worker, the cron job, the HTTP route and the bot poller each set it around their call
+(`src/_dependencies/common/log_context.py`), so the field points at the function, not at the last
+imported module.
 
 Beware that the default `WARN` hides the `INFO` summary of long-running services (`script finished`,
 `Lock acquired`, sending analytics). Set the variable to `INFO` if you need those lines back.

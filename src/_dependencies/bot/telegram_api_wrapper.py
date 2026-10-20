@@ -12,6 +12,10 @@ from _dependencies.bot.users_management import ManageUserAction, update_user_sta
 from _dependencies.common.commons import get_app_config
 from _dependencies.common.telegram_message import TelegramMessage
 
+#: Socket timeout for Telegram API calls (seconds). Without it a dead network makes
+#: ``requests`` hang indefinitely and blocks the queue worker.
+_HTTP_TIMEOUT_SECS = 10
+
 
 class TelegramTransientError(Exception):
     """Raised when Telegram API returns a transient error (503, connection reset, etc.)
@@ -40,7 +44,7 @@ class TGApiBase:
             query_params = {'callback_query_id': callback_query_id, 'text': message}
             url = url.with_query(query_params)
 
-            response = self._session.get(str(url))
+            response = self._session.get(str(url), timeout=_HTTP_TIMEOUT_SECS)
             self._process_response_of_api_call(user_id, response)
         except Exception:
             logging.exception('Error in getting response from Telegram')
@@ -123,7 +127,7 @@ class TGApiBase:
             response = retry_call(
                 self._session.post,
                 fargs=[str(url)],
-                fkwargs=dict(data=json_params, headers=headers),
+                fkwargs=dict(data=json_params, headers=headers, timeout=_HTTP_TIMEOUT_SECS),
                 tries=3,
             )
             logging.debug(f'After session.post: {response=}; {call_context=}')

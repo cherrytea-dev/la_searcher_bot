@@ -12,6 +12,8 @@ from pydantic_core import to_json
 from pythonjsonlogger.json import JsonFormatter
 from retry import retry
 
+from _dependencies.common.log_context import StreamNameFilter
+
 Ctx = dict
 
 #: Level used when LOG_LEVEL is not set (or is not understood).
@@ -63,28 +65,55 @@ def _silence_noisy_loggers() -> None:
 
 
 def setup_logging_cloud(package_name: str | None = None) -> None:
+    root_logger = logging.getLogger()
+
+    # Единый контейнер импортирует функции лениво, и каждая при импорте своего main
+    # зовёт setup_logging. Хендлер настраивается один раз: иначе последний импорт
+    # перевешивал бы stream_name всем записям процесса (см. log_context).
+    if getattr(root_logger, '_la_logging_configured', False):
+        return
+
     handler = logging.StreamHandler(sys.stdout)
 
     formatter = JsonFormatter(
-        '{levelname}{message}{name}{asctime}{exc_info}',
+        '{levelname}{message}{name}{asctime}{exc_info}{stream_name}',
         style='{',
         rename_fields={'levelname': 'level'},
-        defaults={'stream_name': package_name},
     )
     handler.setFormatter(formatter)
+    # stream_name — на каждую запись: контекст вызова → package_name → имя логгера.
+    handler.addFilter(StreamNameFilter(package_name))
 
-    root_logger = logging.getLogger()
     root_logger.handlers.clear()
     root_logger.addHandler(handler)
+    root_logger._la_logging_configured = True  # type: ignore[attr-defined]
 
     raw_level = os.environ.get('LOG_LEVEL', '')
     root_logger.setLevel(resolve_log_level(raw_level))  # yandex
     _silence_noisy_loggers()
 
+    # Логи в сервис Логи Selectel через общий коллектор ядра (OTLP): включается
+    # OTEL_EXPORTER_OTLP_ENDPOINT. См. _dependencies/common/telemetry.py.
+    _enable_otlp_logging(root_logger, root_logger.level, package_name)
+
     if raw_level and raw_level.strip().upper() not in _LEVEL_TO_NUMBER:
         # ERROR (not WARNING): a typo in the deployment env must be visible even when the function
         # is otherwise quiet at the default WARN level.
         root_logger.error(f'Unknown LOG_LEVEL={raw_level!r}, falling back to {DEFAULT_LOG_LEVEL}')
+
+
+def _enable_otlp_logging(root_logger: logging.Logger, level: int, package_name: str | None = None) -> None:
+    """Включить отправку логов в сервис Логи Selectel, если задан эндпоинт коллектора.
+
+    Импорт telemetry ленивый: opentelemetry нужен только когда эндпоинт задан,
+    поэтому дефолтный путь (только stdout) не тянет новую зависимость.
+    """
+    if not os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT'):
+        return
+
+    from _dependencies.common.telemetry import attach_otlp_handler
+
+    attach_otlp_handler(root_logger, level, package_name)
 
 
 @lru_cache
