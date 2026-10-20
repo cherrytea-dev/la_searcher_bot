@@ -26,8 +26,9 @@ or `main(request)` (HTTP), so the container only changes how they are called.
 ## System architecture
 
 ```text
-LA Forum (phpBB)
-   |  check_first_posts_for_changes (cron, every minute)
+LA Forum (phpBB) — two cron scanners:
+   |  check_first_posts_for_changes   every minute, the main entry point
+   |  check_topics_by_upd_time        every 5 min, only FORUM_LEGACY_DATA_SOURCE=true
    v
 queue topics  -->  identify_updates_of_first_posts / identify_updates_of_topics
    |                    |  change_log

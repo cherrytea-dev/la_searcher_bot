@@ -11,8 +11,10 @@ functions are called differs.
 | **Single container** | `make run-app` (or `PYTHONPATH=src uv run python -m app.main`) with `APP_MODE=k8s` and the environment from `.env.example` | one process: HTTP server, cron scheduler, PostgreSQL queue workers and long-polling bots. Docker: `docker compose -f docker-compose.app.yml up --build`. |
 | **One bot locally** | `uv run python tests/tools/run_bot.py` | Telegram long polling against your `.env`. Also `run_vk_bot.py` and `run_max_bot.py`. |
 
-How the project is put together: `check_first_posts_for_changes` watches the phpBB forum and
-publishes changed topics; `identify_updates_of_*` write diffs to `change_log`;
+How the project is put together: two cron jobs read the phpBB forum and publish changed topics —
+`check_first_posts_for_changes` (every minute, the main entry point) and `check_topics_by_upd_time`
+(every 5 minutes, walks the folder tree, active only with `FORUM_LEGACY_DATA_SOURCE=true`, otherwise
+it is a no-op). Then `identify_updates_of_*` write diffs to `change_log`;
 `compose_notifications` matches them against user preferences and creates `notif_by_user` rows;
 `send_notifications` delivers them to Telegram, VK or MAX. Users talk to the same database
 through the `communicate`, `vk_bot` and `max_bot` functions. The shared code lives in
