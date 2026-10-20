@@ -4,7 +4,6 @@ These tests cover:
 - VKMessage Pydantic model
 - VKHandlerContext class
 - URL constants (SEARCH_URL_PREFIX, FORUM_FOLDER_PREFIX, etc.)
-- get_invite_from_message() invite text parser
 """
 
 from unittest.mock import MagicMock
@@ -15,7 +14,6 @@ from _dependencies.models import DialogState
 from vk_bot._utils.common import (
     VKHandlerContext,
     VKMessage,
-    get_invite_from_message,
 )
 from vk_bot._utils.services.message_formatter import (
     FORUM_FOLDER_PREFIX,
@@ -66,39 +64,6 @@ class TestVKMessage:
         msg = VKMessage.model_validate(data)
         assert msg.text == 'hello'
         assert msg.message_id == 789
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# get_invite_from_message
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-class TestGetInviteFromMessage:
-    """get_invite_from_message() — invite text parser."""
-
-    def test_valid_invite(self):
-        result = get_invite_from_message('telegram_id: 12345 invite_hash: abcdef123456')
-        assert result == (12345, 'abcdef123456')
-
-    def test_valid_invite_with_extra_text(self):
-        result = get_invite_from_message('some text before telegram_id: 999 invite_hash: xyz789 and after')
-        assert result == (999, 'xyz789')
-
-    def test_valid_invite_case_insensitive(self):
-        result = get_invite_from_message('TELEGRAM_ID: 555 INVITE_HASH: ABCdef')
-        assert result == (555, 'ABCdef')
-
-    def test_invalid_no_match(self):
-        result = get_invite_from_message('hello world')
-        assert result == (None, None)
-
-    def test_invalid_partial_match(self):
-        result = get_invite_from_message('telegram_id: abc invite_hash: xyz')
-        assert result == (None, None)
-
-    def test_invalid_empty_string(self):
-        result = get_invite_from_message('')
-        assert result == (None, None)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

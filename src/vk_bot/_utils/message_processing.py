@@ -10,8 +10,7 @@ based on extracted conditions (text, state, callback_data).
 
 import logging
 
-from .account_linking import handle_unregistered_user, register_vk_only_user
-from .common import VKHandlerContext, VKMessage, get_invite_from_message
+from .common import VKHandlerContext, VKMessage
 
 # VK peer_id above this value means a group chat (conversation), not a private dialog.
 # See: https://dev.vk.com/ru/reference/objects/user#peer_id
@@ -20,6 +19,7 @@ from .database import db
 from .decorators import vk_registry
 from .handler_chain import handle_unknown
 from .message_sending import VKMessageSender
+from .vk_registration import register_vk_only_user
 
 
 def _run_registered_handlers(
@@ -66,8 +66,7 @@ def handle_new_message(
 
     Flow:
     1. Resolve identity via ``user_identity_map``
-    2. If not found, try invite linking first; if that fails,
-       register as a VK-only user so they can use the bot immediately
+    2. If not found, register a VK-only user so they can use the bot immediately
     3. Once identity is resolved → run registered handlers via vk_registry.match()
 
     Args:
@@ -94,22 +93,7 @@ def handle_new_message(
         logging.info(f'handle_new_message: resolved from identity_map, internal_user={user_id}')
 
     else:
-        # 2. Check if message is an invite attempt
-
-        telegram_user_id, invite_hash = get_invite_from_message(vk_message.text)
-        if telegram_user_id and invite_hash:
-            # Let account_linking handle the invite validation
-            ctx = VKHandlerContext(
-                message=vk_message,
-                user_id=-1,  # placeholder — user not yet resolved
-                state=None,
-                sender=sender,
-                db=db(),
-            )
-            handle_unregistered_user(ctx)
-            return
-
-        # 3. Register as VK-only user
+        # 2. Register as VK-only user
         logging.info(f'handle_new_message: registering VK-only user {vk_user_id}')
         user_id = register_vk_only_user(vk_user_id)
         is_new_user = True

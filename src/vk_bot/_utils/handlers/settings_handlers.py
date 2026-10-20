@@ -9,7 +9,6 @@ Uses ``ctx.reply()`` to send responses and ``ctx.is_consumed`` to signal handlin
 
 from __future__ import annotations
 
-from _dependencies.bot.telegram_api_wrapper import make_invite_text_for_user
 from _dependencies.bot.users_management import ManageUserAction
 from _dependencies.models import AgePeriod, DialogState
 from vk_bot._utils.services.message_formatter import (
@@ -29,8 +28,6 @@ from vk_bot._utils.services.message_formatter import (
     reset_settings_cancelled,
     reset_settings_confirm,
     reset_settings_done,
-    vk_already_linked,
-    vk_link_instructions,
 )
 
 from ..common import VKHandlerContext
@@ -414,31 +411,3 @@ def handle_forum_linking(ctx: VKHandlerContext) -> None:
         keyboard=VKKeyboardPresets.back_to_start(),
     )
     ctx.set_state(DialogState.input_of_forum_username)
-
-
-# ═══════════════════════════════════════════════════════════════════════
-# VK linking
-# ═══════════════════════════════════════════════════════════════════════
-
-
-@vk_handle(text=VKKeyboardButtons.BTN_VK_LINK)
-def handle_vk_linking(ctx: VKHandlerContext) -> None:
-    """Handle VK linking button.
-
-    Generates a proper invite text using make_invite_text_for_user() which
-    creates a SHA256 hash of {telegram_user_id}{bot_api_token__prod}.
-    The user copies this text and sends it to the VK bot to link accounts.
-    """
-    vk_id = ctx.db.get_user_vk_id(ctx.user_id)
-    if vk_id:
-        ctx.reply(
-            text=vk_already_linked(),
-            keyboard=VKKeyboardPresets.settings_menu(),
-        )
-        return
-
-    invite_text = make_invite_text_for_user(ctx.user_id)
-    ctx.reply(
-        text=vk_link_instructions(invite_text),
-        keyboard=VKKeyboardPresets.settings_menu(),
-    )

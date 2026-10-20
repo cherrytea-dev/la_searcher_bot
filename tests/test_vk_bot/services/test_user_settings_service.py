@@ -403,32 +403,6 @@ class TestRecordSearchWhiteness:
         assert row[0] == SearchFollowingMode.OFF
 
 
-class TestGetUserVkId:
-    def test_no_vk_id(self, settings_service: DBClient, user_id: int):
-        db_factories.UserFactory.create_sync(user_id=user_id, vk_id=None)
-        vk_id = settings_service.get_user_vk_id(user_id)
-        assert vk_id is None
-
-    def test_with_vk_id(self, settings_service: DBClient, user_id: int):
-        db_factories.UserFactory.create_sync(user_id=user_id, vk_id='test_vk_123')
-        vk_id = settings_service.get_user_vk_id(user_id)
-        assert vk_id == 'test_vk_123'
-
-
-class TestSetUserVkId:
-    def test_set_vk_id(self, settings_service: DBClient, user_id: int):
-        db_factories.UserFactory.create_sync(user_id=user_id)
-        settings_service.set_user_vk_id(user_id, 'test_vk_456')
-        vk_id = settings_service.get_user_vk_id(user_id)
-        assert vk_id == 'test_vk_456'
-
-    def test_update_vk_id(self, settings_service: DBClient, user_id: int):
-        db_factories.UserFactory.create_sync(user_id=user_id, vk_id='old_vk_id')
-        settings_service.set_user_vk_id(user_id, 'new_vk_id')
-        vk_id = settings_service.get_user_vk_id(user_id)
-        assert vk_id == 'new_vk_id'
-
-
 class TestGetForumAttributes:
     def test_no_attributes(self, settings_service: DBClient, user_id: int):
         db_factories.UserFactory.create_sync(user_id=user_id)

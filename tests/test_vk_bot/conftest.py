@@ -210,8 +210,8 @@ def mock_dispatcher_db():
     Tests can override by accessing mock_db().xxx.return_value = ...
 
     Only patches modules that still do ``from .database import db``
-    (creating local references). account_linking and region_select_handlers
-    no longer import db directly — they use ctx.db instead.
+    (creating local references). region_select_handlers no longer imports db
+    directly — it uses ctx.db instead.
     """
 
     db_mock = MagicMock()
@@ -231,8 +231,8 @@ def mock_app_config():
     Provides a pre-configured AppConfig with test values for
     vk_group_id, vk_confirmation_code, and bot_api_token__prod.
 
-    Patches account_linking and event_dispatcher since both import
-    get_app_config from _dependencies.common.commons directly.
+    Patches event_dispatcher since it imports get_app_config from
+    _dependencies.common.commons directly.
     (dispatcher.py is now a re-export module and no longer imports it.)
     """
     config = AppConfig(
@@ -244,10 +244,7 @@ def mock_app_config():
         vk_confirmation_code='test_code',
         bot_api_token__prod='test_secret',
     )
-    with (
-        patch('vk_bot._utils.account_linking.get_app_config', return_value=config),
-        patch('vk_bot._utils.event_dispatcher.get_app_config', return_value=config),
-    ):
+    with patch('vk_bot._utils.event_dispatcher.get_app_config', return_value=config):
         yield config
 
 

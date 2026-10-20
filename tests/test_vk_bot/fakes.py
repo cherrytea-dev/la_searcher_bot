@@ -77,7 +77,7 @@ class FakeVKMessageSender:
 
         fake = FakeVKMessageSender()
         # Inject into the module under test
-        with patch('vk_bot._utils.account_linking.vk_sender', lambda: fake):
+        with patch('vk_bot._utils.event_dispatcher.vk_sender', lambda: fake):
             ...
 
     Assertions::

@@ -1,4 +1,4 @@
-"""VK identity mixin — user resolution by VK ID, consolidated."""
+"""VK identity mixin — user resolution by VK ID."""
 
 from types import SimpleNamespace
 
@@ -8,88 +8,7 @@ from _dependencies.common.db_client import DBClientMixinBase
 
 
 class VKIdentityMixin(DBClientMixinBase):
-    """User resolution by VK ID.
-
-    Methods for finding/linking users by their VKontakte ID.
-    The vk_id column in the DB is varchar, so values are cast to str.
-    """
-
-    def get_user_by_vk_id(self, vk_id: int | str) -> int | None:
-        """Find telegram user_id by vk_id.
-
-        Returns None if not found (user hasn't linked VK account yet).
-        """
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""
-                SELECT user_id FROM users
-                WHERE vk_id = :vk_id
-                LIMIT 1;
-            """)
-            result = connection.execute(stmt, dict(vk_id=str(vk_id)))
-            row = result.fetchone()
-            return row[0] if row else None
-
-    def get_user_vk_id(self, user_id: int) -> str | None:
-        """Get the VK ID linked to a user.
-
-        Returns None if the user hasn't linked a VK account.
-        """
-        with self.connect() as connection:
-            stmt = sqlalchemy.text("""
-                SELECT vk_id FROM users
-                WHERE user_id = :user_id
-                LIMIT 1;
-            """)
-            result = connection.execute(stmt, dict(user_id=user_id))
-            row = result.fetchone()
-            return row[0] if row else None
-
-    def set_user_vk_id(self, telegram_user_id: int, vk_id: int | str) -> bool:
-        """Link VK ID to an existing Telegram user.
-
-        Writes to both ``users.vk_id`` (legacy) and ``user_identity_map`` (new path).
-
-        Returns True if the user was found and updated, False if no user
-        with the given telegram_user_id exists.
-        """
-        with self.connect() as connection:
-            # 1. Update legacy vk_id column
-            stmt = sqlalchemy.text("""
-                UPDATE users
-                SET vk_id = :vk_id
-                WHERE user_id = :user_id;
-            """)
-            result = connection.execute(stmt, dict(user_id=telegram_user_id, vk_id=str(vk_id)))
-            if result.rowcount == 0:
-                return False
-
-            # 2. Write to user_identity_map (new path)
-            #    Resolve internal_user_id from users table
-            resolve = connection.execute(
-                sqlalchemy.text("""
-                    SELECT internal_user_id FROM users
-                    WHERE user_id = :user_id
-                    LIMIT 1;
-                """),
-                {'user_id': telegram_user_id},
-            )
-            row = resolve.fetchone()
-            if row is not None:
-                internal_user_id = row[0]
-                connection.execute(
-                    sqlalchemy.text("""
-                        INSERT INTO user_identity_map (internal_user_id, messenger, messenger_user_id)
-                        VALUES (:internal_user_id, 'vk', :vk_user_id)
-                        ON CONFLICT (messenger, messenger_user_id) DO NOTHING
-                    """),
-                    {'internal_user_id': internal_user_id, 'vk_user_id': str(vk_id)},
-                )
-
-            return True
-
-    def is_user_registered_in_vk(self, vk_id: int | str) -> bool:
-        """Check if a user with this vk_id exists in the system."""
-        return self.get_user_by_vk_id(vk_id) is not None or self.get_identity_by_messenger_user_id(vk_id) is not None
+    """User resolution by VK ID."""
 
     def get_identity_by_messenger_user_id(self, messenger_user_id: int | str) -> SimpleNamespace | None:
         """Resolve ``UserIdentity`` from ``user_identity_map`` by VK user ID.
