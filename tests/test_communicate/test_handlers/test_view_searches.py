@@ -286,6 +286,40 @@ def test_removed_follow_mode_callbacks_fall_through_silently(action, monkeypatch
     'search_list_type',
     [view_searches_handlers.SearchListType.ALL, view_searches_handlers.SearchListType.ACTIVE],
 )
+def test_view_searches_skips_folders_with_no_search_name(search_list_type):
+    """A subscription to a folder the map no longer knows must not render an empty title.
+
+    Folders dropped from the region map ('searches finished') or never search folders
+    (archive / common_info) have no entry in ``get_geo_folders_db()``. The old code
+    rendered them as «Посл. 20 поисков в » with an empty name.
+    """
+    db_mock = _make_db_mock()
+    db_mock.get_user_reg_folders_preferences.return_value = [305]
+    db_mock.get_geo_folders_db.return_value = [(370, 'Вологодская обл. – Активные поиски')]
+    db_mock.get_all_last_searches_in_region_limit_20.return_value = [_make_search_summary()]
+    db_mock.get_active_searches_in_region_limit_20.return_value = [_make_search_summary()]
+
+    tg_api_mock = MagicMock()
+    ctx = TGHandlerContext(
+        update_params=_make_update_params(),
+        extra_params=MagicMock(),
+        db=db_mock,
+        tg_api=tg_api_mock,
+    )
+
+    view_searches_handlers._handle_view_searches_experimental_view(ctx, search_list_type)
+
+    sent_texts = [call.args[1].text for call in tg_api_mock.send_message.call_args_list]
+    assert not any('поисков в \n' in text or text.rstrip().endswith('поисков в') for text in sent_texts)
+    db_mock.get_all_last_searches_in_region_limit_20.assert_not_called()
+    db_mock.get_active_searches_in_region_limit_20.assert_not_called()
+    assert any('не найдены' in text for text in sent_texts)
+
+
+@pytest.mark.parametrize(
+    'search_list_type',
+    [view_searches_handlers.SearchListType.ALL, view_searches_handlers.SearchListType.ACTIVE],
+)
 def test_view_searches_skips_events_only_folders(search_list_type):
     """A folder of type 'events' must not be queried nor rendered as a search block."""
     db_mock = _make_db_mock()

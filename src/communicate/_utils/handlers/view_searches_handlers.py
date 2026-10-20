@@ -173,6 +173,13 @@ def _handle_view_searches_experimental_view(ctx: TGHandlerContext, search_list_t
 
         region_name = _get_region_name(folders_list, region)
 
+        if not region_name:
+            # Subscribed folder that is not a search folder any more (dropped from the region
+            # map: 'searches finished' / archive / common_info). Without a name the block would
+            # render as «Посл. 20 поисков в » — skip it instead of showing an empty title.
+            logging.info(f'Skipping folder {region} in searches list: not a search folder')
+            continue
+
         logging.info(f'Before if region_name.find...: ; {region_keyboards=}')
         folder_is_archived = 'аверш' in region_name
         if folder_is_archived and search_list_type != SearchListType.ALL:

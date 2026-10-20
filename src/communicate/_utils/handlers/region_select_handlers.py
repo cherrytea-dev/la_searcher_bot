@@ -153,14 +153,20 @@ def _update_list_of_regions(ctx: TGHandlerContext, user_id: int, got_message: st
     user_curr_regs = ctx.db.get_user_regions_from_db(user_id)
 
     region_was_in_db = any(list_of_regs_to_upload[0] == user_reg for user_reg in user_curr_regs)
-    region_is_the_only = region_was_in_db and len(user_curr_regs) - len(list_of_regs_to_upload) < 1
-
-    if region_is_the_only:
-        return False
-        # Scenario: this setting WAS in place, but now it's the last one - we cannot delete it
 
     if region_was_in_db:
-        for region in list_of_regs_to_upload:
+        # A region is a group of 'searches' folders of one division. The map only lists the
+        # current ones, but an old subscription may still hold ids it has dropped (e.g.
+        # 'searches finished' folders). Unsubscribing must wipe the whole division: leaving
+        # such an id behind keeps the user «subscribed» to a folder the menu no longer shows.
+        stale_regs = set(ctx.db.get_search_folders_of_division(list_of_regs_to_upload[0]))
+        regs_to_delete = set(user_curr_regs) & (stale_regs | set(list_of_regs_to_upload))
+
+        if not set(user_curr_regs) - regs_to_delete:
+            return False
+            # Scenario: this setting WAS in place, but it's the only one left - we cannot delete it
+
+        for region in regs_to_delete:
             ctx.db.delete_folder_from_user_regional_preference(user_id, region)
     else:
         for region in list_of_regs_to_upload:
