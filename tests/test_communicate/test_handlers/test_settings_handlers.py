@@ -4,7 +4,7 @@ import pytest
 
 from communicate._utils.database import DBClient
 from communicate._utils.handler_context import TGHandlerContext
-from communicate._utils.handlers import button_handlers, notification_settings_handlers
+from communicate._utils.handlers import notification_settings_handlers, settings_handlers
 from tests.common import find_model
 from tests.factories import db_factories, db_models
 
@@ -27,7 +27,7 @@ def test_compose_msg_on_user_setting_fullness(
 ):
     db_factories.UserPrefAgeFactory.create_sync(user_id=user_id)
 
-    message = button_handlers._compose_msg_on_user_setting_fullness(tg_handler_context, user_id)
+    message = settings_handlers._compose_msg_on_user_setting_fullness(tg_handler_context, user_id)
 
     assert message is not None
     assert 'Вы настроили бот' in message
@@ -46,7 +46,7 @@ def test_compose_user_preferences_message(
 
 
 def test_handle_disable_notifications(session, user_id: int, tg_handler_context: TGHandlerContext):
-    button_handlers.handle_disable_notifications(tg_handler_context)
+    settings_handlers.handle_disable_notifications(tg_handler_context)
 
     assert find_model(session, db_models.User, user_id=user_id, status='unsubscribed')
     assert find_model(session, db_models.UserStatusesHistory, user_id=user_id, status='unsubscribed')
@@ -54,7 +54,7 @@ def test_handle_disable_notifications(session, user_id: int, tg_handler_context:
 
 
 def test_handle_enable_notifications(session, user_id: int, tg_handler_context: TGHandlerContext):
-    button_handlers.handle_enable_notifications(tg_handler_context)
+    settings_handlers.handle_enable_notifications(tg_handler_context)
 
     assert find_model(session, db_models.User, user_id=user_id, status='unblocked')
     assert find_model(session, db_models.UserStatusesHistory, user_id=user_id, status='unblocked')
