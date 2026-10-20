@@ -61,6 +61,24 @@ def _has_column(cur: 'psycopg2.extensions.cursor', table: str, column: str) -> b
     return bool(row and row[0])
 
 
+def _has_finished_searches_subscriptions(cur: 'psycopg2.extensions.cursor') -> bool:
+    """Whether anyone is still subscribed to a "searches finished" folder (migration 011)."""
+    if not (_to_regclass(cur, 'user_regional_preferences') and _to_regclass(cur, 'geo_folders')):
+        return False
+    cur.execute(
+        """
+        SELECT EXISTS(
+            SELECT 1
+            FROM user_regional_preferences urp
+            JOIN geo_folders f ON f.folder_id = urp.forum_folder_num
+            WHERE f.folder_subtype = 'searches finished'
+        )
+        """
+    )
+    row = cur.fetchone()
+    return bool(row and row[0])
+
+
 def _split_statements(sql: str) -> list[str]:
     """Split a migration file into single statements (``--`` comments stripped).
 
@@ -186,6 +204,18 @@ def main() -> None:
             cur,
             '010 drop "searches finished" subscriptions',
             _migration('010_remove_finished_searches_subscriptions.sql'),
+            args.dry_run,
+        )
+        applied += 1
+
+    # 011 — повтор чистки 010: подписки на «Завершённые поиски» возвращались через
+    # карту регионов Telegram-бота, где эти папки всё ещё были перечислены.
+    # Не opt-in: DELETE безопасен и выполняется только когда есть что удалять.
+    if _has_finished_searches_subscriptions(cur):
+        _run(
+            cur,
+            '011 drop "searches finished" subscriptions',
+            _migration('011_purge_finished_searches_subscriptions.sql'),
             args.dry_run,
         )
         applied += 1
