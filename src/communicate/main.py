@@ -7,7 +7,6 @@ from typing import Any, Callable
 
 from telegram import Bot, ReplyKeyboardMarkup, Update
 
-from _dependencies.bot.readonly_mode import READONLY_NOTICE, READONLY_SAFE_TG, is_readonly
 from _dependencies.bot.users_management import (
     ManageUserAction,
     register_new_user,
@@ -199,14 +198,7 @@ def process_update(update: Update) -> str:
 
     logging.info(f'Before if got_message and not got_callback: {got_message=}')
 
-    # Emergency read-only mode: answer the user, but never write. Everything below that would
-    # write to the DB is skipped; the handler chain only runs view-only handlers, and if nothing
-    # matched the user gets the stub (see _send_readonly_stub).
-    readonly = is_readonly()
-    if readonly:
-        logging.info(f'readonly mode: user={user_id} message={got_message!r} callback={bool(got_callback)}')
-
-    if got_message and not got_callback and not readonly:
+    if got_message and not got_callback:
         last_inline_message_ids = db().get_last_user_inline_dialogue(user_id)
         if last_inline_message_ids:
             for last_inline_message_id in last_inline_message_ids:
@@ -215,23 +207,22 @@ def process_update(update: Update) -> str:
                 )
             db().delete_last_user_inline_dialogue(user_id)
 
-    if got_message and not readonly:
+    if got_message:
         db().save_user_message_to_bot(user_id, got_message)
 
     if update_params.callback_query:
-        # mark user update as 'received by bot'. NB: not a write to our data — without it
-        # Telegram keeps the inline-button spinner forever, so it runs in read-only mode too.
+        # mark user update as 'received by bot'
         tg_api().send_callback_answer_to_api(user_id, update_params.callback_query.id, '')
 
     user_is_new = db().check_if_new_user(user_id)
     logging.info(f'After check_if_new_user: {user_is_new=}')
-    if user_is_new and not readonly:
+    if user_is_new:
         register_new_user(user_id, username, datetime.datetime.now(), Messenger.TELEGRAM)
 
     onboarding_step_id, onboarding_step_name = db().get_onboarding_step(user_id, user_is_new)
 
-    # ONBOARDING PHASE (read-only mode never advances onboarding: that is a write)
-    if onboarding_step_id < 80 and not readonly:
+    # ONBOARDING PHASE
+    if onboarding_step_id < 80:
         onboarding_step_id = _run_onboarding(user_id, username, onboarding_step_id, got_message)
 
     # Check what was last request from bot and if bot is expecting user's input
@@ -253,22 +244,13 @@ def process_update(update: Update) -> str:
         return 'Got empty message. Finished successfully.'
 
     try:
-        handled = _run_handlers(update_params, extra_params)
+        _run_handlers(update_params, extra_params)
 
     except Exception:
         logging.exception('GENERAL COMM CRASH:')
         notify_admin('[comm] general script fail')
-        handled = False
-
-    if readonly and not handled:
-        _send_readonly_stub(user_id)
 
     return 'finished successfully. in was a regular conversational message'
-
-
-def _send_readonly_stub(user_id: int) -> None:
-    """Tell the user the bot is read-only. Sends a plain message: nothing is written to the DB."""
-    tg_api().send_message(user_id, TelegramMessage(text=READONLY_NOTICE, reply_markup=reply_markup_main))
 
 
 def _run_registered_handlers(
@@ -277,15 +259,9 @@ def _run_registered_handlers(
 ) -> bool:
     """Try registered handlers matching the given conditions.
 
-    In read-only mode handlers that are not on the view-only allowlist are skipped, so an action
-    that would write falls through to the stub instead.
-
     Returns True if a handler consumed the context.
     """
     for handler in tg_registry.match(**kwargs):
-        if is_readonly() and handler.func.__name__ not in READONLY_SAFE_TG:
-            logging.info(f'readonly mode: skipping handler {handler.func.__name__}')
-            continue
         try:
             handler.func(ctx)
         except Exception:
@@ -299,13 +275,11 @@ def _run_registered_handlers(
     return False
 
 
-def _run_handlers(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> bool:
+def _run_handlers(update_params: UpdateBasicParams, extra_params: UpdateExtraParams) -> None:
     """Run the handler chain with a TGHandlerContext.
 
     Creates a TGHandlerContext and passes it through the handler chain.
     Each handler calls ctx.reply()/ctx.edit() to respond and mark as consumed.
-
-    Returns True if a handler consumed the update.
     """
     ctx = TGHandlerContext(
         update_params=update_params,
@@ -325,37 +299,32 @@ def _run_handlers(update_params: UpdateBasicParams, extra_params: UpdateExtraPar
         callback_data = str(got_callback.action)
         callback_keyboard = got_callback.keyboard_name
         if _run_registered_handlers(ctx, callback_data=callback_data, callback_keyboard=callback_keyboard):
-            return True
+            return
 
     ### TEXT + STATE HANDLERS ###
     if got_message and user_input_state and user_input_state != UserInputState.not_defined:
         text = got_message.strip().lower()
         state = user_input_state.value
         if _run_registered_handlers(ctx, text=text, state=state):
-            return True
+            return
 
     ### STATE-ONLY HANDLERS ###
     if user_input_state and user_input_state != UserInputState.not_defined:
         state = user_input_state.value
         if _run_registered_handlers(ctx, state=state):
-            return True
+            return
 
     ### TEXT-ONLY HANDLERS ###
     if got_message:
         text = got_message.strip().lower()
         if _run_registered_handlers(ctx, text=text):
-            return True
-
-    # Every branch below writes something. In read-only mode stop here and let the caller answer
-    # with the stub (a stale button, a forced-region prompt or the «не понимаю» fallback).
-    if is_readonly():
-        return False
+            return
 
     ### AUTO COORDINATES BY BUTTON ###
     if update_params.user_latitude:
         # auto coordinates by button
         other_handlers.handle_user_geolocation(ctx)
-        return True
+        return
 
     ### CUSTOM TEXT ###
     # Нераспознанный callback (нажата inline-кнопка, но ни один хендлер не
@@ -365,20 +334,19 @@ def _run_handlers(update_params: UpdateBasicParams, extra_params: UpdateExtraPar
     # Ответ на callback уже подтверждён в process_update, поэтому просто
     # молча завершаем обработку.
     if got_callback:
-        return False
+        return
 
     user_regions = db().get_user_reg_folders_preferences(update_params.user_id)
     if not user_regions:
         # force user to input a region
         other_handlers.handle_force_user_to_set_region(ctx)
-        return True
+        return
 
     # in case of other user messages, when command is unknown
     ctx.reply(
         text='не понимаю такой команды, пожалуйста, используйте кнопки со стандартными командами ниже',
         reply_markup=reply_markup_main,
     )
-    return True
 
 
 @lru_cache
