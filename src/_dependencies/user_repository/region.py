@@ -10,6 +10,18 @@ from _dependencies.common.db_client import DBClientMixinBase
 class RegionMixin(DBClientMixinBase):
     """User region (forum folder) subscription operations."""
 
+    def get_events_folders(self) -> list[int]:
+        """Get folder IDs that contain only events (no searches).
+
+        Such folders stay in user subscriptions so that event notifications work,
+        but they must not be shown in the "last/active searches" lists: every topic
+        in them is an event, not a search.
+        """
+        with self.connect() as connection:
+            stmt = sqlalchemy.text("""SELECT folder_id FROM geo_folders WHERE folder_type = 'events';""")
+            result = connection.execute(stmt)
+            return [row[0] for row in result.fetchall()]
+
     def get_user_regions(self, user_id: int) -> list[int]:
         """Get list of forum folder IDs the user is subscribed to."""
         with self.connect() as connection:

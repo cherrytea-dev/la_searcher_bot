@@ -85,6 +85,7 @@ def _make_db_mock() -> MagicMock:
     db_mock.get_user_input_state.return_value = UserInputState.not_defined
     db_mock.get_user_reg_folders_preferences.return_value = [1]
     db_mock.get_geo_folders_db.return_value = [(1, 'Москва')]
+    db_mock.get_events_folders.return_value = []
     db_mock.get_user_coordinates_or_none.return_value = (None, None)
     db_mock.get_active_searches_in_region_limit_20.return_value = []
     db_mock.get_all_last_searches_in_region_limit_20.return_value = []
@@ -272,3 +273,46 @@ def test_removed_follow_mode_callbacks_fall_through_silently(action, monkeypatch
 
     db_mock.set_search_follow_mode.assert_not_called()
     assert tg_api_mock.send_message.call_count == 0, 'устаревший callback должен завершаться молча'
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Events-only folders are part of the region subscription (event
+# notifications need them) but their topics are events, not searches —
+# they must never be listed in «последние/актуальные поиски».
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.parametrize(
+    'search_list_type',
+    [view_searches_handlers.SearchListType.ALL, view_searches_handlers.SearchListType.ACTIVE],
+)
+def test_view_searches_skips_events_only_folders(search_list_type):
+    """A folder of type 'events' must not be queried nor rendered as a search block."""
+    db_mock = _make_db_mock()
+    db_mock.get_user_reg_folders_preferences.return_value = [370, 367]
+    db_mock.get_geo_folders_db.return_value = [(370, 'Вологодская обл. – Активные поиски')]
+    db_mock.get_events_folders.return_value = [367]
+    db_mock.get_all_last_searches_in_region_limit_20.return_value = [_make_search_summary()]
+    db_mock.get_active_searches_in_region_limit_20.return_value = [_make_search_summary()]
+    db_mock.get_folders_with_followed_searches.return_value = []
+
+    tg_api_mock = MagicMock()
+    ctx = TGHandlerContext(
+        update_params=_make_update_params(),
+        extra_params=MagicMock(),
+        db=db_mock,
+        tg_api=tg_api_mock,
+    )
+
+    view_searches_handlers._handle_view_searches_experimental_view(ctx, search_list_type)
+
+    queried_folders = {
+        call.args[0]
+        for call in db_mock.get_all_last_searches_in_region_limit_20.call_args_list
+        + db_mock.get_active_searches_in_region_limit_20.call_args_list
+    }
+    assert queried_folders == {370}, 'events folder must not be queried for searches'
+
+    sent_texts = [call.args[1].text for call in tg_api_mock.send_message.call_args_list]
+    assert any('Вологодская' in text for text in sent_texts)
+    assert all('367' not in text for text in sent_texts), 'no block/link for the events folder'

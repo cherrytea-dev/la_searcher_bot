@@ -561,3 +561,38 @@ class TestHandleMoreSearches:
         labels = ctx._sender.last_sent_keyboard_labels
         assert 'активные поиски' in labels
         assert 'последние 20 поисков' in labels
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 8. Events-only folders
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestEventsOnlyFolders:
+    """Events-only folders stay subscribed but are never listed as searches."""
+
+    def test_search_folder_ids_excludes_events_folders(self):
+        """Subscribed folder list for search queries drops 'events' folders."""
+        from types import SimpleNamespace
+
+        from src.vk_bot._utils.handlers.view_searches_handlers import _search_folder_ids
+
+        db = MagicMock()
+        db.get_user_regions.return_value = [370, 369, 367]
+        db.get_events_folders.return_value = [367]
+        ctx = SimpleNamespace(user_id=1, db=db)
+
+        assert _search_folder_ids(ctx) == [370, 369]
+
+    def test_search_folder_ids_empty_when_only_events(self):
+        """A user subscribed to events only gets no folders for search queries."""
+        from types import SimpleNamespace
+
+        from src.vk_bot._utils.handlers.view_searches_handlers import _search_folder_ids
+
+        db = MagicMock()
+        db.get_user_regions.return_value = [367]
+        db.get_events_folders.return_value = [367]
+        ctx = SimpleNamespace(user_id=1, db=db)
+
+        assert _search_folder_ids(ctx) == []
