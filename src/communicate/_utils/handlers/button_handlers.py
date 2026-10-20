@@ -11,11 +11,9 @@ from telegram import (
     WebAppInfo,
 )
 
-from _dependencies.bot.telegram_api_wrapper import make_invite_text_for_user
 from _dependencies.bot.users_management import ManageUserAction, save_onboarding_step
 from _dependencies.common.commons import add_tel_link, get_app_config
 from _dependencies.common.pubsub import notify_admin
-from _dependencies.common.telegram_message import TelegramMessage
 from _dependencies.models import AgePeriod
 
 from ..buttons import (
@@ -446,7 +444,6 @@ def handle_main_settings(ctx: TGHandlerContext) -> None:
         MainSettingsMenu.b_set_pref_radius,
         MainSettingsMenu.b_set_pref_age,
         MainSettingsMenu.b_set_forum_nick,
-        MainSettingsMenu.b_set_vkontakte_nick,
         MainSettingsMenu.b_reset_settings,
         b_back_to_start,
     ]  # #AK added b_set_forum_nick for issue #6
@@ -864,43 +861,3 @@ def handle_linking_to_forum_show_menu(ctx: TGHandlerContext) -> None:
         )
         keyboard = [MainMenu.b_settings, b_back_to_start]
         ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
-
-
-@tg_handle(text=MainSettingsMenu.b_set_vkontakte_nick)
-def handle_linking_to_vk_show_menu(ctx: TGHandlerContext) -> None:
-    """manage all interactions regarding connection of telegram and VKontakte user accounts"""
-
-    saved_vk_user_id = ctx.db.get_user_vk_id(ctx.user_id)
-
-    if not saved_vk_user_id:
-        send_invite_vk_message_to_user(ctx)
-        keyboard = [b_back_to_start]
-        reply_markup = create_one_column_reply_markup(keyboard)
-
-        ctx.reply(
-            text='После того, как вы отправите скопированный текст в чате VK,'
-            ' бот начнет присылать вам уведомления по текущим настройкам.',
-            reply_markup=reply_markup,
-        )
-    else:
-        bot_message = 'Ваши аккаунты в Telegram и в VK уже связаны'
-        keyboard = [MainMenu.b_settings, b_back_to_start]
-        ctx.reply(text=bot_message, reply_markup=create_one_column_reply_markup(keyboard))
-
-
-def send_invite_vk_message_to_user(ctx: TGHandlerContext) -> None:
-    user_invite_text = make_invite_text_for_user(ctx.user_id)
-
-    bot_message = f'Откройте чат в VK по кнопке ниже \n и вставьте туда следующий текст: `{user_invite_text}`'
-    btn_open_vk_chat = InlineKeyboardButton(text='Чат в VK', url='https://m.vk.com/write-237036024')
-    inline_markup = InlineKeyboardMarkup([[btn_open_vk_chat]])
-
-    ctx.tg_api.send_message(
-        ctx.user_id,
-        TelegramMessage(
-            text=bot_message,
-            parse_mode='markdown',
-            disable_web_page_preview=True,
-            reply_markup=inline_markup,
-        ),
-    )

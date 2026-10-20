@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -70,25 +69,6 @@ class SearchItem:
 
 
 ButtonColor = Literal['primary', 'secondary', 'positive', 'negative']
-
-
-def get_invite_from_message(message: str) -> tuple[int, str] | tuple[None, None]:
-    """
-    Parse invite text from a VK message.
-
-    Pattern: telegram_id: <digits> invite_hash: <alphanumeric>
-    The message may have extra text before/after, and spacing may vary.
-    Use case-insensitive search.
-
-    Returns (telegram_user_id, invite_hash) if found, or (None, None) if not.
-    """
-    match = re.search(r'telegram_id:\s*(\d+)\s+invite_hash:\s*(\w+)', message, re.IGNORECASE)
-    if match:
-        try:
-            return int(match.group(1)), match.group(2)
-        except ValueError:
-            return None, None
-    return None, None
 
 
 class VKHandlerContext:

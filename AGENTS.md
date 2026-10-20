@@ -105,7 +105,7 @@ These functions process `change_log` records and create/send notifications.
 
 #### [`send_notifications`](src/send_notifications/main.py)
 - **Trigger**: Pub/sub (`topic_to_send_notifications`)
-- **Purpose**: Fetches unsent notifications from `notif_by_user`, sends them via Telegram Bot API (and VK API if user has linked VK account). Uses `ThreadPoolExecutor` for parallel sending. Handles rate limits, blocked users, retries. Auto-re-triggers itself if time runs out with more messages pending.
+- **Purpose**: Fetches unsent notifications from `notif_by_user`, sends them via Telegram Bot API (and VK API for users with a VK identity). Uses `ThreadPoolExecutor` for parallel sending. Handles rate limits, blocked users, retries. Auto-re-triggers itself if time runs out with more messages pending.
 - **Locking**: Uses `lock_manager` to prevent parallel execution.
 - **Key features**: Deadlock detection, message deduplication, analytics logging
 
@@ -157,11 +157,11 @@ These functions process `change_log` records and create/send notifications.
 
 ### 6. VK Bot
 
-The VK bot provides a full-featured VKontakte interface for the LA Searcher Bot. Users can manage all their settings and view searches directly from VK, without needing to use the Telegram bot (except for initial account linking).
+The VK bot provides a full-featured VKontakte interface for the LA Searcher Bot. Users can manage all their settings and view searches directly from VK, without needing the Telegram bot at all.
 
 #### [`vk_bot`](src/vk_bot/main.py)
 - **Trigger**: HTTP (VK Callback API webhook) or LongPoll polling mode
-- **Purpose**: Full-featured VKontakte bot for user settings management, search viewing, and account linking. Shares the same PostgreSQL database as the Telegram bot — all changes made in VK are immediately reflected in Telegram and vice versa.
+- **Purpose**: Full-featured VKontakte bot for user settings management and search viewing. Shares the same PostgreSQL database as the Telegram bot — all changes made in VK are immediately reflected in Telegram and vice versa.
 
 **Deployment modes** (via [`cli.py`](src/vk_bot/cli.py)):
 - **Flask web server** (default): Receives VK Callback API events via HTTP POST. Designed to run behind ngrok/localhost.run for local development, or as a Yandex Cloud Function in production.
@@ -204,7 +204,6 @@ The VK bot provides a full-featured VKontakte interface for the LA Searcher Bot.
 
 | Feature                  | Handler Module                         | Description                                                                                         |
 | ------------------------ | -------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Account linking          | `dispatcher._handle_unregistered_user` | Link VK to Telegram via SHA256 invite hash                                                          |
 | Onboarding               | `onboarding_handlers.py`               | Role selection (member/volunteer/relative/other), Moscow region subscription                        |
 | Region management        | `region_select_handlers.py`            | Federal district selection, region subscribe/unsubscribe with inline pagination for large districts |
 | Search viewing           | `view_searches_handlers.py`            | Active searches, latest 20 searches, search follow/unfollow with `+12345`/`-12345` text commands    |
@@ -214,7 +213,6 @@ The VK bot provides a full-featured VKontakte interface for the LA Searcher Bot.
 | Age preferences          | `settings_handlers.py`                 | Toggle age groups (children, teens, adults, elderly)                                                |
 | Topic type preferences   | `settings_handlers.py`                 | Toggle topic types (search works, informational search)                                             |
 | Forum linking            | `state_handlers.py`                    | Link forum account — triggers `connect_to_forum` via `pubsub_parse_user_profile`                    |
-| VK linking               | `settings_handlers.py`                 | Generate invite text for linking Telegram ↔ VK accounts                                             |
 
 #### Key Sub-components
 
@@ -222,12 +220,12 @@ The VK bot provides a full-featured VKontakte interface for the LA Searcher Bot.
 - **Event handling**: `dispatch_event()` is the main entry point. Returns `'ok'` immediately (VK requires response within ~8 seconds), then processes in a background thread.
 - **Deduplication**: Maintains an LRU cache (`_event_cache`) to prevent duplicate event processing from VK resends.
 - **Callback handling**: Inline keyboard callbacks (`message_event`) are parsed via JSON payload with `cmd` field. Supports: `paginate_nav`, `paginate_toggle`, `paginate_back`, `paginate_finish`, `district_select`.
-- **Account linking flow**: Unregistered users can only send an invite text. The bot validates the SHA256 hash of `{telegram_user_id}{bot_api_token__prod}` against `make_invite_text_for_user()` from Telegram bot.
+- **Registration flow**: a VK user missing from `user_identity_map` is auto-registered as a VK-only user (`register_vk_only_user`). There is no invite/account-linking flow.
 
 ##### `database.py` — DBClient
 - Composed from 13 domain-specific mixins (see list below), all sharing a single DB connection pool via `DBClientBase`.
 - Mixins: `VKIdentityMixin`, `DialogStateMixin`, `UserMixin`, `RegionMixin`, `NotificationPrefMixin`, `GeoPrefMixin`, `AgePrefMixin`, `TopicTypeMixin`, `SearchFollowingMixin`, `ForumAttributeMixin`, `SystemRoleMixin`, `DialogHistoryMixin`, `SettingsSummaryMixin`.
-- `VKIdentityMixin` provides `resolve_user_id(vk_user_id)` — returns Telegram ID if linked, or negative VK ID for VK-only users.
+- `VKIdentityMixin` provides `get_identity_by_messenger_user_id(vk_user_id)` — resolves `internal_user_id` from `user_identity_map`.
 
 ##### `message_sending.py` — VKMessageSender
 - Wraps `VKApi` client with rate limiting and error handling.
@@ -261,15 +259,13 @@ Telegram Bot (communicate)                    VK Bot (vk_bot)
         │                                           │
         ├─ Settings → users table ←── VK bot reads/writes same DB tables
         │                                           │
-        ├─ VK linking: generates hash ──────────→ user copies to VK bot
-        │                                           │
         └─ Forum linking:                          │
            pubsub_parse_user_profile ────→ connect_to_forum (same for both)
 ```
 
 - **Shared database**: Both bots read/write the same `users`, `user_preferences`, `user_regional_preferences`, `user_coordinates`, `user_pref_radius`, `user_pref_search_whitelist`, etc. tables. Changes in one bot are immediately visible in the other.
 - **Forum linking**: VK bot triggers `pubsub_parse_user_profile()` — the same `connect_to_forum` function that Telegram uses.
-- **VK notifications**: The `send_notifications` function also sends notifications to VK users (via `vk_api_client.VKApi.send()`) for users who have linked their VK account.
+- **VK notifications**: The `send_notifications` function also sends notifications to VK users (via `vk_api_client.VKApi.send()`) for users with a VK identity in `user_identity_map`.
 
 ### 7. Max Bot
 
@@ -375,7 +371,6 @@ class MaxStates(StatesGroup):
 | **Onboarding**         | Role selection, Moscow prompt, etc.  | Simple welcome + main menu                           |
 | **Search viewing**     | Full search list + follow/unfollow   | Not implemented yet                                  |
 | **Notification prefs** | Toggle all notification types        | Not implemented yet                                  |
-| **Account linking**    | VK ↔ Telegram via invite hash        | Not implemented yet                                  |
 
 #### Integration with the rest of the system
 

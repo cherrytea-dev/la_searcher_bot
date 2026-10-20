@@ -4,11 +4,9 @@ These tests cover:
 - DBClient (user resolution, VK ID management)
 - dispatch_event (confirmation, message_new, message_event, other events)
 - handle_unknown fallback handler
-- _validate_invite_hash (from account_linking)
 - Inline pagination handlers (from region_select_handlers)
 """
 
-import hashlib
 import json
 import random as _random
 import time
@@ -17,15 +15,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fakes import FakeVKMessageSender
-from sqlalchemy import text as sa_text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm.session import Session
 
-from _dependencies.bot.telegram_api_wrapper import make_invite_text_for_user
 from _dependencies.common.commons import AppConfig
 from _dependencies.models import DialogState
 from tests.factories import db_factories
-from vk_bot._utils.account_linking import _validate_invite_hash
 from vk_bot._utils.common import VKHandlerContext, VKMessage
 from vk_bot._utils.database import DBClient, db
 from vk_bot._utils.event_dispatcher import (
@@ -50,34 +45,6 @@ class TestDBClient:
     @pytest.fixture
     def db_client(self, connection_pool: Engine) -> DBClient:
         return DBClient(connection_pool)
-
-    def test_set_user_vk_id(self, db_client: DBClient, session: Session, user_id: int):
-        """set_user_vk_id updates the vk_id column and returns True."""
-        result = db_client.set_user_vk_id(user_id, vk_id=99999)
-        assert result is True
-        session.commit()
-
-        with db_client.connect() as conn:
-            vk_id = conn.execute(
-                sa_text('SELECT vk_id FROM users WHERE user_id = :uid'),
-                dict(
-                    uid=user_id,
-                ),
-            ).scalar()
-        assert vk_id == '99999'
-
-    def test_set_user_vk_id_not_found(self, db_client: DBClient):
-        """set_user_vk_id returns False when user doesn't exist."""
-        result = db_client.set_user_vk_id(telegram_user_id=-999999, vk_id=99999)
-        assert result is False
-
-    def test_is_user_registered_in_vk_true(self, db_client: DBClient, session: Session):
-        test_vk_id = _random.randint(100000, 999999)
-        db_factories.UserFactory.create_sync(vk_id=str(test_vk_id))
-        assert db_client.is_user_registered_in_vk(test_vk_id) is True
-
-    def test_is_user_registered_in_vk_false(self, db_client: DBClient):
-        assert db_client.is_user_registered_in_vk(-999) is False
 
     def test_db_singleton(self):
         """db() returns the same instance."""
@@ -235,131 +202,6 @@ class TestDispatcherMessageNew:
         # Cleanup
         db().clear_user_state(user.user_id)
 
-    def test_message_new_with_valid_invite(self, session: Session, mock_vk_sender: MagicMock | AsyncMock):
-        """Unlinked user with valid invite text gets linked and sees main menu.
-
-        Creates a real Telegram user in DB, generates a valid invite hash,
-        and verifies that set_user_vk_id is called and main menu is sent.
-        """
-
-        # Create a real Telegram user in DB
-        user = db_factories.UserFactory.create_sync()
-        telegram_user_id = user.user_id
-
-        # Generate valid invite text
-        invite_text = make_invite_text_for_user(telegram_user_id)
-
-        vk_user_id = _random.randint(1000000, 9999999)
-        event = {
-            'type': 'message_new',
-            'object': {
-                'message': {
-                    'from_id': vk_user_id,
-                    'peer_id': vk_user_id,
-                    'text': invite_text,
-                    'id': 1,
-                }
-            },
-        }
-
-        result = dispatch_event(event)
-        assert result == 'ok'
-        # Wait for background thread to execute
-
-        time.sleep(0.3)
-
-        # Should have called send_message with success text and main menu keyboard
-        mock_vk_sender.return_value.send_message.assert_called_once()
-        call_kwargs = mock_vk_sender.return_value.send_message.call_args[1]
-        assert 'keyboard' in call_kwargs  # Should have a keyboard (main menu)
-        assert call_kwargs['text'] == 'Теперь вы можете изменять настройки бота здесь'
-
-        # Verify the VK ID was linked in the database via identity_map
-        identity = db().get_identity_by_messenger_user_id(vk_user_id)
-        assert identity is not None
-        # internal_user_id may differ from user_id (telegram ID) — just check it's positive
-        assert identity.internal_user_id > 0
-        assert identity.messenger == 'vk'
-        assert identity.messenger_user_id == str(vk_user_id)
-
-        # Cleanup: remove the vk_id link
-        with db().connect() as conn:
-            conn.execute(sa_text('UPDATE users SET vk_id = NULL WHERE user_id = :uid'), dict(uid=telegram_user_id))
-            conn.execute(
-                sa_text("DELETE FROM user_identity_map WHERE messenger = 'vk' AND messenger_user_id = :vid"),
-                dict(
-                    vid=str(vk_user_id),
-                ),
-            )
-
-    def test_message_new_with_stale_invite(self, mock_vk_sender: MagicMock | AsyncMock):
-        """Valid invite hash but Telegram user doesn't exist in DB gets error message.
-
-        This covers the case where a user deleted the bot or was removed from DB
-        after the invite was generated.
-        """
-
-        # Use a non-existent telegram_user_id — no UserFactory created
-        telegram_user_id = _random.randint(10000000, 99999999)
-        invite_text = make_invite_text_for_user(telegram_user_id)
-
-        vk_user_id = _random.randint(1000000, 9999999)
-        event = {
-            'type': 'message_new',
-            'object': {
-                'message': {
-                    'from_id': vk_user_id,
-                    'peer_id': vk_user_id,
-                    'text': invite_text,
-                    'id': 1,
-                }
-            },
-        }
-
-        result = dispatch_event(event)
-        assert result == 'ok'
-        time.sleep(0.3)
-
-        # Should have called send_message with error about deleted bot
-        mock_vk_sender.return_value.send_message.assert_called_once()
-        call_args = mock_vk_sender.return_value.send_message.call_args
-        text = call_args[1].get('text', '') if 'text' in call_args[1] else call_args[0][1]
-        assert 'удалили бота' in text or 'код приглашения' in text
-
-        # Verify no VK ID was linked
-        assert db().get_identity_by_messenger_user_id(vk_user_id) is None
-
-    def test_message_new_with_invalid_invite(self, mock_vk_sender: MagicMock | AsyncMock):
-        """Unlinked user with invalid invite hash gets error message."""
-
-        vk_user_id = _random.randint(1000000, 9999999)
-        # Invalid invite text
-        invite_text = 'telegram_id: 12345 invite_hash: invalidhash123'
-
-        event = {
-            'type': 'message_new',
-            'object': {
-                'message': {
-                    'from_id': vk_user_id,
-                    'peer_id': vk_user_id,
-                    'text': invite_text,
-                    'id': 1,
-                }
-            },
-        }
-
-        result = dispatch_event(event)
-        assert result == 'ok'
-        # Wait for background thread to execute
-
-        time.sleep(0.3)
-
-        # Should have called send_message with error about invalid code
-        mock_vk_sender.return_value.send_message.assert_called_once()
-        call_args = mock_vk_sender.return_value.send_message.call_args
-        text = call_args[1].get('text', '') if 'text' in call_args[1] else call_args[0][1]
-        assert 'Неверный код' in text
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # dispatch_event — message_event
@@ -458,49 +300,6 @@ class TestHandleUnknown:
 # ═══════════════════════════════════════════════════════════════════════════════
 # HANDLER_CHAIN
 # ═══════════════════════════════════════════════════════════════════════════════
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# _validate_invite_hash
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-class TestValidateInviteHash:
-    """_validate_invite_hash — invite hash validation."""
-
-    def test_valid_hash(self, mock_app_config: AppConfig):
-        """Valid hash returns True."""
-
-        telegram_user_id = 12345
-        expected_hash = hashlib.sha256(f'{telegram_user_id}test_secret'.encode()).hexdigest()
-
-        result = _validate_invite_hash(telegram_user_id, expected_hash)
-        assert result is True
-
-    def test_invalid_hash(self, mock_app_config: AppConfig):
-        """Invalid hash returns False."""
-
-        result = _validate_invite_hash(12345, 'invalid_hash_value')
-        assert result is False
-
-    def test_different_user_id(self, mock_app_config: AppConfig):
-        """Hash for different user_id returns False."""
-
-        hash_for_user_1 = hashlib.sha256(f'{11111}test_secret'.encode()).hexdigest()
-
-        # Hash was generated for user 11111, but we're validating for user 22222
-        result = _validate_invite_hash(22222, hash_for_user_1)
-        assert result is False
-
-    def test_different_secret(self, mock_app_config: AppConfig):
-        """Hash with different secret returns False."""
-
-        telegram_user_id = 12345
-        # Hash generated with a different secret
-        wrong_hash = hashlib.sha256(f'{telegram_user_id}wrong_secret'.encode()).hexdigest()
-
-        result = _validate_invite_hash(telegram_user_id, wrong_hash)
-        assert result is False
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

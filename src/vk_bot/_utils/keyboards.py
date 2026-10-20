@@ -113,9 +113,8 @@ class VKKeyboardButtons(ButtonTexts):
     BTN_CONFIRM_DELETE: str = 'да, удалить'
     BTN_CONFIRM_KEEP: str = 'нет, оставить'
 
-    # Forum / VK linking
+    # Forum linking
     BTN_FORUM_ENTER_NICK: str = 'ввести ник с форума'
-    BTN_VK_LINK: str = 'связать аккаунты'
 
     # Orders (relative role)
     BTN_ORDERED: str = 'уже заказал(а)'
@@ -583,16 +582,6 @@ class VKKeyboardPresets(VKKeyboardLayouts, VKKeyboardButtons):
         return cls.one_column(
             [
                 cls.BTN_FORUM_ENTER_NICK,
-                NavButton.BACK_TO_START,
-            ]
-        )
-
-    @classmethod
-    def vk_linking(cls) -> dict:
-        """VK linking menu (for Telegram users linking VK)."""
-        return cls.one_column(
-            [
-                cls.BTN_VK_LINK,
                 NavButton.BACK_TO_START,
             ]
         )

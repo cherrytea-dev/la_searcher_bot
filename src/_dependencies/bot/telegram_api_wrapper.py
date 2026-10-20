@@ -1,4 +1,3 @@
-import hashlib
 import json
 import logging
 
@@ -9,7 +8,6 @@ from telegram import TelegramObject
 from yarl import URL
 
 from _dependencies.bot.users_management import ManageUserAction, update_user_status
-from _dependencies.common.commons import get_app_config
 from _dependencies.common.telegram_message import TelegramMessage
 
 #: Socket timeout for Telegram API calls (seconds). Without it a dead network makes
@@ -214,10 +212,3 @@ class TGApiBase:
 def _build_telegram_params(user_id: int, message: TelegramMessage) -> dict:
     """Build a Telegram API params dict from a user_id and TelegramMessage."""
     return {'chat_id': user_id, **message.to_telegram_params()}
-
-
-def make_invite_text_for_user(user_id: int | str) -> str:
-    invite_secret = f'{user_id}{get_app_config().bot_api_token__prod}'
-    secret_hash = hashlib.sha256(invite_secret.encode()).hexdigest()
-    user_invite_text = f'telegram_id: {user_id} invite_hash: {secret_hash}'
-    return user_invite_text

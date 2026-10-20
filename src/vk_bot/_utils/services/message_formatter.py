@@ -601,24 +601,6 @@ def forum_already_linked(forum_username: str, forum_user_id: int) -> str:
     )
 
 
-def vk_link_intro() -> str:
-    """Message asking user to link VK account."""
-    return (
-        'После того, как вы отправите скопированный текст в чате VK,'
-        ' бот начнет присылать вам уведомления по текущим настройкам.'
-    )
-
-
-def vk_already_linked() -> str:
-    """Message when VK is already linked."""
-    return 'Ваши аккаунты в Telegram и в VK уже связаны'
-
-
-def vk_link_instructions(invite_text: str) -> str:
-    """Instructions for linking VK account."""
-    return f'Откройте чат в VK по кнопке ниже \n и вставьте туда следующий текст: `{invite_text}`'
-
-
 def search_follow_mode_on() -> str:
     """Message when search follow mode is enabled."""
     return 'Возможность отслеживания поисков включена. Возвращаемся в главное меню.'
