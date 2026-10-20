@@ -38,7 +38,7 @@ ci-test:
 	docker compose run --rm bot make test-serial
 
 dependencies:
-	echo "Copy common code to deploy Google Cloud Functions"
+	echo "Copy common code into each cloud function package"
 	echo "Don't run locally"
 
 	# `app` is the single-container runtime (see doc/single-container.md), not a cloud function:
