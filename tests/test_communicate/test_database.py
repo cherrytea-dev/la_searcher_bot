@@ -149,8 +149,42 @@ def test_get_user_regions_from_db(session, db_client: DBClient, user_id: int):
     assert user_regions == region_ids
 
 
+def test_get_search_folders_of_division(session, db_client: DBClient):
+    """Unsubscribe needs every 'searches' folder of the division, not just the map ones."""
+    division_id = 2_000_000_000 + fake.pyint(min_value=1, max_value=1000)
+    other_division_id = division_id + 1_000_000
+    folders = [
+        db_factories.GeoFolderFactory.create_sync(
+            division_id=division_id, folder_type='searches', folder_subtype='searches active'
+        ),
+        db_factories.GeoFolderFactory.create_sync(
+            division_id=division_id, folder_type='searches', folder_subtype='searches finished'
+        ),
+        db_factories.GeoFolderFactory.create_sync(division_id=division_id, folder_type='events'),
+        db_factories.GeoFolderFactory.create_sync(
+            division_id=other_division_id, folder_type='searches', folder_subtype='searches active'
+        ),
+    ]
+    try:
+        found = db_client.get_search_folders_of_division(folders[0].folder_id)
+    finally:
+        session.execute(
+            sqlalchemy.text('DELETE FROM geo_folders WHERE folder_id = ANY(:ids)'),
+            {'ids': [folder.folder_id for folder in folders]},
+        )
+        session.commit()
+
+    assert sorted(found) == sorted([folders[0].folder_id, folders[1].folder_id])
+
+
+def test_get_search_folders_of_division_unknown_folder(db_client: DBClient):
+    """A folder id absent from geo_folders yields no division and no rows."""
+    assert db_client.get_search_folders_of_division(2_999_999_999) == []
+
+
 @pytest.mark.skip(reason='not trivial with database view')
 def test_get_geo_folders_db(session, db_client: DBClient):
+
     # Add geo folders to the database
     geo_folders = [
         (1, 'Searches Folder 1'),

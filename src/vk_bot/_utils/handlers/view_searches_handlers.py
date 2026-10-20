@@ -42,13 +42,22 @@ STATUS_EMOJI = {
 }
 
 
-def _fetch_active_searches(ctx: VKHandlerContext) -> list[dict]:
-    """Fetch active searches for user's subscribed regions."""
+def _search_folder_ids(ctx: VKHandlerContext) -> list[int]:
+    """User's subscribed folders without events-only ones.
+
+    Events folders stay in subscriptions (event notifications need them),
+    but their topics are events, not searches, so they are not listed as searches.
+    """
     regions = ctx.db.get_user_regions(ctx.user_id)
     if not regions:
         return []
+    events_folders = set(ctx.db.get_events_folders())
+    return [folder for folder in regions if folder not in events_folders]
 
-    folder_ids = list(regions)
+
+def _fetch_active_searches(ctx: VKHandlerContext) -> list[dict]:
+    """Fetch active searches for user's subscribed regions."""
+    folder_ids = _search_folder_ids(ctx)
     if not folder_ids:
         return []
 
@@ -88,11 +97,7 @@ def _fetch_active_searches(ctx: VKHandlerContext) -> list[dict]:
 
 def _fetch_latest_searches(ctx: VKHandlerContext) -> list[dict]:
     """Fetch latest 20 searches across all user's regions."""
-    regions = ctx.db.get_user_regions(ctx.user_id)
-    if not regions:
-        return []
-
-    folder_ids = list(regions)
+    folder_ids = _search_folder_ids(ctx)
     if not folder_ids:
         return []
 

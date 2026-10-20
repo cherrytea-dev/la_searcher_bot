@@ -163,8 +163,22 @@ def _handle_view_searches_experimental_view(ctx: TGHandlerContext, search_list_t
     folders_with_user_followed_searches = ctx.db.get_folders_with_followed_searches(user_id)
 
     folders_list = ctx.db.get_geo_folders_db()
+    # Events-only folders stay subscribed (needed for event notifications),
+    # but their topics are events, not searches — never list them here.
+    events_folders = set(ctx.db.get_events_folders())
     for region in set(user_regions + folders_with_user_followed_searches):
+        if region in events_folders:
+            logging.info(f'Skipping events-only folder {region} in searches list')
+            continue
+
         region_name = _get_region_name(folders_list, region)
+
+        if not region_name:
+            # Subscribed folder that is not a search folder any more (dropped from the region
+            # map: 'searches finished' / archive / common_info). Without a name the block would
+            # render as «Посл. 20 поисков в » — skip it instead of showing an empty title.
+            logging.info(f'Skipping folder {region} in searches list: not a search folder')
+            continue
 
         logging.info(f'Before if region_name.find...: ; {region_keyboards=}')
         folder_is_archived = 'аверш' in region_name

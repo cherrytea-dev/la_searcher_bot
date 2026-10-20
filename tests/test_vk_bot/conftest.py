@@ -100,6 +100,7 @@ def mock_settings_service(monkeypatch):
     mock_db = MagicMock()
     # Default return values
     mock_db.check_if_new_user.return_value = False
+    mock_db.get_events_folders.return_value = []
     mock_db.get_settings_summary.return_value = MagicMock(
         pref_notif_type=False,
         pref_region_old=False,

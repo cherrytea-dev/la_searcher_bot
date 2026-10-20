@@ -10,6 +10,18 @@ from _dependencies.common.db_client import DBClientMixinBase
 class RegionMixin(DBClientMixinBase):
     """User region (forum folder) subscription operations."""
 
+    def get_events_folders(self) -> list[int]:
+        """Get folder IDs that contain only events (no searches).
+
+        Such folders stay in user subscriptions so that event notifications work,
+        but they must not be shown in the "last/active searches" lists: every topic
+        in them is an event, not a search.
+        """
+        with self.connect() as connection:
+            stmt = sqlalchemy.text("""SELECT folder_id FROM geo_folders WHERE folder_type = 'events';""")
+            result = connection.execute(stmt)
+            return [row[0] for row in result.fetchall()]
+
     def get_user_regions(self, user_id: int) -> list[int]:
         """Get list of forum folder IDs the user is subscribed to."""
         with self.connect() as connection:
@@ -66,8 +78,31 @@ class RegionMixin(DBClientMixinBase):
                 ),
             )
 
+    def get_search_folders_of_division(self, folder_id: int) -> list[int]:
+        """Search folders of the division that owns ``folder_id``.
+
+        A region in the menu is a group of ``searches`` folders of one division
+        (active / info support / all / finished). The region map only lists the current
+        ones, so a subscription may also hold ids the map has already dropped. When a
+        user unsubscribes from a region, every search folder of that division has to go —
+        otherwise a subscription to an invisible folder survives (and keeps producing
+        empty-titled blocks in the searches list).
+
+        Non-search folders (events, archive, common_info) are subscription targets of
+        their own and are left alone.
+        """
+        with self.connect() as connection:
+            stmt = sqlalchemy.text(
+                """SELECT folder_id FROM geo_folders
+                   WHERE folder_type = 'searches'
+                     AND division_id = (SELECT division_id FROM geo_folders WHERE folder_id = :folder_id);"""
+            )
+            result = connection.execute(stmt, dict(folder_id=folder_id))
+            return [row[0] for row in result.fetchall()]
+
     def get_geo_folders(self) -> list[tuple[int, str]]:
         """Get all geographic folders from the database."""
+
         with self.connect() as connection:
             stmt = sqlalchemy.text(
                 """SELECT folder_id, folder_display_name FROM geo_folders_view
