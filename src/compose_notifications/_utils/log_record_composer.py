@@ -2,7 +2,7 @@ import datetime
 import html
 import logging
 
-from _dependencies.common.commons import ChangeType, get_app_config
+from _dependencies.common.commons import ChangeType
 from _dependencies.common.misc import age_writer
 
 from .commons import SEARCH_TOPIC_TYPES, WINDOW_FOR_NOTIFICATIONS_DAYS, Comment, LineInChangeLog
@@ -105,17 +105,6 @@ class LogRecordComposer:
 
     def _set_ignorance_mark(self, r_line: LineInChangeLog) -> None:
         """mark line as ignored in some cases"""
-
-        # Temporary deployments against a stale database: never notify about searches started
-        # before the configured cutoff, whatever their folder. Placed before the Samara
-        # exception on purpose — the cutoff must cover it too (that is the whole point).
-        # A NULL start_time fails closed (everything below needs a datetime); the early return
-        # is safe because every rule below only ever sets ``ignore`` to True.
-        cutoff = get_app_config().notify_searches_since
-        if cutoff is not None:
-            if r_line.start_time is None or r_line.start_time < cutoff:
-                r_line.ignore = True
-                return
 
         if r_line.status != '\u0418\u0449\u0435\u043c' and r_line.change_type in {
             ChangeType.topic_new,

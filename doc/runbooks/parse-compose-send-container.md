@@ -42,7 +42,6 @@ uv run python scripts/apply_db_migrations.py --apply-data-policy                
 |---|---|---|
 | `APP_MODE` | `k8s` | enables the PostgreSQL queue, in-process scheduler, local title recognition, HTTP server |
 | `FORUM_LEGACY_DATA_SOURCE` | `true` | parse the forum over HTTP — no forum MySQL access |
-| `NOTIFY_SEARCHES_SINCE` | e.g. `2026-10-08` | never notify about searches started before this date (skip the backlog) |
 | `POSTGRES_HOST/PORT/USER/PASSWORD/DB` | the target DB | data + the `pubsub_messages` queue |
 | `BOT_API_TOKEN__PROD` | real token (or empty) | Telegram sending; empty = attempts fail, nothing is delivered |
 | `WEBHOOK_PATH_TELEGRAM` / `_VK` / `_MAX` | any non-empty string | a non-empty value **disables the poller** for that bot; nothing calls the path, so bots stay off |
