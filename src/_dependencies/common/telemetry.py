@@ -58,9 +58,7 @@ def configure_telemetry(endpoint: str, *, service_name: str) -> LoggerProvider:
     return provider
 
 
-def attach_otlp_handler(
-    root_logger: logging.Logger, level: int, stream_default: str | None = None
-) -> bool:
+def attach_otlp_handler(root_logger: logging.Logger, level: int, stream_default: str | None = None) -> bool:
     """Включить отправку логов в сервис Логи Selectel, если задан эндпоинт коллектора.
 
     Читает из окружения ``OTEL_EXPORTER_OTLP_ENDPOINT`` и ``OTEL_SERVICE_NAME``

@@ -102,9 +102,7 @@ def setup_logging_cloud(package_name: str | None = None) -> None:
         root_logger.error(f'Unknown LOG_LEVEL={raw_level!r}, falling back to {DEFAULT_LOG_LEVEL}')
 
 
-def _enable_otlp_logging(
-    root_logger: logging.Logger, level: int, package_name: str | None = None
-) -> None:
+def _enable_otlp_logging(root_logger: logging.Logger, level: int, package_name: str | None = None) -> None:
     """Включить отправку логов в сервис Логи Selectel, если задан эндпоинт коллектора.
 
     Импорт telemetry ленивый: opentelemetry нужен только когда эндпоинт задан,
