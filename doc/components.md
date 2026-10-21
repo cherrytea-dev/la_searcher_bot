@@ -213,15 +213,24 @@ as polling mode.
 src/max_bot/main.py          webhook entry point (async, request_response_converter)
         |
         v
-src/max_bot/_utils/handlers.py   Router + handlers
+src/max_bot/_utils/common.py         Router, PayloadCmd/DBStateFilter, shared helpers
+        |
+        v
+src/max_bot/_utils/handlers/         domain handler modules (import order = behavior)
         |
         v
 src/_dependencies/user_repository/   shared DB mixins
 ```
 
-**Handlers** ([`handlers.py`](../src/max_bot/_utils/handlers.py)): registration and main menu,
-district/region selection with pagination, radius, coordinates (text or native geo button),
-enable/disable notifications, reset settings. Dialog state is persisted in PostgreSQL via
+**Handlers** ([`_utils/handlers/`](../src/max_bot/_utils/handlers/)): the package is split by
+domain — `onboarding_handlers`, `settings_handlers`, `region_select_handlers`,
+`radius_settings_handlers`, `coords_settings_handlers`, `other_handlers`. Shared `router`, the
+`PayloadCmd` / `DBStateFilter` filters and helpers live in the sibling
+[`_utils/common.py`](../src/max_bot/_utils/common.py). The handlers cover registration and main
+menu, district/region selection with pagination, radius, coordinates (text or native geo
+button), enable/disable notifications and reset settings. `maxapi` runs the first matching
+handler, so `handlers/__init__.py` imports the modules in a fixed order and the catch-all
+`on_unknown_text` is registered last. Dialog state is persisted in PostgreSQL via
 `DialogState` (`DialogStateMixin`), not in `maxapi`'s in-memory FSM.
 
 **Key details**:

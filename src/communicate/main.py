@@ -30,11 +30,16 @@ from ._utils.database import db
 from ._utils.decorators import tg_registry
 from ._utils.handler_context import TGHandlerContext
 from ._utils.handlers import (  # noqa: F401 — import to trigger @tg_handle registration
-    button_handlers,
     callback_handlers,
+    debug_handlers,
+    forum_link_handlers,
+    geo_settings_handlers,
     notification_settings_handlers,
+    onboarding_handlers,
     other_handlers,
+    other_menu_handlers,
     region_select_handlers,
+    settings_handlers,
     state_handlers,
     view_searches_handlers,
 )
