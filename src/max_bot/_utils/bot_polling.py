@@ -1,7 +1,7 @@
 """Long-polling runner for the MAX bot.
 
 Creates a ``maxapi.Bot`` instance (reads ``MAX_BOT_TOKEN`` from env),
-configures a ``Dispatcher`` with the shared router from ``handlers.py``,
+configures a ``Dispatcher`` with the shared router from the ``handlers`` package,
 and starts polling for updates.
 
 Usage:
