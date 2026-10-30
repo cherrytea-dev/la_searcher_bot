@@ -4,7 +4,7 @@ import urllib.parse
 from dataclasses import dataclass
 from functools import lru_cache
 from time import sleep
-from typing import Any, Dict
+from typing import Any
 
 import requests
 from bs4 import BeautifulSoup, NavigableString, Tag
@@ -43,12 +43,6 @@ def get_session() -> requests.Session:
     session = requests.Session()
     session.proxies.update(get_forum_proxies())
     load_cookies(session)
-    return session
-
-
-@lru_cache
-def get_requests_session() -> requests.Session:
-    session = requests.Session()
     return session
 
 
@@ -256,7 +250,7 @@ def match_user_region_from_forum_to_bot(forum_region: str) -> str | None:
 #    return None
 
 
-def main(event: Dict[str, bytes], context: Ctx) -> None:
+def main(event: dict[str, bytes], context: Ctx) -> None:
     """main function triggered from communicate script via pyb/sub"""
 
     db = DBClient()

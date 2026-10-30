@@ -33,12 +33,12 @@ class TestSplitText:
         input_text = """
         <p>This is <span style="text-decoration:line-through">deleted text</span> and this is regular text.</p>
         """
-        deleted, regular = split_text_to_deleted_and_regular_parts(input_text)
+        deleted, _regular = split_text_to_deleted_and_regular_parts(input_text)
         assert deleted == 'deleted text'
 
     def test_split_text_with_only_regular_text(self):
         input_text = '<p>This is only regular text.</p>'
-        deleted, regular = split_text_to_deleted_and_regular_parts(input_text)
+        deleted, _regular = split_text_to_deleted_and_regular_parts(input_text)
         assert deleted == ''
 
     def test_split_text_with_multiple_deleted_parts(self):
@@ -46,7 +46,7 @@ class TestSplitText:
         <p>This is <span style="text-decoration:line-through">deleted text 1</span> and 
         <span style="text-decoration:line-through">deleted text 2</span> with some regular text.</p>
         """
-        deleted, regular = split_text_to_deleted_and_regular_parts(input_text)
+        deleted, _regular = split_text_to_deleted_and_regular_parts(input_text)
         assert 'deleted text 1' in deleted
         assert 'deleted text 2' in deleted
 

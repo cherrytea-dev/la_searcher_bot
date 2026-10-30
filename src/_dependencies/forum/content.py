@@ -300,8 +300,8 @@ def _delete_sorted_out_one_tag(content: BeautifulSoup, tag: Tag) -> BeautifulSou
         elif not isinstance(tag, NavigableString) and re.search(pattern, tag.text):
             tag.decompose()
 
-    if not isinstance(tag, NavigableString):
-        if (
+    if not isinstance(tag, NavigableString) and (
+        (
             tag.name == 'span'
             and tag.attrs
             in [
@@ -309,9 +309,10 @@ def _delete_sorted_out_one_tag(content: BeautifulSoup, tag: Tag) -> BeautifulSou
                 {'style': 'font-size: 140%;line-height:116%'},
                 {'style': 'font-size: 140%;line-height: 116%'},
             ]
-            or tag.name == 'img'
-        ):
-            tag.decompose()
+        )
+        or tag.name == 'img'
+    ):
+        tag.decompose()
 
     return content
 

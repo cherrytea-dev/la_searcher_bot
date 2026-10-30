@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 from _dependencies.bot.handler_registry import Handler, HandlerConditions, HandlerRegistry
 

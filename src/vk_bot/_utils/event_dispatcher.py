@@ -15,7 +15,7 @@ Event types:
 import logging
 import time
 from collections import OrderedDict
-from typing import Callable
+from collections.abc import Callable
 
 from _dependencies.common.commons import get_app_config
 

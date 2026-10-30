@@ -9,8 +9,9 @@ building, row mapping, and the retry/dead-letter decisions.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Iterator
+from typing import Any
 
 from pydantic import BaseModel
 

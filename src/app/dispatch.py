@@ -14,7 +14,8 @@ from __future__ import annotations
 import importlib
 import json
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from _dependencies.common.pubsub import Topics
 

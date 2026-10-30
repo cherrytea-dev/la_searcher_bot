@@ -6,7 +6,7 @@ recognition calls were repeats of titles the recognizer cannot parse at all
 (`[ИНФО] Рязанскому отряду требуются!` — 170 calls, every ~2 minutes).
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -20,7 +20,7 @@ from _dependencies.forum.recognition_cache import (
     store,
 )
 
-NOW = datetime(2026, 9, 20, 20, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 9, 20, 20, 0, tzinfo=UTC)
 TITLE = 'Пропала Петрова Мария, Екатеринбург'
 UNRECOGNIZABLE_TITLE = '[ИНФО] Рязанскому отряду требуются!'
 FULL = 'full'

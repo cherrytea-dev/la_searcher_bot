@@ -1080,9 +1080,6 @@ dependencies = [
 app = [
     { name = "cronsim" },
 ]
-archive-notifications = [
-    { name = "pytz" },
-]
 check-first-posts-for-changes = [
     { name = "feedparser" },
     { name = "pymysql" },
@@ -1092,7 +1089,6 @@ compose-notifications = [
     { name = "chardet" },
     { name = "idna" },
     { name = "python-dateutil" },
-    { name = "pytz" },
 ]
 identify-updates-of-topics = [
     { name = "certifi" },
@@ -1154,7 +1150,6 @@ dev = [
     { name = "types-pygments" },
     { name = "types-pyopenssl" },
     { name = "types-python-dateutil" },
-    { name = "types-pytz" },
     { name = "types-pyyaml" },
     { name = "types-requests" },
     { name = "uv" },
@@ -1192,8 +1187,6 @@ requires-dist = [
     { name = "python-dateutil", marker = "extra == 'title-recognize'", specifier = ">=2.9.0" },
     { name = "python-json-logger", specifier = ">=3.3.0" },
     { name = "python-telegram-bot", extras = ["rate-limiter", "job-queue"], specifier = ">=22.8,<23" },
-    { name = "pytz", marker = "extra == 'archive-notifications'" },
-    { name = "pytz", marker = "extra == 'compose-notifications'", specifier = ">=2024.2" },
     { name = "requests", specifier = ">=2.33.0" },
     { name = "retry2", specifier = ">=0.9.5" },
     { name = "sqlalchemy", specifier = ">=2.0.0" },
@@ -1237,7 +1230,6 @@ dev = [
     { name = "types-pygments" },
     { name = "types-pyopenssl" },
     { name = "types-python-dateutil" },
-    { name = "types-pytz" },
     { name = "types-pyyaml" },
     { name = "types-requests", specifier = ">=2.31.0.6" },
     { name = "uv", specifier = ">=0.5.15" },
@@ -2285,15 +2277,6 @@ rate-limiter = [
 ]
 
 [[package]]
-name = "pytz"
-version = "2026.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ff/46/dd499ec9038423421951e4fad73051febaa13d2df82b4064f87af8b8c0c3/pytz-2026.2.tar.gz", hash = "sha256:0e60b47b29f21574376f218fe21abc009894a2321ea16c6754f3cad6eb7cdd6a", size = 320861, upload-time = "2026-05-04T01:35:29.667Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ec/dd/96da98f892250475bdf2328112d7468abdd4acc7b902b6af23f4ed958ea0/pytz-2026.2-py2.py3-none-any.whl", hash = "sha256:04156e608bee23d3792fd45c94ae47fae1036688e75032eea2e3bf0323d1f126", size = 510141, upload-time = "2026-05-04T01:35:27.408Z" },
-]
-
-[[package]]
 name = "pyyaml"
 version = "6.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -2662,15 +2645,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/c8/4e/b3fa538f9cb38dfece0d6ccf6d3d0d925bdedb144fb9c8129dfc007cd003/types_python_dateutil-2.9.0.20260807.tar.gz", hash = "sha256:e0b8a90d464c8684c66b7b8e4556d9074afdddcc56ca45323f0987134f9e7034", size = 17618, upload-time = "2026-08-07T04:17:13.491Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e4/5e/3715867caea2f4cea56ccb04c851cde23ed063449c3b004c7a047f20dd48/types_python_dateutil-2.9.0.20260807-py3-none-any.whl", hash = "sha256:54aa3707350ed7a9cc0776fd2f6739679d6967d11b40150985e81edcb86df4db", size = 18486, upload-time = "2026-08-07T04:17:12.504Z" },
-]
-
-[[package]]
-name = "types-pytz"
-version = "2026.3.1.20260727"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/b1/cf/eae96172a036b942e0ad0ec49512108b4ef4b97cd6c2aed5677540a597e7/types_pytz-2026.3.1.20260727.tar.gz", hash = "sha256:4364075b6867dd15b210bb8c1d29727d609917129b45600defe1d4b3eda5ecb9", size = 10914, upload-time = "2026-07-27T05:36:32.389Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9c/24/a654176875944981c75516857cd8750600eeb9ff7fc07a2b82573619a57c/types_pytz-2026.3.1.20260727-py3-none-any.whl", hash = "sha256:42ac44e83645bfceb46597342c8fb8ec028a1407e2feae9c5c539986eab6b57a", size = 10132, upload-time = "2026-07-27T05:36:31.52Z" },
 ]
 
 [[package]]

@@ -1,6 +1,7 @@
 """DB client for send_notifications — extracts all SQL into DBClient methods."""
 
 import datetime
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -109,7 +110,7 @@ class DBClient(DBClientBase):
             user_ids_map = {internal_user_id: messenger_user_id for internal_user_id, messenger_user_id in rows}
 
         for message in max_messages:
-            message.max_id = user_ids_map.get(message.user_id, None)
+            message.max_id = user_ids_map.get(message.user_id)
 
     def fill_vk_user_ids(self, messages: list[Any]) -> None:
         """Append vk_id to messages for VK-destined messages."""
@@ -131,7 +132,7 @@ class DBClient(DBClientBase):
             user_ids_map = {internal_user_id: messenger_user_id for internal_user_id, messenger_user_id in rows}
 
         for message in vk_messages:
-            message.vk_id = user_ids_map.get(message.user_id, None)
+            message.vk_id = user_ids_map.get(message.user_id)
 
     def check_for_number_of_notifs_to_send(self) -> int:
         """Return a number of notifications to be sent."""
@@ -205,5 +206,5 @@ class DBClient(DBClientBase):
                     /*action='notif_stat_sending_speed' */
                 """)
                 conn.execute(stmt, dict(now=datetime.datetime.now(), num_msgs=num_msgs, speed=speed, ttl_time=ttl_time))
-            except:  # noqa
-                pass
+            except Exception:  # statistics must never break sending
+                logging.warning('failed to write notif_stat_sending_speed row', exc_info=True)

@@ -9,7 +9,7 @@ fixture, the same test database the DB-bound part of the suite uses.
 from __future__ import annotations
 
 import threading
-from typing import Iterator
+from collections.abc import Iterator
 
 import pytest
 from sqlalchemy import text

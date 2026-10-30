@@ -119,7 +119,7 @@ def mark_up_onboarding_status_80_have_all_settings(db: DBClient) -> None:
         logging.info('There are no users to assign onboarding pref_id=80.')
 
 
-def main(event, context):  # noqa
+def main(event, context):
     """main function"""
 
     db = DBClient()  # noqa: F841

@@ -11,7 +11,7 @@ def recognize_a_pattern(block_type: BlockType, input_string: str) -> tuple[list[
 
     match = None
 
-    for pattern, status, activity in BlockTypePatternCollection.get_patterns(block_type):
+    for pattern, status, activity in BlockTypePatternCollection.get_patterns(block_type):  # noqa: B007 — used after the loop
         match = re.search(pattern, input_string)
         if match:
             break
@@ -75,7 +75,7 @@ class Tokenizer:
                 if block.done:
                     continue
 
-                recognized_blocks, recognized_activity = recognize_a_pattern(pattern_type, block.init)
+                recognized_blocks, _recognized_activity = recognize_a_pattern(pattern_type, block.init)
                 self._replace_block_with_splitted_blocks(block, recognized_blocks)
 
     def _replace_block_with_splitted_blocks(

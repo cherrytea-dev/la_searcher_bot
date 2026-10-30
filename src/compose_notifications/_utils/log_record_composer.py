@@ -43,7 +43,7 @@ class LogRecordComposer:
         # TODO - there was a filtering for duplication: Inforg comments vs All Comments, but after restructuring
         #  of the scrip tech solution stopped working. The new filtering solution to be developed
 
-        logging.info(f'New Record composed from Change Log: {str(new_record)}')
+        logging.info(f'New Record composed from Change Log: {new_record!s}')
 
         return new_record
 
@@ -90,7 +90,7 @@ class LogRecordComposer:
             r_line.topic_type_id = s_line[15]
             r_line.region = s_line[16]
 
-            logging.debug(f'TEMP - FORUM_FOLDER = {r_line.forum_folder}, while s_line = {str(s_line)}')
+            logging.debug(f'TEMP - FORUM_FOLDER = {r_line.forum_folder}, while s_line = {s_line!s}')
             logging.debug(f'TEMP - CITY LOCS = {r_line.city_locations}')
             logging.debug(f'TEMP - STATUS_OLD = {r_line.status}, STATUS_NEW = {r_line.new_status}')
             logging.debug(f'TEMP - TOPIC_TYPE = {r_line.topic_type_id}')
@@ -247,19 +247,15 @@ def define_family_name(title_string: str, predefined_fam_name: str | None) -> st
         string_by_word = title_string.split()
         # exception case: when Family Name is third word
         # it happens when first two either \u041d\u0430\u0439\u0434\u0435\u043d \u0416\u0438\u0432 or \u041d\u0430\u0439\u0434\u0435\u043d \u041f\u043e\u0433\u0438\u0431 with different word forms
-        if string_by_word[0].lower().startswith('\u043d\u0430\u0439\u0434'):
-            return string_by_word[2]
-
-        # case when "\u041f\u043e\u0438\u0441\u043a \u043f\u0440\u0438\u043e\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d"
-        elif string_by_word[1].lower().startswith('\u043f\u0440\u0438\u043e\u0441\u0442\u0430\u043d'):
-            return string_by_word[2]
-
-        # case when "\u041f\u043e\u0438\u0441\u043a \u043e\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d"
-        elif string_by_word[1].lower().startswith('\u043e\u0441\u0442\u0430\u043d\u043e\u0432\u043b'):
+        if (
+            string_by_word[0].lower().startswith('\u043d\u0430\u0439\u0434')
+            or string_by_word[1].lower().startswith('\u043f\u0440\u0438\u043e\u0441\u0442\u0430\u043d')
+            or string_by_word[1].lower().startswith('\u043e\u0441\u0442\u0430\u043d\u043e\u0432\u043b')
+        ):
             return string_by_word[2]
 
         # all the other cases
         else:
             return string_by_word[1]
-    except:
+    except Exception:  # malformed title — fall back to the raw string
         return title_string

@@ -361,7 +361,7 @@ def _get_coord_change_phrase(
     return coord_change_phrase
 
 
-@lru_cache()
+@lru_cache
 def _get_managers_from_text(managers: str) -> str:
     if not managers:
         return ''

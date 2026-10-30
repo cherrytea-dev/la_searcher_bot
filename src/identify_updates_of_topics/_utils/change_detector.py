@@ -93,10 +93,8 @@ class ChangeDetector:
 
         if snapshot.folder_id != prev_search.folder_id:
             logging.info(
-                (
-                    f'Folder was changed for search {snapshot.topic_id}. '
-                    f'Old value: {prev_search.folder_id}, new value: {snapshot.folder_id}'
-                )
+                f'Folder was changed for search {snapshot.topic_id}. '
+                f'Old value: {prev_search.folder_id}, new value: {snapshot.folder_id}'
             )
 
         if change_log_updates_list:

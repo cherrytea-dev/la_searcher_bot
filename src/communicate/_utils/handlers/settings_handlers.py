@@ -63,7 +63,7 @@ def _get_user_age_prefs_params(ctx: TGHandlerContext, user_id: int) -> tuple[lis
 
     if raw_list_of_periods and str(raw_list_of_periods) != 'None':
         for line_raw in raw_list_of_periods:
-            got_min, got_max = int(list(line_raw)[0]), int(list(line_raw)[1])
+            got_min, got_max = int(next(iter(line_raw))), int(list(line_raw)[1])
             for line_a in age_list:
                 if int(line_a.min_age) == got_min and int(line_a.max_age) == got_max:
                     line_a.active = True

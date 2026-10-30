@@ -136,10 +136,7 @@ class DBClient(
         Accepts both UserInputState enum and plain string (for backward compatibility
         with tests that pass strings directly).
         """
-        if isinstance(message_type, UserInputState):
-            state_value = message_type.value
-        else:
-            state_value = str(message_type)
+        state_value = message_type.value if isinstance(message_type, UserInputState) else str(message_type)
         # Write directly to DB to preserve backward compatibility with raw string values
         with self.connect() as connection:
             delete_stmt = sqlalchemy.text("""DELETE FROM msg_from_bot WHERE user_id=:user_id;""")
@@ -189,7 +186,7 @@ class DBClient(
     def get_user_sys_roles(self, user_id: int) -> list[str]:
         """Return user's roles in system (with leading empty string for backward compatibility)."""
         roles = super().get_user_sys_roles(user_id)
-        return [''] + roles
+        return ['', *roles]
 
     # ═══════════════════════════════════════════════════════════════════════
     # Communicate-specific methods (not in shared mixins)

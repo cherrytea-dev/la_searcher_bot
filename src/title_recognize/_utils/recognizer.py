@@ -1,6 +1,5 @@
 import logging
 import re
-from typing import Dict, Union
 
 from _dependencies.forum.recognition_schema import (
     Location,
@@ -78,10 +77,7 @@ class TitleRecognizer:
         final_pseudonym = ''
         if group_with_name:
             # STEP 2. Define the pseudonym for the person / group
-            if group_with_name.num_of_per > 1:
-                final_pseudonym = group_with_name.display_name
-            else:
-                final_pseudonym = group_with_name.name
+            final_pseudonym = group_with_name.display_name if group_with_name.num_of_per > 1 else group_with_name.name
 
         persons_groups = self.recognition.person_groups
         num_of_per_groups = len(persons_groups)
@@ -349,7 +345,7 @@ class TitleRecognizer:
             self.recognition.person_groups.append(recognize_one_person_group(person_block))
 
 
-def recognize_title(line: str, reco_type: str | None) -> Union[Dict, None]:
+def recognize_title(line: str, reco_type: str | None) -> dict | None:
     """Recognize LA Thread Subject (Title) and return a dict of recognized parameters"""
 
     prettified_line = clean_and_prettify_initial_text(line)
@@ -407,11 +403,7 @@ def is_spam_message(prettified_line: str) -> bool:
         ['браузер', 'tor', 'vpn'],
         ['онлайн', 'top', 'сайт'],
     ]
-    for combination in keywords_combinations:
-        if all((x in prettified_line) for x in combination):
-            return True
-
-    return False
+    return any(all(x in prettified_line for x in combination) for combination in keywords_combinations)
 
 
 def _temp_patch_result(final_recognition: RecognitionResult, final_dict: dict) -> None:

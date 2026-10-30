@@ -167,6 +167,6 @@ def get_coords_from_list(input_list: list[str]) -> tuple[str | None, str | None]
         got_lon = COORD_FORMAT.format(float(coords_as_list[1]))
         return got_lat, got_lon
 
-    except Exception as e:  # noqa
+    except Exception as e:
         logging.exception(e)
         return None, None

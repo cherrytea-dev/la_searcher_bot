@@ -2,15 +2,12 @@ import copy
 import logging
 import re
 from datetime import datetime
-from functools import lru_cache
 from typing import no_type_check  # no_type_check for BeautifulSoup magic
 
 from bs4 import BeautifulSoup
-from requests import Session
 from retry import retry
 from yarl import URL
 
-from _dependencies.common.commons import get_forum_proxies
 from _dependencies.forum.content import content_is_unaccessible, is_forum_unavailable
 from _dependencies.forum.topic_management import save_visibility_for_topic
 
@@ -39,11 +36,7 @@ def is_content_visible(content: bytes, topic_id: int) -> bool:
     return True
 
 
-@lru_cache
-def get_requests_session() -> Session:
-    session = Session()
-    session.proxies.update(get_forum_proxies())
-    return session
+from _dependencies.forum.session import get_requests_session
 
 
 class ForumClient:
@@ -237,9 +230,10 @@ class ForumClient:
 
         # Define exclusions (comments of Inforg with "резерв" and "рассылка билайн"
         ignore = False
-        if there_are_inforg_comments:
-            if comment_text.lower().endswith('резерв') or comment_text.lower().endswith('рассылка билайн'):
-                ignore = True
+        if there_are_inforg_comments and (
+            comment_text.lower().endswith('резерв') or comment_text.lower().endswith('рассылка билайн')
+        ):
+            ignore = True
 
         return ForumCommentItem(
             search_num=search_num,
@@ -321,10 +315,7 @@ def _parse_coords_case_1(search_code_blocks: BeautifulSoup) -> tuple[float, floa
         if f[i:].find('коорд') > 0:
             d = i + f[i:].find('коорд')
             e.append(f[d : (d + 100)])
-            if d == 0 or d == -1:
-                i = len(f)
-            else:
-                i = d + 1
+            i = len(f) if d == 0 or d == -1 else d + 1
         else:
             i = len(f)
 
@@ -399,6 +390,4 @@ def _extract_coords_from_string(search_str: str) -> tuple[float, float]:
 
 def _check_if_coordinates(first: float, second: float) -> bool:
     # Majority of coords in RU: lat in [40-80], long in [20-180], expected min format = XX.XXX
-    if (3 < (first // 10) < 8 and len(str(first)) > 5) and (1 < (second // 10) < 19 and len(str(second)) > 5):
-        return True
-    return False
+    return bool((3 < first // 10 < 8 and len(str(first)) > 5) and (1 < second // 10 < 19 and len(str(second)) > 5))

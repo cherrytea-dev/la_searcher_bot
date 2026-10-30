@@ -1,6 +1,7 @@
 """VK notification client — wraps VK API calls for sending notifications."""
 
 import logging
+from typing import ClassVar
 
 from _dependencies.bot.users_management import ManageUserAction, update_user_status
 from _dependencies.bot.vk_api_client import VKApi, VkApiError
@@ -13,7 +14,7 @@ class VKNotificator:
     """Send notifications via VK API."""
 
     # VK API errors indicating the user can't receive messages (blocked/permission)
-    _BLOCK_ERROR_CODES = {VkApiError.CANNOT_SEND_TO_USER, VkApiError.CANNOT_SEND_FIRST_MESSAGE}
+    _BLOCK_ERROR_CODES: ClassVar[set[int]] = {VkApiError.CANNOT_SEND_TO_USER, VkApiError.CANNOT_SEND_FIRST_MESSAGE}
 
     def __init__(self, vk_api: VKApi) -> None:
         self._vk_api = vk_api

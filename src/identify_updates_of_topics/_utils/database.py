@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import lru_cache
 
 import sqlalchemy
@@ -70,7 +70,7 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                     latitude=latitude,
                     longitude=longitude,
                     geocoder=geocoder,
-                    ts=datetime.now(timezone.utc),
+                    ts=datetime.now(UTC),
                 ),
             )
 
@@ -108,7 +108,7 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                     SET timestamp=:ts AT TIME ZONE 'UTC' 
                     WHERE geocoder=:geocoder;
                                        """)
-            conn.execute(stmt, dict(ts=datetime.now(timezone.utc), geocoder=geocoder))
+            conn.execute(stmt, dict(ts=datetime.now(UTC), geocoder=geocoder))
 
     def get_last_api_call_time_from_psql(self, geocoder: str) -> datetime | None:
         """Used to track time of the last api call to geocoders. Gets the last timestamp in UTC saved in psql"""
@@ -225,14 +225,14 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                 # when coords are in search_coordinates table
                 old_lat, old_lon, old_type = old_coords
                 do_update = False
-                if not old_type:
-                    do_update = True
-                elif not (old_type != CoordType.type_4_from_title and coord_type == CoordType.type_4_from_title):
-                    do_update = True
-                elif (
-                    old_type == CoordType.type_4_from_title
-                    and coord_type == CoordType.type_4_from_title
-                    and (old_lat != lat or old_lon != lon)
+                if (
+                    not old_type
+                    or not (old_type != CoordType.type_4_from_title and coord_type == CoordType.type_4_from_title)
+                    or (
+                        old_type == CoordType.type_4_from_title
+                        and coord_type == CoordType.type_4_from_title
+                        and (old_lat != lat or old_lon != lon)
+                    )
                 ):
                     do_update = True
 

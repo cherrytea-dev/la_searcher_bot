@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import lru_cache
 
 import sqlalchemy
@@ -72,7 +72,7 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                     'c': latitude,
                     'd': longitude,
                     'e': geocoder,
-                    'f': datetime.now(timezone.utc),
+                    'f': datetime.now(UTC),
                 },
             )
 
@@ -110,7 +110,7 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                     SET timestamp=:a AT TIME ZONE 'UTC' 
                     WHERE geocoder=:b;
                                        """)
-            conn.execute(stmt, {'a': datetime.now(timezone.utc), 'b': geocoder})
+            conn.execute(stmt, {'a': datetime.now(UTC), 'b': geocoder})
 
     def get_last_api_call_time_from_psql(self, geocoder: str) -> datetime | None:
         """Used to track time of the last api call to geocoders. Gets the last timestamp in UTC saved in psql"""
@@ -210,14 +210,14 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
                 # when coords are in search_coordinates table
                 old_lat, old_lon, old_type = old_coords
                 do_update = False
-                if not old_type:
-                    do_update = True
-                elif not (old_type != CoordType.type_4_from_title and coord_type == CoordType.type_4_from_title):
-                    do_update = True
-                elif (
-                    old_type == CoordType.type_4_from_title
-                    and coord_type == CoordType.type_4_from_title
-                    and (old_lat != lat or old_lon != lon)
+                if (
+                    not old_type
+                    or not (old_type != CoordType.type_4_from_title and coord_type == CoordType.type_4_from_title)
+                    or (
+                        old_type == CoordType.type_4_from_title
+                        and coord_type == CoordType.type_4_from_title
+                        and (old_lat != lat or old_lon != lon)
+                    )
                 ):
                     do_update = True
 

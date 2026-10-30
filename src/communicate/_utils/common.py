@@ -1,8 +1,9 @@
 import json
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, ClassVar, Sequence, Union
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 from telegram import (
@@ -164,7 +165,7 @@ class UpdateBasicParams:
     callback_query: CallbackQuery | None
 
 
-def generate_yandex_maps_place_link(lat: Union[float, str], lon: Union[float, str], param: str) -> str:
+def generate_yandex_maps_place_link(lat: float | str, lon: float | str, param: str) -> str:
     """Compose a link to yandex map with the given coordinates"""
 
     coordinates_format = '{0:.5f}'

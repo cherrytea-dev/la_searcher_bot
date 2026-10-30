@@ -13,8 +13,8 @@ import logging
 import os
 import sys
 import threading
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator
 from unittest.mock import patch
 
 from _dependencies.common.log_context import (

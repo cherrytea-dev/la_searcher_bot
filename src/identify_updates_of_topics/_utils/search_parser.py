@@ -1,7 +1,7 @@
 import logging
 import re
 from datetime import datetime
-from typing import Any
+from typing import Any, ClassVar
 
 from _dependencies.common.commons import TopicType
 from _dependencies.common.pubsub import recognize_title_via_api
@@ -21,7 +21,7 @@ class SearchParser:
     """
 
     # Mapping from recognition API types to internal TopicType enum
-    _TOPIC_TYPE_MAP = {
+    _TOPIC_TYPE_MAP: ClassVar[dict[RecognitionTopicType, TopicType]] = {
         RecognitionTopicType.search: TopicType.search_regular,
         RecognitionTopicType.search_reverse: TopicType.search_reverse,
         RecognitionTopicType.search_patrol: TopicType.search_patrol,

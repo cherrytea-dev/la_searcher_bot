@@ -87,7 +87,7 @@ def topic_to_receiver_function(topic_name: Topics):
         raise ValueError(f'Unknown topic {topic_name}')
 
 
-def find_model(session: Session, model: type[T], **kwargs: Any) -> T | None:
+def find_model[T](session: Session, model: type[T], **kwargs: Any) -> T | None:
     stmt = select(model)
     for key, value in kwargs.items():
         stmt = stmt.filter_by(**{key: value})

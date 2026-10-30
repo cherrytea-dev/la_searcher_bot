@@ -5,17 +5,14 @@ import copy
 import difflib
 import logging
 import re
-from functools import lru_cache
-from typing import Iterator
+from collections.abc import Iterator
 
-import requests
 from bs4 import BeautifulSoup
 
 from _dependencies.common.commons import (
     ChangeLogSavedValue,
     ChangeType,
     get_app_config,
-    get_forum_proxies,
     setup_logging,
 )
 from _dependencies.common.misc import content_fingerprint, generate_random_function_id
@@ -31,13 +28,6 @@ from _dependencies.forum.content import clean_up_content_2
 from ._utils.database import DBClient, get_db_client
 
 setup_logging(__package__)
-
-
-@lru_cache
-def get_requests_session() -> requests.Session:
-    session = requests.Session()
-    session.proxies.update(get_forum_proxies())
-    return session
 
 
 def compose_diff_message(curr_list: list[str], prev_list: list[str]) -> ChangeLogSavedValue:
@@ -228,7 +218,7 @@ def _get_actual_and_previous_page_content(db: DBClient, search_id: int) -> tuple
     return first_page_content_curr, first_page_content_prev
 
 
-def main(event: dict, context: Ctx) -> str:  # noqa
+def main(event: dict, context: Ctx) -> str:
     if get_app_config().forum_legacy_data_source:
         from ._legacy.main import main as legacy_main
 

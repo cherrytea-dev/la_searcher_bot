@@ -59,10 +59,7 @@ async def on_radius_view(event: MessageCallback) -> None:
     if user_id:
         db = _get_db()
         radius = db.get_radius(user_id)
-        if radius:
-            text = RADIUS_VIEW_TEXT.format(radius)
-        else:
-            text = RADIUS_NOT_SET
+        text = RADIUS_VIEW_TEXT.format(radius) if radius else RADIUS_NOT_SET
     else:
         text = RADIUS_NOT_SET
 

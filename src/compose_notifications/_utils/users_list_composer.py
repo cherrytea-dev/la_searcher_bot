@@ -55,7 +55,7 @@ class UsersListComposer:
 
             try:
                 new_line.user_new_search_notifs = int(line[5])
-            except:
+            except (TypeError, ValueError):
                 new_line.user_new_search_notifs = 0
 
             list_of_users.append(new_line)
@@ -159,7 +159,7 @@ class UserListFilter:
                         continue
                     user_lat = user_line.user_latitude
                     user_lon = user_line.user_longitude
-                    actual_distance, direction = define_dist_and_dir_to_search(
+                    actual_distance, _direction = define_dist_and_dir_to_search(
                         search_lat, search_lon, user_lat, user_lon
                     )
                     actual_distance = int(actual_distance)
@@ -179,7 +179,7 @@ class UserListFilter:
                         search_lat, search_lon = city_coords
                         if not search_lat or not search_lon:
                             continue
-                        actual_distance, direction = define_dist_and_dir_to_search(
+                        actual_distance, _direction = define_dist_and_dir_to_search(
                             search_lat, search_lon, user_lat, user_lon
                         )
                         actual_distance = int(actual_distance)
@@ -194,7 +194,7 @@ class UserListFilter:
             logging.info(f'User List crop due to radius: {len(users_list_outcome)} --> {len(temp_user_list)}')
 
         except Exception as e:
-            logging.info(f'TEMP - exception radius: {repr(e)}')
+            logging.info(f'TEMP - exception radius: {e!r}')
             logging.exception(e)
         return temp_user_list
 

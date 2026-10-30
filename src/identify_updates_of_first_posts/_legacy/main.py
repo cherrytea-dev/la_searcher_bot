@@ -6,17 +6,14 @@ import datetime
 import difflib
 import logging
 import re
-from functools import lru_cache
-from typing import Iterator
+from collections.abc import Iterator
 
-import requests
 import sqlalchemy
 from bs4 import BeautifulSoup
 
 from _dependencies.common.commons import (
     ChangeLogSavedValue,
     ChangeType,
-    get_forum_proxies,
     setup_logging,
     sqlalchemy_get_pool,
 )
@@ -34,11 +31,7 @@ from _dependencies.forum.content import clean_up_content_2
 setup_logging(__package__)
 
 
-@lru_cache
-def get_requests_session() -> requests.Session:
-    session = requests.Session()
-    session.proxies.update(get_forum_proxies())
-    return session
+from _dependencies.forum.session import get_requests_session
 
 
 def compose_diff_message(curr_list: list[str], prev_list: list[str]) -> ChangeLogSavedValue:
@@ -118,10 +111,7 @@ def _search_status_is_active(conn: sqlalchemy.engine.Connection, search_id: int)
         logging.info('first page comparison failed – nothing is searches psql table')
         return False
 
-    if search_status != 'Ищем':
-        return False
-
-    return True
+    return search_status == 'Ищем'
 
 
 def _get_search_status(conn: sqlalchemy.engine.Connection, search_id: int) -> str | None:
@@ -189,8 +179,8 @@ def parse_search_folder_num(search_num: int) -> int | None:
     for line in spans:
         try:
             folder = int(line['data-forum-id'])
-        except:  # noqa
-            pass
+        except (AttributeError, KeyError, ValueError):
+            logging.debug('skipping crumb span without a numeric data-forum-id')
 
     return folder
 
@@ -249,7 +239,7 @@ def _process_folders_with_updated_searches(
 ) -> None:
     # save folder number for the search that has an update
     list_of_folders_with_upd_searches = [parse_search_folder_num(search_id) for search_id in list_of_updated_searches]
-    updated_searches = set((folder_num for folder_num in list_of_folders_with_upd_searches if folder_num))
+    updated_searches = set(folder_num for folder_num in list_of_folders_with_upd_searches if folder_num)
     updated_searches_to_pubsub = [[folder_num, None] for folder_num in updated_searches]
     if not list_of_folders_with_upd_searches:
         return
@@ -338,7 +328,7 @@ def _get_actual_and_previous_page_content(conn: sqlalchemy.engine.Connection, se
     return first_page_content_curr, first_page_content_prev
 
 
-def main(event: dict, context: Ctx) -> str:  # noqa
+def main(event: dict, context: Ctx) -> str:
     """key function"""
 
     function_id = generate_random_function_id()

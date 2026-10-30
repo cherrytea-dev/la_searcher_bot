@@ -38,7 +38,7 @@ class TestArchiveNotifications:
     def test_records_unloaded(self, archiver: Archiver, session: Session):
         """unload old records — returns zipped BytesIO, then deletes"""
         records_count = 3
-        first_notif, *others = NotifByUserHistoryFactory.create_batch_sync(
+        first_notif, *_others = NotifByUserHistoryFactory.create_batch_sync(
             records_count,
             created=archiver.archive_date,
         )

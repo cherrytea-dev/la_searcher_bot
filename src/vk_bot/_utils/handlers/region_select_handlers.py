@@ -123,7 +123,7 @@ def _toggle_region_inline(ctx: VKHandlerContext, region_name: str) -> str:
     folder_dict: dict[str, tuple[int, ...]] = {}
     for fid, name in folders:
         if name is not None:
-            folder_dict[name] = folder_dict.get(name, ()) + (fid,)
+            folder_dict[name] = (*folder_dict.get(name, ()), fid)
 
     if region_name not in folder_dict:
         return REGION_NOT_FOUND

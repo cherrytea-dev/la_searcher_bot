@@ -116,7 +116,7 @@ class TestProcessFolderTimestampSkip:
 
     def test_process_when_no_timestamp(self):
         """mother_folder_timestamp is None → process."""
-        folders_to_check, updated_folders, mock_inst = self._run(
+        folders_to_check, _updated_folders, mock_inst = self._run(
             FolderForDecompose(mother_folder_num='999', mother_folder_timestamp=None),
         )
         mock_inst.decompose_folder.assert_called_once_with('999')
@@ -124,7 +124,7 @@ class TestProcessFolderTimestampSkip:
 
     def test_process_when_timestamp_mismatch(self):
         """Saved ts != mother_folder_timestamp → process."""
-        folders_to_check, updated_folders, mock_inst = self._run(
+        _folders_to_check, _updated_folders, mock_inst = self._run(
             FolderForDecompose(mother_folder_num='789', mother_folder_timestamp='ts_new'),
             {'789': 'ts_old'},
         )
@@ -161,17 +161,21 @@ class TestSaveRootTimestamps:
     """save_root_timestamps reads current dict, adds new entries, writes back."""
 
     def test_adds_new_timestamps(self):
-        with patch.object(KeyValueStorage, 'read_foder_root_modified_times_dict', return_value={'1': 'old_ts'}):
-            with patch.object(KeyValueStorage, 'write_foder_root_modified_times_dict') as mock_write:
-                save_root_timestamps([('2', 'new_ts')])
+        with (
+            patch.object(KeyValueStorage, 'read_foder_root_modified_times_dict', return_value={'1': 'old_ts'}),
+            patch.object(KeyValueStorage, 'write_foder_root_modified_times_dict') as mock_write,
+        ):
+            save_root_timestamps([('2', 'new_ts')])
 
         mock_write.assert_called_once_with({'1': 'old_ts', '2': 'new_ts'})
 
     def test_empty_list_returns_early(self):
         """Empty list → early return, no DB calls at all."""
-        with patch.object(KeyValueStorage, 'read_foder_root_modified_times_dict') as mock_read:
-            with patch.object(KeyValueStorage, 'write_foder_root_modified_times_dict') as mock_write:
-                save_root_timestamps([])
+        with (
+            patch.object(KeyValueStorage, 'read_foder_root_modified_times_dict') as mock_read,
+            patch.object(KeyValueStorage, 'write_foder_root_modified_times_dict') as mock_write,
+        ):
+            save_root_timestamps([])
 
         mock_read.assert_not_called()
         mock_write.assert_not_called()
@@ -195,55 +199,63 @@ class TestGetUpdatedRootFolders:
     def test_returns_only_changed_folder(self):
         """Only folders with changed timestamps are returned."""
         saved = {'1': '2024-01-01T00:00:00+00:00', '2': '2024-01-01T00:00:00+00:00'}
-        with patch.object(
-            FolderUpdateChecker,
-            'check_updates_in_folder_with_folders',
-            return_value=[
-                ['1', '2024-01-01T00:00:00+00:00', datetime.datetime(2024, 1, 1)],
-                ['2', '2025-06-01T00:00:00+00:00', datetime.datetime(2025, 6, 1)],
-            ],
+        with (
+            patch.object(
+                FolderUpdateChecker,
+                'check_updates_in_folder_with_folders',
+                return_value=[
+                    ['1', '2024-01-01T00:00:00+00:00', datetime.datetime(2024, 1, 1)],
+                    ['2', '2025-06-01T00:00:00+00:00', datetime.datetime(2025, 6, 1)],
+                ],
+            ),
+            self._mock_storage(saved),
         ):
-            with self._mock_storage(saved):
-                result = get_updated_root_folders()
+            result = get_updated_root_folders()
 
         assert result == [('2', '2025-06-01T00:00:00+00:00')]
 
     def test_does_not_write_storage(self):
         """get_updated_root_folders should NOT write timestamps."""
-        with patch.object(
-            FolderUpdateChecker,
-            'check_updates_in_folder_with_folders',
-            return_value=[
-                ['1', 'new_ts', datetime.datetime(2025, 1, 1)],
-            ],
+        with (
+            patch.object(
+                FolderUpdateChecker,
+                'check_updates_in_folder_with_folders',
+                return_value=[
+                    ['1', 'new_ts', datetime.datetime(2025, 1, 1)],
+                ],
+            ),
+            self._mock_storage({'1': '2024-01-01T00:00:00+00:00'}),
+            patch.object(KeyValueStorage, 'write_foder_root_modified_times_dict') as mock_write,
         ):
-            with self._mock_storage({'1': '2024-01-01T00:00:00+00:00'}):
-                with patch.object(KeyValueStorage, 'write_foder_root_modified_times_dict') as mock_write:
-                    get_updated_root_folders()
+            get_updated_root_folders()
 
         mock_write.assert_not_called()
 
     def test_empty_when_no_updates(self):
-        with patch.object(
-            FolderUpdateChecker,
-            'check_updates_in_folder_with_folders',
-            return_value=[['1', '2024-01-01T00:00:00+00:00', datetime.datetime(2024, 1, 1)]],
+        with (
+            patch.object(
+                FolderUpdateChecker,
+                'check_updates_in_folder_with_folders',
+                return_value=[['1', '2024-01-01T00:00:00+00:00', datetime.datetime(2024, 1, 1)]],
+            ),
+            self._mock_storage({'1': '2024-01-01T00:00:00+00:00'}),
         ):
-            with self._mock_storage({'1': '2024-01-01T00:00:00+00:00'}):
-                assert get_updated_root_folders() == []
+            assert get_updated_root_folders() == []
 
     def test_new_folder_detected(self):
         saved = {'1': '2024-01-01T00:00:00+00:00'}
-        with patch.object(
-            FolderUpdateChecker,
-            'check_updates_in_folder_with_folders',
-            return_value=[
-                ['1', '2024-01-01T00:00:00+00:00', datetime.datetime(2024, 1, 1)],
-                ['2', '2025-06-01T00:00:00+00:00', datetime.datetime(2025, 6, 1)],
-            ],
+        with (
+            patch.object(
+                FolderUpdateChecker,
+                'check_updates_in_folder_with_folders',
+                return_value=[
+                    ['1', '2024-01-01T00:00:00+00:00', datetime.datetime(2024, 1, 1)],
+                    ['2', '2025-06-01T00:00:00+00:00', datetime.datetime(2025, 6, 1)],
+                ],
+            ),
+            self._mock_storage(saved),
         ):
-            with self._mock_storage(saved):
-                assert get_updated_root_folders() == [('2', '2025-06-01T00:00:00+00:00')]
+            assert get_updated_root_folders() == [('2', '2025-06-01T00:00:00+00:00')]
 
     def test_empty_when_forum_unavailable(self):
         with patch.object(FolderUpdateChecker, 'check_updates_in_folder_with_folders', return_value=[]):

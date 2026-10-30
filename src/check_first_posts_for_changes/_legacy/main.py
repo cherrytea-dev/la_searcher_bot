@@ -150,10 +150,8 @@ def update_first_posts_in_sql(searches_list: list[Search]) -> list[int]:
                 list_of_searches_with_updated_f_posts.append(topic_id)
 
     logging.info(
-        (
-            f'first posts checked for {len(searches_list)} searches; '
-            f'updated hashes of {len(list_of_searches_with_updated_f_posts)} searches'
-        )
+        f'first posts checked for {len(searches_list)} searches; '
+        f'updated hashes of {len(list_of_searches_with_updated_f_posts)} searches'
     )
 
     return list_of_searches_with_updated_f_posts
@@ -268,4 +266,5 @@ def main(event: dict, context: Ctx) -> None:
     try:
         update_visibility_for_one_hidden_topic()
     except ForumUnavailable:
-        pass  # nothing to do, just wait
+        # Bonus step only: the forum is down, retry on the next run.
+        logging.info('hidden-topic visibility check skipped: forum unavailable')

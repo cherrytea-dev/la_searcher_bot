@@ -1,7 +1,7 @@
 import logging
 import re
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import cast
 
 from _dependencies.common.commons import ChangeType, TopicType
@@ -251,7 +251,7 @@ class FolderUpdater:
             api_call=recognize_title_via_api,
         )
 
-        if title_reco_response and 'status' in title_reco_response.keys() and title_reco_response['status'] == 'ok':
+        if title_reco_response and 'status' in title_reco_response and title_reco_response['status'] == 'ok':
             title_reco_dict = RecognitionResult.model_validate(title_reco_response['recognition'])
             # TODO validate whole response
         else:
@@ -568,10 +568,8 @@ class FolderUpdater:
 
         if snapshot_line.folder_id != searches_line.folder_id:
             logging.info(
-                (
-                    f'Folder was changed for search {snapshot_line.topic_id}. '
-                    f'Old value: {searches_line.folder_id}, new value: {snapshot_line.folder_id}'
-                )
+                f'Folder was changed for search {snapshot_line.topic_id}. '
+                f'Old value: {searches_line.folder_id}, new value: {snapshot_line.folder_id}'
             )
 
         if change_log_updates_list:
@@ -637,7 +635,7 @@ class FolderUpdater:
         if not prev_api_call_time:
             return
 
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now(UTC)
         time_delta_bw_now_and_next_request = prev_api_call_time - now_utc + timedelta(seconds=1)
 
         logging.debug(f'{prev_api_call_time=}')

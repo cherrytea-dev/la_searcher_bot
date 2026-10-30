@@ -14,7 +14,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from _dependencies.common.commons import get_app_config
 from _dependencies.common.log_context import log_stream

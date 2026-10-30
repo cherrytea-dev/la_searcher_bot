@@ -1,5 +1,6 @@
 from contextlib import suppress
 from enum import Enum
+from typing import ClassVar
 
 from telegram import InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
 
@@ -142,8 +143,8 @@ class OtherOptionsMenu(str, ExtendedEnum):
 
 class TopicTypeInlineKeyboardBuilder:
     keyboard_code = 'TTS'  # TopicTypeSelect
-    modifier = {True: '✅ ', False: '☐ ', None: ''}
-    _topic_buttons_data = [
+    modifier: ClassVar[dict[bool | None, str]] = {True: '✅ ', False: '☐ ', None: ''}
+    _topic_buttons_data: ClassVar[list[tuple[str, str, TopicType | None, bool]]] = [
         ('regular', 'стандартные активные поиски', TopicType.search_regular, False),
         ('resonance', 'резонансные поиски', TopicType.search_resonance, False),
         ('info_support', 'информационная поддержка', TopicType.search_info_support, False),
@@ -177,7 +178,7 @@ class TopicTypeInlineKeyboardBuilder:
                 all_options.remove(option)
             else:
                 all_options.add(option)
-        for code, name, topic_type, hidden_ in cls._topic_buttons_data:
+        for code, name, topic_type, _hidden in cls._topic_buttons_data:
             button = cls._create_button(all_options, code, name, topic_type)
             keyboard.append([button])
         return keyboard
@@ -188,10 +189,7 @@ class TopicTypeInlineKeyboardBuilder:
     ) -> InlineKeyboardButton:
         option_selected = None if topic_type is None else topic_type in all_options
 
-        if topic_type is None:
-            action = code
-        else:
-            action = f'{topic_type} {"off" if option_selected else "on"}'
+        action = code if topic_type is None else f'{topic_type} {"off" if option_selected else "on"}'
 
         cb_data = InlineButtonCallbackData(keyboard_name=cls.keyboard_code, action=action)
 

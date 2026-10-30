@@ -103,7 +103,7 @@ class TGApiBase:
             logging.warning(f'not params or not method: {method=}; {len(params)=}')
             return None
 
-        if 'chat_id' not in params.keys() and ('scope' not in params.keys() or 'chat_id' not in params['scope'].keys()):
+        if 'chat_id' not in params and ('scope' not in params or 'chat_id' not in params['scope']):
             return None
 
         url = self.bot_api_path_start / method  # e.g. sendMessage
