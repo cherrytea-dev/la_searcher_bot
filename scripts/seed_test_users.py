@@ -32,7 +32,7 @@ Then verify:
 import argparse
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import sqlalchemy
@@ -233,7 +233,7 @@ def _insert_user(user: dict, conn: sqlalchemy.engine.Connection) -> None:
     - ``user_identity_map`` table (doesn't exist yet)
     - ``notif_by_user.messenger`` column (doesn't exist yet)
     """
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(UTC).replace(tzinfo=None)
     tag = user['tag']
     uid = user['user_id']
     log.info(f'Creating user: {tag} (user_id={uid})')

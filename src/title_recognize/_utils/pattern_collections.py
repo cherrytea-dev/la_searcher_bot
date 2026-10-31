@@ -1,11 +1,9 @@
-from typing import List
-
 from .title_commons import BlockType, PatternType
 
 
 class BlockTypePatternCollection:
     @classmethod
-    def get_patterns(cls, pattern_type: BlockType) -> List[tuple[str, str, str]]:
+    def get_patterns(cls, pattern_type: BlockType) -> list[tuple[str, str, str]]:
         """Return a list of regex patterns (with additional parameters) for a specific type"""
 
         match = {
@@ -221,7 +219,7 @@ def get_mistype_patterns() -> list[tuple[str, str]]:
         (r'^(\s{1,3}|])', ''),  # removes all unnecessary symbols in the beginning of the string
         (r'[\s\[/\\(]{1,3}$', ''),  # removes all unnecessary symbols in the end of the string
         # noinspection PyUnresolvedReferences
-        (r'([.,;:!?\s])\1+', r'\1'),  # noqa
+        (r'([.,;:!?\s])\1+', r'\1'),
         # removes all duplicates in blank spaces or punctuation marks
         (r'(?<!\d)\B(?=\d)', ' '),  # when and con  sequent number age typed w/o a space, example: word49
         (r'(\[/?b]|\[?size\W?=\W?140]|\[/size]|\[/?color=.{0,8}])', ''),  # rare case of php formatting

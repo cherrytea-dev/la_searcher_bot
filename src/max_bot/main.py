@@ -53,7 +53,7 @@ _initialized = False
 
 async def _init_dispatcher() -> None:
     """Create ``Bot``, ``Dispatcher``, register handlers, and start up once."""
-    global _bot, _dp, _initialized  # noqa: PLW0603
+    global _bot, _dp, _initialized
 
     if _initialized:
         return

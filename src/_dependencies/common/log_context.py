@@ -30,9 +30,9 @@ ContextVar, а не глобальная переменная: значение 
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Iterator
 
 #: Имя выполняемой функции на время вызова — см. :func:`log_stream`.
 _STREAM: ContextVar[str | None] = ContextVar('la_log_stream', default=None)

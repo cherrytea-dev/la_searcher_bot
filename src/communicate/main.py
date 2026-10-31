@@ -2,8 +2,9 @@
 
 import datetime
 import logging
+from collections.abc import Callable
 from functools import lru_cache
-from typing import Any, Callable
+from typing import Any
 
 from telegram import Bot, ReplyKeyboardMarkup, Update
 
@@ -105,7 +106,7 @@ def _get_basic_update_parameters(update: Update) -> UpdateBasicParams:
     callback_query = _get_param_if_exists(update, lambda update: update.callback_query)
     callback_query_id = _get_param_if_exists(update, lambda update: update.callback_query.id)
 
-    logging.info(f'get_basic_update_parameters..callback_query==, {str(callback_query)}')
+    logging.info(f'get_basic_update_parameters..callback_query==, {callback_query!s}')
     got_callback: InlineButtonCallbackData | None = None
     if callback_query:
         callback_data_text = callback_query.data
@@ -172,11 +173,10 @@ def _run_onboarding(user_id: int, username: str, onboarding_step_id: int, got_me
     """part of the script responsible for orchestration of activities for non-finally-onboarded users"""
 
     logging.info('running onboarding')
-    if onboarding_step_id == 21:  # region_set
+    if onboarding_step_id == 21 and got_message:  # region_set
         # mark that onboarding is finished
-        if got_message:
-            save_onboarding_step(user_id, 'finished')
-            onboarding_step_id = 80
+        save_onboarding_step(user_id, 'finished')
+        onboarding_step_id = 80
 
     return onboarding_step_id
 
@@ -224,7 +224,7 @@ def process_update(update: Update) -> str:
     if user_is_new:
         register_new_user(user_id, username, datetime.datetime.now(), Messenger.TELEGRAM)
 
-    onboarding_step_id, onboarding_step_name = db().get_onboarding_step(user_id, user_is_new)
+    onboarding_step_id, _onboarding_step_name = db().get_onboarding_step(user_id, user_is_new)
 
     # ONBOARDING PHASE
     if onboarding_step_id < 80:

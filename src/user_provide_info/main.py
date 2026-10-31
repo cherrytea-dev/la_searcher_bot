@@ -104,7 +104,7 @@ class OptionsResponse(FlaskResponseBase):
 def verify_telegram_data_json(user_input: dict, token: str) -> bool:
     """verify the received dict is issued by telegram, which means user is authenticated with telegram"""
 
-    if not user_input or not isinstance(user_input, dict) or 'hash' not in user_input.keys() or not token:
+    if not user_input or not isinstance(user_input, dict) or 'hash' not in user_input or not token:
         return False
 
     hash_from_telegram = user_input['hash']
@@ -142,7 +142,7 @@ def verify_telegram_data_string(user_input: str, token: str) -> bool:
     data_check_arr.remove(hash_item)
     data_check_arr.sort()
     data_check_string = '\n'.join(data_check_arr)
-    secret_key = hmac.new('WebAppData'.encode(), token.encode(), hashlib.sha256).digest()
+    secret_key = hmac.new(b'WebAppData', token.encode(), hashlib.sha256).digest()
     calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
 
     return calculated_hash == telegram_hash
@@ -215,12 +215,12 @@ def _compose_searches(raw_data: list[tuple]) -> list[Search]:  # TODO contract
             search_start_time,
             display_name,
             status,
-            family_name,
-            topic_type,
+            _family_name,
+            _topic_type,
             topic_type_id,
             city_locations,
-            age_min,
-            age_max,
+            _age_min,
+            _age_max,
             first_post,
             lat,
             lon,
@@ -230,7 +230,7 @@ def _compose_searches(raw_data: list[tuple]) -> list[Search]:  # TODO contract
 
         # define "freshness" of the search
         creation_freshness, creation_freshness_days = time_counter_since_search_start(search_start_time)
-        update_freshness, update_freshness_days = time_counter_since_search_start(last_change_time)
+        _update_freshness, update_freshness_days = time_counter_since_search_start(last_change_time)
         logging.info(f'{search_id=}')
         logging.info(f'{creation_freshness_days=}')
         logging.info(f'{update_freshness_days=}')

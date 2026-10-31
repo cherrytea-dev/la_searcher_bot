@@ -318,7 +318,7 @@ def handle_age_settings(ctx: VKHandlerContext) -> None:
     updated = ctx.db.get_age_preferences(ctx.user_id)
     age_names = []
     for p_min, p_max in updated:
-        for btn_text, ap in _AGE_MAP.items():
+        for _btn_text, ap in _AGE_MAP.items():
             if ap.min_age == p_min and ap.max_age == p_max:
                 age_names.append(ap.description)
                 break

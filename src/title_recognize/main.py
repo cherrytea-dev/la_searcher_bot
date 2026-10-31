@@ -49,7 +49,7 @@ def main(request: RequestWrapper, *args: Any, **kwargs: Any) -> ResponseWrapper:
 
     reco_title = recognize_title(user_request.title, user_request.reco_type)
 
-    if not reco_title or ('topic_type' in reco_title.keys() and reco_title['topic_type'] == 'UNRECOGNIZED'):
+    if not reco_title or ('topic_type' in reco_title and reco_title['topic_type'] == 'UNRECOGNIZED'):
         return FailResponse(fail_reason='not able to recognize').as_response()
 
     logging.info(

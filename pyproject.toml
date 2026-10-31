@@ -50,7 +50,6 @@ dev = [
     "types-requests >=2.31.0.6",
     "types-PyYAML",
     "types-cachetools",
-    "types-pytz",
     "types-Pygments",
     "types-cffi",
     "types-colorama",
@@ -71,7 +70,7 @@ app = ["cronsim>=2.7"]
 
 api_get_active_searches = []
 
-archive_notifications = ["pytz"]
+archive_notifications = []
 
 archive_to_bigquery = []
 
@@ -86,7 +85,6 @@ compose_notifications = [
     "certifi>=2024.7.4", # SSL certificates
     "chardet>=4.0.0",    # encoding detector
     "python-dateutil",   # extension to datetime module
-    "pytz>=2024.2",      # timezone
 ]
 
 connect_to_forum = []
@@ -134,12 +132,17 @@ line-length = 120
 format.quote-style = 'single'
 
 [tool.ruff.lint]
-#select = ["I"]
-select = ["F", "I"]
-ignore = []
+select = ["F", "I", "E4", "E7", "E9", "B", "SIM", "UP", "RUF"]
+# RUF001-003: Russian text legitimately contains lookalike Cyrillic/Latin characters.
+# UP042: str-Enum semantics differ from (str, Enum) — must be migrated separately.
+ignore = ["RUF001", "RUF002", "RUF003", "UP042"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+# E402: only the legacy entry points keep deliberate late imports; everywhere else
+# imports stay at the top of the file.
+"**/_legacy/*.py" = ["E402"]
+"**/_legacy/**/*.py" = ["E402"]
 
 [tool.coverage.run]
 omit = ["*/tests/*"]
@@ -152,7 +155,7 @@ files = ["src/"]
 explicit_package_bases = true
 ignore_missing_imports = false
 install_types = true
-no_implicit_optional = false
+no_implicit_optional = true
 non_interactive = true
 follow_untyped_imports = true
 plugins = ["pydantic.mypy"]

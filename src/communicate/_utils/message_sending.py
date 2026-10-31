@@ -52,12 +52,12 @@ class TGApiCommunicate(TGApiBase):
 def _inline_processing(response: Response | None, params: dict) -> None:
     """process the response got from inline buttons interactions"""
 
-    if not response or 'chat_id' not in params.keys():
+    if not response or 'chat_id' not in params:
         return
 
     chat_id: int = params['chat_id']
 
-    if 'reply_markup' in params.keys() and 'inline_keyboard' in params['reply_markup'].keys():
+    if 'reply_markup' in params and 'inline_keyboard' in params['reply_markup']:
         sent_message_id = _get_last_bot_message_id(response)
         # prev_message_id = db().get_last_user_inline_dialogue(chat_id)
         # logging.info(f'{prev_message_id=}')

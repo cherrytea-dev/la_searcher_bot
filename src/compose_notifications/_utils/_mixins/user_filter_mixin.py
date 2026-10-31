@@ -1,5 +1,6 @@
 """Mixin: user filtering queries (users, preferences, whitelists, roles)."""
 
+import logging
 from typing import Any
 
 import sqlalchemy
@@ -29,7 +30,7 @@ class UserFilterMixin(DBClientMixinBase):
                     elif line[1] == 'tester':
                         list_of_testers.append(line[0])
         except Exception:
-            pass
+            logging.exception('failed to load admins/testers from user_roles; treating everyone as a regular user')
 
         return list_of_admins, list_of_testers
 

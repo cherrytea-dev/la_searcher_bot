@@ -1,7 +1,7 @@
 """Tests for YC Log Inspector — gRPC-based YC Logging client."""
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -161,7 +161,7 @@ class TestReadLogs:
         mock_reading_stub = MagicMock()
         mock_group_stub = MagicMock()
 
-        now = datetime(2026, 7, 4, 18, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 7, 4, 18, 0, 0, tzinfo=UTC)
         entry = _make_entry('uid-1', LogLevel.ERROR, 'something broke', now)
 
         read_resp = MagicMock()
@@ -195,7 +195,7 @@ class TestReadLogs:
         mock_reading_stub = MagicMock()
         mock_group_stub = MagicMock()
 
-        now = datetime(2026, 7, 4, 18, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 7, 4, 18, 0, 0, tzinfo=UTC)
 
         resp_1 = MagicMock()
         resp_1.entries = [_make_entry('uid-1', LogLevel.ERROR, 'err1', now)]
@@ -229,7 +229,7 @@ class TestReadLogs:
         mock_reading_stub = MagicMock()
         mock_group_stub = MagicMock()
 
-        now = datetime(2026, 7, 4, 18, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 7, 4, 18, 0, 0, tzinfo=UTC)
 
         resp_1 = MagicMock()
         resp_1.entries = [_make_entry('uid-1', LogLevel.INFO, 'msg', now)]
@@ -262,7 +262,7 @@ class TestReadLogs:
         mock_reading_stub = MagicMock()
         mock_group_stub = MagicMock()
 
-        from_time = datetime(2026, 7, 4, 0, 0, 0, tzinfo=timezone.utc)
+        from_time = datetime(2026, 7, 4, 0, 0, 0, tzinfo=UTC)
 
         resp = MagicMock()
         resp.entries = []
@@ -328,7 +328,7 @@ class TestReadLogs:
         mock_reading_stub = MagicMock()
         mock_group_stub = MagicMock()
 
-        now = datetime(2026, 7, 4, 12, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 7, 4, 12, 0, 0, tzinfo=UTC)
         # one page per chunk, each with a timestamp inside that chunk
         resp_1 = MagicMock()
         resp_1.entries = [_make_entry('uid-1', LogLevel.INFO, 'msg', now - timedelta(hours=3, minutes=30))]
@@ -382,7 +382,7 @@ class TestReadLogs:
         mock_reading_stub = MagicMock()
         mock_group_stub = MagicMock()
 
-        now = datetime(2026, 7, 4, 12, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 7, 4, 12, 0, 0, tzinfo=UTC)
         resp_ok = MagicMock()
         resp_ok.entries = [_make_entry('uid-1', LogLevel.INFO, 'msg', now)]
         resp_ok.next_page_token = ''
@@ -421,7 +421,7 @@ class TestReadLogs:
         mock_reading_stub = MagicMock()
         mock_group_stub = MagicMock()
 
-        to_time = datetime(2026, 7, 4, 12, 0, 0, tzinfo=timezone.utc)
+        to_time = datetime(2026, 7, 4, 12, 0, 0, tzinfo=UTC)
         from_time = to_time - timedelta(hours=24)
         page_size = 10
         mid = from_time + (to_time - from_time) / 2
@@ -491,7 +491,7 @@ class TestReadLogs:
         mock_reading_stub = MagicMock()
         mock_group_stub = MagicMock()
 
-        now = datetime(2026, 7, 4, 12, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 7, 4, 12, 0, 0, tzinfo=UTC)
         resp = MagicMock()
         resp.entries = [_make_entry('uid-1', LogLevel.INFO, 'msg', now)]
         resp.next_page_token = ''
@@ -521,7 +521,7 @@ class TestReadLogs:
         mock_reading_stub = MagicMock()
         mock_group_stub = MagicMock()
 
-        now = datetime(2026, 7, 4, 12, 0, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 7, 4, 12, 0, 0, tzinfo=UTC)
         resp = MagicMock()
         resp.entries = [_make_entry('uid-1', LogLevel.INFO, 'msg', now)]
         resp.next_page_token = ''

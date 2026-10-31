@@ -649,7 +649,7 @@ class TestTelegramNotificator:
         result = tg.dispatch(msg, 'hello tg', params)
         assert result == 'completed'
         assert len(tg.sent_messages) == 1
-        _, user_id, content, return_params = tg.sent_messages[0]
+        _, user_id, content, _return_params = tg.sent_messages[0]
         assert user_id == msg.user_id
         assert content == 'hello tg'
 
@@ -687,7 +687,7 @@ class TestMaxNotificator:
         params = MessageParams.new_text(parse_mode='HTML', disable_web_page_preview=True)
         result = mx.dispatch(msg, 'hello max', params)
         assert result == 'completed'
-        _, recipient, _, content = mx.sent_messages[0]
+        _, recipient, _, _content = mx.sent_messages[0]
         assert recipient == '54321'
 
     def test_dispatch_coords(self):
@@ -783,7 +783,7 @@ class TestSendOne:
         )
         sender._send_one(msg)
         assert len(fake_max.sent_messages) == 1
-        kind, recipient, _, lat, long = fake_max.sent_messages[0]
+        kind, recipient, _, _lat, _long = fake_max.sent_messages[0]
         assert kind == 'coords'
         assert recipient == '54321'
 

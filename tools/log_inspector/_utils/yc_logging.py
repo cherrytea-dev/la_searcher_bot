@@ -8,7 +8,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from google.protobuf.json_format import MessageToDict
@@ -157,12 +157,9 @@ class YCLoggingClient:
             ts.FromDatetime(to_time)
             criteria.until.CopyFrom(ts)
 
-        if page_token:
-            # NB: page_token and criteria are a protobuf `oneof` — they are
-            # mutually exclusive. For subsequent pages only the token is sent.
-            request = ReadRequest(page_token=page_token)
-        else:
-            request = ReadRequest(criteria=criteria)
+        # NB: page_token and criteria are a protobuf `oneof` — they are
+        # mutually exclusive. For subsequent pages only the token is sent.
+        request = ReadRequest(page_token=page_token) if page_token else ReadRequest(criteria=criteria)
 
         response = self._log_reading_stub.Read(request)
 
@@ -217,9 +214,9 @@ class YCLoggingClient:
             throttle_seconds: pause between Read requests (~0.3-0.5s).
         """
         if from_time is None:
-            from_time = datetime.now(timezone.utc) - timedelta(hours=1)
+            from_time = datetime.now(UTC) - timedelta(hours=1)
         if to_time is None:
-            to_time = datetime.now(timezone.utc)
+            to_time = datetime.now(UTC)
 
         page_size = max(1, min(page_size, _MAX_PAGE_SIZE))
 

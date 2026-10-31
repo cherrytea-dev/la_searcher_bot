@@ -2,7 +2,6 @@ import re
 from datetime import datetime
 from enum import Enum
 from re import Match
-from typing import Tuple
 
 from dateutil import relativedelta
 
@@ -223,7 +222,7 @@ class PersonRecognizer:
         self._define_number_of_persons_by_pymorphy(person_reco, name_string)
         return person_reco
 
-    def _define_number_of_persons(self, name_string: str) -> Tuple[int, Match | None]:
+    def _define_number_of_persons(self, name_string: str) -> tuple[int, Match | None]:
         """Define and return the number of persons out of string input"""
 
         name_string_end = -1
@@ -271,7 +270,7 @@ class PersonRecognizer:
         if not age:
             return ''
 
-        return f' {str(age)} {age_wording(age)}'
+        return f' {age!s} {age_wording(age)}'
 
     def _define_name(self, match: Match | None, age: int | None) -> str:
         if match:

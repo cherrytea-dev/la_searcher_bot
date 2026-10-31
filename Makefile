@@ -20,13 +20,17 @@ initdb:
 initdb-data:
 	PYTHONPATH=.:src uv run python tests/tools/init_testing_db.py --db=TEST --init-data-only
 
+# Lint the whole tree, not just the shipped package: tools/ and scripts/ share the same
+# ruff config (pyproject.toml), so leaving them out of CI lets their findings rot unnoticed.
+LINT_PATHS := src tests tools scripts
+
 lint:
-	uv run ruff format src tests
-	uv run ruff check src tests --fix
+	uv run ruff format $(LINT_PATHS)
+	uv run ruff check $(LINT_PATHS) --fix
 
 lint-check:
-	uv run ruff format src tests --check --diff
-	uv run ruff check src tests --diff
+	uv run ruff format $(LINT_PATHS) --check --diff
+	uv run ruff check $(LINT_PATHS) --diff
 
 mypy:
 	uv run mypy

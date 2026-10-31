@@ -150,7 +150,7 @@ def send_topic_cloud(topic_name: str, message: Any) -> None:
 
     try:
         _send_topic(topic_name, serialized_message)
-        logging.info(f'Sent pub/sub message to topic {topic_name}: {str(message)}')
+        logging.info(f'Sent pub/sub message to topic {topic_name}: {message!s}')
 
     except Exception:
         logging.exception(f'Not able to send pub/sub message to topic {topic_name}')

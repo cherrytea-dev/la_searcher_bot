@@ -86,7 +86,7 @@ class TestSaveOnboardingStep:
             ('moscow_replied', datetime.now()),
         ]
 
-        for step_name, timestamp in steps:
+        for step_name, _timestamp in steps:
             save_onboarding_step(user_id, step_name)
 
         saved_steps: list[UserOnboarding] = list(
@@ -94,7 +94,7 @@ class TestSaveOnboardingStep:
         )
         assert len(saved_steps) == 3
 
-        for i, (step_name, timestamp_) in enumerate(steps):
+        for i, (step_name, _timestamp) in enumerate(steps):
             assert saved_steps[i].step_name == step_name
 
 

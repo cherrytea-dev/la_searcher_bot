@@ -43,11 +43,11 @@ def handle_topic_type_user_changed(ctx: TGHandlerContext) -> None:
     if user_wants_to_enable is None:
         flash_message = ''
         pass
-    elif user_wants_to_enable is True:  # not a poor design – function can be: None, True, False   # noqa
+    elif user_wants_to_enable is True:  # not a poor design – function can be: None, True, False
         flash_message = 'Супер, мы включили эти уведомления'
         ctx.answer_callback(flash_message)
         ctx.db.record_topic_type(user_id, topic_id)
-    else:  # user_wants_to_enable == False:  # not a poor design – function can be: None, True, False # noqa
+    else:  # user_wants_to_enable == False:  # not a poor design – function can be: None, True, False
         if len(list_of_current_setting_ids) == 1:
             flash_message = '❌ Необходима как минимум одна настройка'
             list_of_ids_to_change_now = []

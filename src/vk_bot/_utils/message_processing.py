@@ -11,15 +11,15 @@ based on extracted conditions (text, state, callback_data).
 import logging
 
 from .common import VKHandlerContext, VKMessage
-
-# VK peer_id above this value means a group chat (conversation), not a private dialog.
-# See: https://dev.vk.com/ru/reference/objects/user#peer_id
-_VK_CHAT_START_ID = 2_000_000_000
 from .database import db
 from .decorators import vk_registry
 from .handler_chain import handle_unknown
 from .message_sending import VKMessageSender
 from .vk_registration import register_vk_only_user
+
+# VK peer_id above this value means a group chat (conversation), not a private dialog.
+# See: https://dev.vk.com/ru/reference/objects/user#peer_id
+_VK_CHAT_START_ID = 2_000_000_000
 
 
 def _run_registered_handlers(

@@ -16,8 +16,9 @@ live in their respective bot packages and use this infrastructure.
 """
 
 import re
+from collections.abc import Callable, Generator
 from dataclasses import dataclass
-from typing import Any, Callable, Generator
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -146,9 +147,8 @@ def match_conditions(conditions: HandlerConditions, **values: Any) -> bool:
             return False
 
     # ── State match ──────────────────────────────────────────────────
-    if conditions.state is not None:
-        if values.get('state') != conditions.state:
-            return False
+    if conditions.state is not None and values.get('state') != conditions.state:  # noqa: SIM103
+        return False
 
     return True  # all conditions matched
 

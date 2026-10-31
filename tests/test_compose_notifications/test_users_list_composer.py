@@ -35,15 +35,25 @@ def test_age_requirements_check(search_ages, user_ages, equals):
 
 
 def create_user_with_preferences(
-    pref_ids: list[int] = [],
-    region_ids: list[int] = [],
-    topic_type_ids: list[int] = [],
-    forum_folder_ids: list[int] = [],
+    pref_ids: list[int] | None = None,
+    region_ids: list[int] | None = None,
+    topic_type_ids: list[int] | None = None,
+    forum_folder_ids: list[int] | None = None,
     user_coordinates: tuple[str, str] | None = None,
-    age_periods: list[tuple[int, int]] = [],
+    age_periods: list[tuple[int, int]] | None = None,
     radius: int | None = None,
     status: str | None = None,
 ) -> db_models.User:
+    if age_periods is None:
+        age_periods = []
+    if forum_folder_ids is None:
+        forum_folder_ids = []
+    if topic_type_ids is None:
+        topic_type_ids = []
+    if region_ids is None:
+        region_ids = []
+    if pref_ids is None:
+        pref_ids = []
     user = db_factories.UserFactory.create_sync(status=status)
 
     for pref_id in pref_ids:

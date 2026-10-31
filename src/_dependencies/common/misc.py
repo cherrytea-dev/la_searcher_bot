@@ -4,9 +4,10 @@ import hashlib
 import json
 import math
 import random
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any
 
 
 def time_counter_since_search_start(start_time: datetime.datetime) -> tuple[str, int]:
@@ -155,7 +156,7 @@ def convert_yc_request(request_data: dict) -> RequestWrapper:
 
     try:
         json_ = json.loads(request_data.get('body', 'null'))
-    except:
+    except (TypeError, ValueError, RecursionError):
         json_ = None
 
     return RequestWrapper(

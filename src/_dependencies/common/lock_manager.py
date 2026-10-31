@@ -1,8 +1,8 @@
 """PostgreSQL advisory-lock based mutual exclusion for cloud functions."""
 
 import logging
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine

@@ -135,11 +135,11 @@ def parse_address_from_title(initial_title: str) -> str:
     # delete garbage in the beginning of string
     try:
         first_num = re.search(r'\d', address_string).start()  # type:ignore[union-attr]
-    except:
+    except (AttributeError, TypeError):
         first_num = 0
     try:
         first_letter = re.search(r'[а-яА-Я]', address_string).start()  # type:ignore[union-attr]
-    except:  # noqa
+    except (AttributeError, TypeError):
         first_letter = 0
 
     new_start = max(first_num, first_letter)
@@ -275,18 +275,14 @@ def profile_get_type_of_activity(text_of_activity: str) -> list[str]:
         if 'оклейка' in text_of_activity:
             hq = 'autonom'
 
-    if 'автоном' in text_of_activity and 'нет автоном' not in text_of_activity:
-        hq = 'autonom'
-    elif 'двойк' in text_of_activity:
+    if ('автоном' in text_of_activity and 'нет автоном' not in text_of_activity) or 'двойк' in text_of_activity:
         hq = 'autonom'
 
     if hq == 'autonom':
         activity_type.append('6 - autonom')
 
     # Specific Tasks
-    if 'забрать оборудование' in text_of_activity:
-        activity_type.append('3 - hardware logistics')
-    elif 'забрать комплект оборудования' in text_of_activity:
+    if 'забрать оборудование' in text_of_activity or 'забрать комплект оборудования' in text_of_activity:
         activity_type.append('3 - hardware logistics')
 
     activity_type.sort()

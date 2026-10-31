@@ -22,8 +22,9 @@ import inspect
 import json
 import logging
 import threading
+from collections.abc import Awaitable, Callable, Sequence
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Awaitable, Callable, Sequence, cast
+from typing import Any, cast
 from urllib.parse import parse_qs, urlparse
 
 from _dependencies.common import queue_pg
@@ -151,16 +152,16 @@ class _RequestHandler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
     timeout = _REQUEST_TIMEOUT_SECS
 
-    def do_GET(self) -> None:  # noqa: N802 - name required by BaseHTTPRequestHandler
+    def do_GET(self) -> None:  # required by BaseHTTPRequestHandler
         self._handle('GET')
 
-    def do_HEAD(self) -> None:  # noqa: N802
+    def do_HEAD(self) -> None:  # required by BaseHTTPRequestHandler
         self._handle('HEAD')
 
-    def do_POST(self) -> None:  # noqa: N802
+    def do_POST(self) -> None:  # required by BaseHTTPRequestHandler
         self._handle('POST')
 
-    def do_OPTIONS(self) -> None:  # noqa: N802
+    def do_OPTIONS(self) -> None:  # required by BaseHTTPRequestHandler
         self._handle('OPTIONS')
 
     def log_message(self, fmt: str, *args: Any) -> None:

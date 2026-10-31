@@ -352,7 +352,7 @@ class NotificationMaker:
             notify_admin('ERROR: Not able to mark Comments as Processed!')
 
 
-def _extract_coordinates_from_message(user_message: str) -> None | tuple[str, str]:
+def _extract_coordinates_from_message(user_message: str) -> tuple[str, str] | None:
     list_of_coords = re.findall(RE_LIST_COORDS, user_message)
     if not list_of_coords or len(list_of_coords) != 1:
         return None

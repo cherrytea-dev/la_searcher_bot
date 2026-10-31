@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import ClassVar
 
 import sqlalchemy
 import sqlalchemy.ext
@@ -61,7 +62,7 @@ class NotifByUserFactory(BaseFactory[db_models.NotifByUser]):
 class NotifByUserHistory(db_models.Base):
     # we have no model for notif_by_user__history, only Table. let's make it here
     __table__ = db_models.t_notif_by_user__history
-    __mapper_args__ = {'primary_key': [db_models.t_notif_by_user__history.c.message_id]}
+    __mapper_args__: ClassVar[dict] = {'primary_key': [db_models.t_notif_by_user__history.c.message_id]}
 
 
 class NotifByUserHistoryFactory(BaseFactory[NotifByUserHistory]):
@@ -158,7 +159,7 @@ class UserPrefSearchWhitelistFactory(BaseFactory[db_models.UserPrefSearchWhiteli
 class UserPrefSearchFiltering(db_models.Base):
     # we have no model for user_pref_search_filtering, only Table. let's make it here
     __table__ = db_models.t_user_pref_search_filtering
-    __mapper_args__ = {'primary_key': [db_models.t_user_pref_search_filtering.c.filter_id]}
+    __mapper_args__: ClassVar[dict] = {'primary_key': [db_models.t_user_pref_search_filtering.c.filter_id]}
 
 
 class UserPrefSearchFilteringFactory(BaseFactory[UserPrefSearchFiltering]):
@@ -167,7 +168,7 @@ class UserPrefSearchFilteringFactory(BaseFactory[UserPrefSearchFiltering]):
 
 class CommunicationsLastInlineMsg(db_models.Base):
     __table__ = db_models.t_communications_last_inline_msg
-    __mapper_args__ = {'primary_key': [db_models.t_communications_last_inline_msg.c.id]}
+    __mapper_args__: ClassVar[dict] = {'primary_key': [db_models.t_communications_last_inline_msg.c.id]}
 
 
 class CommunicationsLastInlineMsgFactory(BaseFactory[CommunicationsLastInlineMsg]):

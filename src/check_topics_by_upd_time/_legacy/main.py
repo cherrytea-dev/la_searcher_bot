@@ -7,15 +7,15 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, Optional, no_type_check
+from typing import Any, no_type_check
 
-import requests
 from bs4 import BeautifulSoup, SoupStrainer, Tag
 from retry.api import retry_call
 
-from _dependencies.common.commons import get_forum_proxies, setup_logging
+from _dependencies.common.commons import setup_logging
 from _dependencies.common.db_client import DBClientBase, DBKeyValueStorageMixin
 from _dependencies.common.pubsub import Ctx, pubsub_parse_folders
+from _dependencies.forum.session import get_requests_session
 
 setup_logging(__package__)
 
@@ -65,13 +65,6 @@ class DecomposedFolder:
     subfolders: list[Subfolder]
     searches: list[Search]
     folder_name: str
-
-
-@lru_cache
-def get_session() -> requests.Session:
-    session = requests.Session()
-    session.proxies.update(get_forum_proxies())
-    return session
 
 
 class KeyValueStorage:
@@ -178,7 +171,7 @@ class FolderDecomposer:
         page_summary_folders = self._get_subfolders(soup, start_folder_num)
         page_summary_searches = self._process_searches(soup, start_folder_num)
 
-        logging.info(f'Page summary searches: {str(page_summary_searches)}')
+        logging.info(f'Page summary searches: {page_summary_searches!s}')
 
         return DecomposedFolder(
             subfolders=page_summary_folders, searches=page_summary_searches, folder_name=folder_name
@@ -187,10 +180,10 @@ class FolderDecomposer:
     def _get_searches(self, soup: BeautifulSoup) -> list[Search]:
         return self._process_searches(soup, 'foo')
 
-    def _fetch_and_parse_page(self, url: str) -> Optional[BeautifulSoup]:
+    def _fetch_and_parse_page(self, url: str) -> BeautifulSoup | None:
         """Fetch the page content and parse it with BeautifulSoup"""
         try:
-            response = retry_call(get_session().get, fargs=[url], tries=3)
+            response = retry_call(get_requests_session().get, fargs=[url], tries=3)
             only_tag = SoupStrainer('div', {'class': 'page-body'})
             soup = BeautifulSoup(response.content, features='lxml', parse_only=only_tag)
             return soup
@@ -311,7 +304,7 @@ class FolderUpdateChecker:
         return page_summary
 
     def _fetch_and_parse_main_forum_page(self) -> BeautifulSoup:
-        r = retry_call(get_session().get, fkwargs={'url': self.url, 'timeout': 20}, tries=5)
+        r = retry_call(get_requests_session().get, fkwargs={'url': self.url, 'timeout': 20}, tries=5)
         only_tag = SoupStrainer('div', {'class': 'forabg'})
         return BeautifulSoup(r.content, features='lxml', parse_only=only_tag)
 
@@ -337,7 +330,7 @@ class FolderUpdateChecker:
         try:
             folder_time_str = str(folder.find('time')['datetime'])  # type:ignore[index]
             folder_time = datetime.datetime.strptime(folder_time_str, DATETIME_FORMAT)
-        except Exception:  # noqa
+        except Exception:
             folder_time_str = str(datetime.datetime(2023, 1, 1, 0, 0, 0))
             folder_time = datetime.datetime(2023, 1, 1, 0, 0, 0)
         return folder_time_str, folder_time
@@ -365,18 +358,18 @@ def get_updated_root_folders() -> list[tuple[str, str]]:
 
     last_update_time = max(x[2] for x in list_of_folders_and_times)
     time_diff_in_min = time_delta(now, last_update_time)
-    logging.info(f'{str(time_diff_in_min)} minute(s) ago forum was updated')
+    logging.info(f'{time_diff_in_min!s} minute(s) ago forum was updated')
 
     storage = KeyValueStorage()
     update_times = storage.read_foder_root_modified_times_dict()
     updated_folders: list[tuple[str, str]] = []
 
-    for f_num, f_time_str, f_time in list_of_folders_and_times:
+    for f_num, f_time_str, _f_time in list_of_folders_and_times:
         saved_update_time = update_times.get(f_num, datetime.datetime.min)
         if f_time_str != saved_update_time:
             updated_folders.append((str(f_num), str(f_time_str)))
 
-    logging.info(f'Root folders with new info: {str(updated_folders)}')
+    logging.info(f'Root folders with new info: {updated_folders!s}')
     return updated_folders
 
 

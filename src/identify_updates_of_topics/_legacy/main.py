@@ -14,7 +14,7 @@ from ._utils.forum import ForumClient
 setup_logging(__package__)
 
 
-def main(event: dict[str, bytes], context: Ctx) -> None:  # noqa
+def main(event: dict[str, bytes], context: Ctx) -> None:
     """main function triggered by pub/sub"""
 
     function_id = generate_random_function_id()

@@ -20,7 +20,7 @@ call falls through to the API, so a broken cache can never break recognition.
 
 import hashlib
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 
 from _dependencies.common.pubsub import recognize_title_via_api
@@ -155,7 +155,7 @@ def recognize_title_cached(
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _is_ok(response: dict[str, Any]) -> bool:
@@ -193,7 +193,7 @@ def _parse_time(value: Any) -> datetime | None:
     except ValueError:
         return None
 
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
 def _read_entry(store: RecognitionCacheStore, key: str, title: str) -> dict[str, Any] | None:

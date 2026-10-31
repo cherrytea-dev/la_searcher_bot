@@ -155,7 +155,7 @@ def _format_search_text(search: dict, is_followed: bool, is_blacklisted: bool) -
     status_emoji = STATUS_EMOJI.get(search['status'], '❓')
     time_text = ''
     if search['search_start_time']:
-        phrase, days = time_counter_since_search_start(search['search_start_time'])
+        phrase, _days = time_counter_since_search_start(search['search_start_time'])
         time_text = f' ({phrase})'
 
     age_text = ''

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import ClassVar
 
 from polyfactory import Use
 from polyfactory.factories import DataclassFactory
@@ -11,7 +12,7 @@ class LineInChangeLogFactory(DataclassFactory[LineInChangeLog]):
     topic_type_id = TopicType.search_regular
     forum_search_num = 1
     start_time = datetime.now()
-    activities = [1, 2]
+    activities: ClassVar[list[int]] = [1, 2]
     managers = '["manager1","manager2"]'
     clickable_name = 'foo'
 

@@ -1,4 +1,4 @@
-from typing import Generator
+from collections.abc import Generator
 from uuid import uuid4
 
 import pytest
@@ -19,10 +19,12 @@ class TestFunctionsLock:
 
     def test_is_locked_while_held(self, func_name: str):
         """Second acquisition attempt must fail while the lock is held."""
-        with lock_manager(self.engine, func_name):
-            with pytest.raises(FunctionLockError):
-                with lock_manager(self.engine, func_name):
-                    print('should fail')
+        with (
+            lock_manager(self.engine, func_name),
+            pytest.raises(FunctionLockError),
+            lock_manager(self.engine, func_name),
+        ):
+            print('should fail')
 
     def test_is_released_after_done(self, func_name: str):
         """The lock must be free again immediately after the context exits."""
@@ -34,9 +36,8 @@ class TestFunctionsLock:
 
     def test_is_released_on_exception(self, func_name: str):
         """The lock must be released even if the body raises."""
-        with pytest.raises(RuntimeError):
-            with lock_manager(self.engine, func_name):
-                raise RuntimeError('boom')
+        with pytest.raises(RuntimeError), lock_manager(self.engine, func_name):
+            raise RuntimeError('boom')
 
         # no timeout / sleep needed — advisory lock is freed on connection close
         with lock_manager(self.engine, func_name):
@@ -44,6 +45,5 @@ class TestFunctionsLock:
 
     def test_different_functions_do_not_block(self):
         """Two different func_names must not contend for the same lock."""
-        with lock_manager(self.engine, 'fn_a'):
-            with lock_manager(self.engine, 'fn_b'):
-                print('both held')
+        with lock_manager(self.engine, 'fn_a'), lock_manager(self.engine, 'fn_b'):
+            print('both held')

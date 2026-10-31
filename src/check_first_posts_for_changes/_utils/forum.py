@@ -2,16 +2,15 @@ import hashlib
 import logging
 import re
 from dataclasses import dataclass
-from functools import lru_cache
 
 import requests
 from retry import retry
 
-from _dependencies.common.commons import get_forum_proxies
 from _dependencies.common.pubsub import recognize_title_via_api
 from _dependencies.forum.content import content_is_unaccessible, is_forum_unavailable
 from _dependencies.forum.recognition_cache import recognize_title_cached
 from _dependencies.forum.recognition_schema import RecognitionResult
+from _dependencies.forum.session import get_requests_session
 from _dependencies.forum.topic_management import save_status_for_topic
 
 from .database import get_db_client
@@ -28,13 +27,6 @@ class FirstPostData:
     prettified_content: str
     not_found: bool
     topic_visibility: str
-
-
-@lru_cache
-def get_requests_session() -> requests.Session:
-    session = requests.Session()
-    session.proxies.update(get_forum_proxies())
-    return session
 
 
 def _define_topic_visibility_by_content(content: str) -> str:
@@ -85,7 +77,7 @@ def _recognize_status_with_title_recognize(title: str) -> str | None:
         api_call=recognize_title_via_api,
     )
 
-    if title_reco_response and 'status' in title_reco_response.keys() and title_reco_response['status'] == 'ok':
+    if title_reco_response and 'status' in title_reco_response and title_reco_response['status'] == 'ok':
         title_reco_dict = RecognitionResult.model_validate(title_reco_response['recognition'])
         return title_reco_dict.status
         # TODO validate whole response
@@ -187,7 +179,7 @@ def get_first_post(search_num: int) -> FirstPostData | None:
     """parse the first post of search"""
 
     raw_content = _get_search_raw_content(search_num)
-    not_found = True if raw_content and re.search(r'Запрошенной темы не существует', raw_content) else False
+    not_found = bool(raw_content and re.search(r'Запрошенной темы не существует', raw_content))
     # the same as status 404
 
     if not_found:

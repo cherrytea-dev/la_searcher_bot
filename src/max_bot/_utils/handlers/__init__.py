@@ -7,9 +7,9 @@
 # ruff: noqa: I001 — import order is behavior (first matching handler wins),
 # so isort must not alphabetize this registration list.
 
-from ..common import _ensure_user_registered, router  # noqa: F401
+from ..common import _ensure_user_registered, router
 
-from . import (  # noqa: F401 — import to trigger @router.* registration
+from . import (
     onboarding_handlers,  # on_start — обязан регистрироваться до fallback
     settings_handlers,
     region_select_handlers,

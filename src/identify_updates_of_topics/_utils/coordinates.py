@@ -1,6 +1,6 @@
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from _dependencies.common.pubsub import notify_admin
 
@@ -76,7 +76,7 @@ class CoordinatesResolver:
         if not prev_api_call_time:
             return
 
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.now(UTC)
         time_delta_bw_now_and_next_request = prev_api_call_time - now_utc + timedelta(seconds=1)
 
         logging.debug(f'{prev_api_call_time=}')

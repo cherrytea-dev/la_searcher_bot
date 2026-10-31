@@ -129,7 +129,7 @@ async def on_paginate_toggle(event: MessageCallback) -> None:
     folder_dict: dict[str, tuple[int, ...]] = {}
     for fid, name in all_folders:
         if name:
-            folder_dict[name] = folder_dict.get(name, ()) + (fid,)
+            folder_dict[name] = (*folder_dict.get(name, ()), fid)
 
     # Keep the district-scoped list for keyboard building
     regions = _get_regions_for_district(district)

@@ -247,7 +247,6 @@ handler, so `handlers/__init__.py` imports the modules in a fixed order and the 
 - [`keyboards.py`](../src/max_bot/_utils/keyboards.py) — `MaxKeyboardButtons`,
   `MaxKeyboardPresets` (`InlineKeyboardBuilder`), pagination with `page_size=6`.
 - [`message_formatter.py`](../src/max_bot/_utils/message_formatter.py) — response templates.
-- [`states.py`](../src/max_bot/_utils/states.py) — `MaxStates`.
 - [`bot_polling.py`](../src/max_bot/_utils/bot_polling.py) — long-polling runner.
 - [`cli.py`](../src/max_bot/cli.py) — polling mode only; webhook is served by `main.py`.
 

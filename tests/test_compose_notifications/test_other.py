@@ -8,5 +8,5 @@ def test_get_coords_from_list():
 
 
 def test_define_dist_and_dir_to_search():
-    dist, direction = define_dist_and_dir_to_search('56.1234', '60.56780', '55.1234', '60.56780')
+    dist, _direction = define_dist_and_dir_to_search('56.1234', '60.56780', '55.1234', '60.56780')
     assert dist == 111.2

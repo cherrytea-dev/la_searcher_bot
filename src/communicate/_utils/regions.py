@@ -38,14 +38,14 @@ class Geography(BaseModel):
         filtered = [x for x in self.all_region_names() if _start <= x[0] <= _finish]
         return sorted(filtered)
 
-    @cache
+    @cache  # noqa: B019 — `geography` is a module-level singleton
     def full_regions_list(self) -> list[list[str]]:
         regions = [x.get_buttons()[:-2] for x in self.fed_okrugs]
         res = list(chain(*regions))
         res.append([b_fed_dist_other_r])
         return res
 
-    @cache
+    @cache  # noqa: B019 — `geography` is a module-level singleton
     def folder_dict(self) -> dict[str, tuple[int, ...]]:
         all_tuples = [x.provinces for x in self.fed_okrugs]
         all_tuples_joined = tuple(chain(*all_tuples))
@@ -63,7 +63,7 @@ class Geography(BaseModel):
                 regions.append(rev_reg_dict[user_region])
         return regions
 
-    @cache
+    @cache  # noqa: B019 — `geography` is a module-level singleton
     def all_region_names(self) -> list[str]:
         names = [word[0] for word in self.full_regions_list()]
         names.sort()
@@ -91,7 +91,7 @@ class Geography(BaseModel):
         )
 
         return InlineKeyboardMarkup(
-            arrange_buttons_to_rows(letters_buttons, 5) + [[placeholder]] + arrange_buttons_to_rows(region_buttons, 2),
+            [*arrange_buttons_to_rows(letters_buttons, 5), [placeholder], *arrange_buttons_to_rows(region_buttons, 2)],
         )
 
     def get_selected_region_name_by_order(self, index: int) -> str:

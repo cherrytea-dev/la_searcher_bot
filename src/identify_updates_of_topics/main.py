@@ -19,7 +19,7 @@ from ._utils.topic_updater import SearchUpdater
 setup_logging(__package__)
 
 
-def main(event: dict[str, bytes], context: Ctx) -> None:  # noqa
+def main(event: dict[str, bytes], context: Ctx) -> None:
     """main function triggered by pub/sub"""
 
     if get_app_config().forum_legacy_data_source:

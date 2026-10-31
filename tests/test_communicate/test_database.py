@@ -596,7 +596,7 @@ def test_get_all_active_searches_in_one_region_2(session, db_client: DBClient, u
     assert len(active_searches) == len(searches)
     searches.sort(key=lambda x: x.search_forum_num)
     active_searches.sort(key=lambda x: x.topic_id)
-    for search_model, search_result in zip(searches, active_searches):
+    for search_model, search_result in zip(searches, active_searches, strict=False):
         _assert_search_summary_equals_to_search_model(search_model, search_result)
 
     _cleanup_searches(session, searches)
@@ -615,7 +615,7 @@ def test_get_all_searches_in_one_region(session, db_client: DBClient):
 
     searches.sort(key=lambda x: x.search_forum_num)
     all_searches.sort(key=lambda x: x.topic_id)
-    for search_model, search_result in zip(searches, all_searches):
+    for search_model, search_result in zip(searches, all_searches, strict=False):
         _assert_search_summary_equals_to_search_model(search_model, search_result)
 
     _cleanup_searches(session, searches)
@@ -635,7 +635,7 @@ def test_get_all_last_searches_in_region(session, db_client: DBClient, user_id: 
     assert len(last_searches) == len(searches)
     searches.sort(key=lambda x: x.search_forum_num)
     last_searches.sort(key=lambda x: x.topic_id)
-    for search_model, search_result in zip(searches, last_searches):
+    for search_model, search_result in zip(searches, last_searches, strict=False):
         _assert_search_summary_equals_to_search_model(search_model, search_result)
 
     _cleanup_searches(session, searches)
@@ -656,7 +656,7 @@ def test_get_active_searches_in_one_region(session, db_client: DBClient):
     assert len(active_searches) == len(searches)
     searches.sort(key=lambda x: x.search_forum_num)
     active_searches.sort(key=lambda x: x.topic_id)
-    for search_model, search_result in zip(searches, active_searches):
+    for search_model, search_result in zip(searches, active_searches, strict=False):
         _assert_search_summary_equals_to_search_model(search_model, search_result)
 
     _cleanup_searches(session, searches)
