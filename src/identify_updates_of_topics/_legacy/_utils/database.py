@@ -419,6 +419,16 @@ class DBClient(DBClientBase, DBKeyValueStorageMixin):
 
             return conn.execute(stmt).fetchall()
 
+    def get_folders_with_finished_searches(self) -> list[int]:
+        with self.connect() as conn:
+            stmt = sqlalchemy.text("""
+                SELECT folder_id
+                FROM geo_folders
+                WHERE folder_subtype='searches finished';
+            """)
+
+            return [row[0] for row in conn.execute(stmt).fetchall()]
+
 
 @lru_cache
 def get_db_client() -> DBClient:

@@ -15,7 +15,7 @@ from .parse import (
     profile_get_managers,
     profile_get_type_of_activity,
 )
-from .search_parser import SearchParser
+from .search_parser import SearchParser, resolve_search_status
 from .topics_commons import (
     ChangeLogLine,
     CoordType,
@@ -44,6 +44,7 @@ class SearchUpdater:
         self.forum = forum_client
         self.db = db_client
         self.folders_with_events = set(self.db.get_folders_with_events_only())
+        self.folders_with_finished_searches = set(self.db.get_folders_with_finished_searches())
         self.search_parser = search_parser or SearchParser(CoordinatesResolver(db_client), cache_store=db_client)
         self.change_detector = change_detector or ChangeDetector()
         self.coordinates_resolver = coordinates_resolver or CoordinatesResolver(db_client)
@@ -64,16 +65,30 @@ class SearchUpdater:
         now_ = datetime.now()
         summary: SearchSummary | None = None
         prev_search = self.db.get_search_by_id(search_id)
-        if prev_search is not None and can_reuse_recognition(
-            prev_title=prev_search.title,
-            prev_topic_type_id=prev_search.topic_type_id,
-            new_title=item.title,
+        moved_from_finished_folder = (
+            prev_search is not None
+            and prev_search.folder_id in self.folders_with_finished_searches
+            and item.folder_id not in self.folders_with_finished_searches
+        )
+        if (
+            prev_search is not None
+            and not moved_from_finished_folder
+            and can_reuse_recognition(
+                prev_title=prev_search.title,
+                prev_topic_type_id=prev_search.topic_type_id,
+                new_title=item.title,
+            )
         ):
             # the recognition result depends only on the title, so the previous one is still valid
             logging.debug(f'title of search {search_id} is unchanged, skipping recognition')
             summary = self._reuse_recognition(now_, item, prev_search)
         else:
-            summary = self.search_parser.parse(now_, item, self.folders_with_events)
+            summary = self.search_parser.parse(
+                now_,
+                item,
+                self.folders_with_events,
+                self.folders_with_finished_searches,
+            )
 
         if not summary:
             return []
@@ -94,6 +109,13 @@ class SearchUpdater:
         if self.folders_with_events and forum_search_item.folder_id in self.folders_with_events:
             topic_type = RecognitionTopicType.event
 
+        effective_status = resolve_search_status(
+            recognized_status=prev_search.status,
+            topic_type=topic_type,
+            folder_id=forum_search_item.folder_id,
+            folders_with_finished_searches=self.folders_with_finished_searches,
+        )
+
         return SearchSummary(
             parsed_time=current_datetime,
             topic_id=forum_search_item.search_id,
@@ -104,8 +126,8 @@ class SearchUpdater:
             folder_id=forum_search_item.folder_id,
             topic_type=topic_type,
             topic_type_id=prev_search.topic_type_id,
-            new_status=prev_search.new_status,
-            status=prev_search.status,
+            new_status=effective_status,
+            status=effective_status,
             display_name=prev_search.display_name,
             age=prev_search.age,
             age_min=prev_search.age_min,
@@ -144,6 +166,7 @@ class SearchUpdater:
             snapshot.status != search.status
             or snapshot.title != search.title
             or snapshot.num_of_replies != search.num_of_replies
+            or snapshot.folder_id != search.folder_id
         ):
             self.db.delete_search(search.topic_id)
             self.db.write_search(snapshot)
