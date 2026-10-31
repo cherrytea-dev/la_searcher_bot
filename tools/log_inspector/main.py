@@ -37,7 +37,7 @@ Known YC Logging quirks (handled automatically):
 import json
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import click
 
@@ -67,7 +67,7 @@ def cli() -> None:
 def top_errors(log_group_id: str, hours: int, top: int, slice_hours: float) -> None:
     """Aggregate ERROR logs by normalized pattern."""
     client = _make_client()
-    to_time = datetime.now(timezone.utc)
+    to_time = datetime.now(UTC)
     from_time = to_time - timedelta(hours=hours)
 
     click.echo(f'⏳ Fetching ERROR logs for the last {hours}h …', err=True)
@@ -110,7 +110,7 @@ def top_errors(log_group_id: str, hours: int, top: int, slice_hours: float) -> N
 def trace(log_group_id: str, request_id: str, hours: int, slice_hours: float, filter: str | None) -> None:
     """Trace all log entries for a specific request_id."""
     client = _make_client()
-    to_time = datetime.now(timezone.utc)
+    to_time = datetime.now(UTC)
     from_time = to_time - timedelta(hours=hours)
 
     filter_expr = filter or f'request_id="{request_id}"'
@@ -159,7 +159,7 @@ def list_groups(folder_id: str) -> None:
 def raw(log_group_id: str, hours: int, level: str, slice_hours: float) -> None:
     """Dump raw JSON for a time window."""
     client = _make_client()
-    to_time = datetime.now(timezone.utc)
+    to_time = datetime.now(UTC)
     from_time = to_time - timedelta(hours=hours)
 
     entries = client.read_all_logs(
@@ -197,7 +197,7 @@ def volume(
     """
     sample_every = max(1, sample_every)
     client = _make_client()
-    to_time = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    to_time = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
     from_time = to_time - timedelta(hours=hours)
     aggregator = VolumeAggregator(top_biggest=top_biggest)
 

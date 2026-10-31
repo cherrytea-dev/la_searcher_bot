@@ -85,9 +85,12 @@ def group_errors(
             pattern_samples[pattern] = message
 
         req_id = extract_request_id(entry)
-        if req_id and req_id not in pattern_request_ids.setdefault(pattern, []):
-            if len(pattern_request_ids[pattern]) < max_request_ids:
-                pattern_request_ids[pattern].append(req_id)
+        if (
+            req_id
+            and req_id not in pattern_request_ids.setdefault(pattern, [])
+            and len(pattern_request_ids[pattern]) < max_request_ids
+        ):
+            pattern_request_ids[pattern].append(req_id)
 
     return [
         ErrorGroup(

@@ -95,29 +95,32 @@ class Archiver:
         last_message_id: int | None = None
         buf = io.BytesIO()
 
-        with self.db.connect() as conn, ZipFile(buf, 'w', compression=ZIP_DEFLATED, compresslevel=9) as zf:  # noqa: SIM117 — each context depends on the previous one
-            with zf.open(self._csv_entry_name, 'w') as csv_entry:
-                with io.TextIOWrapper(csv_entry, encoding='utf-8') as text_wrapper:
-                    writer = None
+        with (
+            self.db.connect() as conn,
+            ZipFile(buf, 'w', compression=ZIP_DEFLATED, compresslevel=9) as zf,
+            zf.open(self._csv_entry_name, 'w') as csv_entry,
+            io.TextIOWrapper(csv_entry, encoding='utf-8') as text_wrapper,
+        ):
+            writer = None
 
-                    while True:
-                        result = conn.execute(
-                            paginated_query,
-                            params | {'last_message_id': last_message_id},
-                        )
-                        rows = result.fetchall()
+            while True:
+                result = conn.execute(
+                    paginated_query,
+                    params | {'last_message_id': last_message_id},
+                )
+                rows = result.fetchall()
 
-                        if not rows:
-                            break
+                if not rows:
+                    break
 
-                        if writer is None:
-                            columns = list(result.keys())
-                            writer = csv.writer(text_wrapper)
-                            writer.writerow(columns)
+                if writer is None:
+                    columns = list(result.keys())
+                    writer = csv.writer(text_wrapper)
+                    writer.writerow(columns)
 
-                        writer.writerows(rows)
-                        total_count += len(rows)
-                        last_message_id = rows[-1].message_id
+                writer.writerows(rows)
+                total_count += len(rows)
+                last_message_id = rows[-1].message_id
 
         if total_count == 0:
             return None

@@ -156,7 +156,7 @@ def convert_yc_request(request_data: dict) -> RequestWrapper:
 
     try:
         json_ = json.loads(request_data.get('body', 'null'))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, RecursionError):
         json_ = None
 
     return RequestWrapper(
