@@ -1,12 +1,15 @@
 """HTTP session for talking to the LA forum.
 
-Single place for the forum proxy configuration: every scanner and parser that
-talks to the forum gets the same session type and the same proxies
-(``get_forum_proxies``), instead of each component keeping its own copy.
+Every scanner and parser that talks to the forum uses this one factory, so the
+proxy configuration (``get_forum_proxies``) is defined once instead of in seven
+copies. The login flow in ``connect_to_forum`` keeps its own session on purpose:
+it carries the bot's cookie jar.
 
 A ``requests.Session`` is not thread-safe and the app runs scanners on several
 threads at once (cron thread plus queue workers), so the session is cached
-per-thread rather than process-wide.
+per-thread rather than process-wide. Short-lived threads (one per cron tick)
+therefore start with a fresh session and lose keep-alive across ticks — the price
+of not sharing a cookie jar between threads.
 """
 
 import threading

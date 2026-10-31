@@ -4,11 +4,6 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-# All tests in this file share tables (change_log, notif_by_user, etc.)
-# and must not run in parallel with each other.
-pytestmark = pytest.mark.skip(reason='off')  # temporarily off
-# pytestmark = pytest.mark.xdist_group('archive_notifications')
-
 from archive_notifications.main import DBClient
 from tests.common import find_model
 from tests.factories import db_models
@@ -19,6 +14,11 @@ from tests.factories.db_factories import (
     SearchFactory,
     SearchFirstPostFactory,
 )
+
+# All tests in this file share tables (change_log, notif_by_user, etc.)
+# and must not run in parallel with each other.
+pytestmark = pytest.mark.skip(reason='off')  # temporarily off
+# pytestmark = pytest.mark.xdist_group('archive_notifications')
 
 
 class TestMoveNotificationsToHistory:

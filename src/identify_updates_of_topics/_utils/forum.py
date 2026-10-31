@@ -9,6 +9,7 @@ from retry import retry
 from yarl import URL
 
 from _dependencies.forum.content import content_is_unaccessible, is_forum_unavailable
+from _dependencies.forum.session import get_requests_session
 from _dependencies.forum.topic_management import save_visibility_for_topic
 
 from .database import get_db_client
@@ -34,9 +35,6 @@ def is_content_visible(content: bytes, topic_id: int) -> bool:
         return False
 
     return True
-
-
-from _dependencies.forum.session import get_requests_session
 
 
 class ForumClient:

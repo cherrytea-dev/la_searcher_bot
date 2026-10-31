@@ -10,6 +10,7 @@ from _dependencies.common.pubsub import recognize_title_via_api
 from _dependencies.forum.content import content_is_unaccessible, is_forum_unavailable
 from _dependencies.forum.recognition_cache import recognize_title_cached
 from _dependencies.forum.recognition_schema import RecognitionResult
+from _dependencies.forum.session import get_requests_session
 from _dependencies.forum.topic_management import save_status_for_topic
 
 from .database import get_db_client
@@ -26,9 +27,6 @@ class FirstPostData:
     prettified_content: str
     not_found: bool
     topic_visibility: str
-
-
-from _dependencies.forum.session import get_requests_session
 
 
 def _define_topic_visibility_by_content(content: str) -> str:

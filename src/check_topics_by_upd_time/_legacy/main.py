@@ -9,13 +9,13 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, no_type_check
 
-import requests
 from bs4 import BeautifulSoup, SoupStrainer, Tag
 from retry.api import retry_call
 
-from _dependencies.common.commons import get_forum_proxies, setup_logging
+from _dependencies.common.commons import setup_logging
 from _dependencies.common.db_client import DBClientBase, DBKeyValueStorageMixin
 from _dependencies.common.pubsub import Ctx, pubsub_parse_folders
+from _dependencies.forum.session import get_requests_session
 
 setup_logging(__package__)
 
@@ -65,13 +65,6 @@ class DecomposedFolder:
     subfolders: list[Subfolder]
     searches: list[Search]
     folder_name: str
-
-
-@lru_cache
-def get_session() -> requests.Session:
-    session = requests.Session()
-    session.proxies.update(get_forum_proxies())
-    return session
 
 
 class KeyValueStorage:
@@ -190,7 +183,7 @@ class FolderDecomposer:
     def _fetch_and_parse_page(self, url: str) -> BeautifulSoup | None:
         """Fetch the page content and parse it with BeautifulSoup"""
         try:
-            response = retry_call(get_session().get, fargs=[url], tries=3)
+            response = retry_call(get_requests_session().get, fargs=[url], tries=3)
             only_tag = SoupStrainer('div', {'class': 'page-body'})
             soup = BeautifulSoup(response.content, features='lxml', parse_only=only_tag)
             return soup
@@ -311,7 +304,7 @@ class FolderUpdateChecker:
         return page_summary
 
     def _fetch_and_parse_main_forum_page(self) -> BeautifulSoup:
-        r = retry_call(get_session().get, fkwargs={'url': self.url, 'timeout': 20}, tries=5)
+        r = retry_call(get_requests_session().get, fkwargs={'url': self.url, 'timeout': 20}, tries=5)
         only_tag = SoupStrainer('div', {'class': 'forabg'})
         return BeautifulSoup(r.content, features='lxml', parse_only=only_tag)
 
