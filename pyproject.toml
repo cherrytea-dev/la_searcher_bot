@@ -26,6 +26,11 @@ dependencies = [
 dev = [
     "pytest>=9.0.3",
     "polyfactory>=2.18",
+    # polyfactory >= 3.4 imports `sqlalchemy.ext.asyncio` at module level, and SQLAlchemy 2.1
+    # moved greenlet into the `sqlalchemy[asyncio]` extra (no longer a base dependency).
+    # Without greenlet that import fails and polyfactory raises the misleading
+    # "sqlalchemy is not installed" MissingDependencyException.
+    "greenlet>=3.0",
     "requests-mock>=1.12.1",
     "responses>=0.25.6",
     "freezegun>=1.5.1",
