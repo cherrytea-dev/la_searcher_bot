@@ -9,3 +9,24 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    groups:
+      # Все minor/patch - одним PR: у них общий uv.lock, и по отдельности они конфликтуют
+      # друг с другом, а каждый прогон CI - это docker compose + serial pytest.
+      minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      # Мажоры отдельно и раздельно по типу зависимости: их все равно смотреть руками.
+      production-major:
+        applies-to: version-updates
+        dependency-type: "production"
+        update-types:
+          - "major"
+      development-major:
+        applies-to: version-updates
+        dependency-type: "development"
+        update-types:
+          - "major"
