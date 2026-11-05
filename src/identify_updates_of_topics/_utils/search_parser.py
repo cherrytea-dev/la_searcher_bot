@@ -11,6 +11,42 @@ from _dependencies.forum.recognition_schema import RecognitionResult, Recognitio
 from .coordinates import CoordinatesResolver
 from .topics_commons import ForumSearchItem, SearchSummary
 
+EXACT_TERMINAL_STATUSES = frozenset({'НЖ', 'НП', 'Найден'})
+FINISHED_SEARCH_STATUS = 'Завершен'
+NON_SEARCH_TOPIC_TYPES = frozenset(
+    {
+        RecognitionTopicType.event.value,
+        RecognitionTopicType.info.value,
+        RecognitionTopicType.unrecognized.value,
+    }
+)
+
+
+def resolve_search_status(
+    recognized_status: str | None,
+    topic_type: RecognitionTopicType | str | None,
+    folder_id: int | None,
+    folders_with_finished_searches: set[int] | None,
+) -> str | None:
+    """Resolve effective search status from title recognition and forum folder subtype.
+
+    Exact terminal statuses recognized from the title ('НЖ', 'НП', 'Найден') always win.
+    When a search topic has no exact terminal title status and sits in a folder with
+    ``folder_subtype='searches finished'``, its effective status becomes ``'Завершен'``.
+    Non-search topics ('event', 'info', 'UNRECOGNIZED') keep their recognized status.
+    """
+    if not folders_with_finished_searches or folder_id is None or folder_id not in folders_with_finished_searches:
+        return recognized_status
+
+    topic_type_value = topic_type.value if isinstance(topic_type, RecognitionTopicType) else topic_type
+    if topic_type_value in NON_SEARCH_TOPIC_TYPES:
+        return recognized_status
+
+    if recognized_status in EXACT_TERMINAL_STATUSES:
+        return recognized_status
+
+    return FINISHED_SEARCH_STATUS
+
 
 class SearchParser:
     """Builds a SearchSummary dataclass from a ForumSearchItem by:
@@ -60,6 +96,7 @@ class SearchParser:
         current_datetime: datetime,
         forum_search_item: ForumSearchItem,
         folders_with_events: set[int] | None = None,
+        folders_with_finished_searches: set[int] | None = None,
     ) -> SearchSummary | None:
         """Parse a forum search item into a SearchSummary using title recognition + geocoding.
 
@@ -68,6 +105,9 @@ class SearchParser:
             forum_search_item: The item parsed from the forum.
             folders_with_events: Optional set of folder IDs that contain only events.
                 If the search's folder is in this set, topic_type is forced to 'event'.
+            folders_with_finished_searches: Optional set of folder IDs with
+                ``folder_subtype='searches finished'``. Search topics in these folders
+                without an exact terminal status ('НЖ', 'НП', 'Найден') get status 'Завершен'.
 
         Returns:
             SearchSummary if recognition succeeded, None otherwise.
@@ -96,6 +136,13 @@ class SearchParser:
         if folders_with_events and forum_search_item.folder_id in folders_with_events:
             topic_type = RecognitionTopicType.event
 
+        effective_status = resolve_search_status(
+            recognized_status=title_reco_dict.status,
+            topic_type=topic_type,
+            folder_id=forum_search_item.folder_id,
+            folders_with_finished_searches=folders_with_finished_searches,
+        )
+
         search_summary_object = SearchSummary(
             parsed_time=current_datetime,
             topic_id=forum_search_item.search_id,
@@ -106,8 +153,8 @@ class SearchParser:
             folder_id=forum_search_item.folder_id,
             topic_type=topic_type,
             topic_type_id=self._TOPIC_TYPE_MAP[title_reco_dict.topic_type],
-            new_status=title_reco_dict.status,
-            status=title_reco_dict.status,
+            new_status=effective_status,
+            status=effective_status,
         )
 
         if title_reco_dict.persons:
