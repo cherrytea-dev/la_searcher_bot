@@ -11,6 +11,7 @@ from _dependencies.forum.recognition_cache import recognize_title_cached
 from _dependencies.forum.recognition_reuse import can_reuse_recognition
 from _dependencies.forum.recognition_schema import RecognitionResult, RecognitionTopicType
 
+from ..._utils.search_parser import resolve_search_status
 from .database import DBClient
 from .external_api import (
     get_coordinates_from_address_by_osm,
@@ -75,6 +76,7 @@ class FolderUpdater:
         self.forum = forum_client
         self.db = db_client
         self.folders_with_events = set(self.db.get_folders_with_events_only())
+        self.folders_with_finished_searches = set(self.db.get_folders_with_finished_searches())
 
     def run(self) -> tuple[bool, list[int]]:
         """process one forum folder: check for updates, upload them into cloud sql"""
@@ -275,6 +277,13 @@ class FolderUpdater:
         if self.folder_num in self.folders_with_events:
             topic_type = RecognitionTopicType.event
 
+        effective_status = resolve_search_status(
+            recognized_status=title_reco_dict.status,
+            topic_type=topic_type,
+            folder_id=self.folder_num,
+            folders_with_finished_searches=self.folders_with_finished_searches,
+        )
+
         search_summary_object = SearchSummary(
             parsed_time=current_datetime,
             topic_id=forum_search_item.search_id,
@@ -285,8 +294,8 @@ class FolderUpdater:
             folder_id=self.folder_num,
             topic_type=topic_type,
             topic_type_id=topic_type_dict[title_reco_dict.topic_type],
-            new_status=title_reco_dict.status,
-            status=title_reco_dict.status,
+            new_status=effective_status,
+            status=effective_status,
         )
 
         if title_reco_dict.persons:
@@ -324,6 +333,13 @@ class FolderUpdater:
         if self.folder_num in self.folders_with_events:
             topic_type = RecognitionTopicType.event
 
+        effective_status = resolve_search_status(
+            recognized_status=prev_summary.status,
+            topic_type=topic_type,
+            folder_id=self.folder_num,
+            folders_with_finished_searches=self.folders_with_finished_searches,
+        )
+
         # in SQL 'city_locations' is a text column, so locations of a stored summary are already a string
 
         return SearchSummary(
@@ -336,8 +352,8 @@ class FolderUpdater:
             folder_id=self.folder_num,
             topic_type=topic_type,
             topic_type_id=prev_summary.topic_type_id,
-            new_status=prev_summary.new_status,
-            status=prev_summary.status,
+            new_status=effective_status,
+            status=effective_status,
             display_name=prev_summary.display_name,
             age=prev_summary.age,
             age_min=prev_summary.age_min,
@@ -386,6 +402,7 @@ class FolderUpdater:
                     snapshot.status != search.status
                     or snapshot.title != search.title
                     or snapshot.num_of_replies != search.num_of_replies
+                    or snapshot.folder_id != search.folder_id
                 ):
                     self.db.delete_search(search.topic_id)
                     self.db.write_search(snapshot)
