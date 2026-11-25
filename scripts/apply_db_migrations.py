@@ -85,9 +85,12 @@ def _kamchatka_is_mapped(cur: 'psycopg2.extensions.cursor') -> bool:
     The folder matters as much as the division: if `geo_folders.folder_id = 510` stays with
     another division (an id clash), the region is "mapped" but Telegram users would be
     subscribed to a foreign folder. Such a state must not mark the migration as applied.
+
+    Geo tables missing means this is not the bot's database at all: skip instead of crashing
+    on a migration that cannot apply.
     """
     if not all(_to_regclass(cur, table) for table in ('geo_regions', 'geo_divisions', 'geo_folders')):
-        return False
+        return True
     cur.execute(
         """
         SELECT EXISTS(
