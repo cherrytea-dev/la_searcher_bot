@@ -72,3 +72,29 @@ def test_folder_dict_has_no_unexpected_non_search_folders(connection):
     ]
 
     assert unexpected == []
+
+
+def test_kamchatka_has_own_division_and_searches_folder(connection):
+    """RU-KAM must not fall back to the «Прочие поиски ДФО» bucket.
+
+    Until migration 012 the region pointed to division 69, so Kamchatka users were
+    subscribed to other regions' searches and had no Камчатка folder of their own
+    (the folder did not exist in the map, so the bot treated the region as unsupported).
+    """
+    rows = connection.execute(
+        sqlalchemy.text(
+            """
+            SELECT d.division_name, f.folder_id
+            FROM geo_regions r
+            JOIN geo_divisions d ON d.division_id = r.division_id
+            LEFT JOIN geo_folders f
+                ON f.division_id = d.division_id
+               AND f.folder_type = 'searches'
+               AND f.folder_subtype = 'searches active'
+            WHERE r.region_id = 'RU-KAM';
+            """
+        )
+    ).fetchall()
+
+    assert [tuple(row) for row in rows] == [('Камчатский край', 510)]
+    assert 510 in geography.folder_dict()['Камчатский край']

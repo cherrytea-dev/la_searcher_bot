@@ -234,4 +234,5 @@ INSERT INTO public.geo_folders (folder_id,division_id,folder_type,folder_subtype
 	 (452,49,'events',NULL),
 	 (454,63,'events',NULL),
 	 (458,48,'events',NULL),
-	 (459,48,'events',NULL) ON CONFLICT DO NOTHING;
+	 (459,48,'events',NULL),
+	 (510,78,'searches','searches active') ON CONFLICT DO NOTHING;

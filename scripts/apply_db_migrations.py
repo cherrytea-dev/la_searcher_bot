@@ -79,6 +79,25 @@ def _has_finished_searches_subscriptions(cur: 'psycopg2.extensions.cursor') -> b
     return bool(row and row[0])
 
 
+def _kamchatka_is_mapped(cur: 'psycopg2.extensions.cursor') -> bool:
+    """Whether RU-KAM already points to its own division (migration 012)."""
+    if not (_to_regclass(cur, 'geo_regions') and _to_regclass(cur, 'geo_divisions')):
+        return False
+    cur.execute(
+        """
+        SELECT EXISTS(
+            SELECT 1
+            FROM geo_regions r
+            JOIN geo_divisions d ON d.division_id = r.division_id
+            WHERE r.region_id = 'RU-KAM'
+              AND d.division_name = 'Камчатский край'
+        )
+        """
+    )
+    row = cur.fetchone()
+    return bool(row and row[0])
+
+
 def _split_statements(sql: str) -> list[str]:
     """Split a migration file into single statements (``--`` comments stripped).
 
@@ -218,6 +237,12 @@ def main() -> None:
             _migration('011_purge_finished_searches_subscriptions.sql'),
             args.dry_run,
         )
+        applied += 1
+
+    # 012 — Камчатский край: свой дивизион и папка поисков вместо «Прочие поиски ДФО».
+    # Выполняется только пока регион не перевешен на собственный дивизион.
+    if not _kamchatka_is_mapped(cur):
+        _run(cur, '012 add Kamchatka region', _migration('012_add_kamchatka_region.sql'), args.dry_run)
         applied += 1
 
     if args.dry_run:
