@@ -111,6 +111,12 @@ def _kamchatka_is_mapped(cur: 'psycopg2.extensions.cursor') -> bool:
     return bool(row and row[0])
 
 
+def _region_exists(cur: 'psycopg2.extensions.cursor', region_id: str) -> bool:
+    cur.execute('SELECT EXISTS(SELECT 1 FROM geo_regions WHERE region_id = %s)', (region_id,))
+    row = cur.fetchone()
+    return bool(row and row[0])
+
+
 def _split_statements(sql: str) -> list[str]:
     """Split a migration file into single statements (``--`` comments stripped).
 
@@ -255,6 +261,11 @@ def main() -> None:
     # 012 — Камчатский край: свой дивизион и папка поисков вместо «Прочие поиски ДФО».
     # Выполняется только пока регион не перевешен на собственный дивизион.
     if not _kamchatka_is_mapped(cur):
+        if not _region_exists(cur, 'RU-KAM'):
+            log.warning(
+                '012: no geo_regions row for RU-KAM — the division and folder will be created, '
+                'but the region itself cannot be remapped'
+            )
         _run(cur, '012 add Kamchatka region', _migration('012_add_kamchatka_region.sql'), args.dry_run)
         applied += 1
 

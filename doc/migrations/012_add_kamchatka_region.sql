@@ -7,18 +7,21 @@
 -- Идентификаторы не хардкодятся: в проде дивизион «Камчатский край» может уже появиться
 -- (тогда новый не создаётся) и его id может отличаться от 78 из тестовых сидов.
 -- Номер папки 510 захардкожен, потому что он же стоит в карте регионов бота. Если в проде
--- этот id уже занят чужой папкой, миграция падает (а не подписывает камчатцев на чужой
--- регион): тогда нужен свободный id здесь и в src/communicate/_utils/regions.py.
+-- этот id уже занят другой папкой (в том числе архивной/справочной, у которых division_id
+-- пустой), миграция падает, а не подписывает камчатцев на чужой регион: тогда нужен
+-- свободный id здесь и в src/communicate/_utils/regions.py.
 INSERT INTO geo_divisions (division_id, division_name)
 SELECT COALESCE((SELECT MAX(division_id) FROM geo_divisions), 0) + 1, 'Камчатский край'
 WHERE NOT EXISTS (SELECT 1 FROM geo_divisions WHERE division_name = 'Камчатский край');
 
+-- LEFT JOIN: у архивных и справочных папок division_id пустой, и именно такая папка
+-- скорее всего и окажется на месте 510, если номер уже занят.
 DO $$
 BEGIN
     IF EXISTS (
         SELECT 1
         FROM geo_folders f
-        JOIN geo_divisions d ON d.division_id = f.division_id
+        LEFT JOIN geo_divisions d ON d.division_id = f.division_id
         WHERE f.folder_id = 510
           AND (
               d.division_name IS DISTINCT FROM 'Камчатский край'
@@ -40,11 +43,16 @@ ORDER BY d.division_id
 LIMIT 1
 ON CONFLICT (folder_id) DO NOTHING;
 
+-- Если папка 510 уже была, регион идёт за ней: имя дивизиона не уникально, и «минимальный
+-- id» мог бы оказаться не тем дивизионом, к которому привязана папка.
 UPDATE geo_regions
-SET division_id = (
-    SELECT division_id FROM geo_divisions
-    WHERE division_name = 'Камчатский край'
-    ORDER BY division_id
-    LIMIT 1
+SET division_id = COALESCE(
+    (SELECT f.division_id FROM geo_folders f WHERE f.folder_id = 510),
+    (
+        SELECT division_id FROM geo_divisions
+        WHERE division_name = 'Камчатский край'
+        ORDER BY division_id
+        LIMIT 1
+    )
 )
 WHERE region_id = 'RU-KAM';
