@@ -82,4 +82,5 @@ INSERT INTO public.geo_divisions (division_id,division_name) VALUES
 	 (74,'Прочие поиски по РФ'),
 	 (75,'Карелия'),
 	 (76,'Ингушетия'),
-	 (77,'Северная Осетия') ON CONFLICT DO NOTHING;
+	 (77,'Северная Осетия'),
+	 (78,'Камчатский край') ON CONFLICT DO NOTHING;

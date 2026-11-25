@@ -79,6 +79,44 @@ def _has_finished_searches_subscriptions(cur: 'psycopg2.extensions.cursor') -> b
     return bool(row and row[0])
 
 
+def _kamchatka_is_mapped(cur: 'psycopg2.extensions.cursor') -> bool:
+    """Whether RU-KAM is fully mapped to its own division and searches folder (migration 012).
+
+    The folder matters as much as the division: if `geo_folders.folder_id = 510` stays with
+    another division (an id clash), the region is "mapped" but Telegram users would be
+    subscribed to a foreign folder. Such a state must not mark the migration as applied.
+
+    Geo tables missing means this is not the bot's database at all: skip instead of crashing
+    on a migration that cannot apply.
+    """
+    if not all(_to_regclass(cur, table) for table in ('geo_regions', 'geo_divisions', 'geo_folders')):
+        return True
+    cur.execute(
+        """
+        SELECT EXISTS(
+            SELECT 1
+            FROM geo_regions r
+            JOIN geo_divisions d ON d.division_id = r.division_id
+            JOIN geo_folders f
+                ON f.division_id = d.division_id
+               AND f.folder_id = 510
+               AND f.folder_type = 'searches'
+               AND f.folder_subtype = 'searches active'
+            WHERE r.region_id = 'RU-KAM'
+              AND d.division_name = 'Камчатский край'
+        )
+        """
+    )
+    row = cur.fetchone()
+    return bool(row and row[0])
+
+
+def _region_exists(cur: 'psycopg2.extensions.cursor', region_id: str) -> bool:
+    cur.execute('SELECT EXISTS(SELECT 1 FROM geo_regions WHERE region_id = %s)', (region_id,))
+    row = cur.fetchone()
+    return bool(row and row[0])
+
+
 def _split_statements(sql: str) -> list[str]:
     """Split a migration file into single statements (``--`` comments stripped).
 
@@ -219,6 +257,17 @@ def main() -> None:
             args.dry_run,
         )
         applied += 1
+
+    # 012 — Камчатский край: свой дивизион и папка поисков вместо «Прочие поиски ДФО».
+    # Выполняется только пока регион не перевешен на собственный дивизион. Без строки RU-KAM
+    # миграции нечего перевешивать: дивизион и папка без региона бессмысленны, а гейт тогда
+    # никогда не станет True и файл переигрывался бы на каждом деплое.
+    if not _kamchatka_is_mapped(cur):
+        if _region_exists(cur, 'RU-KAM'):
+            _run(cur, '012 add Kamchatka region', _migration('012_add_kamchatka_region.sql'), args.dry_run)
+            applied += 1
+        else:
+            log.warning('012 skipped: geo_regions has no RU-KAM row')
 
     if args.dry_run:
         log.info('dry run: %d migration(s) would be applied', applied)
