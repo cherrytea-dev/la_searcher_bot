@@ -24,6 +24,13 @@ class FederalDistrict(BaseModel):
 
 GEO_KEYBOARD_NAME = 'reg'
 
+# Регионы, добавленные после того, как inline-кнопки уже разлетелись по чатам.
+# Индекс региона уезжает в callback_data кнопки (см. `_get_regions_by_first_letter`),
+# а старые сообщения в чатах остаются кликабельными. Поэтому новый регион нельзя
+# вставлять в алфавитный порядок: его индекс дописывается в конец, иначе все регионы
+# после него сдвигаются и нажатие на старую кнопку подписывает на чужой регион.
+LATE_ADDED_REGIONS: tuple[str, ...] = ('Камчатский край',)
+
 
 class Geography(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -94,8 +101,19 @@ class Geography(BaseModel):
             [*arrange_buttons_to_rows(letters_buttons, 5), [placeholder], *arrange_buttons_to_rows(region_buttons, 2)],
         )
 
+    @cache  # noqa: B019 — `geography` is a module-level singleton
+    def region_index_order(self) -> list[str]:
+        """Region names in the order their positions are encoded into callback_data.
+
+        Stable by construction: late-added regions go last, so indexes that were already
+        sent to users keep pointing at the same region (`LATE_ADDED_REGIONS`).
+        """
+        names = self.all_region_names()
+        late = [name for name in LATE_ADDED_REGIONS if name in names]
+        return [name for name in names if name not in late] + late
+
     def get_selected_region_name_by_order(self, index: int) -> str:
-        return self.all_region_names()[index]
+        return self.region_index_order()[index]
 
     def _get_regions_by_first_letter(self, letter: str, selected_regions: list[str]) -> list[InlineKeyboardButton]:
         if letter == '+':
@@ -112,7 +130,7 @@ class Geography(BaseModel):
         for region_name in filtered_regions:
             callback_data = InlineButtonCallbackData(
                 keyboard_name=GEO_KEYBOARD_NAME,
-                action=self.all_region_names().index(region_name),
+                action=self.region_index_order().index(region_name),
                 letter_to_show=letter,
             )
             button_text = _format_text_if_selected(region_name, selected_regions)

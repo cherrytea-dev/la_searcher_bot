@@ -80,8 +80,13 @@ def _has_finished_searches_subscriptions(cur: 'psycopg2.extensions.cursor') -> b
 
 
 def _kamchatka_is_mapped(cur: 'psycopg2.extensions.cursor') -> bool:
-    """Whether RU-KAM already points to its own division (migration 012)."""
-    if not (_to_regclass(cur, 'geo_regions') and _to_regclass(cur, 'geo_divisions')):
+    """Whether RU-KAM is fully mapped to its own division and searches folder (migration 012).
+
+    The folder matters as much as the division: if `geo_folders.folder_id = 510` stays with
+    another division (an id clash), the region is "mapped" but Telegram users would be
+    subscribed to a foreign folder. Such a state must not mark the migration as applied.
+    """
+    if not all(_to_regclass(cur, table) for table in ('geo_regions', 'geo_divisions', 'geo_folders')):
         return False
     cur.execute(
         """
@@ -89,6 +94,11 @@ def _kamchatka_is_mapped(cur: 'psycopg2.extensions.cursor') -> bool:
             SELECT 1
             FROM geo_regions r
             JOIN geo_divisions d ON d.division_id = r.division_id
+            JOIN geo_folders f
+                ON f.division_id = d.division_id
+               AND f.folder_id = 510
+               AND f.folder_type = 'searches'
+               AND f.folder_subtype = 'searches active'
             WHERE r.region_id = 'RU-KAM'
               AND d.division_name = 'Камчатский край'
         )

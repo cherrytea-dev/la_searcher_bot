@@ -1,22 +1,50 @@
 -- Камчатский край: отдельная папка вместо «Прочие поиски ДФО».
 --
--- Камчатка висела на дивизионе «Прочие поиски ДФО» (folder 188) и в боте считалась
+-- Камчатка висела на дивизионе «Прочие поиски ДФО» (папка 188) и в боте считалась
 -- неподдерживаемым регионом: папки с её собственными поисками (510) не было ни в карте
 -- регионов, ни в БД. Заводим дивизион и папку, регион RU-KAM перевешиваем на них.
 --
 -- Идентификаторы не хардкодятся: в проде дивизион «Камчатский край» может уже появиться
 -- (тогда новый не создаётся) и его id может отличаться от 78 из тестовых сидов.
--- Папка 510 в проде не занята (максимум в дампе от 25.06.2026 — 459), но и её вставка идемпотентна.
+-- Номер папки 510 захардкожен, потому что он же стоит в карте регионов бота. Если в проде
+-- этот id уже занят чужой папкой, миграция падает (а не подписывает камчатцев на чужой
+-- регион): тогда нужен свободный id здесь и в src/communicate/_utils/regions.py.
 INSERT INTO geo_divisions (division_id, division_name)
 SELECT COALESCE((SELECT MAX(division_id) FROM geo_divisions), 0) + 1, 'Камчатский край'
 WHERE NOT EXISTS (SELECT 1 FROM geo_divisions WHERE division_name = 'Камчатский край');
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM geo_folders f
+        JOIN geo_divisions d ON d.division_id = f.division_id
+        WHERE f.folder_id = 510
+          AND (
+              d.division_name IS DISTINCT FROM 'Камчатский край'
+              OR f.folder_type IS DISTINCT FROM 'searches'
+              OR f.folder_subtype IS DISTINCT FROM 'searches active'
+          )
+    ) THEN
+        RAISE EXCEPTION
+            'geo_folders.folder_id = 510 already belongs to another folder; '
+            'pick a free folder_id for Камчатский край in this migration and in regions.py';
+    END IF;
+END $$;
 
 INSERT INTO geo_folders (folder_id, division_id, folder_type, folder_subtype)
 SELECT 510, d.division_id, 'searches', 'searches active'
 FROM geo_divisions d
 WHERE d.division_name = 'Камчатский край'
+ORDER BY d.division_id
+LIMIT 1
 ON CONFLICT (folder_id) DO NOTHING;
 
 UPDATE geo_regions
-SET division_id = (SELECT division_id FROM geo_divisions WHERE division_name = 'Камчатский край')
+SET division_id = (
+    SELECT division_id FROM geo_divisions
+    WHERE division_name = 'Камчатский край'
+    ORDER BY division_id
+    LIMIT 1
+)
 WHERE region_id = 'RU-KAM';

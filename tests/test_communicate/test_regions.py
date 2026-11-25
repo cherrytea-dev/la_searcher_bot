@@ -10,7 +10,7 @@ appear in the search lists.
 
 import sqlalchemy
 
-from communicate._utils.regions import geography
+from communicate._utils.regions import LATE_ADDED_REGIONS, geography
 
 
 def _folder_types(connection) -> dict[int, tuple[str, str]]:
@@ -75,11 +75,11 @@ def test_folder_dict_has_no_unexpected_non_search_folders(connection):
 
 
 def test_kamchatka_has_own_division_and_searches_folder(connection):
-    """RU-KAM must not fall back to the «Прочие поиски ДФО» bucket.
+    """RU-KAM must not fall back to the «Прочие поиски ДФО» division.
 
-    Until migration 012 the region pointed to division 69, so Kamchatka users were
-    subscribed to other regions' searches and had no Камчатка folder of their own
-    (the folder did not exist in the map, so the bot treated the region as unsupported).
+    Kamchatka had no division and no searches folder of its own (and no entry in the
+    region map), so the bot treated the region as unsupported. Migration 012 and these
+    test seeds give it division «Камчатский край» with searches folder 510.
     """
     rows = connection.execute(
         sqlalchemy.text(
@@ -98,3 +98,23 @@ def test_kamchatka_has_own_division_and_searches_folder(connection):
 
     assert [tuple(row) for row in rows] == [('Камчатский край', 510)]
     assert 510 in geography.folder_dict()['Камчатский край']
+
+
+def test_late_added_regions_do_not_shift_indexes_of_existing_ones():
+    """Telegram callbacks carry a region's position, and old keyboards stay clickable.
+
+    A region inserted into the alphabetical order would move every region after it:
+    pressing an old button would subscribe the user to somebody else's region.
+    """
+    names = geography.all_region_names()
+    late = [name for name in names if name in LATE_ADDED_REGIONS]
+    legacy = [name for name in names if name not in LATE_ADDED_REGIONS]
+
+    assert late, 'expected at least one late-added region'
+    assert geography.region_index_order() == legacy + late
+
+    for index, name in enumerate(legacy):
+        assert geography.get_selected_region_name_by_order(index) == name
+
+    # The new region must not steal an index that was already sent to users.
+    assert geography.region_index_order().index('Камчатский край') == len(legacy)
